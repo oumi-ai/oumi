@@ -270,7 +270,8 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
   };
 
   const getCurrentModelInfo = () => {
-    console.log(`🔍 Getting model info - isInitialized: ${isInitialized}, currentModel: ${currentModel}, configsCount: ${availableConfigs.length}`);
+    // Debug logging disabled to reduce console clutter
+    // console.log(`🔍 Getting model info - isInitialized: ${isInitialized}, currentModel: ${currentModel}, configsCount: ${availableConfigs.length}`);
     
     if (!isInitialized) {
       return {

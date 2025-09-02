@@ -50,6 +50,10 @@ export class PythonServerManager {
   private isDevelopment: boolean;
   private setupProgressCallback?: (progress: SetupProgress) => void;
   private systemChangeInfo?: { hasChanged: boolean; changes: string[]; shouldRebuild: boolean };
+  // Model test status tracking
+  private isModelTestRunning: boolean = false;
+  private currentTestPid?: number;
+  private currentTestStartedAt?: string;
 
   constructor(port: number = 9000, config: Partial<PythonServerConfig> = {}) {
     this.config = {
@@ -885,7 +889,6 @@ export class PythonServerManager {
         '--output_path', `"${tempOutputPath}"`
       ]);
 
-      log.info(`Running test command: ${testCommand}`);
       log.info(`Resolved config path: ${resolvedConfigPath}`);
       log.info(`Temp input path: ${tempInputPath}`);
       log.info(`Temp output path: ${tempOutputPath}`);
@@ -911,6 +914,17 @@ export class PythonServerManager {
         }
 
         log.info(`Test process spawned with PID: ${testProcess.pid}`);
+        // Update test status
+        this.isModelTestRunning = true;
+        this.currentTestPid = testProcess.pid;
+        this.currentTestStartedAt = new Date().toISOString();
+
+        // Ensure we clear test status on exit
+        testProcess.on('exit', () => {
+          this.isModelTestRunning = false;
+          this.currentTestPid = undefined;
+          this.currentTestStartedAt = undefined;
+        });
 
         // Network monitoring function for macOS
         const getProcessNetworkStats = async (pid: number): Promise<{ bytesReceived: number } | null> => {
@@ -1162,6 +1176,17 @@ export class PythonServerManager {
         networkMonitorInterval = null;
       }
     }
+  }
+
+  /**
+   * Get current model test status for renderer fallback UI
+   */
+  public getTestStatus(): { running: boolean; pid?: number; startedAt?: string } {
+    return {
+      running: this.isModelTestRunning,
+      pid: this.currentTestPid,
+      startedAt: this.currentTestStartedAt,
+    };
   }
 
   /**

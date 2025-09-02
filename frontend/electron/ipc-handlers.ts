@@ -73,6 +73,10 @@ export function setupIpcHandlers(pythonManager: PythonServerManager): void {
     // System detection handlers
     log.info('Setting up system detection handlers...');
     setupSystemDetectionHandlers();
+
+    // Test status handlers (frontend-only status during model tests)
+    log.info('Setting up test status handlers...');
+    setupTestHandlers(pythonManager);
     
     // API key management handlers
     log.info('Setting up API key management handlers...');
@@ -370,14 +374,19 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
       const method = (options.method || 'GET').toUpperCase();
       const shouldRetry = method === 'GET' || method === 'HEAD';
       const response = shouldRetry
-        ? await fetchWithRetry(url, options, 3, 150)
-        : await fetch(url, {
-            headers: {
-              'Content-Type': 'application/json',
-              ...options.headers,
+        ? await fetchWithRetry(url, options, 3, 200)
+        : await fetchWithRetry(
+            url,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                ...options.headers,
+              },
+              ...options,
             },
-            ...options,
-          });
+            1,
+            200
+          );
 
       const data = await response.json();
       
@@ -455,11 +464,11 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
     const url = `${getBaseUrl()}/v1/chat/completions`;
     
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithRetry(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...request, stream: true }),
-      });
+      }, 1, 200);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -840,6 +849,20 @@ function setupSystemDetectionHandlers(): void {
     } catch (error) {
       log.error('Failed to detect system info:', error);
       throw error;
+    }
+  });
+}
+
+/**
+ * Lightweight test status handlers (no backend dependency)
+ */
+function setupTestHandlers(pythonManager: PythonServerManager): void {
+  ipcMain.handle('test:get-status', () => {
+    try {
+      return pythonManager.getTestStatus();
+    } catch (error) {
+      log.error('Failed to get model test status:', error);
+      return { running: false };
     }
   });
 }

@@ -121,6 +121,10 @@ export default function SystemMonitor({
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isModelActionLoading, setIsModelActionLoading] = React.useState(false);
+  // Fallback (frontend-only) state when backend stats are unavailable
+  const [useFallback, setUseFallback] = React.useState(false);
+  const [capabilities, setCapabilities] = React.useState<any>(null);
+  const [testStatus, setTestStatus] = React.useState<{ running: boolean; pid?: number; startedAt?: string } | null>(null);
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
   const requestTimesRef = React.useRef<number[]>([]);
   const requestCountRef = React.useRef({ total: 0, successful: 0, failed: 0 });
@@ -337,13 +341,35 @@ export default function SystemMonitor({
     try {
       const sessionId = getCurrentSessionId();
       console.log('[SYSTEM_MONITOR] Fetching stats for session:', sessionId);
-      
+
+      // Frontend-only fallback if backend server isn't running (Electron only)
+      if (apiClient.isElectron && apiClient.isElectron()) {
+        try {
+          const status = await apiClient.getServerStatus();
+          if (!status.success || !status.data?.running) {
+            if (typeof window !== 'undefined' && (window as any).electronAPI) {
+              const caps = await (window as any).electronAPI.system.getCapabilities();
+              const tstat = await (window as any).electronAPI.system.getModelTestStatus();
+              setCapabilities(caps);
+              setTestStatus(tstat);
+              setUseFallback(true);
+              // Treat as non-fatal; skip backend call
+              trackNetworkRequest(false, Date.now() - startTime);
+              return;
+            }
+          }
+        } catch (e) {
+          // Ignore and continue to backend fetch; if that fails, error UI handles it
+        }
+      }
+
       const response = await apiClient.getSystemStats(sessionId);
       const responseTime = Date.now() - startTime;
       
       console.log('[SYSTEM_MONITOR] API response:', { success: response.success, hasData: !!response.data });
       
       if (response.success && response.data) {
+        if (useFallback) setUseFallback(false);
         setStats(response.data);
         setError(null);
         trackNetworkRequest(true, responseTime);
@@ -429,6 +455,29 @@ export default function SystemMonitor({
   // Format file size
   const formatGB = (gb: number) => `${gb.toFixed(1)}GB`;
   const formatTokens = (tokens: number) => tokens.toLocaleString();
+
+  if (useFallback && capabilities) {
+    return (
+      <div className={`bg-card rounded-lg p-4 border space-y-3 ${className}`}>
+        <div className="flex items-center gap-2 text-foreground">
+          <Activity size={16} />
+          <span className="text-sm font-medium">Local System Snapshot</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+          <div>Platform: {capabilities.platform}</div>
+          <div>Arch: {capabilities.architecture}</div>
+          <div>Total RAM: {capabilities.totalRAM} GB</div>
+          <div>CUDA: {capabilities.cudaAvailable ? 'Yes' : 'No'}</div>
+        </div>
+        <div className="text-xs">
+          Model Test: {testStatus?.running ? `Running${testStatus?.pid ? ` (PID ${testStatus.pid})` : ''}` : 'Idle'}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          Backend stats unavailable. Showing local snapshot.
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (

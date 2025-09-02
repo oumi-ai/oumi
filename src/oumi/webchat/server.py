@@ -54,6 +54,7 @@ from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.monitoring import SystemMonitor
 from oumi.core.thinking import ThinkingProcessor
 from oumi.server import OpenAICompatibleServer
+from .persistence import WebchatDB
 
 # Note: Session concurrency uses simple asyncio.Lock per session
 # Multi-worker deployments require distributed locking for cross-process safety
@@ -344,6 +345,14 @@ class OumiWebServer(OpenAICompatibleServer):
             'hold_times': deque(maxlen=100), 
             'concurrent_requests': 0
         })
+
+        # Persistence (Phase 1a: dual-write)
+        try:
+            self.db = WebchatDB()
+            logger.info("🗄️  WebchatDB initialized for dual-write persistence")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to initialize WebchatDB: {e}")
+            self.db = None
 
         # Enhanced components (optional)
         if ENHANCED_FEATURES_AVAILABLE:
@@ -814,6 +823,29 @@ class OumiWebServer(OpenAICompatibleServer):
                     logger.info(
                         f"🔄 DEBUG: Synced conversation to branch '{session.branch_manager.current_branch_id}' - {len(session.conversation_history)} messages"
                     )
+
+                    # Dual-write persistence (best-effort)
+                    try:
+                        if self.db:
+                            self.db.ensure_session(session_id)
+                            conv_id = self.db.ensure_conversation(session_id)
+                            # Ensure branch exists
+                            self.db.ensure_branch(conv_id, session.branch_manager.current_branch_id, name=session.branch_manager.current_branch_id)
+                            # Append the last two messages (user + assistant)
+                            if len(session.conversation_history) >= 2:
+                                last_two = session.conversation_history[-2:]
+                                for m in last_two:
+                                    self.db.append_message_to_branch(
+                                        conv_id,
+                                        session.branch_manager.current_branch_id,
+                                        role=m.get("role", "user"),
+                                        content=str(m.get("content", "")),
+                                        created_at=float(m.get("timestamp", time.time())),
+                                    )
+                            # Update session's current branch record
+                            self.db.set_session_current_branch(session_id, conv_id, session.branch_manager.current_branch_id)
+                    except Exception as pe:
+                        logger.warning(f"⚠️ Dual-write persistence failed: {pe}")
 
                     # Update context usage
                     self._update_session_context_usage(session)
@@ -1555,6 +1587,15 @@ class OumiWebServer(OpenAICompatibleServer):
                     # Execute branch switch atomically
                     success, message, session = await self.execute_session_operation(session_id, switch_branch_atomically)
 
+                    # Dual-write persistence: update session's current branch pointer
+                    try:
+                        if self.db and success:
+                            conv_id = self.db.ensure_conversation(session_id)
+                            self.db.ensure_branch(conv_id, session.branch_manager.current_branch_id, name=session.branch_manager.current_branch_id)
+                            self.db.set_session_current_branch(session_id, conv_id, session.branch_manager.current_branch_id)
+                    except Exception as pe:
+                        logger.warning(f"⚠️ Dual-write persistence (branch switch) failed: {pe}")
+
                     return web.json_response(
                         {
                             "success": success,
@@ -1629,6 +1670,21 @@ class OumiWebServer(OpenAICompatibleServer):
                                 logger.error(f"🚨 Branch manager state: {vars(session.branch_manager)}")
                             else:
                                 logger.debug(f"✅ Branch {new_branch.id} successfully stored and verified")
+
+                        # Dual-write persistence (best-effort)
+                        try:
+                            if success and new_branch and self.db:
+                                self.db.ensure_session(session_id)
+                                conv_id = self.db.ensure_conversation(session_id)
+                                # Ensure both source and new branch exist in DB
+                                self.db.ensure_branch(conv_id, from_branch, name=from_branch)
+                                self.db.ensure_branch(conv_id, new_branch.id, name=new_branch.name, parent_branch_id=from_branch)
+                                # Populate new branch history from in-memory copy
+                                self.db.bulk_add_branch_history(conv_id, new_branch.id, new_branch.conversation_history)
+                                # Update session's current branch pointer if switched
+                                self.db.set_session_current_branch(session_id, conv_id, session.branch_manager.current_branch_id)
+                        except Exception as pe:
+                            logger.warning(f"⚠️ Dual-write persistence (branch create) failed: {pe}")
 
                         return success, message, new_branch
                     

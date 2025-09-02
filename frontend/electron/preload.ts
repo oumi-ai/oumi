@@ -104,6 +104,7 @@ export interface ElectronAPI {
   system: {
     getCapabilities: () => Promise<any>;
     getInfo: () => Promise<any>;
+    getModelTestStatus: () => Promise<{ running: boolean; pid?: number; startedAt?: string }>; 
   };
 
   // API Key management
@@ -288,7 +289,8 @@ const electronAPI: ElectronAPI = {
   // System detection
   system: {
     getCapabilities: () => ipcRenderer.invoke('system:get-capabilities'),
-    getInfo: () => ipcRenderer.invoke('system:get-info')
+    getInfo: () => ipcRenderer.invoke('system:get-info'),
+    getModelTestStatus: () => ipcRenderer.invoke('test:get-status')
   },
 
   // API Key management

@@ -33,10 +33,12 @@ export class SessionManager {
   static getCurrentSessionId(): string {
     try {
       if (!this.currentSessionId) {
-        console.log('[SESSION_DEBUG] No current session ID, starting new session');
+        // Debug logging disabled to reduce console clutter
+        // console.log('[SESSION_DEBUG] No current session ID, starting new session');
         return this.startNewSession();
       }
-      console.log('[SESSION_DEBUG] Returning existing session ID:', this.currentSessionId);
+      // Debug logging disabled to reduce console clutter
+      // console.log('[SESSION_DEBUG] Returning existing session ID:', this.currentSessionId);
       return this.currentSessionId;
     } catch (error) {
       console.error('[SESSION_ERROR] Error in getCurrentSessionId:', error);
