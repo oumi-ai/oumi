@@ -131,7 +131,12 @@ def _tail_logs(
                     file_handle.flush()
         else:
             for line in iter(log_stream.readline, ""):
-                print(line, end="")
+                # Because Rich is rendering markup/styled text and
+                # escapes control characters like \r, we need to handle it specially.
+                if "\r" in line:
+                    cli_utils.CONSOLE.print(line.strip(), end="\r")
+                else:
+                    cli_utils.CONSOLE.print(line, end="")
     except KeyboardInterrupt:
         logger.info(f"Stopped tailing logs for job {job_id}")
     except Exception as e:
