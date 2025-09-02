@@ -89,15 +89,6 @@ export class ConfigMatcher {
       warnings: warnings.filter(Boolean)
     };
 
-    // Debug logging for troubleshooting
-    logger.debug('ConfigMatcher', `${config.display_name} (${config.engine}) scored`, {
-      score: recommendation.score,
-      isSpecialist: config.is_specialist,
-      sizeCategory: config.size_category,
-      engine: config.engine,
-      reason: recommendation.reason,
-      warnings: recommendation.warnings
-    });
 
     return recommendation;
   }
@@ -476,16 +467,6 @@ export class ConfigMatcher {
       }))
       .sort((a, b) => (b.recommendation?.score || 0) - (a.recommendation?.score || 0));
 
-    // Debug logging for final sorted order
-    logger.info('ConfigMatcher', 'Final sorted recommendations (top 10)', 
-      sortedConfigs.slice(0, 10).map((config, index) => ({
-        rank: index + 1,
-        name: config.display_name,
-        engine: config.engine,
-        score: config.recommendation?.score,
-        isSpecialist: config.is_specialist
-      }))
-    );
 
     return sortedConfigs;
   }

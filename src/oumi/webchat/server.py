@@ -15,15 +15,20 @@
 """Extended Oumi server with WebSocket and interactive command support."""
 
 import asyncio
+import contextvars
 import copy
 import json
 import time
 import uuid
+from collections import defaultdict, deque
 from datetime import datetime
 from typing import Dict, Optional, Set
 
 from aiohttp import WSMsgType, web
 from rich.console import Console
+
+# Import logger first for use in error handling
+from oumi.utils.logging import logger
 
 # Import new enhanced components
 try:
@@ -49,7 +54,9 @@ from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.monitoring import SystemMonitor
 from oumi.core.thinking import ThinkingProcessor
 from oumi.server import OpenAICompatibleServer
-from oumi.utils.logging import logger
+
+# Note: Session concurrency uses simple asyncio.Lock per session
+# Multi-worker deployments require distributed locking for cross-process safety
 
 
 class WebChatSession:
@@ -102,8 +109,8 @@ class WebChatSession:
         # WebSocket connections for this session
         self.websockets: set[web.WebSocketResponse] = set()
 
-        # Last activity timestamp for cleanup
-        self.last_activity = time.time()
+        # Last activity timestamp for cleanup (using monotonic time)
+        self.last_activity = time.monotonic()
 
     async def add_websocket(self, ws: web.WebSocketResponse):
         """Add a WebSocket connection to this session."""
@@ -118,10 +125,12 @@ class WebChatSession:
         if not self.websockets:
             return
 
+        # Snapshot websockets to avoid races during iteration
+        websockets_snapshot = set(self.websockets)
         message_str = json.dumps(message)
         closed_sockets = set()
 
-        for ws in self.websockets:
+        for ws in websockets_snapshot:
             try:
                 await ws.send_str(message_str)
             except ConnectionResetError:
@@ -145,8 +154,8 @@ class WebChatSession:
             return None
 
     def update_activity(self):
-        """Update last activity timestamp."""
-        self.last_activity = time.time()
+        """Update last activity timestamp using monotonic time."""
+        self.last_activity = time.monotonic()
 
     def serialize_conversation(self) -> list:
         """Serialize conversation history for web interface."""
@@ -321,8 +330,20 @@ class OumiWebServer(OpenAICompatibleServer):
         self.session_cleanup_interval = 3600  # 1 hour
         self.max_idle_time = 1800  # 30 minutes
         
+        # Session concurrency control with feature flag (default True for race protection)
+        self.locking_enabled = getattr(config, 'session_locking_enabled', True)
+        self._session_locks: dict[str, asyncio.Lock] = {}
+        self._locks_lock = asyncio.Lock()  # Guards lock creation
+        
         # Debug logging throttling - track last log time per session
         self._last_debug_log_time: dict[str, float] = {}
+        
+        # Session metrics and monitoring
+        self._lock_metrics = defaultdict(lambda: {
+            'wait_times': deque(maxlen=100),
+            'hold_times': deque(maxlen=100), 
+            'concurrent_requests': 0
+        })
 
         # Enhanced components (optional)
         if ENHANCED_FEATURES_AVAILABLE:
@@ -393,7 +414,7 @@ class OumiWebServer(OpenAICompatibleServer):
         session_id = request.query.get("session_id", "default")
         
         try:
-            session = await self.get_or_create_session(session_id)
+            session = await self.get_or_create_session_safe(session_id)
             
             # Check if session has a swapped model
             if (hasattr(session.command_context, 'config') and 
@@ -557,7 +578,7 @@ class OumiWebServer(OpenAICompatibleServer):
             
             # If we have a session_id, check if the session has a swapped model
             if session_id:
-                session = await self.get_or_create_session(session_id)
+                session = await self.get_or_create_session_safe(session_id)
                 if (hasattr(session.command_context, 'config') and 
                     session.command_context.config is not None):
                     session_config = session.command_context.config
@@ -721,7 +742,7 @@ class OumiWebServer(OpenAICompatibleServer):
                 logger.info(
                     f"🔍 DEBUG: Updating WebChat session {session_id} from OpenAI API"
                 )
-                session = await self.get_or_create_session(session_id)
+                session = await self.get_or_create_session_safe(session_id)
 
                 # Add user message to session conversation history
                 session.conversation_history.append(
@@ -794,13 +815,158 @@ class OumiWebServer(OpenAICompatibleServer):
         session.update_activity()
         return session
 
+    async def _get_session_lock(self, session_id: str) -> asyncio.Lock:
+        """Thread-safe lock creation for session."""
+        async with self._locks_lock:
+            if session_id not in self._session_locks:
+                self._session_locks[session_id] = asyncio.Lock()
+            return self._session_locks[session_id]
+
+    async def get_or_create_session_safe(self, session_id: str) -> WebChatSession:
+        """Thread-safe session creation with minimal lock time."""
+        if not self.locking_enabled:
+            return await self.get_or_create_session(session_id)  # Rollback path
+        
+        # Track concurrent access with proper cleanup
+        metrics = self._lock_metrics[session_id]
+        metrics['concurrent_requests'] += 1
+        
+        try:
+            if metrics['concurrent_requests'] > 1:
+                logger.debug(f"🔄 Concurrent session access: {session_id} ({metrics['concurrent_requests']} requests)")
+            
+            # Time lock acquisition
+            wait_start = time.monotonic()
+            session_lock = await self._get_session_lock(session_id)
+            
+            async with session_lock:
+                wait_time = time.monotonic() - wait_start
+                hold_start = time.monotonic()
+                
+                metrics['wait_times'].append(wait_time)
+                if wait_time > 0.1:  # Log slow lock acquisition
+                    logger.warning(f"⏱️  Slow lock acquisition for {session_id}: {wait_time:.3f}s")
+                
+                try:
+                    # CRITICAL SECTION - All session operations under lock
+                    if session_id not in self.sessions:
+                        # Create session (fast, in-memory only)
+                        self.sessions[session_id] = WebChatSession(session_id, self.config)
+                        logger.debug(f"🆕 Created new webchat session: {session_id}")
+                    
+                    session = self.sessions[session_id]
+                    
+                    # Integrity check and fix INSIDE lock to prevent races
+                    if not hasattr(session, 'branch_manager') or session.branch_manager is None:
+                        logger.error(f"🚨 Session {session_id} corrupted! Recreating branch_manager...")
+                        session.branch_manager = ConversationBranchManager(session.conversation_history)
+                        if hasattr(session.branch_manager, 'branches') and "main" in session.branch_manager.branches:
+                            session.branch_manager.branches["main"].conversation_history = session.conversation_history
+                    
+                    # Update activity timestamp with monotonic time
+                    session.last_activity = time.monotonic()
+                    # END CRITICAL SECTION
+                finally:
+                    hold_time = time.monotonic() - hold_start
+                    metrics['hold_times'].append(hold_time)
+                    
+                    if hold_time > 0.05:  # Log long critical sections
+                        logger.warning(f"⏱️  Long critical section for {session_id}: {hold_time:.3f}s")
+            
+            return session
+            
+        finally:
+            # Always decrement counter, even on exceptions
+            metrics['concurrent_requests'] -= 1
+
+    async def execute_session_operation(self, session_id: str, operation, *args, **kwargs):
+        """Execute an operation atomically within a session's lock.
+        
+        This ensures operations like branch creation/switching, model swaps, 
+        and conversation updates are atomic at the per-session level.
+        
+        Args:
+            session_id: The session to operate on
+            operation: Async callable to execute under lock
+            *args, **kwargs: Arguments to pass to operation
+            
+        Returns:
+            Result of operation
+        """
+        if not self.locking_enabled:
+            # If locking disabled, just get session and execute
+            session = await self.get_or_create_session(session_id)
+            return await operation(session, *args, **kwargs)
+        
+        # Execute under session lock for atomicity
+        session_lock = await self._get_session_lock(session_id)
+        async with session_lock:
+            # Get session under lock
+            if session_id not in self.sessions:
+                self.sessions[session_id] = WebChatSession(session_id, self.config)
+                logger.debug(f"🆕 Created session {session_id} for operation")
+            
+            session = self.sessions[session_id]
+            session.last_activity = time.monotonic()
+            
+            # Execute operation with session
+            return await operation(session, *args, **kwargs)
+
+    async def cleanup_expired_sessions(self):
+        """Clean up expired sessions and their associated locks using safe lifecycle management."""
+        if not self.sessions:
+            return
+        
+        current_time = time.monotonic()  # Use monotonic time to avoid clock jumps
+        expired_sessions = []
+        
+        # Phase 1: Collect potentially expired sessions (no locks held)
+        for session_id, session in list(self.sessions.items()):
+            if current_time - session.last_activity > self.max_idle_time:
+                expired_sessions.append(session_id)
+        
+        if not expired_sessions:
+            return
+        
+        logger.info(f"🧹 Cleaning up {len(expired_sessions)} expired sessions")
+        
+        # Phase 2: Lock and re-check each session individually
+        for session_id in expired_sessions:
+            try:
+                # Get lock for this specific session
+                session_lock = await self._get_session_lock(session_id)
+                
+                async with session_lock:
+                    # Re-check expiration under lock (session might have been accessed)
+                    if session_id not in self.sessions:
+                        continue  # Already cleaned up
+                    
+                    session = self.sessions[session_id]
+                    if current_time - session.last_activity <= self.max_idle_time:
+                        continue  # Session was accessed recently, keep it
+                    
+                    # Session is truly expired - remove it
+                    del self.sessions[session_id]
+                    logger.debug(f"🗑️  Removed expired session: {session_id}")
+                
+                # Phase 3: Remove lock AFTER session removal (outside critical section)
+                async with self._locks_lock:
+                    if session_id in self._session_locks:
+                        del self._session_locks[session_id]
+                    if session_id in self._lock_metrics:
+                        del self._lock_metrics[session_id]
+                        
+            except Exception as e:
+                logger.error(f"🚨 Error cleaning up session {session_id}: {e}")
+                continue
+
     async def handle_websocket(self, request: web.Request) -> web.WebSocketResponse:
         """Handle WebSocket connections for real-time communication."""
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 
         session_id = request.query.get("session_id", str(uuid.uuid4()))
-        session = await self.get_or_create_session(session_id)
+        session = await self.get_or_create_session_safe(session_id)
 
         await session.add_websocket(ws)
 
@@ -1133,7 +1299,7 @@ class OumiWebServer(OpenAICompatibleServer):
 
         logger.info(f"🌐 API: Received command '{command}' with args: {args} for session: {session_id}")
 
-        session = await self.get_or_create_session(session_id)
+        session = await self.get_or_create_session_safe(session_id)
 
         try:
             # Create a string buffer to capture console output
@@ -1256,7 +1422,7 @@ class OumiWebServer(OpenAICompatibleServer):
         """Handle branch operations via REST API."""
         session_id = request.query.get("session_id", "default")
         logger.debug(f"🌐 DEBUG: Branch API called with session_id: '{session_id}'")
-        session = await self.get_or_create_session(session_id)
+        session = await self.get_or_create_session_safe(session_id)
 
         if request.method == "GET":
             # DEBUG: Check raw branch storage
@@ -1287,7 +1453,7 @@ class OumiWebServer(OpenAICompatibleServer):
                 if post_session_id and post_session_id != session_id:
                     logger.warning(f"⚠️  Session ID mismatch: query='{session_id}', post='{post_session_id}' - using POST value")
                     session_id = post_session_id
-                    session = await self.get_or_create_session(session_id)
+                    session = await self.get_or_create_session_safe(session_id)
 
                 if action == "switch":
                     branch_id = data.get("branch_id")
@@ -1461,7 +1627,7 @@ class OumiWebServer(OpenAICompatibleServer):
         session_id = data.get("session_id", "default")
         conversation = data.get("conversation", [])
 
-        session = await self.get_or_create_session(session_id)
+        session = await self.get_or_create_session_safe(session_id)
 
         # Update the session's conversation history
         session.conversation_history.clear()
@@ -1473,7 +1639,7 @@ class OumiWebServer(OpenAICompatibleServer):
     async def handle_get_conversation_api(self, request: web.Request) -> web.Response:
         """Handle getting current conversation from backend session."""
         session_id = request.query.get("session_id", "default")
-        session = await self.get_or_create_session(session_id)
+        session = await self.get_or_create_session_safe(session_id)
 
         return web.json_response({"conversation": session.serialize_conversation()})
 
@@ -1485,7 +1651,7 @@ class OumiWebServer(OpenAICompatibleServer):
                 {"error": "session_id is required"}, 
                 status=400
             )
-        session = await self.get_or_create_session(session_id)
+        session = await self.get_or_create_session_safe(session_id)
 
         # Update context usage based on current conversation
         self._update_session_context_usage(session)
@@ -1526,7 +1692,7 @@ class OumiWebServer(OpenAICompatibleServer):
         """Handle clearing/unloading the current model from memory."""
         try:
             session_id = request.query.get("session_id", "default")
-            session = await self.get_or_create_session(session_id)
+            session = await self.get_or_create_session_safe(session_id)
             
             logger.info(f"🧹 Clearing model from memory for session {session_id}")
             
@@ -1729,7 +1895,7 @@ class OumiWebServer(OpenAICompatibleServer):
             stream = chat_request.stream
 
             # Get or create session
-            session = await self.get_or_create_session(session_id)
+            session = await self.get_or_create_session_safe(session_id)
 
             # Convert OpenAI format messages to Oumi conversation format
             oumi_messages = []
@@ -1845,27 +2011,12 @@ class OumiWebServer(OpenAICompatibleServer):
             )
             return create_json_response(response_data, status_code)
 
-    async def cleanup_sessions(self):
-        """Clean up inactive sessions."""
+    async def _schedule_cleanup_task(self):
+        """Schedule the session cleanup task to run periodically."""
         while True:
             try:
                 await asyncio.sleep(self.session_cleanup_interval)
-
-                current_time = time.time()
-                expired_sessions = []
-
-                for session_id, session in self.sessions.items():
-                    if current_time - session.last_activity > self.max_idle_time:
-                        expired_sessions.append(session_id)
-
-                for session_id in expired_sessions:
-                    logger.debug(f"Cleaning up expired session: {session_id}")
-                    session = self.sessions.pop(session_id)
-
-                    # Close any remaining WebSocket connections
-                    for ws in session.websockets.copy():
-                        await ws.close()
-
+                await self.cleanup_expired_sessions()
             except Exception as e:
                 logger.error(f"Session cleanup error: {e}")
 
@@ -1977,7 +2128,7 @@ class OumiWebServer(OpenAICompatibleServer):
 
     async def start_background_tasks(self, app: web.Application):
         """Start background tasks."""
-        self._cleanup_task = asyncio.create_task(self.cleanup_sessions())
+        self._cleanup_task = asyncio.create_task(self._schedule_cleanup_task())
 
     async def cleanup_background_tasks(self, app: web.Application):
         """Clean up background tasks."""

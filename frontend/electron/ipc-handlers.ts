@@ -335,7 +335,10 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
 
   // Helper function to make HTTP requests to Python backend
   async function proxyToPython(endpoint: string, options: RequestInit = {}): Promise<any> {
-    const url = `${getBaseUrl()}${endpoint}`;
+    const baseUrl = getBaseUrl();
+    const url = `${baseUrl}${endpoint}`;
+    
+    console.log(`[IPC_PROXY_DEBUG] Full URL: ${url} | Base URL: ${baseUrl} | Endpoint: ${endpoint}`);
     
     try {
       const response = await fetch(url, {

@@ -336,8 +336,12 @@ export default function SystemMonitor({
     
     try {
       const sessionId = getCurrentSessionId();
+      console.log('[SYSTEM_MONITOR] Fetching stats for session:', sessionId);
+      
       const response = await apiClient.getSystemStats(sessionId);
       const responseTime = Date.now() - startTime;
+      
+      console.log('[SYSTEM_MONITOR] API response:', { success: response.success, hasData: !!response.data });
       
       if (response.success && response.data) {
         setStats(response.data);
@@ -345,12 +349,13 @@ export default function SystemMonitor({
         trackNetworkRequest(true, responseTime);
       } else {
         trackNetworkRequest(false, responseTime);
+        console.error('[SYSTEM_MONITOR] API call failed:', response.message);
         throw new Error(response.message || 'Failed to fetch system stats');
       }
     } catch (err) {
       const responseTime = Date.now() - startTime;
       trackNetworkRequest(false, responseTime);
-      console.error('System monitor error:', err);
+      console.error('[SYSTEM_MONITOR] Fetch stats error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch stats');
     } finally {
       setNetworkActivity(prev => ({ ...prev, activeRequests: Math.max(0, prev.activeRequests - 1) }));

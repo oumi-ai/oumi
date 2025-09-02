@@ -178,8 +178,17 @@ export class PythonServerManager {
   public async healthCheck(): Promise<boolean> {
     const healthUrl = `${this.getServerUrl()}/health`;
     try {
-      log.info(`[healthCheck] Checking: ${healthUrl}`);
-      const response = await fetch(healthUrl);
+      log.info(`[healthCheck] [DEBUG_FETCH] Checking: ${healthUrl} (host: ${this.config.host}, port: ${this.config.port})`);
+      
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(healthUrl, {
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
       const isOk = response.ok;
       log.info(`[healthCheck] Response: status=${response.status}, ok=${isOk}, statusText=${response.statusText}`);
       
@@ -194,8 +203,13 @@ export class PythonServerManager {
       }
       
       return isOk;
-    } catch (error) {
-      log.error(`[healthCheck] Request failed: ${error}`);
+    } catch (error: any) {
+      log.error(`[healthCheck] [DEBUG_FETCH] Request failed with error type: ${error?.constructor?.name || 'Unknown'}`);
+      log.error(`[healthCheck] [DEBUG_FETCH] Full error: ${String(error)}`);
+      log.error(`[healthCheck] [DEBUG_FETCH] Error message: ${error?.message || 'No message'}`);
+      if (error?.cause) {
+        log.error(`[healthCheck] [DEBUG_FETCH] Error cause: ${error.cause}`);
+      }
       return false;
     }
   }

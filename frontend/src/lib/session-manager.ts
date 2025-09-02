@@ -31,10 +31,17 @@ export class SessionManager {
    * Get the current session ID, creating a new one if none exists
    */
   static getCurrentSessionId(): string {
-    if (!this.currentSessionId) {
-      return this.startNewSession();
+    try {
+      if (!this.currentSessionId) {
+        console.log('[SESSION_DEBUG] No current session ID, starting new session');
+        return this.startNewSession();
+      }
+      console.log('[SESSION_DEBUG] Returning existing session ID:', this.currentSessionId);
+      return this.currentSessionId;
+    } catch (error) {
+      console.error('[SESSION_ERROR] Error in getCurrentSessionId:', error);
+      throw error; // Re-throw so callers can handle it
     }
-    return this.currentSessionId;
   }
 
   /**

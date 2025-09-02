@@ -64,9 +64,10 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
   // Only load conversation history when switching between existing branches/conversations
   // For fresh sessions, we start with empty messages (as configured in store.ts)
   React.useEffect(() => {
-    // Only load conversation if we have an active conversation ID
-    // This prevents loading old conversations on fresh app startup
-    if (currentConversationId) {
+    // Only load conversation if we have an active conversation ID AND
+    // the current messages array is empty (meaning we're switching TO a conversation)
+    // This prevents loading when we're actively adding messages to the current conversation
+    if (currentConversationId && messages.length === 0) {
       loadConversation();
     }
   }, [currentBranchId, currentConversationId]);
