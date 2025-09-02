@@ -59,10 +59,12 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
     loadConversations();
   }, []);
 
-  // Sync with store conversations for real-time updates
+  // Sync with store conversations for real-time updates - merge with existing backend conversations
   React.useEffect(() => {
     if (storeConversations && storeConversations.length > 0) {
-      const convertedConversations = storeConversations.map((conv) => ({
+      console.log('[HISTORY_MERGE] Store conversations updated:', storeConversations.length, 'conversations');
+      
+      const convertedStoreConversations = storeConversations.map((conv) => ({
         id: conv.id,
         name: conv.title || 'Untitled Conversation',
         lastModified: conv.updatedAt || conv.createdAt,
@@ -72,12 +74,43 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
           : 'No messages yet'
       }));
 
-      // Sort by last modified (newest first)
-      convertedConversations.sort((a, b) => 
-        new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
-      );
+      // Merge store conversations with existing backend conversations
+      setConversations(prevConversations => {
+        console.log('[HISTORY_MERGE] Merging store conversations with existing backend conversations:', {
+          backendCount: prevConversations.length,
+          storeCount: convertedStoreConversations.length
+        });
+        
+        const mergedConversations = [...prevConversations];
+        let addedCount = 0;
+        let updatedCount = 0;
+        
+        convertedStoreConversations.forEach(storeConv => {
+          const existingIndex = mergedConversations.findIndex(conv => conv.id === storeConv.id);
+          if (existingIndex >= 0) {
+            // Update existing conversation
+            mergedConversations[existingIndex] = storeConv;
+            updatedCount++;
+          } else {
+            // Add new conversation
+            mergedConversations.push(storeConv);
+            addedCount++;
+          }
+        });
 
-      setConversations(convertedConversations);
+        console.log('[HISTORY_MERGE] Merge completed:', {
+          totalConversations: mergedConversations.length,
+          addedCount,
+          updatedCount
+        });
+
+        // Sort by last modified (newest first)
+        mergedConversations.sort((a, b) => 
+          new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+        );
+
+        return mergedConversations;
+      });
       setLoading(false);
     }
   }, [storeConversations]);
@@ -88,9 +121,12 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       setError(null);
       
       const sessionId = getCurrentSessionId();
+      console.log('[HISTORY_MERGE] Loading conversations from backend for session:', sessionId);
       const response = await apiClient.listConversations(sessionId);
       
       if (response.success && response.data?.conversations) {
+        console.log('[HISTORY_MERGE] Backend returned', response.data.conversations.length, 'conversations');
+        
         const conversations = response.data.conversations.map((conv: any) => ({
           id: conv.id || conv.filename,
           name: conv.name || conv.filename || 'Untitled Conversation',
@@ -103,12 +139,14 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
         // Sort by last modified (newest first)
         conversations.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
         
+        console.log('[HISTORY_MERGE] Setting backend conversations:', conversations.length);
         setConversations(conversations);
       } else {
+        console.log('[HISTORY_MERGE] No conversations returned from backend or request failed:', response.message);
         throw new Error(response.message || 'Failed to load conversations');
       }
     } catch (error) {
-      console.error('Failed to load conversations:', error);
+      console.error('[HISTORY_MERGE] Failed to load conversations:', error);
       setError(error instanceof Error ? error.message : 'Failed to load conversations');
       setConversations([]);
     } finally {

@@ -73,9 +73,16 @@ interface ChatStore {
 const autoSaveConversation = async (conversation: Conversation) => {
   try {
     const sessionId = SessionManager.getCurrentSessionId();
+    console.log('[HISTORY_MERGE] Auto-saving conversation to backend:', { 
+      sessionId, 
+      conversationId: conversation.id, 
+      title: conversation.title,
+      messageCount: conversation.messages.length 
+    });
     await apiClient.saveConversation(sessionId, conversation.id, conversation);
+    console.log('[HISTORY_MERGE] Auto-save completed successfully');
   } catch (error) {
-    console.warn('Failed to auto-save conversation to backend:', error);
+    console.warn('[HISTORY_MERGE] Failed to auto-save conversation to backend:', error);
     // Don't block the UI - this is just a backup save
   }
 };
@@ -181,6 +188,13 @@ export const useChatStore = create<ChatStore>()(
               updatedAt: currentTime,
             };
             
+            console.log('[HISTORY_MERGE] Creating new conversation:', { 
+              id: newConversation.id, 
+              title: newConversation.title, 
+              isFirstUserMessage,
+              messageCount: newMessages.length 
+            });
+            
             // Auto-save to backend asynchronously
             autoSaveConversation(newConversation);
             
@@ -230,19 +244,38 @@ export const useChatStore = create<ChatStore>()(
             
             // Check if this was the first assistant response and trigger title generation
             const updatedMessage = newMessages.find(msg => msg.id === messageId);
+            console.log('[CHAT_NAMING] updateMessage called for message:', { messageId, role: updatedMessage?.role, messageCount: newMessages.length });
+            
             if (updatedMessage?.role === 'assistant') {
               const userMessages = newMessages.filter(m => m.role === 'user');
               const assistantMessages = newMessages.filter(m => m.role === 'assistant');
               
+              console.log('[CHAT_NAMING] Assistant message detected:', { 
+                userCount: userMessages.length, 
+                assistantCount: assistantMessages.length,
+                conversationId: state.currentConversationId 
+              });
+              
               // If this is the first assistant response and we have a generic title, update it
               if (assistantMessages.length === 1 && userMessages.length >= 1) {
                 const currentConv = updatedConversations.find(c => c.id === state.currentConversationId);
+                console.log('[CHAT_NAMING] Checking for title generation:', { 
+                  hasConv: !!currentConv, 
+                  currentTitle: currentConv?.title,
+                  shouldGenerate: currentConv && (currentConv.title === 'New Chat' || currentConv.title.startsWith('New Conversation'))
+                });
+                
                 if (currentConv && (currentConv.title === 'New Chat' || currentConv.title.startsWith('New Conversation'))) {
+                  console.log('[CHAT_NAMING] Triggering title generation for conversation:', currentConv.id);
                   // Trigger title generation asynchronously
                   setTimeout(() => {
                     get().generateChatTitle(state.currentConversationId!);
                   }, 100);
+                } else {
+                  console.log('[CHAT_NAMING] Skipping title generation - conditions not met');
                 }
+              } else {
+                console.log('[CHAT_NAMING] Skipping title generation - not first assistant response or missing user messages');
               }
             }
             
@@ -464,15 +497,36 @@ export const useChatStore = create<ChatStore>()(
 
       // Chat naming actions
       generateChatTitle: async (conversationId: string) => {
+        console.log('[CHAT_NAMING] generateChatTitle called for:', conversationId);
         const state = get();
         const conversation = state.conversations.find(conv => conv.id === conversationId);
-        if (!conversation || conversation.messages.length < 2) return;
+        
+        console.log('[CHAT_NAMING] Conversation found:', { 
+          hasConversation: !!conversation, 
+          messageCount: conversation?.messages.length || 0,
+          title: conversation?.title 
+        });
+        
+        if (!conversation || conversation.messages.length < 2) {
+          console.log('[CHAT_NAMING] Skipping - no conversation or insufficient messages');
+          return;
+        }
 
         // Get the first user message and first assistant response
         const firstUserMsg = conversation.messages.find(m => m.role === 'user');
         const firstAssistantMsg = conversation.messages.find(m => m.role === 'assistant');
         
-        if (!firstUserMsg || !firstAssistantMsg) return;
+        console.log('[CHAT_NAMING] Messages found:', { 
+          hasUserMsg: !!firstUserMsg, 
+          hasAssistantMsg: !!firstAssistantMsg,
+          userContent: firstUserMsg?.content.slice(0, 50) + '...',
+          assistantContent: firstAssistantMsg?.content.slice(0, 50) + '...'
+        });
+        
+        if (!firstUserMsg || !firstAssistantMsg) {
+          console.log('[CHAT_NAMING] Skipping - missing required messages');
+          return;
+        }
 
         // Generate a meaningful title based on the conversation
         let generatedTitle = '';
@@ -481,23 +535,29 @@ export const useChatStore = create<ChatStore>()(
           const userContent = firstUserMsg.content.toLowerCase();
           const assistantContent = firstAssistantMsg.content.toLowerCase();
           
+          console.log('[CHAT_NAMING] Processing user content:', userContent.slice(0, 100));
+          
           // Extract potential topics/keywords
           if (userContent.includes('help') && userContent.includes('with')) {
             const match = userContent.match(/help.*with\s+(.+?)[\.\?\!]|$/);
+            console.log('[CHAT_NAMING] Trying "help with" pattern, match:', match?.[1]);
             if (match && match[1]) {
               generatedTitle = `Help with ${match[1].trim()}`;
             }
           } else if (userContent.includes('how to')) {
             const match = userContent.match(/how to\s+(.+?)[\.\?\!]|$/);
+            console.log('[CHAT_NAMING] Trying "how to" pattern, match:', match?.[1]);
             if (match && match[1]) {
               generatedTitle = `How to ${match[1].trim()}`;
             }
           } else if (userContent.includes('what is') || userContent.includes('what are')) {
             const match = userContent.match(/what (?:is|are)\s+(.+?)[\.\?\!]|$/);
+            console.log('[CHAT_NAMING] Trying "what is/are" pattern, match:', match?.[1]);
             if (match && match[1]) {
               generatedTitle = `About ${match[1].trim()}`;
             }
           } else {
+            console.log('[CHAT_NAMING] Using fallback pattern from user content');
             // Fallback: use first 40 characters of user message, cleaned up
             generatedTitle = firstUserMsg.content
               .replace(/[^\w\s]/g, ' ')
@@ -507,6 +567,8 @@ export const useChatStore = create<ChatStore>()(
               .trim();
           }
           
+          console.log('[CHAT_NAMING] Generated title before cleanup:', generatedTitle);
+          
           // Clean up and capitalize
           if (generatedTitle) {
             generatedTitle = generatedTitle.charAt(0).toUpperCase() + generatedTitle.slice(1);
@@ -514,16 +576,20 @@ export const useChatStore = create<ChatStore>()(
               generatedTitle = generatedTitle.slice(0, 47) + '...';
             }
           }
+          
+          console.log('[CHAT_NAMING] Final generated title:', generatedTitle);
         } catch (error) {
-          console.error('Error generating chat title:', error);
+          console.error('[CHAT_NAMING] Error generating chat title:', error);
         }
 
         // Fallback to user message if generation failed
         if (!generatedTitle) {
+          console.log('[CHAT_NAMING] Using fallback title from user message');
           generatedTitle = firstUserMsg.content.slice(0, 47) + '...';
         }
 
         // Update the conversation title
+        console.log('[CHAT_NAMING] Updating conversation title:', { conversationId, generatedTitle });
         set((state) => {
           const updatedConversations = state.conversations.map((conv) =>
             conv.id === conversationId
@@ -534,11 +600,14 @@ export const useChatStore = create<ChatStore>()(
           // Auto-save updated conversation to backend
           const updatedConv = updatedConversations.find(c => c.id === conversationId);
           if (updatedConv) {
+            console.log('[CHAT_NAMING] Auto-saving updated conversation with new title');
             autoSaveConversation(updatedConv);
           }
           
           return { conversations: updatedConversations };
         });
+        
+        console.log('[CHAT_NAMING] Title generation completed for conversation:', conversationId);
       },
 
       updateChatTitle: (conversationId: string, title: string) =>

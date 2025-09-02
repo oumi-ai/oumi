@@ -177,11 +177,16 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
       attachments,
     };
 
-    // Add user message to store
+    // Add user message to store immediately
     addMessage(userMessage);
 
-    // Handle regular chat message (no command handling anymore)
-    await handleChatMessage(content);
+    // Use requestAnimationFrame to ensure the UI has rendered the user message
+    // before starting API processing. This prevents timing issues where the 
+    // user message might not appear in the chat history.
+    requestAnimationFrame(async () => {
+      // Handle regular chat message (no command handling anymore)
+      await handleChatMessage(content);
+    });
   };
 
   // Internal method for UI elements to execute commands (bypasses user input blocking)
