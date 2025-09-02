@@ -18,8 +18,8 @@ import pytest
 
 from oumi.core.configs.params.synthesis_params import (
     GeneratedAttribute,
-    PermutableAttribute,
-    PermutableAttributeValue,
+    SampledAttribute,
+    SampledAttributeValue,
     TextMessage,
 )
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
@@ -37,20 +37,20 @@ def mock_attribute_synthesizer():
 def mock_permutable_attributes():
     """Create mock permutable attributes for testing."""
     return [
-        PermutableAttribute(
+        SampledAttribute(
             id="style",
-            attribute="Writing Style",
+            name="Writing Style",
             description="The style of writing to use",
             possible_values=[
-                PermutableAttributeValue(
+                SampledAttributeValue(
                     id="formal",
-                    value="Formal",
+                    name="Formal",
                     description="A formal writing style",
                     sample_rate=0.6,
                 ),
-                PermutableAttributeValue(
+                SampledAttributeValue(
                     id="casual",
-                    value="Casual",
+                    name="Casual",
                     description="A casual writing style",
                     sample_rate=0.4,
                 ),
