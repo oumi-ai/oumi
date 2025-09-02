@@ -19,6 +19,21 @@ from oumi.core.datasets import BaseMapDataset
 from oumi.datasets import TextSftJsonLinesDataset
 
 
+def check_no_nans(obj):
+    """Recursively check for NaN values in nested dictionaries."""
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            # Only check for NaN in numeric values, not lists or strings
+            if isinstance(value, (int, float)) and pd.isna(value):
+                raise AssertionError(f"Found NaN value in key '{key}': {value}")
+            check_no_nans(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            check_no_nans(item)
+    elif isinstance(obj, (int, float)) and pd.isna(obj):
+        raise AssertionError(f"Found NaN value: {obj}")
+
+
 class MockSampleAnalyzer:
     """Mock sample analyzer for testing."""
 
@@ -195,11 +210,39 @@ def test_data():
 
 
 @pytest.fixture
+def single_conversation_test_data():
+    """Single conversation data for testing."""
+    return [
+        {
+            "conversation_id": "conv_1",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Hello, how are you?",
+                    "id": "msg_1_0",
+                }
+            ],
+        },
+    ]
+
+
+@pytest.fixture
 def test_data_path(test_data):
     """Create a temporary JSONL file with test data."""
     with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
         with jsonlines.Writer(f) as writer:
             writer.write_all(test_data)
+
+    yield Path(f.name)
+    Path(f.name).unlink()  # Cleanup temp file
+
+
+@pytest.fixture
+def single_conversation_test_data_path(single_conversation_test_data):
+    """Create a temporary JSONL file with single conversation test data."""
+    with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
+        with jsonlines.Writer(f) as writer:
+            writer.write_all(single_conversation_test_data)
 
     yield Path(f.name)
     Path(f.name).unlink()  # Cleanup temp file
@@ -802,6 +845,59 @@ def test_generate_analysis_summary(test_data_path, mock_config):
     assert "min" in turns_stats
     assert "max" in turns_stats
     assert "median" in turns_stats
+
+
+def test_generate_analysis_summary_single_conversation_no_nan(
+    single_conversation_test_data_path, mock_config
+):
+    """Test single conversation and no NaN values."""
+    # Create a config with sample_count=1 to only analyze 1 conversation
+    config = AnalyzeConfig(
+        dataset_source=DatasetSource.CONFIG,
+        dataset_name="text_sft",
+        split="train",
+        sample_count=1,
+        output_path="./test_output",
+        analyzers=mock_config.analyzers,
+    )
+    analyzer, _ = create_analyzer_with_jsonl_dataset(
+        single_conversation_test_data_path, config
+    )
+
+    # Run analysis to generate summary
+    analyzer.analyze_dataset()
+
+    # Test that summary is now available
+    summary = analyzer.analysis_summary
+    assert summary is not None
+    assert isinstance(summary, dict)
+
+    # Test dataset overview
+    overview = summary["dataset_overview"]
+    assert overview["dataset_name"] == "text_sft"
+    assert overview["total_conversations"] == 1
+    assert overview["conversations_analyzed"] == 1
+
+    # Test that there are no NaN values in any statistics
+    check_no_nans(summary)
+
+    # Test that std is 0.0 for single conversation (since there's no variance)
+    conversation_summary = summary["conversation_level_summary"]
+    for analyzer_name, metrics in conversation_summary.items():
+        if analyzer_name != "conversation_turns":
+            for metric_name, stats in metrics.items():
+                if isinstance(stats, dict) and "std" in stats:
+                    assert stats["std"] == 0.0, (
+                        f"Expected std=0.0 for single conversation in "
+                        f"{analyzer_name}.{metric_name}, got {stats['std']}"
+                    )
+
+    # Verify conversation turns std is also 0.0 for single conversation
+    turns_stats = conversation_summary["conversation_turns"]
+    assert turns_stats["std"] == 0.0, (
+        f"Expected conversation_turns std=0.0 for single conversation, "
+        f"got {turns_stats['std']}"
+    )
 
 
 def test_analyzer_with_tokenizer(test_data_path):
