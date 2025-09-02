@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Message, ConversationBranch, Conversation, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats } from './types';
+import apiClient from './unified-api';
 
 interface ChatStore {
   // Current state
@@ -27,6 +28,10 @@ interface ChatStore {
   setMessages: (messages: Message[]) => void;
   updateMessage: (messageId: string, updates: Partial<Message>) => void;
   deleteMessage: (messageId: string) => void;
+  
+  // Chat naming actions
+  generateChatTitle: (conversationId: string) => Promise<void>;
+  updateChatTitle: (conversationId: string, title: string) => void;
   
   setBranches: (branches: ConversationBranch[]) => void;
   addBranch: (branch: ConversationBranch) => void;
@@ -57,6 +62,16 @@ interface ChatStore {
   clearMessages: () => void;
   resetStore: () => void;
 }
+
+// Auto-save helper function
+const autoSaveConversation = async (conversation: Conversation) => {
+  try {
+    await apiClient.saveConversation('default', conversation.id, conversation);
+  } catch (error) {
+    console.warn('Failed to auto-save conversation to backend:', error);
+    // Don't block the UI - this is just a backup save
+  }
+};
 
 // Encryption utilities for sensitive data
 const encryptApiKey = (key: string): string => {
@@ -141,44 +156,51 @@ export const useChatStore = create<ChatStore>()(
       addMessage: (message: Message) =>
         set((state) => {
           const newMessages = [...state.messages, message];
-          const updatedState = { messages: newMessages };
+          const currentTime = new Date().toISOString();
           
-          // Auto-save: Update current conversation or create new one
-          if (state.settings.autoSave?.enabled !== false) {
-            const currentTime = new Date().toISOString();
+          // Always create or update conversations for immediate availability
+          if (!state.currentConversationId) {
+            // Create new conversation immediately when first message is sent
+            const isFirstUserMessage = message.role === 'user' && newMessages.length === 1;
+            const title = isFirstUserMessage 
+              ? 'New Chat'  // Use generic title initially, will be updated after first response
+              : message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '');
             
-            if (state.currentConversationId) {
-              // Update existing conversation
-              const updatedConversations = state.conversations.map((conv) =>
-                conv.id === state.currentConversationId
-                  ? { ...conv, messages: newMessages, updatedAt: currentTime }
-                  : conv
-              );
-              return { ...updatedState, conversations: updatedConversations };
-            } else {
-              // Create new conversation
-              const firstMessage = newMessages[0];
-              const title = firstMessage 
-                ? firstMessage.content.slice(0, 50) + (firstMessage.content.length > 50 ? '...' : '')
-                : 'New Conversation';
-              
-              const newConversation: Conversation = {
-                id: `conv-${Date.now()}`,
-                title,
-                messages: newMessages,
-                createdAt: currentTime,
-                updatedAt: currentTime,
-              };
-              
-              return {
-                ...updatedState,
-                conversations: [...state.conversations, newConversation],
-                currentConversationId: newConversation.id,
-              };
+            const newConversation: Conversation = {
+              id: `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              title,
+              messages: newMessages,
+              createdAt: currentTime,
+              updatedAt: currentTime,
+            };
+            
+            // Auto-save to backend asynchronously
+            autoSaveConversation(newConversation);
+            
+            return {
+              messages: newMessages,
+              conversations: [...state.conversations, newConversation],
+              currentConversationId: newConversation.id,
+            };
+          } else {
+            // Update existing conversation
+            const updatedConversations = state.conversations.map((conv) =>
+              conv.id === state.currentConversationId
+                ? { ...conv, messages: newMessages, updatedAt: currentTime }
+                : conv
+            );
+            
+            // Auto-save updated conversation to backend
+            const updatedConv = updatedConversations.find(c => c.id === state.currentConversationId);
+            if (updatedConv) {
+              autoSaveConversation(updatedConv);
             }
+            
+            return { 
+              messages: newMessages, 
+              conversations: updatedConversations 
+            };
           }
-          
-          return updatedState;
         }),
 
       setMessages: (messages: Message[]) =>
@@ -189,26 +211,76 @@ export const useChatStore = create<ChatStore>()(
           const newMessages = state.messages.map((msg) =>
             msg.id === messageId ? { ...msg, ...updates } : msg
           );
-          const updatedState = { messages: newMessages };
           
-          // Auto-save: Update current conversation
-          if (state.settings.autoSave?.enabled !== false && state.currentConversationId) {
+          // Always update current conversation if it exists
+          if (state.currentConversationId) {
             const currentTime = new Date().toISOString();
             const updatedConversations = state.conversations.map((conv) =>
               conv.id === state.currentConversationId
                 ? { ...conv, messages: newMessages, updatedAt: currentTime }
                 : conv
             );
-            return { ...updatedState, conversations: updatedConversations };
+            
+            // Check if this was the first assistant response and trigger title generation
+            const updatedMessage = newMessages.find(msg => msg.id === messageId);
+            if (updatedMessage?.role === 'assistant') {
+              const userMessages = newMessages.filter(m => m.role === 'user');
+              const assistantMessages = newMessages.filter(m => m.role === 'assistant');
+              
+              // If this is the first assistant response and we have a generic title, update it
+              if (assistantMessages.length === 1 && userMessages.length >= 1) {
+                const currentConv = updatedConversations.find(c => c.id === state.currentConversationId);
+                if (currentConv && (currentConv.title === 'New Chat' || currentConv.title.startsWith('New Conversation'))) {
+                  // Trigger title generation asynchronously
+                  setTimeout(() => {
+                    get().generateChatTitle(state.currentConversationId!);
+                  }, 100);
+                }
+              }
+            }
+            
+            // Auto-save updated conversation to backend
+            const updatedConv = updatedConversations.find(c => c.id === state.currentConversationId);
+            if (updatedConv) {
+              autoSaveConversation(updatedConv);
+            }
+            
+            return { 
+              messages: newMessages, 
+              conversations: updatedConversations 
+            };
           }
           
-          return updatedState;
+          return { messages: newMessages };
         }),
 
       deleteMessage: (messageId: string) =>
-        set((state) => ({
-          messages: state.messages.filter((msg) => msg.id !== messageId),
-        })),
+        set((state) => {
+          const newMessages = state.messages.filter((msg) => msg.id !== messageId);
+          
+          // Update current conversation if it exists
+          if (state.currentConversationId) {
+            const currentTime = new Date().toISOString();
+            const updatedConversations = state.conversations.map((conv) =>
+              conv.id === state.currentConversationId
+                ? { ...conv, messages: newMessages, updatedAt: currentTime }
+                : conv
+            );
+            
+            // Auto-save updated conversation to backend
+            const updatedConv = updatedConversations.find(c => c.id === state.currentConversationId);
+            if (updatedConv) {
+              autoSaveConversation(updatedConv);
+            }
+            
+            return { 
+              messages: newMessages, 
+              conversations: updatedConversations 
+            };
+          }
+          
+          return { messages: newMessages };
+        }),
 
       // Branch actions
       setBranches: (branches: ConversationBranch[]) =>
@@ -381,6 +453,102 @@ export const useChatStore = create<ChatStore>()(
               },
             },
           };
+        }),
+
+      // Chat naming actions
+      generateChatTitle: async (conversationId: string) => {
+        const state = get();
+        const conversation = state.conversations.find(conv => conv.id === conversationId);
+        if (!conversation || conversation.messages.length < 2) return;
+
+        // Get the first user message and first assistant response
+        const firstUserMsg = conversation.messages.find(m => m.role === 'user');
+        const firstAssistantMsg = conversation.messages.find(m => m.role === 'assistant');
+        
+        if (!firstUserMsg || !firstAssistantMsg) return;
+
+        // Generate a meaningful title based on the conversation
+        let generatedTitle = '';
+        try {
+          // Simple heuristic: use key terms from user question and assistant response
+          const userContent = firstUserMsg.content.toLowerCase();
+          const assistantContent = firstAssistantMsg.content.toLowerCase();
+          
+          // Extract potential topics/keywords
+          if (userContent.includes('help') && userContent.includes('with')) {
+            const match = userContent.match(/help.*with\s+(.+?)[\.\?\!]|$/);
+            if (match && match[1]) {
+              generatedTitle = `Help with ${match[1].trim()}`;
+            }
+          } else if (userContent.includes('how to')) {
+            const match = userContent.match(/how to\s+(.+?)[\.\?\!]|$/);
+            if (match && match[1]) {
+              generatedTitle = `How to ${match[1].trim()}`;
+            }
+          } else if (userContent.includes('what is') || userContent.includes('what are')) {
+            const match = userContent.match(/what (?:is|are)\s+(.+?)[\.\?\!]|$/);
+            if (match && match[1]) {
+              generatedTitle = `About ${match[1].trim()}`;
+            }
+          } else {
+            // Fallback: use first 40 characters of user message, cleaned up
+            generatedTitle = firstUserMsg.content
+              .replace(/[^\w\s]/g, ' ')
+              .trim()
+              .slice(0, 40)
+              .replace(/\s+/g, ' ')
+              .trim();
+          }
+          
+          // Clean up and capitalize
+          if (generatedTitle) {
+            generatedTitle = generatedTitle.charAt(0).toUpperCase() + generatedTitle.slice(1);
+            if (generatedTitle.length > 50) {
+              generatedTitle = generatedTitle.slice(0, 47) + '...';
+            }
+          }
+        } catch (error) {
+          console.error('Error generating chat title:', error);
+        }
+
+        // Fallback to user message if generation failed
+        if (!generatedTitle) {
+          generatedTitle = firstUserMsg.content.slice(0, 47) + '...';
+        }
+
+        // Update the conversation title
+        set((state) => {
+          const updatedConversations = state.conversations.map((conv) =>
+            conv.id === conversationId
+              ? { ...conv, title: generatedTitle, updatedAt: new Date().toISOString() }
+              : conv
+          );
+          
+          // Auto-save updated conversation to backend
+          const updatedConv = updatedConversations.find(c => c.id === conversationId);
+          if (updatedConv) {
+            autoSaveConversation(updatedConv);
+          }
+          
+          return { conversations: updatedConversations };
+        });
+      },
+
+      updateChatTitle: (conversationId: string, title: string) =>
+        set((state) => {
+          const updatedConversations = state.conversations.map((conv) =>
+            conv.id === conversationId
+              ? { ...conv, title, updatedAt: new Date().toISOString() }
+              : conv
+          );
+          
+          // Auto-save updated conversation to backend
+          const updatedConv = updatedConversations.find(c => c.id === conversationId);
+          if (updatedConv) {
+            autoSaveConversation(updatedConv);
+          }
+          
+          return { conversations: updatedConversations };
         }),
 
       // Utility actions

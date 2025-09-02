@@ -450,6 +450,54 @@ class UnifiedApiClient {
     }
   }
 
+  // Enhanced conversation management with automatic persistence
+  async saveConversation(
+    sessionId: string = 'default',
+    conversationId: string,
+    conversationData: any
+  ): Promise<ApiResponse> {
+    try {
+      // Save individual conversation
+      const conversationKey = `conversation_${sessionId}_${conversationId}`;
+      await this.setStorageItem(conversationKey, conversationData);
+      
+      // Update conversations list
+      const conversationsKey = `conversations_${sessionId}`;
+      const existingConversations = await this.getStorageItem(conversationsKey, []);
+      
+      const conversationIndex = existingConversations.findIndex((c: any) => c.id === conversationId);
+      const conversationEntry = {
+        id: conversationId,
+        name: conversationData.title || 'Untitled Conversation',
+        lastModified: conversationData.updatedAt || new Date().toISOString(),
+        messageCount: conversationData.messages?.length || 0,
+        preview: conversationData.messages && conversationData.messages.length > 0
+          ? conversationData.messages[conversationData.messages.length - 1].content.slice(0, 100)
+          : 'No messages',
+        filename: conversationId
+      };
+
+      if (conversationIndex >= 0) {
+        existingConversations[conversationIndex] = conversationEntry;
+      } else {
+        existingConversations.push(conversationEntry);
+      }
+
+      await this.setStorageItem(conversationsKey, existingConversations);
+
+      return {
+        success: true,
+        message: 'Conversation saved successfully'
+      };
+    } catch (error) {
+      console.error('Failed to save conversation:', error);
+      return {
+        success: false,
+        error: 'Failed to save conversation'
+      };
+    }
+  }
+
   async clearStorage(): Promise<void> {
     if (this.isElectron()) {
       return this.electronClient.clearStorage();

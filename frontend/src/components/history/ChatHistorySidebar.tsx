@@ -35,7 +35,15 @@ interface ChatHistorySidebarProps {
 }
 
 export default function ChatHistorySidebar({ className = '' }: ChatHistorySidebarProps) {
-  const { currentBranchId } = useChatStore();
+  const { 
+    currentBranchId, 
+    conversations: storeConversations, 
+    currentConversationId, 
+    loadConversation: loadStoreConversation,
+    setCurrentConversationId,
+    setMessages,
+    deleteConversation: deleteStoreConversation
+  } = useChatStore();
   const [conversations, setConversations] = React.useState<ConversationEntry[]>([]);
   const [selectedConversation, setSelectedConversation] = React.useState<string | null>(null);
   const [conversationPreview, setConversationPreview] = React.useState<ConversationPreview | null>(null);
@@ -49,6 +57,29 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
   React.useEffect(() => {
     loadConversations();
   }, []);
+
+  // Sync with store conversations for real-time updates
+  React.useEffect(() => {
+    if (storeConversations && storeConversations.length > 0) {
+      const convertedConversations = storeConversations.map((conv) => ({
+        id: conv.id,
+        name: conv.title || 'Untitled Conversation',
+        lastModified: conv.updatedAt || conv.createdAt,
+        messageCount: conv.messages?.length || 0,
+        preview: conv.messages && conv.messages.length > 0 
+          ? conv.messages[conv.messages.length - 1].content.slice(0, 100)
+          : 'No messages yet'
+      }));
+
+      // Sort by last modified (newest first)
+      convertedConversations.sort((a, b) => 
+        new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+      );
+
+      setConversations(convertedConversations);
+      setLoading(false);
+    }
+  }, [storeConversations]);
 
   const loadConversations = async () => {
     try {
@@ -88,25 +119,44 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       setLoadingPreview(true);
       setError(null);
       
-      const response = await apiClient.loadConversation('default', conversationId);
+      // First try to load from store for faster access
+      const storeConversation = storeConversations.find(c => c.id === conversationId);
       
-      if (response.success && response.data) {
-        const messages = response.data.messages || [];
-        const conversationData = conversations.find(c => c.id === conversationId);
-        
+      if (storeConversation) {
+        const messages = storeConversation.messages || [];
         setConversationPreview({
           id: conversationId,
-          name: conversationData?.name || 'Unknown Conversation',
+          name: storeConversation.title || 'Unknown Conversation',
           messages: messages.slice(0, 6).map(msg => ({
             role: msg.role,
             content: msg.content,
-            timestamp: typeof msg.timestamp === 'number' ? new Date(msg.timestamp).toISOString() : msg.timestamp
+            timestamp: typeof msg.timestamp === 'number' ? new Date(msg.timestamp).toISOString() : msg.timestamp.toString()
           })), // Show first 6 messages as preview
           messageCount: messages.length,
-          lastModified: conversationData?.lastModified || new Date().toISOString()
+          lastModified: storeConversation.updatedAt || storeConversation.createdAt
         });
       } else {
-        throw new Error(response.message || 'Failed to load conversation preview');
+        // Fallback to API if not in store
+        const response = await apiClient.loadConversation('default', conversationId);
+        
+        if (response.success && response.data) {
+          const messages = response.data.messages || [];
+          const conversationData = conversations.find(c => c.id === conversationId);
+          
+          setConversationPreview({
+            id: conversationId,
+            name: conversationData?.name || 'Unknown Conversation',
+            messages: messages.slice(0, 6).map(msg => ({
+              role: msg.role,
+              content: msg.content,
+              timestamp: typeof msg.timestamp === 'number' ? new Date(msg.timestamp).toISOString() : msg.timestamp
+            })), // Show first 6 messages as preview
+            messageCount: messages.length,
+            lastModified: conversationData?.lastModified || new Date().toISOString()
+          });
+        } else {
+          throw new Error(response.message || 'Failed to load conversation preview');
+        }
       }
     } catch (error) {
       console.error('Failed to load conversation preview:', error);
@@ -124,10 +174,10 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       setLoadingConversation(true);
       setError(null);
       
-      // Load the conversation into the current branch
-      const response = await apiClient.loadConversation('default', conversationId, currentBranchId);
+      // Load the conversation from store - much faster and real-time
+      const conversation = await loadStoreConversation(conversationId);
       
-      if (response.success) {
+      if (conversation) {
         // Show success message
         alert('✅ Conversation loaded successfully into the current branch!');
         
@@ -135,7 +185,22 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
         setSelectedConversation(null);
         setConversationPreview(null);
       } else {
-        throw new Error(response.message || 'Failed to load conversation');
+        // Fallback to API if not in store
+        const response = await apiClient.loadConversation('default', conversationId, currentBranchId);
+        
+        if (response.success) {
+          // Update store with loaded messages
+          if (response.data?.messages) {
+            setMessages(response.data.messages);
+            setCurrentConversationId(conversationId);
+          }
+          
+          alert('✅ Conversation loaded successfully into the current branch!');
+          setSelectedConversation(null);
+          setConversationPreview(null);
+        } else {
+          throw new Error(response.message || 'Failed to load conversation');
+        }
       }
     } catch (error) {
       console.error('Failed to load conversation:', error);
@@ -152,22 +217,29 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
     }
     
     try {
-      const response = await apiClient.deleteConversation('default', conversationId);
+      // Delete from store first for immediate UI update
+      deleteStoreConversation(conversationId);
       
-      if (response.success) {
-        // Remove from local state
-        setConversations(conversations.filter(c => c.id !== conversationId));
-        
-        // Clear preview if it was the deleted conversation
-        if (selectedConversation === conversationId) {
-          setSelectedConversation(null);
-          setConversationPreview(null);
-        }
-        
-        alert('✅ Conversation deleted successfully');
-      } else {
-        throw new Error(response.message || 'Failed to delete conversation');
+      // Clear preview if it was the deleted conversation
+      if (selectedConversation === conversationId) {
+        setSelectedConversation(null);
+        setConversationPreview(null);
       }
+      
+      // If this was the current conversation, clear it
+      if (currentConversationId === conversationId) {
+        setCurrentConversationId(null);
+        setMessages([]);
+      }
+      
+      // Also delete from backend/API for persistence
+      try {
+        await apiClient.deleteConversation('default', conversationId);
+      } catch (apiError) {
+        console.warn('Failed to delete from backend, but deleted locally:', apiError);
+      }
+      
+      alert('✅ Conversation deleted successfully');
     } catch (error) {
       console.error('Failed to delete conversation:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete conversation';
@@ -275,6 +347,8 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
                   className={`p-3 rounded-lg cursor-pointer transition-colors group relative ${
                     selectedConversation === conversation.id
                       ? 'bg-primary/10 border border-primary/20'
+                      : currentConversationId === conversation.id
+                      ? 'bg-accent/50 border border-accent/30'  // Active conversation style
                       : 'hover:bg-muted'
                   }`}
                   onClick={() => handleConversationClick(conversation.id)}
@@ -292,9 +366,14 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
                   </button>
 
                   <div className="pr-6">
-                    <h4 className="font-medium text-sm text-foreground truncate mb-1">
-                      {conversation.name}
-                    </h4>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-medium text-sm text-foreground truncate">
+                        {conversation.name}
+                      </h4>
+                      {currentConversationId === conversation.id && (
+                        <div className="flex-shrink-0 w-2 h-2 bg-green-500 rounded-full" title="Active conversation" />
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                       {conversation.preview}
                     </p>
