@@ -32,6 +32,9 @@ def check_no_nans(obj):
             check_no_nans(item)
     elif isinstance(obj, (int, float)) and pd.isna(obj):
         raise AssertionError(f"Found NaN value: {obj}")
+    else:
+        # Other types (str, bool, None, etc.) are not checked for NaN
+        pass
 
 
 class MockSampleAnalyzer:
