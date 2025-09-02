@@ -218,8 +218,42 @@ export default function SystemMonitor({
     
     setIsModelActionLoading(true);
     try {
-      // Use the current model's config path for testing
-      const response = await apiClient.testModel(name);
+      // Get the config path for the current model using UnifiedConfigPathResolver
+      // First, try to get the currently selected config from storage
+      const selectedConfig = await apiClient.getStorageItem('selectedConfig', null);
+      let configPath = selectedConfig;
+      
+      // If no selected config, try to find it using UnifiedConfigPathResolver
+      if (!configPath) {
+        try {
+          const { configPathResolver } = await import('@/lib/config-path-resolver');
+          
+          // Try to find a config that matches the current model name
+          const configsResponse = await apiClient.getConfigs();
+          if (configsResponse.success && configsResponse.data?.configs) {
+            const matchingConfig = configsResponse.data.configs.find((config: any) => 
+              config.id === name || config.display_name?.includes(name) || name.includes(config.id)
+            );
+            
+            if (matchingConfig && matchingConfig.id) {
+              const resolvedConfig = await configPathResolver.getConfigById(matchingConfig.id);
+              if (resolvedConfig) {
+                configPath = resolvedConfig.configPath;
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to resolve config path for model testing:', error);
+        }
+      }
+      
+      // Don't test if no valid config path found
+      if (!configPath) {
+        console.warn('No valid config path found for model:', name);
+        return;
+      }
+      
+      const response = await apiClient.testModel(configPath);
       const success = response.success && response.data?.success;
       
       setModelStatus(prev => ({

@@ -61,9 +61,6 @@ export function setupIpcHandlers(pythonManager: PythonServerManager): void {
     log.info('Setting up download handlers...');
     setupDownloadHandlers(pythonManager);
     
-    // Config discovery handlers
-    log.info('Setting up config handlers...');
-    setupConfigHandlers();
     
     // Python environment setup handlers
     log.info('Setting up Python environment handlers...');
@@ -227,6 +224,12 @@ function setupStorageHandlers(): void {
 
   ipcMain.handle('storage:clear', () => {
     (store as any).clear();
+  });
+
+  ipcMain.handle('storage:get-all-keys', () => {
+    // Get all keys from the electron-store
+    const storeData = store.store || {};
+    return Object.keys(storeData);
   });
 
   // Reset welcome screen settings
@@ -556,171 +559,8 @@ function setupDownloadHandlers(pythonManager: PythonServerManager): void {
   });
 }
 
-/**
- * Config discovery handlers
- */
-function setupConfigHandlers(): void {
-  ipcMain.handle('config:discover-bundled', async () => {
-    try {
-      const path = require('path');
-      const fs = require('fs').promises;
-      const yaml = require('js-yaml');
 
-      // Configs are inside OUMI_ROOT, regardless of environment  
-      const oumiRoot = app.isPackaged
-        ? path.join(process.resourcesPath, 'python')  // In packaged app, python dir IS the oumi root
-        : path.join(__dirname, '../../../');          // In dev, go up to oumi root
-        
-      const configsPath = path.resolve(oumiRoot, 'configs');
 
-      log.info(`[ConfigDiscovery] OUMI_ROOT: ${oumiRoot}`);
-      log.info(`[ConfigDiscovery] Discovering configs in: ${configsPath}`);
-
-      const configs = await discoverConfigsRecursive(configsPath, configsPath);
-      
-      log.info(`Discovered ${configs.length} configurations`);
-      
-      return {
-        success: true,
-        data: {
-          generated_at: new Date().toISOString(),
-          version: "1.0",
-          total_configs: configs.length,
-          configs: configs
-        }
-      };
-    } catch (error) {
-      log.error('Error discovering configs:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error)
-      };
-    }
-  });
-}
-
-/**
- * Recursively discover config files
- */
-async function discoverConfigsRecursive(dir: string, baseDir: string): Promise<any[]> {
-  const path = require('path');
-  const fs = require('fs').promises;
-  const yaml = require('js-yaml');
-  
-  const configs: any[] = [];
-
-  try {
-    const items = await fs.readdir(dir);
-
-    for (const item of items) {
-      const fullPath = path.join(dir, item);
-      const stat = await fs.stat(fullPath);
-
-      if (stat.isDirectory()) {
-        // Recursively search subdirectories
-        const subConfigs = await discoverConfigsRecursive(fullPath, baseDir);
-        configs.push(...subConfigs);
-      } else if (item.match(/\.(yaml|yml)$/)) {
-        // Only process inference configs
-        const relativePath = path.relative(baseDir, fullPath);
-        if (relativePath.includes('inference') || relativePath.includes('infer')) {
-          try {
-            const configData = await parseConfigFile(fullPath, relativePath);
-            if (configData) {
-              configs.push(configData);
-            }
-          } catch (error) {
-            log.warn(`Failed to parse config ${fullPath}:`, error);
-          }
-        }
-      }
-    }
-  } catch (error) {
-    log.warn(`Failed to read directory ${dir}:`, error);
-  }
-
-  return configs;
-}
-
-/**
- * Parse a YAML config file and extract metadata
- */
-async function parseConfigFile(filePath: string, relativePath: string): Promise<any | null> {
-  const fs = require('fs').promises;
-  const yaml = require('js-yaml');
-  const path = require('path');
-
-  try {
-    const content = await fs.readFile(filePath, 'utf8');
-    const config = yaml.load(content) as any;
-
-    if (!config || typeof config !== 'object') {
-      return null;
-    }
-
-    // Extract model information
-    const modelName = config.model?.model_name || 'Unknown Model';
-    const engine = config.engine || 'UNKNOWN';
-    const contextLength = config.model?.model_max_length || config.model?.context_length || 2048;
-
-    // Extract model family from path
-    const family = extractModelFamily(relativePath);
-    
-    // Create display name
-    const fileName = path.basename(filePath, path.extname(filePath));
-    const cleanFileName = fileName.replace(/_infer$/, '').replace(/_/g, ' ');
-    
-    let displayName;
-    if (family === 'openai' || family === 'anthropic' || family === 'gemini' || family === 'vertex') {
-      displayName = `${family.toUpperCase()} - ${cleanFileName}`;
-    } else {
-      displayName = `${family} - ${cleanFileName}`;
-    }
-
-    return {
-      id: relativePath.replace(/[/\\]/g, '_').replace(/\.(yaml|yml)$/, ''),
-      config_path: relativePath, // Keep relative for runtime resolution
-      relative_path: relativePath,
-      display_name: displayName,
-      model_name: modelName,
-      engine: engine,
-      context_length: contextLength,
-      model_family: family,
-      size_category: categorizeModelSize(displayName)
-    };
-  } catch (error) {
-    log.warn(`Failed to parse config ${filePath}:`, error);
-    return null;
-  }
-}
-
-/**
- * Extract model family from config path
- */
-function extractModelFamily(configPath: string): string {
-  let match = configPath.match(/recipes[/\\]([^/\\]+)/);
-  if (match) return match[1];
-  
-  match = configPath.match(/apis[/\\]([^/\\]+)/);
-  if (match) return match[1];
-  
-  match = configPath.match(/projects[/\\]([^/\\]+)/);
-  if (match) return match[1];
-  
-  return 'unknown';
-}
-
-/**
- * Categorize model size based on display name
- */
-function categorizeModelSize(displayName: string): string {
-  const name = displayName.toLowerCase();
-  if (name.includes('135m') || name.includes('1b')) return 'small';
-  if (name.includes('3b') || name.includes('7b') || name.includes('8b')) return 'medium';
-  if (name.includes('20b') || name.includes('24b') || name.includes('30b') || name.includes('32b') || name.includes('70b')) return 'large';
-  if (name.includes('120b') || name.includes('405b')) return 'xl';
-  return 'medium';
-}
 
 /**
  * Python environment setup handlers

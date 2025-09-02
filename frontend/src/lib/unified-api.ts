@@ -147,12 +147,28 @@ class UnifiedApiClient {
 
   async listConversations(sessionId: string): Promise<ApiResponse<{ conversations: any[] }>> {
     if (this.isElectron()) {
-      // For Electron, use localStorage fallback for now until backend method is implemented
+      // For Electron, search across all stored conversations
       try {
-        const storedConversations = await this.getStorageItem(`conversations_${sessionId}`, []);
+        const allStoredKeys = await this.getAllStorageKeys();
+        const allConversations: any[] = [];
+        
+        // Look for all conversation list keys
+        const conversationListKeys = allStoredKeys.filter(key => key.startsWith('conversations_'));
+        
+        for (const key of conversationListKeys) {
+          const conversations = await this.getStorageItem(key, []);
+          allConversations.push(...conversations);
+        }
+        
+        // Sort by last modified (newest first)
+        allConversations.sort((a, b) => 
+          new Date(b.lastModified || b.updatedAt || 0).getTime() - 
+          new Date(a.lastModified || a.updatedAt || 0).getTime()
+        );
+        
         return {
           success: true,
-          data: { conversations: storedConversations }
+          data: { conversations: allConversations }
         };
       } catch (error) {
         console.error('Error listing conversations:', error);
@@ -163,14 +179,32 @@ class UnifiedApiClient {
         };
       }
     } else {
-      // Web fallback - use localStorage to simulate conversation storage
+      // Web fallback - search across all localStorage
       try {
-        const storedConversations = localStorage.getItem(`conversations_${sessionId}`);
-        const conversations = storedConversations ? JSON.parse(storedConversations) : [];
+        const allConversations: any[] = [];
+        
+        // Iterate through localStorage to find all conversation lists
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('conversations_')) {
+            try {
+              const conversations = JSON.parse(localStorage.getItem(key) || '[]');
+              allConversations.push(...conversations);
+            } catch (parseError) {
+              console.warn(`Failed to parse conversations from key ${key}:`, parseError);
+            }
+          }
+        }
+        
+        // Sort by last modified (newest first)
+        allConversations.sort((a, b) => 
+          new Date(b.lastModified || b.updatedAt || 0).getTime() - 
+          new Date(a.lastModified || a.updatedAt || 0).getTime()
+        );
         
         return {
           success: true,
-          data: { conversations }
+          data: { conversations: allConversations }
         };
       } catch (error) {
         console.error('Error listing conversations:', error);
@@ -510,6 +544,19 @@ class UnifiedApiClient {
     }
   }
 
+  async getAllStorageKeys(): Promise<string[]> {
+    if (this.isElectron()) {
+      return this.electronClient.getAllStorageKeys();
+    } else {
+      const keys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) keys.push(key);
+      }
+      return keys;
+    }
+  }
+
   async resetWelcomeSettings(): Promise<ApiResponse> {
     if (this.isElectron()) {
       return this.electronClient.resetWelcomeSettings();
@@ -643,14 +690,6 @@ class UnifiedApiClient {
     }
   }
 
-  // Config discovery methods (Electron-specific)
-  async discoverBundledConfigs(): Promise<ApiResponse> {
-    if (this.isElectron()) {
-      return this.electronClient.discoverBundledConfigs();
-    } else {
-      return { success: false, error: 'Config discovery not available in web version' };
-    }
-  }
 
   // Python environment setup methods (Electron-specific)
   async isEnvironmentSetupNeeded(): Promise<boolean> {

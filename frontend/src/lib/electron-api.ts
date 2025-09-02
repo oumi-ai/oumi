@@ -160,18 +160,23 @@ class ElectronApiClient {
       throw new Error('Config access only available in Electron app');
     }
     
-    // First try to get configs from Python backend if server is running
+    // Use UnifiedConfigPathResolver as the primary config source
     try {
-      const response = await window.electronAPI.chat.getConfigs();
-      if (response.success && response.data?.configs?.length > 0) {
-        return response;
-      }
+      const { configPathResolver } = await import('../config-path-resolver');
+      const staticConfigs = await configPathResolver.loadStaticConfigs();
+      
+      return {
+        success: true,
+        data: { configs: staticConfigs.configs || [] }
+      };
     } catch (error) {
-      console.debug('Python backend config access failed, falling back to bundled discovery');
+      console.error('UnifiedConfigPathResolver failed:', error);
+      return {
+        success: false,
+        error: 'Failed to load configs from UnifiedConfigPathResolver',
+        data: { configs: [] }
+      };
     }
-    
-    // Fallback to bundled config discovery (direct filesystem access)
-    return window.electronAPI.config.discoverBundled();
   }
 
   public async getModels(): Promise<ApiResponse<{ data: Array<{ id: string; config_metadata?: any }> }>> {
@@ -419,6 +424,18 @@ class ElectronApiClient {
     return window.electronAPI.storage.clear();
   }
 
+  public async getAllStorageKeys(): Promise<string[]> {
+    if (!this.isElectron) {
+      const keys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) keys.push(key);
+      }
+      return keys;
+    }
+    return window.electronAPI.storage.getAllKeys();
+  }
+
   public async resetWelcomeSettings(): Promise<ApiResponse> {
     if (!this.isElectron) {
       const welcomeKeys = ['hasCompletedWelcome', 'selectedConfig', 'systemPrompt', 'enableWelcomeCaching'];
@@ -428,13 +445,6 @@ class ElectronApiClient {
     return window.electronAPI.storage.resetWelcomeSettings();
   }
 
-  // Config discovery methods
-  public async discoverBundledConfigs(): Promise<ApiResponse> {
-    if (!this.isElectron) {
-      throw new Error('Config discovery only available in Electron app');
-    }
-    return window.electronAPI.config.discoverBundled();
-  }
 
   // Python environment setup methods
   public async isEnvironmentSetupNeeded(): Promise<boolean> {

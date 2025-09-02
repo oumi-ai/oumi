@@ -84,6 +84,7 @@ export interface ElectronAPI {
     set: (key: string, value: any) => Promise<void>;
     delete: (key: string) => Promise<void>;
     clear: () => Promise<void>;
+    getAllKeys: () => Promise<string[]>;
     resetWelcomeSettings: () => Promise<any>;
   };
 
@@ -106,10 +107,6 @@ export interface ElectronAPI {
     clearAll: () => Promise<any>;
   };
 
-  // Config discovery
-  config: {
-    discoverBundled: () => Promise<any>;
-  };
 
   // Python environment setup
   python: {
@@ -221,7 +218,7 @@ const electronAPI: ElectronAPI = {
     getConfigs: () => ipcRenderer.invoke('chat:get-configs'),
     getModels: () => ipcRenderer.invoke('chat:get-models'),
 
-    getBranches: (sessionId = 'default') => ipcRenderer.invoke('chat:get-branches', sessionId),
+    getBranches: (sessionId) => ipcRenderer.invoke('chat:get-branches', sessionId),
     createBranch: (sessionId, name, parentBranchId) => 
       ipcRenderer.invoke('chat:create-branch', sessionId, name, parentBranchId),
     switchBranch: (sessionId, branchId) => 
@@ -229,9 +226,9 @@ const electronAPI: ElectronAPI = {
     deleteBranch: (sessionId, branchId) => 
       ipcRenderer.invoke('chat:delete-branch', sessionId, branchId),
 
-    getConversation: (sessionId = 'default', branchId = 'main') => 
+    getConversation: (sessionId, branchId = 'main') => 
       ipcRenderer.invoke('chat:get-conversation', sessionId, branchId),
-    sendMessage: (content, sessionId = 'default', branchId = 'main') => 
+    sendMessage: (content, sessionId, branchId = 'main') => 
       ipcRenderer.invoke('chat:send-message', content, sessionId, branchId),
 
     executeCommand: (command, args = []) => 
@@ -262,6 +259,7 @@ const electronAPI: ElectronAPI = {
     set: (key, value) => ipcRenderer.invoke('storage:set', key, value),
     delete: (key) => ipcRenderer.invoke('storage:delete', key),
     clear: () => ipcRenderer.invoke('storage:clear'),
+    getAllKeys: () => ipcRenderer.invoke('storage:get-all-keys'),
     resetWelcomeSettings: () => ipcRenderer.invoke('storage:reset-welcome-settings')
   },
 
@@ -284,10 +282,6 @@ const electronAPI: ElectronAPI = {
     clearAll: () => ipcRenderer.invoke('apikey:clear-all')
   },
 
-  // Config discovery
-  config: {
-    discoverBundled: () => ipcRenderer.invoke('config:discover-bundled')
-  },
 
   // Python environment setup
   python: {
