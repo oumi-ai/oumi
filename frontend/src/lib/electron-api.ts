@@ -94,7 +94,9 @@ class ElectronApiClient {
     if (!this.isElectron) {
       throw new Error('Server control only available in Electron app');
     }
-    return window.electronAPI.server.status();
+    const status = await window.electronAPI.server.status();
+    // Normalize to ApiResponse shape for callers
+    return { success: true, data: status };
   }
 
   public async testModel(configPath: string): Promise<ApiResponse<{ success: boolean; message?: string }>> {
