@@ -333,6 +333,10 @@ class UnifiedApiClient {
     return this.getClient().getModelStats();
   }
 
+  async clearModel(): Promise<ApiResponse> {
+    return this.getClient().clearModel();
+  }
+
   // File operations (Electron-specific, with fallbacks)
   async uploadFile(file: File): Promise<ApiResponse> {
     if (this.isElectron()) {

@@ -36,6 +36,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     setMessages,
     setBranches,
     generationParams,
+    updateMessage,
   } = useChatStore();
   
   // Initialize auto-save functionality
@@ -43,6 +44,9 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
 
   // State for stopping generation
   const [shouldStop, setShouldStop] = React.useState(false);
+  
+  // Ref to track current streaming message ID
+  const currentStreamingMessageId = React.useRef<string | null>(null);
 
   // Expose methods to parent via onRef callback
   React.useEffect(() => {
@@ -139,6 +143,9 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     setShouldStop(true);
     setLoading(false);
     setTyping(false);
+    
+    // Clear streaming state
+    currentStreamingMessageId.current = null;
   };
 
   const handleSendMessage = async (content: string, attachments?: any[]) => {
@@ -212,8 +219,68 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     }
   };
 
+  // Ensure model is loaded, attempt auto-reload if not
+  const ensureModelLoaded = async () => {
+    try {
+      // Check if model is currently loaded
+      const modelResponse = await apiClient.getModels();
+      if (modelResponse.success && modelResponse.data?.data?.[0]) {
+        // Model is loaded, we're good
+        return;
+      }
+      
+      console.log('🔄 No model loaded, attempting auto-reload...');
+      
+      // Add system message to inform user about auto-reload
+      const autoReloadMessage: Message = {
+        id: `system-${Date.now()}`,
+        role: 'assistant',
+        content: '🔄 No model is currently loaded. Attempting to load the selected model...',
+        timestamp: Date.now(),
+      };
+      addMessage(autoReloadMessage);
+      
+      // The backend uses lazy loading - making a test request should trigger model loading
+      // We'll make a simple health check to trigger the lazy loading
+      const healthResponse = await apiClient.health();
+      
+      // Wait a moment for potential model loading
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Check again if model is now loaded
+      const recheckResponse = await apiClient.getModels();
+      if (recheckResponse.success && recheckResponse.data?.data?.[0]) {
+        console.log('✅ Model auto-loaded successfully');
+        
+        const successMessage: Message = {
+          id: `system-${Date.now()}`,
+          role: 'assistant',
+          content: '✅ Model loaded successfully. You can now send your message.',
+          timestamp: Date.now(),
+        };
+        addMessage(successMessage);
+      } else {
+        throw new Error('Failed to auto-load model');
+      }
+      
+    } catch (error) {
+      console.error('❌ Model auto-reload failed:', error);
+      
+      const errorMessage: Message = {
+        id: `system-${Date.now()}`,
+        role: 'assistant',
+        content: '❌ Failed to load model automatically. Please use the Model Configuration panel to select and load a model, or check the System Monitor to reload the current model.',
+        timestamp: Date.now(),
+      };
+      addMessage(errorMessage);
+      
+      throw new Error('Model not available');
+    }
+  };
+
   const handleChatMessage = async (content: string) => {
     setTyping(true);
+    setShouldStop(false);
     
     try {
       // Prepare messages for API
@@ -227,33 +294,93 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
       // Add the current user message
       apiMessages.push({ role: 'user', content });
 
-      // Send to chat API
-      const response = await apiClient.chatCompletion({
-        messages: apiMessages,
-        session_id: 'default',
-        branch_id: currentBranchId,
-        temperature: generationParams.temperature,
-        max_tokens: generationParams.maxTokens,
-        top_p: generationParams.topP,
-      });
+      // Auto-reload model if needed before attempting chat
+      await ensureModelLoaded();
 
-      if (response.success && response.data) {
-        // Add assistant response
+      // Check if streaming is enabled
+      const useStreaming = generationParams.stream ?? false;
+      
+      if (useStreaming) {
+        console.log('🔄 Using streaming mode');
+        
+        // Create initial assistant message for progressive updates
+        const assistantMessageId = `assistant-${Date.now()}`;
         const assistantMessage: Message = {
-          id: `assistant-${Date.now()}`,
+          id: assistantMessageId,
           role: 'assistant',
-          content: response.data.choices?.[0]?.message?.content || 'No response generated',
+          content: '', // Start empty for streaming
           timestamp: Date.now(),
         };
-        addMessage(assistantMessage);
         
-        // Refresh branch data after successful chat exchange
-        await refreshBranches();
+        addMessage(assistantMessage);
+        currentStreamingMessageId.current = assistantMessageId;
+        
+        // Track accumulated content for streaming
+        let accumulatedContent = '';
+        
+        // Use streaming API
+        const response = await apiClient.streamChatCompletion({
+          messages: apiMessages,
+          session_id: 'default',
+          branch_id: currentBranchId,
+          temperature: generationParams.temperature,
+          max_tokens: generationParams.maxTokens,
+          top_p: generationParams.topP,
+          stream: true, // Explicitly enable streaming
+        }, (chunk: string) => {
+          // Progressive update callback - update the message with each chunk
+          if (currentStreamingMessageId.current && !shouldStop) {
+            accumulatedContent += chunk;
+            updateMessage(currentStreamingMessageId.current, {
+              content: accumulatedContent
+            });
+          }
+        });
+        
+        currentStreamingMessageId.current = null;
+        
+        if (!response.success) {
+          throw new Error(response.message || 'Streaming failed');
+        }
+        
+        console.log('✅ Streaming completed successfully');
+        
       } else {
-        throw new Error(response.message || 'Failed to get response');
+        console.log('🔄 Using non-streaming mode');
+        
+        // Use non-streaming API (original behavior)
+        const response = await apiClient.chatCompletion({
+          messages: apiMessages,
+          session_id: 'default',
+          branch_id: currentBranchId,
+          temperature: generationParams.temperature,
+          max_tokens: generationParams.maxTokens,
+          top_p: generationParams.topP,
+          stream: false, // Explicitly disable streaming
+        });
+
+        if (response.success && response.data) {
+          // Add complete assistant response
+          const assistantMessage: Message = {
+            id: `assistant-${Date.now()}`,
+            role: 'assistant',
+            content: response.data.choices?.[0]?.message?.content || 'No response generated',
+            timestamp: Date.now(),
+          };
+          addMessage(assistantMessage);
+        } else {
+          throw new Error(response.message || 'Failed to get response');
+        }
       }
+        
+      // Refresh branch data after successful chat exchange
+      await refreshBranches();
+      
     } catch (error) {
       console.error('Chat message error:', error);
+      
+      // Clear streaming state on error
+      currentStreamingMessageId.current = null;
       
       // Add error message
       const errorMessage: Message = {

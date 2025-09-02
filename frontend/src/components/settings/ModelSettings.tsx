@@ -5,7 +5,7 @@
 "use client";
 
 import React from 'react';
-import { Settings, Thermometer, Hash, Target, RotateCcw, FileText } from 'lucide-react';
+import { Settings, Thermometer, Hash, Target, RotateCcw, FileText, Zap } from 'lucide-react';
 import { useChatStore } from '@/lib/store';
 import apiClient from '@/lib/unified-api';
 
@@ -92,6 +92,7 @@ export default function ModelSettings({ className = '' }: ModelSettingsProps) {
     maxTokens: 2048,
     topP: 0.9,
     contextLength: 8192,
+    stream: false,
   };
 
 
@@ -171,6 +172,36 @@ export default function ModelSettings({ className = '' }: ModelSettingsProps) {
           formatValue={(v) => Math.round(v).toLocaleString() + ' tokens'}
         />
 
+        {/* Streaming Toggle */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="text-primary">
+                <Zap size={14} />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  Enable Streaming
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Show responses progressively as they are generated
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={generationParams.stream ?? false}
+                  onChange={(e) => updateGenerationParam('stream', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
         {/* Settings Info */}
         <div className="pt-4 border-t space-y-2">
           <h4 className="text-xs font-medium text-foreground">Quick Presets</h4>
@@ -217,7 +248,7 @@ export default function ModelSettings({ className = '' }: ModelSettingsProps) {
         {/* Current Settings Summary */}
         <div className="pt-4 border-t">
           <h4 className="text-xs font-medium text-foreground mb-2">Current Settings</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
             <div className="text-center p-2 bg-muted rounded">
               <div className="font-mono text-foreground">{(generationParams.temperature ?? 0.7).toFixed(1)}</div>
               <div className="text-muted-foreground">Temp</div>
@@ -233,6 +264,10 @@ export default function ModelSettings({ className = '' }: ModelSettingsProps) {
             <div className="text-center p-2 bg-muted rounded">
               <div className="font-mono text-foreground">{(generationParams.contextLength ?? 8192).toLocaleString()}</div>
               <div className="text-muted-foreground">Context</div>
+            </div>
+            <div className="text-center p-2 bg-muted rounded">
+              <div className="font-mono text-foreground">{generationParams.stream ? '✓ ON' : '✗ OFF'}</div>
+              <div className="text-muted-foreground">Stream</div>
             </div>
           </div>
         </div>

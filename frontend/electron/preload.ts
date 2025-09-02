@@ -41,6 +41,7 @@ export interface ElectronAPI {
     health: () => Promise<any>;
     getSystemStats: () => Promise<any>;
     getModelStats: () => Promise<any>;
+    clearModel: () => Promise<any>;
 
     // Chat operations
     chatCompletion: (request: any) => Promise<any>;
@@ -181,6 +182,7 @@ const electronAPI: ElectronAPI = {
     health: () => ipcRenderer.invoke('chat:health'),
     getSystemStats: () => ipcRenderer.invoke('chat:get-system-stats'),
     getModelStats: () => ipcRenderer.invoke('chat:get-model-stats'),
+    clearModel: () => ipcRenderer.invoke('chat:clear-model'),
 
     chatCompletion: (request) => ipcRenderer.invoke('chat:completion', request),
     streamChatCompletion: async (request, onChunk) => {

@@ -353,6 +353,13 @@ class ElectronApiClient {
     return window.electronAPI.chat.getModelStats();
   }
 
+  public async clearModel(): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('Clear model only available in Electron app');
+    }
+    return window.electronAPI.chat.clearModel();
+  }
+
   // Event system methods
   public on(channel: string, listener: (...args: any[]) => void): void {
     if (this.isElectron) {

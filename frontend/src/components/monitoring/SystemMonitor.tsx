@@ -1,11 +1,11 @@
 /**
- * System monitoring component with live CPU, RAM, GPU, and context usage
+ * System monitoring component with live CPU, RAM, GPU, context usage, and network activity
  */
 
 "use client";
 
 import React from 'react';
-import { Activity, Cpu, HardDrive, Zap, MessageSquare } from 'lucide-react';
+import { Activity, Cpu, HardDrive, Zap, MessageSquare, Wifi, WifiOff, Clock, Bot, Play, Square, RefreshCw } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 
 interface SystemStats {
@@ -20,6 +20,23 @@ interface SystemStats {
   context_max_tokens: number;
   context_percent: number;
   conversation_turns?: number;
+}
+
+interface ModelStatus {
+  loaded: boolean;
+  modelName?: string;
+  lastTested?: number;
+  testResult?: 'success' | 'failure' | 'unknown';
+}
+
+interface NetworkActivity {
+  activeRequests: number;
+  totalRequests: number;
+  successfulRequests: number;
+  failedRequests: number;
+  averageResponseTime: number;
+  lastRequestTime?: number;
+  connectionStatus: 'connected' | 'disconnected' | 'slow';
 }
 
 interface ProgressBarProps {
@@ -87,33 +104,202 @@ export default function SystemMonitor({
   updateInterval = 2000 // 2 seconds
 }: SystemMonitorProps) {
   const [stats, setStats] = React.useState<SystemStats | null>(null);
+  const [networkActivity, setNetworkActivity] = React.useState<NetworkActivity>({
+    activeRequests: 0,
+    totalRequests: 0,
+    successfulRequests: 0,
+    failedRequests: 0,
+    averageResponseTime: 0,
+    connectionStatus: 'disconnected'
+  });
+  const [modelStatus, setModelStatus] = React.useState<ModelStatus>({
+    loaded: false,
+    testResult: 'unknown'
+  });
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [isModelActionLoading, setIsModelActionLoading] = React.useState(false);
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const requestTimesRef = React.useRef<number[]>([]);
+  const requestCountRef = React.useRef({ total: 0, successful: 0, failed: 0 });
+
+  const trackNetworkRequest = (success: boolean, responseTime: number) => {
+    requestCountRef.current.total++;
+    if (success) {
+      requestCountRef.current.successful++;
+    } else {
+      requestCountRef.current.failed++;
+    }
+    
+    // Keep last 10 response times for average calculation
+    requestTimesRef.current.push(responseTime);
+    if (requestTimesRef.current.length > 10) {
+      requestTimesRef.current.shift();
+    }
+    
+    const avgResponseTime = requestTimesRef.current.reduce((a, b) => a + b, 0) / requestTimesRef.current.length;
+    const successRate = requestCountRef.current.successful / requestCountRef.current.total;
+    
+    let connectionStatus: 'connected' | 'disconnected' | 'slow' = 'connected';
+    if (avgResponseTime > 3000) {
+      connectionStatus = 'slow';
+    } else if (successRate < 0.8) {
+      connectionStatus = 'disconnected';
+    }
+    
+    setNetworkActivity({
+      activeRequests: 0, // Will be updated when requests are in flight
+      totalRequests: requestCountRef.current.total,
+      successfulRequests: requestCountRef.current.successful,
+      failedRequests: requestCountRef.current.failed,
+      averageResponseTime: avgResponseTime,
+      lastRequestTime: Date.now(),
+      connectionStatus
+    });
+  };
+
+  // Model status and control functions
+  const checkModelStatus = async () => {
+    try {
+      // Get current model information
+      const modelResponse = await apiClient.getModels();
+      if (modelResponse.success && modelResponse.data?.data?.[0]) {
+        const model = modelResponse.data.data[0];
+        setModelStatus(prev => ({
+          ...prev,
+          // Only set loaded to true if we've had a successful test
+          // Having model data just means it's available, not necessarily working
+          loaded: prev.testResult === 'success',
+          modelName: model.id,
+        }));
+      } else {
+        setModelStatus(prev => ({
+          ...prev,
+          loaded: false,
+          modelName: undefined,
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to check model status:', error);
+      setModelStatus(prev => ({
+        ...prev,
+        loaded: false,
+        modelName: undefined,
+      }));
+    }
+  };
+
+  const testModel = async () => {
+    if (!modelStatus.modelName) return;
+    
+    setIsModelActionLoading(true);
+    try {
+      // Use the current model's config path for testing
+      const response = await apiClient.testModel(modelStatus.modelName);
+      const success = response.success && response.data?.success;
+      
+      setModelStatus(prev => ({
+        loaded: Boolean(success), // Only set loaded to true if test succeeds
+        modelName: prev.modelName,
+        lastTested: Date.now(),
+        testResult: success ? 'success' : 'failure',
+      }));
+      
+      console.log(success ? '✅ Model test successful' : '❌ Model test failed', response.data?.message);
+    } catch (error) {
+      console.error('Model test error:', error);
+      setModelStatus(prev => ({
+        loaded: false, // Test failed, so not loaded
+        modelName: prev.modelName,
+        lastTested: Date.now(),
+        testResult: 'failure',
+      }));
+    } finally {
+      setIsModelActionLoading(false);
+    }
+  };
+
+  const unloadModel = async () => {
+    setIsModelActionLoading(true);
+    try {
+      const response = await apiClient.clearModel();
+      if (response.success) {
+        setModelStatus(prev => ({
+          ...prev,
+          loaded: false,
+          testResult: 'unknown',
+          lastTested: undefined,
+        }));
+        console.log('🧹 Model unloaded successfully');
+      } else {
+        throw new Error(response.message || 'Failed to unload model');
+      }
+    } catch (error) {
+      console.error('Failed to unload model:', error);
+    } finally {
+      setIsModelActionLoading(false);
+    }
+  };
+
+  const reloadModel = async () => {
+    setIsModelActionLoading(true);
+    try {
+      // First unload the model
+      await unloadModel();
+      
+      // Wait a bit then check if model is available (but not loaded until tested)
+      setTimeout(async () => {
+        await checkModelStatus();
+        // After reload, we need to test to confirm it's actually loaded
+        if (modelStatus.modelName) {
+          // Test the newly available model
+          await testModel();
+        }
+        setIsModelActionLoading(false);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to reload model:', error);
+      setIsModelActionLoading(false);
+    }
+  };
 
   const fetchStats = async () => {
+    const startTime = Date.now();
+    setNetworkActivity(prev => ({ ...prev, activeRequests: prev.activeRequests + 1 }));
+    
     try {
       const response = await apiClient.getSystemStats();
+      const responseTime = Date.now() - startTime;
       
       if (response.success && response.data) {
         setStats(response.data);
         setError(null);
+        trackNetworkRequest(true, responseTime);
       } else {
+        trackNetworkRequest(false, responseTime);
         throw new Error(response.message || 'Failed to fetch system stats');
       }
     } catch (err) {
+      const responseTime = Date.now() - startTime;
+      trackNetworkRequest(false, responseTime);
       console.error('System monitor error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch stats');
     } finally {
+      setNetworkActivity(prev => ({ ...prev, activeRequests: Math.max(0, prev.activeRequests - 1) }));
       setIsLoading(false);
     }
   };
 
   // Start polling when component mounts
   React.useEffect(() => {
-    fetchStats(); // Initial load
+    const fetchAll = async () => {
+      await fetchStats(); // System stats
+      await checkModelStatus(); // Model status
+    };
     
-    intervalRef.current = setInterval(fetchStats, updateInterval);
+    fetchAll(); // Initial load
+    
+    intervalRef.current = setInterval(fetchAll, updateInterval);
     
     return () => {
       if (intervalRef.current) {
@@ -159,7 +345,7 @@ export default function SystemMonitor({
     <div className={`bg-card rounded-lg p-4 border space-y-4 ${className}`}>
       <div className="flex items-center gap-2 text-foreground">
         <Activity size={16} />
-        <span className="text-sm font-semibold">System Monitor</span>
+        <span className="text-sm font-semibold">System & Network Monitor</span>
         <div className="ml-auto">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
         </div>
@@ -213,6 +399,152 @@ export default function SystemMonitor({
           formatValue={formatTokens}
           formatMax={formatTokens}
         />
+
+        {/* Network Activity */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded bg-cyan-100">
+              {networkActivity.connectionStatus === 'connected' ? (
+                <Wifi size={12} className="text-cyan-600" />
+              ) : networkActivity.connectionStatus === 'slow' ? (
+                <Clock size={12} className="text-yellow-600" />
+              ) : (
+                <WifiOff size={12} className="text-red-600" />
+              )}
+            </div>
+            <span className="text-sm font-medium text-foreground">Network Activity</span>
+            <div className="ml-auto flex items-center gap-1">
+              {networkActivity.activeRequests > 0 && (
+                <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
+              )}
+              <span className="text-xs text-muted-foreground capitalize">
+                {networkActivity.connectionStatus}
+              </span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Requests:</span>
+              <span className="font-mono">{networkActivity.totalRequests}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Active:</span>
+              <span className="font-mono">{networkActivity.activeRequests}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-green-600">Success:</span>
+              <span className="font-mono">{networkActivity.successfulRequests}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-red-600">Failed:</span>
+              <span className="font-mono">{networkActivity.failedRequests}</span>
+            </div>
+          </div>
+          
+          {networkActivity.averageResponseTime > 0 && (
+            <div className="flex justify-between text-xs pt-1 border-t">
+              <span className="text-muted-foreground">Avg Response:</span>
+              <span className="font-mono">
+                {networkActivity.averageResponseTime < 1000 
+                  ? `${Math.round(networkActivity.averageResponseTime)}ms`
+                  : `${(networkActivity.averageResponseTime / 1000).toFixed(1)}s`
+                }
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Model Status */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded bg-blue-100">
+              <Bot size={12} className="text-blue-600" />
+            </div>
+            <span className="text-sm font-medium text-foreground">Model Status</span>
+            <div className="ml-auto flex items-center gap-1">
+              <div 
+                className={`w-2 h-2 rounded-full ${
+                  modelStatus.testResult === 'success' ? 'bg-green-500' :
+                  modelStatus.testResult === 'failure' ? 'bg-red-500' :
+                  'bg-gray-400'
+                }`} 
+              />
+              <span className={`text-xs capitalize ${
+                modelStatus.loaded ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {modelStatus.loaded ? 'Loaded' : 'Unloaded'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-2 text-xs">
+            {modelStatus.modelName && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Model:</span>
+                <span className="font-mono text-right truncate ml-2" title={modelStatus.modelName}>
+                  {modelStatus.modelName.length > 20 
+                    ? `${modelStatus.modelName.slice(0, 17)}...`
+                    : modelStatus.modelName
+                  }
+                </span>
+              </div>
+            )}
+            
+            {modelStatus.lastTested && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Last Test:</span>
+                <span className={`font-mono ${
+                  modelStatus.testResult === 'success' ? 'text-green-600' :
+                  modelStatus.testResult === 'failure' ? 'text-red-600' :
+                  'text-gray-600'
+                }`}>
+                  {new Date(modelStatus.lastTested).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              </div>
+            )}
+          </div>
+          
+          {/* Model Control Buttons */}
+          <div className="flex gap-1 pt-1">
+            <button
+              onClick={testModel}
+              disabled={!modelStatus.modelName || isModelActionLoading}
+              className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Test model functionality"
+            >
+              {isModelActionLoading ? (
+                <RefreshCw size={10} className="animate-spin" />
+              ) : (
+                <Play size={10} />
+              )}
+              Test
+            </button>
+            
+            <button
+              onClick={modelStatus.loaded ? unloadModel : reloadModel}
+              disabled={isModelActionLoading}
+              className={`flex items-center gap-1 px-2 py-1 text-xs rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                modelStatus.loaded 
+                  ? 'bg-red-100 hover:bg-red-200 text-red-700'
+                  : 'bg-green-100 hover:bg-green-200 text-green-700'
+              }`}
+              title={modelStatus.loaded ? 'Unload model from memory' : 'Reload model into memory'}
+            >
+              {isModelActionLoading ? (
+                <RefreshCw size={10} className="animate-spin" />
+              ) : modelStatus.loaded ? (
+                <Square size={10} />
+              ) : (
+                <Play size={10} />
+              )}
+              {modelStatus.loaded ? 'Unload' : 'Reload'}
+            </button>
+          </div>
+        </div>
 
         {/* Conversation Stats */}
         {stats.conversation_turns !== undefined && (

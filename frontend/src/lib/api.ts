@@ -257,6 +257,12 @@ class ApiClient {
     return this.fetchApi('/v1/models');
   }
 
+  async clearModel(): Promise<ApiResponse> {
+    return this.fetchApi('/v1/oumi/clear_model', {
+      method: 'POST'
+    });
+  }
+
   // File operations
   async uploadFile(file: File): Promise<ApiResponse> {
     const formData = new FormData();

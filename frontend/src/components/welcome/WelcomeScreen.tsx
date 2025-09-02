@@ -8,6 +8,7 @@ import React from 'react';
 import { Bot, Search, Zap, Settings, ArrowRight, Loader2, AlertCircle, CheckCircle2, MessageSquare, Wand2, BookOpen, Heart, Briefcase, Code, Gamepad2, Save, Star, AlertTriangle } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 import DownloadProgressMonitor from '@/components/monitoring/DownloadProgressMonitor';
+import SystemMonitor from '@/components/monitoring/SystemMonitor';
 import PythonSetupProgress from '@/components/monitoring/PythonSetupProgress';
 import ErrorDialog from '@/components/ui/ErrorDialog';
 import useErrorHandler from '@/hooks/useErrorHandler';
@@ -663,6 +664,10 @@ export default function WelcomeScreen({ onConfigSelected, systemCapabilities }: 
                   className="bg-primary h-2 rounded-full transition-all duration-300 ease-out animate-pulse"
                   style={{ width: '60%' }}
                 ></div>
+              </div>
+              
+              <div className="mt-6 max-w-md mx-auto">
+                <SystemMonitor />
               </div>
               
               <div className="mt-4">

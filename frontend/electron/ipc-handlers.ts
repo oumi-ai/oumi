@@ -359,6 +359,33 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
       };
     } catch (error) {
       log.error(`Proxy error for ${endpoint}:`, error);
+      
+      // Special handling for chat completion fetch failures (likely OOM)
+      if (endpoint === '/v1/chat/completions' && error instanceof Error && error.message === 'fetch failed') {
+        // Attempt to purge model from memory
+        let purgeStatus = '';
+        try {
+          const purgeResult = await proxyToPython('/v1/oumi/clear_model', { method: 'POST' });
+          if (purgeResult.success) {
+            log.info('✅ Model successfully purged from memory after fetch failure');
+            purgeStatus = '\n\n✅ **Model cleared from memory** - Resources have been freed up.';
+          } else {
+            log.warn('⚠️ Model purge attempt returned failure:', purgeResult.message);
+            purgeStatus = '\n\n⚠️ **Model purge attempted** - May need manual restart if issues persist.';
+          }
+        } catch (purgeError) {
+          log.warn('❌ Failed to purge model after fetch failure:', purgeError);
+          purgeStatus = '\n\n❌ **Unable to clear model** - Manual restart recommended.';
+        }
+        
+        return {
+          success: false,
+          message: `🧠 **Memory Issue Detected**\n\nThe backend likely ran out of memory (OOM) during response generation. This prevents the assistant from completing the response.\n\n**Recommended actions:**\n• Delete the most recent messages and try again\n• Lower the temperature setting\n• Switch to a smaller model\n• Restart the application if issues persist${purgeStatus}`,
+          error: 'backend_oom_likely',
+          isOOM: true
+        };
+      }
+      
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Network error',
@@ -371,6 +398,7 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
   ipcMain.handle('chat:health', () => proxyToPython('/health'));
   ipcMain.handle('chat:get-system-stats', () => proxyToPython('/v1/oumi/system_stats'));
   ipcMain.handle('chat:get-model-stats', () => proxyToPython('/v1/models'));
+  ipcMain.handle('chat:clear-model', () => proxyToPython('/v1/oumi/clear_model', { method: 'POST' }));
 
   // Chat completion
   ipcMain.handle('chat:completion', (_, request) => 

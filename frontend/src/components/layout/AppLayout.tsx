@@ -12,7 +12,7 @@ import SystemChangeWarning from '@/components/monitoring/SystemChangeWarning';
 import { useChatStore } from '@/lib/store';
 import apiClient from '@/lib/unified-api';
 import { useConversationCommand, COMMAND_CONFIGS } from '@/hooks/useConversationCommand';
-import { Maximize2, Minimize2, Settings, RotateCcw, PanelLeft, PanelLeftClose, X, Search } from 'lucide-react';
+import { Maximize2, Minimize2, Settings, RotateCcw, PanelLeft, PanelLeftClose, X, Search, History } from 'lucide-react';
 import SettingsScreen from '@/components/settings/SettingsScreen';
 import ChatHistorySidebar from '@/components/history/ChatHistorySidebar';
 import SearchHistoryWindow from '@/components/search/SearchHistoryWindow';
@@ -21,7 +21,7 @@ import { ChatInterfaceRef } from '@/components/chat/ChatInterface';
 export default function AppLayout() {
   const [isBranchTreeExpanded, setIsBranchTreeExpanded] = React.useState(true);
   const [isControlPanelExpanded, setIsControlPanelExpanded] = React.useState(true);
-  const [showChatHistory, setShowChatHistory] = React.useState(false);
+  const [showChatHistory, setShowChatHistory] = React.useState(true);
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const [showSearchHistory, setShowSearchHistory] = React.useState(false);
@@ -342,8 +342,6 @@ export default function AppLayout() {
             className="min-h-screen" 
             isCollapsed={!isControlPanelExpanded}
             onToggleCollapse={() => setIsControlPanelExpanded(!isControlPanelExpanded)}
-            onToggleChatHistory={() => setShowChatHistory(!showChatHistory)}
-            showChatHistory={showChatHistory}
           />
         </div>
 
@@ -362,6 +360,21 @@ export default function AppLayout() {
           (isBranchTreeExpanded || showChatHistory) ? 'translate-x-0' : 'translate-x-full'
         }`}>
           <div className="h-full flex flex-col">
+            {/* Right sidebar header with toggle button */}
+            <div className="bg-card border-b p-3 flex items-center justify-between">
+              <h3 className="font-medium text-foreground text-sm">Sidebar</h3>
+              <button
+                onClick={() => setShowChatHistory(!showChatHistory)}
+                className={`p-1 hover:bg-muted rounded transition-colors ${
+                  showChatHistory 
+                    ? 'text-orange-600 bg-orange-100 dark:bg-orange-900/30' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title={showChatHistory ? 'Hide chat history' : 'Show chat history'}
+              >
+                <History size={16} />
+              </button>
+            </div>
             {/* Branch Tree - shows when branch tree is expanded */}
             {isBranchTreeExpanded && (
               <div className={`${showChatHistory ? 'flex-1' : 'h-full'} min-h-0`}>

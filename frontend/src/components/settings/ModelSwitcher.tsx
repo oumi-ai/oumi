@@ -207,6 +207,15 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
     }, 2000);
 
     try {
+      // Clear model from memory before switching to ensure clean state
+      console.log('🧹 Clearing model before model switch...');
+      const clearResult = await apiClient.clearModel();
+      if (clearResult.success) {
+        console.log('✅ Model cleared successfully before model switch');
+      } else {
+        console.warn('⚠️ Model clear failed, continuing with model switch:', clearResult.message);
+      }
+      
       // Use the command API to switch models using config path
       console.log(`🔄 Attempting to switch model using config: ${configPath}`);
       const response = await apiClient.executeCommand('swap', [configPath]);

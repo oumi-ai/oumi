@@ -34,6 +34,35 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
   React.useEffect(() => {
     console.log('🌿 BranchTree: branches updated:', branches.length, branches.map(b => b.name));
   }, [branches]);
+
+  // Update branch message counts when messages change
+  React.useEffect(() => {
+    if (branches.length > 0) {
+      const updatedBranches = branches.map(branch => {
+        if (branch.isActive) {
+          const messageCount = messages.length;
+          return {
+            ...branch,
+            messageCount,
+            preview: messageCount > 0 
+              ? `${messageCount} message${messageCount !== 1 ? 's' : ''}`
+              : 'Empty branch',
+          };
+        }
+        return branch;
+      });
+      
+      // Only update if there's actually a change to avoid infinite loops
+      const hasChanges = updatedBranches.some((branch, index) => 
+        branch.messageCount !== branches[index].messageCount ||
+        branch.preview !== branches[index].preview
+      );
+      
+      if (hasChanges) {
+        setBranches(updatedBranches);
+      }
+    }
+  }, [messages, branches, setBranches]);
   
   const [isCreating, setIsCreating] = React.useState(false);
   const [newBranchName, setNewBranchName] = React.useState('');
@@ -77,47 +106,29 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     try {
       const response = await apiClient.getBranches('default');
       if (response.success && response.data) {
-        const formattedBranches: ConversationBranch[] = response.data.branches.map((branch: any) => ({
-          id: branch.id,
-          name: branch.name,
-          isActive: branch.id === response.data?.current_branch,
-          messageCount: branch.message_count || 0,
-          createdAt: branch.created_at,
-          lastActive: branch.last_active,
-          preview: branch.preview || 'Empty branch',
-          parentId: branch.parent,
-        }));
+        const formattedBranches: ConversationBranch[] = response.data.branches.map((branch: any) => {
+          // Use real-time message count from store for the active branch
+          const isActive = branch.id === response.data?.current_branch;
+          const realTimeMessageCount = isActive ? messages.length : (branch.message_count || 0);
+          
+          return {
+            id: branch.id,
+            name: branch.name,
+            isActive: isActive,
+            messageCount: realTimeMessageCount,
+            createdAt: branch.created_at,
+            lastActive: branch.last_active,
+            preview: realTimeMessageCount > 0 
+              ? `${realTimeMessageCount} message${realTimeMessageCount !== 1 ? 's' : ''}`
+              : 'Empty branch',
+            parentId: branch.parent,
+          };
+        });
         setBranches(formattedBranches);
         setCurrentBranch(response.data?.current_branch || 'main');
-      } else if (!response.success) {
-        // Backend may not be ready yet, set up default branch
-        console.warn('Backend not ready, setting up default branch:', response.message);
-        setBranches([{
-          id: 'main',
-          name: 'main',
-          isActive: true,
-          messageCount: 0,
-          createdAt: new Date().toISOString(),
-          lastActive: new Date().toISOString(),
-          preview: 'Empty branch',
-          parentId: undefined,
-        }]);
-        setCurrentBranch('main');
       }
     } catch (error) {
-      console.warn('Backend connection failed, setting up default branch:', error);
-      // Set up default state when backend is not available
-      setBranches([{
-        id: 'main',
-        name: 'main',
-        isActive: true,
-        messageCount: 0,
-        createdAt: new Date().toISOString(),
-        lastActive: new Date().toISOString(),
-        preview: 'Empty branch',
-        parentId: undefined,
-      }]);
-      setCurrentBranch('main');
+      console.warn('Backend connection failed:', error);
     }
   };
 
@@ -178,6 +189,15 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     if (branchId === currentBranchId) return;
 
     try {
+      // Clear model from memory before switching branches to ensure clean state
+      console.log('🧹 Clearing model before branch switch...');
+      const clearResult = await apiClient.clearModel();
+      if (clearResult.success) {
+        console.log('✅ Model cleared successfully before branch switch');
+      } else {
+        console.warn('⚠️ Model clear failed, continuing with branch switch:', clearResult.message);
+      }
+      
       const response = await apiClient.switchBranch('default', branchId);
       
       if (response.success) {

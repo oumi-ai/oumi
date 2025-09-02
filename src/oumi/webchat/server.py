@@ -1517,6 +1517,55 @@ class OumiWebServer(OpenAICompatibleServer):
                 {"error": "Failed to scan configuration files"}, status=500
             )
 
+    async def handle_clear_model_api(self, request: web.Request) -> web.Response:
+        """Handle clearing/unloading the current model from memory."""
+        try:
+            session_id = request.query.get("session_id", "default")
+            session = await self.get_or_create_session(session_id)
+            
+            logger.info(f"🧹 Clearing model from memory for session {session_id}")
+            
+            # Clear the inference engine if it exists
+            if hasattr(session, 'inference_engine') and session.inference_engine is not None:
+                # Call dispose method if available
+                if hasattr(session.inference_engine, 'dispose'):
+                    session.inference_engine.dispose()
+                elif hasattr(session.inference_engine, 'close'):
+                    session.inference_engine.close()
+                
+                # Clear the engine reference
+                session.inference_engine = None
+                logger.info("✅ Inference engine cleared")
+            
+            # Force garbage collection and CUDA cache clearing
+            import gc
+            gc.collect()
+            
+            # Clear CUDA cache if available
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    logger.info("✅ CUDA cache cleared")
+            except ImportError:
+                logger.debug("PyTorch not available, skipping CUDA cache clear")
+            except Exception as e:
+                logger.warning(f"Failed to clear CUDA cache: {e}")
+            
+            logger.info("✅ Model clearing completed successfully")
+            
+            return web.json_response({
+                "success": True,
+                "message": "Model cleared from memory successfully"
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error clearing model: {e}")
+            return web.json_response({
+                "success": False,
+                "error": f"Failed to clear model: {str(e)}"
+            }, status=500)
+
     def _scan_inference_config_files(self):
         """Scan the configs directory for inference YAML files (*_infer.yaml)."""
         import os
@@ -1849,6 +1898,7 @@ class OumiWebServer(OpenAICompatibleServer):
         app.router.add_get("/v1/oumi/conversation", self.handle_get_conversation_api)
         app.router.add_get("/v1/oumi/system_stats", self.handle_system_stats_api)
         app.router.add_get("/v1/oumi/configs", self.handle_get_configs_api)
+        app.router.add_post("/v1/oumi/clear_model", self.handle_clear_model_api)
 
         # Add CORS OPTIONS handlers for all endpoints that need preflight
         cors_endpoints = [
@@ -1861,6 +1911,7 @@ class OumiWebServer(OpenAICompatibleServer):
             "/v1/oumi/sync_conversation",
             "/v1/oumi/system_stats",  # Add system stats endpoint
             "/v1/oumi/configs",  # Add configs endpoint
+            "/v1/oumi/clear_model",  # Add clear model endpoint
         ]
         
         if ENHANCED_FEATURES_AVAILABLE:

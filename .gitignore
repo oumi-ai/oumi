@@ -185,3 +185,6 @@ cython_debug/
 
 # VS Code Workspace
 oumi.code-workspace
+ 
+# Local contributor guide (not tracked)
+AGENTS.md

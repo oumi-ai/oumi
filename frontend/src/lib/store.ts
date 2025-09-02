@@ -604,6 +604,8 @@ export const useChatStore = create<ChatStore>()(
     {
       name: 'chatterley-settings',
       partialize: (state) => ({
+        // Only persist app settings and generation parameters.
+        // Do NOT persist conversations/messages/branches to ensure fresh sessions by default.
         settings: {
           ...state.settings,
           // Encrypt API keys before persisting
@@ -618,12 +620,6 @@ export const useChatStore = create<ChatStore>()(
           ),
         },
         generationParams: state.generationParams,
-        // Persist conversation history
-        conversations: state.conversations,
-        currentConversationId: state.currentConversationId,
-        messages: state.messages,
-        branches: state.branches,
-        currentBranchId: state.currentBranchId,
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.settings) {
@@ -676,6 +672,26 @@ export const useChatStore = create<ChatStore>()(
               ...state.settings.notifications,
             };
           }
+        }
+
+        // Always start with a fresh chat on app load: clear any rehydrated
+        // conversation state, messages, and branches.
+        if (state) {
+          state.messages = [];
+          state.conversations = [];
+          state.currentConversationId = null;
+          state.branches = [
+            {
+              id: 'main',
+              name: 'Main',
+              isActive: true,
+              messageCount: 0,
+              createdAt: new Date().toISOString(),
+              lastActive: new Date().toISOString(),
+              preview: 'New conversation',
+            },
+          ];
+          state.currentBranchId = 'main';
         }
       },
     }
