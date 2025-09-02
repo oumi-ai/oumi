@@ -30,6 +30,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     isLoading,
     isTyping,
     currentBranchId,
+    currentConversationId,
     addMessage,
     setLoading,
     setTyping,
@@ -59,10 +60,15 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     }
   }, [onRef]);
 
-  // Load conversation history on mount and branch changes
+  // Only load conversation history when switching between existing branches/conversations
+  // For fresh sessions, we start with empty messages (as configured in store.ts)
   React.useEffect(() => {
-    loadConversation();
-  }, [currentBranchId]);
+    // Only load conversation if we have an active conversation ID
+    // This prevents loading old conversations on fresh app startup
+    if (currentConversationId) {
+      loadConversation();
+    }
+  }, [currentBranchId, currentConversationId]);
 
   const refreshBranches = async () => {
     try {

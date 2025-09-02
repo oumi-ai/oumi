@@ -167,24 +167,25 @@ export default function SystemMonitor({
         const model = modelResponse.data.data[0];
         setModelStatus(prev => ({
           ...prev,
-          // Only set loaded to true if we've had a successful test
-          // Having model data just means it's available, not necessarily working
-          loaded: prev.testResult === 'success',
+          // Preserve the loaded status - only change it through explicit test/unload actions
+          // Don't override the loaded status based on model availability
           modelName: model.id,
         }));
       } else {
         setModelStatus(prev => ({
           ...prev,
-          loaded: false,
+          loaded: false, // If no model available, definitely not loaded
           modelName: undefined,
+          testResult: 'unknown',
         }));
       }
     } catch (error) {
       console.error('Failed to check model status:', error);
       setModelStatus(prev => ({
         ...prev,
-        loaded: false,
+        loaded: false, // On error, assume not loaded
         modelName: undefined,
+        testResult: 'unknown',
       }));
     }
   };
