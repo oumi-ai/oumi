@@ -104,7 +104,8 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
 
   const loadBranches = async () => {
     try {
-      const response = await apiClient.getBranches('default');
+      const sessionId = useChatStore.getState().getCurrentSessionId();
+      const response = await apiClient.getBranches(sessionId);
       if (response.success && response.data) {
         const formattedBranches: ConversationBranch[] = response.data.branches.map((branch: any) => {
           // Use real-time message count from store for the active branch
@@ -149,7 +150,8 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
 
     setIsCreating(true);
     try {
-      const response = await apiClient.createBranch('default', name, parentId);
+      const sessionId = useChatStore.getState().getCurrentSessionId();
+      const response = await apiClient.createBranch(sessionId, name, parentId);
       
       if (response.success && response.data && response.data.branch) {
         const branchData = response.data.branch;
@@ -198,7 +200,8 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
         console.warn('⚠️ Model clear failed, continuing with branch switch:', clearResult.message);
       }
       
-      const response = await apiClient.switchBranch('default', branchId);
+      const sessionId = useChatStore.getState().getCurrentSessionId();
+      const response = await apiClient.switchBranch(sessionId, branchId);
       
       if (response.success) {
         setCurrentBranch(branchId);
@@ -229,7 +232,8 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     }
 
     try {
-      const response = await apiClient.deleteBranch('default', branchId);
+      const sessionId = useChatStore.getState().getCurrentSessionId();
+      const response = await apiClient.deleteBranch(sessionId, branchId);
       
       if (response.success) {
         deleteBranch(branchId);

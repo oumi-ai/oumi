@@ -37,7 +37,8 @@ export function useConversationCommand() {
    */
   const refreshConversation = async (): Promise<boolean> => {
     try {
-      const conversationResponse = await apiClient.getConversation('default', 'main');
+      const { getCurrentSessionId } = useChatStore.getState();
+      const conversationResponse = await apiClient.getConversation(getCurrentSessionId(), 'main');
       if (conversationResponse.success && conversationResponse.data?.conversation) {
         setMessages(conversationResponse.data.conversation);
         console.log(`🔄 Conversation refreshed with ${conversationResponse.data.conversation.length} messages`);
@@ -55,7 +56,8 @@ export function useConversationCommand() {
    */
   const refreshBranches = async (): Promise<boolean> => {
     try {
-      const branchesResponse = await apiClient.getBranches('default');
+      const { getCurrentSessionId } = useChatStore.getState();
+      const branchesResponse = await apiClient.getBranches(getCurrentSessionId());
       if (branchesResponse.success && branchesResponse.data) {
         const { branches, current_branch } = branchesResponse.data;
         
