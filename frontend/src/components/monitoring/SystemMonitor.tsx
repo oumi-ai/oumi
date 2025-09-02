@@ -340,7 +340,6 @@ export default function SystemMonitor({
     
     try {
       const sessionId = getCurrentSessionId();
-      console.log('[SYSTEM_MONITOR] Fetching stats for session:', sessionId);
 
       // Frontend-only fallback if backend server isn't running (Electron only)
       if (apiClient.isElectron && apiClient.isElectron()) {
@@ -365,9 +364,7 @@ export default function SystemMonitor({
 
       const response = await apiClient.getSystemStats(sessionId);
       const responseTime = Date.now() - startTime;
-      
-      console.log('[SYSTEM_MONITOR] API response:', { success: response.success, hasData: !!response.data });
-      
+            
       if (response.success && response.data) {
         if (useFallback) setUseFallback(false);
         setStats(response.data);

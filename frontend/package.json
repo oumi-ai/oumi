@@ -114,27 +114,31 @@
     ],
     "extraResources": [
       {
-        "from": "../src/oumi/",
-        "to": "python/oumi/",
+        "from": "../",
+        "to": "python/",
         "filter": [
-          "**/*.py",
-          "**/*.yaml",
-          "**/*.json",
-          "**/*.txt",
+          "pyproject.toml",
+          "README.md", 
+          "LICENSE",
+          "src/**/*.py",
+          "configs/**/*.yaml",
+          "configs/**/*.json", 
+          "configs/**/*.md",
+          "!src/**/__pycache__/**",
+          "!src/**/*.pyc",
+          "!src/**/*.pyo",
+          "!src/**/test/**",
+          "!src/**/tests/**",
+          "!tests/**",
+          "!frontend/**",
+          "!docs/**",
+          "!notebooks/**",
+          "!scripts/**",
+          "!.git/**",
+          "!**/.git/**",
           "!**/__pycache__/**",
           "!**/*.pyc",
-          "!**/*.pyo",
-          "!**/test/**",
-          "!**/tests/**"
-        ]
-      },
-      {
-        "from": "../configs/",
-        "to": "python/configs/",
-        "filter": [
-          "**/*.yaml",
-          "**/*.json",
-          "**/*.md"
+          "!**/*.pyo"
         ]
       }
     ],

@@ -73,24 +73,42 @@ function getBundledPythonPath(): string | null {
 
   const resourcesPath = process.resourcesPath;
   const platform = process.platform;
-  const arch = process.arch;
 
-  let pythonExe = 'python';
   if (platform === 'win32') {
-    pythonExe = 'python.exe';
-  }
-
-  // Try platform-specific bundled path
-  const bundledPath = path.join(resourcesPath, 'python-dist', 'bin', pythonExe);
-  
-  if (fs.existsSync(bundledPath)) {
-    return bundledPath;
-  }
-
-  // Alternative path structure
-  const altPath = path.join(resourcesPath, 'python', 'bin', pythonExe);
-  if (fs.existsSync(altPath)) {
-    return altPath;
+    // Windows: flattened structure at root level
+    const winPath = path.join(resourcesPath, 'python-dist', 'python.exe');
+    if (fs.existsSync(winPath)) {
+      return winPath;
+    }
+    
+    // Alternative Windows path structure  
+    const altWinPath = path.join(resourcesPath, 'python', 'python.exe');
+    if (fs.existsSync(altWinPath)) {
+      return altWinPath;
+    }
+  } else {
+    // Unix-like: flattened structure in bin/ subdirectory
+    const unixPath = path.join(resourcesPath, 'python-dist', 'bin', 'python3');
+    if (fs.existsSync(unixPath)) {
+      return unixPath;
+    }
+    
+    // Fallback to 'python' instead of 'python3'
+    const unixPath2 = path.join(resourcesPath, 'python-dist', 'bin', 'python');
+    if (fs.existsSync(unixPath2)) {
+      return unixPath2;
+    }
+    
+    // Alternative Unix path structure
+    const altUnixPath = path.join(resourcesPath, 'python', 'bin', 'python3');
+    if (fs.existsSync(altUnixPath)) {
+      return altUnixPath;
+    }
+    
+    const altUnixPath2 = path.join(resourcesPath, 'python', 'bin', 'python');
+    if (fs.existsSync(altUnixPath2)) {
+      return altUnixPath2;
+    }
   }
 
   return null;

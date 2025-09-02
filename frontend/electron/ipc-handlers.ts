@@ -366,9 +366,7 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
   async function proxyToPython(endpoint: string, options: RequestInit = {}): Promise<any> {
     const baseUrl = getBaseUrl();
     const url = `${baseUrl}${endpoint}`;
-    
-    console.log(`[IPC_PROXY_DEBUG] Full URL: ${url} | Base URL: ${baseUrl} | Endpoint: ${endpoint}`);
-    
+        
     try {
       // Retry idempotent requests (GET/HEAD) to smooth over brief server restarts
       const method = (options.method || 'GET').toUpperCase();
@@ -391,10 +389,11 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
       const data = await response.json();
       
       if (!response.ok) {
+        const errMessage = (data && (data.message || data.error?.message || data.error)) || response.statusText;
         return {
           success: false,
-          message: data.message || response.statusText,
-          error: data.error || response.statusText,
+          message: errMessage,
+          error: data?.error || errMessage,
         };
       }
 
@@ -472,7 +471,8 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
 
       if (!response.ok) {
         const errorData = await response.json();
-        event.sender.send(`chat:stream-error:${streamId}`, errorData.message || response.statusText);
+        const errMessage = (errorData && (errorData.message || errorData.error?.message || errorData.error)) || response.statusText;
+        event.sender.send(`chat:stream-error:${streamId}`, errMessage);
         return;
       }
 

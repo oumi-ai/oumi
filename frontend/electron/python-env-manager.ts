@@ -68,24 +68,35 @@ export class PythonEnvironmentManager {
       
     const pythonDist = path.join(resourcesPath, 'python-dist');
     
-    // Platform-specific directory structure
-    const platform = process.platform;
-    const arch = process.arch;
-    
-    let platformDir: string;
-    if (platform === 'darwin') {
-      platformDir = `darwin-${arch}`; // darwin-arm64, darwin-x64
-    } else if (platform === 'win32') {
-      platformDir = `win32-${arch}`;  // win32-x64
+    // In packaged apps, the platform-specific directory is flattened to python-dist/
+    // During development, we maintain the nested structure
+    if (app.isPackaged) {
+      // Production: flattened structure (python-dist/bin/python3 or python-dist/python.exe)
+      if (process.platform === 'win32') {
+        return path.join(pythonDist, 'python.exe');
+      } else {
+        return path.join(pythonDist, 'bin', 'python3');
+      }
     } else {
-      platformDir = `linux-${arch}`;  // linux-x64
-    }
-    
-    // Find the Python executable in the platform-specific directory
-    if (platform === 'win32') {
-      return path.join(pythonDist, platformDir, 'python.exe');
-    } else {
-      return path.join(pythonDist, platformDir, 'bin', 'python');
+      // Development: nested platform directory structure
+      const platform = process.platform;
+      const arch = process.arch;
+      
+      let platformDir: string;
+      if (platform === 'darwin') {
+        platformDir = `darwin-${arch}`; // darwin-arm64, darwin-x64
+      } else if (platform === 'win32') {
+        platformDir = `win32-${arch}`;  // win32-x64
+      } else {
+        platformDir = `linux-${arch}`;  // linux-x64
+      }
+      
+      // Find the Python executable in the platform-specific directory
+      if (platform === 'win32') {
+        return path.join(pythonDist, platformDir, 'python.exe');
+      } else {
+        return path.join(pythonDist, platformDir, 'bin', 'python');
+      }
     }
   }
 
@@ -443,8 +454,8 @@ export class PythonEnvironmentManager {
       ? process.resourcesPath 
       : path.join(__dirname, '../..');  // In development, use project root
     const oumiSourcePath = app.isPackaged
-      ? path.join(resourcesPath, 'python', 'oumi')  // In packaged app: resources/python/oumi/
-      : path.join(__dirname, '../../..');           // In development: project root (has pyproject.toml)
+      ? path.join(resourcesPath, 'python')  // In packaged app: resources/python/ (contains pyproject.toml)
+      : path.join(__dirname, '../../..');   // In development: project root (has pyproject.toml)
     
     log.info(`[PythonEnvManager] Resource path: ${resourcesPath}`);
     log.info(`[PythonEnvManager] Oumi source path: ${oumiSourcePath}`);
@@ -493,7 +504,9 @@ export class PythonEnvironmentManager {
         env: {
           ...process.env,
           VIRTUAL_ENV: envPath,
-          PATH: `${path.dirname(uvPath)}:${process.env.PATH}`
+          PATH: `${path.dirname(uvPath)}:${process.env.PATH}`,
+          // Set version for setuptools-scm since bundled source lacks .git directory
+          SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI: '0.1.0'
         }
       });
 

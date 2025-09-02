@@ -898,10 +898,12 @@ class OumiWebServer(OpenAICompatibleServer):
 
             # Check if we have a valid response
             if not response_content or response_content.startswith("Inference failed:"):
+                msg = response_content or "No response generated"
                 return web.json_response(
                     {
+                        "message": msg,
                         "error": {
-                            "message": response_content or "No response generated",
+                            "message": msg,
                             "type": "server_error",
                         }
                     },
@@ -1009,10 +1011,12 @@ class OumiWebServer(OpenAICompatibleServer):
 
         except Exception as e:
             logger.error(f"Error during inference: {str(e)}")
+            msg = f"Inference failed: {str(e)}"
             return web.json_response(
                 {
+                    "message": msg,
                     "error": {
-                        "message": f"Inference failed: {str(e)}",
+                        "message": msg,
                         "type": "server_error",
                     }
                 },
