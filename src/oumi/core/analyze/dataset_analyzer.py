@@ -14,7 +14,7 @@
 
 import copy
 from dataclasses import asdict, dataclass
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 import pandas as pd
 from tqdm import tqdm
@@ -163,6 +163,48 @@ class DatasetAnalyzer:
 
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
+
+    def _compute_statistics(
+        self, series: pd.Series, decimal_precision: int = 2
+    ) -> dict[str, Any]:
+        """Helper to compute statistics for a pandas Series.
+
+        Args:
+            series: Pandas Series containing numeric values
+            decimal_precision: Number of decimal places for rounding
+
+        Returns:
+            Dictionary with computed statistics (count, mean, std, min, max, median)
+        """
+        if series.empty:
+            return {
+                "count": 0,
+                "mean": 0.0,
+                "std": 0.0,
+                "min": 0,
+                "max": 0,
+                "median": 0.0,
+            }
+
+        if len(series) == 1:
+            single_value = round(float(series.iloc[0]), decimal_precision)
+            return {
+                "count": 1,
+                "mean": single_value,
+                "std": 0.0,  # Standard deviation is 0 for single value
+                "min": single_value,
+                "max": single_value,
+                "median": single_value,
+            }
+
+        return {
+            "count": len(series),
+            "mean": round(series.mean(), decimal_precision),
+            "std": round(series.std(), decimal_precision),
+            "min": round(series.min(), decimal_precision),
+            "max": round(series.max(), decimal_precision),
+            "median": round(series.median(), decimal_precision),
+        }
 
     def _initialize_sample_analyzers(self) -> dict[str, Any]:
         """Initialize sample analyzer plugins from configuration.
@@ -701,20 +743,11 @@ class DatasetAnalyzer:
 
                 # Compute statistics for numeric columns
                 if pd.api.types.is_numeric_dtype(self._message_df[col]):
-                    values = self._message_df[col].dropna()
+                    values = cast(pd.Series, self._message_df[col].dropna())
                     if len(values) > 0:
-                        summary[analyzer_name][metric_name] = {
-                            "count": len(values),
-                            "mean": round(
-                                float(values.mean()), self._decimal_precision
-                            ),
-                            "std": round(float(values.std()), self._decimal_precision),
-                            "min": float(values.min()),
-                            "max": float(values.max()),
-                            "median": round(
-                                float(values.median()), self._decimal_precision
-                            ),
-                        }
+                        summary[analyzer_name][metric_name] = self._compute_statistics(
+                            values, self._decimal_precision
+                        )
 
         return summary
 
@@ -748,44 +781,24 @@ class DatasetAnalyzer:
 
                 # Compute statistics for numeric columns
                 if pd.api.types.is_numeric_dtype(self._conversation_df[col]):
-                    values = self._conversation_df[col].dropna()
+                    values = cast(pd.Series, self._conversation_df[col].dropna())
                     if len(values) > 0:
-                        summary[analyzer_name][metric_name] = {
-                            "count": len(values),
-                            "mean": round(
-                                float(values.mean()), self._decimal_precision
-                            ),
-                            "std": round(float(values.std()), self._decimal_precision),
-                            "min": float(values.min()),
-                            "max": float(values.max()),
-                            "median": round(
-                                float(values.median()), self._decimal_precision
-                            ),
-                        }
+                        summary[analyzer_name][metric_name] = self._compute_statistics(
+                            values, self._decimal_precision
+                        )
 
         # Add conversation turn statistics if available
         if self._message_df is not None and not self._message_df.empty:
             turns_per_conversation = self._message_df.groupby("conversation_id").size()
-            # Handle pandas Series operations with proper type conversion
-            mean_val = turns_per_conversation.mean()
-            std_val = turns_per_conversation.std()
-            min_val = turns_per_conversation.min()
-            max_val = turns_per_conversation.max()
-            median_val = turns_per_conversation.median()
-
-            summary["conversation_turns"] = {
-                "count": len(turns_per_conversation),
-                "mean": round(float(mean_val), self._decimal_precision)  # type: ignore
-                if mean_val is not None
-                else 0.0,
-                "std": round(float(std_val), self._decimal_precision)  # type: ignore
-                if std_val is not None
-                else 0.0,
-                "min": int(min_val) if min_val is not None else 0,  # type: ignore
-                "max": int(max_val) if max_val is not None else 0,  # type: ignore
-                "median": round(float(median_val), self._decimal_precision)  # type: ignore
-                if median_val is not None
-                else 0.0,
-            }
+            # Ensure we have a Series for statistics computation
+            if isinstance(turns_per_conversation, pd.Series):
+                summary["conversation_turns"] = self._compute_statistics(
+                    turns_per_conversation, self._decimal_precision
+                )
+            else:
+                # If it's a DataFrame, convert to Series
+                summary["conversation_turns"] = self._compute_statistics(
+                    turns_per_conversation.iloc[:, 0], self._decimal_precision
+                )
 
         return summary
