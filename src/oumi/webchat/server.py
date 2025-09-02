@@ -527,6 +527,7 @@ class OumiWebServer(OpenAICompatibleServer):
         max_tokens = data.get("max_tokens", 100)
         stream = data.get("stream", False)
         session_id = data.get("session_id")  # WebChat session ID
+        branch_id = data.get("branch_id")  # Target branch ID for this chat request
 
         try:
             # Convert OpenAI format messages to Oumi conversation format
@@ -578,7 +579,43 @@ class OumiWebServer(OpenAICompatibleServer):
             
             # If we have a session_id, check if the session has a swapped model
             if session_id:
-                session = await self.get_or_create_session_safe(session_id)
+                async def handle_branch_aware_chat(session):
+                    """Handle branch-aware chat completion within session lock."""
+                    # Handle branch switching if branch_id provided
+                    if branch_id and branch_id != session.branch_manager.current_branch_id:
+                        logger.debug(f"🌿 Chat request targeting branch '{branch_id}', current: '{session.branch_manager.current_branch_id}'")
+                        
+                        # Save current conversation to current branch
+                        current_branch = session.branch_manager.get_current_branch()
+                        current_branch.conversation_history = copy.deepcopy(session.conversation_history)
+                        current_branch.last_active = datetime.now()
+                        logger.debug(f"🔄 Saved {len(session.conversation_history)} messages to branch '{session.branch_manager.current_branch_id}'")
+                        
+                        # Switch to target branch and load its conversation
+                        if branch_id in session.branch_manager.branches:
+                            target_branch = session.branch_manager.branches[branch_id]
+                            session.branch_manager.current_branch_id = branch_id
+                            
+                            # Load target branch conversation into session
+                            session.conversation_history.clear()
+                            session.conversation_history.extend(target_branch.conversation_history)
+                            target_branch.last_active = datetime.now()
+                            logger.debug(f"🔄 Loaded {len(session.conversation_history)} messages from branch '{branch_id}'")
+                        else:
+                            logger.error(f"🚨 Target branch '{branch_id}' not found, staying on current branch")
+                            branch_id = session.branch_manager.current_branch_id  # Reset to current
+                    elif branch_id:
+                        logger.debug(f"🌿 Chat request already on target branch '{branch_id}'")
+                    else:
+                        # Use current branch if no branch_id specified
+                        branch_id = session.branch_manager.current_branch_id
+                        logger.debug(f"🌿 Chat request using current branch '{branch_id}' (no branch_id specified)")
+                    
+                    return session, branch_id
+                
+                # Use atomic operation for branch switching
+                session, effective_branch_id = await self.execute_session_operation(session_id, handle_branch_aware_chat)
+                branch_id = effective_branch_id  # Update branch_id to actual used branch
                 if (hasattr(session.command_context, 'config') and 
                     session.command_context.config is not None):
                     session_config = session.command_context.config
@@ -740,39 +777,47 @@ class OumiWebServer(OpenAICompatibleServer):
             # Update WebChat session if session_id provided
             if session_id:
                 logger.info(
-                    f"🔍 DEBUG: Updating WebChat session {session_id} from OpenAI API"
+                    f"🔍 DEBUG: Updating WebChat session {session_id} from OpenAI API (branch: {branch_id})"
                 )
-                session = await self.get_or_create_session_safe(session_id)
+                
+                async def update_conversation_with_branch(session):
+                    """Update conversation history for the active branch."""
+                    # Add user message to session conversation history
+                    session.conversation_history.append(
+                        {
+                            "role": "user",
+                            "content": latest_user_content,
+                            "timestamp": time.time(),
+                        }
+                    )
 
-                # Add user message to session conversation history
-                session.conversation_history.append(
-                    {
-                        "role": "user",
-                        "content": latest_user_content,
-                        "timestamp": time.time(),
-                    }
-                )
+                    # Add assistant response to session conversation history
+                    session.conversation_history.append(
+                        {
+                            "role": "assistant",
+                            "content": response_content,
+                            "timestamp": time.time(),
+                        }
+                    )
 
-                # Add assistant response to session conversation history
-                session.conversation_history.append(
-                    {
-                        "role": "assistant",
-                        "content": response_content,
-                        "timestamp": time.time(),
-                    }
-                )
+                    # CRITICAL: Sync conversation to the active branch (which is now branch_id if it was switched)
+                    current_branch = session.branch_manager.get_current_branch()
+                    current_branch.conversation_history = copy.deepcopy(session.conversation_history)
+                    current_branch.last_active = datetime.now()
+                    
+                    logger.info(
+                        f"🔄 DEBUG: Synced conversation to branch '{session.branch_manager.current_branch_id}' - {len(session.conversation_history)} messages"
+                    )
 
-                # CRITICAL: Sync conversation to current branch after each exchange
-                session.branch_manager.sync_conversation_history(session.conversation_history)
-                logger.info(
-                    f"🔄 DEBUG: Synced conversation to branch '{session.branch_manager.current_branch_id}' - {len(session.conversation_history)} messages"
-                )
-
-                # Update context usage
-                self._update_session_context_usage(session)
-                logger.info(
-                    f"🔍 DEBUG: WebChat session updated, conversation length: {len(session.conversation_history)}"
-                )
+                    # Update context usage
+                    self._update_session_context_usage(session)
+                    logger.info(
+                        f"🔍 DEBUG: WebChat session updated, conversation length: {len(session.conversation_history)}"
+                    )
+                    return session
+                
+                # Use atomic operation for conversation update
+                session = await self.execute_session_operation(session_id, update_conversation_with_branch)
 
             # Handle streaming vs non-streaming
             if stream:
@@ -1457,42 +1502,50 @@ class OumiWebServer(OpenAICompatibleServer):
 
                 if action == "switch":
                     branch_id = data.get("branch_id")
-                    logger.debug(f"🔀 DEBUG: Branch switch requested - from '{session.branch_manager.current_branch_id}' to '{branch_id}'")
-                    logger.debug(f"🔀 DEBUG: Current conversation length before switch: {len(session.conversation_history)}")
                     
-                    # Log current conversation state
-                    for i, msg in enumerate(session.conversation_history):
-                        role = msg.get('role', 'unknown')
-                        content = str(msg.get('content', ''))[:50]
-                        logger.debug(f"🔀 DEBUG: Pre-switch Message {i}: [{role}] {content}...")
-                    
-                    # CRITICAL FIX: Save current conversation to current branch before switching
-                    current_branch_id = session.branch_manager.current_branch_id
-                    if current_branch_id in session.branch_manager.branches:
-                        current_branch = session.branch_manager.branches[current_branch_id]
-                        # Save current conversation history to current branch
-                        current_branch.conversation_history = copy.deepcopy(session.conversation_history)
-                        current_branch.last_active = datetime.now()
-                        logger.debug(f"🔀 DEBUG: Saved {len(session.conversation_history)} messages to current branch '{current_branch_id}'")
-                    
-                    success, message, branch = session.branch_manager.switch_branch(
-                        branch_id
-                    )
-                    logger.debug(f"🔀 DEBUG: Branch switch result - success: {success}, message: '{message}'")
-
-                    if success and branch:
-                        logger.debug(f"🔀 DEBUG: Branch '{branch_id}' conversation length: {len(branch.conversation_history)}")
-                        # Log branch conversation before clearing current history
-                        for i, msg in enumerate(branch.conversation_history):
+                    async def switch_branch_atomically(session):
+                        """Switch branches atomically within session lock."""
+                        logger.debug(f"🔀 DEBUG: Branch switch requested - from '{session.branch_manager.current_branch_id}' to '{branch_id}'")
+                        logger.debug(f"🔀 DEBUG: Current conversation length before switch: {len(session.conversation_history)}")
+                        
+                        # Log current conversation state
+                        for i, msg in enumerate(session.conversation_history):
                             role = msg.get('role', 'unknown')
                             content = str(msg.get('content', ''))[:50]
-                            logger.debug(f"🔀 DEBUG: Branch Message {i}: [{role}] {content}...")
-                            
-                        # Update conversation history
-                        logger.debug(f"🔀 DEBUG: Clearing current conversation ({len(session.conversation_history)} messages) and loading branch conversation ({len(branch.conversation_history)} messages)")
-                        session.conversation_history.clear()
-                        session.conversation_history.extend(branch.conversation_history)
-                        logger.debug(f"🔀 DEBUG: Post-switch conversation length: {len(session.conversation_history)}")
+                            logger.debug(f"🔀 DEBUG: Pre-switch Message {i}: [{role}] {content}...")
+                        
+                        # CRITICAL FIX: Save current conversation to current branch before switching
+                        current_branch_id = session.branch_manager.current_branch_id
+                        if current_branch_id in session.branch_manager.branches:
+                            current_branch = session.branch_manager.branches[current_branch_id]
+                            # Save current conversation history to current branch
+                            current_branch.conversation_history = copy.deepcopy(session.conversation_history)
+                            current_branch.last_active = datetime.now()
+                            logger.debug(f"🔀 DEBUG: Saved {len(session.conversation_history)} messages to current branch '{current_branch_id}'")
+                        
+                        success, message, branch = session.branch_manager.switch_branch(
+                            branch_id
+                        )
+                        logger.debug(f"🔀 DEBUG: Branch switch result - success: {success}, message: '{message}'")
+
+                        if success and branch:
+                            logger.debug(f"🔀 DEBUG: Branch '{branch_id}' conversation length: {len(branch.conversation_history)}")
+                            # Log branch conversation before clearing current history
+                            for i, msg in enumerate(branch.conversation_history):
+                                role = msg.get('role', 'unknown')
+                                content = str(msg.get('content', ''))[:50]
+                                logger.debug(f"🔀 DEBUG: Branch Message {i}: [{role}] {content}...")
+                                
+                            # Update conversation history
+                            logger.debug(f"🔀 DEBUG: Clearing current conversation ({len(session.conversation_history)} messages) and loading branch conversation ({len(branch.conversation_history)} messages)")
+                            session.conversation_history.clear()
+                            session.conversation_history.extend(branch.conversation_history)
+                            logger.debug(f"🔀 DEBUG: Post-switch conversation length: {len(session.conversation_history)}")
+
+                        return success, message, session
+                    
+                    # Execute branch switch atomically
+                    success, message, session = await self.execute_session_operation(session_id, switch_branch_atomically)
 
                     return web.json_response(
                         {
@@ -1508,61 +1561,71 @@ class OumiWebServer(OpenAICompatibleServer):
                         "from_branch", session.branch_manager.current_branch_id
                     )
                     name = data.get("name")
-                    logger.debug(f"🌿 DEBUG: Branch create requested - name: '{name}', from_branch: '{from_branch}'")
-                    logger.debug(f"🌿 DEBUG: Session object ID: {id(session)}")
-                    logger.debug(f"🌿 DEBUG: Branch manager object ID: {id(session.branch_manager)}")
-                    logger.debug(f"🌿 DEBUG: Current conversation length at branch point: {len(session.conversation_history)}")
-                    logger.debug(f"🌿 DEBUG: Branches before create: {list(session.branch_manager.branches.keys())}")
-                    logger.debug(f"🌿 DEBUG: Branch counter before create: {session.branch_manager._branch_counter}")
                     
-                    # Log conversation at branch point
-                    for i, msg in enumerate(session.conversation_history):
-                        role = msg.get('role', 'unknown')
-                        content = str(msg.get('content', ''))[:50]
-                        logger.debug(f"🌿 DEBUG: Branch-point Message {i}: [{role}] {content}...")
-                    
-                    # CRITICAL DEBUG: Check source branch conversation before creating new branch
-                    source_branch = session.branch_manager.branches.get(from_branch)
-                    if source_branch:
-                        logger.debug(f"🌿 DEBUG: Source branch '{from_branch}' conversation length: {len(source_branch.conversation_history)}")
-                        for i, msg in enumerate(source_branch.conversation_history):
+                    async def create_branch_atomically(session):
+                        """Create branch atomically within session lock."""
+                        logger.debug(f"🌿 DEBUG: Branch create requested - name: '{name}', from_branch: '{from_branch}'")
+                        logger.debug(f"🌿 DEBUG: Session object ID: {id(session)}")
+                        logger.debug(f"🌿 DEBUG: Branch manager object ID: {id(session.branch_manager)}")
+                        logger.debug(f"🌿 DEBUG: Current conversation length at branch point: {len(session.conversation_history)}")
+                        logger.debug(f"🌿 DEBUG: Branches before create: {list(session.branch_manager.branches.keys())}")
+                        logger.debug(f"🌿 DEBUG: Branch counter before create: {session.branch_manager._branch_counter}")
+                        
+                        # Log conversation at branch point
+                        for i, msg in enumerate(session.conversation_history):
                             role = msg.get('role', 'unknown')
                             content = str(msg.get('content', ''))[:50]
-                            logger.debug(f"🌿 DEBUG: Source branch Message {i}: [{role}] {content}...")
-                    else:
-                        logger.error(f"🚨 Source branch '{from_branch}' not found in branches!")
-
-                    # CRITICAL FIX: Sync main branch conversation before creating new branch
-                    if from_branch == "main":
-                        logger.debug(f"🔄 DEBUG: Syncing main branch conversation history before branch creation")
-                        session.branch_manager.sync_conversation_history(session.conversation_history)
-                        # Re-check source branch after sync
-                        main_branch = session.branch_manager.branches.get("main")
-                        if main_branch:
-                            logger.debug(f"🔄 DEBUG: Main branch conversation after sync: {len(main_branch.conversation_history)} messages")
-
-                    success, message, new_branch = session.branch_manager.create_branch(
-                        from_branch_id=from_branch, name=name
-                    )
-                    
-                    # DEBUG: Verify new branch conversation inheritance
-                    if success and new_branch:
-                        logger.debug(f"🌿 DEBUG: New branch '{new_branch.id}' conversation length: {len(new_branch.conversation_history)}")
-                        for i, msg in enumerate(new_branch.conversation_history):
-                            role = msg.get('role', 'unknown')
-                            content = str(msg.get('content', ''))[:50]
-                            logger.debug(f"🌿 DEBUG: New branch Message {i}: [{role}] {content}...")
-                    logger.debug(f"🌿 DEBUG: Branch create result - success: {success}, message: '{message}', new_branch_id: '{new_branch.id if new_branch else None}'")
-                    logger.debug(f"🌿 DEBUG: Branches after create: {list(session.branch_manager.branches.keys())}")
-                    logger.debug(f"🌿 DEBUG: Branch counter after create: {session.branch_manager._branch_counter}")
-
-                    # CRITICAL FIX: Validate branch was actually created and stored
-                    if success and new_branch:
-                        if new_branch.id not in session.branch_manager.branches:
-                            logger.error(f"🚨 CRITICAL: Branch {new_branch.id} was created but not found in storage!")
-                            logger.error(f"🚨 Branch manager state: {vars(session.branch_manager)}")
+                            logger.debug(f"🌿 DEBUG: Branch-point Message {i}: [{role}] {content}...")
+                        
+                        # CRITICAL DEBUG: Check source branch conversation before creating new branch
+                        source_branch = session.branch_manager.branches.get(from_branch)
+                        if source_branch:
+                            logger.debug(f"🌿 DEBUG: Source branch '{from_branch}' conversation length: {len(source_branch.conversation_history)}")
+                            for i, msg in enumerate(source_branch.conversation_history):
+                                role = msg.get('role', 'unknown')
+                                content = str(msg.get('content', ''))[:50]
+                                logger.debug(f"🌿 DEBUG: Source branch Message {i}: [{role}] {content}...")
                         else:
-                            logger.debug(f"✅ Branch {new_branch.id} successfully stored and verified")
+                            logger.error(f"🚨 Source branch '{from_branch}' not found in branches!")
+
+                        # CRITICAL FIX: Sync source branch conversation before creating new branch
+                        # This ensures ANY current branch (not just main) gets synced before branching
+                        if from_branch == session.branch_manager.current_branch_id:
+                            logger.debug(f"🔄 DEBUG: Syncing current branch '{from_branch}' conversation history before branch creation")
+                            logger.debug(f"🔄 DEBUG: Session conversation has {len(session.conversation_history)} messages")
+                            session.branch_manager.sync_conversation_history(session.conversation_history)
+                            # Re-check source branch after sync
+                            source_branch_after_sync = session.branch_manager.branches.get(from_branch)
+                            if source_branch_after_sync:
+                                logger.debug(f"🔄 DEBUG: Source branch '{from_branch}' conversation after sync: {len(source_branch_after_sync.conversation_history)} messages")
+
+                        success, message, new_branch = session.branch_manager.create_branch(
+                            from_branch_id=from_branch, name=name
+                        )
+                        
+                        # DEBUG: Verify new branch conversation inheritance
+                        if success and new_branch:
+                            logger.debug(f"🌿 DEBUG: New branch '{new_branch.id}' conversation length: {len(new_branch.conversation_history)}")
+                            for i, msg in enumerate(new_branch.conversation_history):
+                                role = msg.get('role', 'unknown')
+                                content = str(msg.get('content', ''))[:50]
+                                logger.debug(f"🌿 DEBUG: New branch Message {i}: [{role}] {content}...")
+                        logger.debug(f"🌿 DEBUG: Branch create result - success: {success}, message: '{message}', new_branch_id: '{new_branch.id if new_branch else None}'")
+                        logger.debug(f"🌿 DEBUG: Branches after create: {list(session.branch_manager.branches.keys())}")
+                        logger.debug(f"🌿 DEBUG: Branch counter after create: {session.branch_manager._branch_counter}")
+
+                        # CRITICAL FIX: Validate branch was actually created and stored
+                        if success and new_branch:
+                            if new_branch.id not in session.branch_manager.branches:
+                                logger.error(f"🚨 CRITICAL: Branch {new_branch.id} was created but not found in storage!")
+                                logger.error(f"🚨 Branch manager state: {vars(session.branch_manager)}")
+                            else:
+                                logger.debug(f"✅ Branch {new_branch.id} successfully stored and verified")
+
+                        return success, message, new_branch
+                    
+                    # Execute branch creation atomically
+                    success, message, new_branch = await self.execute_session_operation(session_id, create_branch_atomically)
 
                     if success and new_branch:
                         # Return the created branch in the expected format
@@ -1618,7 +1681,7 @@ class OumiWebServer(OpenAICompatibleServer):
                 return web.json_response({"error": str(e)}, status=500)
 
     async def handle_sync_conversation_api(self, request: web.Request) -> web.Response:
-        """Handle syncing conversation from frontend to backend session."""
+        """Handle syncing conversation from frontend to backend session and branch."""
         try:
             data = await request.json()
         except Exception:
@@ -1626,21 +1689,65 @@ class OumiWebServer(OpenAICompatibleServer):
 
         session_id = data.get("session_id", "default")
         conversation = data.get("conversation", [])
+        branch_id = data.get("branch_id")  # Optional target branch ID
 
-        session = await self.get_or_create_session_safe(session_id)
-
-        # Update the session's conversation history
-        session.conversation_history.clear()
-        session.conversation_history.extend(conversation)
-        session.update_activity()
+        async def sync_conversation_with_branch(session):
+            """Sync conversation to session and current/target branch."""
+            # Update the session's conversation history
+            session.conversation_history.clear()
+            session.conversation_history.extend(conversation)
+            session.update_activity()
+            
+            # Determine which branch to sync to
+            target_branch_id = branch_id if branch_id else session.branch_manager.current_branch_id
+            
+            # Sync to the target branch (current by default)
+            if target_branch_id in session.branch_manager.branches:
+                target_branch = session.branch_manager.branches[target_branch_id]
+                target_branch.conversation_history = copy.deepcopy(conversation)
+                target_branch.last_active = datetime.now()
+                logger.debug(f"🔄 Synced {len(conversation)} messages to branch '{target_branch_id}'")
+            else:
+                logger.warning(f"⚠️ Target branch '{target_branch_id}' not found, only updated session")
+            
+            return session
+        
+        # Use atomic operation for conversation sync
+        session = await self.execute_session_operation(session_id, sync_conversation_with_branch)
 
         return web.json_response({"success": True})
 
     async def handle_get_conversation_api(self, request: web.Request) -> web.Response:
-        """Handle getting current conversation from backend session."""
+        """Handle getting conversation from backend session, optionally for a specific branch."""
         session_id = request.query.get("session_id", "default")
+        branch_id = request.query.get("branch_id")  # Optional branch ID
+        
         session = await self.get_or_create_session_safe(session_id)
-
+        
+        # If branch_id is provided, return that branch's conversation
+        if branch_id and branch_id in session.branch_manager.branches:
+            target_branch = session.branch_manager.branches[branch_id]
+            conversation = []
+            for msg in target_branch.conversation_history:
+                if isinstance(msg, dict):
+                    conversation.append({
+                        "role": msg.get("role", "unknown"),
+                        "content": msg.get("content", ""),
+                        "timestamp": msg.get("timestamp", time.time()),
+                    })
+                else:
+                    conversation.append({
+                        "role": "unknown", 
+                        "content": str(msg), 
+                        "timestamp": time.time()
+                    })
+            logger.debug(f"🔍 Returning conversation for branch '{branch_id}': {len(conversation)} messages")
+            return web.json_response({"conversation": conversation})
+        elif branch_id:
+            logger.warning(f"⚠️ Requested branch '{branch_id}' not found, returning current branch conversation")
+        
+        # Default: return current session conversation (current branch)
+        logger.debug(f"🔍 Returning conversation for current branch '{session.branch_manager.current_branch_id}': {len(session.conversation_history)} messages")
         return web.json_response({"conversation": session.serialize_conversation()})
 
     async def handle_system_stats_api(self, request: web.Request) -> web.Response:
