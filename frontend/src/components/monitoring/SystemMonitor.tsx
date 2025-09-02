@@ -218,29 +218,32 @@ export default function SystemMonitor({
     
     setIsModelActionLoading(true);
     try {
-      // Get the config path for the current model using UnifiedConfigPathResolver
+      // Get the config ID for the current model
       // First, try to get the currently selected config from storage
-      const selectedConfig = await apiClient.getStorageItem('selectedConfig', null);
-      let configPath = selectedConfig;
+      const selectedConfigId = await apiClient.getStorageItem('selectedConfig', null);
+      let configPath = null;
+      let configId = selectedConfigId;
       
-      // If no selected config, try to find it using UnifiedConfigPathResolver
-      if (!configPath) {
+      // If no selected config, try to find it by matching the model name
+      if (!configId) {
+        const configsResponse = await apiClient.getConfigs();
+        if (configsResponse.success && configsResponse.data?.configs) {
+          const matchingConfig = configsResponse.data.configs.find((config: any) => 
+            config.id === name || config.display_name?.includes(name) || name.includes(config.id)
+          );
+          if (matchingConfig) {
+            configId = matchingConfig.id;
+          }
+        }
+      }
+      
+      // Now resolve the config ID to an actual file path using UnifiedConfigPathResolver
+      if (configId) {
         try {
           const { configPathResolver } = await import('@/lib/config-path-resolver');
-          
-          // Try to find a config that matches the current model name
-          const configsResponse = await apiClient.getConfigs();
-          if (configsResponse.success && configsResponse.data?.configs) {
-            const matchingConfig = configsResponse.data.configs.find((config: any) => 
-              config.id === name || config.display_name?.includes(name) || name.includes(config.id)
-            );
-            
-            if (matchingConfig && matchingConfig.id) {
-              const resolvedConfig = await configPathResolver.getConfigById(matchingConfig.id);
-              if (resolvedConfig) {
-                configPath = resolvedConfig.configPath;
-              }
-            }
+          const resolvedConfig = await configPathResolver.getConfigById(configId);
+          if (resolvedConfig) {
+            configPath = resolvedConfig.configPath;
           }
         } catch (error) {
           console.warn('Failed to resolve config path for model testing:', error);
