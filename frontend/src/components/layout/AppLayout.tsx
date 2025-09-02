@@ -29,6 +29,12 @@ export default function AppLayout() {
   const { executeCommand, isExecuting } = useConversationCommand();
   const chatInterfaceRef = React.useRef<ChatInterfaceRef | null>(null);
 
+  // Keep latest function references for handlers registered once
+  const executeCommandRef = React.useRef(executeCommand);
+  React.useEffect(() => { executeCommandRef.current = executeCommand; }, [executeCommand]);
+  const clearMessagesRef = React.useRef(clearMessages);
+  React.useEffect(() => { clearMessagesRef.current = clearMessages; }, [clearMessages]);
+
   // Handle keyboard shortcuts
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -72,12 +78,12 @@ export default function AppLayout() {
 
       const handleToggleBranchTree = () => {
         console.log('🔧 [AppLayout] Toggling Branch Tree from menu');
-        setIsBranchTreeExpanded(!isBranchTreeExpanded);
+        setIsBranchTreeExpanded(prev => !prev);
       };
 
       const handleToggleControlPanel = () => {
         console.log('🔧 [AppLayout] Toggling Control Panel from menu');
-        setIsControlPanelExpanded(!isControlPanelExpanded);
+        setIsControlPanelExpanded(prev => !prev);
       };
 
       const handleClearConversationMenu = () => {
@@ -89,8 +95,8 @@ export default function AppLayout() {
         console.log('🔧 [AppLayout] New Chat from menu');
         try {
           // Clear the current conversation and start fresh
-          clearMessages();
-          const result = await executeCommand('clear', [], COMMAND_CONFIGS.clear);
+          clearMessagesRef.current();
+          const result = await executeCommandRef.current('clear', [], COMMAND_CONFIGS.clear);
           if (!result.success && result.message) {
             console.error('Failed to start new chat:', result.message);
           }
@@ -177,7 +183,7 @@ export default function AppLayout() {
     const cleanup = setupElectronIntegration();
 
     return cleanup;
-  }, [isBranchTreeExpanded, isControlPanelExpanded, clearMessages, executeCommand]);
+  }, []);
 
 
   // Initialize app state from backend on first load

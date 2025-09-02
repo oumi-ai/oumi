@@ -2150,9 +2150,9 @@ def run_webchat_server(
     server = OumiWebServer(config, system_prompt)
     app = server.create_app()
 
-    # Temporarily disable startup/cleanup handlers to debug hanging issue
-    # app.on_startup.append(server.start_background_tasks)
-    # app.on_cleanup.append(server.cleanup_background_tasks)
+    # Enable startup/cleanup handlers for proper session management
+    app.on_startup.append(server.start_background_tasks)
+    app.on_cleanup.append(server.cleanup_background_tasks)
 
     logger.info("🚀 Starting Oumi WebChat server")
     logger.info(f"📍 Server URL: http://{host}:{port}")

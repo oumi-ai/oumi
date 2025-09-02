@@ -363,18 +363,63 @@ export default function SystemMonitor({
     }
   };
 
-  // Start polling when component mounts
+  // Start polling when component mounts, but gate on server readiness in Electron
   React.useEffect(() => {
-    const fetchAll = async () => {
-      await fetchStats(); // System stats
-      await checkModelStatus(); // Model status
+    let cancelled = false;
+
+    const startPolling = () => {
+      const fetchAll = async () => {
+        await fetchStats(); // System stats
+        await checkModelStatus(); // Model status
+      };
+
+      // Initial load
+      void fetchAll();
+
+      // Interval polling
+      intervalRef.current = setInterval(fetchAll, updateInterval);
     };
-    
-    fetchAll(); // Initial load
-    
-    intervalRef.current = setInterval(fetchAll, updateInterval);
-    
+
+    const ensureServerReadyThenStart = async () => {
+      try {
+        // In Electron, check server status before polling to avoid noisy fetch-failed errors
+        const isElectron = typeof window !== 'undefined' && (window as any).electronAPI;
+        if (isElectron) {
+          try {
+            const status = await apiClient.getServerStatus();
+            if (!cancelled && status.success && status.data?.running) {
+              startPolling();
+              return;
+            }
+          } catch {}
+          // Fallback: try a quick health check
+          try {
+            const health = await apiClient.health();
+            if (!cancelled && health.success) {
+              startPolling();
+              return;
+            }
+          } catch {}
+          // Retry shortly if not ready yet
+          if (!cancelled) {
+            setTimeout(ensureServerReadyThenStart, 500);
+          }
+          return;
+        }
+        // Web: start immediately
+        startPolling();
+      } catch {
+        if (!cancelled) {
+          // Try again soon
+          setTimeout(ensureServerReadyThenStart, 500);
+        }
+      }
+    };
+
+    ensureServerReadyThenStart();
+
     return () => {
+      cancelled = true;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }

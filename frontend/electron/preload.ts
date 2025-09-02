@@ -4,6 +4,18 @@
 
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
+// Raise listener cap to reduce noisy dev warnings while we fix leaks
+// Note: This does not replace proper add/remove pairing below.
+try {
+  ipcRenderer.setMaxListeners?.(50);
+} catch {}
+
+// Internal maps to ensure we remove the exact wrapped listeners we add
+const menuListenerMap = new Map<string, Map<Function, Function>>();
+const eventsListenerMap = new Map<string, Map<Function, Function>>();
+const downloadProgressListenerMap = new Map<Function, Function>();
+const downloadErrorListenerMap = new Map<Function, Function>();
+
 // API interface for renderer process
 export interface ElectronAPI {
   // Application control
@@ -237,12 +249,22 @@ const electronAPI: ElectronAPI = {
 
   events: {
     on: (channel: string, listener: (...args: any[]) => void) => {
-      const wrappedListener = (_: IpcRendererEvent, ...args: any[]) => listener(...args);
-      ipcRenderer.on(channel, wrappedListener);
+      const wrapped = (_: IpcRendererEvent, ...args: any[]) => listener(...args);
+      let map = eventsListenerMap.get(channel);
+      if (!map) {
+        map = new Map();
+        eventsListenerMap.set(channel, map);
+      }
+      map.set(listener, wrapped);
+      ipcRenderer.on(channel, wrapped);
     },
-    
+
     off: (channel: string, listener: (...args: any[]) => void) => {
-      ipcRenderer.removeListener(channel, listener);
+      const wrapped = eventsListenerMap.get(channel)?.get(listener) as any;
+      if (wrapped) {
+        ipcRenderer.removeListener(channel, wrapped);
+        eventsListenerMap.get(channel)!.delete(listener);
+      }
     },
     
     send: (channel: string, ...args: any[]) => {
@@ -317,29 +339,51 @@ const electronAPI: ElectronAPI = {
 
   // Menu message handlers
   onMenuMessage: (channel: string, callback: (...args: any[]) => void) => {
-    const wrappedCallback = (_: IpcRendererEvent, ...args: any[]) => callback(...args);
-    ipcRenderer.on(channel, wrappedCallback);
+    const wrapped = (_: IpcRendererEvent, ...args: any[]) => callback(...args);
+    let map = menuListenerMap.get(channel);
+    if (!map) {
+      map = new Map();
+      menuListenerMap.set(channel, map);
+    }
+    map.set(callback, wrapped);
+    ipcRenderer.on(channel, wrapped);
   },
 
   removeMenuListener: (channel: string, callback: (...args: any[]) => void) => {
-    ipcRenderer.removeListener(channel, callback);
+    const wrapped = menuListenerMap.get(channel)?.get(callback) as any;
+    if (wrapped) {
+      ipcRenderer.removeListener(channel, wrapped);
+      menuListenerMap.get(channel)!.delete(callback);
+    }
   },
 
   // Download progress handlers
   onDownloadProgress: (callback: (progress: any) => void) => {
-    ipcRenderer.on('server:download-progress', (_, progress) => callback(progress));
+    const wrapped = (_: IpcRendererEvent, progress: any) => callback(progress);
+    downloadProgressListenerMap.set(callback, wrapped);
+    ipcRenderer.on('server:download-progress', wrapped as any);
   },
 
   onDownloadError: (callback: (error: any) => void) => {
-    ipcRenderer.on('server:download-error', (_, error) => callback(error));
+    const wrapped = (_: IpcRendererEvent, error: any) => callback(error);
+    downloadErrorListenerMap.set(callback, wrapped);
+    ipcRenderer.on('server:download-error', wrapped as any);
   },
 
   removeDownloadProgressListener: (callback: (progress: any) => void) => {
-    ipcRenderer.removeListener('server:download-progress', callback);
+    const wrapped = downloadProgressListenerMap.get(callback) as any;
+    if (wrapped) {
+      ipcRenderer.removeListener('server:download-progress', wrapped);
+      downloadProgressListenerMap.delete(callback);
+    }
   },
 
   removeDownloadErrorListener: (callback: (error: any) => void) => {
-    ipcRenderer.removeListener('server:download-error', callback);
+    const wrapped = downloadErrorListenerMap.get(callback) as any;
+    if (wrapped) {
+      ipcRenderer.removeListener('server:download-error', wrapped);
+      downloadErrorListenerMap.delete(callback);
+    }
   },
 
   // Logging system (optional - may not be implemented in main process yet)

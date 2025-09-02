@@ -333,6 +333,31 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
 
   const getBaseUrl = () => pythonManager.getServerUrl();
 
+  // Simple retry helper for transient connection failures
+  async function fetchWithRetry(url: string, options: RequestInit, attempts = 3, baseDelayMs = 150): Promise<Response> {
+    let lastError: any = null;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fetch(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers,
+          },
+          ...options,
+        });
+      } catch (err: any) {
+        lastError = err;
+        // Only retry on network-level failures (e.g., ECONNREFUSED / 'fetch failed')
+        const msg = err?.message || '';
+        const isNetwork = msg.includes('fetch failed') || msg.includes('ECONN') || msg.includes('ENOTFOUND') || msg.includes('EAI_AGAIN');
+        if (!isNetwork) break;
+        const delay = baseDelayMs * Math.pow(2, i) + Math.floor(Math.random() * 50);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+    throw lastError;
+  }
+
   // Helper function to make HTTP requests to Python backend
   async function proxyToPython(endpoint: string, options: RequestInit = {}): Promise<any> {
     const baseUrl = getBaseUrl();
@@ -341,13 +366,18 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
     console.log(`[IPC_PROXY_DEBUG] Full URL: ${url} | Base URL: ${baseUrl} | Endpoint: ${endpoint}`);
     
     try {
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-        ...options,
-      });
+      // Retry idempotent requests (GET/HEAD) to smooth over brief server restarts
+      const method = (options.method || 'GET').toUpperCase();
+      const shouldRetry = method === 'GET' || method === 'HEAD';
+      const response = shouldRetry
+        ? await fetchWithRetry(url, options, 3, 150)
+        : await fetch(url, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+            ...options,
+          });
 
       const data = await response.json();
       
