@@ -1,4 +1,4 @@
-# Job config to full fine-tune Deepseek R1 Distill Qwen2.5 1.5B on NERSC Frontier cluster.
+# FFT config for Qwen3 8B for Perlmutter cluster.
 #
 # Requirements:
 #   - Set up your NERSC account (only available to Oumi core team and collaborators)
