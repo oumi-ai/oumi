@@ -301,10 +301,11 @@ export default function WelcomeScreen({ onConfigSelected, systemCapabilities }: 
       // Try runtime config discovery first (Electron app)
       if (apiClient.isElectronApp()) {
         try {
-          const response = await apiClient.discoverBundledConfigs();
+          const { configPathResolver } = await import('@/lib/config-path-resolver');
+          const staticConfigs = await configPathResolver.loadStaticConfigs();
           
-          if (response.success && response.data?.configs) {
-            let transformedConfigs = response.data.configs;
+          if (staticConfigs?.configs) {
+            let transformedConfigs = staticConfigs.configs;
             
             // Enhance with fresh HuggingFace metadata if credentials are available
             const hasHfCredentials = settings.huggingFace?.username && settings.huggingFace?.token;
@@ -328,7 +329,7 @@ export default function WelcomeScreen({ onConfigSelected, systemCapabilities }: 
             setConfigs(transformedConfigs);
             return;
           } else {
-            throw new Error(response.error || 'Config discovery failed');
+            throw new Error('Config discovery failed - no configs found');
           }
         } catch (electronError) {
           console.warn('Electron config discovery failed, falling back to static file:', electronError);

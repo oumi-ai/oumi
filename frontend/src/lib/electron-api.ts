@@ -162,7 +162,7 @@ class ElectronApiClient {
     
     // Use UnifiedConfigPathResolver as the primary config source
     try {
-      const { configPathResolver } = await import('../config-path-resolver');
+      const { configPathResolver } = await import('./config-path-resolver');
       const staticConfigs = await configPathResolver.loadStaticConfigs();
       
       return {

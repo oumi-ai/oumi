@@ -64,23 +64,7 @@ class UnifiedConfigPathResolver implements ConfigPathResolver {
         }
       }
 
-      // If all locations fail, try Electron's bundled config discovery
-      const isElectron = typeof window !== 'undefined' && 'electronAPI' in window;
-      if (isElectron && window.electronAPI?.config?.discoverBundled) {
-        logger.debug('ConfigPathResolver', 'Falling back to Electron bundled config discovery');
-        try {
-          const result = await window.electronAPI.config.discoverBundled();
-          if (result.success && result.data) {
-            this.staticConfigs = result.data;
-            logger.info('ConfigPathResolver', `Successfully discovered ${this.staticConfigs.configs?.length || 0} bundled configs`);
-            return this.staticConfigs;
-          } else {
-            errors.push(`Electron discovery: ${result.error || 'Unknown error'}`);
-          }
-        } catch (err) {
-          errors.push(`Electron discovery: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        }
-      }
+      // Note: Electron bundled config discovery has been removed in favor of static configs
 
       const errorMessage = 'Failed to load configs from all attempted locations';
       logger.warn('ConfigPathResolver', errorMessage, { attempts: errors });
