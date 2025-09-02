@@ -112,6 +112,10 @@ class WebChatSession:
 
         # Last activity timestamp for cleanup (using monotonic time)
         self.last_activity = time.monotonic()
+        
+        # Persistence tracking
+        self.is_hydrated_from_db = False
+        self.current_conversation_id: Optional[str] = None
 
     async def add_websocket(self, ws: web.WebSocketResponse):
         """Add a WebSocket connection to this session."""
@@ -157,6 +161,142 @@ class WebChatSession:
     def update_activity(self):
         """Update last activity timestamp using monotonic time."""
         self.last_activity = time.monotonic()
+
+    def hydrate_from_db(self, db_data: dict) -> None:
+        """Hydrate session state from database.
+        
+        Args:
+            db_data: Result from WebchatDB.hydrate_session()
+        """
+        if not db_data:
+            logger.debug(f"🗄️ No DB data to hydrate for session {self.session_id}")
+            return
+        
+        session_info = db_data["session_info"]
+        branches = db_data["branches"]
+        current_messages = db_data["current_messages"]
+        current_branch_id = db_data["current_branch_id"]
+        
+        # Set conversation ID
+        self.current_conversation_id = session_info["current_conversation_id"]
+        
+        # Hydrate conversation history from current branch
+        self.conversation_history.clear()
+        for msg in current_messages:
+            self.conversation_history.append({
+                "role": msg["role"],
+                "content": msg["content"],
+                "timestamp": msg["timestamp"],
+                "metadata": msg.get("metadata", {})
+            })
+        
+        # Recreate branch manager with hydrated data
+        self.branch_manager = ConversationBranchManager(self.conversation_history)
+        
+        # Set current branch
+        if current_branch_id and current_branch_id in self.branch_manager.branches:
+            self.branch_manager.current_branch_id = current_branch_id
+            
+        # Update branch manager's branches with DB data
+        for branch_data in branches:
+            branch_id = branch_data["id"]
+            if branch_id in self.branch_manager.branches:
+                branch = self.branch_manager.branches[branch_id]
+                branch.name = branch_data.get("name", branch_id)
+                branch.parent_branch_id = branch_data.get("parent_branch_id")
+                # Note: We only load current branch messages; other branches load on-demand
+                if branch_id == current_branch_id:
+                    branch.conversation_history = self.conversation_history
+        
+        self.is_hydrated_from_db = True
+        logger.info(f"🗄️ Session {self.session_id} hydrated from DB: {len(current_messages)} messages, {len(branches)} branches")
+        
+        # Re-sync the command context
+        self.command_context._conversation_history = self.conversation_history
+        self.command_context._branch_manager = self.branch_manager
+
+    def hydrate_branch_from_db(self, branch_id: str, db) -> bool:
+        """Hydrate a specific branch's messages from database on-demand.
+        
+        Args:
+            branch_id: Branch ID to hydrate
+            db: WebchatDB instance
+            
+        Returns:
+            True if hydrated successfully, False otherwise
+        """
+        if not db or not self.current_conversation_id:
+            return False
+            
+        try:
+            # Get messages for this specific branch
+            branch_messages = db.get_branch_messages(branch_id)
+            
+            # Find the branch object
+            if branch_id not in self.branch_manager.branches:
+                logger.warning(f"🗄️ Branch {branch_id} not found in branch manager")
+                return False
+                
+            branch = self.branch_manager.branches[branch_id]
+            
+            # Update branch conversation history
+            branch.conversation_history.clear()
+            for msg in branch_messages:
+                branch.conversation_history.append({
+                    "role": msg["role"],
+                    "content": msg["content"],
+                    "timestamp": msg["timestamp"],
+                    "metadata": msg.get("metadata", {})
+                })
+            
+            logger.debug(f"🗄️ Hydrated branch {branch_id} with {len(branch_messages)} messages from DB")
+            return True
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to hydrate branch {branch_id} from DB: {e}")
+            return False
+
+    def get_enhanced_branch_info(self, db) -> list[dict]:
+        """Get branch information enhanced with database-backed counts and previews.
+        
+        Falls back to in-memory calculation if DB unavailable.
+        """
+        # Start with standard branch info
+        branches_info = self.branch_manager.list_branches()
+        
+        # Enhance with DB data if available and session is persistent
+        if db and self.is_hydrated_from_db and self.current_conversation_id:
+            try:
+                # Get DB branch information
+                db_branches = db.get_session_branches(self.session_id)
+                db_branch_lookup = {b["id"]: b for b in db_branches}
+                
+                # Update each branch with DB-backed information
+                for branch_info in branches_info:
+                    branch_id = branch_info["id"]
+                    if branch_id in db_branch_lookup:
+                        db_branch = db_branch_lookup[branch_id]
+                        # Use DB count as authoritative
+                        branch_info["message_count"] = db_branch["message_count"]
+                        
+                        # Enhanced preview from DB if needed
+                        if db_branch["message_count"] > 0 and not branch_info["preview"]:
+                            try:
+                                recent_messages = db.get_branch_messages(branch_id)
+                                if recent_messages:
+                                    last_msg = recent_messages[-1]
+                                    content = last_msg["content"][:50]
+                                    branch_info["preview"] = f"[{last_msg['role']}] {content}..." if content else "(empty message)"
+                            except Exception as preview_error:
+                                logger.debug(f"⚠️ Failed to generate DB preview for branch {branch_id}: {preview_error}")
+                
+                logger.debug(f"🗄️ Enhanced {len(branches_info)} branches with DB-backed counts")
+                        
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to enhance branch info with DB data: {e}")
+                # Fall back to in-memory data (already populated)
+        
+        return branches_info
 
     def serialize_conversation(self) -> list:
         """Serialize conversation history for web interface."""
@@ -884,6 +1024,17 @@ class OumiWebServer(OpenAICompatibleServer):
         if session_id not in self.sessions:
             self.sessions[session_id] = WebChatSession(session_id, self.config)
             logger.debug(f"🆕 Created new webchat session: {session_id}")
+            
+            # Attempt to hydrate from database if available
+            if self.db:
+                try:
+                    db_data = self.db.hydrate_session(session_id)
+                    if db_data:
+                        self.sessions[session_id].hydrate_from_db(db_data)
+                    else:
+                        logger.debug(f"🗄️ No persistence data found for session {session_id}")
+                except Exception as hydration_error:
+                    logger.warning(f"⚠️ Failed to hydrate session {session_id}: {hydration_error}")
         else:
             logger.debug(f"🔄 Using existing session: {session_id}")
 
@@ -938,6 +1089,17 @@ class OumiWebServer(OpenAICompatibleServer):
                         # Create session (fast, in-memory only)
                         self.sessions[session_id] = WebChatSession(session_id, self.config)
                         logger.debug(f"🆕 Created new webchat session: {session_id}")
+                        
+                        # Attempt to hydrate from database if available
+                        if self.db:
+                            try:
+                                db_data = self.db.hydrate_session(session_id)
+                                if db_data:
+                                    self.sessions[session_id].hydrate_from_db(db_data)
+                                else:
+                                    logger.debug(f"🗄️ No persistence data found for session {session_id}")
+                            except Exception as hydration_error:
+                                logger.warning(f"⚠️ Failed to hydrate session {session_id}: {hydration_error}")
                     
                     session = self.sessions[session_id]
                     
@@ -1062,7 +1224,7 @@ class OumiWebServer(OpenAICompatibleServer):
                     "type": "session_init",
                     "session_id": session_id,
                     "conversation": session.serialize_conversation(),
-                    "branches": session.branch_manager.list_branches(),
+                    "branches": session.get_enhanced_branch_info(self.db),
                     "current_branch": session.branch_manager.current_branch_id,
                     "model_info": {
                         "name": getattr(self.config.model, "model_name", "Unknown"),
@@ -1110,7 +1272,7 @@ class OumiWebServer(OpenAICompatibleServer):
             await self.handle_command_message(session, data, ws)
 
         elif msg_type == "get_branches":
-            branches = session.branch_manager.list_branches()
+            branches = session.get_enhanced_branch_info(self.db)
             current_branch = session.branch_manager.current_branch_id
             logger.debug(f"📋 DEBUG: Get branches WS request - current: '{current_branch}', available: {[b['id'] for b in branches]}")
             logger.debug(f"📋 DEBUG: Branch details: {[(b['id'], b['message_count'], b['created_at']) for b in branches]}")
@@ -1343,7 +1505,7 @@ class OumiWebServer(OpenAICompatibleServer):
                         {
                             "type": "conversation_update",
                             "conversation": session.serialize_conversation(),
-                            "branches": session.branch_manager.list_branches(),
+                            "branches": session.get_enhanced_branch_info(self.db),
                             "current_branch": session.branch_manager.current_branch_id,
                         }
                     )
@@ -1437,7 +1599,7 @@ class OumiWebServer(OpenAICompatibleServer):
 
             # Add specific data for certain commands
             if command in ["branches", "list_branches"]:
-                response_data["branches"] = session.branch_manager.list_branches()
+                response_data["branches"] = session.get_enhanced_branch_info(self.db)
                 response_data["current_branch"] = (
                     session.branch_manager.current_branch_id
                 )
@@ -1488,7 +1650,7 @@ class OumiWebServer(OpenAICompatibleServer):
                     {
                         "type": "conversation_update",
                         "conversation": session.serialize_conversation(),
-                        "branches": session.branch_manager.list_branches(),
+                        "branches": session.get_enhanced_branch_info(self.db),
                         "current_branch": session.branch_manager.current_branch_id,
                         "timestamp": time.time()
                     }
@@ -1517,7 +1679,7 @@ class OumiWebServer(OpenAICompatibleServer):
             logger.debug(f"📋 DEBUG: Raw branches dict: {list(session.branch_manager.branches.keys())}")
             logger.debug(f"📋 DEBUG: Branch counter: {session.branch_manager._branch_counter}")
             
-            branches = session.branch_manager.list_branches()
+            branches = session.get_enhanced_branch_info(self.db)
             current_branch = session.branch_manager.current_branch_id
             logger.debug(f"📋 DEBUG: Get branches HTTP request - current: '{current_branch}', available: {[b['id'] for b in branches]}")
             logger.debug(f"📋 DEBUG: Branch details: {[(b['id'], b['message_count'], b['created_at']) for b in branches]}")
@@ -1569,6 +1731,16 @@ class OumiWebServer(OpenAICompatibleServer):
                         logger.debug(f"🔀 DEBUG: Branch switch result - success: {success}, message: '{message}'")
 
                         if success and branch:
+                            # PHASE 1B: Try to hydrate branch from DB if needed
+                            if session.is_hydrated_from_db and hasattr(self, 'db') and self.db:
+                                try:
+                                    # Only hydrate if branch appears empty (DB is authoritative)
+                                    if len(branch.conversation_history) == 0:
+                                        logger.debug(f"🗄️ Attempting to hydrate empty branch '{branch_id}' from DB")
+                                        session.hydrate_branch_from_db(branch_id, self.db)
+                                except Exception as hydration_error:
+                                    logger.warning(f"⚠️ Branch hydration failed for {branch_id}: {hydration_error}")
+                            
                             logger.debug(f"🔀 DEBUG: Branch '{branch_id}' conversation length: {len(branch.conversation_history)}")
                             # Log branch conversation before clearing current history
                             for i, msg in enumerate(branch.conversation_history):
@@ -1724,10 +1896,10 @@ class OumiWebServer(OpenAICompatibleServer):
                     async def delete_branch_atomically(session):
                         """Delete branch atomically within session lock."""
                         logger.debug(f"🗑️  DEBUG: Branch delete requested - branch_id: '{branch_id}'")
-                        logger.debug(f"🗑️  DEBUG: Available branches before delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
+                        logger.debug(f"🗑️  DEBUG: Available branches before delete: {[b['id'] for b in session.get_enhanced_branch_info(self.db)]}")
                         success, message = session.branch_manager.delete_branch(branch_id)
                         logger.debug(f"🗑️  DEBUG: Branch delete result - success: {success}, message: '{message}'")
-                        logger.debug(f"🗑️  DEBUG: Available branches after delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
+                        logger.debug(f"🗑️  DEBUG: Available branches after delete: {[b['id'] for b in session.get_enhanced_branch_info(self.db)]}")
                         return success, message, session
                     
                     # Execute branch deletion atomically
@@ -1737,7 +1909,7 @@ class OumiWebServer(OpenAICompatibleServer):
                         {
                             "success": success,
                             "message": message,
-                            "branches": session.branch_manager.list_branches(),
+                            "branches": session.get_enhanced_branch_info(self.db),
                             "current_branch": session.branch_manager.current_branch_id,
                         }
                     )

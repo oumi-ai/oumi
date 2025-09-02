@@ -57,6 +57,7 @@ class WebchatDB:
                 conversation_id TEXT NOT NULL,
                 role TEXT NOT NULL,
                 content TEXT NOT NULL,
+                content_hash TEXT,
                 created_at REAL,
                 metadata TEXT,
                 FOREIGN KEY(conversation_id) REFERENCES conversations(id)
@@ -80,10 +81,14 @@ class WebchatDB:
             );
 
             CREATE INDEX IF NOT EXISTS idx_messages_conv_created ON messages(conversation_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_messages_content_hash ON messages(content_hash);
             CREATE INDEX IF NOT EXISTS idx_branch_msgs_branch ON branch_messages(branch_id, seq);
             CREATE INDEX IF NOT EXISTS idx_branch_msgs_message ON branch_messages(message_id);
             CREATE INDEX IF NOT EXISTS idx_branches_parent ON branches(parent_branch_id);
             CREATE INDEX IF NOT EXISTS idx_branches_conversation ON branches(conversation_id);
+            
+            -- FTS virtual table for search (optional, created on demand)
+            CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(content, content=messages, content_rowid=rowid);
             """
         )
         conn.commit()
@@ -97,6 +102,23 @@ class WebchatDB:
         cur.execute("SELECT COALESCE(MAX(seq), -1) + 1 FROM branch_messages WHERE branch_id=?", (branch_id,))
         (next_seq,) = cur.fetchone()
         return int(next_seq or 0)
+
+    def _hash_content(self, role: str, content: str, metadata: Optional[str] = None) -> str:
+        """Generate a content hash for deduplication."""
+        content_str = f"{role}:{content}"
+        if metadata:
+            content_str += f":{metadata}"
+        return hashlib.sha256(content_str.encode('utf-8')).hexdigest()
+
+    def _find_existing_message(self, conn: sqlite3.Connection, conversation_id: str, content_hash: str) -> Optional[str]:
+        """Find existing message with same content hash in this conversation."""
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id FROM messages WHERE conversation_id = ? AND content_hash = ? LIMIT 1",
+            (conversation_id, content_hash)
+        )
+        row = cur.fetchone()
+        return row[0] if row else None
 
     # Public API
     def ensure_session(self, session_id: str) -> None:
@@ -149,16 +171,32 @@ class WebchatDB:
                 )
                 conn.commit()
 
-    def append_message_to_branch(self, conversation_id: str, branch_id: str, role: str, content: str, created_at: Optional[float] = None) -> str:
-        """Insert a new message in conversation and link it to the branch with next seq."""
+    def append_message_to_branch(self, conversation_id: str, branch_id: str, role: str, content: str, created_at: Optional[float] = None, metadata: Optional[str] = None) -> str:
+        """Insert a new message in conversation and link it to the branch with next seq.
+        
+        Uses content deduplication - if identical message exists, reuses it.
+        """
         created = created_at or self._now()
-        msg_id = f"msg_{uuid.uuid4().hex}"
+        content_hash = self._hash_content(role, content, metadata)
+        
         with self._lock, self._connect() as conn:
             cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO messages(id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
-                (msg_id, conversation_id, role, content, created),
-            )
+            
+            # Try to find existing message with same content
+            existing_msg_id = self._find_existing_message(conn, conversation_id, content_hash)
+            
+            if existing_msg_id:
+                # Reuse existing message
+                msg_id = existing_msg_id
+            else:
+                # Create new message
+                msg_id = f"msg_{uuid.uuid4().hex}"
+                cur.execute(
+                    "INSERT INTO messages(id, conversation_id, role, content, content_hash, created_at, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (msg_id, conversation_id, role, content, content_hash, created, metadata),
+                )
+            
+            # Add to branch sequence (always create new branch_message entry)
             seq = self._next_seq(conn, branch_id)
             cur.execute(
                 "INSERT INTO branch_messages(branch_id, message_id, seq) VALUES (?, ?, ?)",
@@ -170,20 +208,35 @@ class WebchatDB:
     def bulk_add_branch_history(self, conversation_id: str, branch_id: str, messages: Sequence[dict]) -> None:
         """Populate a branch with an existing list of message dicts.
 
-        Phase 1a note: We insert new message rows; dedup is not attempted.
+        Uses content deduplication - reuses existing messages when possible.
         """
         with self._lock, self._connect() as conn:
             cur = conn.cursor()
             next_seq = self._next_seq(conn, branch_id)
             for msg in messages:
-                msg_id = f"msg_{uuid.uuid4().hex}"
                 role = msg.get("role", "user")
                 content = str(msg.get("content", ""))
                 created = float(msg.get("timestamp", time.time()))
-                cur.execute(
-                    "INSERT INTO messages(id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
-                    (msg_id, conversation_id, role, content, created),
-                )
+                metadata = json.dumps(msg.get("metadata", {})) if msg.get("metadata") else None
+                
+                # Generate content hash for deduplication
+                content_hash = self._hash_content(role, content, metadata)
+                
+                # Try to find existing message
+                existing_msg_id = self._find_existing_message(conn, conversation_id, content_hash)
+                
+                if existing_msg_id:
+                    # Reuse existing message
+                    msg_id = existing_msg_id
+                else:
+                    # Create new message
+                    msg_id = f"msg_{uuid.uuid4().hex}"
+                    cur.execute(
+                        "INSERT INTO messages(id, conversation_id, role, content, content_hash, created_at, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (msg_id, conversation_id, role, content, content_hash, created, metadata),
+                    )
+                
+                # Add to branch sequence
                 cur.execute(
                     "INSERT INTO branch_messages(branch_id, message_id, seq) VALUES (?, ?, ?)",
                     (branch_id, msg_id, next_seq),
@@ -304,17 +357,22 @@ class WebchatDB:
             
         # Use provided branch_id or fall back to session's current branch
         target_branch_id = branch_id or session_info["current_branch_id"]
+        
+        # Get all branches for the session
+        branches = self.get_session_branches(session_id)
+        
+        if not target_branch_id and branches:
+            # If no current branch set but branches exist, use the first one
+            target_branch_id = branches[0]["id"]
+            
         if not target_branch_id:
-            # Session exists but has no current branch - return empty
+            # Session exists but has no branches - return empty
             return {
                 "session_info": session_info,
                 "branches": [],
                 "current_messages": [],
                 "current_branch_id": None
             }
-        
-        # Get all branches for the session
-        branches = self.get_session_branches(session_id)
         
         # Get messages for the target branch
         messages = self.get_branch_messages(target_branch_id)
@@ -343,4 +401,105 @@ class WebchatDB:
                 (title, conversation_id)
             )
             conn.commit()
+
+    def search_messages(self, query: str, conversation_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """Search messages using FTS. Optionally filter by conversation."""
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
+            
+            if conversation_id:
+                # Search within specific conversation
+                cur.execute(
+                    """
+                    SELECT m.id, m.conversation_id, m.role, m.content, m.created_at
+                    FROM messages_fts fts
+                    JOIN messages m ON fts.rowid = m.rowid
+                    WHERE fts.content MATCH ? AND m.conversation_id = ?
+                    ORDER BY fts.rank
+                    LIMIT ?
+                    """,
+                    (query, conversation_id, limit)
+                )
+            else:
+                # Search all messages
+                cur.execute(
+                    """
+                    SELECT m.id, m.conversation_id, m.role, m.content, m.created_at
+                    FROM messages_fts fts
+                    JOIN messages m ON fts.rowid = m.rowid
+                    WHERE fts.content MATCH ?
+                    ORDER BY fts.rank
+                    LIMIT ?
+                    """,
+                    (query, limit)
+                )
+            
+            results = []
+            for row in cur.fetchall():
+                msg_id, conv_id, role, content, created_at = row
+                results.append({
+                    "id": msg_id,
+                    "conversation_id": conv_id,
+                    "role": role,
+                    "content": content,
+                    "timestamp": created_at
+                })
+            return results
+
+    def get_conversation_stats(self, conversation_id: str) -> Dict[str, Any]:
+        """Get statistics for a conversation."""
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
+            
+            # Count total messages
+            cur.execute("SELECT COUNT(*) FROM messages WHERE conversation_id = ?", (conversation_id,))
+            total_messages = cur.fetchone()[0]
+            
+            # Count branches
+            cur.execute("SELECT COUNT(*) FROM branches WHERE conversation_id = ?", (conversation_id,))
+            total_branches = cur.fetchone()[0]
+            
+            # Get creation time
+            cur.execute("SELECT created_at FROM conversations WHERE id = ?", (conversation_id,))
+            created_at = cur.fetchone()
+            created_at = created_at[0] if created_at else None
+            
+            return {
+                "conversation_id": conversation_id,
+                "total_messages": total_messages,
+                "total_branches": total_branches,
+                "created_at": created_at
+            }
+
+    def list_conversations(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """List all conversations with metadata."""
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT c.id, c.title, c.created_at, c.metadata,
+                       COUNT(DISTINCT m.id) as message_count,
+                       COUNT(DISTINCT b.id) as branch_count
+                FROM conversations c
+                LEFT JOIN messages m ON c.id = m.conversation_id
+                LEFT JOIN branches b ON c.id = b.conversation_id
+                GROUP BY c.id, c.title, c.created_at, c.metadata
+                ORDER BY c.created_at DESC
+                LIMIT ?
+                """,
+                (limit,)
+            )
+            
+            results = []
+            for row in cur.fetchall():
+                conv_id, title, created_at, metadata, msg_count, branch_count = row
+                results.append({
+                    "id": conv_id,
+                    "title": title,
+                    "created_at": created_at,
+                    "metadata": json.loads(metadata) if metadata else {},
+                    "message_count": msg_count or 0,
+                    "branch_count": branch_count or 0
+                })
+            return results
 
