@@ -370,7 +370,9 @@ def train(
         ):
             eval_dataset = try_prepare_trl_grpo_dataset(eval_dataset)
 
-    collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
+    collator: Optional[Callable] = build_collator_from_config(
+        config, tokenizer, debug=config.training.log_examples
+    )
 
     training_kwargs = _create_optional_training_kwargs(
         config,

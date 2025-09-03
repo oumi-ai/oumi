@@ -21,7 +21,7 @@ from oumi.core.configs.params.synthesis_params import (
     DocumentSource,
     ExampleSource,
     GeneralSynthesisParams,
-    PermutableAttribute,
+    SampledAttribute,
 )
 from oumi.core.synthesis.dataset_ingestion import DatasetReader
 from oumi.core.synthesis.document_ingestion import DocumentReader, DocumentSegmenter
@@ -84,7 +84,7 @@ class DatasetPlanner:
         )
 
         permutable_attribute_samples = self._plan_permutable_attributes(
-            synthesis_params.permutable_attributes,
+            synthesis_params.sampled_attributes,
             synthesis_params.combination_sampling,
             sample_count,
         )
@@ -190,7 +190,7 @@ class DatasetPlanner:
 
     def _plan_permutable_attributes(
         self,
-        permutable_attributes: Optional[list[PermutableAttribute]],
+        permutable_attributes: Optional[list[SampledAttribute]],
         combination_sampling: Optional[list[AttributeCombination]],
         sample_count: int,
     ) -> list[dict]:
