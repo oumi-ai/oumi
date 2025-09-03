@@ -134,7 +134,9 @@ def _tail_logs(
                 # Because Rich is rendering markup/styled text and
                 # escapes control characters like \r, we need to handle it specially.
                 if "\r" in line:
-                    cli_utils.CONSOLE.print(line.strip(), end="\r", markup=False)
+                    cli_utils.CONSOLE.file.write("\r")
+                    cli_utils.CONSOLE.print(line.strip(), end="", markup=False)
+                    cli_utils.CONSOLE.file.flush()
                 else:
                     cli_utils.CONSOLE.print(line, end="", markup=False)
     except KeyboardInterrupt:
