@@ -260,9 +260,13 @@ def _poll_job(
     assert running_cluster
 
     try:
-        log_stream = running_cluster.get_logs_stream(job_status.cluster, job_status.id)
+        log_stream = running_cluster.get_logs_stream(job_status.id, job_status.cluster)
         _tail_logs(log_stream, output_filepath)
     except NotImplementedError:
+        if output_filepath:
+            cli_utils.CONSOLE.print(
+                "Cluster does not have support for streaming to a file."
+            )
         _print_and_wait(
             f"Running job [yellow]{job_status.id}[/yellow]",
             _is_job_done,

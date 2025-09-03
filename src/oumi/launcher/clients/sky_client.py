@@ -79,8 +79,6 @@ class SkyLogStream(io.TextIOBase):
         for chunk in self.iterator:
             if chunk is None:
                 return ""
-            if "Number of GPUs per node" in chunk:
-                print("Number of GPUs per node: ")
             # Remove ANSI escape codes and return immediately
             return self.ansi_pattern.sub("", chunk)
 
