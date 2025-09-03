@@ -1,0 +1,284 @@
+# Conversation Synthesis Example
+# Create multi-turn conversations by chaining generated responses.
+# This example generates realistic customer support conversations with different scenarios.
+
+strategy: GENERAL
+num_samples: 50
+output_path: conversation_dataset.jsonl
+
+strategy_params:
+  # Define conversation scenarios and customer types
+  sampled_attributes:
+    - id: system_instruction
+      name: System Instruction
+      description: The system instruction to use for the conversation
+      possible_values:
+        - id: customer_support
+          name: |
+            You are CareBot, a customer service assistant for BrightTech Electronics.
+
+            Your goals:
+            - Resolve customer issues within your capabilities.
+            - Use a polite, empathetic, and professional tone.
+            - Always summarize the result for the customer in natural language.
+            - When you need to perform an action, output it in a structured format so the system can execute it.
+            - If you do not have enough information to resolve the issue, ask the customer to clarify.
+
+            ### Tone Rules
+            - Be polite, concise, and solution-focused.
+            - Acknowledge frustration with empathy.
+            - Do not provide personal opinions or unrelated advice.
+            - Never ask for personal information like name, email, phone number, etc.
+
+            ### Action Rules
+            When an action is required, output ONLY in the following format:
+
+            <ACTION>
+            type: [LOOKUP_ORDER | CHECK_SHIPPING | INITIATE_RETURN | ISSUE_REFUND | OFFER_DISCOUNT | ESCALATE]
+            parameters: { ... }   # JSON-like key/value parameters
+            </ACTION>
+
+            After the action block, provide a natural-language response to the customer.
+            Do not mix the action block with free text.
+
+            ### Action Types
+            1. LOOKUP_ORDER
+              - parameters: { "order_id": string }
+              - Example: Look up an order when given an order number.
+
+            2. CHECK_SHIPPING
+              - parameters: { "order_id": string }
+              - Example: Check the shipping carrier’s status for the order.
+
+            3. INITIATE_RETURN
+              - parameters: { "order_id": string, "item_id": string, "reason": string }
+              - Example: Customer requests to return or exchange a product.
+
+            4. ISSUE_REFUND
+              - parameters: { "order_id": string, "amount": number }
+              - Rules: Refunds up to $200 only. Escalate otherwise.
+
+            5. OFFER_DISCOUNT
+              - parameters: { "order_id": string, "amount_percent": number (≤10) }
+              - Example: Offer up to 10% discount to resolve dissatisfaction.
+
+            6. ESCALATE
+              - parameters: { "reason": string }
+              - Example: Customer requests human support, issue > $200, legal or account issues.
+
+            ### Example Responses
+            Customer: "Where's my order BT1234?"
+            Bot:
+            <ACTION>
+            type: CHECK_SHIPPING
+            parameters: { "order_id": "BT1234" }
+            </ACTION>
+            Let me check the shipping status for order BT1234. One moment please.
+
+            Customer: "I want to return my headphones."
+            Bot:
+            <ACTION>
+            type: INITIATE_RETURN
+            parameters: { "order_id": "BT4567", "item_id": "HD998", "reason": "Product defective" }
+            </ACTION>
+            I can help with that. I'll generate a return label for your headphones.
+          description: "N/A"
+
+    - id: scenario
+      name: Support Scenario
+      description: The type of customer support issue being addressed
+      possible_values:
+        - id: account_issue
+          name: Account Problems
+          description: Login issues, password resets, account access problems
+        - id: billing_inquiry
+          name: Billing Questions
+          description: Questions about charges, payments, subscription management
+        - id: product_question
+          name: Product Information
+          description: Feature questions, how-to guides, product comparisons
+        - id: technical_support
+          name: Technical Issues
+          description: Bug reports, troubleshooting, technical difficulties
+        - id: refund_request
+          name: Refund Requests
+          description: Return requests, cancellations, refund processing
+
+    - id: customer_type
+      name: Customer Personality
+      description: The customer's communication style and emotional state
+      possible_values:
+        - id: friendly
+          name: Friendly
+          description: Polite, patient, and appreciative
+        - id: frustrated
+          name: Frustrated
+          description: Annoyed but still reasonable
+        - id: confused
+          name: Confused
+          description: Uncertain and needs clear explanations
+        - id: demanding
+          name: Demanding
+          description: Urgent, wants immediate resolution
+        - id: curious
+          name: Curious
+          description: Asking lots of questions, wants to understand
+        - id: adversarial
+          name: Adversarial
+          description: Attempting to deceive or manipulate the agent to say or do something it shouldn't do
+
+    - id: resolution
+      name: Resolution Type
+      description: How the conversation should end
+      possible_values:
+        - id: resolved
+          name: Fully Resolved
+          description: Issue completely solved, customer satisfied
+        - id: escalated
+          name: Escalated
+          description: Transferred to specialist or supervisor
+        - id: pending
+          name: Pending
+          description: Requires follow-up or additional steps
+        - id: abandoned
+          name: Abandoned
+          description: Customer gives up and ends the conversation
+
+  # Generate the customer's opening message
+  generated_attributes:
+    - id: customer_opener
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are creating realistic customer support conversation starters.
+
+            The customer should sound natural and match their personality type.
+        - role: USER
+          content: |
+            Customer personality: {customer_type.description}
+            Issue type: {scenario.description}
+
+            Company name: BrightTech Electronics
+
+            Make it sound natural and realistic. Write only the customer's opening message.
+
+            Format your response as follows:
+            Customer:
+            <customer_opener>
+            End Customer
+
+            Write only the customer's opening message, do not include additional filler text.
+      postprocessing_params:
+        id: cleaned_opener
+        cut_prefix: "Customer:"
+        cut_suffix: "End Customer"
+        strip_whitespace: true
+
+    # Generate the support agent's response
+    - id: agent_response
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            {system_instruction}
+        - role: USER
+          content: "{cleaned_opener}"
+      postprocessing_params:
+        id: cleaned_agent_response
+        strip_whitespace: true
+
+    # Generate the customer's follow-up
+    - id: customer_followup
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are the customer continuing the conversation with the support agent.
+
+            Customer personality: {customer_type.description}
+            Issue type: {scenario.description}
+            Resolution type: {resolution.description}
+
+            Maintain the same personality and tone as your opening message.
+            React naturally to the agent's response.
+            Try to guide the conversation toward a {resolution} resolution.
+
+            Opening message: "{cleaned_opener}"
+
+            Format your response as follows:
+            Customer:
+            <customer_followup>
+            End Customer
+
+            Write only the customer's follow-up message, do not include additional filler text.
+        - role: USER
+          content: "{cleaned_agent_response}"
+      postprocessing_params:
+        id: cleaned_followup
+        cut_prefix: "Customer:"
+        cut_suffix: "End Customer"
+        strip_whitespace: true
+
+    # Generate the final agent response
+    - id: final_agent_response
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            {system_instruction}
+        - role: USER
+          content: |
+            Customer's original message: "{cleaned_opener}"
+            Your first response: "{cleaned_agent_response}"
+            Customer's follow-up: "{cleaned_followup}"
+
+            Format your response as follows:
+            Response:
+            <final_agent_response>
+            End Response
+
+            Write only the final agent response, do not include additional filler text.
+      postprocessing_params:
+        id: cleaned_final_response
+        cut_prefix: "Response:"
+        cut_suffix: "End Response"
+        strip_whitespace: true
+
+  # Transform into conversation format
+  transformed_attributes:
+    - id: conversation
+      transformation_strategy:
+        type: CHAT
+        chat_transform:
+          messages:
+            - role: SYSTEM
+              content: "{system_instruction}"
+            - role: USER
+              content: "{cleaned_opener}"
+            - role: ASSISTANT
+              content: "{cleaned_agent_response}"
+            - role: USER
+              content: "{cleaned_followup}"
+            - role: ASSISTANT
+              content: "{cleaned_final_response}"
+
+  # Include relevant attributes in output
+  passthrough_attributes:
+    - conversation
+    - scenario
+    - customer_type
+    - resolution
+    - cleaned_opener
+    - cleaned_agent_response
+    - cleaned_followup
+    - cleaned_final_response
+
+# Model configuration optimized for conversation generation
+inference_config:
+  model:
+    model_name: claude-3-5-sonnet-20240620
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60
