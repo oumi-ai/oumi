@@ -117,7 +117,8 @@ def _tail_logs(
     """
     if output_filepath:
         cli_utils.CONSOLE.print(f"Tailed logs will be saved to: {output_filepath}")
-
+    else:
+        cli_utils.CONSOLE.print("Tailing logs to console...")
     # Open output file if specified
     file_handle = None
     if output_filepath:
@@ -262,7 +263,11 @@ def _poll_job(
     try:
         log_stream = running_cluster.get_logs_stream(job_status.id, job_status.cluster)
         _tail_logs(log_stream, job_status.id, output_filepath)
-    except Exception:
+    except NotImplementedError:
+        if output_filepath:
+            cli_utils.CONSOLE.print(
+                "Cluster does not have support for streaming to a file."
+            )
         _print_and_wait(
             f"Running job [yellow]{job_status.id}[/yellow]",
             _is_job_done,
