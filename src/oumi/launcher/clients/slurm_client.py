@@ -13,8 +13,12 @@
 # limitations under the License.
 
 import functools
+import io
+import os
 import re
+import signal
 import subprocess
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -175,6 +179,208 @@ def retry_auth(user_function: Callable) -> Callable:
         return user_function(self, *args, **kwargs)
 
     return wrapper
+
+
+class SlurmLogStream(io.TextIOBase):
+    """A stream that provides access to job logs.
+
+    This class inherits from io.TextIOBase to provide a file-like interface
+    for reading job logs.
+
+    Expected Order of Events:
+    1. Initialization: Starts a tail process to monitor the job's stdout file and
+       launches a background thread to check job status.
+    2. Active Reading: While the job is running, reads lines directly from the
+       tail process stdout in real-time.
+    3. Job Completion: The background thread detects when the job is done and
+       terminates the tail process.
+    4. Cleanup: When the stream is closed, resources are cleaned up.
+
+    State Transitions:
+    - _proc: None → subprocess.Popen → None (after termination)
+    """
+
+    def __init__(
+        self,
+        working_dir: str,
+        job_id: str,
+        cluster_name: str,
+        stdout_filename: str,
+        client: "SlurmClient",
+    ):
+        """Initialize the log stream.
+
+        Args:
+            working_dir: Remote working directory where the job was submitted.
+            job_id: The Slurm job ID whose output file to follow.
+            cluster_name: The name of the cluster the job was run in.
+            stdout_filename: The name of the stdout file to tail.
+            client: The SlurmClient instance.
+        """
+        self.working_dir = working_dir
+        self.job_id = job_id
+        self.cluster_name = cluster_name
+        self.stdout_filename = stdout_filename
+        self._client = client
+        self._job_check_thread = None
+        self._proc = self._start_tail_process(
+            working_dir, cluster_name, stdout_filename
+        )
+
+        # Progress bar detection patterns
+        self._progress_patterns = [
+            r"\d+%",  # Percentage patterns like "50%"
+            r"\d+/\d+",  # Fraction patterns like "100/200"
+            r"\[.*\]",  # Bracket patterns like "[████████░░]"
+        ]
+
+    def readline(self) -> str:
+        """Read a line from the stream.
+
+        Returns:
+            The line read from the stream, or an empty string if the stream is closed.
+        """
+        if self._proc is None:
+            return ""
+
+        # Process is still running, try to read from stdout
+        if self._proc and self._proc.stdout:
+            line = self._proc.stdout.readline()
+            if line:
+                if not line.strip():
+                    return self.readline()
+                if "Starting training" in line:
+                    print("starting")
+                    return line
+                # Convert progress bar lines to use \r instead of \n for updates
+                if self._is_progress_line(line):
+                    # Remove \n and add \r for in-place progress bar updates
+                    return line.rstrip("\n") + "\r"
+                return line
+        return ""
+
+    def _is_progress_line(self, line: str) -> bool:
+        """Check if a line looks like a progress bar update.
+
+        Args:
+            line: The line to check.
+
+        Returns:
+            True if the line appears to be a progress bar update.
+        """
+        # Look for multiple progress indicators in the same line
+        pattern_matches = 0
+        for pattern in self._progress_patterns:
+            if re.search(pattern, line):
+                pattern_matches += 1
+
+        # If we have multiple progress indicators, it's likely a progress bar
+        if pattern_matches >= 2:
+            return True
+
+        return False
+
+    def close(self) -> None:
+        """Close the stream and clean up resources."""
+        if self._proc:
+            try:
+                os.killpg(self._proc.pid, signal.SIGINT)
+            except ProcessLookupError:
+                pass  # process already gone and can happen due to race conditions
+            finally:
+                self._proc = None
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
+
+    def _start_tail_process(
+        self, working_dir: str, cluster_name: str, stdout_filename: str
+    ) -> subprocess.Popen:
+        """Starts a tail process for the specified job.
+
+        This is an internal method that starts the SSH tail process and returns
+        the subprocess object for the LogStream to read from.
+
+        Args:
+            working_dir: Remote working directory where the job was submitted.
+            cluster_name: The name of the cluster the job was run in.
+            stdout_filename: The name of the stdout file to tail.
+
+        Returns:
+            A subprocess.Popen object that can be read from.
+        """
+        max_attempts = 6
+        base_delay = 5
+        max_delay = 20
+
+        # Wait for log file to appear
+        for attempt in range(max_attempts):
+            # Use direct SSH command to avoid pseudo-terminal issues
+            check_cmd = (
+                f"ssh {_CTRL_PATH} {cluster_name} "
+                f'"cd {working_dir} && test -f {stdout_filename}"'
+            )
+            preflight = subprocess.run(
+                check_cmd,
+                shell=True,
+                capture_output=True,
+                timeout=30,
+            )
+            if preflight.returncode == 0:
+                break
+
+            if attempt < max_attempts - 1:
+                delay = min(base_delay * (2**attempt), max_delay)
+                time.sleep(delay)
+            else:
+                raise FileNotFoundError(
+                    f"Log file not found after {max_attempts} attempts: "
+                    f"{Path(working_dir) / stdout_filename}. "
+                    "The job may not have started."
+                )
+
+        tail_cmd = (
+            f"ssh {_CTRL_PATH} {cluster_name} "
+            f'"cd {working_dir} && tail -n +1 -F {stdout_filename}"'
+        )
+
+        proc = subprocess.Popen(
+            tail_cmd,
+            shell=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+            text=True,
+            bufsize=1,
+        )
+
+        self._start_job_checking(proc)
+
+        return proc
+
+    def _start_job_checking(self, proc: subprocess.Popen):
+        """Start background thread to check job status."""
+
+        def check_job_status():
+            while True:
+                try:
+                    job = self._client.get_job(self.job_id)
+                    if job is None or job.done:
+                        proc.terminate()
+                        proc.wait()
+                        break
+                    time.sleep(2)
+                except Exception:
+                    break
+
+        self._job_check_thread = threading.Thread(target=check_job_status, daemon=True)
+        self._job_check_thread.start()
 
 
 class SlurmClient:
@@ -518,3 +724,22 @@ class SlurmClient:
         result = self.run_commands(cmds)
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
+
+    def get_logs_stream(
+        self, working_dir: str, job_id: str, cluster_name: str, stdout_filename: str
+    ) -> SlurmLogStream:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            working_dir: Remote working directory where the job was submitted.
+            job_id: The ID of the job to tail the logs of.
+            cluster_name: The name of the cluster the job was run in.
+            stdout_filename: The name of the stdout file to tail.
+        """
+        return SlurmLogStream(
+            working_dir,
+            job_id,
+            cluster_name,
+            stdout_filename,
+            client=self,
+        )
