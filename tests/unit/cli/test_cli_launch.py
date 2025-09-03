@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 
 from oumi.cli.alias import AliasType
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.cli.launch import cancel, down, status, stop, up, which
+from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.core.configs import (
     DataParams,
@@ -72,6 +72,7 @@ def app():
     launch_app.command()(cancel)
     launch_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(up)
     launch_app.command()(which)
+    launch_app.command()(logs)
     yield launch_app
 
 
@@ -1296,3 +1297,157 @@ def test_launch_status_cluster_no_jobs(app, mock_launcher, mock_pool):
     assert "Cloud: cloud_id" in result.stdout
     assert "Cluster: cluster_id" in result.stdout
     assert "No matching jobs found." in result.stdout
+
+
+# Tests for logs command
+def test_launch_logs_with_cloud_success(app, mock_launcher):
+    """Test logs command with specific cloud - success case."""
+    mock_cloud = Mock()
+    mock_cluster = Mock()
+    mock_log_stream = Mock()
+    mock_launcher.get_cloud.return_value = mock_cloud
+    mock_cloud.get_cluster.return_value = mock_cluster
+    mock_cluster.get_logs_stream.return_value = mock_log_stream
+
+    with patch("oumi.cli.launch._tail_logs") as mock_tail_logs:
+        _ = runner.invoke(
+            app,
+            [
+                "logs",
+                "--cluster",
+                "test_cluster",
+                "--cloud",
+                "aws",
+                "--job-id",
+                "job_123",
+            ],
+        )
+
+    mock_launcher.get_cloud.assert_called_once_with("aws")
+    mock_cloud.get_cluster.assert_called_once_with("test_cluster")
+    mock_cluster.get_logs_stream.assert_called_once_with("test_cluster", "job_123")
+    mock_tail_logs.assert_called_once_with(mock_log_stream, None)
+
+
+def test_launch_logs_with_cloud_cluster_not_found(app, mock_launcher, mock_pool):
+    """Test logs command with specific cloud - cluster not found."""
+    mock_cloud = Mock()
+    mock_launcher.get_cloud.return_value = mock_cloud
+    mock_cloud.get_cluster.return_value = None
+
+    result = runner.invoke(
+        app,
+        [
+            "logs",
+            "--cluster",
+            "test_cluster",
+            "--cloud",
+            "aws",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Cluster test_cluster not found" in result.stdout
+
+
+def test_launch_logs_no_cloud_single_match(app, mock_launcher):
+    """Test logs command without cloud - single cluster found."""
+    mock_cloud1 = Mock()
+    mock_cluster1 = Mock()
+    mock_cloud2 = Mock()
+    mock_log_stream = Mock()
+    mock_launcher.which_clouds.return_value = ["aws", "gcp"]
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = mock_cluster1
+    mock_cloud2.get_cluster.return_value = None
+    mock_cluster1.get_logs_stream.return_value = mock_log_stream
+
+    with patch("oumi.cli.launch._tail_logs") as mock_tail_logs:
+        _ = runner.invoke(
+            app,
+            [
+                "logs",
+                "--cluster",
+                "test_cluster",
+            ],
+        )
+
+    mock_launcher.which_clouds.assert_called_once()
+    mock_launcher.get_cloud.assert_has_calls([call("aws"), call("gcp")])
+    mock_cloud1.get_cluster.assert_called_once_with("test_cluster")
+    mock_cloud2.get_cluster.assert_called_once_with("test_cluster")
+    mock_cluster1.get_logs_stream.assert_called_once_with("test_cluster", None)
+    mock_tail_logs.assert_called_once_with(mock_log_stream, None)
+
+
+def test_launch_logs_no_cloud_multiple_matches(app, mock_launcher, mock_pool):
+    """Test logs command without cloud - multiple clusters found."""
+    mock_cloud1 = Mock()
+    mock_cluster1 = Mock()
+    mock_cloud2 = Mock()
+    mock_cluster2 = Mock()
+    mock_launcher.which_clouds.return_value = ["aws", "gcp"]
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = mock_cluster1
+    mock_cloud2.get_cluster.return_value = mock_cluster2
+
+    result = runner.invoke(
+        app,
+        [
+            "logs",
+            "--cluster",
+            "test_cluster",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Multiple clusters found with name test_cluster" in result.stdout
+
+
+def test_launch_logs_no_cloud_no_matches(app, mock_launcher):
+    """Test logs command without cloud - no clusters found."""
+    mock_cloud1 = Mock()
+    mock_cloud2 = Mock()
+    mock_launcher.which_clouds.return_value = ["aws", "gcp"]
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = None
+    mock_cloud2.get_cluster.return_value = None
+
+    result = runner.invoke(
+        app,
+        [
+            "logs",
+            "--cluster",
+            "test_cluster",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Cluster test_cluster not found" in result.stdout
+
+
+def test_launch_logs_with_output_file(app, mock_launcher):
+    """Test logs command with output file specified."""
+    mock_cloud = Mock()
+    mock_cluster = Mock()
+    mock_log_stream = Mock()
+    mock_launcher.get_cloud.return_value = mock_cloud
+    mock_cloud.get_cluster.return_value = mock_cluster
+    mock_cluster.get_logs_stream.return_value = mock_log_stream
+
+    with patch("oumi.cli.launch._tail_logs") as mock_tail_logs:
+        _ = runner.invoke(
+            app,
+            [
+                "logs",
+                "--cluster",
+                "test_cluster",
+                "--cloud",
+                "aws",
+                "--output-filepath",
+                "/tmp/logs.txt",
+            ],
+        )
+
+    mock_cluster.get_logs_stream.assert_called_once_with("test_cluster", None)
+    mock_tail_logs.assert_called_once_with(mock_log_stream, "/tmp/logs.txt")
