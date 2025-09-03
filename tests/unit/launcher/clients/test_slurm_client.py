@@ -68,7 +68,7 @@ def test_slurm_client_submit_job(mock_subprocess):
     mock_run.stderr = b"err"
     mock_run.returncode = 0
     client = SlurmClient("user", "host", "cluster_name")
-    result = client.submit_job("./job.sh", "work_dir", 2, None)
+    result = client.submit_job("./job.sh", "work_dir", 2, "", "", None)
     mock_subprocess.run.assert_has_calls(
         [
             call(
@@ -106,7 +106,7 @@ def test_slurm_client_submit_job_name(mock_subprocess):
     mock_run.stderr = b"err"
     mock_run.returncode = 0
     client = SlurmClient("user", "host", "cluster_name")
-    result = client.submit_job("./job.sh", "work_dir", 2, "somename")
+    result = client.submit_job("./job.sh", "work_dir", 2, "", "", "somename")
     mock_subprocess.run.assert_has_calls(
         [
             call(
@@ -220,7 +220,7 @@ def test_slurm_client_submit_job_error(mock_subprocess):
     mock_run.returncode = 1
     client = SlurmClient("user", "host", "cluster_name")
     with pytest.raises(RuntimeError, match="Failed to submit job. stderr: foo"):
-        _ = client.submit_job("./job.sh", "work_dir", 2, None)
+        _ = client.submit_job("./job.sh", "work_dir", 2, "", "", None)
     mock_subprocess.run.assert_has_calls(
         [
             call(
@@ -257,7 +257,7 @@ def test_slurm_client_submit_job_retry_auth(mock_subprocess):
     mock_run.stderr = b"err"
     mock_run.returncode = 0
     client = SlurmClient("user", "host", "cluster_name")
-    result = client.submit_job("./job.sh", "work_dir", 2, None)
+    result = client.submit_job("./job.sh", "work_dir", 2, "", "", None)
     mock_subprocess.run.assert_has_calls(
         [
             call(

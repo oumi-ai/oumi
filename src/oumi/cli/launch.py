@@ -103,7 +103,7 @@ def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
 
 
 def _tail_logs(
-    log_stream: io.TextIOBase, job_id: str, output_filepath: Optional[str] = None
+    log_stream: io.TextIOBase, output_filepath: Optional[str] = None
 ) -> None:
     """Tails logs with pretty CLI output.
 
@@ -112,7 +112,6 @@ def _tail_logs(
 
     Args:
         log_stream: A LogStream object that can be read from.
-        job_id: The ID of the job being tailed.
         output_filepath: Optional path to a file to save the logs to.
     """
     if output_filepath:
@@ -141,9 +140,9 @@ def _tail_logs(
                 else:
                     cli_utils.CONSOLE.print(line, end="", markup=False)
     except KeyboardInterrupt:
-        logger.info(f"Stopped tailing logs for job {job_id}")
+        logger.info("Stopped tailing logs.")
     except Exception as e:
-        logger.exception(f"Failed while tailing logs for job {job_id}: {e}")
+        logger.exception(f"Failed while tailing logs: {e}")
         raise
     finally:
         if file_handle:
@@ -261,13 +260,9 @@ def _poll_job(
     assert running_cluster
 
     try:
-        log_stream = running_cluster.get_logs_stream(job_status.id, job_status.cluster)
-        _tail_logs(log_stream, job_status.id, output_filepath)
+        log_stream = running_cluster.get_logs_stream(job_status.cluster, job_status.id)
+        _tail_logs(log_stream, output_filepath)
     except NotImplementedError:
-        if output_filepath:
-            cli_utils.CONSOLE.print(
-                "Cluster does not have support for streaming to a file."
-            )
         _print_and_wait(
             f"Running job [yellow]{job_status.id}[/yellow]",
             _is_job_done,
@@ -611,3 +606,66 @@ def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
             border_style="blue",
         )
     )
+
+
+def logs(
+    cluster: Annotated[str, typer.Option(help="The cluster to get the logs of.")],
+    cloud: Annotated[
+        Optional[str],
+        typer.Option(
+            help="If specified, only clusters on this cloud will be affected."
+        ),
+    ] = None,
+    job_id: Annotated[
+        Optional[str],
+        typer.Option(help="The job ID to get the logs of."),
+    ] = None,
+    output_filepath: Annotated[
+        Optional[str], typer.Option(help="Path to save job logs to a file.")
+    ] = None,
+) -> None:
+    """Gets the logs of a job.
+
+    Args:
+        cluster: The cluster to get the logs of.
+        cloud: If specified, only clusters on this cloud will be affected.
+        job_id: The job ID to get the logs of.
+        output_filepath: Path to save job logs to a file.
+    """
+    log_stream = _log_worker(cluster, cloud, job_id)
+    _tail_logs(log_stream, output_filepath)
+
+
+def _log_worker(
+    cluster: str, cloud: Optional[str], job_id: Optional[str]
+) -> io.TextIOBase:
+    """Stops a cluster.
+
+    All workers must return a boolean to indicate whether the task is done.
+    Stop has no intermediate states, so it always returns True.
+    """
+    from oumi import launcher
+
+    if cloud:
+        target_cloud = launcher.get_cloud(cloud)
+        target_cluster = target_cloud.get_cluster(cluster)
+        if target_cluster:
+            return target_cluster.get_logs_stream(cluster, job_id)
+        else:
+            raise RuntimeError(f"Cluster [yellow]{cluster}[/yellow] not found.")
+    # Make a best effort to find a single cluster to stop without a cloud.
+    clusters = []
+    for name in launcher.which_clouds():
+        target_cloud = launcher.get_cloud(name)
+        target_cluster = target_cloud.get_cluster(cluster)
+        if target_cluster:
+            clusters.append(target_cluster)
+    if len(clusters) == 0:
+        raise RuntimeError(f"Cluster [yellow]{cluster}[/yellow] not found.")
+    if len(clusters) == 1:
+        return clusters[0].get_logs_stream(cluster, job_id)
+    else:
+        raise RuntimeError(
+            f"Multiple clusters found with name [yellow]{cluster}[/yellow]. "
+            "Specify a cloud to stop with `--cloud`."
+        )
