@@ -11,9 +11,9 @@ from oumi.core.configs import (
     JobConfig,
     JudgeConfig,
     QuantizationConfig,
+    SynthesisConfig,
     TrainingConfig,
 )
-from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.types import HardwareException
 
 
