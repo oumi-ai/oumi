@@ -16,6 +16,8 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 
+import pandas as pd
+
 from oumi.builders.models import build_tokenizer
 from oumi.core.configs.analyze_config import AnalyzeConfig
 from oumi.core.configs.params.model_params import ModelParams
@@ -199,3 +201,48 @@ def _load_custom_dataset_from_path(
         # This should never happen due to config validation
         # is_multimodal=None case is already caught by AnalyzeConfig.__post_init__
         raise ValueError("Invalid vision-language configuration")
+
+
+def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[str, Any]:
+    """Compute statistics for a pandas Series.
+
+    This utility function handles edge cases like empty series or single-element
+    series, ensuring that standard deviation is 0.0 for single values instead
+    of NaN.
+
+    Args:
+        series: Pandas Series containing numeric values
+        decimal_precision: Number of decimal places for rounding
+
+    Returns:
+        Dictionary with computed statistics (count, mean, std, min, max, median)
+    """
+    if series.empty:
+        return {
+            "count": 0,
+            "mean": 0.0,
+            "std": 0.0,
+            "min": 0,
+            "max": 0,
+            "median": 0.0,
+        }
+
+    if len(series) == 1:
+        single_value = round(float(series.iloc[0]), decimal_precision)
+        return {
+            "count": 1,
+            "mean": single_value,
+            "std": 0.0,  # Standard deviation is 0 for single value
+            "min": single_value,
+            "max": single_value,
+            "median": single_value,
+        }
+
+    return {
+        "count": len(series),
+        "mean": round(series.mean(), decimal_precision),
+        "std": round(series.std(), decimal_precision),
+        "min": round(series.min(), decimal_precision),
+        "max": round(series.max(), decimal_precision),
+        "median": round(series.median(), decimal_precision),
+    }
