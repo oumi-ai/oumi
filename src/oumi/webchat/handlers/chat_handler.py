@@ -23,6 +23,7 @@ from aiohttp import web
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
 from oumi.webchat.core.session_manager import SessionManager
+from oumi.webchat.chatgraph_migration.graph_store import GraphStore
 
 
 class ChatHandler:
@@ -417,6 +418,15 @@ class ChatHandler:
                                 conv_id, 
                                 session.branch_manager.current_branch_id
                             )
+                            
+                            # Graph dual-write
+                            try:
+                                # Pass exact DB path to GraphStore
+                                GraphStore(self.db.db_path).add_edge_for_branch_tail(
+                                    conv_id, session.branch_manager.current_branch_id
+                                )
+                            except Exception as ge:
+                                logger.warning(f"Graph dual-write failed: {ge}")
                     except Exception as pe:
                         logger.warning(f"⚠️ Dual-write persistence failed: {pe}")
                     
@@ -619,6 +629,15 @@ class ChatHandler:
                         conv_id, 
                         session.branch_manager.current_branch_id
                     )
+                    
+                    # Graph dual-write
+                    try:
+                        # Pass exact DB path to GraphStore
+                        GraphStore(self.db.db_path).add_edge_for_branch_tail(
+                            conv_id, session.branch_manager.current_branch_id
+                        )
+                    except Exception as ge:
+                        logger.warning(f"Graph dual-write failed: {ge}")
                 except Exception as pe:
                     logger.warning(f"⚠️ Dual-write persistence failed: {pe}")
             
