@@ -813,6 +813,7 @@ def test_generate_analysis_summary(test_data_path, mock_config):
         "dataset_overview",
         "message_level_summary",
         "conversation_level_summary",
+        "conversation_turns",
     ]
     for key in expected_keys:
         assert key in summary
@@ -838,10 +839,9 @@ def test_generate_analysis_summary(test_data_path, mock_config):
     # Test conversation level summary - analyzer names with underscores get split
     conversation_summary = summary["conversation_level_summary"]
     assert len(conversation_summary) > 0
-    assert "conversation_turns" in conversation_summary
 
-    # Test conversation turns statistics
-    turns_stats = conversation_summary["conversation_turns"]
+    # Test conversation turns statistics (now at top level)
+    turns_stats = summary["conversation_turns"]
     assert "count" in turns_stats
     assert "mean" in turns_stats
     assert "std" in turns_stats
@@ -887,16 +887,15 @@ def test_generate_analysis_summary_single_conversation_no_nan(
     # Test that std is 0.0 for single conversation (since there's no variance)
     conversation_summary = summary["conversation_level_summary"]
     for analyzer_name, metrics in conversation_summary.items():
-        if analyzer_name != "conversation_turns":
-            for metric_name, stats in metrics.items():
-                if isinstance(stats, dict) and "std" in stats:
-                    assert stats["std"] == 0.0, (
-                        f"Expected std=0.0 for single conversation in "
-                        f"{analyzer_name}.{metric_name}, got {stats['std']}"
-                    )
+        for metric_name, stats in metrics.items():
+            if isinstance(stats, dict) and "std" in stats:
+                assert stats["std"] == 0.0, (
+                    f"Expected std=0.0 for single conversation in "
+                    f"{analyzer_name}.{metric_name}, got {stats['std']}"
+                )
 
     # Verify conversation turns std is also 0.0 for single conversation
-    turns_stats = conversation_summary["conversation_turns"]
+    turns_stats = summary["conversation_turns"]
     assert turns_stats["std"] == 0.0, (
         f"Expected conversation_turns std=0.0 for single conversation, "
         f"got {turns_stats['std']}"

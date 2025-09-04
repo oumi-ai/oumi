@@ -623,6 +623,7 @@ class DatasetAnalyzer:
             "dataset_overview": self._get_dataset_overview(),
             "message_level_summary": self._get_message_level_summary(),
             "conversation_level_summary": self._get_conversation_level_summary(),
+            "conversation_turns": self._get_conversation_turns_summary(),
         }
 
         return summary
@@ -746,18 +747,24 @@ class DatasetAnalyzer:
                             values, self._decimal_precision
                         )
 
-        # Add conversation turn statistics if available
-        if self._message_df is not None and not self._message_df.empty:
-            turns_per_conversation = self._message_df.groupby("conversation_id").size()
-            # Ensure we have a Series for statistics computation
-            if isinstance(turns_per_conversation, pd.Series):
-                summary["conversation_turns"] = compute_statistics(
-                    turns_per_conversation, self._decimal_precision
-                )
-            else:
-                # If it's a DataFrame, convert to Series
-                summary["conversation_turns"] = compute_statistics(
-                    turns_per_conversation.iloc[:, 0], self._decimal_precision
-                )
-
         return summary
+
+    def _get_conversation_turns_summary(self) -> dict[str, Any]:
+        """Get conversation turn statistics summary.
+
+        Returns:
+            Dictionary containing conversation turn statistics
+        """
+        if self._message_df is None or self._message_df.empty:
+            return {}
+
+        turns_per_conversation = self._message_df.groupby("conversation_id").size()
+
+        # Ensure we have a Series for statistics computation
+        if isinstance(turns_per_conversation, pd.Series):
+            return compute_statistics(turns_per_conversation, self._decimal_precision)
+        else:
+            # If it's a DataFrame, convert to Series
+            return compute_statistics(
+                turns_per_conversation.iloc[:, 0], self._decimal_precision
+            )
