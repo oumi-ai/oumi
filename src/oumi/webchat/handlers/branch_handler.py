@@ -71,6 +71,11 @@ class BranchHandler:
                 {
                     "branches": branches,
                     "current_branch": current_branch,
+                    "persistence": {
+                        "is_persistent": bool(self.db),
+                        "is_hydrated_from_db": getattr(session, 'is_hydrated_from_db', False),
+                        "current_conversation_id": getattr(session, 'current_conversation_id', None),
+                    },
                 }
             )
         
@@ -174,6 +179,10 @@ class BranchHandler:
         try:
             if self.db and success:
                 conv_id = self.db.ensure_conversation(session_id)
+                # Mark session as persistent and record conversation id
+                session.current_conversation_id = conv_id
+                if not getattr(session, 'is_hydrated_from_db', False):
+                    session.is_hydrated_from_db = True
                 self.db.ensure_branch(
                     conv_id, 
                     session.branch_manager.current_branch_id, 
@@ -278,6 +287,10 @@ class BranchHandler:
                 if success and new_branch and self.db:
                     self.db.ensure_session(session_id)
                     conv_id = self.db.ensure_conversation(session_id)
+                    # Mark session as persistent and record conversation id
+                    session.current_conversation_id = conv_id
+                    if not getattr(session, 'is_hydrated_from_db', False):
+                        session.is_hydrated_from_db = True
                     # Ensure both source and new branch exist in DB
                     self.db.ensure_branch(conv_id, from_branch, name=from_branch)
                     self.db.ensure_branch(conv_id, new_branch.id, name=new_branch.name, parent_branch_id=from_branch)
@@ -412,10 +425,14 @@ class BranchHandler:
                 logger.debug(f"🔄 Synced {len(conversation)} messages to branch '{target_branch_id}'")
                 
                 # Dual-write persistence (best-effort)
-                if self.db and session.is_hydrated_from_db:
+                if self.db:
                     try:
                         self.db.ensure_session(session_id)
                         conv_id = self.db.ensure_conversation(session_id)
+                        # Mark session as persistent and record conversation id
+                        session.current_conversation_id = conv_id
+                        if not getattr(session, 'is_hydrated_from_db', False):
+                            session.is_hydrated_from_db = True
                         # Ensure branch exists
                         self.db.ensure_branch(
                             conv_id, 

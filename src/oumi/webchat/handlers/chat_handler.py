@@ -390,6 +390,10 @@ class ChatHandler:
                         if self.db:
                             self.db.ensure_session(session_id)
                             conv_id = self.db.ensure_conversation(session_id)
+                            # Mark session as persistent and record conversation id
+                            session.current_conversation_id = conv_id
+                            if not getattr(session, 'is_hydrated_from_db', False):
+                                session.is_hydrated_from_db = True
                             # Ensure branch exists
                             self.db.ensure_branch(
                                 conv_id, 
@@ -584,10 +588,14 @@ class ChatHandler:
             self.session_manager.update_context_usage(session_id)
             
             # Dual-write persistence (best-effort)
-            if self.db and session.is_hydrated_from_db:
+            if self.db:
                 try:
                     self.db.ensure_session(session_id)
                     conv_id = self.db.ensure_conversation(session_id)
+                    # Mark session as persistent and record conversation id
+                    session.current_conversation_id = conv_id
+                    if not getattr(session, 'is_hydrated_from_db', False):
+                        session.is_hydrated_from_db = True
                     # Ensure branch exists
                     self.db.ensure_branch(
                         conv_id, 

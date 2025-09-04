@@ -77,6 +77,11 @@ class WebSocketHandler:
                     "conversation": session.serialize_conversation(),
                     "branches": session.get_enhanced_branch_info(self.db),
                     "current_branch": session.branch_manager.current_branch_id,
+                    "persistence": {
+                        "is_persistent": bool(self.db),
+                        "is_hydrated_from_db": getattr(session, 'is_hydrated_from_db', False),
+                        "current_conversation_id": getattr(session, 'current_conversation_id', None),
+                    },
                     "model_info": {
                         "name": getattr(session.config.model, "model_name", "Unknown"),
                         "engine": str(session.config.engine),
@@ -300,10 +305,14 @@ class WebSocketHandler:
             self.session_manager.update_context_usage(session.session_id)
             
             # Dual-write persistence (best-effort)
-            if self.db and session.is_hydrated_from_db:
+            if self.db:
                 try:
                     self.db.ensure_session(session.session_id)
                     conv_id = self.db.ensure_conversation(session.session_id)
+                    # Mark session as persistent and record conversation id
+                    session.current_conversation_id = conv_id
+                    if not getattr(session, 'is_hydrated_from_db', False):
+                        session.is_hydrated_from_db = True
                     # Ensure branch exists
                     self.db.ensure_branch(
                         conv_id, 
