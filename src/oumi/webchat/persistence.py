@@ -16,6 +16,8 @@ class WebchatDB:
     for active sessions; we persist writes so that future phases can hydrate from DB.
     """
 
+    TARGET_SCHEMA_VERSION = 2  # Increment when adding migrations
+
     def __init__(self, db_path: Optional[str] = None) -> None:
         default_path = os.path.expanduser("~/.oumi/webchat.sqlite")
         self.db_path = db_path or os.environ.get("OUMI_DB_PATH", default_path)
@@ -24,6 +26,7 @@ class WebchatDB:
         # Initialize schema
         with self._connect() as conn:
             self._init_schema(conn)
+            self._init_schema_version_and_migrate(conn)
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -92,6 +95,95 @@ class WebchatDB:
             """
         )
         conn.commit()
+
+    # --- Schema versioning and migrations ---
+    def _table_exists(self, conn: sqlite3.Connection, table: str) -> bool:
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,))
+        return cur.fetchone() is not None
+
+    def _trigger_exists(self, conn: sqlite3.Connection, name: str) -> bool:
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM sqlite_master WHERE type='trigger' AND name=?", (name,))
+        return cur.fetchone() is not None
+
+    def _get_schema_version(self, conn: sqlite3.Connection) -> int:
+        if not self._table_exists(conn, "schema_version"):
+            return 0
+        cur = conn.cursor()
+        cur.execute("SELECT version FROM schema_version WHERE id=1")
+        row = cur.fetchone()
+        return int(row[0]) if row else 0
+
+    def _set_schema_version(self, conn: sqlite3.Connection, version: int) -> None:
+        cur = conn.cursor()
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS schema_version (id INTEGER PRIMARY KEY CHECK (id = 1), version INTEGER NOT NULL)"
+        )
+        cur.execute("INSERT INTO schema_version(id, version) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET version=excluded.version", (version,))
+        conn.commit()
+
+    def _ensure_fts_triggers(self, conn: sqlite3.Connection) -> None:
+        """Create FTS5 external content triggers for messages table if missing."""
+        # Insert trigger
+        if not self._trigger_exists(conn, "messages_ai_fts"):
+            conn.execute(
+                """
+                CREATE TRIGGER messages_ai_fts AFTER INSERT ON messages BEGIN
+                  INSERT INTO messages_fts(rowid, content) VALUES (new.rowid, new.content);
+                END;
+                """
+            )
+        # Delete trigger
+        if not self._trigger_exists(conn, "messages_ad_fts"):
+            conn.execute(
+                """
+                CREATE TRIGGER messages_ad_fts AFTER DELETE ON messages BEGIN
+                  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.rowid, old.content);
+                END;
+                """
+            )
+        # Update trigger
+        if not self._trigger_exists(conn, "messages_au_fts"):
+            conn.execute(
+                """
+                CREATE TRIGGER messages_au_fts AFTER UPDATE ON messages BEGIN
+                  INSERT INTO messages_fts(messages_fts, rowid, content) VALUES('delete', old.rowid, old.content);
+                  INSERT INTO messages_fts(rowid, content) VALUES (new.rowid, new.content);
+                END;
+                """
+            )
+        conn.commit()
+
+    def _rebuild_fts(self, conn: sqlite3.Connection) -> None:
+        """Rebuild the FTS index from the content table."""
+        try:
+            conn.execute("INSERT INTO messages_fts(messages_fts) VALUES('rebuild')")
+            conn.commit()
+        except sqlite3.OperationalError:
+            # Fallback: populate by full copy if rebuild unsupported
+            cur = conn.cursor()
+            cur.execute("DELETE FROM messages_fts")
+            cur.execute("INSERT INTO messages_fts(rowid, content) SELECT rowid, content FROM messages")
+            conn.commit()
+
+    def _init_schema_version_and_migrate(self, conn: sqlite3.Connection) -> None:
+        """Ensure schema_version exists and perform any pending migrations."""
+        current = self._get_schema_version(conn)
+        if current == 0:
+            # Fresh install or pre-versioned DB: set baseline to 1 after ensuring tables exist
+            self._set_schema_version(conn, 1)
+            current = 1
+
+        # Migration: v1 -> v2 (add FTS triggers and rebuild index)
+        if current < 2:
+            # Ensure FTS table exists (older DBs may not have it)
+            conn.execute(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(content, content=messages, content_rowid=rowid)"
+            )
+            self._ensure_fts_triggers(conn)
+            self._rebuild_fts(conn)
+            self._set_schema_version(conn, 2)
 
     # Helpers
     def _now(self) -> float:
@@ -502,4 +594,3 @@ class WebchatDB:
                     "branch_count": branch_count or 0
                 })
             return results
-
