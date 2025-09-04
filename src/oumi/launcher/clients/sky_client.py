@@ -19,8 +19,6 @@ from collections.abc import Iterator
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-from sky.schemas.api.responses import StatusResponse
-
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import JobState, JobStatus
 from oumi.utils.logging import logger
@@ -232,7 +230,7 @@ class SkyClient:
             state=JobState.PENDING,
         )
 
-    def status(self) -> list[StatusResponse]:
+    def status(self):  # type hinting will force sky to be imported and not lazy loaded
         """Gets a list of cluster statuses.
 
         Returns:
