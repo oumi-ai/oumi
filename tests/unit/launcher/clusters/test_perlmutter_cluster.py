@@ -7,7 +7,7 @@ import pytest
 from oumi.core.configs import JobConfig, JobResources
 from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher.clients.slurm_client import SlurmClient
-from oumi.launcher.clusters.frontier_cluster import FrontierCluster
+from oumi.launcher.clusters.perlmutter_cluster import PerlmutterCluster
 
 
 #
@@ -20,7 +20,7 @@ def mock_slurm_client():
 
 @pytest.fixture
 def mock_datetime():
-    with patch("oumi.launcher.clusters.frontier_cluster.datetime") as mock_dt:
+    with patch("oumi.launcher.clusters.perlmutter_cluster.datetime") as mock_dt:
         mock_dt.now.return_value = datetime(2024, 10, 9, 13, 4, 24, 513094)
         yield mock_dt
 
@@ -31,7 +31,7 @@ def _get_default_job() -> JobConfig:
         user="user",
         working_dir="./",
         num_nodes=2,
-        resources=JobResources(cloud="frontier"),
+        resources=JobResources(cloud="perlmutter"),
         envs={"var1": "val1"},
         file_mounts={
             "~/home/remote/path.bar": "~/local/path.bar",
@@ -46,58 +46,43 @@ def _get_default_job() -> JobConfig:
 
 
 _COMMON_INIT_COMMANDS: Final[list[str]] = [
-    ("cd /lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094"),
-    "module load PrgEnv-gnu/8.6.0",
-    "module load miniforge3/23.11.0-0",
-    "module load rocm/6.2.4",
-    "module load craype-accel-amd-gfx90a",
-    "if [ ! -d /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi ]; then",
-    'echo "Creating Oumi Conda environment... ---------------------------"',
-    (
-        "conda create -y python=3.10 -c conda-forge --prefix "
-        "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
-    ),
-    "fi",
+    "module load conda",
     'if [ ! -z "$CONDA_DEFAULT_ENV" ]; then',
     "conda deactivate",
     "fi",
     'echo "Installing packages... ---------------------------------------"',
-    "source activate /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi",
+    "conda activate oumi",
     "if ! command -v uv >/dev/null 2>&1; then",
     "pip install -U uv",
     "fi",
-    (
-        "pip install torch torchvision torchaudio --index-url "
-        "https://download.pytorch.org/whl/rocm6.2"
-    ),
-    "pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer",
-    "pip uninstall nvidia-smi",
+    "cd ~/oumi_launcher/20241009_130424513094",
+    "uv pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer",
 ]
 
 
 #
 # Tests
 #
-def test_frontier_cluster_name(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("batch.einstein", mock_slurm_client)
-    assert cluster.name() == "batch.einstein"
+def test_perlmutter_cluster_name(mock_datetime, mock_slurm_client):
+    cluster = PerlmutterCluster("regular.saul", mock_slurm_client)
+    assert cluster.name() == "regular.saul"
 
-    cluster = FrontierCluster("extended.einstein", mock_slurm_client)
-    assert cluster.name() == "extended.einstein"
+    cluster = PerlmutterCluster("debug.saul", mock_slurm_client)
+    assert cluster.name() == "debug.saul"
 
 
-def test_frontier_cluster_invalid_name(mock_datetime, mock_slurm_client):
+def test_perlmutter_cluster_invalid_name(mock_datetime, mock_slurm_client):
     with pytest.raises(ValueError):
-        FrontierCluster("einstein", mock_slurm_client)
+        PerlmutterCluster("saul", mock_slurm_client)
 
 
-def test_frontier_cluster_invalid_queue(mock_datetime, mock_slurm_client):
+def test_perlmutter_cluster_invalid_queue(mock_datetime, mock_slurm_client):
     with pytest.raises(ValueError):
-        FrontierCluster("albert.einstein", mock_slurm_client)
+        PerlmutterCluster("fakequeue.saul", mock_slurm_client)
 
 
-def test_frontier_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+def test_perlmutter_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
@@ -131,19 +116,21 @@ def test_frontier_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job is not None
     assert job.id == "myjob"
-    assert job.cluster == "batch.name"
+    assert job.cluster == "regular.name"
 
 
-def test_frontier_cluster_get_job_invalid_id_empty(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+def test_perlmutter_cluster_get_job_invalid_id_empty(mock_datetime, mock_slurm_client):
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = []
     job = cluster.get_job("myjob")
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job is None
 
 
-def test_frontier_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+def test_perlmutter_cluster_get_job_invalid_id_nonempty(
+    mock_datetime, mock_slurm_client
+):
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
@@ -178,8 +165,8 @@ def test_frontier_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_
     assert job is None
 
 
-def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+def test_perlmutter_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
@@ -217,7 +204,7 @@ def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             name="some name",
             status="running",
             metadata="",
-            cluster="batch.name",
+            cluster="regular.name",
             done=False,
             state=JobState.PENDING,
         ),
@@ -226,7 +213,7 @@ def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             name="some",
             status="running",
             metadata="",
-            cluster="batch.name",
+            cluster="regular.name",
             done=False,
             state=JobState.PENDING,
         ),
@@ -235,7 +222,7 @@ def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             name="name3",
             status="running",
             metadata="",
-            cluster="batch.name",
+            cluster="regular.name",
             done=False,
             state=JobState.PENDING,
         ),
@@ -243,8 +230,8 @@ def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
     assert jobs == expected_jobs
 
 
-def test_frontier_cluster_get_jobs_empty(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+def test_perlmutter_cluster_get_jobs_empty(mock_datetime, mock_slurm_client):
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = []
     jobs = cluster.get_jobs()
     mock_slurm_client.list_jobs.assert_called_once_with()
@@ -252,15 +239,15 @@ def test_frontier_cluster_get_jobs_empty(mock_datetime, mock_slurm_client):
     assert jobs == expected_jobs
 
 
-def test_frontier_cluster_cancel_job(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("extended.name", mock_slurm_client)
+def test_perlmutter_cluster_cancel_job(mock_datetime, mock_slurm_client):
+    cluster = PerlmutterCluster("debug.name", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
             name="some name",
             status="running",
             metadata="",
-            cluster="batch.name",
+            cluster="regular.name",
             done=False,
             state=JobState.PENDING,
         ),
@@ -269,7 +256,7 @@ def test_frontier_cluster_cancel_job(mock_datetime, mock_slurm_client):
             name="some",
             status="running",
             metadata="",
-            cluster="batch.name",
+            cluster="regular.name",
             done=False,
             state=JobState.PENDING,
         ),
@@ -278,7 +265,7 @@ def test_frontier_cluster_cancel_job(mock_datetime, mock_slurm_client):
             name="name3",
             status="running",
             metadata="",
-            cluster="batch.name",
+            cluster="regular.name",
             done=False,
             state=JobState.PENDING,
         ),
@@ -289,7 +276,7 @@ def test_frontier_cluster_cancel_job(mock_datetime, mock_slurm_client):
         name="some",
         status="running",
         metadata="",
-        cluster="extended.name",
+        cluster="debug.name",
         done=False,
         state=JobState.PENDING,
     )
@@ -297,15 +284,15 @@ def test_frontier_cluster_cancel_job(mock_datetime, mock_slurm_client):
     assert job_status == expected_status
 
 
-def test_frontier_cluster_cancel_job_fails(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("extended.name", mock_slurm_client)
+def test_perlmutter_cluster_cancel_job_fails(mock_datetime, mock_slurm_client):
+    cluster = PerlmutterCluster("debug.name", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="job2",
             name="some",
             status="running",
             metadata="",
-            cluster="batch.name",
+            cluster="regular.name",
             done=False,
             state=JobState.PENDING,
         ),
@@ -314,8 +301,8 @@ def test_frontier_cluster_cancel_job_fails(mock_datetime, mock_slurm_client):
         _ = cluster.cancel_job("myjobid")
 
 
-def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+def test_perlmutter_cluster_run_job(mock_datetime, mock_slurm_client):
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_slurm_client.run_commands.return_value = mock_successful_cmd
@@ -336,7 +323,7 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
         name="some name",
         status="queued",
         metadata="",
-        cluster="batch.name",
+        cluster="regular.name",
         done=False,
         state=JobState.PENDING,
     )
@@ -345,7 +332,7 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -360,14 +347,7 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
     mock_slurm_client.run_commands.assert_has_calls(
         [
             call(_COMMON_INIT_COMMANDS),
-            call(
-                [
-                    (
-                        "chmod +x "
-                        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
-                    )
-                ]
-            ),
+            call([("chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh")]),
             call(["mkdir -p run/log", "mkdir -p some/log"]),
         ]
     )
@@ -378,19 +358,16 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
     )
     mock_slurm_client.put.assert_called_once_with(
         job_script,
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         node_count=2,
         name="myjob",
-        export="NONE",
-        account="lrn081",
         ntasks=2,
         threads_per_core=1,
-        distribution="block:cyclic",
-        partition="batch",
+        qos="regular",
         stdout_file="some/log",
         stderr_file="run/log",
     )
@@ -398,7 +375,7 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
     assert job_status == expected_status
 
 
-def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_client):
+def test_perlmutter_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_failed_cmd = Mock()
@@ -409,7 +386,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         mock_successful_cmd,
         mock_successful_cmd,
     ]
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "1234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
@@ -427,7 +404,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         name="some name",
         status="queued",
         metadata="",
-        cluster="batch.name",
+        cluster="regular.name",
         done=False,
         state=JobState.PENDING,
     )
@@ -436,7 +413,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         [
             call(
                 "./",
-                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -451,12 +428,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
     mock_slurm_client.run_commands.assert_has_calls(
         [
             call(_COMMON_INIT_COMMANDS),
-            call(
-                [
-                    "chmod +x "
-                    "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
-                ]
-            ),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
             call(["mkdir -p run/log", "mkdir -p some/log"]),
         ]
     )
@@ -467,19 +439,16 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
     )
     mock_slurm_client.put.assert_called_once_with(
         job_script,
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         node_count=2,
         name="myjob",
-        export="NONE",
-        account="lrn081",
         ntasks=2,
         threads_per_core=1,
-        distribution="block:cyclic",
-        partition="batch",
+        qos="regular",
         stdout_file="some/log",
         stderr_file="run/log",
     )
@@ -487,11 +456,11 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
     assert job_status == expected_status
 
 
-def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
+def test_perlmutter_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_slurm_client.run_commands.return_value = mock_successful_cmd
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "1234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
@@ -509,13 +478,13 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         name="some name",
         status="queued",
         metadata="",
-        cluster="batch.name",
+        cluster="regular.name",
         done=False,
         state=JobState.PENDING,
     )
     job = _get_default_job()
     job.name = None
-    with patch("oumi.launcher.clusters.frontier_cluster.uuid") as mock_uuid:
+    with patch("oumi.launcher.clusters.perlmutter_cluster.uuid") as mock_uuid:
         mock_hex = Mock()
         mock_hex.hex = "1-2-3"
         mock_uuid.uuid1.return_value = mock_hex
@@ -524,7 +493,7 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -539,12 +508,7 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
     mock_slurm_client.run_commands.assert_has_calls(
         [
             call(_COMMON_INIT_COMMANDS),
-            call(
-                [
-                    "chmod +x "
-                    "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
-                ]
-            ),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
             call(
                 [
                     "mkdir -p run/log",
@@ -560,19 +524,16 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
     )
     mock_slurm_client.put.assert_called_once_with(
         job_script,
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         node_count=2,
         name="1-2-3",
-        export="NONE",
-        account="lrn081",
         ntasks=2,
         threads_per_core=1,
-        distribution="block:cyclic",
-        partition="batch",
+        qos="regular",
         stdout_file="some/log",
         stderr_file="run/log",
     )
@@ -580,11 +541,11 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
     assert job_status == expected_status
 
 
-def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
+def test_perlmutter_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_slurm_client.run_commands.return_value = mock_successful_cmd
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "1234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
@@ -602,7 +563,7 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         name="some name",
         status="queued",
         metadata="",
-        cluster="batch.name",
+        cluster="regular.name",
         done=False,
         state=JobState.PENDING,
     )
@@ -613,19 +574,14 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
             call(_COMMON_INIT_COMMANDS),
-            call(
-                [
-                    "chmod +x "
-                    "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
-                ]
-            ),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
             call(
                 [
                     "mkdir -p run/log",
@@ -641,19 +597,16 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
     )
     mock_slurm_client.put.assert_called_once_with(
         job_script,
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         node_count=2,
         name="myjob",
-        export="NONE",
-        account="lrn081",
         ntasks=2,
         threads_per_core=1,
-        distribution="block:cyclic",
-        partition="batch",
+        qos="regular",
         stdout_file="some/log",
         stderr_file="run/log",
     )
@@ -661,11 +614,11 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
     assert job_status == expected_status
 
 
-def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
+def test_perlmutter_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_slurm_client.run_commands.return_value = mock_successful_cmd
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "1234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
@@ -683,7 +636,7 @@ def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
         name="some name",
         status="queued",
         metadata="",
-        cluster="batch.name",
+        cluster="regular.name",
         done=False,
         state=JobState.PENDING,
     )
@@ -696,49 +649,41 @@ def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
             call(_COMMON_INIT_COMMANDS),
-            call(
-                [
-                    "chmod +x "
-                    "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
-                ]
-            ),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
         ]
     )
     job_script = "#!/bin/bash\n\nexport var1=val1\n\nsmall setup\n./hello_world.sh\n"
     mock_slurm_client.put.assert_called_once_with(
         job_script,
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         node_count=2,
         name="myjob",
-        export="NONE",
-        account="lrn081",
         ntasks=2,
         threads_per_core=1,
-        distribution="block:cyclic",
-        partition="batch",
-        stdout_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU",
-        stderr_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER",
+        qos="regular",
+        stdout_file="$CFS/$USER/jobs/logs/%j.OU",
+        stderr_file="$CFS/$USER/jobs/logs/%j.ER",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
 
 
-def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
+def test_perlmutter_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_slurm_client.run_commands.return_value = mock_successful_cmd
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "1234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
@@ -756,7 +701,7 @@ def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         name="some name",
         status="queued",
         metadata="",
-        cluster="batch.name",
+        cluster="regular.name",
         done=False,
         state=JobState.PENDING,
     )
@@ -769,46 +714,38 @@ def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
             call(_COMMON_INIT_COMMANDS),
-            call(
-                [
-                    "chmod +x "
-                    "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
-                ]
-            ),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
         ]
     )
     job_script = "#!/bin/bash\n\nexport var1=val1\n\n./hello_world.sh\n"
     mock_slurm_client.put.assert_called_once_with(
         job_script,
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         node_count=2,
         name="myjob",
-        export="NONE",
-        account="lrn081",
         ntasks=2,
         threads_per_core=1,
-        distribution="block:cyclic",
-        partition="batch",
-        stdout_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU",
-        stderr_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER",
+        qos="regular",
+        stdout_file="$CFS/$USER/jobs/logs/%j.OU",
+        stderr_file="$CFS/$USER/jobs/logs/%j.ER",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
 
 
-def test_frontier_cluster_run_job_fails(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("batch.name", mock_slurm_client)
+def test_perlmutter_cluster_run_job_fails(mock_datetime, mock_slurm_client):
+    cluster = PerlmutterCluster("regular.name", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
@@ -825,13 +762,13 @@ def test_frontier_cluster_run_job_fails(mock_datetime, mock_slurm_client):
         _ = cluster.run_job(_get_default_job())
 
 
-def test_frontier_cluster_down(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("extended.name", mock_slurm_client)
+def test_perlmutter_cluster_down(mock_datetime, mock_slurm_client):
+    cluster = PerlmutterCluster("debug.name", mock_slurm_client)
     cluster.down()
     # Nothing to assert, this method is a no-op.
 
 
-def test_frontier_cluster_stop(mock_datetime, mock_slurm_client):
-    cluster = FrontierCluster("extended.name", mock_slurm_client)
+def test_perlmutter_cluster_stop(mock_datetime, mock_slurm_client):
+    cluster = PerlmutterCluster("debug.name", mock_slurm_client)
     cluster.stop()
     # Nothing to assert, this method is a no-op.
