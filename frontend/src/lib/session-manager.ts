@@ -28,7 +28,10 @@ export class SessionManager {
     this.loadSessions();
     
     // Get last active session or create a new one
-    const lastSessionId = localStorage.getItem('oumi_current_session');
+    let lastSessionId = null;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      lastSessionId = localStorage.getItem('oumi_current_session');
+    }
     if (lastSessionId && this.sessions.has(lastSessionId)) {
       this.currentSessionId = lastSessionId;
     } else {
@@ -81,12 +84,15 @@ export class SessionManager {
    */
   private loadSessions(): void {
     try {
-      const sessionsJson = localStorage.getItem(this.storageKey);
-      if (sessionsJson) {
-        const sessionsArray: Session[] = JSON.parse(sessionsJson);
-        sessionsArray.forEach(session => {
-          this.sessions.set(session.id, session);
-        });
+      // Check for browser environment
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const sessionsJson = localStorage.getItem(this.storageKey);
+        if (sessionsJson) {
+          const sessionsArray: Session[] = JSON.parse(sessionsJson);
+          sessionsArray.forEach(session => {
+            this.sessions.set(session.id, session);
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to load sessions from storage:', error);
@@ -98,9 +104,12 @@ export class SessionManager {
    */
   private saveSessions(): void {
     try {
-      const sessionsArray = Array.from(this.sessions.values());
-      localStorage.setItem(this.storageKey, JSON.stringify(sessionsArray));
-      localStorage.setItem('oumi_current_session', this.currentSessionId);
+      // Check for browser environment
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const sessionsArray = Array.from(this.sessions.values());
+        localStorage.setItem(this.storageKey, JSON.stringify(sessionsArray));
+        localStorage.setItem('oumi_current_session', this.currentSessionId);
+      }
     } catch (error) {
       console.error('Failed to save sessions to storage:', error);
     }
