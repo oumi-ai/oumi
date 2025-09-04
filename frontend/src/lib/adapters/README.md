@@ -4,8 +4,8 @@ This directory contains adapter utilities for the Oumi chat application's store 
 
 1. Transitioning between legacy and branch-aware data structures
 2. Converting between normalized and flat data formats
-3. Managing cross-session conversation tracking
-4. Providing utilities for branch operations
+3. Providing utilities for branch operations
+4. Auto-saving conversations
 
 ## Key Components
 
@@ -19,7 +19,9 @@ Primary adapter utility with functions for migrating between data formats:
 - **legacyToNormalized** - Converts flat message array to normalized branch structure
 - **buildBranchStructure** - Creates branch structure from normalized message storage
 - **getBranchMetadata** - Generates branch metadata from message structure
-- **SessionManager** - Singleton for cross-session management
+- **autoSaveConversation** - Helper for persisting conversations
+
+> **Important**: `SessionManager` has been moved to `/src/lib/session-manager.ts` to avoid duplication.
 
 ## Usage Examples
 
@@ -71,13 +73,22 @@ const normalized = legacyToNormalized('conv1', 'main', messages);
 ### Session Management
 
 ```typescript
-import { SessionManager } from './adapters/store-adapter';
+import { SessionManager } from '../session-manager';
 
 // Get current session ID for grouping conversations
 const sessionId = SessionManager.getCurrentSessionId();
 
-// Create a new session (e.g. for a fresh chat instance)
-const newSessionId = SessionManager.getInstance().createNewSession();
+// Get the current session with metadata
+const session = SessionManager.getCurrentSession();
+
+// Create a new session with name and metadata
+const newSessionId = SessionManager.startNewSession('Project Research', { modelId: 'gpt-4o' });
+
+// Add conversation to current session
+SessionManager.addConversation('conversation-123');
+
+// Update session metadata
+SessionManager.updateCurrentSession({ name: 'Updated Session Name' });
 ```
 
 ## Testing

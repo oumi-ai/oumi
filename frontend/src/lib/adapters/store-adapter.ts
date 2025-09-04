@@ -3,9 +3,12 @@
  * 
  * This file provides adapter utilities to help transition between the legacy
  * flat message array format and the new branch-aware normalized structure.
+ * 
+ * Note: SessionManager is now imported from '../session-manager'
  */
 
 import type { Message, Conversation, ConversationBranch } from '../types';
+import { SessionManager } from '../session-manager';
 
 /**
  * Converts legacy conversation format to the new branch-aware format
@@ -102,6 +105,11 @@ export function legacyToNormalized(
 
 /**
  * Builds a conversation branch structure from branch-specific message storage
+ * 
+ * @param conversationId The ID of the conversation to build branches for
+ * @param normalizedMessages The normalized message structure containing all messages
+ * @param branchMetadata Optional array of branch metadata to include in the structure
+ * @returns A branch structure object with messages and metadata
  */
 export function buildBranchStructure(
   conversationId: string,
@@ -111,19 +119,29 @@ export function buildBranchStructure(
     }
   },
   branchMetadata: ConversationBranch[] = []
-): { [branchId: string]: { messages: Message[] } } {
+): { [branchId: string]: { messages: Message[], metadata?: Omit<ConversationBranch, 'id'> } } {
   // If no normalized messages for this conversation, return empty structure
   if (!normalizedMessages[conversationId]) {
     return { main: { messages: [] } };
   }
   
   const branchIds = Object.keys(normalizedMessages[conversationId]);
-  const result: { [branchId: string]: { messages: Message[] } } = {};
+  const result: { [branchId: string]: { messages: Message[], metadata?: Omit<ConversationBranch, 'id'> } } = {};
+  
+  // Create a lookup map for branch metadata
+  const metadataMap: Record<string, ConversationBranch> = {};
+  if (branchMetadata.length > 0) {
+    branchMetadata.forEach(branch => {
+      metadataMap[branch.id] = branch;
+    });
+  }
   
   // Ensure 'main' is always first if it exists
   if (branchIds.includes('main')) {
     result.main = {
-      messages: normalizedMessages[conversationId].main
+      messages: normalizedMessages[conversationId].main,
+      // Add metadata if available
+      ...(metadataMap.main && { metadata: omitId(metadataMap.main) })
     };
   }
   
@@ -132,7 +150,9 @@ export function buildBranchStructure(
     if (branchId === 'main') continue; // Skip main as we already added it
     
     result[branchId] = {
-      messages: normalizedMessages[conversationId][branchId]
+      messages: normalizedMessages[conversationId][branchId],
+      // Add metadata if available
+      ...(metadataMap[branchId] && { metadata: omitId(metadataMap[branchId]) })
     };
   }
   
@@ -142,6 +162,12 @@ export function buildBranchStructure(
   }
   
   return result;
+}
+
+// Helper function to omit the id field from branch metadata
+function omitId(branch: ConversationBranch): Omit<ConversationBranch, 'id'> {
+  const { id, ...rest } = branch;
+  return rest;
 }
 
 /**
@@ -167,7 +193,8 @@ export function getBranchMetadata(
       [branchId: string]: Message[]
     }
   },
-  currentBranchId: string = 'main'
+  currentBranchId: string = 'main',
+  existingBranchMetadata?: { [branchId: string]: Partial<ConversationBranch> }
 ): ConversationBranch[] {
   if (!normalizedMessages[conversationId]) {
     return [
@@ -185,107 +212,75 @@ export function getBranchMetadata(
   const branchIds = Object.keys(normalizedMessages[conversationId]);
   return branchIds.map(branchId => {
     const messages = normalizedMessages[conversationId][branchId];
+    const firstMessage = messages.length > 0 ? messages[0] : null;
     const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+    
+    // Use existing metadata if available
+    const existingMetadata = existingBranchMetadata?.[branchId] || {};
     
     return {
       id: branchId,
-      name: branchId === 'main' ? 'Main' : `Branch ${branchId}`,
+      // Use existing name if available, otherwise use default naming
+      name: existingMetadata.name || (branchId === 'main' ? 'Main' : `Branch ${branchId}`),
       isActive: branchId === currentBranchId,
       messageCount: messages.length,
-      createdAt: lastMessage ? new Date(lastMessage.timestamp).toISOString() : new Date().toISOString(),
+      // Use first message for createdAt, or existing metadata, or current time
+      createdAt: existingMetadata.createdAt || 
+                (firstMessage ? new Date(firstMessage.timestamp).toISOString() : new Date().toISOString()),
+      // Use last message for lastActive, or existing metadata, or current time                
       lastActive: lastMessage ? new Date(lastMessage.timestamp).toISOString() : new Date().toISOString(),
+      // Keep existing parentId if available
+      parentId: existingMetadata.parentId,
+      // Use last message for preview
       preview: lastMessage ? lastMessage.content.slice(0, 50) + (lastMessage.content.length > 50 ? '...' : '') : undefined
     };
   });
 }
 
 /**
- * SessionManager adapter for frontend store
- * This is a simplified version of the session manager pattern
- * used in the backend (see oumi/webchat/core/session_manager.py)
+ * Debounced save operations map to avoid multiple saves for the same conversation in quick succession
+ * Key is conversationId, value is timeout ID
  */
-export class SessionManager {
-  private static instance: SessionManager;
-  private currentSessionId: string;
-
-  private constructor() {
-    // Generate a session ID on first load
-    this.currentSessionId = this.generateSessionId();
-  }
-
-  /**
-   * Get the singleton instance
-   */
-  public static getInstance(): SessionManager {
-    if (!SessionManager.instance) {
-      SessionManager.instance = new SessionManager();
-    }
-    return SessionManager.instance;
-  }
-
-  /**
-   * Get the current session ID
-   */
-  public static getCurrentSessionId(): string {
-    return SessionManager.getInstance().currentSessionId;
-  }
-
-  /**
-   * Generate a new session ID
-   */
-  private generateSessionId(): string {
-    return `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  /**
-   * Create a new session (resets the current session ID)
-   */
-  public createNewSession(): string {
-    this.currentSessionId = this.generateSessionId();
-    return this.currentSessionId;
-  }
-  
-  /**
-   * Reset to a fresh session
-   */
-  public resetToFreshSession(): string {
-    return this.createNewSession();
-  }
-  
-  /**
-   * Start a new session (static helper)
-   */
-  public static startNewSession(): string {
-    return SessionManager.getInstance().createNewSession();
-  }
-  
-  /**
-   * Reset to a fresh session (static helper)
-   */
-  public static resetToFreshSession(): string {
-    return SessionManager.getInstance().resetToFreshSession();
-  }
-}
+const saveDebounceMap: { [conversationId: string]: NodeJS.Timeout } = {};
+const SAVE_DEBOUNCE_MS = 500; // Debounce saves for 500ms
 
 /**
  * Helper to auto-save conversations to the backend
  * This is called after changes to the conversation store
+ * The implementation uses debouncing to reduce frequency of saves
  */
 export async function autoSaveConversation(conversation: Conversation): Promise<void> {
-  // Log the save event for debugging
-  console.debug(`Auto-saving conversation ${conversation.id}`, conversation.title);
-
-  // Import the API client dynamically to avoid circular dependencies
-  const unifiedApiClient = (await import('../unified-api')).default;
-
-  try {
-    // Save the conversation to persistent storage
-    await unifiedApiClient.saveConversation(
-      SessionManager.getCurrentSessionId(),
-      conversation.id,
-      conversation
-    );
-  } catch (error) {
-    console.error('Failed to auto-save conversation:', error);
+  const conversationId = conversation.id;
+  
+  // If there's a pending save for this conversation, clear it
+  if (saveDebounceMap[conversationId]) {
+    clearTimeout(saveDebounceMap[conversationId]);
   }
+  
+  // Set up a new debounced save
+  saveDebounceMap[conversationId] = setTimeout(async () => {
+    try {
+      // Log the save event for debugging (only in development)
+      if (process.env.NODE_ENV === 'development') {
+        console.debug(`Auto-saving conversation ${conversation.id}`, conversation.title);
+      }
+
+      // Import the API client dynamically to avoid circular dependencies
+      const unifiedApiClient = (await import('../unified-api')).default;
+
+      // Save the conversation to persistent storage
+      await unifiedApiClient.saveConversation(
+        SessionManager.getCurrentSessionId(),
+        conversationId,
+        conversation
+      );
+      
+      // Remove the timeout ID from the map after saving
+      delete saveDebounceMap[conversationId];
+    } catch (error) {
+      console.error('Failed to auto-save conversation:', error);
+      // Remove the timeout ID even if there was an error
+      delete saveDebounceMap[conversationId];
+    }
+  }, SAVE_DEBOUNCE_MS);
 }

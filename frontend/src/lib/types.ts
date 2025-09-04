@@ -2,6 +2,19 @@
  * Type definitions for the frontend chat application
  */
 
+export interface Session {
+  id: string;
+  name: string;
+  description?: string;
+  modelId?: string;
+  createdAt: string;
+  updatedAt: string;
+  conversationIds: string[];
+  metadata?: {
+    [key: string]: any;
+  };
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';

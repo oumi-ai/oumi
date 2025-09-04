@@ -4,7 +4,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Message, ConversationBranch, Conversation, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats } from './types';
+import { Message, ConversationBranch, Conversation, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats, Session } from './types';
 import apiClient from './unified-api';
 import { 
   adaptLegacyConversation, 
@@ -13,9 +13,9 @@ import {
   legacyToNormalized,
   buildBranchStructure,
   getBranchMetadata,
-  SessionManager,
   autoSaveConversation
 } from './adapters/store-adapter';
+import { SessionManager } from './session-manager';
 
 interface ChatStore {
   // Branch-specific message storage - the single source of truth for all messages
@@ -26,7 +26,6 @@ interface ChatStore {
   };
   
   // Current state
-  branches: ConversationBranch[];
   currentBranchId: string;
   isLoading: boolean;
   isTyping: boolean;
@@ -36,8 +35,10 @@ interface ChatStore {
   conversations: Conversation[];
   currentConversationId: string | null;
   
-  // Session management
+  // Enhanced session management
   activeSessionIds: string[];
+  currentSessionId: string;
+  sessions: { [sessionId: string]: Session };
   conversationsBySession: { [sessionId: string]: string[] };
   
   // Settings and API management
@@ -53,8 +54,7 @@ interface ChatStore {
   generateChatTitle: (conversationId: string) => Promise<void>;
   updateChatTitle: (conversationId: string, title: string) => void;
   
-  setBranches: (branches: ConversationBranch[]) => void;
-  addBranch: (branch: ConversationBranch) => void;
+  addBranch: (branchId: string, name?: string, parentId?: string) => void;
   deleteBranch: (branchId: string) => void;
   setCurrentBranch: (branchId: string) => void;
   
@@ -78,15 +78,23 @@ interface ChatStore {
   updateSettings: (updates: Partial<AppSettings>) => void;
   updateUsageStats: (providerId: string, stats: Partial<ApiUsageStats>) => void;
   
-  // Session management actions
+  // Enhanced session management actions
   getCurrentSessionId: () => string;
-  startNewSession: () => string;
+  startNewSession: (name?: string, metadata?: { [key: string]: any }) => string;
   resetToFreshSession: () => string;
+  loadSession: (sessionId: string) => boolean;
+  switchSession: (sessionId: string) => boolean;
+  updateSessionMetadata: (sessionId: string, updates: Partial<Session>) => boolean;
+  deleteSession: (sessionId: string) => boolean;
   
   // Selectors
   getCurrentMessages: () => Message[];
   getBranchMessages: (conversationId: string, branchId: string) => Message[];
+  getBranches: (conversationId?: string) => ConversationBranch[];
+  getBranchById: (conversationId: string, branchId: string) => ConversationBranch | undefined;
   getSessionConversations: (sessionId: string) => string[];
+  getAllSessions: () => Session[];
+  getSessionById: (sessionId: string) => Session | undefined;
   
   // Utility actions
   clearMessages: () => void;
@@ -128,17 +136,6 @@ export const useChatStore = create<ChatStore>()(
       conversationMessages: {},
       
       // Initial state
-      branches: [
-        {
-          id: 'main',
-          name: 'Main',
-          isActive: true,
-          messageCount: 0,
-          createdAt: new Date().toISOString(),
-          lastActive: new Date().toISOString(),
-          preview: 'New conversation',
-        },
-      ],
       currentBranchId: 'main',
       isLoading: false,
       isTyping: false,
@@ -147,8 +144,10 @@ export const useChatStore = create<ChatStore>()(
       conversations: [],
       currentConversationId: null,
       
-      // Session management
+      // Enhanced session management
+      currentSessionId: SessionManager.getCurrentSessionId(),
       activeSessionIds: [SessionManager.getCurrentSessionId()],
+      sessions: {},
       conversationsBySession: {},
       
       generationParams: {
@@ -204,6 +203,37 @@ export const useChatStore = create<ChatStore>()(
         return conversationMessages[conversationId][branchId];
       },
       
+      getBranches: (conversationId?: string): ConversationBranch[] => {
+        const state = get();
+        const targetConversationId = conversationId || state.currentConversationId;
+        
+        // If no conversation ID, return empty array
+        if (!targetConversationId) return [];
+        
+        // Get branch metadata using the adapter utility
+        return getBranchMetadata(
+          targetConversationId,
+          state.conversationMessages,
+          state.currentBranchId
+        );
+      },
+      
+      getBranchById: (conversationId: string, branchId: string): ConversationBranch | undefined => {
+        const state = get();
+        
+        // If conversation doesn't exist, return undefined
+        if (!state.conversationMessages[conversationId]) return undefined;
+        
+        // Get all branches and find the requested one
+        const branches = getBranchMetadata(
+          conversationId,
+          state.conversationMessages,
+          state.currentBranchId
+        );
+        
+        return branches.find(branch => branch.id === branchId);
+      },
+      
       getSessionConversations: (sessionId: string): string[] => {
         const state = get();
         return state.conversationsBySession[sessionId] || [];
@@ -225,12 +255,14 @@ export const useChatStore = create<ChatStore>()(
             
             const newConversationId = `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             
-            console.log('[HISTORY_MERGE] Creating new conversation:', { 
-              id: newConversationId, 
-              title,
-              isFirstUserMessage,
-              branchId: currentBranchId
-            });
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[HISTORY_MERGE] Creating new conversation:', { 
+                id: newConversationId, 
+                title,
+                isFirstUserMessage,
+                branchId: currentBranchId
+              });
+            }
             
             // Create new conversation with branch structure
             const newConversation: Conversation = {
@@ -282,18 +314,7 @@ export const useChatStore = create<ChatStore>()(
             }
           };
           
-          // Update branch details
-          const updatedBranches = state.branches.map((branch) => {
-            if (branch.id === currentBranchId) {
-              return {
-                ...branch,
-                messageCount: newMessages.length,
-                lastActive: new Date().toISOString(),
-                preview: message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '')
-              };
-            }
-            return branch;
-          });
+          // Branch metadata will be derived on demand via getBranches
           
           // Update the conversation object - do not store messages in conversation.branches
           // We'll hydrate them on demand when needed for persistence
@@ -324,7 +345,6 @@ export const useChatStore = create<ChatStore>()(
           
           return { 
             conversationMessages: updatedConversationMessages,
-            branches: updatedBranches,
             conversations: updatedConversations
           };
         }),
@@ -387,7 +407,6 @@ export const useChatStore = create<ChatStore>()(
           
           return {
             conversationMessages: updatedConversationMessages,
-            branches: updatedBranches,
             conversations: updatedConversations
           };
         }),
@@ -430,37 +449,45 @@ export const useChatStore = create<ChatStore>()(
           
           // Check if this was the first assistant response and trigger title generation
           const updatedMessage = newMessages.find(msg => msg.id === messageId);
-          console.log('[CHAT_NAMING] updateMessage called for message:', { messageId, role: updatedMessage?.role, messageCount: newMessages.length });
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[CHAT_NAMING] updateMessage called for message:', { messageId, role: updatedMessage?.role, messageCount: newMessages.length });
+          }
           
           if (updatedMessage?.role === 'assistant') {
             const userMessages = newMessages.filter(m => m.role === 'user');
             const assistantMessages = newMessages.filter(m => m.role === 'assistant');
             
-            console.log('[CHAT_NAMING] Assistant message detected:', { 
-              userCount: userMessages.length, 
-              assistantCount: assistantMessages.length,
-              conversationId
-            });
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[CHAT_NAMING] Assistant message detected:', { 
+                userCount: userMessages.length, 
+                assistantCount: assistantMessages.length,
+                conversationId
+              });
+            }
             
             // If this is the first assistant response and we have a generic title, update it
             if (assistantMessages.length === 1 && userMessages.length >= 1) {
               const currentConv = updatedConversations.find(c => c.id === conversationId);
-              console.log('[CHAT_NAMING] Checking for title generation:', { 
-                hasConv: !!currentConv, 
-                currentTitle: currentConv?.title,
-                shouldGenerate: currentConv && (currentConv.title === 'New Chat' || currentConv.title.startsWith('New Conversation'))
-              });
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[CHAT_NAMING] Checking for title generation:', { 
+                  hasConv: !!currentConv, 
+                  currentTitle: currentConv?.title,
+                  shouldGenerate: currentConv && (currentConv.title === 'New Chat' || currentConv.title.startsWith('New Conversation'))
+                });
+              }
               
               if (currentConv && (currentConv.title === 'New Chat' || currentConv.title.startsWith('New Conversation'))) {
-                console.log('[CHAT_NAMING] Triggering title generation for conversation:', currentConv.id);
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('[CHAT_NAMING] Triggering title generation for conversation:', currentConv.id);
+                }
                 // Trigger title generation asynchronously
                 setTimeout(() => {
                   get().generateChatTitle(conversationId);
                 }, 100);
-              } else {
+              } else if (process.env.NODE_ENV === 'development') {
                 console.log('[CHAT_NAMING] Skipping title generation - conditions not met');
               }
-            } else {
+            } else if (process.env.NODE_ENV === 'development') {
               console.log('[CHAT_NAMING] Skipping title generation - not first assistant response or missing user messages');
             }
           }
@@ -540,61 +567,80 @@ export const useChatStore = create<ChatStore>()(
           
           return { 
             conversationMessages: updatedConversationMessages,
-            branches: updatedBranches, 
             conversations: updatedConversations 
           };
         }),
 
       // Branch actions
-      setBranches: (branches: ConversationBranch[]) =>
-        set({ branches }),
-
-      addBranch: (branch: ConversationBranch) =>
+      addBranch: (branchId: string, name?: string, parentId?: string) =>
         set((state) => {
           // If we have a current conversation, initialize the branch storage
           if (state.currentConversationId) {
-            // Create empty branch messages array
+            const now = new Date().toISOString();
             const conversationId = state.currentConversationId;
+            
+            // Create empty branch messages array
             const updatedConversationMessages = {
               ...state.conversationMessages,
               [conversationId]: {
                 ...(state.conversationMessages[conversationId] || {}),
-                [branch.id]: [] // Initialize with empty messages array
+                [branchId]: [] // Initialize with empty messages array
               }
             };
             
-            // Update the conversation object
+            // Update the conversation object - only update timestamp
             const updatedConversations = state.conversations.map((conv) =>
               conv.id === conversationId
                 ? { 
                     ...conv, 
-                    updatedAt: new Date().toISOString(),
-                    branches: {
-                      ...(conv.branches || {}),
-                      [branch.id]: { 
-                        messages: []
-                      }
-                    }
+                    updatedAt: now
                   }
                 : conv
             );
             
+            // Auto-save updated conversation to backend
+            const updatedConv = updatedConversations.find(c => c.id === conversationId);
+            if (updatedConv) {
+              // Generate branch metadata for saving
+              const branchMetadata = getBranchMetadata(
+                conversationId,
+                updatedConversationMessages,
+                state.currentBranchId,
+                { 
+                  [branchId]: {
+                    name: name || `Branch ${branchId}`,
+                    parentId,
+                    createdAt: now
+                  }
+                }
+              );
+              
+              // Hydrate the conversation with branch messages from conversationMessages
+              // before sending to persistence layer
+              const hydratedConv = {
+                ...updatedConv,
+                branches: buildBranchStructure(
+                  conversationId,
+                  updatedConversationMessages,
+                  branchMetadata
+                )
+              };
+              autoSaveConversation(hydratedConv);
+            }
+            
             return {
-              branches: [...state.branches, branch],
               conversationMessages: updatedConversationMessages,
               conversations: updatedConversations
             };
           }
           
-          return {
-            branches: [...state.branches, branch],
-          };
+          return state;
         }),
 
       deleteBranch: (branchId: string) =>
         set((state) => {
-          // Cannot delete if it's the only branch or the main branch
-          if (state.branches.length === 1 || branchId === 'main') {
+          // Cannot delete if it's the main branch
+          if (branchId === 'main') {
             return state;
           }
           
@@ -604,20 +650,19 @@ export const useChatStore = create<ChatStore>()(
             updatedCurrentBranchId = 'main';
           }
           
-          // Update branch list with active status
-          const updatedBranches = state.branches
-            .filter((branch) => branch.id !== branchId)
-            .map((branch) => ({
-              ...branch,
-              isActive: branch.id === updatedCurrentBranchId
-            }));
-          
           // If we have a current conversation, remove the branch from storage
           let updatedConversationMessages = state.conversationMessages;
           let updatedConversations = state.conversations;
           
           if (state.currentConversationId) {
             const conversationId = state.currentConversationId;
+            
+            // Get all branches to check if this is the only one
+            const currentBranches = get().getBranches(conversationId);
+            if (currentBranches.length <= 1) {
+              // Don't allow deleting the only branch
+              return state;
+            }
             
             // Remove branch from conversation messages
             if (state.conversationMessages[conversationId]) {
@@ -628,28 +673,41 @@ export const useChatStore = create<ChatStore>()(
               };
             }
             
-            // Remove branch from conversation object
-            updatedConversations = state.conversations.map((conv) => {
-              if (conv.id === conversationId && conv.branches) {
-                const { [branchId]: removed, ...remainingBranches } = conv.branches;
-                return { 
-                  ...conv, 
-                  updatedAt: new Date().toISOString(),
-                  branches: remainingBranches
-                };
-              }
-              return conv;
-            });
+            // Update the conversation object with new timestamp
+            updatedConversations = state.conversations.map((conv) => 
+              conv.id === conversationId
+                ? { 
+                    ...conv, 
+                    updatedAt: new Date().toISOString()
+                  }
+                : conv
+            );
             
             // Auto-save updated conversation to backend
             const updatedConv = updatedConversations.find(c => c.id === conversationId);
             if (updatedConv) {
-              autoSaveConversation(updatedConv);
+              // Generate branch metadata for saving
+              const branchMetadata = getBranchMetadata(
+                conversationId,
+                updatedConversationMessages,
+                updatedCurrentBranchId
+              );
+              
+              // Hydrate the conversation with branch messages from conversationMessages
+              // before sending to persistence layer
+              const hydratedConv = {
+                ...updatedConv,
+                branches: buildBranchStructure(
+                  conversationId,
+                  updatedConversationMessages,
+                  branchMetadata
+                )
+              };
+              autoSaveConversation(hydratedConv);
             }
           }
           
           return {
-            branches: updatedBranches,
             currentBranchId: updatedCurrentBranchId,
             conversationMessages: updatedConversationMessages,
             conversations: updatedConversations
@@ -657,13 +715,23 @@ export const useChatStore = create<ChatStore>()(
         }),
 
       setCurrentBranch: (branchId: string) =>
-        set((state) => ({
-          currentBranchId: branchId,
-          branches: state.branches.map((branch) => ({
-            ...branch,
-            isActive: branch.id === branchId,
-          })),
-        })),
+        set((state) => {
+          // If no current conversation, just update the current branch ID
+          if (!state.currentConversationId) {
+            return { currentBranchId: branchId };
+          }
+          
+          const conversationId = state.currentConversationId;
+          
+          // Check if branch exists in current conversation
+          if (!state.conversationMessages[conversationId] || 
+              !state.conversationMessages[conversationId][branchId]) {
+            // Branch doesn't exist, default to main
+            return { currentBranchId: 'main' };
+          }
+          
+          return { currentBranchId: branchId };
+        }),
 
       // Conversation actions
       addConversation: (conversation: Conversation) =>
@@ -740,29 +808,140 @@ export const useChatStore = create<ChatStore>()(
 
       loadConversation: async (conversationId: string, branchId?: string) => {
         const state = get();
+        const targetBranchId = branchId || 'main';
+        const sessionId = SessionManager.getCurrentSessionId();
+        
         // Find the conversation in the store
         const conversation = state.conversations.find((conv) => conv.id === conversationId);
         
+        // Flag to track if we need to fetch from backend
+        let shouldFetchFromBackend = false;
+        
+        // Check if we need to fetch from backend
+        if (!conversation) {
+          // Conversation not found in store, try to fetch from backend
+          shouldFetchFromBackend = true;
+        } else if (!state.conversationMessages[conversationId]?.[targetBranchId] && 
+                   !conversation.branches?.[targetBranchId]?.messages) {
+          // We have the conversation but not the requested branch, try to fetch from backend
+          shouldFetchFromBackend = true;
+        }
+        
+        // Try to fetch from backend if needed
+        if (shouldFetchFromBackend) {
+          try {
+            // Only log in development
+            if (process.env.NODE_ENV === 'development') {
+              console.debug(`[STORE] Fetching conversation from backend: ${conversationId}, branch: ${targetBranchId}`);
+            }
+            
+            // Import the API client dynamically to avoid circular dependencies
+            const unifiedApiClient = (await import('./unified-api')).default;
+            
+            // Fetch conversation with specific branch from backend
+            const response = await unifiedApiClient.getConversation(sessionId, targetBranchId);
+            
+            if (response.success && response.data?.conversation) {
+              // If backend request was successful
+              const backendMessages = response.data.conversation;
+              
+              // If we already have the conversation object but not this branch
+              if (conversation) {
+                // Update just the branch messages in the store
+                set(state => ({
+                  conversationMessages: {
+                    ...state.conversationMessages,
+                    [conversationId]: {
+                      ...(state.conversationMessages[conversationId] || {}),
+                      [targetBranchId]: backendMessages
+                    }
+                  }
+                }));
+                
+                // Update the conversation in the store
+                set(state => ({
+                  currentConversationId: conversationId,
+                  currentBranchId: targetBranchId
+                }));
+                
+                return conversation;
+              } else {
+                // No existing conversation, need to create it
+                // Create a new conversation object
+                const now = new Date().toISOString();
+                const newConversation: Conversation = {
+                  id: conversationId,
+                  title: `Conversation ${conversationId}`, // Will be updated with proper title later
+                  messages: [],
+                  createdAt: now,
+                  updatedAt: now
+                };
+                
+                // Add the conversation with messages to the store
+                set(state => ({
+                  conversations: [...state.conversations, newConversation],
+                  conversationMessages: {
+                    ...state.conversationMessages,
+                    [conversationId]: {
+                      [targetBranchId]: backendMessages
+                    }
+                  },
+                  currentConversationId: conversationId,
+                  currentBranchId: targetBranchId
+                }));
+                
+                // Add to session tracking
+                const sessionConversations = [...(state.conversationsBySession[sessionId] || []), conversationId];
+                set(state => ({
+                  conversationsBySession: {
+                    ...state.conversationsBySession,
+                    [sessionId]: sessionConversations
+                  }
+                }));
+                
+                // Use title from first message if possible
+                if (backendMessages.length > 0) {
+                  const firstUserMsg = backendMessages.find(m => m.role === 'user');
+                  if (firstUserMsg) {
+                    // Update title based on first user message
+                    const title = firstUserMsg.content.slice(0, 30) + (firstUserMsg.content.length > 30 ? '...' : '');
+                    set(state => ({
+                      conversations: state.conversations.map(c => 
+                        c.id === conversationId ? { ...c, title } : c
+                      )
+                    }));
+                  }
+                }
+                
+                return newConversation;
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching conversation from backend:', error);
+          }
+        }
+        
+        // If we have the conversation in memory or backend fetch failed
         if (conversation) {
-          const targetBranchId = branchId || 'main';
-          
           // Check if we have messages for this branch
           let branchMessages: Message[] = [];
           
           if (state.conversationMessages[conversationId]?.[targetBranchId]) {
             branchMessages = state.conversationMessages[conversationId][targetBranchId];
-          } else if (conversation.branches?.[targetBranchId]) {
+          } else if (conversation.branches?.[targetBranchId]?.messages) {
             // Get from conversation object if available
             branchMessages = conversation.branches[targetBranchId].messages;
           } else if (targetBranchId === 'main' && conversation.messages && conversation.messages.length > 0) {
             // Fallback for legacy format - use main conversation messages and adapt
             branchMessages = conversation.messages;
             
-            // Use adapter to convert legacy format to normalized format
-            console.log('[STORE] Using adapter to convert legacy conversation format', { 
-              conversationId, 
-              messageCount: conversation.messages.length
-            });
+            // Only log in development
+            if (process.env.NODE_ENV === 'development') {
+              console.debug('[STORE] Using adapter to convert legacy conversation format', { 
+                conversationId, 
+                messageCount: conversation.messages.length
+              });
+            }
             
             // Update all branches from the legacy conversation format
             const adaptedConversation = adaptLegacyConversation(conversation);
@@ -940,16 +1119,23 @@ export const useChatStore = create<ChatStore>()(
 
       // Chat naming actions
       generateChatTitle: async (conversationId: string) => {
-        console.log('[CHAT_NAMING] generateChatTitle called for:', conversationId);
+        // Only log in development mode
+if (process.env.NODE_ENV === 'development') {
+  console.log('[CHAT_NAMING] generateChatTitle called for:', conversationId);
+}
         const state = get();
         const conversation = state.conversations.find(conv => conv.id === conversationId);
         
-        console.log('[CHAT_NAMING] Conversation found:', { 
-          hasConversation: !!conversation
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[CHAT_NAMING] Conversation found:', { 
+            hasConversation: !!conversation
+          });
+        }
         
         if (!conversation) {
-          console.log('[CHAT_NAMING] Skipping - no conversation found');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[CHAT_NAMING] Skipping - no conversation found');
+          }
           return;
         }
         
@@ -995,15 +1181,19 @@ export const useChatStore = create<ChatStore>()(
           }
         }
         
-        console.log('[CHAT_NAMING] Messages found:', { 
-          hasUserMsg: !!firstUserMsg, 
-          hasAssistantMsg: !!firstAssistantMsg,
-          userContent: firstUserMsg?.content.slice(0, 50) + '...',
-          assistantContent: firstAssistantMsg?.content.slice(0, 50) + '...'
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[CHAT_NAMING] Messages found:', { 
+            hasUserMsg: !!firstUserMsg, 
+            hasAssistantMsg: !!firstAssistantMsg,
+            userContent: firstUserMsg?.content.slice(0, 50) + '...',
+            assistantContent: firstAssistantMsg?.content.slice(0, 50) + '...'
+          });
+        }
         
         if (!firstUserMsg || !firstAssistantMsg) {
-          console.log('[CHAT_NAMING] Skipping - missing required messages');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[CHAT_NAMING] Skipping - missing required messages');
+          }
           return;
         }
 
@@ -1014,29 +1204,39 @@ export const useChatStore = create<ChatStore>()(
           const userContent = firstUserMsg.content.toLowerCase();
           const assistantContent = firstAssistantMsg.content.toLowerCase();
           
-          console.log('[CHAT_NAMING] Processing user content:', userContent.slice(0, 100));
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[CHAT_NAMING] Processing user content:', userContent.slice(0, 100));
+          }
           
           // Extract potential topics/keywords
           if (userContent.includes('help') && userContent.includes('with')) {
             const match = userContent.match(/help.*with\s+(.+?)[\.\?\!]|$/);
-            console.log('[CHAT_NAMING] Trying "help with" pattern, match:', match?.[1]);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[CHAT_NAMING] Trying "help with" pattern, match:', match?.[1]);
+            }
             if (match && match[1]) {
               generatedTitle = `Help with ${match[1].trim()}`;
             }
           } else if (userContent.includes('how to')) {
             const match = userContent.match(/how to\s+(.+?)[\.\?\!]|$/);
-            console.log('[CHAT_NAMING] Trying "how to" pattern, match:', match?.[1]);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[CHAT_NAMING] Trying "how to" pattern, match:', match?.[1]);
+            }
             if (match && match[1]) {
               generatedTitle = `How to ${match[1].trim()}`;
             }
           } else if (userContent.includes('what is') || userContent.includes('what are')) {
             const match = userContent.match(/what (?:is|are)\s+(.+?)[\.\?\!]|$/);
-            console.log('[CHAT_NAMING] Trying "what is/are" pattern, match:', match?.[1]);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[CHAT_NAMING] Trying "what is/are" pattern, match:', match?.[1]);
+            }
             if (match && match[1]) {
               generatedTitle = `About ${match[1].trim()}`;
             }
           } else {
-            console.log('[CHAT_NAMING] Using fallback pattern from user content');
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[CHAT_NAMING] Using fallback pattern from user content');
+            }
             // Fallback: use first 40 characters of user message, cleaned up
             generatedTitle = firstUserMsg.content
               .replace(/[^\w\s]/g, ' ')
@@ -1046,7 +1246,9 @@ export const useChatStore = create<ChatStore>()(
               .trim();
           }
           
-          console.log('[CHAT_NAMING] Generated title before cleanup:', generatedTitle);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[CHAT_NAMING] Generated title before cleanup:', generatedTitle);
+          }
           
           // Clean up and capitalize
           if (generatedTitle) {
@@ -1056,19 +1258,25 @@ export const useChatStore = create<ChatStore>()(
             }
           }
           
-          console.log('[CHAT_NAMING] Final generated title:', generatedTitle);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[CHAT_NAMING] Final generated title:', generatedTitle);
+          }
         } catch (error) {
           console.error('[CHAT_NAMING] Error generating chat title:', error);
         }
 
         // Fallback to user message if generation failed
         if (!generatedTitle) {
-          console.log('[CHAT_NAMING] Using fallback title from user message');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[CHAT_NAMING] Using fallback title from user message');
+          }
           generatedTitle = firstUserMsg.content.slice(0, 47) + '...';
         }
 
         // Update the conversation title
-        console.log('[CHAT_NAMING] Updating conversation title:', { conversationId, generatedTitle });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[CHAT_NAMING] Updating conversation title:', { conversationId, generatedTitle });
+        }
         set((state) => {
           const updatedConversations = state.conversations.map((conv) =>
             conv.id === conversationId
@@ -1079,7 +1287,9 @@ export const useChatStore = create<ChatStore>()(
           // Auto-save updated conversation to backend
           const updatedConv = updatedConversations.find(c => c.id === conversationId);
           if (updatedConv) {
-            console.log('[CHAT_NAMING] Auto-saving updated conversation with new title');
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[CHAT_NAMING] Auto-saving updated conversation with new title');
+            }
             // Hydrate the conversation with branch messages from conversationMessages
             // before sending to persistence layer
             const conversationMessages = get().conversationMessages;
@@ -1096,7 +1306,9 @@ export const useChatStore = create<ChatStore>()(
           return { conversations: updatedConversations };
         });
         
-        console.log('[CHAT_NAMING] Title generation completed for conversation:', conversationId);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[CHAT_NAMING] Title generation completed for conversation:', conversationId);
+        }
       },
 
       updateChatTitle: (conversationId: string, title: string) =>
@@ -1125,35 +1337,170 @@ export const useChatStore = create<ChatStore>()(
           return { conversations: updatedConversations };
         }),
 
-      // Session management actions
-      getCurrentSessionId: () => SessionManager.getCurrentSessionId(),
+      // Enhanced session management actions
+      getCurrentSessionId: () => {
+        return get().currentSessionId;
+      },
       
-      startNewSession: () => SessionManager.startNewSession(),
+      startNewSession: (name = 'New Session', metadata = {}) => {
+        // Create a new session in SessionManager
+        const newSessionId = SessionManager.startNewSession(name, metadata);
+        const newSession = SessionManager.getSession(newSessionId);
+        
+        if (!newSession) {
+          console.error('Failed to create new session');
+          return get().currentSessionId;
+        }
+        
+        // Update store with new session
+        set(state => ({
+          currentSessionId: newSessionId,
+          activeSessionIds: [...state.activeSessionIds, newSessionId],
+          sessions: {
+            ...state.sessions,
+            [newSessionId]: newSession
+          },
+          conversationsBySession: {
+            ...state.conversationsBySession,
+            [newSessionId]: []
+          },
+          // Reset current conversation state
+          conversationMessages: {},
+          currentConversationId: null,
+          // Branches are derived on demand via getBranches selector
+          currentBranchId: 'main'
+        }));
+        
+        return newSessionId;
+      },
       
       resetToFreshSession: () => {
+        // Create a fresh session in SessionManager
         const newSessionId = SessionManager.resetToFreshSession();
-        // Also clear the current conversation state when starting fresh
+        const newSession = SessionManager.getSession(newSessionId);
+        
+        if (!newSession) {
+          console.error('Failed to create fresh session');
+          return get().currentSessionId;
+        }
+        
+        // Clear the current conversation state when starting fresh
         set({
           conversationMessages: {},
           currentConversationId: null,
-          branches: [
-            {
-              id: 'main',
-              name: 'Main',
-              isActive: true,
-              messageCount: 0,
-              createdAt: new Date().toISOString(),
-              lastActive: new Date().toISOString(),
-              preview: 'New conversation',
-            },
-          ],
+          // Branches are derived on demand via getBranches selector
           currentBranchId: 'main',
+          currentSessionId: newSessionId,
           activeSessionIds: [newSessionId],
+          sessions: {
+            [newSessionId]: newSession
+          },
           conversationsBySession: {
             [newSessionId]: []
           }
         });
         return newSessionId;
+      },
+      
+      loadSession: (sessionId: string) => {
+        // Get session data from SessionManager
+        const session = SessionManager.getSession(sessionId);
+        if (!session) return false;
+        
+        // Add to active sessions if not already active
+        set(state => {
+          const activeSessionIds = state.activeSessionIds.includes(sessionId) 
+            ? state.activeSessionIds 
+            : [...state.activeSessionIds, sessionId];
+          
+          return {
+            sessions: {
+              ...state.sessions,
+              [sessionId]: session
+            },
+            activeSessionIds
+          };
+        });
+        
+        return true;
+      },
+      
+      switchSession: (sessionId: string) => {
+        // Verify session exists
+        const session = SessionManager.getSession(sessionId);
+        if (!session) return false;
+        
+        // Switch current session in SessionManager
+        const switched = SessionManager.switchToSession(sessionId);
+        if (!switched) return false;
+        
+        // Update store with new current session
+        set(state => ({
+          currentSessionId: sessionId,
+          // Add to active sessions if not already active
+          activeSessionIds: state.activeSessionIds.includes(sessionId)
+            ? state.activeSessionIds
+            : [...state.activeSessionIds, sessionId],
+          sessions: {
+            ...state.sessions,
+            [sessionId]: session
+          }
+        }));
+        
+        return true;
+      },
+      
+      updateSessionMetadata: (sessionId: string, updates: Partial<Session>) => {
+        // Update session in SessionManager
+        const updated = SessionManager.updateSession(sessionId, updates);
+        if (!updated) return false;
+        
+        // Get updated session data
+        const updatedSession = SessionManager.getSession(sessionId);
+        if (!updatedSession) return false;
+        
+        // Update store with updated session
+        set(state => ({
+          sessions: {
+            ...state.sessions,
+            [sessionId]: updatedSession
+          }
+        }));
+        
+        return true;
+      },
+      
+      deleteSession: (sessionId: string) => {
+        // Can't delete the current session
+        if (sessionId === get().currentSessionId) return false;
+        
+        // Delete session in SessionManager
+        const deleted = SessionManager.deleteSession(sessionId);
+        if (!deleted) return false;
+        
+        // Update store removing the session
+        set(state => {
+          const { [sessionId]: removedSession, ...remainingSessions } = state.sessions;
+          const { [sessionId]: removedConversations, ...remainingConversationsBySession } = state.conversationsBySession;
+          
+          return {
+            sessions: remainingSessions,
+            activeSessionIds: state.activeSessionIds.filter(id => id !== sessionId),
+            conversationsBySession: remainingConversationsBySession
+          };
+        });
+        
+        return true;
+      },
+      
+      getAllSessions: () => {
+        // Return all sessions from the store
+        return Object.values(get().sessions);
+      },
+      
+      getSessionById: (sessionId: string) => {
+        // Return specific session
+        return get().sessions[sessionId];
       },
 
       // Utility actions
@@ -1186,35 +1533,39 @@ export const useChatStore = create<ChatStore>()(
             });
             
             return {
-              conversationMessages: updatedConversationMessages,
-              branches: updatedBranches
+              conversationMessages: updatedConversationMessages
             };
           }
           
           return state;
         }),
 
-      resetStore: () =>
+      resetStore: () => {
+        // Get a fresh session
+        const sessionId = SessionManager.resetToFreshSession();
+        const session = SessionManager.getSession(sessionId) || {
+          id: sessionId,
+          name: 'New Session',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          conversationIds: []
+        };
+        
         set({
           conversationMessages: {},
-          branches: [
-            {
-              id: 'main',
-              name: 'Main',
-              isActive: true,
-              messageCount: 0,
-              createdAt: new Date().toISOString(),
-              lastActive: new Date().toISOString(),
-              preview: 'New conversation',
-            },
-          ],
           currentBranchId: 'main',
           isLoading: false,
           isTyping: false,
           conversations: [],
           currentConversationId: null,
-          activeSessionIds: [SessionManager.getCurrentSessionId()],
-          conversationsBySession: {},
+          currentSessionId: sessionId,
+          activeSessionIds: [sessionId],
+          sessions: {
+            [sessionId]: session
+          },
+          conversationsBySession: {
+            [sessionId]: []
+          },
           generationParams: {
             temperature: 0.7,
             maxTokens: 2048,
@@ -1242,7 +1593,8 @@ export const useChatStore = create<ChatStore>()(
               token: undefined,
             },
           },
-        }),
+        });
+      },
     }),
     {
       name: 'chatterley-settings',
@@ -1319,24 +1671,35 @@ export const useChatStore = create<ChatStore>()(
         // Always start with a fresh chat on app load: clear any rehydrated
         // conversation state, messages, branches, and start a new session.
         if (state) {
-          // Start fresh session for the new app instance
-          const sessionId = SessionManager.resetToFreshSession();
+          // Load all existing sessions from SessionManager
+          const allSessions = SessionManager.getAllSessions();
+          const sessionsMap = {};
           
+          // Get last active session or create a new one if none exists
+          const sessionId = SessionManager.getCurrentSessionId();
+          const currentSession = SessionManager.getCurrentSession() || {
+            id: sessionId,
+            name: 'New Session',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            conversationIds: []
+          };
+          
+          // Add all sessions to the store
+          allSessions.forEach(session => {
+            sessionsMap[session.id] = session;
+          });
+          
+          // Make sure current session is in the map
+          sessionsMap[sessionId] = currentSession;
+          
+          // Update store state
           state.conversationMessages = {};
           state.conversations = [];
           state.currentConversationId = null;
-          state.branches = [
-            {
-              id: 'main',
-              name: 'Main',
-              isActive: true,
-              messageCount: 0,
-              createdAt: new Date().toISOString(),
-              lastActive: new Date().toISOString(),
-              preview: 'New conversation',
-            },
-          ];
           state.currentBranchId = 'main';
+          state.currentSessionId = sessionId;
+          state.sessions = sessionsMap;
           state.activeSessionIds = [sessionId];
           state.conversationsBySession = {
             [sessionId]: []
