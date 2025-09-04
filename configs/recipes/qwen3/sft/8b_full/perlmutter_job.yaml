@@ -30,13 +30,8 @@ envs:
   OUMI_RUN_NAME: qwen3.8b.fft
 
 setup: |
-  #SBATCH -N 1
-  #SBATCH -n 1
   #SBATCH -J qwen3_8b_fft
-  #SBATCH -C gpu
-  #SBATCH --gpus-per-node 4
-  #SBATCH -o $CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.OU
-  #SBATCH -e $CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.ER
+  #SBATCH -o $CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.out
   #SBATCH -t 01:00:00
 
 run: |

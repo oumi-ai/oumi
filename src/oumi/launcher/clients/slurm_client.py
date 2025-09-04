@@ -558,7 +558,9 @@ class SlurmClient:
             qos: QoS (aka the queue on Perlmutter) requested.
             stdout_file: File for batch script's standard output.
             stderr_file: File for batch script's standard error.
-            kwargs: Additional flags to pass to sbatch.
+            kwargs: Additional flags to pass to sbatch. Hyphens in the flag name are
+                replaced with underscores. For example, `foo_bar=baz` as a kwarg will
+                add "--foo-bar=baz" to the sbatch command.
 
         Returns:
             The ID of the submitted job.
@@ -594,6 +596,7 @@ class SlurmClient:
 
         # Add kwargs to slurm_flags
         for flag, value in kwargs.items():
+            flag = flag.replace("_", "-")
             if flag in slurm_flags:
                 logger.warning(
                     f"Flag {flag} already set to {slurm_flags[flag]}. "

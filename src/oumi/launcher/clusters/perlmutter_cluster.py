@@ -55,9 +55,7 @@ def _last_sbatch_line(script: list[str]) -> int:
     )
 
 
-def _get_logging_dirs_and_files(
-    script: str,
-) -> tuple[list[str], Optional[Path], Optional[Path]]:
+def _get_logging_dirs(script: str) -> list[str]:
     """Gets the logging directories from the script.
 
     Parses the provided script for commands starting with `#SBATCH -o`, `#SBATCH -e`,
@@ -67,12 +65,10 @@ def _get_logging_dirs_and_files(
         script: The script to extract logging directories from.
 
     Returns:
-        A tuple containing (A list of logging directories, stdout_file, stderr_file).
+        A list of logging directories.
     """
     logging_pattern = r"#SBATCH\s+-([oe|eo|doe|o|e])\s+(.*)"
     logging_dirs = set()
-    stdout_file: Optional[Path] = None
-    stderr_file: Optional[Path] = None
     for line in script.split("\n"):
         match = re.match(logging_pattern, line.strip())
         if match:
@@ -84,11 +80,7 @@ def _get_logging_dirs_and_files(
                     if dir_path.suffix:  # If it's a file name, get a parent dir.
                         dir_path = dir_path.parent
                     logging_dirs.add(str(dir_path))
-                if "o" in type_tag:
-                    stdout_file = Path(file_name)
-                if "e" in type_tag:
-                    stderr_file = Path(file_name)
-    return list(sorted(logging_dirs)), stdout_file, stderr_file
+    return list(sorted(logging_dirs))
 
 
 def _create_job_script(job: JobConfig) -> str:
@@ -297,7 +289,7 @@ class PerlmutterCluster(BaseCluster):
         # Set the proper CHMOD permissions.
         self._client.run_commands([f"chmod +x {script_path}"])
         # Set up logging directories.
-        logging_dirs, stdout_file, stderr_file = _get_logging_dirs_and_files(job_script)
+        logging_dirs = _get_logging_dirs(job_script)
         if len(logging_dirs) > 0:
             self._client.run_commands(
                 [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
@@ -312,12 +304,8 @@ class PerlmutterCluster(BaseCluster):
             ntasks=job.num_nodes,
             threads_per_core=1,
             qos=self._queue.value,
-            stdout_file=(
-                str(stdout_file) if stdout_file else "$CFS/$USER/jobs/logs/%j.OU"
-            ),
-            stderr_file=(
-                str(stderr_file) if stderr_file else "$CFS/$USER/jobs/logs/%j.ER"
-            ),
+            constraint="gpu",
+            gpus_per_node=4,
         )
         job_status = self.get_job(job_id)
         if job_status is None:
