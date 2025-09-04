@@ -55,7 +55,9 @@ def _last_sbatch_line(script: list[str]) -> int:
     )
 
 
-def _get_logging_dirs(script: str) -> list[str]:
+def _get_logging_dirs_and_files(
+    script: str,
+) -> tuple[list[str], Optional[Path], Optional[Path]]:
     """Gets the logging directories from the script.
 
     Parses the provided script for commands starting with `#SBATCH -o`, `#SBATCH -e`,
@@ -65,10 +67,12 @@ def _get_logging_dirs(script: str) -> list[str]:
         script: The script to extract logging directories from.
 
     Returns:
-        A list of logging directories.
+        A tuple containing (A list of logging directories, stdout_file, stderr_file).
     """
     logging_pattern = r"#SBATCH\s+-([oe|eo|doe|o|e])\s+(.*)"
     logging_dirs = set()
+    stdout_file: Optional[Path] = None
+    stderr_file: Optional[Path] = None
     for line in script.split("\n"):
         match = re.match(logging_pattern, line.strip())
         if match:
@@ -80,7 +84,11 @@ def _get_logging_dirs(script: str) -> list[str]:
                     if dir_path.suffix:  # If it's a file name, get a parent dir.
                         dir_path = dir_path.parent
                     logging_dirs.add(str(dir_path))
-    return list(sorted(logging_dirs))
+                if "o" in type_tag:
+                    stdout_file = Path(file_name)
+                if "e" in type_tag:
+                    stderr_file = Path(file_name)
+    return list(sorted(logging_dirs)), stdout_file, stderr_file
 
 
 def _create_job_script(job: JobConfig) -> str:
@@ -288,8 +296,11 @@ class PerlmutterCluster(BaseCluster):
         self._client.put(job_script, str(script_path))
         # Set the proper CHMOD permissions.
         self._client.run_commands([f"chmod +x {script_path}"])
-        # Set up logging directories.
-        logging_dirs = _get_logging_dirs(job_script)
+        # Set up logging directories and get the stdout and stderr files.
+        # We pass in the stdout/stderr files via a flag in the sbatch command so that
+        # we can do variable expansion. Env vars don't get expanded in #SBATCH
+        # directives.
+        logging_dirs, stdout_file, stderr_file = _get_logging_dirs_and_files(job_script)
         if len(logging_dirs) > 0:
             self._client.run_commands(
                 [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
@@ -304,6 +315,12 @@ class PerlmutterCluster(BaseCluster):
             ntasks=job.num_nodes,
             threads_per_core=1,
             qos=self._queue.value,
+            stdout_file=(
+                str(stdout_file)
+                if stdout_file
+                else "$CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.out"
+            ),
+            stderr_file=str(stderr_file) if stderr_file else None,
             constraint="gpu",
             gpus_per_node=4,
         )
