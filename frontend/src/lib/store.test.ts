@@ -33,16 +33,7 @@ describe('Branch-Aware Store', () => {
       conversations: [],
       currentConversationId: null,
       currentBranchId: 'main',
-      branches: [
-        {
-          id: 'main',
-          name: 'Main',
-          isActive: true,
-          messageCount: 0,
-          createdAt: new Date().toISOString(),
-          lastActive: new Date().toISOString(),
-        }
-      ],
+      // Don't need to set branches directly as they are derived from conversationMessages
     });
   });
 
@@ -239,18 +230,12 @@ describe('Branch-Aware Store', () => {
       store.setCurrentConversationId(conversationId);
       
       // Add new branch
-      store.addBranch({
-        id: newBranchId,
-        name: 'New Branch',
-        isActive: false,
-        messageCount: 0,
-        createdAt: new Date().toISOString(),
-        lastActive: new Date().toISOString(),
-      });
+      store.addBranch(newBranchId, 'New Branch');
       
-      // Verify branch was added
-      expect(store.branches).toHaveLength(2);
-      expect(store.branches[1].id).toBe(newBranchId);
+      // Verify branch was added using getBranches selector
+      const branches = store.getBranches();
+      expect(branches).toHaveLength(2);
+      expect(branches[1].id).toBe(newBranchId);
       
       // Verify branch has empty messages array
       expect(store.getBranchMessages(conversationId, newBranchId)).toHaveLength(0);
@@ -275,32 +260,17 @@ describe('Branch-Aware Store', () => {
       });
       store.setCurrentConversationId(conversationId);
       
-      // Add branches to store branch list
-      store.setBranches([
-        {
-          id: 'main',
-          name: 'Main',
-          isActive: true,
-          messageCount: 0,
-          createdAt: new Date().toISOString(),
-          lastActive: new Date().toISOString(),
-        },
-        {
-          id: branchToDeleteId,
-          name: 'Branch to Delete',
-          isActive: false,
-          messageCount: 0,
-          createdAt: new Date().toISOString(),
-          lastActive: new Date().toISOString(),
-        }
-      ]);
+      // No need to set branches directly as they are derived
+      // from conversationMessages via getBranches selector
+      // The branches will be available via getBranches()
       
       // Delete branch
       store.deleteBranch(branchToDeleteId);
       
-      // Verify branch was deleted
-      expect(store.branches).toHaveLength(1);
-      expect(store.branches[0].id).toBe('main');
+      // Verify branch was deleted using getBranches selector
+      const branches = store.getBranches();
+      expect(branches).toHaveLength(1);
+      expect(branches[0].id).toBe('main');
       
       // Verify branch messages were deleted
       expect(store.conversationMessages[conversationId][branchToDeleteId]).toBeUndefined();
@@ -325,25 +295,9 @@ describe('Branch-Aware Store', () => {
         updatedAt: new Date().toISOString(),
       });
       
-      // Add branches to store branch list
-      store.setBranches([
-        {
-          id: branch1Id,
-          name: 'Main',
-          isActive: true,
-          messageCount: 1,
-          createdAt: new Date().toISOString(),
-          lastActive: new Date().toISOString(),
-        },
-        {
-          id: branch2Id,
-          name: 'Branch 2',
-          isActive: false,
-          messageCount: 1,
-          createdAt: new Date().toISOString(),
-          lastActive: new Date().toISOString(),
-        }
-      ]);
+      // No need to set branches directly as they are derived
+      // from conversationMessages via getBranches selector
+      // The branches will be available via getBranches()
       
       // Set current conversation
       store.setCurrentConversationId(conversationId);
@@ -362,9 +316,10 @@ describe('Branch-Aware Store', () => {
       expect(store.getCurrentMessages()).toHaveLength(1);
       expect(store.getCurrentMessages()[0].content).toBe(mockMessage2.content);
       
-      // Verify branch isActive status was updated
-      const updatedBranch1 = store.branches.find(b => b.id === branch1Id);
-      const updatedBranch2 = store.branches.find(b => b.id === branch2Id);
+      // Verify branch isActive status was updated using getBranches selector
+      const branches = store.getBranches();
+      const updatedBranch1 = branches.find(b => b.id === branch1Id);
+      const updatedBranch2 = branches.find(b => b.id === branch2Id);
       
       expect(updatedBranch1?.isActive).toBe(false);
       expect(updatedBranch2?.isActive).toBe(true);

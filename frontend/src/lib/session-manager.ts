@@ -184,6 +184,14 @@ export class SessionManager {
   }
   
   /**
+   * Update a session by ID (static helper)
+   */
+  public static updateSession(sessionId: string, updates: Partial<Session>): boolean {
+    const instance = SessionManager.getInstance();
+    return instance.updateSession(sessionId, updates);
+  }
+  
+  /**
    * Switch to a different session
    */
   public switchSession(sessionId: string): boolean {

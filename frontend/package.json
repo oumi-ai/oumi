@@ -65,6 +65,7 @@
   },
   "devDependencies": {
     "@electron/notarize": "^3.0.2",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -118,11 +119,11 @@
         "to": "python/",
         "filter": [
           "pyproject.toml",
-          "README.md", 
+          "README.md",
           "LICENSE",
           "src/**/*.py",
           "configs/**/*.yaml",
-          "configs/**/*.json", 
+          "configs/**/*.json",
           "configs/**/*.md",
           "!src/**/__pycache__/**",
           "!src/**/*.pyc",
@@ -153,7 +154,9 @@
         {
           "from": "python-dist/darwin-${arch}/",
           "to": "python-dist/",
-          "filter": ["**/*"]
+          "filter": [
+            "**/*"
+          ]
         }
       ],
       "target": [
@@ -162,7 +165,7 @@
           "arch": "x64"
         },
         {
-          "target": "dmg", 
+          "target": "dmg",
           "arch": "arm64"
         },
         {
@@ -199,7 +202,9 @@
         {
           "from": "python-dist/win32-x64/",
           "to": "python-dist/",
-          "filter": ["**/*"]
+          "filter": [
+            "**/*"
+          ]
         }
       ],
       "target": [
@@ -228,7 +233,9 @@
         {
           "from": "python-dist/linux-${arch}/",
           "to": "python-dist/",
-          "filter": ["**/*"]
+          "filter": [
+            "**/*"
+          ]
         }
       ],
       "target": [

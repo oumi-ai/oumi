@@ -363,7 +363,13 @@ export const useChatStore = create<ChatStore>()(
           };
           
           // Update branch details if this branch exists in state
-          const updatedBranches = state.branches.map((branch) => {
+          // Get branches using the getBranches selector instead of accessing state.branches directly
+          const branches = getBranchMetadata(
+            conversationId,
+            conversationMessages,
+            branchId
+          );
+          const updatedBranches = branches.map((branch) => {
             if (branch.id === branchId) {
               // Get the last message for the preview if available
               const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
@@ -536,7 +542,13 @@ export const useChatStore = create<ChatStore>()(
           };
           
           // Update branch details
-          const updatedBranches = state.branches.map((branch) => {
+          // Get branches using the getBranches selector instead of accessing state.branches directly
+          const branches = getBranchMetadata(
+            conversationId,
+            conversationMessages,
+            branchId
+          );
+          const updatedBranches = branches.map((branch) => {
             if (branch.id === branchId) {
               return {
                 ...branch,
@@ -1519,18 +1531,9 @@ if (process.env.NODE_ENV === 'development') {
               }
             };
             
-            // Update branch details
-            const updatedBranches = state.branches.map((branch) => {
-              if (branch.id === currentBranchId) {
-                return {
-                  ...branch,
-                  messageCount: 0,
-                  lastActive: new Date().toISOString(),
-                  preview: 'Empty conversation'
-                };
-              }
-              return branch;
-            });
+            // Update branch details using getBranches instead of direct property access
+            // Note: We don't need to update branch details here as they are derived on demand
+            // via getBranches() and will reflect the empty messages array
             
             return {
               conversationMessages: updatedConversationMessages
@@ -1673,7 +1676,9 @@ if (process.env.NODE_ENV === 'development') {
         if (state) {
           // Load all existing sessions from SessionManager
           const allSessions = SessionManager.getAllSessions();
-          const sessionsMap = {};
+          // Create objects with typed indices
+          const sessionsMap: {[key: string]: Session} = {};
+          const conversationsBySessionMap: {[key: string]: string[]} = {};
           
           // Get last active session or create a new one if none exists
           const sessionId = SessionManager.getCurrentSessionId();
@@ -1693,6 +1698,9 @@ if (process.env.NODE_ENV === 'development') {
           // Make sure current session is in the map
           sessionsMap[sessionId] = currentSession;
           
+          // Initialize conversations map for the session
+          conversationsBySessionMap[sessionId] = [];
+          
           // Update store state
           state.conversationMessages = {};
           state.conversations = [];
@@ -1701,9 +1709,7 @@ if (process.env.NODE_ENV === 'development') {
           state.currentSessionId = sessionId;
           state.sessions = sessionsMap;
           state.activeSessionIds = [sessionId];
-          state.conversationsBySession = {
-            [sessionId]: []
-          };
+          state.conversationsBySession = conversationsBySessionMap;
         }
       },
     }

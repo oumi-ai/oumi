@@ -51,8 +51,9 @@ describe('Store Adapter', () => {
       expect(result.title).toBe('Test Conversation');
       expect(result.messages).toEqual([mockMessage1, mockMessage2]); // Should keep original messages
       expect(result.branches).toBeDefined();
-      expect(result.branches.main).toBeDefined();
-      expect(result.branches.main.messages).toEqual([mockMessage1, mockMessage2]);
+      // Add non-null assertion since we've already checked branches is defined
+      expect(result.branches!.main).toBeDefined();
+      expect(result.branches!.main.messages).toEqual([mockMessage1, mockMessage2]);
     });
   });
 
