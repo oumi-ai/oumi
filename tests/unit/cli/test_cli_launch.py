@@ -207,6 +207,9 @@ def test_launch_up_job(
             done=True,
             state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -254,6 +257,10 @@ def test_launch_up_job_with_alias(
             done=True,
             state=JobState.SUCCEEDED,
         )
+        # Mock the log stream to return proper string values
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -303,6 +310,9 @@ def test_launch_up_job_dev_confirm(
             done=True,
             state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -349,6 +359,9 @@ def test_launch_up_job_dev_no_confirm(
             done=True,
             state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -395,6 +408,9 @@ def test_launch_up_job_dev_no_confirm_same_path(
             done=True,
             state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -439,6 +455,9 @@ def test_launch_up_job_no_working_dir(
             done=True,
             state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -483,6 +502,9 @@ def test_launch_up_job_existing_cluster(
             done=True,
             state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         mock_cloud = Mock()
         mock_launcher.get_cloud.return_value = mock_cloud
         mock_cloud.get_cluster.return_value = mock_cluster
@@ -566,6 +588,7 @@ def test_launch_up_job_detached_local(
             state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = job_status = JobStatus(
             id="job_id",
             cluster="local",
@@ -625,6 +648,9 @@ def test_launch_up_job_sky_logs(
             done=True,
             state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -633,7 +659,7 @@ def test_launch_up_job_sky_logs(
                 job_yaml_path,
             ],
         )
-        mock_cluster.tail_logs.assert_called_once_with("job_id", "local")
+        mock_cluster.get_logs_stream.assert_called_once()
 
 
 def test_launch_up_job_not_found(
@@ -706,6 +732,7 @@ def test_launch_run_job(
         mock_launcher.run.return_value = job_status
         mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
         mock_cloud.get_cluster.side_effect = [mock_cluster, mock_cluster]
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = job_status = JobStatus(
             id="job_id",
             cluster="cluster_id",
@@ -761,6 +788,7 @@ def test_launch_run_job_with_alias(
         mock_launcher.run.return_value = job_status
         mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
         mock_cloud.get_cluster.side_effect = [mock_cluster, mock_cluster]
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = job_status = JobStatus(
             id="job_id",
             cluster="cluster_id",
@@ -818,6 +846,7 @@ def test_launch_run_job_dev_confirm(
         mock_launcher.run.return_value = job_status
         mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
         mock_cloud.get_cluster.side_effect = [mock_cluster, mock_cluster]
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = job_status = JobStatus(
             id="job_id",
             cluster="cluster_id",
@@ -871,6 +900,7 @@ def test_launch_run_job_dev_no_confirm(
         mock_launcher.run.return_value = job_status
         mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
         mock_cloud.get_cluster.side_effect = [mock_cluster, mock_cluster]
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = job_status = JobStatus(
             id="job_id",
             cluster="cluster_id",
@@ -973,6 +1003,7 @@ def test_launch_run_job_detached_local(
         mock_launcher.run.return_value = job_status
         mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
         mock_cloud.get_cluster.return_value = mock_cluster
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = JobStatus(
             id="job_id",
             cluster="local",
