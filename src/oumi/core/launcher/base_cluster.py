@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
@@ -94,4 +95,14 @@ class BaseCluster(ABC):
     @abstractmethod
     def down(self) -> None:
         """Tears down the current cluster."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_logs_stream(self, job_id: str, cluster_name: str) -> io.TextIOBase:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            job_id: The ID of the job to tail the logs of.
+            cluster_name: The name of the cluster the job was run in.
+        """
         raise NotImplementedError
