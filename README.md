@@ -212,7 +212,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 #### Instruct Models
 
 | Model | Size | Paper | HF Hub  | License  | Open [^1] |
-|-------|------|-------|---------|----------|------|------------------------|
+|-------|------|-------|---------|----------|------|
 | ✅ SmolLM-Instruct | 135M/360M/1.7B | [Blog](https://huggingface.co/blog/smollm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolLM-135M-Instruct) | Apache 2.0 | ✅ |
 | ✅ DeepSeek R1 Family | 1.5B/8B/32B/70B/671B | [Blog](https://api-docs.deepseek.com/news/news250120) | [Hub](https://huggingface.co/deepseek-ai/DeepSeek-R1) | MIT | ❌ |
 | ✅ Llama 3.1 Instruct | 8B/70B/405B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.1-70b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  |
