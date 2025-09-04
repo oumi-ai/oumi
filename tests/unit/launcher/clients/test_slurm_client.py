@@ -156,6 +156,7 @@ def test_slurm_client_submit_job_with_all_args(mock_subprocess):
         threads_per_core=1,
         distribution="block:cyclic",
         partition="extended",
+        qos="debug",
         stdout_file="~/stdout.txt",
         stderr_file="~/stderr.txt",
     )
@@ -188,6 +189,7 @@ def test_slurm_client_submit_job_with_all_args(mock_subprocess):
                                 "--threads-per-core=1",
                                 "--distribution=block:cyclic",
                                 "--partition=extended",
+                                "--qos=debug",
                                 "--output=~/stdout.txt",
                                 "--error=~/stderr.txt",
                                 "--parsable",

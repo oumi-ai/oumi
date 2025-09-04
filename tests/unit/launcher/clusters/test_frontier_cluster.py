@@ -4,7 +4,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from oumi.core.configs import JobConfig, JobResources, StorageMount
+from oumi.core.configs import JobConfig, JobResources
 from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher.clients.slurm_client import SlurmClient
 from oumi.launcher.clusters.frontier_cluster import FrontierCluster
@@ -26,36 +26,19 @@ def mock_datetime():
 
 
 def _get_default_job(cloud: str) -> JobConfig:
-    resources = JobResources(
-        cloud=cloud,
-        region="us-central1",
-        zone=None,
-        accelerators="A100-80GB",
-        cpus="4",
-        memory="64",
-        instance_type=None,
-        use_spot=True,
-        disk_size=512,
-        disk_tier="low",
-    )
     return JobConfig(
         name="myjob",
         user="user",
         working_dir="./",
         num_nodes=2,
-        resources=resources,
+        resources=JobResources(cloud=cloud),
         envs={"var1": "val1"},
         file_mounts={
             "~/home/remote/path.bar": "~/local/path.bar",
             "~/home/remote/path2.txt": "~/local/path2.txt",
         },
-        storage_mounts={
-            "~/home/remote/path/gcs/": StorageMount(
-                source="gs://mybucket/", store="gcs"
-            )
-        },
         setup=(
-            "#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n"
+            "#SBATCH -o some/log \n#SBATCH -l wow\n#SBATCH -e run/log\n"
             "pip install -r requirements.txt"
         ),
         run="./hello_world.sh",
@@ -389,7 +372,7 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
         ]
     )
     job_script = (
-        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBATCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
@@ -478,7 +461,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         ]
     )
     job_script = (
-        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBATCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
@@ -571,7 +554,7 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         ]
     )
     job_script = (
-        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBATCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
@@ -652,7 +635,7 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         ]
     )
     job_script = (
-        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBATCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
