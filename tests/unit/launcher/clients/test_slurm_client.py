@@ -159,6 +159,8 @@ def test_slurm_client_submit_job_with_all_args(mock_subprocess):
         qos="debug",
         stdout_file="~/stdout.txt",
         stderr_file="~/stderr.txt",
+        # kwargs
+        foo="bar",
     )
     mock_subprocess.run.assert_has_calls(
         [
@@ -192,6 +194,7 @@ def test_slurm_client_submit_job_with_all_args(mock_subprocess):
                                 "--qos=debug",
                                 "--output=~/stdout.txt",
                                 "--error=~/stderr.txt",
+                                "--foo=bar",
                                 "--parsable",
                                 "./job.sh",
                             ]
