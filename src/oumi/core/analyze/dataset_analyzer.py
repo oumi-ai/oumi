@@ -758,13 +758,9 @@ class DatasetAnalyzer:
         if self._message_df is None or self._message_df.empty:
             return {}
 
-        turns_per_conversation = self._message_df.groupby("conversation_id").size()
-
-        # Ensure we have a Series for statistics computation
-        if isinstance(turns_per_conversation, pd.Series):
-            return compute_statistics(turns_per_conversation, self._decimal_precision)
-        else:
-            # If it's a DataFrame, convert to Series
-            return compute_statistics(
-                turns_per_conversation.iloc[:, 0], self._decimal_precision
-            )
+        # groupby().size() always returns a Series, but we cast it because
+        # type checker can't infer this
+        turns_per_conversation = cast(
+            pd.Series, self._message_df.groupby("conversation_id").size()
+        )
+        return compute_statistics(turns_per_conversation, self._decimal_precision)
