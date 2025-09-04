@@ -12,6 +12,7 @@ import apiClient from '@/lib/unified-api';
 import BranchTreeVisualization from './BranchTreeVisualization';
 import BranchInheritanceView from './BranchInheritanceView';
 import BranchContextMenu from './BranchContextMenu';
+import { ConversationBranch as IBranchData } from '@/lib/types';
 import BranchMergeDialog from './BranchMergeDialog';
 
 interface BranchTreeProps {
@@ -20,17 +21,19 @@ interface BranchTreeProps {
 
 export default function BranchTree({ className = '' }: BranchTreeProps) {
   const {
-    branches,
     currentBranchId,
     currentConversationId,
-    setBranches,
     setCurrentBranch,
     addBranch,
     deleteBranch,
     setMessages,
     getCurrentMessages,
-    getBranchMessages
+    getBranchMessages,
+    getBranches
   } = useChatStore();
+
+  // Get branches using the selector
+  const branches = getBranches();
 
   // Get current messages using selector
   const messages = getCurrentMessages();
@@ -40,45 +43,18 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     console.log('🌿 BranchTree: branches updated:', branches.length, branches.map(b => b.name));
   }, [branches]);
 
-  // Update branch message counts when messages change
-  React.useEffect(() => {
-    if (branches.length > 0) {
-      const updatedBranches = branches.map(branch => {
-        if (branch.isActive) {
-          const messageCount = messages.length;
-          return {
-            ...branch,
-            messageCount,
-            preview: messageCount > 0 
-              ? `${messageCount} message${messageCount !== 1 ? 's' : ''}`
-              : 'Empty branch',
-          };
-        }
-        return branch;
-      });
-      
-      // Only update if there's actually a change to avoid infinite loops
-      const hasChanges = updatedBranches.some((branch, index) => 
-        branch.messageCount !== branches[index].messageCount ||
-        branch.preview !== branches[index].preview
-      );
-      
-      if (hasChanges) {
-        setBranches(updatedBranches);
-      }
-    }
-  }, [messages, branches, setBranches]);
+  // No need to update branch message counts manually since branches are now derived on demand
   
   const [isCreating, setIsCreating] = React.useState(false);
   const [newBranchName, setNewBranchName] = React.useState('');
   const [viewMode, setViewMode] = React.useState<'list' | 'tree' | 'inheritance'>('list');
   const [contextMenu, setContextMenu] = React.useState<{
-    branch: ConversationBranch;
+    branch: IBranchData;
     position: { x: number; y: number };
   } | null>(null);
   const [mergeDialog, setMergeDialog] = React.useState<{
-    sourceBranch: ConversationBranch;
-    targetBranch: ConversationBranch;
+    sourceBranch: IBranchData;
+    targetBranch: IBranchData;
   } | null>(null);
   const [actionInProgress, setActionInProgress] = React.useState<string | null>(null);
 
@@ -130,7 +106,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
             parentId: branch.parent,
           };
         });
-        setBranches(formattedBranches);
+        // Branches are now derived on demand, no need to set them manually
         setCurrentBranch(response.data?.current_branch || 'main');
       }
     } catch (error) {
@@ -160,18 +136,12 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
       
       if (response.success && response.data && response.data.branch) {
         const branchData = response.data.branch;
-        const newBranch: ConversationBranch = {
-          id: branchData.id || `branch_${Date.now()}`,
-          name: branchData.name || name,
-          isActive: (branchData as any).is_active || false,
-          messageCount: (branchData as any).message_count || 0,
-          createdAt: (branchData as any).created_at || new Date().toISOString(),
-          lastActive: (branchData as any).last_active || new Date().toISOString(),
-          preview: (branchData as any).message_count > 0 ? `${(branchData as any).message_count} messages` : 'Empty branch',
-          parentId: parentId,
-        };
+        // Get the branch ID and data from the response
+        const branchId = branchData.id || `branch_${Date.now()}`;
+        const branchName = branchData.name || name;
         
-        addBranch(newBranch);
+        // Call addBranch with the correct parameters (branchId, name, parentId)
+        addBranch(branchId, branchName, parentId);
         if (!branchName) {
           setNewBranchName(''); // Only clear input if it came from list view
         }
@@ -262,14 +232,12 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
   // Handle branch renaming - PLACEHOLDER: Not fully implemented
   const handleRenameBranch = async (branchId: string, newName: string) => {
     try {
-      // For now, simulate rename - in real implementation this would call API
-      const updatedBranches = branches.map(branch =>
-        branch.id === branchId ? { ...branch, name: newName } : branch
-      );
-      setBranches(updatedBranches);
-      
+      // For now, just log the rename action
       console.log(`PLACEHOLDER: Rename branch ${branchId} to ${newName}`); // TODO: Implement API call
       alert('⚠️ Branch rename is not fully implemented yet. This is a placeholder feature.');
+      
+      // Note: branches are now derived on demand from the store using getBranches()
+      // so we don't need to update them manually here
     } catch (error) {
       console.error('Failed to rename branch:', error);
     }
@@ -296,7 +264,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
   };
 
   // Handle right-click context menu
-  const handleContextMenu = (e: React.MouseEvent, branch: ConversationBranch) => {
+  const handleContextMenu = (e: React.MouseEvent, branch: IBranchData) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -307,7 +275,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
   };
 
   // Handle merge dialog
-  const handleOpenMergeDialog = (sourceBranch: ConversationBranch, targetBranch: ConversationBranch) => {
+  const handleOpenMergeDialog = (sourceBranch: IBranchData, targetBranch: IBranchData) => {
     setMergeDialog({ sourceBranch, targetBranch });
   };
 
@@ -596,13 +564,13 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
           isVisible={true}
           position={contextMenu.position}
           onClose={() => setContextMenu(null)}
-          onSwitchTo={handleSwitchBranch}
+          onSwitchTo={(branchId: string) => handleSwitchBranch(branchId)}
           onCreateChild={(parentId, name) => handleCreateBranch(name, parentId)}
           onRename={handleRenameBranch}
           onDelete={handleDeleteBranch}
           onMergeBranch={(sourceBranchId, targetBranchId) => {
-            const sourceBranch = branches.find(b => b.id === sourceBranchId);
-            const targetBranch = branches.find(b => b.id === targetBranchId);
+            const sourceBranch = branches.find((b: IBranchData) => b.id === sourceBranchId);
+            const targetBranch = branches.find((b: IBranchData) => b.id === targetBranchId);
             if (sourceBranch && targetBranch) {
               handleOpenMergeDialog(sourceBranch, targetBranch);
             }

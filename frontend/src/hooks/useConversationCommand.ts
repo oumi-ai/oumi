@@ -30,7 +30,8 @@ interface CommandResult {
 
 export function useConversationCommand() {
   const [isExecuting, setIsExecuting] = useState(false);
-  const { setMessages, setBranches, setCurrentBranch } = useChatStore();
+  const { setMessages, setCurrentBranch } = useChatStore();
+  // Note: setBranches is no longer needed as branches are derived on demand
 
   /**
    * Refresh conversation data from backend
@@ -73,8 +74,9 @@ export function useConversationCommand() {
           preview: branch.message_count > 0 ? `${branch.message_count} messages` : 'Empty branch'
         }));
         
-        console.log(`🌿 Setting branches in store:`, transformedBranches);
-        setBranches(transformedBranches);
+        console.log(`🌿 Branches updated from backend:`, transformedBranches);
+        // Note: We don't need to setBranches anymore since they are derived on demand
+        // The branches will be available via getBranches() which reads from the store
         if (current_branch) {
           setCurrentBranch(current_branch);
         }

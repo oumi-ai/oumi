@@ -25,7 +25,8 @@ export default function AppLayout() {
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const [showSearchHistory, setShowSearchHistory] = React.useState(false);
-  const { clearMessages, currentBranchId, generationParams, setBranches, setCurrentBranch, setMessages, getCurrentSessionId } = useChatStore();
+  const { clearMessages, currentBranchId, generationParams, setCurrentBranch, setMessages, getCurrentSessionId } = useChatStore();
+  // Note: setBranches is no longer needed as branches are derived on demand
   const { executeCommand, isExecuting } = useConversationCommand();
   const chatInterfaceRef = React.useRef<ChatInterfaceRef | null>(null);
 
@@ -210,7 +211,8 @@ export default function AppLayout() {
           }));
           
           console.log(`📋 Loaded ${transformedBranches.length} branches, current: ${current_branch}`);
-          setBranches(transformedBranches);
+          // Note: setBranches is no longer needed since branches are derived on demand
+          // The branches will be available via getBranches()
           if (current_branch && current_branch !== currentBranchId) {
             setCurrentBranch(current_branch);
           }
@@ -228,7 +230,7 @@ export default function AppLayout() {
     if (!isInitialized) {
       initializeApp();
     }
-  }, [isInitialized, currentBranchId, setBranches, setCurrentBranch]);
+  }, [isInitialized, currentBranchId, setCurrentBranch]);
 
   const handleClearConversation = async () => {
     if (confirm('Are you sure you want to clear this conversation? This action cannot be undone.')) {

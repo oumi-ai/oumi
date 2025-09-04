@@ -35,7 +35,9 @@ export default function BranchTreeVisualization({
   onCreateBranch,
   onDeleteBranch,
 }: BranchTreeVisualizationProps) {
-  const { branches, currentBranchId } = useChatStore();
+  const { currentBranchId, getBranches } = useChatStore();
+  // Get branches using the selector
+  const branches = getBranches();
   const [selectedNode, setSelectedNode] = React.useState<string | null>(null);
   const [treeTranslate, setTreeTranslate] = React.useState({ x: 0, y: 0 });
   const [isCreatingBranch, setIsCreatingBranch] = React.useState(false);
@@ -59,7 +61,7 @@ export default function BranchTreeVisualization({
     const childrenMap = new Map<string, ConversationBranch[]>();
 
     // Index branches
-    branches.forEach((branch) => {
+    branches.forEach((branch: ConversationBranch) => {
       branchMap.set(branch.id, branch);
       const parentId = branch.parentId || 'root';
       if (!childrenMap.has(parentId)) {
@@ -202,7 +204,7 @@ export default function BranchTreeVisualization({
 
   // Node details panel
   const selectedBranch = selectedNode
-    ? branches.find((b) => b.id === selectedNode)
+    ? branches.find((b: ConversationBranch) => b.id === selectedNode)
     : null;
 
   return (

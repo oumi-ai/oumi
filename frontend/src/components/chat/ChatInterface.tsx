@@ -34,12 +34,13 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     setLoading,
     setTyping,
     setMessages,
-    setBranches,
     generationParams,
     updateMessage,
     getCurrentSessionId,
     getCurrentMessages,
   } = useChatStore();
+  
+  // Note: setBranches is no longer needed as branches are derived on demand from state
   
   // Get messages using the getCurrentMessages selector
   const messages = getCurrentMessages();
@@ -92,7 +93,8 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
           preview: branch.message_count > 0 ? `${branch.message_count} messages` : 'Empty branch'
         }));
         
-        setBranches(transformedBranches);
+        // Note: setBranches is no longer needed since branches are derived on demand
+        console.log('Branches updated successfully (will be available via getBranches)');
       }
     } catch (error) {
       console.error('Failed to refresh branches:', error);

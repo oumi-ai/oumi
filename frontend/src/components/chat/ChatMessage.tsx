@@ -22,7 +22,9 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
   const [isEditing, setIsEditing] = React.useState(false);
   const [editContent, setEditContent] = React.useState(message.content);
   const [actionInProgress, setActionInProgress] = React.useState<string | null>(null);
-  const { updateMessage, deleteMessage, addMessage, branches } = useChatStore();
+  const { updateMessage, deleteMessage, addMessage, getBranches, currentConversationId, currentBranchId } = useChatStore();
+  // Get branches using the selector
+  const branches = getBranches();
   const { executeCommand, isExecuting } = useConversationCommand();
 
   const handleCopy = async () => {
