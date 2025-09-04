@@ -22,13 +22,18 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
   const {
     branches,
     currentBranchId,
-    messages,
+    currentConversationId,
     setBranches,
     setCurrentBranch,
     addBranch,
     deleteBranch,
     setMessages,
+    getCurrentMessages,
+    getBranchMessages
   } = useChatStore();
+
+  // Get current messages using selector
+  const messages = getCurrentMessages();
 
   // Debug: Log branches changes
   React.useEffect(() => {
@@ -208,7 +213,12 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
         
         // The command response doesn't include conversation data, 
         // so we clear messages and reload branches to get updated state
-        setMessages([]);
+        if (currentConversationId) {
+          setMessages(currentConversationId, branchId, []);
+        } else {
+          // Fallback for legacy interface
+          setMessages([]);
+        }
         await loadBranches();
       } else {
         console.error('Failed to switch branch:', response.message);
@@ -217,7 +227,12 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
       console.error('Failed to switch branch:', error);
       // Still update UI even if conversation loading fails
       setCurrentBranch(branchId);
-      setMessages([]);
+      if (currentConversationId) {
+        setMessages(currentConversationId, branchId, []);
+      } else {
+        // Fallback for legacy interface
+        setMessages([]);
+      }
     }
   };
 

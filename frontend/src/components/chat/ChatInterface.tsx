@@ -26,7 +26,6 @@ export interface ChatInterfaceRef {
 
 export default function ChatInterface({ className = '', onRef }: ChatInterfaceProps) {
   const {
-    messages,
     isLoading,
     isTyping,
     currentBranchId,
@@ -39,7 +38,11 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     generationParams,
     updateMessage,
     getCurrentSessionId,
+    getCurrentMessages,
   } = useChatStore();
+  
+  // Get messages using the getCurrentMessages selector
+  const messages = getCurrentMessages();
   
   // Initialize auto-save functionality
   useAutoSave();
@@ -111,7 +114,13 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
           attachments: msg.attachments,
         }));
         
-        setMessages(transformedMessages);
+        // Use the branch-specific setMessages
+        if (currentConversationId) {
+          setMessages(currentConversationId, currentBranchId, transformedMessages);
+        } else {
+          // Fallback for older interface
+          setMessages(transformedMessages);
+        }
       }
     } catch (error) {
       console.error('Failed to load conversation:', error);
@@ -123,7 +132,13 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
           content: `❌ Failed to load conversation: ${error.message}`,
           timestamp: Date.now(),
         };
-        setMessages([errorMessage]);
+        // Use the branch-specific setMessages
+        if (currentConversationId) {
+          setMessages(currentConversationId, currentBranchId, [errorMessage]);
+        } else {
+          // Fallback for older interface
+          setMessages([errorMessage]);
+        }
       }
     } finally {
       setLoading(false);

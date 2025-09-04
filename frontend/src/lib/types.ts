@@ -167,7 +167,11 @@ export interface ApiPricing {
 
 export interface ApiKeyConfig {
   providerId: string;
-  keyValue: string;
+  // In Electron builds, do not store full key value in renderer.
+  // Keep this optional for compatibility; prefer using `last4` + metadata.
+  keyValue?: string;
+  // Convenience for UI display without storing secrets
+  last4?: string;
   isActive: boolean;
   createdAt: string;
   lastValidated?: string;

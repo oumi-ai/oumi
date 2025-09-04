@@ -6,11 +6,26 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Message, ConversationBranch, Conversation, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats } from './types';
 import apiClient from './unified-api';
-import { SessionManager } from './session-manager';
+import { 
+  adaptLegacyConversation, 
+  flattenBranchMessages, 
+  normalizedToLegacy, 
+  legacyToNormalized,
+  buildBranchStructure,
+  getBranchMetadata,
+  SessionManager,
+  autoSaveConversation
+} from './adapters/store-adapter';
 
 interface ChatStore {
+  // Branch-specific message storage
+  conversationMessages: {
+    [conversationId: string]: {
+      [branchId: string]: Message[]
+    }
+  };
+  
   // Current state
-  messages: Message[];
   branches: ConversationBranch[];
   currentBranchId: string;
   isLoading: boolean;
@@ -21,14 +36,18 @@ interface ChatStore {
   conversations: Conversation[];
   currentConversationId: string | null;
   
+  // Session management
+  activeSessionIds: string[];
+  conversationsBySession: { [sessionId: string]: string[] };
+  
   // Settings and API management
   settings: AppSettings;
 
   // Actions
   addMessage: (message: Message) => void;
-  setMessages: (messages: Message[]) => void;
-  updateMessage: (messageId: string, updates: Partial<Message>) => void;
-  deleteMessage: (messageId: string) => void;
+  setMessages: (conversationId: string, branchId: string, messages: Message[]) => void;
+  updateMessage: (conversationId: string, branchId: string, messageId: string, updates: Partial<Message>) => void;
+  deleteMessage: (conversationId: string, branchId: string, messageId: string) => void;
   
   // Chat naming actions
   generateChatTitle: (conversationId: string) => Promise<void>;
@@ -44,7 +63,7 @@ interface ChatStore {
   updateConversation: (conversationId: string, updates: Partial<Conversation>) => void;
   deleteConversation: (conversationId: string) => void;
   setCurrentConversationId: (conversationId: string | null) => void;
-  loadConversation: (conversationId: string) => Promise<Conversation | null>;
+  loadConversation: (conversationId: string, branchId?: string) => Promise<Conversation | null>;
   
   setLoading: (loading: boolean) => void;
   setTyping: (typing: boolean) => void;
@@ -64,28 +83,17 @@ interface ChatStore {
   startNewSession: () => string;
   resetToFreshSession: () => string;
   
+  // Selectors
+  getCurrentMessages: () => Message[];
+  getBranchMessages: (conversationId: string, branchId: string) => Message[];
+  getSessionConversations: (sessionId: string) => string[];
+  
   // Utility actions
   clearMessages: () => void;
   resetStore: () => void;
 }
 
-// Auto-save helper function
-const autoSaveConversation = async (conversation: Conversation) => {
-  try {
-    const sessionId = SessionManager.getCurrentSessionId();
-    console.log('[HISTORY_MERGE] Auto-saving conversation to backend:', { 
-      sessionId, 
-      conversationId: conversation.id, 
-      title: conversation.title,
-      messageCount: conversation.messages.length 
-    });
-    await apiClient.saveConversation(sessionId, conversation.id, conversation);
-    console.log('[HISTORY_MERGE] Auto-save completed successfully');
-  } catch (error) {
-    console.warn('[HISTORY_MERGE] Failed to auto-save conversation to backend:', error);
-    // Don't block the UI - this is just a backup save
-  }
-};
+// Note: autoSaveConversation is now imported from store-adapter.ts
 
 // Encryption utilities for sensitive data
 const encryptApiKey = (key: string): string => {
@@ -116,8 +124,10 @@ const decryptApiKey = (encryptedKey: string): string => {
 export const useChatStore = create<ChatStore>()(
   persist(
     (set, get) => ({
+      // Branch-specific message storage
+      conversationMessages: {},
+      
       // Initial state
-      messages: [],
       branches: [
         {
           id: 'main',
@@ -136,6 +146,11 @@ export const useChatStore = create<ChatStore>()(
       // Conversation state
       conversations: [],
       currentConversationId: null,
+      
+      // Session management
+      activeSessionIds: [SessionManager.getCurrentSessionId()],
+      conversationsBySession: {},
+      
       generationParams: {
         temperature: 0.7,
         maxTokens: 2048,
@@ -166,160 +181,355 @@ export const useChatStore = create<ChatStore>()(
         },
       },
 
+      // Selectors
+      getCurrentMessages: () => {
+        const state = get();
+        const { currentConversationId, currentBranchId, conversationMessages } = state;
+        
+        if (!currentConversationId) return [];
+        
+        // Get messages for current conversation and branch
+        return state.getBranchMessages(currentConversationId, currentBranchId);
+      },
+      
+      getBranchMessages: (conversationId: string, branchId: string): Message[] => {
+        const state = get();
+        const { conversationMessages } = state;
+        
+        // If conversation or branch doesn't exist, return empty array
+        if (!conversationMessages[conversationId] || !conversationMessages[conversationId][branchId]) {
+          return [];
+        }
+        
+        return conversationMessages[conversationId][branchId];
+      },
+      
+      getSessionConversations: (sessionId: string): string[] => {
+        const state = get();
+        return state.conversationsBySession[sessionId] || [];
+      },
+
       // Message actions
       addMessage: (message: Message) =>
         set((state) => {
-          const newMessages = [...state.messages, message];
-          const currentTime = new Date().toISOString();
+          const { currentConversationId, currentBranchId, conversationMessages } = state;
           
-          // Always create or update conversations for immediate availability
-          if (!state.currentConversationId) {
+          // If no current conversation, create a new one
+          if (!currentConversationId) {
+            const currentTime = new Date().toISOString();
             // Create new conversation immediately when first message is sent
-            const isFirstUserMessage = message.role === 'user' && newMessages.length === 1;
+            const isFirstUserMessage = message.role === 'user' && message.content.length > 0;
             const title = isFirstUserMessage 
               ? 'New Chat'  // Use generic title initially, will be updated after first response
               : message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '');
             
-            const newConversation: Conversation = {
-              id: `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            const newConversationId = `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            
+            console.log('[HISTORY_MERGE] Creating new conversation:', { 
+              id: newConversationId, 
               title,
-              messages: newMessages,
+              isFirstUserMessage,
+              branchId: currentBranchId
+            });
+            
+            // Create new conversation with branch structure
+            const newConversation: Conversation = {
+              id: newConversationId,
+              title,
+              messages: [], // Keep empty since we'll use branch-specific storage
+              branches: {
+                [currentBranchId]: { messages: [message] }
+              },
               createdAt: currentTime,
               updatedAt: currentTime,
             };
             
-            console.log('[HISTORY_MERGE] Creating new conversation:', { 
-              id: newConversation.id, 
-              title: newConversation.title, 
-              isFirstUserMessage,
-              messageCount: newMessages.length 
-            });
+            // Update session tracking
+            const sessionId = SessionManager.getCurrentSessionId();
+            const sessionConversations = [...(state.conversationsBySession[sessionId] || []), newConversationId];
             
             // Auto-save to backend asynchronously
             autoSaveConversation(newConversation);
             
             return {
-              messages: newMessages,
+              conversationMessages: {
+                ...conversationMessages,
+                [newConversationId]: {
+                  [currentBranchId]: [message]
+                }
+              },
               conversations: [...state.conversations, newConversation],
-              currentConversationId: newConversation.id,
-            };
-          } else {
-            // Update existing conversation
-            const updatedConversations = state.conversations.map((conv) =>
-              conv.id === state.currentConversationId
-                ? { ...conv, messages: newMessages, updatedAt: currentTime }
-                : conv
-            );
-            
-            // Auto-save updated conversation to backend
-            const updatedConv = updatedConversations.find(c => c.id === state.currentConversationId);
-            if (updatedConv) {
-              autoSaveConversation(updatedConv);
-            }
-            
-            return { 
-              messages: newMessages, 
-              conversations: updatedConversations 
+              currentConversationId: newConversationId,
+              conversationsBySession: {
+                ...state.conversationsBySession,
+                [sessionId]: sessionConversations
+              }
             };
           }
+          
+          // Add to existing conversation
+          const newMessages = [
+            ...(conversationMessages[currentConversationId]?.[currentBranchId] || []), 
+            message
+          ];
+          
+          // Update the conversation message store
+          const updatedConversationMessages = {
+            ...conversationMessages,
+            [currentConversationId]: {
+              ...(conversationMessages[currentConversationId] || {}),
+              [currentBranchId]: newMessages
+            }
+          };
+          
+          // Update branch details
+          const updatedBranches = state.branches.map((branch) => {
+            if (branch.id === currentBranchId) {
+              return {
+                ...branch,
+                messageCount: newMessages.length,
+                lastActive: new Date().toISOString(),
+                preview: message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '')
+              };
+            }
+            return branch;
+          });
+          
+          // Update the conversation object
+          const currentTime = new Date().toISOString();
+          const updatedConversations = state.conversations.map((conv) =>
+            conv.id === currentConversationId
+              ? { 
+                  ...conv, 
+                  updatedAt: currentTime,
+                  branches: {
+                    ...(conv.branches || {}),
+                    [currentBranchId]: { 
+                      messages: newMessages
+                    }
+                  }
+                }
+              : conv
+          );
+          
+          // Auto-save updated conversation to backend
+          const updatedConv = updatedConversations.find(c => c.id === currentConversationId);
+          if (updatedConv) {
+            autoSaveConversation(updatedConv);
+          }
+          
+          return { 
+            conversationMessages: updatedConversationMessages,
+            branches: updatedBranches,
+            conversations: updatedConversations
+          };
         }),
 
-      setMessages: (messages: Message[]) =>
-        set({ messages }),
-
-      updateMessage: (messageId: string, updates: Partial<Message>) =>
+      setMessages: (conversationId: string, branchId: string, messages: Message[]) =>
         set((state) => {
-          const newMessages = state.messages.map((msg) =>
+          const { conversationMessages } = state;
+          
+          // Update the conversation message store
+          const updatedConversationMessages = {
+            ...conversationMessages,
+            [conversationId]: {
+              ...(conversationMessages[conversationId] || {}),
+              [branchId]: messages
+            }
+          };
+          
+          // Update branch details if this branch exists in state
+          const updatedBranches = state.branches.map((branch) => {
+            if (branch.id === branchId) {
+              // Get the last message for the preview if available
+              const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+              
+              return {
+                ...branch,
+                messageCount: messages.length,
+                lastActive: new Date().toISOString(),
+                preview: lastMessage ? (lastMessage.content.slice(0, 50) + (lastMessage.content.length > 50 ? '...' : '')) : branch.preview
+              };
+            }
+            return branch;
+          });
+          
+          // Update the conversation object if it exists
+          const currentTime = new Date().toISOString();
+          const updatedConversations = state.conversations.map((conv) =>
+            conv.id === conversationId
+              ? { 
+                  ...conv, 
+                  updatedAt: currentTime,
+                  branches: {
+                    ...(conv.branches || {}),
+                    [branchId]: { 
+                      messages: messages
+                    }
+                  }
+                }
+              : conv
+          );
+          
+          return {
+            conversationMessages: updatedConversationMessages,
+            branches: updatedBranches,
+            conversations: updatedConversations
+          };
+        }),
+
+      updateMessage: (conversationId: string, branchId: string, messageId: string, updates: Partial<Message>) =>
+        set((state) => {
+          const { conversationMessages } = state;
+          
+          // Skip if conversation or branch doesn't exist
+          if (!conversationMessages[conversationId] || !conversationMessages[conversationId][branchId]) {
+            return state;
+          }
+          
+          // Update the message in the branch
+          const messages = conversationMessages[conversationId][branchId];
+          const newMessages = messages.map((msg) =>
             msg.id === messageId ? { ...msg, ...updates } : msg
           );
           
-          // Always update current conversation if it exists
-          if (state.currentConversationId) {
-            const currentTime = new Date().toISOString();
-            const updatedConversations = state.conversations.map((conv) =>
-              conv.id === state.currentConversationId
-                ? { ...conv, messages: newMessages, updatedAt: currentTime }
-                : conv
-            );
+          // Update the conversation message store
+          const updatedConversationMessages = {
+            ...conversationMessages,
+            [conversationId]: {
+              ...(conversationMessages[conversationId]),
+              [branchId]: newMessages
+            }
+          };
+          
+          // Update the conversation object
+          const currentTime = new Date().toISOString();
+          const updatedConversations = state.conversations.map((conv) =>
+            conv.id === conversationId
+              ? { 
+                  ...conv, 
+                  updatedAt: currentTime,
+                  branches: {
+                    ...(conv.branches || {}),
+                    [branchId]: { 
+                      messages: newMessages
+                    }
+                  }
+                }
+              : conv
+          );
+          
+          // Check if this was the first assistant response and trigger title generation
+          const updatedMessage = newMessages.find(msg => msg.id === messageId);
+          console.log('[CHAT_NAMING] updateMessage called for message:', { messageId, role: updatedMessage?.role, messageCount: newMessages.length });
+          
+          if (updatedMessage?.role === 'assistant') {
+            const userMessages = newMessages.filter(m => m.role === 'user');
+            const assistantMessages = newMessages.filter(m => m.role === 'assistant');
             
-            // Check if this was the first assistant response and trigger title generation
-            const updatedMessage = newMessages.find(msg => msg.id === messageId);
-            console.log('[CHAT_NAMING] updateMessage called for message:', { messageId, role: updatedMessage?.role, messageCount: newMessages.length });
+            console.log('[CHAT_NAMING] Assistant message detected:', { 
+              userCount: userMessages.length, 
+              assistantCount: assistantMessages.length,
+              conversationId
+            });
             
-            if (updatedMessage?.role === 'assistant') {
-              const userMessages = newMessages.filter(m => m.role === 'user');
-              const assistantMessages = newMessages.filter(m => m.role === 'assistant');
-              
-              console.log('[CHAT_NAMING] Assistant message detected:', { 
-                userCount: userMessages.length, 
-                assistantCount: assistantMessages.length,
-                conversationId: state.currentConversationId 
+            // If this is the first assistant response and we have a generic title, update it
+            if (assistantMessages.length === 1 && userMessages.length >= 1) {
+              const currentConv = updatedConversations.find(c => c.id === conversationId);
+              console.log('[CHAT_NAMING] Checking for title generation:', { 
+                hasConv: !!currentConv, 
+                currentTitle: currentConv?.title,
+                shouldGenerate: currentConv && (currentConv.title === 'New Chat' || currentConv.title.startsWith('New Conversation'))
               });
               
-              // If this is the first assistant response and we have a generic title, update it
-              if (assistantMessages.length === 1 && userMessages.length >= 1) {
-                const currentConv = updatedConversations.find(c => c.id === state.currentConversationId);
-                console.log('[CHAT_NAMING] Checking for title generation:', { 
-                  hasConv: !!currentConv, 
-                  currentTitle: currentConv?.title,
-                  shouldGenerate: currentConv && (currentConv.title === 'New Chat' || currentConv.title.startsWith('New Conversation'))
-                });
-                
-                if (currentConv && (currentConv.title === 'New Chat' || currentConv.title.startsWith('New Conversation'))) {
-                  console.log('[CHAT_NAMING] Triggering title generation for conversation:', currentConv.id);
-                  // Trigger title generation asynchronously
-                  setTimeout(() => {
-                    get().generateChatTitle(state.currentConversationId!);
-                  }, 100);
-                } else {
-                  console.log('[CHAT_NAMING] Skipping title generation - conditions not met');
-                }
+              if (currentConv && (currentConv.title === 'New Chat' || currentConv.title.startsWith('New Conversation'))) {
+                console.log('[CHAT_NAMING] Triggering title generation for conversation:', currentConv.id);
+                // Trigger title generation asynchronously
+                setTimeout(() => {
+                  get().generateChatTitle(conversationId);
+                }, 100);
               } else {
-                console.log('[CHAT_NAMING] Skipping title generation - not first assistant response or missing user messages');
+                console.log('[CHAT_NAMING] Skipping title generation - conditions not met');
               }
+            } else {
+              console.log('[CHAT_NAMING] Skipping title generation - not first assistant response or missing user messages');
             }
-            
-            // Auto-save updated conversation to backend
-            const updatedConv = updatedConversations.find(c => c.id === state.currentConversationId);
-            if (updatedConv) {
-              autoSaveConversation(updatedConv);
-            }
-            
-            return { 
-              messages: newMessages, 
-              conversations: updatedConversations 
-            };
           }
           
-          return { messages: newMessages };
+          // Auto-save updated conversation to backend
+          const updatedConv = updatedConversations.find(c => c.id === conversationId);
+          if (updatedConv) {
+            autoSaveConversation(updatedConv);
+          }
+          
+          return { 
+            conversationMessages: updatedConversationMessages, 
+            conversations: updatedConversations 
+          };
         }),
 
-      deleteMessage: (messageId: string) =>
+      deleteMessage: (conversationId: string, branchId: string, messageId: string) =>
         set((state) => {
-          const newMessages = state.messages.filter((msg) => msg.id !== messageId);
+          const { conversationMessages } = state;
           
-          // Update current conversation if it exists
-          if (state.currentConversationId) {
-            const currentTime = new Date().toISOString();
-            const updatedConversations = state.conversations.map((conv) =>
-              conv.id === state.currentConversationId
-                ? { ...conv, messages: newMessages, updatedAt: currentTime }
-                : conv
-            );
-            
-            // Auto-save updated conversation to backend
-            const updatedConv = updatedConversations.find(c => c.id === state.currentConversationId);
-            if (updatedConv) {
-              autoSaveConversation(updatedConv);
-            }
-            
-            return { 
-              messages: newMessages, 
-              conversations: updatedConversations 
-            };
+          // Skip if conversation or branch doesn't exist
+          if (!conversationMessages[conversationId] || !conversationMessages[conversationId][branchId]) {
+            return state;
           }
           
-          return { messages: newMessages };
+          // Update the message in the branch
+          const messages = conversationMessages[conversationId][branchId];
+          const newMessages = messages.filter((msg) => msg.id !== messageId);
+          
+          // Update the conversation message store
+          const updatedConversationMessages = {
+            ...conversationMessages,
+            [conversationId]: {
+              ...(conversationMessages[conversationId]),
+              [branchId]: newMessages
+            }
+          };
+          
+          // Update branch details
+          const updatedBranches = state.branches.map((branch) => {
+            if (branch.id === branchId) {
+              return {
+                ...branch,
+                messageCount: newMessages.length,
+                lastActive: new Date().toISOString()
+              };
+            }
+            return branch;
+          });
+          
+          // Update the conversation object
+          const currentTime = new Date().toISOString();
+          const updatedConversations = state.conversations.map((conv) =>
+            conv.id === conversationId
+              ? { 
+                  ...conv, 
+                  updatedAt: currentTime,
+                  branches: {
+                    ...(conv.branches || {}),
+                    [branchId]: { 
+                      messages: newMessages
+                    }
+                  }
+                }
+              : conv
+          );
+          
+          // Auto-save updated conversation to backend
+          const updatedConv = updatedConversations.find(c => c.id === conversationId);
+          if (updatedConv) {
+            autoSaveConversation(updatedConv);
+          }
+          
+          return { 
+            conversationMessages: updatedConversationMessages,
+            branches: updatedBranches, 
+            conversations: updatedConversations 
+          };
         }),
 
       // Branch actions
@@ -327,14 +537,111 @@ export const useChatStore = create<ChatStore>()(
         set({ branches }),
 
       addBranch: (branch: ConversationBranch) =>
-        set((state) => ({
-          branches: [...state.branches, branch],
-        })),
+        set((state) => {
+          // If we have a current conversation, initialize the branch storage
+          if (state.currentConversationId) {
+            // Create empty branch messages array
+            const conversationId = state.currentConversationId;
+            const updatedConversationMessages = {
+              ...state.conversationMessages,
+              [conversationId]: {
+                ...(state.conversationMessages[conversationId] || {}),
+                [branch.id]: [] // Initialize with empty messages array
+              }
+            };
+            
+            // Update the conversation object
+            const updatedConversations = state.conversations.map((conv) =>
+              conv.id === conversationId
+                ? { 
+                    ...conv, 
+                    updatedAt: new Date().toISOString(),
+                    branches: {
+                      ...(conv.branches || {}),
+                      [branch.id]: { 
+                        messages: []
+                      }
+                    }
+                  }
+                : conv
+            );
+            
+            return {
+              branches: [...state.branches, branch],
+              conversationMessages: updatedConversationMessages,
+              conversations: updatedConversations
+            };
+          }
+          
+          return {
+            branches: [...state.branches, branch],
+          };
+        }),
 
       deleteBranch: (branchId: string) =>
-        set((state) => ({
-          branches: state.branches.filter((branch) => branch.id !== branchId),
-        })),
+        set((state) => {
+          // Cannot delete if it's the only branch or the main branch
+          if (state.branches.length === 1 || branchId === 'main') {
+            return state;
+          }
+          
+          // If this is the current branch, switch to main first
+          let updatedCurrentBranchId = state.currentBranchId;
+          if (branchId === state.currentBranchId) {
+            updatedCurrentBranchId = 'main';
+          }
+          
+          // Update branch list with active status
+          const updatedBranches = state.branches
+            .filter((branch) => branch.id !== branchId)
+            .map((branch) => ({
+              ...branch,
+              isActive: branch.id === updatedCurrentBranchId
+            }));
+          
+          // If we have a current conversation, remove the branch from storage
+          let updatedConversationMessages = state.conversationMessages;
+          let updatedConversations = state.conversations;
+          
+          if (state.currentConversationId) {
+            const conversationId = state.currentConversationId;
+            
+            // Remove branch from conversation messages
+            if (state.conversationMessages[conversationId]) {
+              const { [branchId]: removed, ...remainingBranches } = state.conversationMessages[conversationId];
+              updatedConversationMessages = {
+                ...state.conversationMessages,
+                [conversationId]: remainingBranches
+              };
+            }
+            
+            // Remove branch from conversation object
+            updatedConversations = state.conversations.map((conv) => {
+              if (conv.id === conversationId && conv.branches) {
+                const { [branchId]: removed, ...remainingBranches } = conv.branches;
+                return { 
+                  ...conv, 
+                  updatedAt: new Date().toISOString(),
+                  branches: remainingBranches
+                };
+              }
+              return conv;
+            });
+            
+            // Auto-save updated conversation to backend
+            const updatedConv = updatedConversations.find(c => c.id === conversationId);
+            if (updatedConv) {
+              autoSaveConversation(updatedConv);
+            }
+          }
+          
+          return {
+            branches: updatedBranches,
+            currentBranchId: updatedCurrentBranchId,
+            conversationMessages: updatedConversationMessages,
+            conversations: updatedConversations
+          };
+        }),
 
       setCurrentBranch: (branchId: string) =>
         set((state) => ({
@@ -347,37 +654,133 @@ export const useChatStore = create<ChatStore>()(
 
       // Conversation actions
       addConversation: (conversation: Conversation) =>
-        set((state) => ({
-          conversations: [...state.conversations, conversation],
-        })),
+        set((state) => {
+          // Extract branch messages from the conversation
+          const branchMessages: { [branchId: string]: Message[] } = {};
+          
+          // Use branches data if available, otherwise put messages in main branch
+          if (conversation.branches) {
+            Object.entries(conversation.branches).forEach(([branchId, branch]) => {
+              branchMessages[branchId] = branch.messages;
+            });
+          } else if (conversation.messages && conversation.messages.length > 0) {
+            // Legacy format - put all messages in main branch and adapt format
+            branchMessages['main'] = conversation.messages;
+            
+            // Use adapter to normalize the conversation format
+            conversation = adaptLegacyConversation(conversation);
+          }
+          
+          // Add to session tracking
+          const sessionId = SessionManager.getCurrentSessionId();
+          const sessionConversations = [...(state.conversationsBySession[sessionId] || []), conversation.id];
+          
+          return {
+            conversations: [...state.conversations, conversation],
+            conversationMessages: {
+              ...state.conversationMessages,
+              [conversation.id]: branchMessages
+            },
+            conversationsBySession: {
+              ...state.conversationsBySession,
+              [sessionId]: sessionConversations
+            }
+          };
+        }),
 
       updateConversation: (conversationId: string, updates: Partial<Conversation>) =>
-        set((state) => ({
-          conversations: state.conversations.map((conv) =>
+        set((state) => {
+          const updatedConversations = state.conversations.map((conv) =>
             conv.id === conversationId ? { ...conv, ...updates } : conv
-          ),
-        })),
+          );
+          
+          // Auto-save updated conversation to backend
+          const updatedConv = updatedConversations.find(c => c.id === conversationId);
+          if (updatedConv) {
+            autoSaveConversation(updatedConv);
+          }
+          
+          return { conversations: updatedConversations };
+        }),
 
       deleteConversation: (conversationId: string) =>
-        set((state) => ({
-          conversations: state.conversations.filter((conv) => conv.id !== conversationId),
-          currentConversationId: state.currentConversationId === conversationId ? null : state.currentConversationId,
-        })),
+        set((state) => {
+          // Remove the conversation from all sessions
+          const updatedConversationsBySession = { ...state.conversationsBySession };
+          Object.keys(updatedConversationsBySession).forEach(sessionId => {
+            updatedConversationsBySession[sessionId] = updatedConversationsBySession[sessionId].filter(id => id !== conversationId);
+          });
+          
+          // Remove the conversation from storage
+          const { [conversationId]: removed, ...remainingConversations } = state.conversationMessages;
+          
+          return {
+            conversations: state.conversations.filter((conv) => conv.id !== conversationId),
+            currentConversationId: state.currentConversationId === conversationId ? null : state.currentConversationId,
+            conversationMessages: remainingConversations,
+            conversationsBySession: updatedConversationsBySession
+          };
+        }),
 
       setCurrentConversationId: (conversationId: string | null) =>
         set({ currentConversationId: conversationId }),
 
-      loadConversation: async (conversationId: string) => {
+      loadConversation: async (conversationId: string, branchId?: string) => {
         const state = get();
+        // Find the conversation in the store
         const conversation = state.conversations.find((conv) => conv.id === conversationId);
+        
         if (conversation) {
-          // Load the conversation data into current state
+          const targetBranchId = branchId || 'main';
+          
+          // Check if we have messages for this branch
+          let branchMessages: Message[] = [];
+          
+          if (state.conversationMessages[conversationId]?.[targetBranchId]) {
+            branchMessages = state.conversationMessages[conversationId][targetBranchId];
+          } else if (conversation.branches?.[targetBranchId]) {
+            // Get from conversation object if available
+            branchMessages = conversation.branches[targetBranchId].messages;
+          } else if (targetBranchId === 'main' && conversation.messages && conversation.messages.length > 0) {
+            // Fallback for legacy format - use main conversation messages and adapt
+            branchMessages = conversation.messages;
+            
+            // Use adapter to convert legacy format to normalized format
+            console.log('[STORE] Using adapter to convert legacy conversation format', { 
+              conversationId, 
+              messageCount: conversation.messages.length
+            });
+            
+            // Update all branches from the legacy conversation format
+            const adaptedConversation = adaptLegacyConversation(conversation);
+            
+            // Update the conversation branches
+            set(state => ({
+              conversations: state.conversations.map(c =>
+                c.id === conversationId ? adaptedConversation : c
+              )
+            }));
+          } else {
+            // No messages found for this branch - initialize empty
+            branchMessages = [];
+          }
+          
+          // Update the store with current branch and conversation
           set({
-            messages: conversation.messages,
             currentConversationId: conversationId,
+            currentBranchId: targetBranchId,
+            conversationMessages: {
+              ...state.conversationMessages,
+              [conversationId]: {
+                ...(state.conversationMessages[conversationId] || {}),
+                [targetBranchId]: branchMessages
+              }
+            }
           });
+          
           return conversation;
         }
+        
         return null;
       },
 
@@ -401,21 +804,39 @@ export const useChatStore = create<ChatStore>()(
       // API management actions
       addApiKey: (providerId: string, keyValue: string) =>
         set((state) => {
-          const newApiKey: ApiKeyConfig = {
-            providerId,
-            keyValue, // Store as-is, encryption handled by persist middleware
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            isValid: true, // Assume valid since we just added it
-            lastValidated: new Date().toISOString(),
-            usage: {
-              totalRequests: 0,
-              totalTokens: 0,
-              totalCost: 0,
-              lastReset: new Date().toISOString(),
-              monthlyUsed: 0,
-            },
-          };
+          const isElectron = apiClient.isElectron();
+          const newApiKey: ApiKeyConfig = isElectron
+            ? {
+                providerId,
+                // Do not store full key in renderer; keep only last4 and metadata
+                last4: keyValue ? keyValue.slice(-4) : undefined,
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                isValid: true,
+                lastValidated: new Date().toISOString(),
+                usage: {
+                  totalRequests: 0,
+                  totalTokens: 0,
+                  totalCost: 0,
+                  lastReset: new Date().toISOString(),
+                  monthlyUsed: 0,
+                },
+              }
+            : {
+                providerId,
+                keyValue,
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                isValid: true,
+                lastValidated: new Date().toISOString(),
+                usage: {
+                  totalRequests: 0,
+                  totalTokens: 0,
+                  totalCost: 0,
+                  lastReset: new Date().toISOString(),
+                  monthlyUsed: 0,
+                },
+              };
           return {
             settings: {
               ...state.settings,
@@ -431,13 +852,22 @@ export const useChatStore = create<ChatStore>()(
         set((state) => {
           const existingKey = state.settings.apiKeys[providerId];
           if (!existingKey) return state;
-          
+          const isElectron = apiClient.isElectron();
+          let safeUpdates = { ...updates } as Partial<ApiKeyConfig>;
+          if (isElectron) {
+            // Never keep full key in renderer; derive last4 if a new key was provided
+            if (typeof (updates as any).keyValue === 'string' && (updates as any).keyValue) {
+              const kv = (updates as any).keyValue as string;
+              safeUpdates.last4 = kv.slice(-4);
+              delete (safeUpdates as any).keyValue;
+            }
+          }
           return {
             settings: {
               ...state.settings,
               apiKeys: {
                 ...state.settings.apiKeys,
-                [providerId]: { ...existingKey, ...updates },
+                [providerId]: { ...existingKey, ...safeUpdates },
               },
             },
           };
@@ -502,19 +932,55 @@ export const useChatStore = create<ChatStore>()(
         const conversation = state.conversations.find(conv => conv.id === conversationId);
         
         console.log('[CHAT_NAMING] Conversation found:', { 
-          hasConversation: !!conversation, 
-          messageCount: conversation?.messages.length || 0,
-          title: conversation?.title 
+          hasConversation: !!conversation
         });
         
-        if (!conversation || conversation.messages.length < 2) {
-          console.log('[CHAT_NAMING] Skipping - no conversation or insufficient messages');
+        if (!conversation) {
+          console.log('[CHAT_NAMING] Skipping - no conversation found');
           return;
         }
-
-        // Get the first user message and first assistant response
-        const firstUserMsg = conversation.messages.find(m => m.role === 'user');
-        const firstAssistantMsg = conversation.messages.find(m => m.role === 'assistant');
+        
+        // Get the first user message and first assistant response from any branch
+        // Prioritize the main branch if available
+        let firstUserMsg: Message | undefined;
+        let firstAssistantMsg: Message | undefined;
+        
+        // Search in current branch first, then in other branches
+        const currentBranchId = state.currentBranchId;
+        const conversationBranches = state.conversationMessages[conversationId] || {};
+        
+        // Try current branch first
+        if (conversationBranches[currentBranchId]) {
+          const messages = conversationBranches[currentBranchId];
+          firstUserMsg = messages.find(m => m.role === 'user');
+          firstAssistantMsg = messages.find(m => m.role === 'assistant');
+        }
+        
+        // If not found in current branch, try main branch
+        if ((!firstUserMsg || !firstAssistantMsg) && currentBranchId !== 'main' && conversationBranches['main']) {
+          const mainMessages = conversationBranches['main'];
+          if (!firstUserMsg) {
+            firstUserMsg = mainMessages.find(m => m.role === 'user');
+          }
+          if (!firstAssistantMsg) {
+            firstAssistantMsg = mainMessages.find(m => m.role === 'assistant');
+          }
+        }
+        
+        // If still not found, search in all branches
+        if (!firstUserMsg || !firstAssistantMsg) {
+          for (const [branchId, messages] of Object.entries(conversationBranches)) {
+            if (branchId !== currentBranchId && branchId !== 'main') {
+              if (!firstUserMsg) {
+                firstUserMsg = messages.find(m => m.role === 'user');
+              }
+              if (!firstAssistantMsg) {
+                firstAssistantMsg = messages.find(m => m.role === 'assistant');
+              }
+              if (firstUserMsg && firstAssistantMsg) break;
+            }
+          }
+        }
         
         console.log('[CHAT_NAMING] Messages found:', { 
           hasUserMsg: !!firstUserMsg, 
@@ -636,7 +1102,7 @@ export const useChatStore = create<ChatStore>()(
         const newSessionId = SessionManager.resetToFreshSession();
         // Also clear the current conversation state when starting fresh
         set({
-          messages: [],
+          conversationMessages: {},
           currentConversationId: null,
           branches: [
             {
@@ -650,17 +1116,55 @@ export const useChatStore = create<ChatStore>()(
             },
           ],
           currentBranchId: 'main',
+          activeSessionIds: [newSessionId],
+          conversationsBySession: {
+            [newSessionId]: []
+          }
         });
         return newSessionId;
       },
 
       // Utility actions
       clearMessages: () =>
-        set({ messages: [] }),
+        set((state) => {
+          // Clear messages for current conversation and branch
+          if (state.currentConversationId) {
+            const { currentConversationId, currentBranchId, conversationMessages } = state;
+            
+            // Create updated conversation messages
+            const updatedConversationMessages = {
+              ...conversationMessages,
+              [currentConversationId]: {
+                ...(conversationMessages[currentConversationId] || {}),
+                [currentBranchId]: []
+              }
+            };
+            
+            // Update branch details
+            const updatedBranches = state.branches.map((branch) => {
+              if (branch.id === currentBranchId) {
+                return {
+                  ...branch,
+                  messageCount: 0,
+                  lastActive: new Date().toISOString(),
+                  preview: 'Empty conversation'
+                };
+              }
+              return branch;
+            });
+            
+            return {
+              conversationMessages: updatedConversationMessages,
+              branches: updatedBranches
+            };
+          }
+          
+          return state;
+        }),
 
       resetStore: () =>
         set({
-          messages: [],
+          conversationMessages: {},
           branches: [
             {
               id: 'main',
@@ -675,6 +1179,10 @@ export const useChatStore = create<ChatStore>()(
           currentBranchId: 'main',
           isLoading: false,
           isTyping: false,
+          conversations: [],
+          currentConversationId: null,
+          activeSessionIds: [SessionManager.getCurrentSessionId()],
+          conversationsBySession: {},
           generationParams: {
             temperature: 0.7,
             maxTokens: 2048,
@@ -711,13 +1219,13 @@ export const useChatStore = create<ChatStore>()(
         // Do NOT persist conversations/messages/branches to ensure fresh sessions by default.
         settings: {
           ...state.settings,
-          // Encrypt API keys before persisting
+          // Do not persist full key values; persist only metadata and last4 if present
           apiKeys: Object.fromEntries(
             Object.entries(state.settings.apiKeys).map(([providerId, config]) => [
               providerId,
               {
                 ...config,
-                keyValue: encryptApiKey(config.keyValue),
+                keyValue: '', // strip secrets from persisted state
               },
             ])
           ),
@@ -733,11 +1241,10 @@ export const useChatStore = create<ChatStore>()(
                 providerId,
                 {
                   ...config,
-                  keyValue: decryptApiKey(config.keyValue),
+                  keyValue: config.keyValue ? decryptApiKey(config.keyValue) : undefined,
                 },
               ])
             );
-            
             state.settings.apiKeys = decryptedApiKeys;
           }
 
@@ -781,9 +1288,9 @@ export const useChatStore = create<ChatStore>()(
         // conversation state, messages, branches, and start a new session.
         if (state) {
           // Start fresh session for the new app instance
-          SessionManager.resetToFreshSession();
+          const sessionId = SessionManager.resetToFreshSession();
           
-          state.messages = [];
+          state.conversationMessages = {};
           state.conversations = [];
           state.currentConversationId = null;
           state.branches = [
@@ -798,6 +1305,10 @@ export const useChatStore = create<ChatStore>()(
             },
           ];
           state.currentBranchId = 'main';
+          state.activeSessionIds = [sessionId];
+          state.conversationsBySession = {
+            [sessionId]: []
+          };
         }
       },
     }

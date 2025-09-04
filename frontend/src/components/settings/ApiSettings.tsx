@@ -36,7 +36,9 @@ interface ApiKeyInputProps {
 }
 
 function ApiKeyInput({ provider, existingKey, onSave, onCancel, onRemove }: ApiKeyInputProps) {
-  const [keyValue, setKeyValue] = useState(existingKey?.keyValue || '');
+  const [keyValue, setKeyValue] = useState(
+    apiClient.isElectron() ? '' : (existingKey?.keyValue || '')
+  );
   const [showKey, setShowKey] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<ApiValidationResult | null>(null);
@@ -93,12 +95,14 @@ function ApiKeyInput({ provider, existingKey, onSave, onCancel, onRemove }: ApiK
       // If in Electron, use secure storage; otherwise fall back to old method
       if (apiClient.isElectron()) {
         try {
-          await apiClient.storeApiKey(provider.id, keyValue, true); // Store as active
-          onSave(keyValue); // Still call onSave for UI updates
+          await apiClient.storeApiKey(provider.id, keyValue, true); // Store as active in main
+          onSave(keyValue); // Renderer store will only keep last4/metadata
+          setKeyValue(''); // Clear from component memory
         } catch (error) {
           console.error('Failed to store API key securely:', error);
-          // Fall back to old storage method
+          // Fall back to old storage method (renderer)
           onSave(keyValue);
+          setKeyValue('');
         }
       } else {
         onSave(keyValue);
@@ -412,11 +416,13 @@ export default function ApiSettings({ onClose }: ApiSettingsProps) {
   const activeKeys = Object.values(settings.apiKeys).filter(key => key.isActive).length;
 
   const handleSaveKey = (providerId: string, keyValue: string) => {
+    const isElectron = apiClient.isElectron();
     if (settings.apiKeys[providerId]) {
       updateApiKey(providerId, { 
-        keyValue,
+        ...(isElectron ? {} : { keyValue }),
         lastValidated: new Date().toISOString(),
         isValid: true,
+        ...(isElectron ? { last4: keyValue ? keyValue.slice(-4) : undefined } : {}),
       });
     } else {
       addApiKey(providerId, keyValue);
@@ -451,11 +457,8 @@ export default function ApiSettings({ onClose }: ApiSettingsProps) {
         if (!provider) continue;
 
         try {
-          // First perform basic validation
-          const basicResult = await apiValidationService.validateKey(providerId, settings.apiKeys[providerId].keyValue);
-          
-          // If in Electron, also try Oumi validation
-          if (apiClient.isElectron() && basicResult.isValid) {
+          if (apiClient.isElectron()) {
+            // Renderer doesn't have keys; validate via main process/Oumi
             try {
               const oumiResult = await apiClient.validateApiKeyWithOumi(providerId);
               if (oumiResult.success && oumiResult.data) {
@@ -464,13 +467,15 @@ export default function ApiSettings({ onClose }: ApiSettingsProps) {
                   error: oumiResult.data.error
                 };
               } else {
-                results[providerId] = basicResult;
+                results[providerId] = { isValid: false, error: oumiResult.error || 'Validation failed' };
               }
             } catch (oumiError) {
-              console.debug(`Oumi validation failed for ${providerId}, using basic result:`, oumiError);
-              results[providerId] = basicResult;
+              console.debug(`Oumi validation failed for ${providerId}:`, oumiError);
+              results[providerId] = { isValid: false, error: 'Validation failed' };
             }
           } else {
+            // Web: perform basic format/remote validation with renderer-held key
+            const basicResult = await apiValidationService.validateKey(providerId, settings.apiKeys[providerId].keyValue || '');
             results[providerId] = basicResult;
           }
 
