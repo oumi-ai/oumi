@@ -115,12 +115,8 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
         }));
         
         // Use the branch-specific setMessages
-        if (currentConversationId) {
-          setMessages(currentConversationId, currentBranchId, transformedMessages);
-        } else {
-          // Fallback for older interface
-          setMessages(transformedMessages);
-        }
+        // The setMessages function now requires 3 parameters
+        setMessages(currentConversationId || '', currentBranchId, transformedMessages);
       }
     } catch (error) {
       console.error('Failed to load conversation:', error);
@@ -133,12 +129,8 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
           timestamp: Date.now(),
         };
         // Use the branch-specific setMessages
-        if (currentConversationId) {
-          setMessages(currentConversationId, currentBranchId, [errorMessage]);
-        } else {
-          // Fallback for older interface
-          setMessages([errorMessage]);
-        }
+        // The setMessages function now requires 3 parameters
+        setMessages(currentConversationId || '', currentBranchId, [errorMessage]);
       }
     } finally {
       setLoading(false);
@@ -153,7 +145,8 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
       const lastMessageIndex = messages.length - 1;
       if (lastMessageIndex >= 0 && messages[lastMessageIndex].role === 'assistant') {
         const updatedMessages = messages.slice(0, -1);
-        setMessages(updatedMessages);
+        // The setMessages function now requires 3 parameters
+        setMessages(currentConversationId || '', currentBranchId, updatedMessages);
       }
       
       // Regenerate response for the last user message
@@ -359,9 +352,13 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
           // Progressive update callback - update the message with each chunk
           if (currentStreamingMessageId.current && !shouldStop) {
             accumulatedContent += chunk;
-            updateMessage(currentStreamingMessageId.current, {
-              content: accumulatedContent
-            });
+            // The updateMessage function now requires 4 parameters
+            updateMessage(
+              currentConversationId || '',
+              currentBranchId,
+              currentStreamingMessageId.current, 
+              { content: accumulatedContent }
+            );
           }
         });
         

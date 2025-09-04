@@ -18,7 +18,7 @@ import {
 } from './adapters/store-adapter';
 
 interface ChatStore {
-  // Branch-specific message storage
+  // Branch-specific message storage - the single source of truth for all messages
   conversationMessages: {
     [conversationId: string]: {
       [branchId: string]: Message[]
@@ -273,7 +273,7 @@ export const useChatStore = create<ChatStore>()(
             message
           ];
           
-          // Update the conversation message store
+          // Update the conversation message store (single source of truth)
           const updatedConversationMessages = {
             ...conversationMessages,
             [currentConversationId]: {
@@ -295,19 +295,14 @@ export const useChatStore = create<ChatStore>()(
             return branch;
           });
           
-          // Update the conversation object
+          // Update the conversation object - do not store messages in conversation.branches
+          // We'll hydrate them on demand when needed for persistence
           const currentTime = new Date().toISOString();
           const updatedConversations = state.conversations.map((conv) =>
             conv.id === currentConversationId
               ? { 
                   ...conv, 
-                  updatedAt: currentTime,
-                  branches: {
-                    ...(conv.branches || {}),
-                    [currentBranchId]: { 
-                      messages: newMessages
-                    }
-                  }
+                  updatedAt: currentTime
                 }
               : conv
           );
@@ -315,7 +310,16 @@ export const useChatStore = create<ChatStore>()(
           // Auto-save updated conversation to backend
           const updatedConv = updatedConversations.find(c => c.id === currentConversationId);
           if (updatedConv) {
-            autoSaveConversation(updatedConv);
+            // Hydrate the conversation with branch messages from conversationMessages
+            // before sending to persistence layer
+            const hydratedConv = {
+              ...updatedConv,
+              branches: buildBranchStructure(
+                currentConversationId,
+                updatedConversationMessages
+              )
+            };
+            autoSaveConversation(hydratedConv);
           }
           
           return { 
@@ -354,22 +358,32 @@ export const useChatStore = create<ChatStore>()(
             return branch;
           });
           
-          // Update the conversation object if it exists
+          // Update the conversation object - do not store messages in conversation.branches
+          // We'll hydrate them on demand when needed for persistence
           const currentTime = new Date().toISOString();
           const updatedConversations = state.conversations.map((conv) =>
             conv.id === conversationId
               ? { 
                   ...conv, 
-                  updatedAt: currentTime,
-                  branches: {
-                    ...(conv.branches || {}),
-                    [branchId]: { 
-                      messages: messages
-                    }
-                  }
+                  updatedAt: currentTime
                 }
               : conv
           );
+          
+          // Auto-save updated conversation to backend
+          const updatedConv = updatedConversations.find(c => c.id === conversationId);
+          if (updatedConv) {
+            // Hydrate the conversation with branch messages from conversationMessages
+            // before sending to persistence layer
+            const hydratedConv = {
+              ...updatedConv,
+              branches: buildBranchStructure(
+                conversationId,
+                updatedConversationMessages
+              )
+            };
+            autoSaveConversation(hydratedConv);
+          }
           
           return {
             conversationMessages: updatedConversationMessages,
@@ -393,7 +407,7 @@ export const useChatStore = create<ChatStore>()(
             msg.id === messageId ? { ...msg, ...updates } : msg
           );
           
-          // Update the conversation message store
+          // Update the conversation message store (single source of truth)
           const updatedConversationMessages = {
             ...conversationMessages,
             [conversationId]: {
@@ -402,19 +416,14 @@ export const useChatStore = create<ChatStore>()(
             }
           };
           
-          // Update the conversation object
+          // Update the conversation object - do not store messages in conversation.branches
+          // We'll hydrate them on demand when needed for persistence
           const currentTime = new Date().toISOString();
           const updatedConversations = state.conversations.map((conv) =>
             conv.id === conversationId
               ? { 
                   ...conv, 
-                  updatedAt: currentTime,
-                  branches: {
-                    ...(conv.branches || {}),
-                    [branchId]: { 
-                      messages: newMessages
-                    }
-                  }
+                  updatedAt: currentTime
                 }
               : conv
           );
@@ -459,7 +468,16 @@ export const useChatStore = create<ChatStore>()(
           // Auto-save updated conversation to backend
           const updatedConv = updatedConversations.find(c => c.id === conversationId);
           if (updatedConv) {
-            autoSaveConversation(updatedConv);
+            // Hydrate the conversation with branch messages from conversationMessages
+            // before sending to persistence layer
+            const hydratedConv = {
+              ...updatedConv,
+              branches: buildBranchStructure(
+                conversationId,
+                updatedConversationMessages
+              )
+            };
+            autoSaveConversation(hydratedConv);
           }
           
           return { 
@@ -481,7 +499,7 @@ export const useChatStore = create<ChatStore>()(
           const messages = conversationMessages[conversationId][branchId];
           const newMessages = messages.filter((msg) => msg.id !== messageId);
           
-          // Update the conversation message store
+          // Update the conversation message store (single source of truth)
           const updatedConversationMessages = {
             ...conversationMessages,
             [conversationId]: {
@@ -502,19 +520,14 @@ export const useChatStore = create<ChatStore>()(
             return branch;
           });
           
-          // Update the conversation object
+          // Update the conversation object - do not store messages in conversation.branches
+          // We'll hydrate them on demand when needed for persistence
           const currentTime = new Date().toISOString();
           const updatedConversations = state.conversations.map((conv) =>
             conv.id === conversationId
               ? { 
                   ...conv, 
-                  updatedAt: currentTime,
-                  branches: {
-                    ...(conv.branches || {}),
-                    [branchId]: { 
-                      messages: newMessages
-                    }
-                  }
+                  updatedAt: currentTime
                 }
               : conv
           );
@@ -1067,7 +1080,17 @@ export const useChatStore = create<ChatStore>()(
           const updatedConv = updatedConversations.find(c => c.id === conversationId);
           if (updatedConv) {
             console.log('[CHAT_NAMING] Auto-saving updated conversation with new title');
-            autoSaveConversation(updatedConv);
+            // Hydrate the conversation with branch messages from conversationMessages
+            // before sending to persistence layer
+            const conversationMessages = get().conversationMessages;
+            const hydratedConv = {
+              ...updatedConv,
+              branches: buildBranchStructure(
+                conversationId,
+                conversationMessages
+              )
+            };
+            autoSaveConversation(hydratedConv);
           }
           
           return { conversations: updatedConversations };
@@ -1087,7 +1110,16 @@ export const useChatStore = create<ChatStore>()(
           // Auto-save updated conversation to backend
           const updatedConv = updatedConversations.find(c => c.id === conversationId);
           if (updatedConv) {
-            autoSaveConversation(updatedConv);
+            // Hydrate the conversation with branch messages from conversationMessages
+            // before sending to persistence layer
+            const hydratedConv = {
+              ...updatedConv,
+              branches: buildBranchStructure(
+                conversationId,
+                state.conversationMessages
+              )
+            };
+            autoSaveConversation(hydratedConv);
           }
           
           return { conversations: updatedConversations };

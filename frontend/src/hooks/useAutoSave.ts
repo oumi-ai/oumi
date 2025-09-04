@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useChatStore } from '@/lib/store';
 
 export function useAutoSave() {
-  const { settings, messages } = useChatStore();
+  const { settings, getCurrentMessages } = useChatStore();
+  const messages = getCurrentMessages();
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);

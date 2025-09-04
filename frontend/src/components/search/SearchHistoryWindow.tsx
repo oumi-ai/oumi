@@ -30,7 +30,10 @@ interface SearchHistoryWindowProps {
 }
 
 export default function SearchHistoryWindow({ isOpen, onClose, onNavigateToMessage }: SearchHistoryWindowProps) {
-  const { conversations, currentConversationId, loadConversation, messages: currentMessages } = useChatStore();
+  const { conversations, currentConversationId, loadConversation, getCurrentMessages } = useChatStore();
+  
+  // Get current messages using the selector
+  const currentMessages = getCurrentMessages();
   
   // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -79,28 +82,22 @@ export default function SearchHistoryWindow({ isOpen, onClose, onNavigateToMessa
       }
 
       // Search through all conversations
+      const { conversationMessages, getBranchMessages } = useChatStore.getState();
+      
       for (const conversation of conversations) {
-        // Search main conversation messages
-        await searchInMessages(
-          conversation.messages,
-          conversation.id,
-          conversation.title,
-          searchPattern,
-          results
-        );
-
-        // Search branch messages
-        if (conversation.branches) {
-          for (const [branchId, branch] of Object.entries(conversation.branches)) {
-            await searchInMessages(
-              branch.messages,
-              conversation.id,
-              conversation.title,
-              searchPattern,
-              results,
-              branchId
-            );
-          }
+        // Search all branches for this conversation
+        const convBranches = Object.keys(conversationMessages[conversation.id] || {});
+        
+        for (const branchId of convBranches) {
+          const branchMessages = getBranchMessages(conversation.id, branchId);
+          await searchInMessages(
+            branchMessages,
+            conversation.id,
+            conversation.title,
+            searchPattern,
+            results,
+            branchId
+          );
         }
       }
 
@@ -512,7 +509,7 @@ export default function SearchHistoryWindow({ isOpen, onClose, onNavigateToMessa
                                     <Clock className="w-3 h-3" />
                                     <span>{formatTimestamp(conversation.updatedAt)}</span>
                                     <span>•</span>
-                                    <span>{conversation.messages.length} messages</span>
+                                    <span>{useChatStore.getState().getBranchMessages(conversation.id, 'main').length} messages</span>
                                     {Object.keys(conversation.branches || {}).length > 0 && (
                                       <>
                                         <span>•</span>
@@ -533,7 +530,7 @@ export default function SearchHistoryWindow({ isOpen, onClose, onNavigateToMessa
                           {/* Expanded conversation details */}
                           {expandedConversations.has(conversation.id) && (
                             <div className="bg-muted/50 p-4 space-y-2">
-                              {conversation.messages.slice(0, 3).map((message, index) => (
+                              {useChatStore.getState().getBranchMessages(conversation.id, 'main').slice(0, 3).map((message, index) => (
                                 <div key={message.id} className="flex items-start space-x-2 text-sm">
                                   {message.role === 'user' ? (
                                     <User className="w-3 h-3 text-blue-500 mt-0.5 flex-shrink-0" />
@@ -548,9 +545,9 @@ export default function SearchHistoryWindow({ isOpen, onClose, onNavigateToMessa
                                   </p>
                                 </div>
                               ))}
-                              {conversation.messages.length > 3 && (
+                              {useChatStore.getState().getBranchMessages(conversation.id, 'main').length > 3 && (
                                 <p className="text-xs text-muted-foreground">
-                                  +{conversation.messages.length - 3} more messages
+                                  +{useChatStore.getState().getBranchMessages(conversation.id, 'main').length - 3} more messages
                                 </p>
                               )}
                             </div>

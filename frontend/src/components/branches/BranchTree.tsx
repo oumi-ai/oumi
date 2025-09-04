@@ -213,12 +213,8 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
         
         // The command response doesn't include conversation data, 
         // so we clear messages and reload branches to get updated state
-        if (currentConversationId) {
-          setMessages(currentConversationId, branchId, []);
-        } else {
-          // Fallback for legacy interface
-          setMessages([]);
-        }
+        // The setMessages function now requires 3 parameters
+        setMessages(currentConversationId || '', branchId, []);
         await loadBranches();
       } else {
         console.error('Failed to switch branch:', response.message);
@@ -227,12 +223,8 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
       console.error('Failed to switch branch:', error);
       // Still update UI even if conversation loading fails
       setCurrentBranch(branchId);
-      if (currentConversationId) {
-        setMessages(currentConversationId, branchId, []);
-      } else {
-        // Fallback for legacy interface
-        setMessages([]);
-      }
+      // The setMessages function now requires 3 parameters
+      setMessages(currentConversationId || '', branchId, []);
     }
   };
 
@@ -367,7 +359,8 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
         alert('Conversation loaded successfully!');
         // Refresh branches and messages to show loaded conversation
         await loadBranches();
-        setMessages([]);
+        // The setMessages function now requires 3 parameters
+        setMessages('', 'main', []);
         setTimeout(() => window.location.reload(), 1000);
       } else {
         console.error('Failed to load conversation:', response.message);

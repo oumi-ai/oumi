@@ -244,6 +244,27 @@ export class SessionManager {
     this.currentSessionId = this.generateSessionId();
     return this.currentSessionId;
   }
+  
+  /**
+   * Reset to a fresh session
+   */
+  public resetToFreshSession(): string {
+    return this.createNewSession();
+  }
+  
+  /**
+   * Start a new session (static helper)
+   */
+  public static startNewSession(): string {
+    return SessionManager.getInstance().createNewSession();
+  }
+  
+  /**
+   * Reset to a fresh session (static helper)
+   */
+  public static resetToFreshSession(): string {
+    return SessionManager.getInstance().resetToFreshSession();
+  }
 }
 
 /**
@@ -251,17 +272,19 @@ export class SessionManager {
  * This is called after changes to the conversation store
  */
 export async function autoSaveConversation(conversation: Conversation): Promise<void> {
-  // This would normally call the API to save the conversation
-  // but for now we'll just log the save event
+  // Log the save event for debugging
   console.debug(`Auto-saving conversation ${conversation.id}`, conversation.title);
 
+  // Import the API client dynamically to avoid circular dependencies
+  const unifiedApiClient = (await import('../unified-api')).default;
+
   try {
-    // In the future, this would call:
-    // await unifiedApiClient.saveConversation(
-    //   SessionManager.getCurrentSessionId(),
-    //   conversation.id,
-    //   conversation
-    // );
+    // Save the conversation to persistent storage
+    await unifiedApiClient.saveConversation(
+      SessionManager.getCurrentSessionId(),
+      conversation.id,
+      conversation
+    );
   } catch (error) {
     console.error('Failed to auto-save conversation:', error);
   }

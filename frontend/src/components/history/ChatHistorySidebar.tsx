@@ -44,8 +44,7 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
     setMessages,
     deleteConversation: deleteStoreConversation,
     getCurrentSessionId,
-    getBranchMessages,
-    flattenBranchMessages
+    getBranchMessages
   } = useChatStore();
   const [conversations, setConversations] = React.useState<ConversationEntry[]>([]);
   const [selectedConversation, setSelectedConversation] = React.useState<string | null>(null);
@@ -165,8 +164,8 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       const storeConversation = storeConversations.find(c => c.id === conversationId);
       
       if (storeConversation) {
-        // Get messages using branch-aware adapter
-        const messages = flattenBranchMessages ? flattenBranchMessages(storeConversation) : storeConversation.messages || [];
+        // Get messages from the conversation (prefer branches, fallback to flat messages)
+        const messages = storeConversation.branches?.main?.messages || storeConversation.messages || [];
         setConversationPreview({
           id: conversationId,
           name: storeConversation.title || 'Unknown Conversation',
@@ -236,7 +235,7 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
         if (response.success) {
           // Update store with loaded messages
           if (response.data?.messages) {
-            setMessages(response.data.messages);
+            setMessages(conversationId, currentBranchId || 'main', response.data.messages);
             setCurrentConversationId(conversationId);
           }
           
@@ -274,12 +273,8 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       // If this was the current conversation, clear it
       if (currentConversationId === conversationId) {
         setCurrentConversationId(null);
-        // Use branch-specific setMessages if available, otherwise fall back to old interface
-        if (currentConversationId && currentBranchId) {
-          setMessages(currentConversationId, currentBranchId, []);
-        } else {
-          setMessages([]);
-        }
+        // The setMessages function now requires 3 parameters
+        setMessages('', 'main', []);
       }
       
       // Also delete from backend/API for persistence

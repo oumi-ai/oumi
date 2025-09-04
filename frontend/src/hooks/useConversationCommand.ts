@@ -40,7 +40,8 @@ export function useConversationCommand() {
       const { getCurrentSessionId } = useChatStore.getState();
       const conversationResponse = await apiClient.getConversation(getCurrentSessionId(), 'main');
       if (conversationResponse.success && conversationResponse.data?.conversation) {
-        setMessages(conversationResponse.data.conversation);
+        // The setMessages function now requires 3 parameters
+        setMessages('', 'main', conversationResponse.data.conversation);
         console.log(`🔄 Conversation refreshed with ${conversationResponse.data.conversation.length} messages`);
         return true;
       }

@@ -90,7 +90,13 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
         
         if (result.success) {
           // Update local state immediately for responsive UI
-          updateMessage(message.id, { content: editContent });
+          // The updateMessage function now requires 4 parameters
+          updateMessage(
+            currentConversationId || '',
+            currentBranchId || 'main',
+            message.id, 
+            { content: editContent }
+          );
           setIsEditing(false);
           console.log('✅ Message edited and persisted to backend');
         } else if (result.message) {
@@ -98,7 +104,13 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
         }
       } else {
         // Fallback: update locally if no messageIndex
-        updateMessage(message.id, { content: editContent });
+        // The updateMessage function now requires 4 parameters
+        updateMessage(
+          currentConversationId || '',
+          currentBranchId || 'main',
+          message.id, 
+          { content: editContent }
+        );
         setIsEditing(false);
         console.warn('⚠️  Message edited locally only (no messageIndex provided)');
       }
