@@ -5,7 +5,7 @@
 "use client";
 
 import React from 'react';
-import { History, MessageSquare, Clock, Download, Search, Trash2, RefreshCw, ArrowLeft } from 'lucide-react';
+import { History, MessageSquare, Clock, Download, Search, Trash2, RefreshCw, ArrowLeft, Users, User } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 import { useChatStore } from '@/lib/store';
 
@@ -16,6 +16,7 @@ interface ConversationEntry {
   messageCount: number;
   preview: string;
   size?: string;
+  sessionId?: string; // Added for cross-session support
 }
 
 interface ConversationPreview {
@@ -28,6 +29,7 @@ interface ConversationPreview {
   }>;
   messageCount: number;
   lastModified: string;
+  sessionId?: string; // Added for cross-session support
 }
 
 interface ChatHistorySidebarProps {
@@ -54,11 +56,12 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
   const [loadingConversation, setLoadingConversation] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
+  const [viewMode, setViewMode] = React.useState<'current' | 'all'>('current');
 
-  // Load conversation list on mount
+  // Load conversation list on mount and when viewMode changes
   React.useEffect(() => {
     loadConversations();
-  }, []);
+  }, [viewMode]);
 
   // Sync with store conversations for real-time updates - merge with existing backend conversations
   React.useEffect(() => {
@@ -121,9 +124,18 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       setLoading(true);
       setError(null);
       
-      const sessionId = getCurrentSessionId();
-      console.log('[HISTORY_MERGE] Loading conversations from backend for session:', sessionId);
-      const response = await apiClient.listConversations(sessionId);
+      let response;
+      const currentSessionId = getCurrentSessionId();
+      
+      if (viewMode === 'current') {
+        // Load conversations for current session only
+        console.log('[HISTORY_MERGE] Loading conversations from backend for current session:', currentSessionId);
+        response = await apiClient.listConversations(currentSessionId);
+      } else {
+        // Load conversations from all sessions
+        console.log('[HISTORY_MERGE] Loading conversations from backend for ALL sessions');
+        response = await apiClient.listAllConversations();
+      }
       
       if (response.success && response.data?.conversations) {
         console.log('[HISTORY_MERGE] Backend returned', response.data.conversations.length, 'conversations');
@@ -134,7 +146,8 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
           lastModified: conv.lastModified || conv.modified || new Date().toISOString(),
           messageCount: conv.messageCount || 0,
           preview: conv.preview || 'No preview available',
-          size: conv.size || undefined
+          size: conv.size || undefined,
+          sessionId: conv.sessionId || currentSessionId // Use provided sessionId or default to current
         }));
         
         // Sort by last modified (newest first)
@@ -160,8 +173,13 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       setLoadingPreview(true);
       setError(null);
       
-      // First try to load from store for faster access
-      const storeConversation = storeConversations.find(c => c.id === conversationId);
+      // Get the conversation entry which might contain the sessionId
+      const conversationEntry = conversations.find(c => c.id === conversationId);
+      const sourceSessionId = conversationEntry?.sessionId || getCurrentSessionId();
+      
+      // First try to load from store for faster access (only works for current session)
+      const isCurrentSession = sourceSessionId === getCurrentSessionId();
+      const storeConversation = isCurrentSession ? storeConversations.find(c => c.id === conversationId) : null;
       
       if (storeConversation) {
         // Get messages from the conversation (prefer branches, fallback to flat messages)
@@ -175,27 +193,28 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
             timestamp: msg.timestamp ? new Date(msg.timestamp).toISOString() : new Date().toISOString()
           })), // Show first 6 messages as preview
           messageCount: messages.length,
-          lastModified: storeConversation.updatedAt || storeConversation.createdAt
+          lastModified: storeConversation.updatedAt || storeConversation.createdAt,
+          sessionId: sourceSessionId
         });
       } else {
-        // Fallback to API if not in store
-        const sessionId = getCurrentSessionId();
-        const response = await apiClient.loadConversation(sessionId, conversationId);
+        // Fallback to API, using the source sessionId
+        console.log(`[PREVIEW] Loading conversation ${conversationId} from session ${sourceSessionId}`);
+        const response = await apiClient.loadConversation(sourceSessionId, conversationId);
         
         if (response.success && response.data) {
           const messages = response.data.messages || [];
-          const conversationData = conversations.find(c => c.id === conversationId);
           
           setConversationPreview({
             id: conversationId,
-            name: conversationData?.name || 'Unknown Conversation',
+            name: conversationEntry?.name || 'Unknown Conversation',
             messages: messages.slice(0, 6).map(msg => ({
               role: msg.role,
               content: msg.content,
               timestamp: typeof msg.timestamp === 'number' ? new Date(msg.timestamp).toISOString() : msg.timestamp
             })), // Show first 6 messages as preview
             messageCount: messages.length,
-            lastModified: conversationData?.lastModified || new Date().toISOString()
+            lastModified: conversationEntry?.lastModified || new Date().toISOString(),
+            sessionId: sourceSessionId
           });
         } else {
           throw new Error(response.message || 'Failed to load conversation preview');
@@ -217,34 +236,67 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       setLoadingConversation(true);
       setError(null);
       
-      // Load the conversation from store - much faster and real-time
-      const conversation = await loadStoreConversation(conversationId);
+      // Get source sessionId from conversation preview or entry
+      const sourceSessionId = conversationPreview?.sessionId || 
+                             conversations.find(c => c.id === conversationId)?.sessionId || 
+                             getCurrentSessionId();
       
-      if (conversation) {
-        // Show success message
-        alert('✅ Conversation loaded successfully into the current branch!');
+      const isFromCurrentSession = sourceSessionId === getCurrentSessionId();
+      const currentSessionId = getCurrentSessionId();
+      
+      // For conversations from current session, try to load from store first
+      if (isFromCurrentSession) {
+        // Load the conversation from store - much faster and real-time
+        const conversation = await loadStoreConversation(conversationId);
         
-        // Close the preview
+        if (conversation) {
+          // Show success message
+          alert('✅ Conversation loaded successfully into the current branch!');
+          
+          // Close the preview
+          setSelectedConversation(null);
+          setConversationPreview(null);
+          return;
+        }
+      }
+      
+      // If not found in store or from different session, load from the source session
+      console.log(`[LOAD] Loading conversation ${conversationId} from session ${sourceSessionId} into current session ${currentSessionId}`);
+      const response = await apiClient.loadConversation(sourceSessionId, conversationId);
+      
+      if (response.success && response.data?.messages) {
+        // Create a new conversation ID if importing from another session
+        const targetConversationId = isFromCurrentSession ? conversationId : `imported-${Date.now()}-${conversationId.slice(-8)}`;
+        
+        // Update store with loaded messages
+        setMessages(targetConversationId, currentBranchId || 'main', response.data.messages);
+        setCurrentConversationId(targetConversationId);
+        
+        // If from another session, update the conversation title to indicate its source
+        if (!isFromCurrentSession) {
+          const conversationName = conversationPreview?.name || 
+                                  conversations.find(c => c.id === conversationId)?.name || 
+                                  'Imported Conversation';
+          const sourceSessionDisplay = sourceSessionId.slice(0, 8); // Shorter ID for display
+          
+          // Update conversation with new title indicating the source
+          const storeConversation = storeConversations.find(c => c.id === targetConversationId);
+          if (storeConversation) {
+            // Use updateChatTitle if available
+            if (typeof useChatStore.getState().updateChatTitle === 'function') {
+              useChatStore.getState().updateChatTitle(
+                targetConversationId, 
+                `${conversationName} (from ${sourceSessionDisplay})`
+              );
+            }
+          }
+        }
+        
+        alert('✅ Conversation loaded successfully into the current branch!');
         setSelectedConversation(null);
         setConversationPreview(null);
       } else {
-        // Fallback to API if not in store
-        const sessionId = getCurrentSessionId();
-        const response = await apiClient.loadConversation(sessionId, conversationId, currentBranchId);
-        
-        if (response.success) {
-          // Update store with loaded messages
-          if (response.data?.messages) {
-            setMessages(conversationId, currentBranchId || 'main', response.data.messages);
-            setCurrentConversationId(conversationId);
-          }
-          
-          alert('✅ Conversation loaded successfully into the current branch!');
-          setSelectedConversation(null);
-          setConversationPreview(null);
-        } else {
-          throw new Error(response.message || 'Failed to load conversation');
-        }
+        throw new Error(response.message || 'Failed to load conversation');
       }
     } catch (error) {
       console.error('Failed to load conversation:', error);
@@ -261,8 +313,13 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
     }
     
     try {
-      // Delete from store first for immediate UI update
-      deleteStoreConversation(conversationId);
+      // Get the source session for this conversation
+      const conversationEntry = conversations.find(c => c.id === conversationId);
+      const sourceSessionId = conversationEntry?.sessionId || getCurrentSessionId();
+      const isFromCurrentSession = sourceSessionId === getCurrentSessionId();
+      
+      // Delete from UI immediately for responsive UX
+      setConversations(prev => prev.filter(c => !(c.id === conversationId && c.sessionId === sourceSessionId)));
       
       // Clear preview if it was the deleted conversation
       if (selectedConversation === conversationId) {
@@ -270,19 +327,23 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
         setConversationPreview(null);
       }
       
-      // If this was the current conversation, clear it
-      if (currentConversationId === conversationId) {
-        setCurrentConversationId(null);
-        // The setMessages function now requires 3 parameters
-        setMessages('', 'main', []);
+      if (isFromCurrentSession) {
+        // Delete from store only if it's from the current session
+        deleteStoreConversation(conversationId);
+        
+        // If this was the current conversation, clear it
+        if (currentConversationId === conversationId) {
+          setCurrentConversationId(null);
+          // The setMessages function now requires 3 parameters
+          setMessages('', 'main', []);
+        }
       }
       
-      // Also delete from backend/API for persistence
+      // Delete from backend/API for persistence
       try {
-        const sessionId = getCurrentSessionId();
-        await apiClient.deleteConversation(sessionId, conversationId);
+        await apiClient.deleteConversation(sourceSessionId, conversationId);
       } catch (apiError) {
-        console.warn('Failed to delete from backend, but deleted locally:', apiError);
+        console.warn(`Failed to delete from backend for session ${sourceSessionId}, but deleted locally:`, apiError);
       }
       
       alert('✅ Conversation deleted successfully');
@@ -339,13 +400,41 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
           <History size={18} />
           <h3 className="font-semibold text-foreground">Chat History</h3>
         </div>
-        <button
-          onClick={loadConversations}
-          disabled={loading}
-          className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
-          title="Refresh conversations"
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadConversations}
+            disabled={loading}
+            className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
+            title="Refresh conversations"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+      
+      {/* Toggle between Current Session and All Chats */}
+      <div className="flex border-b">
+        <button 
+          className={`flex-1 py-2 text-sm font-medium flex justify-center items-center gap-1 ${
+            viewMode === 'current' 
+              ? 'text-primary border-b-2 border-primary' 
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          }`}
+          onClick={() => setViewMode('current')}
         >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          <User size={14} />
+          <span>Current Session</span>
+        </button>
+        <button 
+          className={`flex-1 py-2 text-sm font-medium flex justify-center items-center gap-1 ${
+            viewMode === 'all' 
+              ? 'text-primary border-b-2 border-primary' 
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          }`}
+          onClick={() => setViewMode('all')}
+        >
+          <Users size={14} />
+          <span>All Chats</span>
         </button>
       </div>
 
@@ -418,6 +507,15 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
                       </h4>
                       {currentConversationId === conversation.id && (
                         <div className="flex-shrink-0 w-2 h-2 bg-green-500 rounded-full" title="Active conversation" />
+                      )}
+                      {/* Show session indicator badge for non-current sessions in "All Chats" view */}
+                      {viewMode === 'all' && conversation.sessionId && conversation.sessionId !== getCurrentSessionId() && (
+                        <div 
+                          className="text-xs px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded"
+                          title={`From session: ${conversation.sessionId}`}
+                        >
+                          {conversation.sessionId.substring(0, 6)}
+                        </div>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
