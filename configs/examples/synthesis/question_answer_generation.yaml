@@ -1,0 +1,166 @@
+# Question-Answer Generation Example
+# Generate QA pairs from documents or contexts for training conversational models.
+# This example creates geography quiz questions with varying difficulty levels.
+
+strategy: GENERAL
+num_samples: 50
+output_path: geography_qa_dataset.jsonl
+
+strategy_params:
+  # Provide examples for the AI to learn from
+  input_examples:
+    - examples:
+      - example_question: "What is the capital of France?"
+        example_answer: "The capital of France is Paris."
+        example_difficulty: "Basic geography facts that most people should know"
+        example_topic: "Questions about capital cities of countries"
+      - example_question: "Which mountain range separates Europe from Asia?"
+        example_answer: "The Ural Mountains separate Europe from Asia."
+        example_difficulty: "Intermediate geography knowledge"
+        example_topic: "Questions about mountains, rivers, deserts, etc."
+      - example_question: "What is the longest river in South America?"
+        example_answer: "The Amazon River is the longest river in South America."
+        example_difficulty: "Advanced geography knowledge for experts"
+        example_topic: "Questions about mountains, rivers, deserts, etc."
+
+  # Define attributes that will vary across generated examples
+  sampled_attributes:
+    - id: difficulty
+      name: Difficulty Level
+      description: How challenging the geography question should be
+      possible_values:
+        - id: easy
+          name: Easy
+          description: Basic geography facts that most people should know
+          sample_rate: 0.4  # 40% of questions will be easy
+        - id: medium
+          name: Medium
+          description: Intermediate geography knowledge
+          sample_rate: 0.4  # 40% of questions will be medium
+        - id: hard
+          name: Hard
+          description: Advanced geography knowledge for experts
+          sample_rate: 0.2  # 20% of questions will be hard
+
+    - id: topic
+      name: Geography Topic
+      description: The specific area of geography to focus on
+      possible_values:
+        - id: capitals
+          name: Capital Cities
+          description: Questions about capital cities of countries
+        - id: physical
+          name: Physical Geography
+          description: Questions about mountains, rivers, deserts, etc.
+        - id: countries
+          name: Countries and Borders
+          description: Questions about countries, territories, and boundaries
+        - id: climate
+          name: Climate and Weather
+          description: Questions about climate zones and weather patterns
+
+  # Generate the question using LLM
+  generated_attributes:
+    - id: question
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are an expert geography teacher creating quiz questions.
+
+            Create questions that are:
+            - Clear and unambiguous
+            - Factually accurate
+            - Appropriate for the specified difficulty level
+            - Focused on the specified topic area
+
+            Format your question as follows:
+            Question:
+            <question>
+            End Question
+
+            Write only the question, do not include the answer.
+        - role: USER
+          content: |
+            Difficulty: {example_difficulty}
+            Topic: {example_topic}
+        - role: ASSISTANT
+          content: |
+            Question:
+            {example_question}
+            End Question
+        - role: USER
+          content: |
+            Difficulty: {difficulty.description}
+            Topic: {topic.description}
+      postprocessing_params:
+        id: cleaned_question
+        cut_prefix: "Question:"
+        cut_suffix: "End Question"
+        strip_whitespace: true
+
+    # Generate the answer using LLM
+    - id: answer
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are a knowledgeable geography expert providing accurate, informative answers.
+
+            Provide answers that are:
+            - Factually correct
+            - Complete but concise
+            - Educational and informative
+
+            Format your answer as follows:
+            Answer:
+            <answer>
+            End Answer
+
+            Write only the answer, do not include additional filler text.
+        - role: USER
+          content: |
+            {example_question}
+        - role: ASSISTANT
+          content: |
+            Answer:
+            {example_answer}
+            End Answer
+        - role: USER
+          content: |
+            {cleaned_question}
+      postprocessing_params:
+        id: cleaned_answer
+        cut_prefix: "Answer:"
+        cut_suffix: "End Answer"
+        strip_whitespace: true
+
+  transformed_attributes:
+    - id: conversation
+      transformation_strategy:
+        type: CHAT
+        chat_transform:
+          messages:
+            - role: USER
+              content: "{cleaned_question}"
+            - role: ASSISTANT
+              content: "{cleaned_answer}"
+
+  # Specify which attributes to include in the final output
+  passthrough_attributes:
+    - conversation
+    - cleaned_question
+    - cleaned_answer
+    - difficulty
+    - topic
+
+# Configure the AI model for generation
+inference_config:
+  model:
+    model_name: claude-3-5-sonnet-20240620
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60
