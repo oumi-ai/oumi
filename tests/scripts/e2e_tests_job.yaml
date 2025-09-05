@@ -37,6 +37,7 @@ setup: |
 run: |
   set -xe  # Exit if any command failed.
   source "./configs/examples/misc/sky_init.sh"
+  uv pip install -U -e ".[ci_gpu]"
 
   echo "Node ${SKYPILOT_NODE_RANK} starting..."
   echo "Unit tests: ${ENABLE_OUMI_UNIT_TESTS}"
