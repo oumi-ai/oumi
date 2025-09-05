@@ -533,8 +533,10 @@ class SlurmClient:
         threads_per_core: Optional[int] = None,
         distribution: Optional[str] = None,
         partition: Optional[str] = None,
+        qos: Optional[str] = None,
         stdout_file: Optional[str] = None,
         stderr_file: Optional[str] = None,
+        **kwargs,
     ) -> str:
         """Submits the specified job script to Slurm.
 
@@ -553,15 +555,20 @@ class SlurmClient:
             distribution: Distribution method for processes to nodes
                 (type = block|cyclic|arbitrary)
             partition: Partition (aka queue) requested.
+            qos: QoS (aka the queue on Perlmutter) requested.
             stdout_file: File for batch script's standard output.
             stderr_file: File for batch script's standard error.
+            kwargs: Additional flags to pass to sbatch. Hyphens in the flag name are
+                replaced with underscores. For example, `foo_bar=baz` as a kwarg will
+                add "--foo-bar=baz" to the sbatch command.
 
         Returns:
             The ID of the submitted job.
         """
         cmd_parts = ["sbatch", f"--nodes={node_count}"]
+        slurm_flags: dict[str, str] = {}
         if name:
-            cmd_parts.append(f"--job-name={name}")
+            slurm_flags["job-name"] = name
         if export is not None:
             export_str = "NONE"
             if isinstance(export, list):
@@ -569,21 +576,38 @@ class SlurmClient:
                     export_str = ",".join(export)
             else:
                 export_str = str(export)
-            cmd_parts.append(f"--export={export_str}")
+            slurm_flags["export"] = export_str
         if account:
-            cmd_parts.append(f"--account={account}")
+            slurm_flags["account"] = account
         if ntasks is not None:
-            cmd_parts.append(f"--ntasks={ntasks}")
+            slurm_flags["ntasks"] = str(ntasks)
         if threads_per_core is not None:
-            cmd_parts.append(f"--threads-per-core={threads_per_core}")
+            slurm_flags["threads-per-core"] = str(threads_per_core)
         if distribution:
-            cmd_parts.append(f"--distribution={distribution}")
+            slurm_flags["distribution"] = distribution
         if partition:
-            cmd_parts.append(f"--partition={partition}")
+            slurm_flags["partition"] = partition
+        if qos:
+            slurm_flags["qos"] = qos
         if stdout_file:
-            cmd_parts.append(f"--output={stdout_file}")
+            slurm_flags["output"] = stdout_file
         if stderr_file:
-            cmd_parts.append(f"--error={stderr_file}")
+            slurm_flags["error"] = stderr_file
+
+        # Add kwargs to slurm_flags
+        for flag, value in kwargs.items():
+            flag = flag.replace("_", "-")
+            if flag in slurm_flags:
+                logger.warning(
+                    f"Flag {flag} already set to {slurm_flags[flag]}. "
+                    f"Overwriting with {value}."
+                )
+            slurm_flags[flag] = str(value)
+
+        # Add flags to command parts
+        for flag, value in slurm_flags.items():
+            cmd_parts.append(f"--{flag}={value}")
+
         cmd_parts.append("--parsable")
         cmd_parts.append(job_path)
         sbatch_cmd = " ".join(cmd_parts)
@@ -600,11 +624,18 @@ class SlurmClient:
             A list of JobStatus.
         """
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
-        # Forcibly list all jobs since Jan 1, 2025.
+        # Get current date and subtract one month.
         # Otherwise completed jobs older than ~24 hours may not be listed.
+
+        from datetime import datetime, timedelta
+
+        current_date = datetime.now()
+        one_month_ago = current_date - timedelta(days=30)
+        start_date = one_month_ago.strftime("%Y-%m-%d")
+
         command = (
             f"sacct --user={self._user} --format='{response_format}' -X "
-            "--starttime 2025-01-01"
+            f"--starttime {start_date}"
         )
         result = self.run_commands([command])
         if result.exit_code != 0:

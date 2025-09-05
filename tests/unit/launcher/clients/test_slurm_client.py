@@ -1,5 +1,6 @@
 import subprocess
 import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 
@@ -11,7 +12,7 @@ from oumi.launcher.clients.slurm_client import SlurmClient
 _CTRL_PATH: str = "-S ~/.ssh/control-%h-%p-%r"
 _SACCT_CMD = (
     "sacct --user=user --format='JobId%-30,JobName%30,User%30,State%30,Reason%30' "
-    "-X --starttime 2025-01-01"
+    f"-X --starttime {(datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')}"
 )
 
 
@@ -155,8 +156,11 @@ def test_slurm_client_submit_job_with_all_args(mock_subprocess):
         threads_per_core=1,
         distribution="block:cyclic",
         partition="extended",
+        qos="debug",
         stdout_file="~/stdout.txt",
         stderr_file="~/stderr.txt",
+        # kwargs
+        foo="bar",
     )
     mock_subprocess.run.assert_has_calls(
         [
@@ -187,8 +191,10 @@ def test_slurm_client_submit_job_with_all_args(mock_subprocess):
                                 "--threads-per-core=1",
                                 "--distribution=block:cyclic",
                                 "--partition=extended",
+                                "--qos=debug",
                                 "--output=~/stdout.txt",
                                 "--error=~/stderr.txt",
+                                "--foo=bar",
                                 "--parsable",
                                 "./job.sh",
                             ]

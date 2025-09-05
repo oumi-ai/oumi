@@ -53,13 +53,18 @@ class JobResources:
     """The cloud used to run the job (required).
 
     Options:
+        Major cloud providers:
         - aws: Amazon Web Services
         - azure: Microsoft Azure
         - gcp: Google Cloud Platform
         - lambda: Lambda Cloud
-        - local: The local machine launching the job
-        - polaris: The Polaris cluster at Argonne National Laboratory
         - runpod: RunPod
+        Research clusters (not intended for general use):
+        - polaris: The Polaris cluster at Argonne National Laboratory
+        - frontier: The Frontier cluster at Oak Ridge National Laboratory
+        - perlmutter: The Perlmutter cluster at Lawrence Berkeley National Laboratory
+        Other clouds:
+        - local: The local machine launching the job
     """
 
     region: Optional[str] = None
