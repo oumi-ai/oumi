@@ -48,6 +48,10 @@ class WebChatSession:
         self.session_id = session_id
         self.config = config
         self.conversation_history = []
+        
+        # Add creation debugging
+        from oumi.utils.logging import logger
+        logger.debug(f"📝 Created new conversation history for session {session_id}, object id: {id(self.conversation_history)}")
 
         # Initialize core components
         self.console = Console()
@@ -189,6 +193,18 @@ class WebChatSession:
         # Re-sync the command context
         self.command_context._conversation_history = self.conversation_history
         self.command_context._branch_manager = self.branch_manager
+        
+        # Additional logging for debugging hydration
+        from oumi.utils.logging import logger
+        logger.debug(f"🗄️ After hydration: conversation history length={len(self.conversation_history)}, object id: {id(self.conversation_history)}")
+        logger.debug(f"🗄️ After hydration: branch manager main history length={len(self.branch_manager.branches['main'].conversation_history) if 'main' in self.branch_manager.branches else 0}")
+        # Check if they're the same object
+        if 'main' in self.branch_manager.branches:
+            main_branch = self.branch_manager.branches['main']
+            is_same_object = id(main_branch.conversation_history) == id(self.conversation_history)
+            logger.debug(f"🗄️ After hydration: main branch history is same object as session history: {is_same_object}")
+            if not is_same_object:
+                logger.error(f"🚨 CRITICAL ERROR: Branch manager main history is not same object as session history!")
 
     def hydrate_branch_from_db(self, branch_id: str, db) -> bool:
         """Hydrate a specific branch's messages from database on-demand.

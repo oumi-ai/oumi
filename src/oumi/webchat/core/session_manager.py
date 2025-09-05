@@ -386,6 +386,31 @@ class SessionManager:
                 logger.info(
                     f"🔍 DEBUG: Conversation history length: {len(session.conversation_history)}"
                 )
+                # Additional debug info to trace conversation history source
+                logger.info(
+                    f"🔍 DEBUG: Conversation history object id: {id(session.conversation_history)}"
+                )
+                if hasattr(session, 'is_hydrated_from_db') and session.is_hydrated_from_db:
+                    logger.info(f"🔍 DEBUG: Session was hydrated from database")
+                else:
+                    logger.info(f"🔍 DEBUG: Session was NOT hydrated from database")
+                # Log branch manager info
+                if hasattr(session, 'branch_manager') and session.branch_manager:
+                    logger.info(f"🔍 DEBUG: Branch manager exists, branches: {list(session.branch_manager.branches.keys())}")
+                    if 'main' in session.branch_manager.branches:
+                        main_branch = session.branch_manager.branches['main']
+                        logger.info(
+                            f"🔍 DEBUG: Main branch history length: {len(main_branch.conversation_history)}, object id: {id(main_branch.conversation_history)}"
+                        )
+                        if id(main_branch.conversation_history) != id(session.conversation_history):
+                            logger.error(f"🚨 ERROR: Main branch history is not the same object as session history!")
+            
+            # Debug inspect the history before processing
+            if should_log_debug and session.conversation_history:
+                first_msg = session.conversation_history[0] if session.conversation_history else None
+                last_msg = session.conversation_history[-1] if session.conversation_history else None
+                logger.info(f"🔍 DEBUG: First message in history: {first_msg}")
+                logger.info(f"🔍 DEBUG: Last message in history: {last_msg}")
             
             for i, msg in enumerate(session.conversation_history):
                 content = msg.get("content", "")
