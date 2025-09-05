@@ -156,8 +156,8 @@ export function buildBranchStructure(
     };
   }
   
-  // Always ensure main branch exists
-  if (!result.main) {
+  // If no branches were found, ensure at least main exists
+  if (Object.keys(result).length === 0) {
     result.main = { messages: [] };
   }
   

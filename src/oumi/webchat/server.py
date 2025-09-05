@@ -26,7 +26,6 @@ from oumi.utils.logging import logger
 # Import core components
 from oumi.core.configs import InferenceConfig
 from oumi.core.inference import BaseInferenceEngine
-import oumi
 from oumi.infer import get_engine
 
 # Import structured components

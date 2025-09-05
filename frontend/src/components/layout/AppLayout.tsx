@@ -13,7 +13,6 @@ import { useChatStore } from '@/lib/store';
 import apiClient from '@/lib/unified-api';
 import { useConversationCommand, COMMAND_CONFIGS } from '@/hooks/useConversationCommand';
 import { Maximize2, Minimize2, Settings, RotateCcw, PanelLeft, PanelLeftClose, X, Search, History } from 'lucide-react';
-import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 import SettingsScreen from '@/components/settings/SettingsScreen';
 import ChatHistorySidebar from '@/components/history/ChatHistorySidebar';
 import SearchHistoryWindow from '@/components/search/SearchHistoryWindow';
@@ -26,11 +25,6 @@ export default function AppLayout() {
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const [showSearchHistory, setShowSearchHistory] = React.useState(false);
-  const [showResetConfirmation, setShowResetConfirmation] = React.useState(false);
-  const [resetWithBackup, setResetWithBackup] = React.useState(false);
-  const [isResetting, setIsResetting] = React.useState(false);
-  const [resetProgress, setResetProgress] = React.useState<string[]>([]);
-  const [resetSuccess, setResetSuccess] = React.useState<string | undefined>(undefined);
   const { clearMessages, currentBranchId, generationParams, setCurrentBranch, setMessages, getCurrentSessionId } = useChatStore();
   // Note: setBranches is no longer needed as branches are derived on demand
   const { executeCommand, isExecuting } = useConversationCommand();
@@ -154,18 +148,6 @@ export default function AppLayout() {
         }
       };
 
-      const handleResetHistory = () => {
-        console.log('🔧 [AppLayout] Reset History from menu');
-        setResetWithBackup(false);
-        setShowResetConfirmation(true);
-      };
-
-      const handleBackupAndResetHistory = () => {
-        console.log('🔧 [AppLayout] Backup and Reset History from menu');
-        setResetWithBackup(true);
-        setShowResetConfirmation(true);
-      };
-
       // Register menu handlers
       if (window.electronAPI) {
         window.electronAPI.onMenuMessage('menu:model-settings', handleModelSettings);
@@ -178,8 +160,6 @@ export default function AppLayout() {
         window.electronAPI.onMenuMessage('menu:save-conversation', handleSaveConversation);
         window.electronAPI.onMenuMessage('menu:regenerate', handleRegenerateLastResponse);
         window.electronAPI.onMenuMessage('menu:stop-generation', handleStopGeneration);
-        window.electronAPI.onMenuMessage('menu:reset-history', handleResetHistory);
-        window.electronAPI.onMenuMessage('menu:backup-and-reset-history', handleBackupAndResetHistory);
       }
 
       console.log('🔧 [AppLayout] Electron menu handlers registered');
@@ -197,8 +177,6 @@ export default function AppLayout() {
           window.electronAPI.removeMenuListener('menu:save-conversation', handleSaveConversation);
           window.electronAPI.removeMenuListener('menu:regenerate', handleRegenerateLastResponse);
           window.electronAPI.removeMenuListener('menu:stop-generation', handleStopGeneration);
-          window.electronAPI.removeMenuListener('menu:reset-history', handleResetHistory);
-          window.electronAPI.removeMenuListener('menu:backup-and-reset-history', handleBackupAndResetHistory);
         }
       };
     };
@@ -270,168 +248,6 @@ export default function AppLayout() {
         console.error('Error clearing conversation:', error);
         // Messages were already cleared in UI, so we don't revert that
       }
-    }
-  };
-
-  // Reset history handlers
-  const createBackup = async (): Promise<boolean> => {
-    try {
-      setResetProgress(prev => [...prev, "Starting backup..."]);
-      
-      // Get current session ID
-      const sessionId = getCurrentSessionId();
-      
-      // Get all branches for the current session
-      const branchesResponse = await apiClient.getBranches(sessionId);
-      if (!branchesResponse.success || !branchesResponse.data) {
-        throw new Error("Failed to retrieve branches");
-      }
-      const data = branchesResponse.data;
-      const branches = data?.branches ?? [];
-      setResetProgress(prev => [...prev, `Found ${branches.length} branches to backup`]);
-      
-      // Prepare backup data structure
-      const backupData: {
-        version: string;
-        timestamp: string;
-        session_id: string;
-        branches: Record<string, any>;
-      } = {
-        version: "1.0",
-        timestamp: new Date().toISOString(),
-        session_id: sessionId,
-        branches: {}
-      };
-      
-      // For each branch, get its conversation history
-      for (const branch of branches) {
-        setResetProgress(prev => [...prev, `Backing up branch: ${branch.name || branch.id}`]);
-        
-        const conversationResponse = await apiClient.getConversation(sessionId, branch.id);
-        if (conversationResponse.success) {
-          backupData.branches[branch.id] = {
-            name: branch.name || branch.id,
-            created_at: branch.createdAt,
-            last_active: branch.lastActive || branch.createdAt,
-            conversation: (conversationResponse.data?.conversation) || []
-          };
-        }
-      }
-      
-      // Save backup to file
-      const filename = `chat-backup-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
-      const saved = await apiClient.saveConversationToFile(backupData as any, filename);
-      
-      if (saved) {
-        setResetProgress(prev => [...prev, `Backup saved successfully to ${filename}`]);
-        return true;
-      } else {
-        throw new Error("Failed to save backup file");
-      }
-    } catch (error) {
-      console.error("Backup creation error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      setResetProgress(prev => [...prev, `Backup error: ${errorMessage}`]);
-      return false;
-    }
-  };
-  
-  const resetHistory = async (): Promise<boolean> => {
-    try {
-      setResetProgress(prev => [...prev, "Starting reset operation..."]);
-
-      // Clear UI state first for immediate feedback
-      clearMessages();
-
-      const sessionId = getCurrentSessionId();
-      setResetProgress(prev => [...prev, `Resetting session: ${sessionId}`]);
-
-      const response = await fetch('/v1/oumi/reset_history', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          session_id: sessionId,
-          confirm_phrase: "RESET",
-          scope: "current",
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server responded with status ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        setResetProgress(prev => [...prev, `Reset successful. Deleted: ${JSON.stringify(result.deleted || {})}`]);
-
-        // Re-initialize state from backend (best-effort)
-        try {
-          const branchesResponse = await apiClient.getBranches(sessionId);
-          if (branchesResponse.success && branchesResponse.data) {
-            const { current_branch } = branchesResponse.data;
-            if (current_branch && current_branch !== currentBranchId) {
-              setCurrentBranch(current_branch);
-            }
-          }
-        } catch (err) {
-          // Non-fatal; continue with main branch implied
-          setResetProgress(prev => [...prev, `Warning: Could not get branch information. Using main branch.`]);
-        }
-
-        setResetSuccess("Chat history has been successfully reset.");
-        return true;
-      } else {
-        throw new Error(result.message || "Reset operation failed");
-      }
-    } catch (error: any) {
-      console.error("Reset error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      setResetProgress(prev => [...prev, `Reset error: ${errorMessage}`]);
-      return false;
-    }
-  };
-  
-  const handleResetConfirm = async () => {
-    setIsResetting(true);
-    try {
-      await resetHistory();
-    } finally {
-      setTimeout(() => {
-        setIsResetting(false);
-        // Auto-close after 3 seconds
-        setTimeout(() => {
-          setShowResetConfirmation(false);
-          setResetProgress([]);
-          setResetSuccess(undefined);
-        }, 3000);
-      }, 500);
-    }
-  };
-  
-  const handleBackupAndResetConfirm = async () => {
-    setIsResetting(true);
-    try {
-      const backupSuccess = await createBackup();
-      if (backupSuccess) {
-        await resetHistory();
-      } else {
-        setResetProgress(prev => [...prev, "Reset operation cancelled due to backup failure"]);
-      }
-    } finally {
-      setTimeout(() => {
-        setIsResetting(false);
-        // Auto-close after 3 seconds if successful
-        if (resetSuccess) {
-          setTimeout(() => {
-            setShowResetConfirmation(false);
-            setResetProgress([]);
-            setResetSuccess(undefined);
-          }, 3000);
-        }
-      }, 500);
     }
   };
 
@@ -549,10 +365,10 @@ export default function AppLayout() {
         </div>
 
         {/* Right sidebar with Branch tree and Chat history */}
-        <div className={`transition-all duration-200 w-80 ${
-          (isBranchTreeExpanded || showChatHistory) ? '' : 'hidden'
+        <div className={`fixed right-0 top-16 w-80 min-h-screen transition-transform duration-200 ${
+          (isBranchTreeExpanded || showChatHistory) ? 'translate-x-0' : 'translate-x-full'
         }`}>
-          <div className="flex flex-col h-full overflow-y-auto">
+          <div className="h-full flex flex-col">
             {/* Right sidebar header with toggle button */}
             <div className="bg-card border-b p-3 flex items-center justify-between">
               <h3 className="font-medium text-foreground text-sm">Sidebar</h3>
@@ -570,14 +386,14 @@ export default function AppLayout() {
             </div>
             {/* Branch Tree - shows when branch tree is expanded */}
             {isBranchTreeExpanded && (
-              <div className={`${showChatHistory ? 'flex-1' : 'h-full'} overflow-y-auto`}>
+              <div className={`${showChatHistory ? 'flex-1' : 'h-full'} min-h-0`}>
                 <BranchTree className="h-full" />
               </div>
             )}
             
             {/* Chat History - shows when chat history is enabled */}
             {showChatHistory && (
-              <div className={`${isBranchTreeExpanded ? 'flex-1' : 'h-full'} overflow-y-auto ${isBranchTreeExpanded ? 'border-t' : ''}`}>
+              <div className={`${isBranchTreeExpanded ? 'flex-1' : 'h-full'} min-h-0 ${isBranchTreeExpanded ? 'border-t' : ''}`}>
                 <ChatHistorySidebar className="h-full" />
               </div>
             )}
@@ -618,24 +434,6 @@ export default function AppLayout() {
 
       {/* System change warning */}
       <SystemChangeWarning />
-
-      {/* Reset Chat History Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={showResetConfirmation}
-        title="Reset Chat History"
-        message="Are you sure you want to reset all chat history?"
-        detail="This will permanently delete all threads, conversations, messages, attachments, and vector indexes. This action cannot be undone."
-        confirmationText="RESET"
-        confirmLabel="Reset"
-        alternateLabel={resetWithBackup ? "Backup and Reset" : undefined}
-        dangerous={true}
-        onConfirm={handleResetConfirm}
-        onAlternate={resetWithBackup ? handleBackupAndResetConfirm : undefined}
-        onCancel={() => setShowResetConfirmation(false)}
-        isLoading={isResetting}
-        progressDetails={resetProgress}
-        successMessage={resetSuccess}
-      />
     </div>
   );
 }

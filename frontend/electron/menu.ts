@@ -137,34 +137,6 @@ export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
           }
         },
         {
-          label: 'Reset Chat History...',
-          click: async () => {
-            log.info('🧹 Menu: Reset Chat History clicked');
-            const result = await dialog.showMessageBox(mainWindow, {
-              type: 'warning',
-              title: 'Reset Chat History',
-              message: 'Are you sure you want to reset all chat history?',
-              detail: 'This will permanently delete all threads, conversations, messages, attachments, and vector indexes. This action cannot be undone.',
-              buttons: ['Cancel', 'Reset without backup', 'Backup and reset'],
-              defaultId: 0,
-              cancelId: 0
-            });
-
-            log.info(`🧹 Menu: Dialog result - response: ${result.response}`);
-            if (result.response === 1) {
-              log.info('🧹 Menu: Sending menu:reset-history message to renderer');
-              mainWindow.webContents.send('menu:reset-history');
-              log.info('🧹 Menu: Message sent successfully');
-            } else if (result.response === 2) {
-              log.info('🧹 Menu: Sending menu:backup-and-reset-history message to renderer');
-              mainWindow.webContents.send('menu:backup-and-reset-history');
-              log.info('🧹 Menu: Message sent successfully');
-            } else {
-              log.info('🧹 Menu: User cancelled reset');
-            }
-          }
-        },
-        {
           label: 'Rebuild Python Environment',
           click: async () => {
             log.info('🔧 Menu: Rebuild Python Environment clicked');

@@ -94,19 +94,10 @@ class ConversationBranchManager:
 
         # Initialize with main branch
         initial_history = conversation_history or []
-        
-        # Debug logging
-        from oumi.utils.logging import logger
-        logger.debug(f"🌲 Creating ConversationBranchManager with initial history length: {len(initial_history)}, object id: {id(initial_history)}")
-        
         main_branch = ConversationBranch(
             id="main", name="Main", conversation_history=initial_history
         )
         self.branches["main"] = main_branch
-        
-        # Debug logging
-        logger.debug(f"🌲 Created main branch with history length: {len(main_branch.conversation_history)}, object id: {id(main_branch.conversation_history)}")
-        logger.debug(f"🌲 Is main branch history same as input history? {id(main_branch.conversation_history) == id(initial_history)}")
 
     def create_branch(
         self,
@@ -316,30 +307,9 @@ class ConversationBranchManager:
         Args:
             conversation_history: The conversation history to sync to current branch.
         """
-        # Debug logging
-        from oumi.utils.logging import logger
         current_branch = self.get_current_branch()
-        logger.debug(f"🔄 Syncing conversation history to branch '{current_branch.name}' (id: {current_branch.id})")
-        logger.debug(f"🔄 Before sync - Branch history length: {len(current_branch.conversation_history)}, object id: {id(current_branch.conversation_history)}")
-        logger.debug(f"🔄 Input history length: {len(conversation_history)}, object id: {id(conversation_history)}")
-        
-        # Instead of deepcopy, directly assign the reference when it's the main branch
-        if current_branch.id == "main":
-            current_branch.conversation_history = conversation_history
-            logger.debug(f"🔄 Main branch - directly assigning reference (no deepcopy)")
-        else:
-            # For non-main branches, use deepcopy to avoid accidental modifications
-            current_branch.conversation_history = copy.deepcopy(conversation_history)
-            logger.debug(f"🔄 Non-main branch - using deepcopy")
-        
+        current_branch.conversation_history = copy.deepcopy(conversation_history)
         current_branch.last_active = datetime.now()
-        logger.debug(f"🔄 After sync - Branch history length: {len(current_branch.conversation_history)}, object id: {id(current_branch.conversation_history)}")
-        logger.debug(f"🔄 Is branch history same as input history? {id(current_branch.conversation_history) == id(conversation_history)}")
-        # If there's a mismatch, log a warning
-        if current_branch.id == "main" and id(current_branch.conversation_history) != id(conversation_history):
-            logger.warning(f"⚠️ SYNC ERROR: Main branch history should be the same object as input history, but it's not!")
-        elif current_branch.id != "main" and id(current_branch.conversation_history) == id(conversation_history):
-            logger.warning(f"⚠️ SYNC ERROR: Non-main branch history should NOT be the same object as input history, but it is!")
 
     def list_branches(self) -> list[dict[str, Any]]:
         """List all branches with their information.

@@ -142,7 +142,6 @@ def setup_routes(
     oumi.post("/branches", branch_handler.handle_branches_api)
     oumi.post("/sync_conversation", branch_handler.handle_sync_conversation_api)
     oumi.get("/conversation", branch_handler.handle_get_conversation_api)
-    oumi.post("/reset_history", branch_handler.handle_reset_history_api)
     
     # System routes
     oumi.get("/system_stats", system_handler.handle_system_stats_api)
@@ -167,7 +166,6 @@ def setup_routes(
             "/v1/oumi/system_stats",
             "/v1/oumi/configs",
             "/v1/oumi/clear_model",
-            "/v1/oumi/reset_history",
         ]
         
         if enhanced_features_available:

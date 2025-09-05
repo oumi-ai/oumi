@@ -146,76 +146,74 @@ class UnifiedApiClient {
   }
 
   async listConversations(sessionId: string): Promise<ApiResponse<{ conversations: any[] }>> {
-    // Scope strictly to the provided sessionId to prevent cross-session leakage
-    try {
-      const key = `conversations_${sessionId}`;
-      const conversations = await this.getStorageItem(key, []);
-
-      // Normalize and sort by last modified (newest first)
-      const normalized = Array.isArray(conversations) ? conversations : [];
-      normalized.sort((a, b) =>
-        new Date(b.lastModified || b.updatedAt || 0).getTime() -
-        new Date(a.lastModified || a.updatedAt || 0).getTime()
-      );
-
-      return { success: true, data: { conversations: normalized } };
-    } catch (error) {
-      console.error('Error listing conversations:', error);
-      return { success: false, error: 'Failed to list conversations', data: { conversations: [] } };
-    }
-  }
-
-  /**
-   * Lists all conversations across all sessions
-   * 
-   * @returns ApiResponse with conversations from all sessions with sessionId attached
-   */
-  async listAllConversations(): Promise<ApiResponse<{ conversations: any[] }>> {
-    try {
-      // Get all keys from storage
-      const allKeys = await this.getAllStorageKeys();
-      
-      // Filter keys that match conversations_* pattern
-      const conversationKeys = allKeys.filter(key => key.startsWith('conversations_'));
-      
-      // Get conversations from all session keys
-      const allConversations = [];
-      for (const key of conversationKeys) {
-        // Extract sessionId from the key (format: conversations_${sessionId})
-        const sessionId = key.replace('conversations_', '');
+    if (this.isElectron()) {
+      // For Electron, search across all stored conversations
+      try {
+        const allStoredKeys = await this.getAllStorageKeys();
+        const allConversations: any[] = [];
         
-        // Get conversations for this session
-        const conversations = await this.getStorageItem(key, []);
+        // Look for all conversation list keys
+        const conversationListKeys = allStoredKeys.filter(key => key.startsWith('conversations_'));
         
-        // Add sessionId to each conversation and add to master list
-        if (Array.isArray(conversations)) {
-          const conversationsWithSession = conversations.map(conv => ({
-            ...conv,
-            sessionId: sessionId // Add sessionId to each conversation
-          }));
-          allConversations.push(...conversationsWithSession);
+        for (const key of conversationListKeys) {
+          const conversations = await this.getStorageItem(key, []);
+          allConversations.push(...conversations);
         }
+        
+        // Sort by last modified (newest first)
+        allConversations.sort((a, b) => 
+          new Date(b.lastModified || b.updatedAt || 0).getTime() - 
+          new Date(a.lastModified || a.updatedAt || 0).getTime()
+        );
+        
+        return {
+          success: true,
+          data: { conversations: allConversations }
+        };
+      } catch (error) {
+        console.error('Error listing conversations:', error);
+        return {
+          success: false,
+          error: 'Failed to list conversations',
+          data: { conversations: [] }
+        };
       }
-      
-      // Sort all conversations by lastModified (newest first)
-      allConversations.sort((a, b) =>
-        new Date(b.lastModified || b.updatedAt || 0).getTime() -
-        new Date(a.lastModified || a.updatedAt || 0).getTime()
-      );
-      
-      return { 
-        success: true, 
-        data: { 
-          conversations: allConversations 
-        } 
-      };
-    } catch (error) {
-      console.error('Error listing all conversations:', error);
-      return { 
-        success: false, 
-        error: 'Failed to list all conversations', 
-        data: { conversations: [] } 
-      };
+    } else {
+      // Web fallback - search across all localStorage
+      try {
+        const allConversations: any[] = [];
+        
+        // Iterate through localStorage to find all conversation lists
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('conversations_')) {
+            try {
+              const conversations = JSON.parse(localStorage.getItem(key) || '[]');
+              allConversations.push(...conversations);
+            } catch (parseError) {
+              console.warn(`Failed to parse conversations from key ${key}:`, parseError);
+            }
+          }
+        }
+        
+        // Sort by last modified (newest first)
+        allConversations.sort((a, b) => 
+          new Date(b.lastModified || b.updatedAt || 0).getTime() - 
+          new Date(a.lastModified || a.updatedAt || 0).getTime()
+        );
+        
+        return {
+          success: true,
+          data: { conversations: allConversations }
+        };
+      } catch (error) {
+        console.error('Error listing conversations:', error);
+        return {
+          success: false,
+          error: 'Failed to list conversations',
+          data: { conversations: [] }
+        };
+      }
     }
   }
 
@@ -506,51 +504,14 @@ class UnifiedApiClient {
       const existingConversations = await this.getStorageItem(conversationsKey, []);
       
       const conversationIndex = existingConversations.findIndex((c: any) => c.id === conversationId);
-
-      // Derive message count and preview from branches first, falling back to flat messages
-      let messageCount = Array.isArray(conversationData?.messages) ? conversationData.messages.length : 0;
-      let preview = 'No messages';
-      
-      if (conversationData?.branches && typeof conversationData.branches === 'object') {
-        let latestMsg: any = null;
-        let total = 0;
-        for (const branch of Object.values(conversationData.branches) as any[]) {
-          const msgs: any[] = Array.isArray(branch?.messages) ? branch.messages : [];
-          total += msgs.length;
-          if (msgs.length > 0) {
-            const candidate = msgs[msgs.length - 1];
-            // Choose the message with the newest timestamp when available
-            const candidateTs = typeof candidate?.timestamp === 'number' ? candidate.timestamp : 0;
-            const latestTs = typeof latestMsg?.timestamp === 'number' ? latestMsg.timestamp : -1;
-            if (candidateTs >= latestTs) {
-              latestMsg = candidate;
-            }
-          }
-        }
-        messageCount = total;
-        if (latestMsg?.content) {
-          const text = String(latestMsg.content);
-          preview = text.slice(0, 100);
-        }
-      } else if (messageCount > 0) {
-        const last = conversationData.messages[conversationData.messages.length - 1];
-        if (last?.content) preview = String(last.content).slice(0, 100);
-      }
-
-      // Do not index empty conversations in the summary list
-      if (messageCount === 0) {
-        return {
-          success: true,
-          message: 'Conversation saved (empty, not indexed)'
-        };
-      }
-
       const conversationEntry = {
         id: conversationId,
         name: conversationData.title || 'Untitled Conversation',
         lastModified: conversationData.updatedAt || new Date().toISOString(),
-        messageCount,
-        preview,
+        messageCount: conversationData.messages?.length || 0,
+        preview: conversationData.messages && conversationData.messages.length > 0
+          ? conversationData.messages[conversationData.messages.length - 1].content.slice(0, 100)
+          : 'No messages',
         filename: conversationId
       };
 
