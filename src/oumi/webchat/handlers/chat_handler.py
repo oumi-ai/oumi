@@ -24,6 +24,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
 from oumi.webchat.core.session_manager import SessionManager
 from oumi.webchat.chatgraph_migration.graph_store import GraphStore
+from oumi.webchat.protocol import extract_session_id, extract_branch_id
 
 
 class ChatHandler:
@@ -100,7 +101,10 @@ class ChatHandler:
         temperature = data.get("temperature", 1.0)
         max_tokens = data.get("max_tokens", 100)
         stream = data.get("stream", False)
-        session_id = data.get("session_id")  # WebChat session ID
+        
+        # Extract session_id and branch_id with consistent handling
+        # We don't require these parameters as this endpoint can work without a session
+        session_id = extract_session_id(None, data, required=False)  # WebChat session ID
         branch_id = data.get("branch_id")  # Target branch ID for this chat request
         
         try:

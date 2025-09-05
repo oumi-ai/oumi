@@ -52,6 +52,27 @@ async def _run_server(monkeypatch: pytest.MonkeyPatch):
         server = OumiWebServer(cfg, system_prompt=None, db_path=db_path)
         app = server.create_app()
 
+        # Test-only debug route to inspect object identities/state
+        async def debug_session_ids(request):
+            from aiohttp import web as _web
+            sid = request.query.get("session_id", "default")
+            session = await server.session_manager.get_or_create_session_safe(sid, server.persistence_service.db if server.persistence_service.is_enabled else None)
+            data = {
+                "session_id": sid,
+                "session_obj_id": id(session),
+                "branch_manager_id": id(session.branch_manager),
+                "session_manager_id": id(server.session_manager),
+                "chat_handler_sm_id": id(server.chat_handler.session_manager),
+                "ws_handler_sm_id": id(server.ws_handler.session_manager),
+                "branch_handler_sm_id": id(server.branch_handler.session_manager),
+                "current_branch": session.branch_manager.current_branch_id,
+                "branches": list(session.branch_manager.branches.keys()),
+                "current_branch_len": len(session.branch_manager.get_current_branch().conversation_history),
+            }
+            return _web.json_response(data)
+
+        app.router.add_get("/v1/oumi/debug/session_ids", debug_session_ids)
+
         runner = aiohttp.web.AppRunner(app)
         await runner.setup()
         site = aiohttp.web.TCPSite(runner, "127.0.0.1", 0)
@@ -79,6 +100,13 @@ async def test_ws_chat_syncs_active_branch_history(monkeypatch: pytest.MonkeyPat
             init = json.loads(await ws.recv())
             assert init.get("type") == "session_init"
             assert init.get("current_branch") == "main"
+
+            # Capture initial debug identities
+            async with aiohttp.ClientSession() as http:
+                dbg1 = await http.get(f"{http_base}/v1/oumi/debug/session_ids", params={"session_id": session_id})
+                dbg1j = await dbg1.json()
+                # Basic sanity: session manager object shared across handlers
+                assert dbg1j["session_manager_id"] == dbg1j["chat_handler_sm_id"] == dbg1j["ws_handler_sm_id"] == dbg1j["branch_handler_sm_id"]
 
             # Create a new branch off main
             async with aiohttp.ClientSession() as http:
@@ -117,18 +145,26 @@ async def test_ws_chat_syncs_active_branch_history(monkeypatch: pytest.MonkeyPat
                 assert verify_json.get("current_branch") == branch_id, (
                     f"Branch switch didn't stick: expected {branch_id}, got {verify_json.get('current_branch')}"
                 )
+                # Capture debug identities after switch
+                dbg2 = await http.get(f"{http_base}/v1/oumi/debug/session_ids", params={"session_id": session_id})
+                dbg2j = await dbg2.json()
+                assert dbg2j["current_branch"] == branch_id
 
                 # Send a chat message over WS
                 user_text = "Hello from branch!"
-            await ws.send(json.dumps({
-                "type": "chat",
-                "message": user_text,
-                "session_id": session_id,
-            }))
+                await ws.send(json.dumps({
+                    "type": "chat",
+                    "message": user_text,
+                    "session_id": session_id,
+                    "branch_id": branch_id,
+                }))
             # Poll backend conversation for the active branch and verify user turn appears
             found = False
             async with aiohttp.ClientSession() as http:
                 for _ in range(40):  # up to ~10s total
+                    # Also peek at debug state to see branch lengths
+                    dbg = await http.get(f"{http_base}/v1/oumi/debug/session_ids", params={"session_id": session_id})
+                    dbgj = await dbg.json()
                     conv_resp = await http.get(
                         f"{http_base}/v1/oumi/conversation",
                         params={"session_id": session_id, "branch_id": branch_id},
@@ -136,6 +172,9 @@ async def test_ws_chat_syncs_active_branch_history(monkeypatch: pytest.MonkeyPat
                     assert conv_resp.status == 200
                     conv_json = await conv_resp.json()
                     conversation = conv_json.get("conversation", [])
+                    # If debug says branch has content but API says empty, likely divergent sessions
+                    if dbgj["current_branch"] == branch_id and dbgj["current_branch_len"] > 0 and not conversation:
+                        assert False, f"Divergent sessions: debug branch_len={dbgj['current_branch_len']} but GET /conversation returned 0"
                     # Accept either full user+assistant or at least the user turn
                     if conversation and conversation[-1].get("role") == "user" and conversation[-1].get("content") == user_text:
                         found = True

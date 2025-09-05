@@ -23,6 +23,7 @@ from aiohttp import web
 
 from oumi.utils.logging import logger
 from oumi.webchat.core.session_manager import SessionManager
+from oumi.webchat.protocol import normalize_branch_action, extract_session_id, get_valid_branch_actions
 
 
 class BranchHandler:
@@ -51,11 +52,15 @@ class BranchHandler:
         Returns:
             JSON response with branch operation result
         """
-        session_id = request.query.get("session_id", "default")
-        logger.debug(f"🌐 DEBUG: Branch API called with session_id: '{session_id}'")
-        session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
-        
         if request.method == "GET":
+            # For GET, extract session_id from query params only
+            try:
+                session_id = extract_session_id(request)
+                logger.debug(f"🌐 DEBUG: Branch API (GET) called with session_id: '{session_id}'")
+                session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
+            except ValueError as e:
+                logger.warning(f"⚠️ Branch API error: {e}")
+                return web.json_response({"error": str(e)}, status=400)
             # DEBUG: Check raw branch storage
             logger.debug(f"📋 DEBUG: GET branches request - session_id: '{session_id}'")
             logger.debug(f"📋 DEBUG: Session object ID: {id(session)}")
@@ -82,14 +87,18 @@ class BranchHandler:
         elif request.method == "POST":
             try:
                 data = await request.json()
-                action = data.get("action")
+                
+                # Normalize and validate action
+                action = normalize_branch_action(data.get("action", ""))
                 
                 # Check if session_id is also in POST data (for consistency)
-                post_session_id = data.get("session_id")
-                if post_session_id and post_session_id != session_id:
-                    logger.warning(f"⚠️  Session ID mismatch: query='{session_id}', post='{post_session_id}' - using POST value")
-                    session_id = post_session_id
+                try:
+                    # This will prefer the query parameter but fall back to body
+                    session_id = extract_session_id(request, data)
                     session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
+                except ValueError as e:
+                    logger.warning(f"⚠️ Branch API error: {e}")
+                    return web.json_response({"error": str(e)}, status=400)
                 
                 if action == "switch":
                     return await self._handle_switch_branch(session_id, data)
@@ -98,8 +107,13 @@ class BranchHandler:
                 elif action == "delete":
                     return await self._handle_delete_branch(session_id, data)
                 else:
+                    valid_actions = get_valid_branch_actions()
                     return web.json_response(
-                        {"error": f"Unknown action: {action}"}, status=400
+                        {
+                            "error": f"Unknown action: '{action}' (expected: {valid_actions})",
+                            "valid_actions": valid_actions.split(", ")
+                        },
+                        status=400
                     )
             
             except Exception as e:
@@ -392,14 +406,15 @@ class BranchHandler:
         except Exception:
             return web.json_response({"error": "Invalid JSON"}, status=400)
         
-        session_id = data.get("session_id")
-        if not session_id:
+        try:
+            session_id = extract_session_id(None, data)
+        except ValueError as e:
             logger.warning(
                 "sync_conversation called without session_id; rejecting with 400 (legacy implicit 'default' removed)"
             )
             return web.json_response(
                 {
-                    "error": "session_id is required",
+                    "error": str(e),
                     "hint": "Pass the intended session_id explicitly. Previous implicit 'default' fallback has been removed.",
                 },
                 status=400,
@@ -465,14 +480,22 @@ class BranchHandler:
         Returns:
             JSON response with conversation data
         """
-        session_id = request.query.get("session_id", "default")
-        branch_id = request.query.get("branch_id")  # Optional branch ID
-        
-        session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
+        try:
+            session_id = extract_session_id(request)
+            branch_id = request.query.get("branch_id")  # Optional branch ID
+            
+            session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
+        except ValueError as e:
+            logger.warning(f"\u26a0\ufe0f get_conversation called without session_id: {e}")
+            return web.json_response({"error": str(e)}, status=400)
+        logger.debug(f"GET /conversation for session={session_id}, branch_id={branch_id}")
         
         # If branch_id is provided, return that branch's conversation
         if branch_id and branch_id in session.branch_manager.branches:
             target_branch = session.branch_manager.branches[branch_id]
+            logger.debug(
+                f"GET /conversation branch exists: current_branch={session.branch_manager.current_branch_id}, target_branch_len={len(target_branch.conversation_history)}"
+            )
             conversation = []
             for msg in target_branch.conversation_history:
                 if isinstance(msg, dict):

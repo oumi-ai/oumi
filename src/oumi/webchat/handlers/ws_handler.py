@@ -27,6 +27,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
 from oumi.webchat.core.session_manager import SessionManager
 from oumi.webchat.chatgraph_migration.graph_store import GraphStore
+from oumi.webchat.protocol import normalize_msg_type, extract_session_id, get_valid_message_types
 
 
 class WebSocketHandler:
@@ -124,12 +125,12 @@ class WebSocketHandler:
             data: Message data from the WebSocket
             ws: WebSocketResponse to send responses to
         """
-        msg_type = data.get("type")
+        msg_type = normalize_msg_type(data.get("type", ""))
         
         if msg_type == "ping":
             await ws.send_str(json.dumps({"type": "pong"}))
         
-        elif msg_type == "chat_message":
+        elif msg_type == "chat":
             await self.handle_chat_message(session, data, ws)
         
         elif msg_type == "command":
@@ -174,9 +175,13 @@ class WebSocketHandler:
             )
         
         else:
+            valid_types = get_valid_message_types()
             await ws.send_str(
                 json.dumps(
-                    {"type": "error", "message": f"Unknown message type: {msg_type}"}
+                    {
+                        "type": "error", 
+                        "message": f"Unknown message type: '{msg_type}' (expected: {valid_types})"
+                    }
                 )
             )
     
@@ -191,19 +196,50 @@ class WebSocketHandler:
             ws: WebSocketResponse to send responses to
         """
         user_message = data.get("message", "")
+        # Extract branch_id with consistent handling
+        target_branch_id = data.get("branch_id")
         
-        # Add user message to conversation
-        session.conversation_history.append(
-            {"role": "user", "content": user_message, "timestamp": time.time()}
-        )
-
-        # Keep the active branch's conversation in sync immediately (pre-response)
+        # Note: We don't use extract_session_id here since the session is already provided,
+        # but we consistently accept branch_id as an optional parameter
         try:
-            current_branch = session.branch_manager.get_current_branch()
-            current_branch.conversation_history = session.conversation_history.copy()
-            current_branch.last_active = datetime.now()
-        except Exception as sync_err:
-            logger.debug(f"Branch pre-sync after user message failed: {sync_err}")
+            logger.debug(
+                f"WS chat start: session={session.session_id}, current_branch={session.branch_manager.current_branch_id}, target_branch={target_branch_id}"
+            )
+        except Exception:
+            pass
+
+        async def _apply_and_sync(s):
+            # If requested, switch to the target branch first
+            if target_branch_id and target_branch_id != s.branch_manager.current_branch_id:
+                try:
+                    s.branch_manager.sync_conversation_history(s.conversation_history)
+                    success, msg, branch = s.branch_manager.switch_branch(target_branch_id)
+                    if success and branch:
+                        s.conversation_history.clear()
+                        s.conversation_history.extend(branch.conversation_history)
+                        logger.debug(f"WS chat: switched to branch {target_branch_id}")
+                except Exception as e:
+                    logger.warning(f"WS branch switch failed: {e}")
+
+            # Append user message
+            s.conversation_history.append(
+                {"role": "user", "content": user_message, "timestamp": time.time()}
+            )
+
+            # Sync the active branch immediately
+            try:
+                current_branch = s.branch_manager.get_current_branch()
+                current_branch.conversation_history = s.conversation_history.copy()
+                current_branch.last_active = datetime.now()
+                logger.debug(
+                    f"WS chat post-user: current_branch={s.branch_manager.current_branch_id}, conv_len={len(s.conversation_history)}, branch_len={len(current_branch.conversation_history)}"
+                )
+            except Exception as sync_err:
+                logger.debug(f"Branch pre-sync after user message failed: {sync_err}")
+            return s
+
+        # Ensure branch switch + append occur under the session lock
+        session = await self.session_manager.execute_session_operation(session.session_id, _apply_and_sync)
         
         # Broadcast user message to all clients
         await session.broadcast_to_websockets(
@@ -307,6 +343,9 @@ class WebSocketHandler:
                 current_branch = session.branch_manager.get_current_branch()
                 current_branch.conversation_history = session.conversation_history.copy()
                 current_branch.last_active = datetime.now()
+                logger.debug(
+                    f"WS chat post-assistant: current_branch={session.branch_manager.current_branch_id}, conv_len={len(session.conversation_history)}, branch_len={len(current_branch.conversation_history)}"
+                )
             except Exception as sync_err:
                 logger.debug(f"Branch post-sync after assistant message failed: {sync_err}")
             
