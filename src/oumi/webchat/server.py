@@ -25,9 +25,10 @@ from oumi.utils.logging import logger
 
 # Import core components
 from oumi.core.configs import InferenceConfig
-from oumi.server import OpenAICompatibleServer
+from oumi.core.inference import BaseInferenceEngine
+from oumi.infer import get_engine
 
-# Import new structured components
+# Import structured components
 from oumi.webchat.core.session_manager import SessionManager
 # Re-export for backward-compat imports in tests
 from oumi.webchat.core.session import WebChatSession  # noqa: F401
@@ -54,7 +55,7 @@ except ImportError:
     ENHANCED_FEATURES_AVAILABLE = False
 
 
-class OumiWebServer(OpenAICompatibleServer):
+class OumiWebServer:
     """Modular Oumi WebChat server with WebSocket and interactive command support."""
     
     def __init__(
@@ -74,11 +75,18 @@ class OumiWebServer(OpenAICompatibleServer):
             base_dir: Optional base directory path.
             session_locking_enabled: Whether to enable session locking for concurrency control.
         """
-        # Initialize base properties without calling super().__init__()
-        # to avoid blocking inference engine initialization
+        # Initialize base properties
         self.config = config
         self.system_prompt = system_prompt
         self.base_dir = base_dir
+        
+        # Set up OpenAI-compatible model info
+        self.model_info = {
+            "id": getattr(config.model, "model_name", "oumi-model"),
+            "object": "model",
+            "created": int(time.time()),
+            "owned_by": "oumi",
+        }
         
         # Apply session locking setting to config for sharing with components
         setattr(config, 'session_locking_enabled', session_locking_enabled)
@@ -179,6 +187,30 @@ class OumiWebServer(OpenAICompatibleServer):
         add_middlewares(app)
         
         return app
+
+    async def handle_health(self, request: web.Request) -> web.Response:
+        """Handle health check requests.
+        
+        Args:
+            request: The HTTP request object
+            
+        Returns:
+            JSON response with health status
+        """
+        return web.json_response({"status": "ok"})
+        
+    async def handle_chat_completions(self, request: web.Request) -> web.Response:
+        """Handle chat completions requests through the ChatHandler.
+        
+        This preserves the WebChat semantics (client-provided messages are authoritative; branch-aware sync).
+        
+        Args:
+            request: The HTTP request object
+            
+        Returns:
+            HTTP response from the chat handler
+        """
+        return await self.chat_handler.handle_chat_completions(request)
     
     async def start_background_tasks(self, app: web.Application):
         """Start background tasks."""

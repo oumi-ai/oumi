@@ -167,8 +167,8 @@ class TestWebChatTyperCommands:
         # Mock successful subprocess run for npm
         mock_subprocess.return_value = None
 
-        # Execute webchat command
-        result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH, "--host", "localhost", "--backend-port", "8080"])
+        # Execute webchat command - use the launch subcommand instead of top-level webchat
+        result = cli_runner.invoke(webchat_app, ["launch", "--config", TEST_CONFIG_PATH, "--host", "localhost", "--backend-port", "8080"])
 
         # Command should execute without errors
         assert result.exit_code == 0
@@ -214,8 +214,8 @@ class TestWebChatTyperCommands:
         with patch("oumi.cli.webchat.find_available_port", return_value=8082):
             mock_subprocess.return_value = None
 
-            # Execute webchat command with conflicted port
-            result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH, "--backend-port", "8080"])
+            # Execute webchat command with conflicted port - use launch subcommand
+            result = cli_runner.invoke(webchat_app, ["launch", "--config", TEST_CONFIG_PATH, "--backend-port", "8080"])
 
             # Should succeed despite port conflict
             assert result.exit_code == 0
@@ -225,8 +225,8 @@ class TestWebChatTyperCommands:
         """Test webchat command with configuration file."""
         mock_subprocess.return_value = None
 
-        # Execute webchat command with config
-        result = cli_runner.invoke(webchat_app, ["-c", TEST_CONFIG_PATH])
+        # Execute webchat command with config - use launch subcommand
+        result = cli_runner.invoke(webchat_app, ["launch", "-c", TEST_CONFIG_PATH])
 
         # Should pass config to frontend launch
         assert result.exit_code == 0
@@ -303,8 +303,8 @@ class TestWebChatStartupSequence:
         while test_port < 9000:  # WebChat servers should use port 9000+ by default
             test_port = PortTestHelper.find_free_port()
 
-        # Execute webchat command
-        result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH, "--host", "localhost", "--backend-port", str(test_port)])
+        # Execute webchat command - use launch subcommand
+        result = cli_runner.invoke(webchat_app, ["launch", "--config", TEST_CONFIG_PATH, "--host", "localhost", "--backend-port", str(test_port)])
 
         # Should complete successfully
         assert result.exit_code == 0
@@ -319,7 +319,8 @@ class TestWebChatStartupSequence:
         with patch("oumi.cli.webchat.find_available_port", return_value=8081):
             mock_subprocess.return_value = None
 
-            result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH, "--backend-port", "8080"])
+            # Use launch subcommand
+            result = cli_runner.invoke(webchat_app, ["launch", "--config", TEST_CONFIG_PATH, "--backend-port", "8080"])
 
             # Should resolve conflict and succeed
             assert result.exit_code == 0
@@ -365,7 +366,8 @@ class TestWebChatConfiguration:
 
         # Mock config file existence and loading
         with patch("pathlib.Path.exists", return_value=True):
-            result = cli_runner.invoke(webchat_app, ["-c", TEST_CONFIG_PATH])
+            # Use launch subcommand
+            result = cli_runner.invoke(webchat_app, ["launch", "-c", TEST_CONFIG_PATH])
 
             assert result.exit_code == 0
 
@@ -378,20 +380,20 @@ class TestWebChatConfiguration:
         mock_run_server.return_value = None
         mock_subprocess.return_value = None
 
-        # Execute without explicit parameters
-        result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH])
+        # Execute without explicit parameters - use launch subcommand
+        result = cli_runner.invoke(webchat_app, ["launch", "--config", TEST_CONFIG_PATH])
 
         # Should use default values
         assert result.exit_code == 0
 
     def test_configuration_validation(self, webchat_app, cli_runner):
         """Test configuration parameter validation."""
-        # Test invalid port (negative)
-        result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH, "--backend-port", "-1"])
+        # Test invalid port (negative) - use launch subcommand
+        result = cli_runner.invoke(webchat_app, ["launch", "--config", TEST_CONFIG_PATH, "--backend-port", "-1"])
         assert result.exit_code != 0
 
-        # Test invalid port (too high)
-        result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH, "--backend-port", "99999"])
+        # Test invalid port (too high) - use launch subcommand
+        result = cli_runner.invoke(webchat_app, ["launch", "--config", TEST_CONFIG_PATH, "--backend-port", "99999"])
         assert result.exit_code != 0
 
     @patch("subprocess.run")
@@ -409,7 +411,7 @@ class TestWebChatConfiguration:
         ):
             # Note: Actual implementation may or may not support env vars
             # This test documents expected behavior
-            result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH])
+            result = cli_runner.invoke(webchat_app, ["launch", "--config", TEST_CONFIG_PATH])
 
             assert result.exit_code == 0
 
@@ -490,8 +492,8 @@ class TestWebChatIntegration:
         while server_port < 9000 or server_port == webchat_port:  # Different port, also 9000+
             server_port = PortTestHelper.find_free_port()
 
-        # Execute webchat command
-        result1 = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH, "--backend-port", str(webchat_port)])
+        # Execute webchat command - use launch subcommand
+        result1 = cli_runner.invoke(webchat_app, ["launch", "--config", TEST_CONFIG_PATH, "--backend-port", str(webchat_port)])
         assert result1.exit_code == 0
 
         # Execute server command
