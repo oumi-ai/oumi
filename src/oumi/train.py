@@ -17,7 +17,7 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Final, Optional, Union
+from typing import Any, Callable, Final, Optional, Union, cast
 
 import datasets as hf_datasets
 import torch
@@ -198,6 +198,9 @@ def _create_optional_training_kwargs(
     if trainer_type == TrainerType.OUMI:
         kwargs["config"] = config
 
+    # Pass config to all trainer types so DeepSpeed can be configured in HF trainers
+    kwargs["training_config"] = config
+
     if trainer_type in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO):
         if metrics_function:
             raise ValueError(f"metrics_function isn't supported for {trainer_type}")
@@ -261,6 +264,7 @@ def train(
     config: TrainingConfig,
     additional_model_kwargs: Optional[dict[str, Any]] = None,
     additional_trainer_kwargs: Optional[dict[str, Any]] = None,
+    verbose: bool = False,
 ) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -277,10 +281,29 @@ def train(
 
     config = _finalize_training_config(config)
 
+    # Check for potential multi-node DeepSpeed ZeRO-3 saving issue early
+    if (
+        config.deepspeed
+        and config.deepspeed.is_zero3_enabled()
+        and config.deepspeed.stage3_gather_16bit_weights_on_model_save
+        and get_device_rank_info().world_size > get_device_rank_info().local_world_size
+    ):
+        logger.warning(
+            "⚠️  Multi-node DeepSpeed ZeRO-3 model saving detected with "
+            "stage3_gather_16bit_weights_on_model_save=True. This can cause hangs "
+            "during weight gathering across nodes. Consider setting "
+            "stage3_gather_16bit_weights_on_model_save=False and using "
+            "zero_to_fp32.py for post-training conversion. "
+            "See: https://github.com/microsoft/DeepSpeed/issues/2450"
+        )
+
     if is_local_process_zero():
-        logger.info(f"TrainingConfig:\n{pformat(config)}")
+        if verbose:
+            logger.info(f"TrainingConfig:\n{pformat(config)}")
         if telemetry_dir and is_world_process_zero():
-            config.to_yaml(str(telemetry_dir / "training_config.yaml"))
+            config_path = telemetry_dir / "training_config.yaml"
+            config.to_yaml(str(config_path))
+            logger.info(f"Training config saved to {config_path}")
 
     # Initialize tokenizer and processor.
     tokenizer: Optional[BaseTokenizer] = None
@@ -347,7 +370,9 @@ def train(
         ):
             eval_dataset = try_prepare_trl_grpo_dataset(eval_dataset)
 
-    collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
+    collator: Optional[Callable] = build_collator_from_config(
+        config, tokenizer, debug=config.training.log_examples
+    )
 
     training_kwargs = _create_optional_training_kwargs(
         config,
@@ -362,7 +387,9 @@ def train(
     # 1. It uses Ray
     # 2. Some of the setup below is not applicable.
     if config.training.trainer_type == TrainerType.VERL_GRPO:
-        create_trainer_fn = build_trainer(trainer_type, processor=processor)
+        create_trainer_fn = build_trainer(
+            trainer_type, processor=processor, verbose=verbose
+        )
 
         # We don't initialize the trainer here because it needs to run in a remote Ray
         # function.
@@ -455,7 +482,7 @@ def train(
 
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
-        trainer_type, processor=processor
+        trainer_type, processor=processor, verbose=verbose
     )
 
     # Reclaim memory before training starts.
@@ -497,7 +524,12 @@ def train(
                     f"Instead got {config.peft.bnb_4bit_quant_storage} and "
                     f"{config.model.torch_dtype}."
                 )
-            coerce_model_to_dtype(model, config.model.torch_dtype)
+            if config.model.torch_dtype_str == "auto":
+                raise ValueError(
+                    "torch_dtype cannot be 'auto' for QLoRA FSDP training. "
+                    "Please specify a dtype."
+                )
+            coerce_model_to_dtype(model, cast(torch.dtype, config.model.torch_dtype))
             logger.info(f"Coerced model to dtype {config.model.torch_dtype}!")
 
         with torch.profiler.record_function("wait_for_all_ranks"):
@@ -526,6 +558,7 @@ def train(
         barrier()
 
         logger.info("Saving final model...")
+
         trainer.save_model(config=config)
 
     barrier()

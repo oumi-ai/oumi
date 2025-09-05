@@ -109,17 +109,17 @@ class BaseProcessor(abc.ABC):
         self,
         *,
         text: list[str],
-        padding: bool,
         images: Optional[list[PIL.Image.Image]] = None,
         return_tensors: Optional[str] = "pt",
+        **kwargs,
     ) -> transformers.BatchEncoding:
         """Invokes the processor to extract features.
 
         Args:
             text: A list of text prompts.
-            padding: Whether to pad sequences to common length.
             images: A list of input images.
             return_tensors: The format of returned tensors.
+            kwargs: Additional keyword arguments.
 
         Returns:
             transformers.BatchEncoding: The model-specific input features.

@@ -86,6 +86,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             - n_threads: 4
             - filename: "*q8_0.gguf" (applies Q8 quantization by default)
             - flash_attn: True
+            - use_mmap: True (loads model parts as needed)
+            - use_mlock: True (locks the model pages in physical RAM)
             These defaults can be overridden by specifying them in
             `model_params.model_kwargs`.
         """
@@ -122,6 +124,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             # Use Q8 quantization by default.
             "filename": "*8_0.gguf",
             "flash_attn": True,
+            # Memory safety defaults
+            "use_mmap": True,
+            "use_mlock": True,
         }
 
         model_kwargs = model_params.model_kwargs.copy()
@@ -147,10 +152,15 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     ) -> list[dict[str, str]]:
         """Converts a conversation to a list of llama.cpp input messages."""
         # FIXME Handle multimodal e.g., raise an error.
+        role_mapping = {
+            Role.SYSTEM: "system",
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+        }
         return [
             {
                 "content": message.compute_flattened_text_content(),
-                "role": "user" if message.role == Role.USER else "assistant",
+                "role": role_mapping.get(message.role, "assistant"),
             }
             for message in conversation.messages
         ]

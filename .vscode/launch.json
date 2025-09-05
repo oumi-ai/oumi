@@ -21,7 +21,7 @@
             "args": [
                 "train",
                 "-c",
-                "configs/recipes/phi3/dpo/mac_train.yaml"
+                "configs/recipes/phi3/dpo/macos_train.yaml"
             ],
             "justMyCode": false
         },

@@ -31,13 +31,13 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install -U ".[ci_gpu]" hf_transfer
-  # TODO: OPE-1336 - Remove version pin when error with later versions is fixed.
-  pip install -U "flash-attn==2.7.4.post1" --no-build-isolation
+  pip install uv && uv pip install -e ".[ci_gpu]" hf_transfer
+  pip install -U flash-attn --no-build-isolation
 
 run: |
   set -xe  # Exit if any command failed.
   source "./configs/examples/misc/sky_init.sh"
+  uv pip install -U -e ".[ci_gpu]"
 
   echo "Node ${SKYPILOT_NODE_RANK} starting..."
   echo "Unit tests: ${ENABLE_OUMI_UNIT_TESTS}"
@@ -46,7 +46,6 @@ run: |
 
   nvidia-smi
 
-  pip install -U -e ".[ci_gpu]"
   echo "$(oumi env)"
 
   GPU_MULTIPLICITY_MARKER="single_gpu"

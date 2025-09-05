@@ -55,17 +55,19 @@ class VisionLanguageSftCollator:
     tensor batches.
 
     Key Features:
-        - Processes Conversation objects containing text and image data
-        - Uses model-specific processors to extract image features
-        - Handles tokenization and feature generation in one step
-        - Supports various vision-language architectures
-        - Manages padding, truncation, and label masking
+
+    - Processes Conversation objects containing text and image data
+    - Uses model-specific processors to extract image features
+    - Handles tokenization and feature generation in one step
+    - Supports various vision-language architectures
+    - Manages padding, truncation, and label masking
 
     The collator expects batch items with a "conversation_json" field containing
     serialized Conversation objects. These conversations can include:
-        - Multiple turns of dialogue
-        - Image references (paths, URLs, or base64 data)
-        - System prompts and user/assistant messages
+
+    - Multiple turns of dialogue
+    - Image references (paths, URLs, or base64 data)
+    - System prompts and user/assistant messages
     """
 
     def __init__(
@@ -128,6 +130,7 @@ class VisionLanguageSftCollator:
                 - Features are padded to the maximum size in the batch
                 - Useful for models with variable-sized outputs or heterogeneous data
                 - May be less efficient but more flexible than batch processing
+
                 When False (default), conversations are processed as a batch.
 
             train_on_completions_only: If True, only compute loss on the assistant's
@@ -211,12 +214,13 @@ class VisionLanguageSftCollator:
             batch: List of dictionaries, where each dictionary must contain a
                 "conversation_json" field with a serialized Conversation object.
 
-                Expected format:
-                [
-                    {"conversation_json": '{"messages": [...], "images": [...]}'},
-                    {"conversation_json": '{"messages": [...], "images": [...]}'},
-                    ...
-                ]
+                Expected format::
+
+                    [
+                        {"conversation_json": '{"messages": [...], "images": [...]}'},
+                        {"conversation_json": '{"messages": [...], "images": [...]}'},
+                        ...
+                    ]
 
                 The conversation JSON should include:
                 - messages: List of message dictionaries with role and content
@@ -235,7 +239,8 @@ class VisionLanguageSftCollator:
         Raises:
             ValueError: If batch is empty or any item lacks "conversation_json" field.
 
-        Example:
+        Example::
+
             >>> conversation = Conversation(messages=[
             ...     {"role": "user", "content": "What's in this image?"},
             ...     {"role": "assistant", "content": "I see a cat."}
@@ -244,6 +249,7 @@ class VisionLanguageSftCollator:
             >>> features = collator([batch_item])
             >>> print(features.keys())
             dict_keys(['input_ids', 'attention_mask', 'labels', 'pixel_values'])
+
         """
         batch_size = len(batch)
         if batch_size <= 0:

@@ -1,0 +1,56 @@
+# Qwen2.5-VL 3B Vision DPO train config.
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/qwen2_5_vl_3b/dpo/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "openbmb/RLAIF-V-Dataset"
+        split: "train[:1000]"
+        dataset_kwargs:
+          processor_name: "Qwen/Qwen2-VL-2B-Instruct"
+          return_tensors: True
+
+training:
+  optimizer: "adamw_torch"
+  # use_peft: true
+  output_dir: "output/qwen2_5_vl_3b.vision_dpo"
+  trainer_type: "TRL_DPO"
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  learning_rate: 1e-5
+  warmup_steps: 100
+  max_steps: 1000
+  logging_steps: 10
+  save_steps: 500
+  eval_steps: 500
+
+  # DPO specific parameters
+  trainer_kwargs:
+    beta: 0.1 # DPO beta parameter
+    max_length: 2048
+    max_prompt_length: 1024
+# peft:
+#   q_lora: True
+#   lora_target_modules:
+#     - "q_proj"
+#     - "k_proj"
+#     - "v_proj"
+#     - "o_proj"
+#     - "gate_proj"
+#     - "up_proj"
+#     - "down_proj"
+#   lora_r: 16
+#   lora_alpha: 32
+#   lora_dropout: 0.1

@@ -1,4 +1,4 @@
- # Common Workflows
+# Common Workflows
 
 This guide provides practical examples for common inference tasks in Oumi, focusing on real-world use cases and patterns.
 
@@ -52,7 +52,7 @@ Structured decoding helps ensure the model outputs data in a consistent, parseab
 Here's an example of how to use guided decoding to generate data in a structured format:
 
 ```{code-block} python
-:emphasize-lines: 1, 7, 11, 12, 13, 14, 15, 16, 27, 28, 52
+:emphasize-lines: 1, 7, 11, 12, 13, 14, 15, 16, 25, 49
 
 from pydantic import BaseModel
 from oumi.inference import OpenAIInferenceEngine
@@ -105,13 +105,12 @@ result = engine.infer([conversation], inference_config=config)
 product = ProductInfo.model_validate_json(result[0].messages[-1].content)
 ```
 
-
 ## Parallel Processing with Multiple Workers
 
 For high-throughput scenarios where you need to process many requests concurrently, you can leverage multiple workers:
 
 ```{code-block} python
-:emphasize-lines: 10, 11, 12
+:emphasize-lines: 8, 9, 10
 
 from oumi.inference import OpenAIInferenceEngine
 from oumi.core.configs import InferenceConfig, RemoteParams, ModelParams
@@ -151,7 +150,7 @@ Batch processing offers several key advantages over real-time inference with mul
 Here's an OpenAI example of how to use Oumi's async batch inference:
 
 ```{code-block} python
-:emphasize-lines: 10,26
+:emphasize-lines: 8,24
 
 from oumi.inference import OpenAIInferenceEngine
 from oumi.core.configs import InferenceConfig, RemoteParams, ModelParams

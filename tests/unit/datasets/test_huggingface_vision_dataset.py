@@ -163,6 +163,69 @@ def test_init_missing_question_column(mock_tokenizer, mock_processor):
             )
 
 
+@patch("pathlib.Path.exists")
+@patch.object(HuggingFaceVisionDataset, "_load_hf_hub_dataset")
+@patch.object(HuggingFaceVisionDataset, "_load_local_dataset")
+def test_load_data_calls_correct_method_for_local_path(
+    mock_load_local,
+    mock_load_hf_hub,
+    mock_path_exists,
+    mock_tokenizer,
+    mock_processor,
+):
+    """Test that _load_data calls _load_local_dataset when dataset_path is set."""
+    mock_path_exists.return_value = True  # Path exists locally
+    mock_load_local.return_value = pd.DataFrame({"test": [1, 2, 3]})
+
+    dataset = HuggingFaceVisionDataset(
+        hf_dataset_path="/local/path/to/dataset",
+        image_column="image",
+        question_column="question",
+        tokenizer=mock_tokenizer,
+        processor=mock_processor,
+    )
+
+    assert dataset.dataset_path == "/local/path/to/dataset"
+    mock_load_local.assert_called_once_with("/local/path/to/dataset")
+    mock_load_hf_hub.assert_not_called()
+
+    result = dataset._load_data()
+    assert result.equals(pd.DataFrame({"test": [1, 2, 3]}))
+
+
+@patch("pathlib.Path.exists")
+@patch.object(HuggingFaceVisionDataset, "_load_hf_hub_dataset")
+@patch.object(HuggingFaceVisionDataset, "_load_local_dataset")
+def test_load_data_calls_correct_method_for_remote_path(
+    mock_load_local,
+    mock_load_hf_hub,
+    mock_path_exists,
+    mock_tokenizer,
+    mock_processor,
+):
+    """Test that _load_data calls _load_hf_hub_dataset when dataset_name is set."""
+    mock_path_exists.return_value = False  # Path doesn't exist locally
+    mock_load_hf_hub.return_value = pd.DataFrame({"test": [1, 2, 3]})
+
+    dataset = HuggingFaceVisionDataset(
+        hf_dataset_path="HuggingFaceM4/VQAv2",
+        image_column="image",
+        question_column="question",
+        tokenizer=mock_tokenizer,
+        processor=mock_processor,
+    )
+
+    # Verify that dataset_name is set
+    assert dataset.dataset_name == "HuggingFaceM4/VQAv2"
+
+    # Verify the correct method was called
+    mock_load_hf_hub.assert_called_once()
+    mock_load_local.assert_not_called()
+
+    result = dataset._load_data()
+    assert result.equals(pd.DataFrame({"test": [1, 2, 3]}))
+
+
 @patch.object(HuggingFaceVisionDataset, "_load_data")
 def test_get_image_content_item_with_bytes_attribute(
     mock_load_data, mock_tokenizer, mock_processor

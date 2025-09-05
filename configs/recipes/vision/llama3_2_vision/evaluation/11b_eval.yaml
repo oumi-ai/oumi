@@ -2,7 +2,7 @@
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Llama 3.2: https://huggingface.co/meta-llama/Llama-3.2-11B-Vision-Instruct
 #
 # Usage:
@@ -25,71 +25,11 @@ generation:
   batch_size: 1
 
 tasks:
+  # For all available tasks, see https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
   - evaluation_backend: lm_harness
-    task_name: "mmmu_val"
-    # num_samples: 100  # Limit the number of eval samples.
+    task_name: mmmu_val_computer_science
     eval_kwargs:
       num_fewshot: 5
-  # To enable individual sub-tasks, uncomment the entries of interest below:
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_accounting"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_agriculture"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_architecture_and_engineering"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_art"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_art_theory"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_basic_medical_science"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_biology"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_chemistry"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_clinical_medicine"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_computer_science"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_design"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_diagnostics_and_laboratory_medicine"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_economics"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_electronics"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_energy_and_power"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_finance"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_geography"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_history"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_literature"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_manage"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_marketing"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_materials"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_math"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_mechanical_engineering"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_music"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_pharmacy"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_physics"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_psychology"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_public_health"
-  # - evaluation_backend: lm_harness
-  #   task_name: "mmmu_val_sociology"
 
+inference_engine: NATIVE
 enable_wandb: True

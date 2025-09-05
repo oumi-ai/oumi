@@ -87,7 +87,7 @@ def configure_logger(
 
     # Add a console handler to the logger for only global leader.
     if device_rank == 0:
-        if _should_use_rich_logging():
+        if should_use_rich_logging():
             console_handler = _configure_rich_handler(device_rank, level)
         else:
             console_handler = logging.StreamHandler(sys.stdout)
@@ -109,23 +109,26 @@ def configure_logger(
     logger.propagate = False
 
 
-def _should_use_rich_logging() -> bool:
-    """Determines if rich logging should be used based on environment variables.
+def should_use_rich_logging() -> bool:
+    """Determines whether rich logging should be used.
 
-    Note: Rich logging is experimental, and may be removed in the future.
-        Currently it is disabled by default.
+    Returns:
+        bool: True if rich logging should be used, False otherwise.
+
+    Rich logging is enabled if the output is a terminal (TTY) and not explicitly
+    disabled via the OUMI_DISABLE_RICH_LOGGING environment variable.
     """
     # Check if explicitly disabled
-    if os.environ.get("OUMI_ENABLE_RICH_LOGGING", "").lower() in (
+    if os.environ.get("OUMI_DISABLE_RICH_LOGGING", "").lower() in (
         "1",
         "yes",
         "on",
         "true",
         "y",
     ):
-        return sys.stdout.isatty()  # is in a terminal
+        return False
 
-    return False
+    return sys.stdout.isatty()  # is in a terminal
 
 
 def _configure_rich_handler(

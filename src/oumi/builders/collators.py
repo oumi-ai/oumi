@@ -108,6 +108,7 @@ def build_data_collator(
             max_length=max_length,
             truncation=enable_truncation,
             label_ignore_index=label_ignore_index,
+            debug=debug,
             **kwargs,
         )
     elif collator_name == "vision_language_sft":
@@ -125,11 +126,28 @@ def build_data_collator(
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
+        # Extract instruction and response templates from kwargs if provided
+        instruction_template = kwargs.pop("instruction_template", None)
+        response_template = kwargs.pop("response_template", None)
+
+        # Default to Llama-style templates if not provided
+        instruction_prefix = (
+            instruction_template
+            if instruction_template
+            else "<|start_header_id|>user<|end_header_id|>\n\n"
+        )
+        response_prefix = (
+            response_template
+            if response_template
+            else "<|start_header_id|>assistant<|end_header_id|>\n\n"
+        )
+
         return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
-            instruction_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
-            response_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
+            instruction_prefix=instruction_prefix,
+            response_prefix=response_prefix,
             debug=debug,
+            **kwargs,
         )
     raise ValueError(f"Unknown data collator name: '{collator_name}'")
 

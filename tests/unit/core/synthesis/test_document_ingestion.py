@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from importlib.util import find_spec
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -25,6 +26,8 @@ from oumi.core.synthesis.document_ingestion import (
     DocumentReader,
     DocumentSegmenter,
 )
+
+pdftext_import_failed = find_spec("pdftext") is None
 
 
 @pytest.fixture
@@ -45,50 +48,63 @@ def sample_pdf_content():
     return "# Sample PDF Content\n\nThis is a sample PDF converted to markdown."
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_single_pdf_document(reader, sample_pdf_content):
     """Test reading a single PDF document."""
     document_path = "path/to/document.pdf"
+    mock_file_bytes = b"mock pdf file bytes"
 
-    with patch("pymupdf4llm.to_markdown", return_value=sample_pdf_content) as mock_pdf:
-        result = reader.read(document_path)
+    with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
+        with patch.object(
+            reader, "_extractor_method", return_value=sample_pdf_content
+        ) as mock_pdf:
+            result = reader.read(document_path)
 
-        mock_pdf.assert_called_once_with("path/to/document.pdf")
-        assert result == [sample_pdf_content]
+            mock_pdf.assert_called_once_with(mock_file_bytes, sort=True, hyphens=True)
+            assert result == [sample_pdf_content]
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_single_txt_document(reader, sample_text_content):
     """Test reading a single TXT document."""
     document_path = "path/to/document.txt"
+    mock_file_bytes = sample_text_content.encode("utf-8")
 
-    with patch("builtins.open", mock_open(read_data=sample_text_content)):
+    with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
         result = reader.read(document_path)
 
         assert result == [sample_text_content]
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_single_html_document(reader, sample_text_content):
     """Test reading a single HTML document."""
     document_path = "path/to/document.html"
+    mock_file_bytes = sample_text_content.encode("utf-8")
 
-    with patch("builtins.open", mock_open(read_data=sample_text_content)):
+    with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
         result = reader.read(document_path)
 
         assert result == [sample_text_content]
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_single_md_document(reader, sample_text_content):
     """Test reading a single Markdown document."""
     document_path = "path/to/document.md"
+    mock_file_bytes = sample_text_content.encode("utf-8")
 
-    with patch("builtins.open", mock_open(read_data=sample_text_content)):
+    with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
         result = reader.read(document_path)
 
         assert result == [sample_text_content]
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_multiple_documents_glob_pattern(reader, sample_text_content):
     """Test reading multiple documents using glob pattern."""
     document_path = "path/to/*.txt"
+    mock_file_bytes = sample_text_content.encode("utf-8")
 
     # Create mock Path objects with is_file() returning True
     mock_files = []
@@ -100,16 +116,18 @@ def test_read_multiple_documents_glob_pattern(reader, sample_text_content):
         mock_files.append(mock_file)
 
     with patch("pathlib.Path.glob", return_value=mock_files):
-        with patch("builtins.open", mock_open(read_data=sample_text_content)):
+        with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
             result = reader.read(document_path)
 
             assert len(result) == 3
             assert all(content == sample_text_content for content in result)
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_multiple_directories_files_glob_pattern(reader, sample_text_content):
     """Test reading multiple documents using glob pattern."""
     document_path = "path/*/to/*.txt"
+    mock_file_bytes = sample_text_content.encode("utf-8")
 
     # Create mock Path objects with is_file() returning True
     mock_files = []
@@ -125,16 +143,18 @@ def test_read_multiple_directories_files_glob_pattern(reader, sample_text_conten
         mock_files.append(mock_file)
 
     with patch("pathlib.Path.glob", return_value=mock_files):
-        with patch("builtins.open", mock_open(read_data=sample_text_content)):
+        with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
             result = reader.read(document_path)
 
             assert len(result) == 3
             assert all(content == sample_text_content for content in result)
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_multiple_pdf_documents_glob_pattern(reader, sample_pdf_content):
     """Test reading multiple PDF documents using glob pattern."""
     document_path = "path/to/*.pdf"
+    mock_file_bytes = b"mock pdf file bytes"
 
     # Create mock Path objects with is_file() returning True
     mock_files = []
@@ -146,16 +166,18 @@ def test_read_multiple_pdf_documents_glob_pattern(reader, sample_pdf_content):
         mock_files.append(mock_file)
 
     with patch("pathlib.Path.glob", return_value=mock_files):
-        with patch(
-            "pymupdf4llm.to_markdown", return_value=sample_pdf_content
-        ) as mock_pdf:
-            result = reader.read(document_path)
+        with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
+            with patch.object(
+                reader, "_extractor_method", return_value=sample_pdf_content
+            ) as mock_pdf:
+                result = reader.read(document_path)
 
-            assert len(result) == 2
-            assert all(content == sample_pdf_content for content in result)
-            assert mock_pdf.call_count == 2
+                assert len(result) == 2
+                assert all(content == sample_pdf_content for content in result)
+                assert mock_pdf.call_count == 2
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_empty_glob_pattern(reader):
     """Test reading with glob pattern that matches no files."""
     document_path = "path/to/*.txt"
@@ -166,33 +188,41 @@ def test_read_empty_glob_pattern(reader):
         assert result == []
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_from_document_format_unsupported(reader):
     """Test reading document with unsupported format."""
+    mock_file_bytes = b"mock file bytes"
 
     with pytest.raises(NotImplementedError, match="Unsupported document format"):
-        reader._read_from_document_format(Path("path/to/document.unsupported"))
+        reader._read_from_document_format(mock_file_bytes, "unsupported")
 
 
-def test_read_from_pdf_calls_pymupdf4llm(reader, sample_pdf_content):
-    """Test that reading PDF calls pymupdf4llm correctly."""
-    with patch("pymupdf4llm.to_markdown", return_value=sample_pdf_content) as mock_pdf:
-        result = reader._read_from_pdf("path/to/document.pdf")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
+def test_read_from_pdf_calls_pdftext(reader, sample_pdf_content):
+    """Test that reading PDF calls pdftext correctly."""
+    mock_file_bytes = b"mock pdf file bytes"
+    with patch.object(
+        reader, "_extractor_method", return_value=sample_pdf_content
+    ) as mock_pdf:
+        result = reader._read_from_pdf(mock_file_bytes)
 
-        mock_pdf.assert_called_once_with("path/to/document.pdf")
+        mock_pdf.assert_called_once_with(mock_file_bytes, sort=True, hyphens=True)
         assert result == sample_pdf_content
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_from_text_file_opens_file_correctly(reader, sample_text_content):
-    """Test that reading text file opens file correctly."""
-    with patch("builtins.open", mock_open(read_data=sample_text_content)) as mock_file:
-        result = reader._read_from_text_file("path/to/document.txt")
+    """Test that reading text file handles file_bytes correctly."""
+    mock_file_bytes = sample_text_content.encode("utf-8")
+    result = reader._read_from_text_file(mock_file_bytes)
 
-        mock_file.assert_called_once_with("path/to/document.txt")
-        assert result == sample_text_content
+    assert result == sample_text_content
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_from_glob_with_different_formats(reader, sample_text_content):
     """Test reading from glob with mixed document formats."""
+    mock_file_bytes = sample_text_content.encode("utf-8")
     # Create mock Path objects with is_file() returning True
     mock_files = []
     formats = [("file1.txt", ".txt"), ("file2.md", ".md"), ("file3.html", ".html")]
@@ -204,13 +234,14 @@ def test_read_from_glob_with_different_formats(reader, sample_text_content):
         mock_files.append(mock_file)
 
     with patch("pathlib.Path.glob", return_value=mock_files):
-        with patch("builtins.open", mock_open(read_data=sample_text_content)):
+        with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
             result = reader._read_from_glob(Path("path/to/*.txt"))
 
             assert len(result) == 3
             assert all(content == sample_text_content for content in result)
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_handles_file_read_error(reader):
     """Test that reading handles file read errors gracefully."""
     document_path = "path/to/nonexistent.txt"
@@ -220,15 +251,21 @@ def test_read_handles_file_read_error(reader):
             reader.read(document_path)
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_handles_pdf_read_error(reader):
     """Test that reading handles PDF read errors gracefully."""
     document_path = "path/to/corrupted.pdf"
+    mock_file_bytes = b"corrupted pdf file bytes"
 
-    with patch("pymupdf4llm.to_markdown", side_effect=Exception("PDF read error")):
-        with pytest.raises(Exception, match="PDF read error"):
-            reader.read(document_path)
+    with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
+        with patch.object(
+            reader, "_extractor_method", side_effect=Exception("PDF read error")
+        ):
+            with pytest.raises(Exception, match="PDF read error"):
+                reader.read(document_path)
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_real_pdf_document(reader, root_testdata_dir):
     """Test reading a real PDF document."""
     document_path = f"{root_testdata_dir}/pdfs/mock.pdf"
@@ -239,9 +276,10 @@ def test_read_real_pdf_document(reader, root_testdata_dir):
     assert isinstance(result[0], str)
     assert len(result[0]) > 0
 
-    assert "**Dummy PDF file**" in result[0]
+    assert "Dummy PDF file" in result[0]
 
 
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_mixed_documents(
     reader,
     sample_text_content,
@@ -253,12 +291,16 @@ def test_read_mixed_documents(
     pdf_path = "document.pdf"
     md_path = "document.md"
 
-    with patch("builtins.open", mock_open(read_data=sample_text_content)):
+    mock_text_bytes = sample_text_content.encode("utf-8")
+    mock_pdf_bytes = b"mock pdf file bytes"
+
+    with patch("builtins.open", mock_open(read_data=mock_text_bytes)):
         txt_result = reader.read(txt_path)
         md_result = reader.read(md_path)
 
-    with patch("pymupdf4llm.to_markdown", return_value=sample_pdf_content):
-        pdf_result = reader.read(pdf_path)
+    with patch("builtins.open", mock_open(read_data=mock_pdf_bytes)):
+        with patch.object(reader, "_extractor_method", return_value=sample_pdf_content):
+            pdf_result = reader.read(pdf_path)
 
     assert txt_result == [sample_text_content]
     assert pdf_result == [sample_pdf_content]

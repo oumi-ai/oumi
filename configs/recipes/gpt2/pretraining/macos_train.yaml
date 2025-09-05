@@ -1,0 +1,57 @@
+# Simplified GPT-2 config for local testing on macOS.
+#
+# Usage:
+#   oumi train -c configs/recipes/gpt2/pretraining/macos_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+# Model automatically uses weight tying
+model:
+  model_name: "gpt2" # 124M params
+  model_max_length: 128
+  torch_dtype_str: "bfloat16"
+  tokenizer_pad_token: "<|endoftext|>"
+  load_pretrained_weights: False
+  trust_remote_code: True
+  model_kwargs:
+    disable_dropout: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceFW/fineweb-edu"
+        subset: "sample-10BT"
+        split: "train"
+        dataset_kwargs:
+          seq_length: 128
+    stream: True
+    pack: True
+    target_col: "text"
+
+training:
+  trainer_type: "TRL_SFT"
+  per_device_train_batch_size: 2
+  max_steps: 10
+
+  # If enabled, reduces memory consumption by ~3x but causes a 30% training slowdown.
+  enable_gradient_checkpointing: False
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+
+  # https://github.com/karpathy/build-nanogpt/blob/master/train_gpt2.py#L349
+  learning_rate: 6.0e-04
+  lr_scheduler_type: "cosine_with_min_lr"
+  lr_scheduler_kwargs:
+    min_lr_rate: 0.1
+  warmup_steps: 715
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  weight_decay: 0.1
+
+  run_name: "gpt2_pt"
+  output_dir: "output/gpt2.pt"
+  include_performance_metrics: True
