@@ -318,7 +318,7 @@ class PerlmutterCluster(BaseCluster):
             stdout_file=(
                 str(stdout_file)
                 if stdout_file
-                else "$CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.out"
+                else "$CFS/$SBATCH_ACCOUNT/users/$USER/jobs/logs/%j.out"
             ),
             stderr_file=str(stderr_file) if stderr_file else None,
             constraint="gpu",
