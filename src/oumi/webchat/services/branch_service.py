@@ -170,29 +170,81 @@ class BranchService:
     def delete_branch(
         self,
         branch_manager: ConversationBranchManager,
-        branch_id: str
-    ) -> Tuple[bool, str]:
-        """Delete a branch.
+        branch_id: str,
+        session_id: Optional[str] = None,
+        conversation_id: Optional[str] = None
+    ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+        """Delete a branch with safety checks and persistent storage.
         
         Args:
             branch_manager: Branch manager to delete the branch from.
             branch_id: Branch ID to delete.
+            session_id: Optional session ID for persistence and checking if branch is current.
+            conversation_id: Optional conversation ID for persistence.
             
         Returns:
-            Tuple of (success, message).
+            Tuple of (success, message, result_details).
         """
         # Log branch deletion attempt
         logger.debug(f"🗑️ Deleting branch '{branch_id}'")
         
-        # Delete the branch
-        success, message = branch_manager.delete_branch(branch_id)
+        # Safety check: Cannot delete main branch
+        if branch_id == "main":
+            logger.warning("⚠️ Cannot delete the main branch")
+            return False, "Cannot delete the main branch", None
         
-        if success:
-            logger.debug(f"✅ Deleted branch '{branch_id}' successfully")
-        else:
-            logger.warning(f"⚠️ Failed to delete branch: {message}")
+        # Safety check: Cannot delete current branch
+        if branch_id == branch_manager.current_branch_id:
+            logger.warning(f"⚠️ Cannot delete the current branch '{branch_id}' (switch first)")
+            return False, "Cannot delete the current branch (switch to a different branch first)", None
         
-        return success, message
+        # Check if branch exists in memory
+        if branch_id not in branch_manager.branches:
+            logger.warning(f"⚠️ Branch '{branch_id}' not found")
+            return False, f"Branch '{branch_id}' not found", None
+        
+        # Perform additional checks in persistence if available
+        db_result = None
+        if self.persistence and session_id and conversation_id:
+            try:
+                # Check if branch has children in DB
+                if self.persistence.branch_has_children(conversation_id, branch_id):
+                    logger.warning(f"⚠️ Branch '{branch_id}' has children; delete descendants first")
+                    return False, "Branch has children; delete descendants first", None
+                
+                # Check if branch is current in persistence (double-check)
+                if self.persistence.branch_is_current(session_id, branch_id):
+                    logger.warning(f"⚠️ Branch '{branch_id}' is current in DB; switch first")
+                    return False, "Branch is current in DB; switch first", None
+                
+                # Delete in persistence first (maintains atomicity - if DB fails, memory state is unchanged)
+                db_result = self.persistence.delete_branch(conversation_id, branch_id, session_id)
+                
+                # If DB deletion failed, abort
+                if not db_result["success"]:
+                    logger.warning(f"⚠️ DB deletion failed: {db_result['reason']}")
+                    return False, f"Database error: {db_result['reason']}", db_result
+                    
+                logger.debug(f"✅ Deleted branch '{branch_id}' from persistence successfully")
+            
+            except Exception as e:
+                logger.error(f"❌ Error during persistence checks/deletion: {e}")
+                return False, f"Persistence error: {str(e)}", None
+        
+        # Now delete the branch in memory
+        try:
+            success, message = branch_manager.delete_branch(branch_id)
+            
+            if success:
+                logger.debug(f"✅ Deleted branch '{branch_id}' from memory successfully")
+                # Return details from both memory and DB operations
+                return True, f"Branch '{branch_id}' deleted successfully", db_result
+            else:
+                logger.warning(f"⚠️ Failed to delete branch from memory: {message}")
+                return False, message, db_result
+        except Exception as e:
+            logger.error(f"❌ Error during in-memory branch deletion: {e}")
+            return False, f"Memory deletion error: {str(e)}", db_result
     
     def get_branch_info(
         self,

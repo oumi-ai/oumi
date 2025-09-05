@@ -358,3 +358,83 @@ class PersistenceService:
         except Exception as e:
             logger.warning(f"⚠️ Failed to update conversation title: {e}")
             return False
+            
+    def branch_has_children(self, conversation_id: str, branch_id: str) -> bool:
+        """Check if a branch has any child branches or graph references.
+        
+        Args:
+            conversation_id: Conversation ID containing the branch.
+            branch_id: Branch ID to check.
+            
+        Returns:
+            True if branch has children, False otherwise.
+        """
+        if not self.is_enabled:
+            return False
+            
+        try:
+            return self.db.branch_has_children(conversation_id, branch_id)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to check if branch has children: {e}")
+            return False
+    
+    def branch_is_current(self, session_id: str, branch_id: str) -> bool:
+        """Check if a branch is the current branch for a session.
+        
+        Args:
+            session_id: Session ID to check.
+            branch_id: Branch ID to check.
+            
+        Returns:
+            True if branch is current, False otherwise.
+        """
+        if not self.is_enabled:
+            return False
+            
+        try:
+            return self.db.branch_is_current(session_id, branch_id)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to check if branch is current: {e}")
+            return False
+    
+    def delete_branch(self, conversation_id: str, branch_id: str, session_id: Optional[str] = None) -> Dict[str, Any]:
+        """Delete a branch and all its messages from the database.
+        
+        Args:
+            conversation_id: Conversation ID containing the branch.
+            branch_id: Branch ID to delete.
+            session_id: Optional session ID to check if branch is current.
+            
+        Returns:
+            Dictionary with deletion results.
+        """
+        if not self.is_enabled:
+            return {
+                "success": False, 
+                "reason": "Persistence not enabled", 
+                "deleted_message_count": 0
+            }
+            
+        try:
+            # Call DB-level delete with safety checks
+            result = self.db.delete_branch(conversation_id, branch_id, session_id)
+            
+            # If deletion was successful, also clean up graph edges
+            if result["success"] and hasattr(self, 'graph_store'):
+                try:
+                    from oumi.webchat.chatgraph_migration.graph_store import GraphStore
+                    graph_store = GraphStore(self.db.db_path)
+                    deleted_edges = graph_store.delete_branch(conversation_id, branch_id)
+                    result["deleted_edges_count"] = deleted_edges
+                except Exception as graph_err:
+                    logger.warning(f"⚠️ Failed to delete graph edges: {graph_err}")
+                    result["deleted_edges_count"] = 0
+            
+            return result
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to delete branch: {e}")
+            return {
+                "success": False, 
+                "reason": f"Error: {str(e)}", 
+                "deleted_message_count": 0
+            }

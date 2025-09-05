@@ -351,7 +351,7 @@ class BranchHandler:
             )
     
     async def _handle_delete_branch(self, session_id: str, data: Dict[str, Any]) -> web.Response:
-        """Handle branch deletion operation.
+        """Handle branch deletion operation with persistence and safety checks.
         
         Args:
             session_id: WebChat session ID
@@ -366,25 +366,83 @@ class BranchHandler:
             """Delete branch atomically within session lock."""
             logger.debug(f"🗑️  DEBUG: Branch delete requested - branch_id: '{branch_id}'")
             logger.debug(f"🗑️  DEBUG: Available branches before delete: {[b['id'] for b in session.get_enhanced_branch_info(self.db)]}")
-            success, message = session.branch_manager.delete_branch(branch_id)
+            
+            # Get current conversation ID if session has persistence
+            conversation_id = getattr(session, 'current_conversation_id', None)
+            
+            # Create branch service instance if not already available
+            from oumi.webchat.services.branch_service import BranchService
+            from oumi.webchat.services.persistence_service import PersistenceService
+            
+            # Create persistence service (pass through to DB)
+            persistence = None
+            if self.db:
+                try:
+                    persistence = PersistenceService(self.db.db_path)
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to create persistence service: {e}")
+            
+            # Create branch service
+            branch_service = BranchService(persistence)
+            
+            # Use enhanced branch service to delete branch with full safety checks
+            success, message, db_result = branch_service.delete_branch(
+                branch_manager=session.branch_manager,
+                branch_id=branch_id,
+                session_id=session_id,
+                conversation_id=conversation_id
+            )
+            
+            # Enhanced debug logging
             logger.debug(f"🗑️  DEBUG: Branch delete result - success: {success}, message: '{message}'")
+            if db_result:
+                logger.debug(f"🗑️  DEBUG: DB deleted {db_result.get('deleted_message_count', 0)} messages")
+                if 'deleted_edges_count' in db_result:
+                    logger.debug(f"🗑️  DEBUG: DB deleted {db_result.get('deleted_edges_count', 0)} graph edges")
             logger.debug(f"🗑️  DEBUG: Available branches after delete: {[b['id'] for b in session.get_enhanced_branch_info(self.db)]}")
-            return success, message, session
-        
-        # Execute branch deletion atomically
-        success, message, session = await self.session_manager.execute_session_operation(
-            session_id, 
-            delete_branch_atomically
-        )
-        
-        return web.json_response(
-            {
+            
+            # Build detailed result with full information
+            result = {
                 "success": success,
                 "message": message,
                 "branches": session.get_enhanced_branch_info(self.db),
                 "current_branch": session.branch_manager.current_branch_id,
             }
+            
+            # Add DB operation details if available
+            if db_result:
+                result["persistence"] = {
+                    "deleted_message_count": db_result.get("deleted_message_count", 0),
+                    "deleted_edges_count": db_result.get("deleted_edges_count", 0) if "deleted_edges_count" in db_result else 0
+                }
+            
+            return success, message, session, result
+        
+        # Execute branch deletion atomically
+        success, message, session, result = await self.session_manager.execute_session_operation(
+            session_id, 
+            delete_branch_atomically
         )
+        
+        # Determine appropriate status code based on result
+        status_code = 200 if success else 400
+        
+        # If operation succeeded, broadcast update to all WebSocket clients
+        if success:
+            try:
+                await session.broadcast_to_websockets(
+                    {
+                        "type": "conversation_update",
+                        "branches": session.get_enhanced_branch_info(self.db),
+                        "current_branch": session.branch_manager.current_branch_id,
+                        "timestamp": time.time(),
+                    }
+                )
+                logger.debug(f"✅ Broadcast branch update after deletion")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to broadcast branch update: {e}")
+        
+        return web.json_response(result, status=status_code)
     
     async def handle_sync_conversation_api(self, request: web.Request) -> web.Response:
         """Sync conversation from the frontend to a specific session/branch.

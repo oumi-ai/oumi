@@ -245,6 +245,19 @@ class WebSocketHandler:
         await session.broadcast_to_websockets(
             {"type": "user_message", "content": user_message, "timestamp": time.time()}
         )
+        # Proactively broadcast a full conversation snapshot for UI sync
+        try:
+            await session.broadcast_to_websockets(
+                {
+                    "type": "conversation_update",
+                    "conversation": session.serialize_conversation(),
+                    "branches": session.get_enhanced_branch_info(self.db),
+                    "current_branch": session.branch_manager.current_branch_id,
+                    "timestamp": time.time(),
+                }
+            )
+        except Exception as _e:
+            logger.debug(f"WS chat: conversation_update (post-user) failed: {_e}")
         
         # Generate AI response using inference engine
         try:
@@ -357,6 +370,19 @@ class WebSocketHandler:
                     "timestamp": time.time(),
                 }
             )
+            # Broadcast updated conversation snapshot
+            try:
+                await session.broadcast_to_websockets(
+                    {
+                        "type": "conversation_update",
+                        "conversation": session.serialize_conversation(),
+                        "branches": session.get_enhanced_branch_info(self.db),
+                        "current_branch": session.branch_manager.current_branch_id,
+                        "timestamp": time.time(),
+                    }
+                )
+            except Exception as _e:
+                logger.debug(f"WS chat: conversation_update (post-assistant) failed: {_e}")
             
             # Update context usage after successful message exchange
             self.session_manager.update_context_usage(session.session_id)

@@ -194,28 +194,23 @@ class ChatHandler:
                 # Update branch_id to the one actually used
                 branch_id = effective_branch_id 
                 
-                # CRITICAL: Use the proper oumi.infer function with Conversation format
-                # Build the full conversation with history
+                # CRITICAL: Prefer client-provided messages as the authoritative
+                # conversation context to avoid leaking history from previous
+                # UI conversations within the same backend session.
                 conversation_messages = []
-                
-                # Add system prompt if provided
                 if self.system_prompt:
                     conversation_messages.append(Message(role=Role.SYSTEM, content=self.system_prompt))
-                
-                # Add conversation history from snapshot for consistency
-                if conversation_snapshot:
-                    for msg in conversation_snapshot:
-                        role_mapping = {
-                            "system": Role.SYSTEM,
-                            "user": Role.USER, 
-                            "assistant": Role.ASSISTANT,
-                        }
-                        role = role_mapping.get(msg.get("role"), Role.USER)
-                        conversation_messages.append(Message(role=role, content=msg.get("content", "")))
-                    logger.debug(f"🧠 Added {len(conversation_snapshot)} messages from conversation snapshot")
-                
-                # Add the new user message
-                conversation_messages.append(Message(role=Role.USER, content=latest_user_content))
+                # Convert request messages directly for inference context
+                for m in messages:
+                    role_mapping = {
+                        "system": Role.SYSTEM,
+                        "user": Role.USER,
+                        "assistant": Role.ASSISTANT,
+                    }
+                    r = role_mapping.get(m.get("role"), Role.USER)
+                    c = m.get("content", "")
+                    conversation_messages.append(Message(role=r, content=c))
+                logger.debug(f"🧠 Using client-provided conversation with {len(messages)} messages for context")
                 
                 # Create the conversation object
                 full_conversation = Conversation(messages=conversation_messages)
@@ -363,16 +358,19 @@ class ChatHandler:
                 
                 async def update_conversation_with_branch(session):
                     """Update conversation history for the active branch."""
-                    # Add user message to session conversation history
-                    session.conversation_history.append(
-                        {
-                            "role": "user",
-                            "content": latest_user_content,
-                            "timestamp": time.time(),
-                        }
-                    )
-                    
-                    # Add assistant response to session conversation history
+                    # Replace session history with the client-provided messages,
+                    # then append the assistant response. This prevents old
+                    # conversations from contaminating new UI conversations that
+                    # reuse the same backend session_id.
+                    session.conversation_history.clear()
+                    for m in messages:
+                        session.conversation_history.append(
+                            {
+                                "role": m.get("role", "user"),
+                                "content": m.get("content", ""),
+                                "timestamp": time.time(),
+                            }
+                        )
                     session.conversation_history.append(
                         {
                             "role": "assistant",

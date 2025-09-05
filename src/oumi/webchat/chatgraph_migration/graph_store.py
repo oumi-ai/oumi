@@ -349,3 +349,67 @@ class GraphStore:
             conn.commit()
             
         return edges_created
+    
+    def delete_branch(self, conversation_id: str, branch_id: str) -> int:
+        """Delete all graph edges related to a specific branch.
+        
+        Args:
+            conversation_id: ID of the conversation
+            branch_id: ID of the branch to remove
+            
+        Returns:
+            Number of edges deleted
+        """
+        if not conversation_id or not branch_id:
+            return 0
+        
+        with self._lock, self._connect() as conn:
+            try:
+                cur = conn.cursor()
+                
+                # Delete edges where this branch is either source or target
+                cur.execute(
+                    """
+                    DELETE FROM graph_edges 
+                    WHERE conversation_id = ? AND (source_branch_id = ? OR target_branch_id = ?)
+                    """,
+                    (conversation_id, branch_id, branch_id)
+                )
+                
+                deleted_count = cur.rowcount
+                conn.commit()
+                return deleted_count
+                
+            except Exception as e:
+                conn.rollback()
+                import logging
+                logging.warning(f"Failed to delete graph edges for branch {branch_id}: {e}")
+                return 0
+    
+    def branch_has_graph_references(self, conversation_id: str, branch_id: str) -> bool:
+        """Check if a branch is referenced in any graph edges as a source.
+        
+        Args:
+            conversation_id: ID of the conversation
+            branch_id: ID of the branch to check
+            
+        Returns:
+            True if branch is referenced in graph, False otherwise
+        """
+        if not conversation_id or not branch_id:
+            return False
+        
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
+            
+            # Check if branch is a source in any edge (other than to itself)
+            cur.execute(
+                """
+                SELECT 1 FROM graph_edges 
+                WHERE conversation_id = ? AND source_branch_id = ? AND target_branch_id != ?
+                LIMIT 1
+                """,
+                (conversation_id, branch_id, branch_id)
+            )
+            
+            return bool(cur.fetchone())

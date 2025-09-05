@@ -594,3 +594,198 @@ class WebchatDB:
                     "branch_count": branch_count or 0
                 })
             return results
+            
+    def branch_has_children(self, conversation_id: str, branch_id: str) -> bool:
+        """Check if a branch has any child branches or is referenced in graph edges.
+        
+        Args:
+            conversation_id: The conversation ID
+            branch_id: The branch ID to check
+            
+        Returns:
+            True if branch has children, False otherwise
+        """
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
+            
+            # First check for branches that have this branch as parent
+            cur.execute(
+                "SELECT 1 FROM branches WHERE conversation_id = ? AND parent_branch_id = ? LIMIT 1",
+                (conversation_id, branch_id)
+            )
+            if cur.fetchone():
+                return True
+                
+            # Then check for graph edges if the table exists
+            try:
+                # Check if table exists first
+                cur.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='graph_edges'"
+                )
+                if cur.fetchone():
+                    # Check if branch is source in any graph edge
+                    cur.execute(
+                        "SELECT 1 FROM graph_edges WHERE conversation_id = ? AND src_branch_id = ? LIMIT 1",
+                        (conversation_id, branch_id)
+                    )
+                    if cur.fetchone():
+                        return True
+            except Exception as e:
+                # If graph edges table doesn't exist or other error, log but continue
+                logger.debug(f"Could not check graph edges for branch {branch_id}: {e}")
+                
+            return False
+    
+    def branch_is_current(self, session_id: str, branch_id: str) -> bool:
+        """Check if a branch is the current branch for a session.
+        
+        Args:
+            session_id: The session ID
+            branch_id: The branch ID to check
+            
+        Returns:
+            True if branch is current, False otherwise
+        """
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT current_branch_id FROM sessions WHERE session_id = ?",
+                (session_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return False
+                
+            return row[0] == branch_id
+    
+    def delete_branch(self, conversation_id: str, branch_id: str, session_id: Optional[str] = None) -> Dict[str, Any]:
+        """Delete a branch and all its messages from the database.
+        
+        Performs safety checks before deletion:
+        - Branch must exist
+        - Branch must not be 'main'
+        - Branch must not be current for any session (if session_id is provided)
+        - Branch must not have any children or graph references
+        
+        Args:
+            conversation_id: The conversation ID
+            branch_id: The branch ID to delete
+            session_id: Optional session ID to check if branch is current
+            
+        Returns:
+            Dict with keys:
+            - success: Whether deletion was successful
+            - reason: Reason for failure if not successful
+            - deleted_message_count: Number of messages deleted (if successful)
+        """
+        if branch_id == "main":
+            return {"success": False, "reason": "Cannot delete the main branch", "deleted_message_count": 0}
+        
+        # Use a transaction for atomicity
+        with self._lock, self._connect() as conn:
+            try:
+                conn.execute("BEGIN TRANSACTION")
+                cur = conn.cursor()
+                
+                # Check if branch exists
+                cur.execute(
+                    "SELECT 1 FROM branches WHERE conversation_id = ? AND id = ? LIMIT 1",
+                    (conversation_id, branch_id)
+                )
+                if not cur.fetchone():
+                    conn.rollback()
+                    return {"success": False, "reason": f"Branch '{branch_id}' not found", "deleted_message_count": 0}
+                
+                # Check if branch is current (if session_id provided)
+                if session_id:
+                    cur.execute(
+                        "SELECT current_branch_id FROM sessions WHERE session_id = ?",
+                        (session_id,)
+                    )
+                    row = cur.fetchone()
+                    if row and row[0] == branch_id:
+                        conn.rollback()
+                        return {"success": False, "reason": "Cannot delete current branch (switch first)", "deleted_message_count": 0}
+                
+                # Check if branch has children
+                cur.execute(
+                    "SELECT COUNT(*) FROM branches WHERE conversation_id = ? AND parent_branch_id = ?",
+                    (conversation_id, branch_id)
+                )
+                child_count = cur.fetchone()[0]
+                if child_count > 0:
+                    conn.rollback()
+                    return {"success": False, "reason": f"Branch has {child_count} child branches; delete descendants first", "deleted_message_count": 0}
+                
+                # Check for graph edges if table exists
+                edge_count = 0
+                try:
+                    # Check if table exists
+                    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='graph_edges'")
+                    if cur.fetchone():
+                        # Check for source edges
+                        cur.execute(
+                            "SELECT COUNT(*) FROM graph_edges WHERE conversation_id = ? AND src_branch_id = ?",
+                            (conversation_id, branch_id)
+                        )
+                        edge_count = cur.fetchone()[0]
+                        if edge_count > 0:
+                            conn.rollback()
+                            return {"success": False, "reason": f"Branch has {edge_count} graph edges; delete those first", "deleted_message_count": 0}
+                except Exception as e:
+                    # Log but continue if graph_edges table doesn't exist
+                    logger.debug(f"Could not check graph edges for branch {branch_id}: {e}")
+                
+                # Count messages for reporting
+                cur.execute(
+                    "SELECT COUNT(*) FROM branch_messages WHERE branch_id = ?",
+                    (branch_id,)
+                )
+                message_count = cur.fetchone()[0]
+                
+                # Delete branch messages
+                cur.execute(
+                    "DELETE FROM branch_messages WHERE branch_id = ?",
+                    (branch_id,)
+                )
+                
+                # Delete branch from branches table
+                cur.execute(
+                    "DELETE FROM branches WHERE conversation_id = ? AND id = ?",
+                    (conversation_id, branch_id)
+                )
+                
+                # Try to delete from graph_edges if table exists
+                try:
+                    # Check if table exists
+                    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='graph_edges'")
+                    if cur.fetchone():
+                        # Delete any graph edges involving this branch
+                        cur.execute(
+                            "DELETE FROM graph_edges WHERE conversation_id = ? AND (src_branch_id = ? OR dst_branch_id = ?)",
+                            (conversation_id, branch_id, branch_id)
+                        )
+                except Exception as e:
+                    # Log but continue if graph_edges table doesn't exist
+                    logger.debug(f"Could not delete graph edges for branch {branch_id}: {e}")
+                
+                # Clean up orphaned messages (optional - could be done in a separate maintenance task)
+                # This would remove messages no longer referenced by any branch
+                
+                conn.commit()
+                
+                return {
+                    "success": True, 
+                    "reason": "", 
+                    "deleted_message_count": message_count,
+                }
+            
+            except Exception as e:
+                # Ensure transaction is rolled back on error
+                conn.rollback()
+                logger.error(f"Failed to delete branch {branch_id}: {e}")
+                return {
+                    "success": False, 
+                    "reason": f"Database error: {str(e)}", 
+                    "deleted_message_count": 0,
+                }
