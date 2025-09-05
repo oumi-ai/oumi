@@ -19,6 +19,7 @@ import json
 import time
 import uuid
 from typing import Dict, Optional, Any
+from datetime import datetime
 
 from aiohttp import WSMsgType, web
 
@@ -195,6 +196,14 @@ class WebSocketHandler:
         session.conversation_history.append(
             {"role": "user", "content": user_message, "timestamp": time.time()}
         )
+
+        # Keep the active branch's conversation in sync immediately (pre-response)
+        try:
+            current_branch = session.branch_manager.get_current_branch()
+            current_branch.conversation_history = session.conversation_history.copy()
+            current_branch.last_active = datetime.now()
+        except Exception as sync_err:
+            logger.debug(f"Branch pre-sync after user message failed: {sync_err}")
         
         # Broadcast user message to all clients
         await session.broadcast_to_websockets(
@@ -292,6 +301,14 @@ class WebSocketHandler:
                     "timestamp": time.time(),
                 }
             )
+
+            # Sync the active branch's conversation after assistant reply as well
+            try:
+                current_branch = session.branch_manager.get_current_branch()
+                current_branch.conversation_history = session.conversation_history.copy()
+                current_branch.last_active = datetime.now()
+            except Exception as sync_err:
+                logger.debug(f"Branch post-sync after assistant message failed: {sync_err}")
             
             # Broadcast assistant response
             await session.broadcast_to_websockets(

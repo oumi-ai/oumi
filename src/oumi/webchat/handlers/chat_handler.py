@@ -380,7 +380,9 @@ class ChatHandler:
                     # CRITICAL: Sync conversation to the active branch (which is now branch_id if it was switched)
                     current_branch = session.branch_manager.get_current_branch()
                     current_branch.conversation_history = copy.deepcopy(session.conversation_history)
-                    current_branch.last_active = time.time()
+                    # Use datetime for branch timestamps to match ConversationBranch
+                    from datetime import datetime as _dt
+                    current_branch.last_active = _dt.now()
                     
                     logger.info(
                         f"🔄 Synced conversation to branch '{session.branch_manager.current_branch_id}' - {len(session.conversation_history)} messages"

@@ -29,6 +29,8 @@ from oumi.server import OpenAICompatibleServer
 
 # Import new structured components
 from oumi.webchat.core.session_manager import SessionManager
+# Re-export for backward-compat imports in tests
+from oumi.webchat.core.session import WebChatSession  # noqa: F401
 from oumi.webchat.handlers.branch_handler import BranchHandler
 from oumi.webchat.handlers.chat_handler import ChatHandler
 from oumi.webchat.handlers.command_handler import CommandHandler

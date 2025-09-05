@@ -21,7 +21,8 @@ from rich.console import Console
 
 from oumi.core.commands.command_context import CommandContext
 from oumi.core.commands.command_parser import CommandParser, ParsedCommand
-from oumi.core.commands.command_result import CommandResult
+# CommandResult is defined in base_handler and re-exported by oumi.core.commands
+from oumi.core.commands import CommandResult
 from oumi.core.commands.command_router import CommandRouter
 from oumi.utils.logging import logger
 

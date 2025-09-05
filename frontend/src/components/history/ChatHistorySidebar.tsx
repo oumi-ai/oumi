@@ -5,7 +5,7 @@
 "use client";
 
 import React from 'react';
-import { History, MessageSquare, Clock, Download, Search, Trash2, RefreshCw } from 'lucide-react';
+import { History, MessageSquare, Clock, Download, Search, Trash2, RefreshCw, ArrowLeft } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 import { useChatStore } from '@/lib/store';
 
@@ -450,6 +450,19 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
               </div>
             ) : conversationPreview ? (
               <div className="p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <button
+                    onClick={() => {
+                      setSelectedConversation(null);
+                      setConversationPreview(null);
+                    }}
+                    className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    title="Back to conversation list"
+                  >
+                    <ArrowLeft size={14} />
+                    <span className="text-xs">Back</span>
+                  </button>
+                </div>
                 <div className="mb-4">
                   <h4 className="font-semibold text-foreground mb-2">{conversationPreview.name}</h4>
                   <div className="text-xs text-muted-foreground mb-4">
