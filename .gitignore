@@ -188,3 +188,6 @@ oumi.code-workspace
  
 # Local contributor guide (not tracked)
 AGENTS.md
+
+# Node.js dependencies
+node_modules/
