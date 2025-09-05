@@ -77,7 +77,6 @@ class SkyLogStream(io.TextIOBase):
         for chunk in self.iterator:
             if chunk is None:
                 return ""
-
             # Remove ANSI escape codes and return immediately
             return self.ansi_pattern.sub("", chunk)
 
@@ -294,12 +293,14 @@ class SkyClient:
         """
         self._sky_lib.down(cluster_name)
 
-    def get_logs_stream(self, job_id: str, cluster_name: str) -> SkyLogStream:
+    def get_logs_stream(
+        self, cluster_name: str, job_id: Optional[str] = None
+    ) -> SkyLogStream:
         """Gets a stream that tails the logs of the target job.
 
         Args:
+            cluster_name: The name of the cluster the job was run in.
             job_id: The ID of the job to tail the logs of.
-            cluster_name: The name of the cluster to tail the logs of.
 
         Returns:
             A SkyLogStream object containing the captured logs.
@@ -307,7 +308,7 @@ class SkyClient:
         return SkyLogStream(
             self._sky_lib.tail_logs(
                 cluster_name=cluster_name,
-                job_id=int(job_id),
+                job_id=int(job_id) if job_id is not None else None,
                 follow=True,
                 preload_content=False,
             )

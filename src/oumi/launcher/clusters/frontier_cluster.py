@@ -316,13 +316,6 @@ class FrontierCluster(BaseCluster):
             str(script_path),
             str(remote_working_dir),
             node_count=job.num_nodes,
-            name=job_name,
-            export="NONE",
-            account="lrn081",
-            ntasks=job.num_nodes,
-            threads_per_core=1,
-            distribution="block:cyclic",
-            partition=self._queue.value,
             stdout_file=(
                 str(stdout_file)
                 if stdout_file
@@ -333,6 +326,13 @@ class FrontierCluster(BaseCluster):
                 if stderr_file
                 else "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER"
             ),
+            name=job_name,
+            export="NONE",
+            account="lrn081",
+            ntasks=job.num_nodes,
+            threads_per_core=1,
+            distribution="block:cyclic",
+            partition=self._queue.value,
         )
         job_status = self.get_job(job_id)
         if job_status is None:
@@ -347,11 +347,13 @@ class FrontierCluster(BaseCluster):
         """This is a no-op for Frontier clusters."""
         pass
 
-    def get_logs_stream(self, job_id: str, cluster_name: str) -> io.TextIOBase:
+    def get_logs_stream(
+        self, cluster_name: str, job_id: Optional[str] = None
+    ) -> io.TextIOBase:
         """Gets a stream that tails the logs of the target job.
 
         Args:
-            job_id: The ID of the job to tail the logs of.
             cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
         """
         raise NotImplementedError

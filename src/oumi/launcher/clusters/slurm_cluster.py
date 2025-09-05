@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
-from oumi.launcher.clients.slurm_client import SlurmClient, SlurmLogStream
+from oumi.launcher.clients.slurm_client import _LOG_DIR, SlurmClient, SlurmLogStream
 from oumi.utils.logging import logger
 
 _OUMI_SLURM_CONNECTIONS = "OUMI_SLURM_CONNECTIONS"
@@ -274,7 +274,9 @@ class SlurmCluster(BaseCluster):
             str(script_path),
             str(remote_working_dir),
             job.num_nodes,
-            job_name,
+            stdout_file=f"{_LOG_DIR.format(user='%u', job_id='%j')}/stdout.log",
+            stderr_file=f"{_LOG_DIR.format(user='%u', job_id='%j')}/stderr.log",
+            name=job_name,
         )
         # By default, Slurm writes to slurm-<job_id>.out.
         self.jobs_info[job_id] = SlurmCluster.JobInfo(
@@ -302,22 +304,16 @@ class SlurmCluster(BaseCluster):
         """This is a no-op for Slurm clusters."""
         pass
 
-    def get_logs_stream(self, job_id: str, cluster_name: str) -> SlurmLogStream:
+    def get_logs_stream(
+        self, cluster_name: str, job_id: Optional[str] = None
+    ) -> SlurmLogStream:
         """Gets a stream that tails the logs of the target job.
 
         Args:
-            job_id: The ID of the job to tail the logs of.
             cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
 
         Returns:
             A SlurmLogStream object that can be used to read the logs.
         """
-        if job_id not in self.jobs_info:
-            raise RuntimeError(f"Job {job_id} not found in jobs_info")
-        job_info = self.jobs_info[job_id]
-        return self._client.get_logs_stream(
-            str(job_info.working_dir),
-            job_id,
-            cluster_name,
-            job_info.stdout_filename,
-        )
+        return self._client.get_logs_stream(cluster_name, job_id)
