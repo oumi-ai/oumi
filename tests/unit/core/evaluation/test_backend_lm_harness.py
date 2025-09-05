@@ -2,7 +2,6 @@ import copy
 from unittest.mock import MagicMock, patch
 
 import pytest
-import torch
 from lm_eval.api.task import ConfigurableTask
 
 from oumi.core.configs import (
@@ -78,7 +77,7 @@ def mock_patches_for_evaluate():
             {
                 "trust_remote_code": False,
                 "pretrained": "text_model",
-                "dtype": torch.float32,
+                "dtype": "auto",
                 "max_length": None,
                 "batch_size": 1,
                 "max_batch_size": None,
@@ -98,7 +97,7 @@ def mock_patches_for_evaluate():
             {
                 "trust_remote_code": False,
                 "pretrained": "vision_model",
-                "dtype": torch.float32,
+                "dtype": "auto",
                 "max_length": 128,
                 "batch_size": 1,
                 "max_batch_size": None,
@@ -123,7 +122,7 @@ def mock_patches_for_evaluate():
             {
                 "trust_remote_code": False,
                 "pretrained": "text_model",
-                "dtype": torch.float32,
+                "dtype": "auto",
                 "max_length": 128,
                 "batch_size": 1,
                 "max_batch_size": None,
@@ -143,7 +142,7 @@ def mock_patches_for_evaluate():
             {
                 "trust_remote_code": True,
                 "pretrained": "vision_model",
-                "dtype": torch.float32,
+                "dtype": "auto",
                 "max_length": 128,
                 "batch_size": 8,
                 "max_batch_size": None,
@@ -168,7 +167,7 @@ def mock_patches_for_evaluate():
             {
                 "trust_remote_code": False,
                 "pretrained": "some_model",
-                "dtype": torch.float32,
+                "dtype": "auto",
                 "max_length": None,
                 "batch_size": 1,
                 "max_batch_size": None,
@@ -317,8 +316,8 @@ def test_evaluate(mock_patches_for_evaluate):
     mock_lm_harness_get_model_class.assert_called_once_with("hf")
 
     mock_lm_harness_evaluate.assert_called_once()
-    _, kwargs = mock_lm_harness_evaluate.call_args
-    assert kwargs["task_dict"] == mock_task_dict
+    args, kwargs = mock_lm_harness_evaluate.call_args
+    assert args[1] == mock_task_dict  # task_dict is now the second positional argument
     assert kwargs["limit"] == 222
     assert not kwargs["apply_chat_template"]
 

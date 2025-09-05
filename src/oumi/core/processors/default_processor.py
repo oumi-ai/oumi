@@ -177,31 +177,33 @@ class DefaultProcessor(BaseProcessor):
         self,
         *,
         text: list[str],
-        padding: bool,
         images: Optional[list[PIL.Image.Image]] = None,
         return_tensors: Optional[str] = "pt",
+        **kwargs,
     ) -> transformers.BatchEncoding:
         """Invokes the processor to extract features.
 
         Args:
             text: A list of text prompts.
-            padding: Whether to pad sequences to common length.
             images: A list of input images.
             return_tensors: The format of returned tensors.
+            **kwargs: Additional keyword arguments to pass to the processor.
 
         Returns:
             transformers.BatchEncoding: The model-specific input features.
         """
         if images is None or len(images) == 0:
             result = self._worker_processor(
-                text=text, padding=padding, return_tensors=return_tensors
+                text=text,
+                return_tensors=return_tensors,
+                **kwargs,
             )
         else:
             result = self._worker_processor(
                 text=(text[0] if len(text) == 1 else text),
                 images=images,
-                padding=padding,
                 return_tensors=return_tensors,
+                **kwargs,
             )
         if result is None:
             raise RuntimeError("Processor returned `None`.")
@@ -252,12 +254,15 @@ class DefaultProcessor(BaseProcessor):
             )
         else:
             result = self._worker_processor.apply_chat_template(
-                conversation, add_generation_prompt=add_generation_prompt
+                [conversation], add_generation_prompt=add_generation_prompt
             )
 
         if result is None:
             raise RuntimeError("`apply_chat_template` returned `None`.")
-        elif not isinstance(result, str):
+        elif isinstance(result, list) and len(result) == 1:
+            result = result[0]
+
+        if not isinstance(result, str):
             raise RuntimeError(
                 "`apply_chat_template` returned an object that is not a string. "
                 f"Actual type: {type(result)}"

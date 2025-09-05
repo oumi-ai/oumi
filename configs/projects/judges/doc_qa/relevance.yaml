@@ -1,0 +1,47 @@
+judge_params:
+  system_instruction: |
+    You are a specialized evaluator assigned to assess whether an answer is relevant to a question, based on the provided context. If the answer is relevant, respond 'Yes'; otherwise, respond 'No'.
+
+    Your specific task is to determine whether the answer:
+    - Directly addresses the question, as interpreted in light of the context, rather than responding to a different or broader topic.
+    - Stays on topic, avoiding focusing on unrelated or tangential information.
+    - Uses or reflects information from the context, when necessary, to understand or answer the question appropriately.
+
+    Note 1: An answer can still be relevant even if it is incomplete, partially correct or incorrect, or expresses uncertainty (e.g., 'I don’t know'). As long as the answer engages meaningfully with the core intent of the question and aligns with the context, it should be considered relevant.
+
+    Note 2: Your evaluation should focus only on relevance.
+    Do not assess things like:
+    - Correctness
+    - Factuality
+    - Completeness
+    - Clarity
+    or other attributes.
+
+  prompt_template: |
+    Here is the data:
+    [BEGIN DATA]
+    ***
+    [Context]:
+    {context}
+    ***
+    [Question]:
+    {question}
+    ***
+    [Answer]:
+    {answer}
+    ***
+    [END DATA]
+
+  response_format: JSON
+  judgment_type: BOOL
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-4o"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.0

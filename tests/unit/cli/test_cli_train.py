@@ -70,7 +70,7 @@ def app():
 
 @pytest.fixture
 def mock_train():
-    with patch.object(oumi, "train", autospec=True) as m_train:
+    with patch.object(oumi, "train") as m_train:
         yield m_train
 
 
@@ -123,7 +123,7 @@ def test_train_runs(
         config.to_yaml(train_yaml_path)
         _ = runner.invoke(app, ["--config", train_yaml_path, "--log-level", "ERROR"])
         mock_limit_per_process_memory.assert_called_once()
-        mock_train.assert_has_calls([call(config)])
+        mock_train.assert_has_calls([call(config, verbose=False)])
         mock_device_cleanup.assert_has_calls([call(), call()])
         mock_set_random_seeds.assert_called_once()
         assert logger.level == logging.ERROR
@@ -144,7 +144,7 @@ def test_train_with_alias_runs(
         config.to_yaml(train_yaml_path)
         _ = runner.invoke(app, ["--config", "random_alias", "--log-level", "ERROR"])
         mock_limit_per_process_memory.assert_called_once()
-        mock_train.assert_has_calls([call(config)])
+        mock_train.assert_has_calls([call(config, verbose=False)])
         mock_device_cleanup.assert_has_calls([call(), call()])
         mock_set_random_seeds.assert_called_once()
         mock_alias.assert_called_once_with("random_alias", AliasType.TRAIN)
@@ -177,7 +177,7 @@ def test_train_with_overrides(
         expected_config = _create_training_config()
         expected_config.model.tokenizer_name = "new_name"
         expected_config.training.max_steps = 5
-        mock_train.assert_has_calls([call(expected_config)])
+        mock_train.assert_has_calls([call(expected_config, verbose=False)])
         mock_device_cleanup.assert_has_calls([call(), call()])
         mock_set_random_seeds.assert_called_once()
 
@@ -209,7 +209,27 @@ def test_train_runs_with_oumi_prefix(
         mock_fetch.assert_called_once_with(train_yaml_path)
 
         mock_limit_per_process_memory.assert_called_once()
-        mock_train.assert_has_calls([call(config)])
+        mock_train.assert_has_calls([call(config, verbose=False)])
         mock_device_cleanup.assert_has_calls([call(), call()])
         mock_set_random_seeds.assert_called_once()
         assert logger.level == logging.ERROR
+
+
+def test_train_with_verbose_flag(
+    app,
+    mock_train,
+    mock_limit_per_process_memory,
+    mock_device_cleanup,
+    mock_set_random_seeds,
+):
+    """Test that verbose flag is properly passed through to train function."""
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+
+        # Test with --verbose
+        result = runner.invoke(app, ["--config", train_yaml_path, "--verbose"])
+
+        assert result.exit_code == 0
+        mock_train.assert_called_once_with(config, verbose=True)

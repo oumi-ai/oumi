@@ -31,6 +31,7 @@ def evaluate(
         ),
     ],
     level: cli_utils.LOG_LEVEL_TYPE = None,
+    verbose: cli_utils.VERBOSE_TYPE = False,
 ):
     """Evaluate a model.
 
@@ -38,6 +39,7 @@ def evaluate(
         ctx: The Typer context object.
         config: Path to the configuration file for evaluation.
         level: The logging level for the specified command.
+        verbose: Enable verbose logging with additional debug information.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
@@ -59,6 +61,10 @@ def evaluate(
         config, extra_args, logger=logger
     )
     parsed_config.finalize_and_validate()
+
+    if verbose:
+        # Print configuration for verification
+        parsed_config.print_config(logger)
 
     # Run evaluation
     with cli_utils.CONSOLE.status(

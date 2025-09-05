@@ -2,8 +2,8 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.configs import JobConfig
+from oumi.core.launcher import JobState, JobStatus
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.launcher.clients.slurm_client import SlurmClient
 from oumi.launcher.clouds.frontier_cloud import FrontierCloud
@@ -26,37 +26,6 @@ def mock_frontier_cluster():
         yield cluster
 
 
-def _get_default_job(cloud: str) -> JobConfig:
-    resources = JobResources(
-        cloud=cloud,
-        region="us-central1",
-        zone=None,
-        accelerators="A100-80GB",
-        cpus="4",
-        memory="64",
-        instance_type=None,
-        use_spot=True,
-        disk_size=512,
-        disk_tier="low",
-    )
-    return JobConfig(
-        name="myjob",
-        user="user",
-        working_dir="./",
-        num_nodes=2,
-        resources=resources,
-        envs={"var1": "val1"},
-        file_mounts={},
-        storage_mounts={
-            "~/home/remote/path/gcs/": StorageMount(
-                source="gs://mybucket/", store="gcs"
-            )
-        },
-        setup="pip install -r requirements.txt",
-        run="./hello_world.sh",
-    )
-
-
 #
 # Tests
 #
@@ -73,9 +42,10 @@ def test_frontier_cloud_up_cluster_extended(mock_slurm_client, mock_frontier_clu
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
-    job = _get_default_job("frontier")
+    job = JobConfig(user="user")
     job_status = cloud.up_cluster(job, "extended.user")
     mock_slurm_client.assert_called_once_with(
         "user", "frontier.olcf.ornl.gov", "extended.user"
@@ -97,9 +67,10 @@ def test_frontier_cloud_up_cluster_batch(mock_slurm_client, mock_frontier_cluste
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
-    job = _get_default_job("frontier")
+    job = JobConfig(user="user")
     job_status = cloud.up_cluster(job, "batch.user")
     mock_slurm_client.assert_called_once_with(
         "user", "frontier.olcf.ornl.gov", "batch.user"
@@ -113,9 +84,9 @@ def test_frontier_cloud_up_cluster_fails_mismatched_user(
 ):
     cloud = FrontierCloud()
     with pytest.raises(ValueError, match="User must match the provided job user"):
-        _ = cloud.up_cluster(_get_default_job("frontier"), "batch.user1")
+        _ = cloud.up_cluster(JobConfig(user="user"), "batch.user1")
     with pytest.raises(ValueError, match="User must match the provided job user"):
-        _ = cloud.up_cluster(_get_default_job("frontier"), "extended.user1")
+        _ = cloud.up_cluster(JobConfig(user="user"), "extended.user1")
 
 
 def test_frontier_cloud_up_cluster_default_queue(
@@ -133,9 +104,10 @@ def test_frontier_cloud_up_cluster_default_queue(
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
-    job = _get_default_job("frontier")
+    job = JobConfig(user="user")
     job_status = cloud.up_cluster(job, None)
     mock_slurm_client.assert_called_once_with(
         "user", "frontier.olcf.ornl.gov", "batch.user"

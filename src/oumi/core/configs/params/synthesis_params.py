@@ -12,15 +12,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.types.conversation import Conversation
+from oumi.core.types.conversation import Conversation, Message, Role
 
 _SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv"}
+
+
+@dataclass
+class TextMessage:
+    """Text-only message to make it usable in omegaconf."""
+
+    role: Role
+    content: str
+
+    def to_message(self) -> Message:
+        """Convert to a Message."""
+        return Message(role=self.role, content=self.content)
+
+
+@dataclass
+class TextConversation:
+    """Text-only conversation to make it usable in omegaconf."""
+
+    messages: list[TextMessage]
+
+    conversation_id: Optional[str] = None
+
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_conversation(self) -> Conversation:
+        """Convert to a Conversation."""
+        return Conversation(
+            messages=[message.to_message() for message in self.messages],
+            conversation_id=self.conversation_id,
+            metadata=self.metadata,
+        )
 
 
 @dataclass
@@ -144,18 +176,19 @@ class ExampleSource:
 
 
 @dataclass
-class PermutableAttributeValue:
-    """Value to be used for the attribute."""
+class SampledAttributeValue:
+    """Value to be sampled for the attribute."""
 
     id: str
     """ID to be used when referencing the attribute value during synthesis."""
 
-    value: str
-    """Value to be used for the attribute."""
+    name: str
+    """Plaintext name of the attribute value.
+    Referenced as {attribute_id}"""
 
     description: str
     """Description of the attribute value.
-    Referenced as <<attribute_id.value.description>>"""
+    Referenced as {attribute_id.description}"""
 
     sample_rate: Optional[float] = None
     """Sample rate for the attribute value. If not specified, will assume uniform
@@ -164,34 +197,34 @@ class PermutableAttributeValue:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("PermutableAttributeValue.id cannot be empty.")
-        if not self.value:
-            raise ValueError("PermutableAttributeValue.value cannot be empty.")
+            raise ValueError("SampledAttributeValue.id cannot be empty.")
+        if not self.name:
+            raise ValueError("SampledAttributeValue.name cannot be empty.")
         if not self.description:
-            raise ValueError("PermutableAttributeValue.description cannot be empty.")
+            raise ValueError("SampledAttributeValue.description cannot be empty.")
         if self.sample_rate is not None and (
             self.sample_rate < 0 or self.sample_rate > 1
         ):
             raise ValueError(
-                "PermutableAttributeValue.sample_rate must be between 0 and 1."
+                "SampledAttributeValue.sample_rate must be between 0 and 1."
             )
 
 
 @dataclass
-class PermutableAttribute:
-    """Attributes to be varied across the dataset."""
+class SampledAttribute:
+    """Attributes to be sampled across the dataset."""
 
     id: str
     """ID to be used when referencing the attribute during synthesis."""
 
-    attribute: str
-    """Plaintext name of the attribute. Referenced as <<atribute_id>>"""
+    name: str
+    """Plaintext name of the attribute. Referenced as {id.parent}"""
 
     description: str
-    """Description of the attribute. Referenced as <<attribute_id.description>>"""
+    """Description of the attribute. Referenced as {id.parent.description}"""
 
-    possible_values: list[PermutableAttributeValue]
-    """Type of the attribute."""
+    possible_values: list[SampledAttributeValue]
+    """Values to be sampled for the attribute."""
 
     def get_value_distribution(self) -> dict[str, float]:
         """Get the distribution of attribute values."""
@@ -203,13 +236,13 @@ class PermutableAttribute:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("PermutableAttribute.id cannot be empty.")
-        if not self.attribute:
-            raise ValueError("PermutableAttribute.attribute cannot be empty.")
+            raise ValueError("SampledAttribute.id cannot be empty.")
+        if not self.name:
+            raise ValueError("SampledAttribute.name cannot be empty.")
         if not self.description:
-            raise ValueError("PermutableAttribute.description cannot be empty.")
+            raise ValueError("SampledAttribute.description cannot be empty.")
         if not self.possible_values:
-            raise ValueError("PermutableAttribute.possible_values cannot be empty.")
+            raise ValueError("SampledAttribute.possible_values cannot be empty.")
 
         value_ids = []
         sample_rates = []
@@ -219,9 +252,7 @@ class PermutableAttribute:
 
         value_ids_set = set(value_ids)
         if len(value_ids) != len(value_ids_set):
-            raise ValueError(
-                "PermutableAttribute.possible_values must have unique IDs."
-            )
+            raise ValueError("SampledAttribute.possible_values must have unique IDs.")
 
         # Normalize sample rates
         normalized_sample_rates = []
@@ -234,7 +265,7 @@ class PermutableAttribute:
                 undefined_sample_rate_count += 1
 
             if defined_sample_rate > 1.0:
-                raise ValueError("PermutableAttribute.possible_values must sum to 1.0.")
+                raise ValueError("SampledAttribute.possible_values must sum to 1.0.")
 
         # Assign remaining sample rate to undefined sample rates
         remaining_sample_rate = 1.0 - defined_sample_rate
@@ -290,6 +321,14 @@ class AttributeCombination:
 class GeneratedAttributePostprocessingParams:
     """Postprocessing parameters for generated attributes."""
 
+    id: str
+    """ID to be used when referencing the postprocessing parameters during synthesis."""
+
+    keep_original_text_attribute: bool = True
+    """Whether to keep the original text of the generated attribute.
+    If True, the original text will be returned as an attribute.
+    If False, the original text will be discarded."""
+
     cut_prefix: Optional[str] = None
     """Cut off value before and including prefix."""
 
@@ -308,6 +347,21 @@ class GeneratedAttributePostprocessingParams:
     added_suffix: Optional[str] = None
     """Suffix to be added to the value."""
 
+    def __post_init__(self):
+        """Verifies/populates params."""
+        if not self.id:
+            raise ValueError(
+                "GeneratedAttributePostprocessingParams.id cannot be empty."
+            )
+
+        if self.regex:
+            try:
+                re.compile(self.regex)
+            except Exception as e:
+                raise ValueError(
+                    f"Error compiling GeneratedAttributePostprocessingParams.regex: {e}"
+                )
+
 
 @dataclass
 class GeneratedAttribute:
@@ -316,7 +370,7 @@ class GeneratedAttribute:
     id: str
     """ID to be used when referencing the attribute during synthesis."""
 
-    instruction_messages: Conversation
+    instruction_messages: list[TextMessage]
     """List of messages providing instructions for generating this attribute."""
 
     postprocessing_params: Optional[GeneratedAttributePostprocessingParams] = None
@@ -328,61 +382,89 @@ class GeneratedAttribute:
             raise ValueError("GeneratedAttribute.id cannot be empty.")
         if not self.instruction_messages:
             raise ValueError("GeneratedAttribute.instruction_messages cannot be empty.")
-
-
-@dataclass
-class ListTransform:
-    """Create a new attribute which is a list of strings."""
-
-    element_transforms: list[str]
-    """List of transforms for each element of the list."""
-
-    def __post_init__(self):
-        """Verifies/populates params."""
-        if not self.element_transforms:
-            raise ValueError("ListTransform.element_transforms cannot be empty.")
-
-
-@dataclass
-class DictTransform:
-    """Create a new attribute which is a dictionary of strings."""
-
-    transforms: dict[str, str]
-    """Mapping of dictionary keys to their corresponding transforms."""
-
-    def __post_init__(self):
-        """Verifies/populates params."""
-        if not self.transforms:
-            raise ValueError("DictTransform.transforms cannot be empty.")
-
-
-@dataclass
-class ChatTransform:
-    """Transform of an attribute using a chat."""
-
-    transforms: Conversation
-    """List of transforms for chat messages."""
-
-    def __post_init__(self):
-        """Verifies/populates params."""
-        messages = self.transforms.messages
-        if not messages or len(messages) == 0:
-            raise ValueError("ChatTransform.transforms must have at least one message.")
-
-        for message in messages:
-            content = message.content
-            if not isinstance(content, str):
+        if self.postprocessing_params:
+            if self.id == self.postprocessing_params.id:
                 raise ValueError(
-                    "ChatTransform.transforms message content must be a string."
-                )
-
-            if not content:
-                raise ValueError(
-                    "ChatTransform.transforms message content cannot be empty."
+                    "GeneratedAttribute.id and "
+                    "GeneratedAttributePostprocessingParams.id "
+                    "cannot be the same."
                 )
 
 
-TransformationStrategy = Union[str, ListTransform, DictTransform, ChatTransform]
+class TransformationType(str, Enum):
+    """Types of transformation strategies."""
+
+    STRING = "string"
+    LIST = "list"
+    DICT = "dict"
+    CHAT = "chat"
+
+
+@dataclass
+class TransformationStrategy:
+    """Discriminated union for transformation strategies that works with OmegaConf."""
+
+    type: TransformationType
+    """The type of transformation strategy."""
+
+    # For string transformations
+    string_transform: Optional[str] = None
+    """String transformation template (used when type=STRING)."""
+
+    # For list transformations
+    list_transform: Optional[list[str]] = None
+    """List of transforms for each element (used when type=LIST)."""
+
+    # For dict transformations
+    dict_transform: Optional[dict[str, str]] = None
+    """Mapping of dictionary keys to their transforms (used when type=DICT)."""
+
+    # For chat transformations
+    chat_transform: Optional[TextConversation] = None
+    """Chat transform for chat messages (used when type=CHAT)."""
+
+    def __post_init__(self):
+        """Verifies/populates params based on the type."""
+        if self.type == TransformationType.STRING:
+            if self.string_transform is None or self.string_transform == "":
+                raise ValueError("string_transform cannot be empty when type=STRING")
+            # Clear other fields
+            self.list_transform = None
+            self.dict_transform = None
+            self.chat_transform = None
+
+        elif self.type == TransformationType.LIST:
+            if not self.list_transform or len(self.list_transform) == 0:
+                raise ValueError("list_transform cannot be empty when type=LIST")
+            # Clear other fields
+            self.string_transform = None
+            self.dict_transform = None
+            self.chat_transform = None
+
+        elif self.type == TransformationType.DICT:
+            if not self.dict_transform or len(self.dict_transform) == 0:
+                raise ValueError("dict_transform cannot be empty when type=DICT")
+            # Clear other fields
+            self.string_transform = None
+            self.list_transform = None
+            self.chat_transform = None
+
+        elif self.type == TransformationType.CHAT:
+            if not self.chat_transform or len(self.chat_transform.messages) == 0:
+                raise ValueError("chat_transform cannot be empty when type=CHAT")
+
+            messages = self.chat_transform.messages
+            for message in messages:
+                content = message.content
+                if not isinstance(content, str):
+                    raise ValueError("chat_transform message content must be a string")
+                if not content:
+                    raise ValueError("chat_transform message content cannot be empty")
+
+            # Clear other fields
+            self.string_transform = None
+            self.list_transform = None
+            self.dict_transform = None
 
 
 @dataclass
@@ -399,6 +481,16 @@ class TransformedAttribute:
         """Verifies/populates params."""
         if not self.id:
             raise ValueError("TransformedAttribute.id cannot be empty.")
+
+        if not isinstance(self.transformation_strategy, TransformationStrategy):
+            raise ValueError(
+                "TransformedAttribute.transformation_strategy must be a "
+                f"TransformationStrategy, got {type(self.transformation_strategy)}"
+            )
+
+    def get_strategy(self) -> TransformationStrategy:
+        """Get the strategy for the transformation."""
+        return self.transformation_strategy
 
 
 @dataclass
@@ -423,7 +515,7 @@ class GeneralSynthesisParams(BaseParams):
     Examples will be enumerated during sampling, and attributes can be referenced as
     attributes when generating new attributes."""
 
-    permutable_attributes: Optional[list[PermutableAttribute]] = None
+    sampled_attributes: Optional[list[SampledAttribute]] = None
     """Attributes to be varied across the dataset.
 
     Attributes each have a set of possible values which will be randomly sampled
@@ -453,18 +545,20 @@ class GeneralSynthesisParams(BaseParams):
     attribute.
 
     For example, if one of the previous attributes is "name", and you use the following
-    instruction messages:
-    [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "How do you pronounce the name <<name>>?"}
-    ]
+    instruction messages::
+
+        [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "How do you pronounce the name {name}?"}
+        ]
 
     Then assuming your data point has a value of "Oumi" for the "name" attribute, the
-    chat will be run with the following messages:
-    [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "How do you pronounce the name Oumi?"}
-    ]
+    chat will be run with the following messages::
+
+        [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "How do you pronounce the name Oumi?"}
+        ]
 
     The model's response to these messages will be the value of the "name" attribute
     for that data point."""
@@ -477,12 +571,14 @@ class GeneralSynthesisParams(BaseParams):
 
     For example, if you have "prompt" and "response" attributes, you can create a
     "chat" attribute by transforming the "prompt" and "response" attributes into a
-    chat message.
+    chat message::
 
-    [
-        {"role": "user", "content": "<<prompt>>"},
-        {"role": "assistant", "content": "<<response>>"}
-    ]"""
+        [
+            {"role": "user", "content": "{prompt}"},
+            {"role": "assistant", "content": "{response}"}
+        ]
+
+    """
 
     passthrough_attributes: Optional[list[str]] = None
     """When specified, will ONLY pass through these attributes in final output.
@@ -538,18 +634,18 @@ class GeneralSynthesisParams(BaseParams):
             for new_key in example_keys:
                 self._check_attribute_ids(all_attribute_ids, new_key)
 
-    def _check_permutable_attribute_ids(self, all_attribute_ids: set[str]) -> None:
-        """Check attribute IDs from permutable attributes for uniqueness."""
-        if self.permutable_attributes is None:
+    def _check_sampled_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from sampled attributes for uniqueness."""
+        if self.sampled_attributes is None:
             return
 
-        if len(self.permutable_attributes) == 0:
+        if len(self.sampled_attributes) == 0:
             raise ValueError(
-                "GeneralSynthesisParams.permutable_attributes cannot be empty."
+                "GeneralSynthesisParams.sampled_attributes cannot be empty."
             )
 
-        for permutable_attribute in self.permutable_attributes:
-            attribute_id = permutable_attribute.id
+        for sampled_attribute in self.sampled_attributes:
+            attribute_id = sampled_attribute.id
             self._check_attribute_ids(all_attribute_ids, attribute_id)
 
     def _check_generated_attribute_ids(self, all_attribute_ids: set[str]) -> None:
@@ -565,6 +661,9 @@ class GeneralSynthesisParams(BaseParams):
         for generated_attribute in self.generated_attributes:
             attribute_id = generated_attribute.id
             self._check_attribute_ids(all_attribute_ids, attribute_id)
+            if generated_attribute.postprocessing_params:
+                postprocessing_id = generated_attribute.postprocessing_params.id
+                self._check_attribute_ids(all_attribute_ids, postprocessing_id)
 
     def _check_transformed_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from transformed attributes for uniqueness."""
@@ -615,7 +714,7 @@ class GeneralSynthesisParams(BaseParams):
         self._check_dataset_source_attribute_ids(all_attribute_ids)
         self._check_document_source_attribute_ids(all_attribute_ids)
         self._check_example_source_attribute_ids(all_attribute_ids)
-        self._check_permutable_attribute_ids(all_attribute_ids)
+        self._check_sampled_attribute_ids(all_attribute_ids)
         self._check_generated_attribute_ids(all_attribute_ids)
         self._check_transformed_attribute_ids(all_attribute_ids)
         self._check_passthrough_attribute_ids()

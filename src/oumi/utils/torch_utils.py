@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any, NamedTuple, Optional, TypeVar, Union, cast
 
 import numpy as np
-import numpy.typing as npt
 import torch
 
 from oumi.utils.device_utils import get_nvidia_gpu_memory_utilization
@@ -315,7 +314,7 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
 
 
 def get_dtype_size_in_bytes(
-    dtype: Union[str, torch.dtype, npt.DTypeLike],
+    dtype: Union[str, torch.dtype, type[np.generic]],
 ) -> int:
     """Returns size of this dtype in bytes."""
     if isinstance(dtype, torch.dtype):

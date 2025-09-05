@@ -1,0 +1,106 @@
+# Llama 3.1 8B SFT training with DeepSpeed ZeRO-3 + CPU Offloading
+# This example demonstrates maximum memory efficiency using ZeRO-3 with CPU offloading
+# Suitable for training large models on limited GPU memory by offloading
+# optimizer states and parameters to CPU memory.
+#
+# Hardware Requirements:
+#   - Single or multi-GPU setup with 12GB+ VRAM per GPU
+#   - 64GB+ system RAM (128GB+ recommended for optimal CPU offloading)
+#   - High-bandwidth CPU-GPU interconnect for efficient offloading
+#   - Minimum memory config: 1x RTX 4090 (24GB) with 64GB system RAM
+#
+# Requirements:
+#   - Log into HF: `hf auth login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
+# Usage:
+#   oumi train -c configs/examples/deepspeed/llama3_1_8b_deepspeed_z3_offload_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+  trust_remote_code: False
+
+data:
+  train:
+    datasets:
+      - dataset_name: "Magpie-Align/Llama-3-Magpie-Pro-1M-v0.1"
+        split: "train"
+        shuffle: True
+        seed: 42
+
+training:
+  trainer_type: "TRL_SFT"
+  save_steps: 500
+  num_train_epochs: 3
+  per_device_train_batch_size: 1 # Smaller batch size due to CPU offloading overhead
+  gradient_accumulation_steps: 8
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  lr_scheduler_type: "cosine"
+
+  dataloader_num_workers: 4 # Reduced due to CPU memory usage
+  dataloader_prefetch_factor: 2
+
+  logging_steps: 10
+  output_dir: "output/llama3_1_8b_deepspeed_z3_offload"
+  enable_wandb: False
+  save_final_model: True
+
+# DeepSpeed configuration for ZeRO-3 with CPU offloading
+deepspeed:
+  enable_deepspeed: True
+  zero_stage: "ZERO_3"
+  precision: "BF16"
+
+  # ZeRO-3 specific parameters
+  allgather_partitions: True
+  allgather_bucket_size: 200000000 # 2e8
+  overlap_comm: True
+  reduce_scatter: True
+  reduce_bucket_size: 200000000 # 2e8
+  contiguous_gradients: True
+  round_robin_gradients: False
+
+  # ZeRO-3 specific stage3 parameters
+  sub_group_size: 1000000000 # 1e9
+  stage3_prefetch_bucket_size: "auto"
+  stage3_param_persistence_threshold: "auto"
+  stage3_max_live_parameters: 1000000000 # 1e9
+  stage3_max_reuse_distance: 1000000000 # 1e9
+  stage3_gather_16bit_weights_on_model_save: False
+
+  # CPU offloading for maximum memory efficiency
+  offload_optimizer:
+    device: "CPU"
+    pin_memory: True
+    buffer_count: 4
+
+  offload_param:
+    device: "CPU"
+    pin_memory: True
+    buffer_count: 4
+
+  # Memory optimization
+  zero_allow_untested_optimizer: True
+  zero_force_ds_cpu_optimizer: True # Use DeepSpeed CPU optimizer when offloading
+
+  # Logging
+  steps_per_print: 10
+  wall_clock_breakdown: False

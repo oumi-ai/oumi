@@ -38,7 +38,6 @@ peft:
     - "out_proj"
   lora_r: 16
   lora_alpha: 32
-  lora_dropout: 0.0
   lora_target_modules:
     - "q_proj"
     - "k_proj"

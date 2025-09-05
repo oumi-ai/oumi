@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '0 */8 * * *' # Every 8 hours
   workflow_dispatch:
-  pull_request:
+  merge_group:
     paths-ignore:
       - 'docs/**'
       - 'notebooks/**'
@@ -12,11 +12,18 @@ on:
       - 'scripts/**'
       - 'README.md'
 
+env:
+  SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI: v0.0.1
+  NCCL_DEBUG: INFO
+
 jobs:
   gpu-tests:
     permissions:
       contents: 'read'
     runs-on: linux-gpu-runner
+    container:
+      image: nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
+      options: --gpus all
 
     steps:
     - name: Checkout
@@ -24,17 +31,24 @@ jobs:
       with:
         # Checkout using commit hash to make "no-commit-to-branch" test pass.
         ref: ${{ github.sha }}
+        # Need full history for setuptools-scm to detect version
+        fetch-depth: 0
+
+    - name: Install system dependencies
+      run: |
+        apt-get update
+        apt-get install -y libcurl4
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
     - name: Install uv
       uses: astral-sh/setup-uv@v2
       with:
         enable-cache: true
         cache-dependency-glob: "pyproject.toml"
-
-    - name: "Set up Python"
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
 
     - name: Install Dependencies
       run: |
@@ -46,9 +60,28 @@ jobs:
       run: |
         ./tests/scripts/predownload_for_github_gpu_tests.sh
 
+    - name: Verify CUDA environment
+      run: |
+        echo "=== CUDA Environment Check ==="
+        # Check if nvidia-smi is available
+        if command -v nvidia-smi &> /dev/null; then
+          nvidia-smi
+        else
+          echo "nvidia-smi not found, but that's OK in container"
+        fi
+
+        # Check NVCC
+        nvcc --version
+        echo "CUDA_HOME: ${CUDA_HOME:-/usr/local/cuda}"
+        which nvcc
+
+        # Set CUDA_HOME if not set
+        if [ -z "$CUDA_HOME" ]; then
+          export CUDA_HOME=/usr/local/cuda
+          echo "Set CUDA_HOME=$CUDA_HOME"
+        fi
+
     - name: Run GPU tests
       run: |
-        nvidia-smi
-
         cd ./tests/integration/
         pytest -s -m "not e2e and not e2e_eternal and not multi_gpu" --durations=50 --timeout=300

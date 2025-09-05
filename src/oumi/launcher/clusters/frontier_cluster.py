@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import re
 import uuid
 from datetime import datetime
@@ -164,8 +165,6 @@ def _validate_job_config(job: JobConfig) -> None:
         logger.warning("Instance type is unused for Frontier jobs.")
     if job.resources.disk_size:
         logger.warning("Disk size is unused for Frontier jobs.")
-    if job.resources.instance_type:
-        logger.warning("Instance type is unused for Frontier jobs.")
     # Warn that storage mounts are currently unsupported.
     if len(job.storage_mounts.items()) > 0:
         logger.warning("Storage mounts are currently unsupported for Frontier jobs.")
@@ -345,3 +344,12 @@ class FrontierCluster(BaseCluster):
     def down(self) -> None:
         """This is a no-op for Frontier clusters."""
         pass
+
+    def get_logs_stream(self, job_id: str, cluster_name: str) -> io.TextIOBase:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            job_id: The ID of the job to tail the logs of.
+            cluster_name: The name of the cluster the job was run in.
+        """
+        raise NotImplementedError

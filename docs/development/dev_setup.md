@@ -48,6 +48,21 @@ This command creates a new Conda env, installs relevant packages, and installs p
 make setup
 ```
 
+> **Note:**
+> If you see an error like
+> `CondaToSNonInteractiveError: Terms of Service have not been accepted for the following channels...`
+>
+> This means you must manually accept the Terms of Service for the Anaconda package channels.
+> To resolve, run the following commands in your terminal for each required channel:
+>
+> ```shell
+> conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+> conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+> ```
+>
+> After accepting, re-run the `make setup` command.
+>
+
 If you'd like to only run the pre-commits before a push, instead of every commit, you can run:
 
 ```shell
@@ -96,7 +111,7 @@ Oumi integrates with HuggingFace (HF) Hub for access to models and datasets. Whi
 3. Run the following to log in on your machine, using the token created in the previous step:
 
    ```shell
-   huggingface-cli login
+   hf auth login
    ```
 
    This will save your token in the HF cache directory at `~/.cache/huggingface/token`. Oumi jobs mount this file to remote clusters to access gated content there. See [this config](https://github.com/oumi-ai/oumi/blob/535f28b3c93a6423abc247e921a00d2b27de14df/configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml#L19) for an example.

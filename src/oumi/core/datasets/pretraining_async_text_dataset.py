@@ -33,8 +33,6 @@ class PretrainingAsyncTextDataset(IterableDataset):
     """Iterable dataset that returns constant length chunks of tokens.
 
     Prefetches, formats, and tokenizes asynchronously from main thread.
-
-    Based on TRL's ConstantLengthDataset class.
     """
 
     def __init__(

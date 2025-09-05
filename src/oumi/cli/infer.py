@@ -59,6 +59,7 @@ def infer(
         ),
     ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
+    verbose: cli_utils.VERBOSE_TYPE = False,
 ):
     """Run inference on a model.
 
@@ -75,6 +76,7 @@ def infer(
         image: Path to the input image for `image+text` VLLMs.
         system_prompt: System prompt for task-specific instructions.
         level: The logging level for the specified command.
+        verbose: Enable verbose logging with additional debug information.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
@@ -101,6 +103,11 @@ def infer(
         config, extra_args, logger=logger
     )
     parsed_config.finalize_and_validate()
+
+    if verbose:
+        # Print configuration for verification
+        parsed_config.print_config(logger)
+
     # https://stackoverflow.com/questions/62691279/how-to-disable-tokenizers-parallelism-true-false-warning
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 

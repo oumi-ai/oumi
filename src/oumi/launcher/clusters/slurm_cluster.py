@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
-from oumi.launcher.clients.slurm_client import SlurmClient
+from oumi.launcher.clients.slurm_client import SlurmClient, SlurmLogStream
 from oumi.utils.logging import logger
 
 _OUMI_SLURM_CONNECTIONS = "OUMI_SLURM_CONNECTIONS"
@@ -106,8 +106,6 @@ def _validate_job_config(job: JobConfig) -> None:
     """
     if not job.user:
         raise ValueError("User must be provided for Slurm jobs.")
-    if not job.working_dir:
-        raise ValueError("Working directory must be provided for Slurm jobs.")
     if not job.run:
         raise ValueError("Run script must be provided for Slurm jobs.")
     if job.num_nodes < 1:
@@ -118,6 +116,8 @@ def _validate_job_config(job: JobConfig) -> None:
             f"Unsupported cloud: {job.resources.cloud}"
         )
     # Warn that other resource parameters are unused for Slurm.
+    if not job.working_dir:
+        logger.warning("Working directory is not set. This is not recommended.")
     if job.resources.region:
         logger.warning("Region is unused for Slurm jobs.")
     if job.resources.zone:
@@ -154,10 +154,18 @@ class SlurmCluster(BaseCluster):
             """Gets the name of the connection in the form user@hostname."""
             return f"{self.user}@{self.hostname}"
 
+    @dataclass
+    class JobInfo:
+        """Information about a submitted job."""
+
+        working_dir: Path  # Path to the working directory on the remote cluster.
+        stdout_filename: str  # Name of the remote cluster's stdout file.
+
     def __init__(self, name: str, client: SlurmClient) -> None:
         """Initializes a new instance of the SlurmCluster class."""
         self._client = client
         self._connection = self.parse_cluster_name(name)
+        self.jobs_info: dict[str, SlurmCluster.JobInfo] = {}
 
     def __eq__(self, other: Any) -> bool:
         """Checks if two SlurmClusters are equal."""
@@ -248,7 +256,10 @@ class SlurmCluster(BaseCluster):
         submission_time = _format_date(datetime.now())
         remote_working_dir = Path(f"~/oumi_launcher/{submission_time}")
         # Copy the working directory to ~/oumi_launcher/...
-        self._client.put_recursive(job.working_dir, str(remote_working_dir))
+        if job.working_dir:
+            self._client.put_recursive(job.working_dir, str(remote_working_dir))
+        else:
+            self._client.run_commands([f"mkdir -p {remote_working_dir}"])
         # Copy all file mounts.
         for remote_path, local_path in job.file_mounts.items():
             self._client.put_recursive(local_path, remote_path)
@@ -264,6 +275,11 @@ class SlurmCluster(BaseCluster):
             str(remote_working_dir),
             job.num_nodes,
             job_name,
+        )
+        # By default, Slurm writes to slurm-<job_id>.out.
+        self.jobs_info[job_id] = SlurmCluster.JobInfo(
+            working_dir=remote_working_dir,
+            stdout_filename=f"slurm-{job_id}.out",
         )
         max_retries = 3
         wait_time = 5
@@ -285,3 +301,23 @@ class SlurmCluster(BaseCluster):
     def down(self) -> None:
         """This is a no-op for Slurm clusters."""
         pass
+
+    def get_logs_stream(self, job_id: str, cluster_name: str) -> SlurmLogStream:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            job_id: The ID of the job to tail the logs of.
+            cluster_name: The name of the cluster the job was run in.
+
+        Returns:
+            A SlurmLogStream object that can be used to read the logs.
+        """
+        if job_id not in self.jobs_info:
+            raise RuntimeError(f"Job {job_id} not found in jobs_info")
+        job_info = self.jobs_info[job_id]
+        return self._client.get_logs_stream(
+            str(job_info.working_dir),
+            job_id,
+            cluster_name,
+            job_info.stdout_filename,
+        )
