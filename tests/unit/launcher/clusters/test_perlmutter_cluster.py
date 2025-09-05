@@ -370,6 +370,8 @@ def test_perlmutter_cluster_run_job(mock_datetime, mock_slurm_client):
         qos="regular",
         stdout_file="some/log",
         stderr_file="run/log",
+        constraint="gpu",
+        gpus_per_node=4,
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -451,6 +453,8 @@ def test_perlmutter_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_c
         qos="regular",
         stdout_file="some/log",
         stderr_file="run/log",
+        constraint="gpu",
+        gpus_per_node=4,
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -536,6 +540,8 @@ def test_perlmutter_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         qos="regular",
         stdout_file="some/log",
         stderr_file="run/log",
+        constraint="gpu",
+        gpus_per_node=4,
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -609,6 +615,8 @@ def test_perlmutter_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         qos="regular",
         stdout_file="some/log",
         stderr_file="run/log",
+        constraint="gpu",
+        gpus_per_node=4,
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -672,8 +680,10 @@ def test_perlmutter_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
         ntasks=2,
         threads_per_core=1,
         qos="regular",
-        stdout_file="$CFS/$USER/jobs/logs/%j.OU",
-        stderr_file="$CFS/$USER/jobs/logs/%j.ER",
+        stdout_file="$CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.out",
+        stderr_file=None,
+        constraint="gpu",
+        gpus_per_node=4,
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -737,8 +747,10 @@ def test_perlmutter_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         ntasks=2,
         threads_per_core=1,
         qos="regular",
-        stdout_file="$CFS/$USER/jobs/logs/%j.OU",
-        stderr_file="$CFS/$USER/jobs/logs/%j.ER",
+        stdout_file="$CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.out",
+        stderr_file=None,
+        constraint="gpu",
+        gpus_per_node=4,
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
