@@ -659,7 +659,7 @@ def test_slurm_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "1-2-3",
+        name="1-2-3",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
