@@ -106,6 +106,7 @@ class BaseCluster(ABC):
 
         Args:
             cluster_name: The name of the cluster the job was run in.
-            job_id: The ID of the job to tail the logs of.
+            job_id: The ID of the job to tail the logs of. If unspecified, the most
+                recent job will be used.
         """
         raise NotImplementedError

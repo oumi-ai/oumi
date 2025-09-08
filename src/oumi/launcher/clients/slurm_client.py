@@ -309,14 +309,13 @@ class SlurmLogStream(io.TextIOBase):
         base_delay = 5
         max_delay = 20
 
+        log_path = (
+            Path(_LOG_DIR.format(user=self._client._user, job_id=self.job_id))
+            / "stdout.log"
+        )
+        check_cmd = f"ssh {_CTRL_PATH} {cluster_name} test -f {log_path}"
         # Wait for log file to appear
         for attempt in range(max_attempts):
-            # Use direct SSH command to avoid pseudo-terminal issues
-            log_path = (
-                Path(_LOG_DIR.format(user=self._client._user, job_id=self.job_id))
-                / "stdout.log"
-            )
-            check_cmd = f"ssh {_CTRL_PATH} {cluster_name} test -f {log_path}"
             preflight = subprocess.run(
                 check_cmd,
                 shell=True,
@@ -330,10 +329,6 @@ class SlurmLogStream(io.TextIOBase):
                 delay = min(base_delay * (2**attempt), max_delay)
                 time.sleep(delay)
             else:
-                log_path = (
-                    Path(_LOG_DIR.format(user=self._client._user, job_id=self.job_id))
-                    / "stdout.log"
-                )
                 raise FileNotFoundError(
                     f"Log file not found after {max_attempts} attempts: {log_path}. "
                     "The job may not have started."
@@ -518,8 +513,6 @@ class SlurmClient:
         job_path: str,
         working_dir: str,
         node_count: int,
-        stdout_file: str,
-        stderr_file: str,
         name: Optional[str],
         *,
         export: Optional[Union[str, list[str]]] = None,
@@ -528,6 +521,10 @@ class SlurmClient:
         threads_per_core: Optional[int] = None,
         distribution: Optional[str] = None,
         partition: Optional[str] = None,
+        qos: Optional[str] = None,
+        stdout_file: str = f"{_LOG_DIR.format(user='%u', job_id='%j')}/stdout.log",
+        stderr_file: str = f"{_LOG_DIR.format(user='%u', job_id='%j')}/stderr.log",
+        **kwargs,
     ) -> str:
         """Submits the specified job script to Slurm.
 
@@ -535,8 +532,6 @@ class SlurmClient:
             job_path: The path to the job script to submit.
             working_dir: The working directory to submit the job from.
             node_count: The number of nodes to use for the job.
-            stdout_file: The file to redirect stdout to.
-            stderr_file: The file to redirect stderr to.
             name: The name of the job (optional).
             export: Environment variables to export.
                 Special values: "NONE" nothing to export, "ALL" export all env vars.
@@ -548,13 +543,20 @@ class SlurmClient:
             distribution: Distribution method for processes to nodes
                 (type = block|cyclic|arbitrary)
             partition: Partition (aka queue) requested.
+            qos: QoS (aka the queue on Perlmutter) requested.
+            stdout_file: The file to redirect stdout to.
+            stderr_file: The file to redirect stderr to.
+            kwargs: Additional flags to pass to sbatch. Hyphens in the flag name are
+                replaced with underscores. For example, `foo_bar=baz` as a kwarg will
+                add "--foo-bar=baz" to the sbatch command.
 
         Returns:
             The ID of the submitted job.
         """
         cmd_parts = ["sbatch", f"--nodes={node_count}"]
+        slurm_flags: dict[str, str] = {}
         if name:
-            cmd_parts.append(f"--job-name={name}")
+            slurm_flags["job-name"] = name
         if export is not None:
             export_str = "NONE"
             if isinstance(export, list):
@@ -562,17 +564,38 @@ class SlurmClient:
                     export_str = ",".join(export)
             else:
                 export_str = str(export)
-            cmd_parts.append(f"--export={export_str}")
+            slurm_flags["export"] = export_str
         if account:
-            cmd_parts.append(f"--account={account}")
+            slurm_flags["account"] = account
         if ntasks is not None:
-            cmd_parts.append(f"--ntasks={ntasks}")
+            slurm_flags["ntasks"] = str(ntasks)
         if threads_per_core is not None:
-            cmd_parts.append(f"--threads-per-core={threads_per_core}")
+            slurm_flags["threads-per-core"] = str(threads_per_core)
         if distribution:
-            cmd_parts.append(f"--distribution={distribution}")
+            slurm_flags["distribution"] = distribution
         if partition:
-            cmd_parts.append(f"--partition={partition}")
+            slurm_flags["partition"] = partition
+        if qos:
+            slurm_flags["qos"] = qos
+        if stdout_file:
+            slurm_flags["output"] = stdout_file
+        if stderr_file:
+            slurm_flags["error"] = stderr_file
+
+        # Add kwargs to slurm_flags
+        for flag, value in kwargs.items():
+            flag = flag.replace("_", "-")
+            if flag in slurm_flags:
+                logger.warning(
+                    f"Flag {flag} already set to {slurm_flags[flag]}. "
+                    f"Overwriting with {value}."
+                )
+            slurm_flags[flag] = str(value)
+
+        # Add flags to command parts
+        for flag, value in slurm_flags.items():
+            cmd_parts.append(f"--{flag}={value}")
+
         cmd_parts.append("--parsable")
         # Important that setting the output must come before the job path.
         cmd_parts.append(f"--output={stdout_file}")
@@ -592,11 +615,18 @@ class SlurmClient:
             A list of JobStatus.
         """
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
-        # Forcibly list all jobs since Jan 1, 2025.
+        # Get current date and subtract one month.
         # Otherwise completed jobs older than ~24 hours may not be listed.
+
+        from datetime import datetime, timedelta
+
+        current_date = datetime.now()
+        one_month_ago = current_date - timedelta(days=30)
+        start_date = one_month_ago.strftime("%Y-%m-%d")
+
         command = (
             f"sacct --user={self._user} --format='{response_format}' -X "
-            "--starttime 2025-01-01"
+            f"--starttime {start_date}"
         )
         result = self.run_commands([command])
         if result.exit_code != 0:
@@ -737,5 +767,8 @@ class SlurmClient:
             lastest_job_id = self.get_latest_job()
             if lastest_job_id is None:
                 raise RuntimeError("No jobs found on the cluster.")
+            logger.info(
+                f"No job ID provided. Using the most recent job ID: {lastest_job_id.id}"
+            )
             job_id = lastest_job_id.id
         return SlurmLogStream(cluster_name, job_id, client=self)

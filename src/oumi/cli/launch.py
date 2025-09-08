@@ -190,8 +190,8 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-def _find_clusters(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]:
-    """Find clusters matching the given name and cloud.
+def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]:
+    """Finds the cluster matching the given name and cloud.
 
     Returns:
         Optional[BaseCluster]: The matching cluster, or None if not found.
@@ -236,7 +236,7 @@ def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
     All workers must return a boolean to indicate whether the task is done.
     Stop has no intermediate states, so it always returns True.
     """
-    cluster_instance = _find_clusters(cluster, cloud)
+    cluster_instance = _find_cluster(cluster, cloud)
 
     if not cluster_instance:
         cli_utils.CONSOLE.print(
@@ -637,16 +637,21 @@ def logs(
     cluster: Annotated[str, typer.Option(help="The cluster to get the logs of.")],
     cloud: Annotated[
         Optional[str],
-        typer.Option(
-            help="If specified, only clusters on this cloud will be affected."
-        ),
+        typer.Option(help="If specified, will use the cloud the clusters belong to."),
     ] = None,
     job_id: Annotated[
         Optional[str],
-        typer.Option(help="The job ID to get the logs of."),
+        typer.Option(
+            help="The job ID to get the logs of. If unspecified, the most recent "
+            "job will be used."
+        ),
     ] = None,
     output_filepath: Annotated[
-        Optional[str], typer.Option(help="Path to save job logs to a file.")
+        Optional[str],
+        typer.Option(
+            help="Path to save job logs to a file. If unspecified, the logs will "
+            "be printed to the console."
+        ),
     ] = None,
 ) -> None:
     """Gets the logs of a job.
@@ -668,7 +673,7 @@ def _log_worker(
 
     Returns a text stream containing the cluster logs.
     """
-    cluster_instance = _find_clusters(cluster, cloud)
+    cluster_instance = _find_cluster(cluster, cloud)
 
     if not cluster_instance:
         raise RuntimeError(f"Cluster [yellow]{cluster}[/yellow] not found.")

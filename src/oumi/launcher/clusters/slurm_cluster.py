@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
-from oumi.launcher.clients.slurm_client import _LOG_DIR, SlurmClient, SlurmLogStream
+from oumi.launcher.clients.slurm_client import SlurmClient, SlurmLogStream
 from oumi.utils.logging import logger
 
 _OUMI_SLURM_CONNECTIONS = "OUMI_SLURM_CONNECTIONS"
@@ -274,8 +274,6 @@ class SlurmCluster(BaseCluster):
             str(script_path),
             str(remote_working_dir),
             job.num_nodes,
-            stdout_file=f"{_LOG_DIR.format(user='%u', job_id='%j')}/stdout.log",
-            stderr_file=f"{_LOG_DIR.format(user='%u', job_id='%j')}/stderr.log",
             name=job_name,
         )
         # By default, Slurm writes to slurm-<job_id>.out.
