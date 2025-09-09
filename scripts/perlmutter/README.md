@@ -55,5 +55,4 @@ Arguments:
 After submission, you can monitor your jobs:
 
 - View job status: `squeue -l -u username`
-- Check error logs: `tail -n200 -f $CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/jobid.ER`
-- Check output logs: `tail -n200 -f $CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/jobid.OU`
+- Check output logs: `tail -n200 -f $CFS/$SBATCH_ACCOUNT/users/$USER/jobs/logs/<jobid>.out`

@@ -6,8 +6,8 @@ from oumi.core.configs import JobConfig
 from oumi.core.launcher import JobState, JobStatus
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.launcher.clients.slurm_client import SlurmClient
-from oumi.launcher.clouds.frontier_cloud import FrontierCloud
-from oumi.launcher.clusters.frontier_cluster import FrontierCluster
+from oumi.launcher.clouds.perlmutter_cloud import PerlmutterCloud
+from oumi.launcher.clusters.perlmutter_cluster import PerlmutterCluster
 
 
 #
@@ -15,29 +15,31 @@ from oumi.launcher.clusters.frontier_cluster import FrontierCluster
 #
 @pytest.fixture
 def mock_slurm_client():
-    with patch("oumi.launcher.clouds.frontier_cloud.SlurmClient") as client:
+    with patch("oumi.launcher.clouds.perlmutter_cloud.SlurmClient") as client:
         yield client
 
 
 @pytest.fixture
-def mock_frontier_cluster():
-    with patch("oumi.launcher.clouds.frontier_cloud.FrontierCluster") as cluster:
-        cluster.SupportedQueues = FrontierCluster.SupportedQueues
+def mock_perlmutter_cluster():
+    with patch("oumi.launcher.clouds.perlmutter_cloud.PerlmutterCluster") as cluster:
+        cluster.SupportedQueues = PerlmutterCluster.SupportedQueues
         yield cluster
 
 
 #
 # Tests
 #
-def test_frontier_cloud_up_cluster_extended(mock_slurm_client, mock_frontier_cluster):
-    cloud = FrontierCloud()
+def test_perlmutter_cloud_up_cluster_regular(
+    mock_slurm_client, mock_perlmutter_cluster
+):
+    cloud = PerlmutterCloud()
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client]
-    mock_cluster = Mock(spec=FrontierCluster)
-    mock_frontier_cluster.side_effect = [mock_cluster]
+    mock_cluster = Mock(spec=PerlmutterCluster)
+    mock_perlmutter_cluster.side_effect = [mock_cluster]
     expected_job_status = JobStatus(
         id="job_id",
-        cluster="extended.user",
+        cluster="regular.user",
         name="foo",
         status="running",
         metadata="bar",
@@ -46,23 +48,23 @@ def test_frontier_cloud_up_cluster_extended(mock_slurm_client, mock_frontier_clu
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = JobConfig(user="user")
-    job_status = cloud.up_cluster(job, "extended.user")
+    job_status = cloud.up_cluster(job, "regular.user")
     mock_slurm_client.assert_called_once_with(
-        "user", "frontier.olcf.ornl.gov", "extended.user"
+        "user", "perlmutter.nersc.gov", "regular.user"
     )
     mock_cluster.run_job.assert_called_once_with(job)
     assert job_status == expected_job_status
 
 
-def test_frontier_cloud_up_cluster_batch(mock_slurm_client, mock_frontier_cluster):
-    cloud = FrontierCloud()
+def test_perlmutter_cloud_up_cluster_debug(mock_slurm_client, mock_perlmutter_cluster):
+    cloud = PerlmutterCloud()
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client]
-    mock_cluster = Mock(spec=FrontierCluster)
-    mock_frontier_cluster.side_effect = [mock_cluster]
+    mock_cluster = Mock(spec=PerlmutterCluster)
+    mock_perlmutter_cluster.side_effect = [mock_cluster]
     expected_job_status = JobStatus(
         id="job_id",
-        cluster="batch.user",
+        cluster="debug.user",
         name="foo",
         status="running",
         metadata="bar",
@@ -71,35 +73,35 @@ def test_frontier_cloud_up_cluster_batch(mock_slurm_client, mock_frontier_cluste
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = JobConfig(user="user")
-    job_status = cloud.up_cluster(job, "batch.user")
+    job_status = cloud.up_cluster(job, "debug.user")
     mock_slurm_client.assert_called_once_with(
-        "user", "frontier.olcf.ornl.gov", "batch.user"
+        "user", "perlmutter.nersc.gov", "debug.user"
     )
     mock_cluster.run_job.assert_called_once_with(job)
     assert job_status == expected_job_status
 
 
-def test_frontier_cloud_up_cluster_fails_mismatched_user(
-    mock_slurm_client, mock_frontier_cluster
+def test_perlmutter_cloud_up_cluster_fails_mismatched_user(
+    mock_slurm_client, mock_perlmutter_cluster
 ):
-    cloud = FrontierCloud()
+    cloud = PerlmutterCloud()
     with pytest.raises(ValueError, match="User must match the provided job user"):
-        _ = cloud.up_cluster(JobConfig(user="user"), "batch.user1")
+        _ = cloud.up_cluster(JobConfig(user="user"), "debug.user1")
     with pytest.raises(ValueError, match="User must match the provided job user"):
-        _ = cloud.up_cluster(JobConfig(user="user"), "extended.user1")
+        _ = cloud.up_cluster(JobConfig(user="user"), "regular.user1")
 
 
-def test_frontier_cloud_up_cluster_default_queue(
-    mock_slurm_client, mock_frontier_cluster
+def test_perlmutter_cloud_up_cluster_default_queue(
+    mock_slurm_client, mock_perlmutter_cluster
 ):
-    cloud = FrontierCloud()
+    cloud = PerlmutterCloud()
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client]
-    mock_cluster = Mock(spec=FrontierCluster)
-    mock_frontier_cluster.side_effect = [mock_cluster]
+    mock_cluster = Mock(spec=PerlmutterCluster)
+    mock_perlmutter_cluster.side_effect = [mock_cluster]
     expected_job_status = JobStatus(
         id="job_id",
-        cluster="batch.user",
+        cluster="regular.user",
         name="foo",
         status="running",
         metadata="bar",
@@ -110,54 +112,82 @@ def test_frontier_cloud_up_cluster_default_queue(
     job = JobConfig(user="user")
     job_status = cloud.up_cluster(job, None)
     mock_slurm_client.assert_called_once_with(
-        "user", "frontier.olcf.ornl.gov", "batch.user"
+        "user", "perlmutter.nersc.gov", "regular.user"
     )
     mock_cluster.run_job.assert_called_once_with(job)
     assert job_status == expected_job_status
 
 
-def test_frontier_cloud_init_with_users(mock_slurm_client):
+def test_perlmutter_cloud_init_with_users(mock_slurm_client):
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client, mock_client]
     mock_slurm_client.get_active_users.return_value = ["user1", "user2"]
-    cloud = FrontierCloud()
+    cloud = PerlmutterCloud()
     cluster_names = [cluster.name() for cluster in cloud.list_clusters()]
     cluster_names.sort()
     assert cluster_names == [
-        "batch.user1",
-        "batch.user2",
-        "extended.user1",
-        "extended.user2",
+        "debug.user1",
+        "debug.user2",
+        "debug_preempt.user1",
+        "debug_preempt.user2",
+        "interactive.user1",
+        "interactive.user2",
+        "jupyter.user1",
+        "jupyter.user2",
+        "overrun.user1",
+        "overrun.user2",
+        "preempt.user1",
+        "preempt.user2",
+        "premium.user1",
+        "premium.user2",
+        "realtime.user1",
+        "realtime.user2",
+        "regular.user1",
+        "regular.user2",
+        "shared.user1",
+        "shared.user2",
+        "shared_interactive.user1",
+        "shared_interactive.user2",
+        "shared_overrun.user1",
+        "shared_overrun.user2",
     ]
     mock_slurm_client.assert_has_calls(
         [
-            call("user1", "frontier.olcf.ornl.gov", "batch.user1"),
-            call("user2", "frontier.olcf.ornl.gov", "batch.user2"),
+            call("user1", "perlmutter.nersc.gov", "debug.user1"),
+            call("user2", "perlmutter.nersc.gov", "debug.user2"),
         ]
     )
 
 
-def test_frontier_cloud_initialize_cluster(mock_slurm_client):
-    cloud = FrontierCloud()
+def test_perlmutter_cloud_initialize_cluster(mock_slurm_client):
+    cloud = PerlmutterCloud()
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client]
     clusters = cloud.initialize_clusters("me")
     clusters2 = cloud.initialize_clusters("me")
-    mock_slurm_client.assert_called_once_with(
-        "me", "frontier.olcf.ornl.gov", "batch.me"
-    )
+    mock_slurm_client.assert_called_once_with("me", "perlmutter.nersc.gov", "debug.me")
     cluster_names = [cluster.name() for cluster in clusters]
     cluster_names.sort()
     assert cluster_names == [
-        "batch.me",
-        "extended.me",
+        "debug.me",
+        "debug_preempt.me",
+        "interactive.me",
+        "jupyter.me",
+        "overrun.me",
+        "preempt.me",
+        "premium.me",
+        "realtime.me",
+        "regular.me",
+        "shared.me",
+        "shared_interactive.me",
+        "shared_overrun.me",
     ]
     # Verify that the second initialization returns the same clusters.
     assert clusters == clusters2
 
 
-def test_frontier_cloud_list_clusters(mock_slurm_client):
-    cloud = FrontierCloud()
+def test_perlmutter_cloud_list_clusters(mock_slurm_client):
+    cloud = PerlmutterCloud()
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client, mock_client]
     # Check that there are no initial clusters.
@@ -165,28 +195,38 @@ def test_frontier_cloud_list_clusters(mock_slurm_client):
     cloud.initialize_clusters("me")
     clusters = cloud.list_clusters()
     expected_clusters = [
-        "batch.me",
-        "extended.me",
+        "debug.me",
+        "debug_preempt.me",
+        "interactive.me",
+        "jupyter.me",
+        "overrun.me",
+        "preempt.me",
+        "premium.me",
+        "realtime.me",
+        "regular.me",
+        "shared.me",
+        "shared_interactive.me",
+        "shared_overrun.me",
     ]
     cluster_names = [cluster.name() for cluster in clusters]
     cluster_names.sort()
     assert cluster_names == expected_clusters
 
 
-def test_frontier_cloud_get_cluster_empty(mock_slurm_client):
-    cloud = FrontierCloud()
+def test_perlmutter_cloud_get_cluster_empty(mock_slurm_client):
+    cloud = PerlmutterCloud()
     # Check that there are no initial clusters.
-    assert cloud.get_cluster("batch.user") is None
+    assert cloud.get_cluster("debug.user") is None
 
 
-def test_frontier_cloud_get_cluster_success(mock_slurm_client):
-    cloud = FrontierCloud()
+def test_perlmutter_cloud_get_cluster_success(mock_slurm_client):
+    cloud = PerlmutterCloud()
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client, mock_client]
     cloud.initialize_clusters("me")
     expected_clusters = [
-        "batch.me",
-        "extended.me",
+        "debug.me",
+        "regular.me",
     ]
     for name in expected_clusters:
         cluster = cloud.get_cluster(name)
@@ -194,13 +234,13 @@ def test_frontier_cloud_get_cluster_success(mock_slurm_client):
         assert cluster.name() == name
 
 
-def test_frontier_cloud_get_cluster_fails(mock_slurm_client):
-    cloud = FrontierCloud()
+def test_perlmutter_cloud_get_cluster_fails(mock_slurm_client):
+    cloud = PerlmutterCloud()
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client, mock_client]
     cloud.initialize_clusters("me")
     assert cloud.get_cluster("nonexistent") is None
 
 
-def test_frontier_cloud_builder_registered():
-    assert REGISTRY.contains("frontier", RegistryType.CLOUD)
+def test_perlmutter_cloud_builder_registered():
+    assert REGISTRY.contains("perlmutter", RegistryType.CLOUD)

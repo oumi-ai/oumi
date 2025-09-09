@@ -1,9 +1,9 @@
 import os
 from typing import Final, NamedTuple, Optional
 
+import datasets
 import pytest
 
-import datasets
 from oumi.builders import (
     build_dataset_mixture,
     build_tokenizer,

@@ -96,7 +96,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${SSH_TARGET}" "bash -s $varsStr" <<'EOF'
   echo "Submitting job... -----------------------------------------"
   # Create a logs directory for the user if it doesn't exist.
   # This directory must exist for the run to work, as Perlmutter won't create them.
-  mkdir -p $CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/
+  mkdir -p $CFS/$SBATCH_ACCOUNT/users/$USER/jobs/logs/
 
   set -x
 
@@ -107,8 +107,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${SSH_TARGET}" "bash -s $varsStr" <<'EOF'
     -N ${PERLMUTTER_NODES} \
     -n ${PERLMUTTER_NODES} \
     -q ${PERLMUTTER_QOS} \
-    -o "$CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.OU" \
-    -e "$CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.ER" \
+    -o "$CFS/$SBATCH_ACCOUNT/users/$USER/jobs/logs/%j.out" \
     ${JOB_PATH}
   )
   SBATCH_RESULT=$?
@@ -133,8 +132,6 @@ ssh -S ~/.ssh/control-%h-%p-%r "${SSH_TARGET}" "bash -s $varsStr" <<'EOF'
   squeue -l -u $USER
 
   echo
-  echo "To view error logs, run (on Perlmutter):"
-  echo "tail -n200 -f $CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/${JOB_ID}.ER"
   echo "To view output logs, run (on Perlmutter):"
-  echo "tail -n200 -f $CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/${JOB_ID}.OU"
+  echo "tail -n200 -f $CFS/$SBATCH_ACCOUNT/users/$USER/jobs/logs/${JOB_ID}.out"
 EOF
