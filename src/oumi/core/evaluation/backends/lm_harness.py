@@ -309,6 +309,25 @@ def evaluate(
 
     # Identify the proper LM Harness model (`lm_harness_model`) to use.
     if config.inference_engine == InferenceEngineType.NATIVE:
+        # Guard: avoid double-sharding when using Accelerate/Torch DDP.
+        is_distributed = any(__import__('os').environ.get(k) for k in ("LOCAL_RANK","RANK","WORLD_SIZE","LOCAL_WORLD_SIZE"))
+        if is_distributed and config.model.shard_for_eval:
+            logger.warning(
+                "Detected distributed execution with shard_for_eval=True. "
+                "Disabling intra-process sharding to prevent incorrect evaluation."
+            )
+            config.model.shard_for_eval = False
+            # Guard: avoid double-sharding when using Accelerate/Torch DDP.
+            # If we're distributed (LOCAL_RANK/RANK/WORLD_SIZE), turn off shard_for_eval,
+            # which maps to LM Harness "parallelize" and would otherwise span all GPUs per process.
+            is_distributed = any(__import__("os").environ.get(k) for k in ("LOCAL_RANK","RANK","WORLD_SIZE","LOCAL_WORLD_SIZE"))
+            if is_distributed and config.model.shard_for_eval:
+                logger.warning(
+                    "Detected distributed execution with shard_for_eval=True. "
+                    "Disabling intra-process sharding to prevent incorrect evaluation."
+                )
+                config.model.shard_for_eval = False
+
         lm_harness_model = "hf-multimodal" if is_multimodal else "hf"
         if device.startswith("cuda"):
             logger.warning(
