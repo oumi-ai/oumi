@@ -29,7 +29,7 @@ from oumi.utils.logging import logger
 
 _CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
 
-_LOG_DIR = "/home/{user}/slurm_logs/{job_id}"
+_LOG_DIR = "~/oumi_slurm_logs/{job_id}.out"
 
 
 class _SlurmAuthException(Exception):
@@ -309,10 +309,7 @@ class SlurmLogStream(io.TextIOBase):
         base_delay = 5
         max_delay = 20
 
-        log_path = (
-            Path(_LOG_DIR.format(user=self._client._user, job_id=self.job_id))
-            / "stdout.log"
-        )
+        log_path = Path(_LOG_DIR.format(job_id=self.job_id))
         check_cmd = f"ssh {_CTRL_PATH} {cluster_name} test -f {log_path}"
         # Wait for log file to appear
         for attempt in range(max_attempts):
@@ -522,8 +519,8 @@ class SlurmClient:
         distribution: Optional[str] = None,
         partition: Optional[str] = None,
         qos: Optional[str] = None,
-        stdout_file: str = f"{_LOG_DIR.format(user='%u', job_id='%j')}/stdout.log",
-        stderr_file: str = f"{_LOG_DIR.format(user='%u', job_id='%j')}/stderr.log",
+        stdout_file: str = f"{_LOG_DIR.format(job_id='%j')}",
+        stderr_file: Optional[str] = None,
         **kwargs,
     ) -> str:
         """Submits the specified job script to Slurm.

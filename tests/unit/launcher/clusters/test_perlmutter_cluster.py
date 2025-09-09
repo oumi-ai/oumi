@@ -742,13 +742,12 @@ def test_perlmutter_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
     mock_slurm_client.submit_job.assert_called_once_with(
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
-        node_count=2,
         name="myjob",
+        node_count=2,
         ntasks=2,
         threads_per_core=1,
         qos="regular",
         stdout_file="$CFS/$SBATCH_ACCOUNT/users/$USER/jobs/logs/%j.out",
-        stderr_file=None,
         constraint="gpu",
         gpus_per_node=4,
     )
