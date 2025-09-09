@@ -280,43 +280,87 @@ postprocessing_params:
 ```
 
 ## Transformation Strategies
+For the following examples, let's assume we have a data sample with the following values.
+```
+{
+  "question": "What color is the sky?",
+  "answer": "The sky is blue."
+}
+```
 
 ### String Transformation
 ```yaml
-transformation_strategy:
-  type: STRING
-  string_transform: "Question: {question}\nAnswer: {answer}"
+transformed_attributes:
+  - id: example_string_attribute
+    transformation_strategy:
+      type: STRING
+      string_transform: "Question: {question}\nAnswer: {answer}"
+```
+
+Example Result:
+```
+{
+  "example_string_attribute": "Question: What color is the sky?\nAnswer: The sky is blue."
+}
 ```
 
 ### List Transformation
 ```yaml
-transformation_strategy:
-  type: LIST
-  list_transform:
-    - "{question}"
-    - "{answer}"
+transformed_attributes:
+  - id: example_list_attribute
+    transformation_strategy:
+      type: LIST
+      list_transform:
+        - "{question}"
+        - "{answer}"
+```
+
+Example Result:
+```
+{
+  "example_list_attribute": [
+    "What color is the sky?",
+    "The sky is blue.",
+  ]
+}
 ```
 
 ### Dictionary Transformation
 ```yaml
-transformation_strategy:
-  type: DICT
-  dict_transform:
-    question: "{question}"
-    answer: "{answer}"
+transformed_attributes:
+  - id: example_dict_attribute
+    transformation_strategy:
+      type: DICT
+      dict_transform:
+        question: "{question}"
+        answer: "{answer}"
+```
+
+Example Result:
+```
+{
+  "example_list_attribute": {
+    "question": "What color is the sky?",
+    "answer": "The sky is blue.",
+  }
+}
 ```
 
 ### Chat Transformation
 ```yaml
-transformation_strategy:
-  type: CHAT
-  chat_transform:
-    messages:
-      - role: USER
-        content: "{question}"
-      - role: ASSISTANT
-        content: "{answer}"
+transformed_attributes:
+  - id: string_attribute
+    transformation_strategy:
+      type: CHAT
+      chat_transform:
+        messages:
+          - role: USER
+            content: "{question}"
+          - role: ASSISTANT
+            content: "{answer}"
 ```
+
+
 
 ## Document Segmentation
 
