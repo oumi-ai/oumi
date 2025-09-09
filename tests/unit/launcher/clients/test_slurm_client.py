@@ -88,7 +88,8 @@ def test_slurm_client_submit_job(mock_subprocess):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "sbatch --nodes=2 --parsable ./job.sh",
+                        "sbatch --nodes=2 --output=~/oumi_slurm_logs/%j.out --parsable "
+                        "./job.sh",
                     ]
                 ),
                 shell=True,
@@ -126,7 +127,9 @@ def test_slurm_client_submit_job_name(mock_subprocess):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "sbatch --nodes=2 --job-name=somename --parsable ./job.sh",
+                        "sbatch --nodes=2 --job-name=somename"
+                        " --output=~/oumi_slurm_logs/%j.out --parsable "
+                        "./job.sh",
                     ]
                 ),
                 shell=True,
@@ -245,7 +248,8 @@ def test_slurm_client_submit_job_error(mock_subprocess):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "sbatch --nodes=2 --parsable ./job.sh",
+                        "sbatch --nodes=2 --output=~/oumi_slurm_logs/%j.out --parsable "
+                        "./job.sh",
                     ]
                 ),
                 shell=True,
@@ -282,7 +286,8 @@ def test_slurm_client_submit_job_retry_auth(mock_subprocess):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "sbatch --nodes=2 --parsable ./job.sh",
+                        "sbatch --nodes=2 --output=~/oumi_slurm_logs/%j.out --parsable "
+                        "./job.sh",
                     ]
                 ),
                 shell=True,

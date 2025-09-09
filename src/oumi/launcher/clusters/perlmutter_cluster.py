@@ -320,7 +320,7 @@ class PerlmutterCluster(BaseCluster):
                 if stdout_file
                 else "$CFS/$SBATCH_ACCOUNT/users/$USER/jobs/logs/%j.out"
             ),
-            **({"stderr_file": str(stderr_file)} if stderr_file else {}),
+            stderr_file=str(stderr_file) if stderr_file else None,
             constraint="gpu",
             gpus_per_node=4,
         )

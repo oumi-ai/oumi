@@ -594,9 +594,6 @@ class SlurmClient:
             cmd_parts.append(f"--{flag}={value}")
 
         cmd_parts.append("--parsable")
-        # Important that setting the output must come before the job path.
-        cmd_parts.append(f"--output={stdout_file}")
-        cmd_parts.append(f"--error={stderr_file}")
         cmd_parts.append(job_path)
         sbatch_cmd = " ".join(cmd_parts)
         logger.debug(f"Executing SBATCH command: {sbatch_cmd}")

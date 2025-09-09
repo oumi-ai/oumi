@@ -748,6 +748,7 @@ def test_perlmutter_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         threads_per_core=1,
         qos="regular",
         stdout_file="$CFS/$SBATCH_ACCOUNT/users/$USER/jobs/logs/%j.out",
+        stderr_file=None,
         constraint="gpu",
         gpus_per_node=4,
     )
