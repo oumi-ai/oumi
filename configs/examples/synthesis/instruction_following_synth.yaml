@@ -1,6 +1,24 @@
 # Instruction Following Example
 # Generate instruction-response pairs with varying complexity and domains.
 # This example creates diverse task instructions across multiple domains and difficulty levels.
+#
+# Requirements:
+#   - Set your anthropic api key in the environment variable ANTHROPIC_API_KEY
+#   - example: `export ANTHROPIC_API_KEY=your_api_key`
+#   - Alternatively, change the model in the inference_config section to your desired model
+#   - See the inference_config section for more details
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/configuration.html
+#
+# Usage:
+#   oumi synth -c oumi://configs/examples/synthesis/instruction_following_synth.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Config class: oumi.core.configs.SynthesisConfig
+#   - Params class: oumi.core.configs.params.synthesis_params.GeneralSynthesisParams
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/synthesis_config.py
+#   - Params source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/synthesis_params.py
+#   - Other synthesis configs: configs/**/*synth.yaml
 
 strategy: GENERAL
 num_samples: 50
