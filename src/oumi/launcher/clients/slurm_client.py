@@ -519,8 +519,6 @@ class SlurmClient:
         distribution: Optional[str] = None,
         partition: Optional[str] = None,
         qos: Optional[str] = None,
-        stdout_file: str = f"{_LOG_DIR.format(job_id='%j')}",
-        stderr_file: Optional[str] = None,
         **kwargs,
     ) -> str:
         """Submits the specified job script to Slurm.
@@ -541,8 +539,6 @@ class SlurmClient:
                 (type = block|cyclic|arbitrary)
             partition: Partition (aka queue) requested.
             qos: QoS (aka the queue on Perlmutter) requested.
-            stdout_file: The file to redirect stdout to.
-            stderr_file: The file to redirect stderr to.
             kwargs: Additional flags to pass to sbatch. Hyphens in the flag name are
                 replaced with underscores. For example, `foo_bar=baz` as a kwarg will
                 add "--foo-bar=baz" to the sbatch command.
@@ -574,10 +570,6 @@ class SlurmClient:
             slurm_flags["partition"] = partition
         if qos:
             slurm_flags["qos"] = qos
-        if stdout_file:
-            slurm_flags["output"] = stdout_file
-        if stderr_file:
-            slurm_flags["error"] = stderr_file
 
         # Add kwargs to slurm_flags
         for flag, value in kwargs.items():
@@ -594,6 +586,7 @@ class SlurmClient:
             cmd_parts.append(f"--{flag}={value}")
 
         cmd_parts.append("--parsable")
+        cmd_parts.append(f"--output={_LOG_DIR.format(job_id='%j')}")
         cmd_parts.append(job_path)
         sbatch_cmd = " ".join(cmd_parts)
         logger.debug(f"Executing SBATCH command: {sbatch_cmd}")

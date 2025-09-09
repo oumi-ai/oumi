@@ -300,7 +300,7 @@ class PerlmutterCluster(BaseCluster):
         # We pass in the stdout/stderr files via a flag in the sbatch command so that
         # we can do variable expansion. Env vars don't get expanded in #SBATCH
         # directives.
-        logging_dirs, stdout_file, stderr_file = _get_logging_dirs_and_files(job_script)
+        logging_dirs, _, _ = _get_logging_dirs_and_files(job_script)
         if len(logging_dirs) > 0:
             self._client.run_commands(
                 [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
@@ -315,12 +315,6 @@ class PerlmutterCluster(BaseCluster):
             ntasks=job.num_nodes,
             threads_per_core=1,
             qos=self._queue.value,
-            stdout_file=(
-                str(stdout_file)
-                if stdout_file
-                else "$CFS/$SBATCH_ACCOUNT/users/$USER/jobs/logs/%j.out"
-            ),
-            stderr_file=str(stderr_file) if stderr_file else None,
             constraint="gpu",
             gpus_per_node=4,
         )

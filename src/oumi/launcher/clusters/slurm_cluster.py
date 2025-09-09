@@ -154,18 +154,10 @@ class SlurmCluster(BaseCluster):
             """Gets the name of the connection in the form user@hostname."""
             return f"{self.user}@{self.hostname}"
 
-    @dataclass
-    class JobInfo:
-        """Information about a submitted job."""
-
-        working_dir: Path  # Path to the working directory on the remote cluster.
-        stdout_filename: str  # Name of the remote cluster's stdout file.
-
     def __init__(self, name: str, client: SlurmClient) -> None:
         """Initializes a new instance of the SlurmCluster class."""
         self._client = client
         self._connection = self.parse_cluster_name(name)
-        self.jobs_info: dict[str, SlurmCluster.JobInfo] = {}
 
     def __eq__(self, other: Any) -> bool:
         """Checks if two SlurmClusters are equal."""
@@ -275,11 +267,6 @@ class SlurmCluster(BaseCluster):
             str(remote_working_dir),
             job.num_nodes,
             name=job_name,
-        )
-        # By default, Slurm writes to slurm-<job_id>.out.
-        self.jobs_info[job_id] = SlurmCluster.JobInfo(
-            working_dir=remote_working_dir,
-            stdout_filename=f"slurm-{job_id}.out",
         )
         max_retries = 3
         wait_time = 5

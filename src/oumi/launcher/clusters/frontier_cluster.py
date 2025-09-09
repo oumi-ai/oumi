@@ -303,7 +303,7 @@ class FrontierCluster(BaseCluster):
         # Set the proper CHMOD permissions.
         self._client.run_commands([f"chmod +x {script_path}"])
         # Set up logging directories.
-        logging_dirs, stdout_file, stderr_file = _get_logging_dirs_and_files(job_script)
+        logging_dirs, _, _ = _get_logging_dirs_and_files(job_script)
         if len(logging_dirs) > 0:
             self._client.run_commands(
                 [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
@@ -314,16 +314,6 @@ class FrontierCluster(BaseCluster):
             str(script_path),
             str(remote_working_dir),
             node_count=job.num_nodes,
-            stdout_file=(
-                str(stdout_file)
-                if stdout_file
-                else "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU"
-            ),
-            stderr_file=(
-                str(stderr_file)
-                if stderr_file
-                else "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER"
-            ),
             name=job_name,
             export="NONE",
             account="lrn081",
