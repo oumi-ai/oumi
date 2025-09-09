@@ -637,7 +637,7 @@ def logs(
     cluster: Annotated[str, typer.Option(help="The cluster to get the logs of.")],
     cloud: Annotated[
         Optional[str],
-        typer.Option(help="If specified, will use the cloud the clusters belong to."),
+        typer.Option(help="If specified, will filter for clusters on this cloud."),
     ] = None,
     job_id: Annotated[
         Optional[str],
