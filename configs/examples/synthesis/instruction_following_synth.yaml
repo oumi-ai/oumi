@@ -21,7 +21,7 @@
 #   - Other synthesis configs: configs/**/*synth.yaml
 
 strategy: GENERAL
-num_samples: 50
+num_samples: 10
 output_path: instruction_following_dataset.jsonl
 
 strategy_params:
@@ -52,6 +52,7 @@ strategy_params:
 
   # Define the domain and complexity attributes
   sampled_attributes:
+    # The subject area or field for the instruction
     - id: domain
       name: Task Domain
       description: The subject area or field for the instruction
@@ -75,6 +76,7 @@ strategy_params:
           name: Business
           description: Business strategy, marketing, management tasks
 
+    # How challenging the instruction should be
     - id: complexity
       name: Task Complexity
       description: How challenging the instruction should be
@@ -92,6 +94,7 @@ strategy_params:
           description: Complex tasks requiring deep knowledge and skills
           sample_rate: 0.4
 
+    # The type of task being requested
     - id: task_format
       name: Task Format
       description: The type of task being requested
@@ -114,6 +117,7 @@ strategy_params:
 
   # Generate diverse instructions
   generated_attributes:
+    # Generate the instruction
     - id: instruction
       instruction_messages:
         - role: SYSTEM
@@ -153,6 +157,7 @@ strategy_params:
         cut_suffix: "End Instruction"
         strip_whitespace: true
 
+    # Generate the response
     - id: response
       instruction_messages:
         - role: SYSTEM
@@ -170,7 +175,7 @@ strategy_params:
         id: cleaned_response
         strip_whitespace: true
 
-  # Ensure good distribution of challenging combinations
+  # Specify particular combinations and how often to sample them
   combination_sampling:
     - combination:
         domain: coding
@@ -188,7 +193,7 @@ strategy_params:
         task_format: create
       sample_rate: 0.1   # 10% beginner creative writing
 
-  # Transform into conversation format
+  # Convert the instruction-response pairs into a conversation format
   transformed_attributes:
     - id: conversation
       transformation_strategy:
@@ -200,7 +205,7 @@ strategy_params:
             - role: ASSISTANT
               content: "{cleaned_response}"
 
-  # Include all relevant attributes in output
+  # Include only relevant attributes in output
   passthrough_attributes:
     - conversation
     - cleaned_instruction
@@ -209,7 +214,7 @@ strategy_params:
     - complexity
     - task_format
 
-# Model configuration for diverse instruction generation
+# Example inference configuration
 inference_config:
   model:
     model_name: claude-3-5-sonnet-20240620

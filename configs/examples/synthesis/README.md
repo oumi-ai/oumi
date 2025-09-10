@@ -4,7 +4,7 @@ This directory contains example configurations for different data synthesis use 
 
 ## Available Examples
 
-### 1. Question-Answer Generation (`question_answer_generation.yaml`)
+### 1. Question-Answer Generation (`question_answer_synth.yaml`)
 
 **Purpose**: Generate QA pairs from documents or contexts for training conversational models.
 
@@ -18,10 +18,38 @@ This directory contains example configurations for different data synthesis use 
 
 **Run with**:
 ```bash
-oumi synth -c configs/examples/synthesis/question_answer_generation.yaml
+oumi synth -c configs/examples/synthesis/question_answer_synth.yaml
 ```
 
-### 2. Data Augmentation (`data_augmentation.yaml`)
+<details>
+<summary><strong>Example Output</strong></summary>
+
+```json
+{
+  "difficulty": "easy",
+  "topic": "climate",
+  "cleaned_question": "Which climate has hot temperatures year-round and high levels of rainfall?",
+  "cleaned_answer": "The climate zone characterized by hot temperatures year-round and high levels of rainfall, typically found near the Earth's equator, is the tropical rainforest climate, also known as the equatorial climate or tropical wet climate.",
+  "conversation": {
+    "conversation_id": "conversation-f6ffd3b5-2605-420a-be16-704772a17de8",
+    "messages": [
+      {
+        "content": "Which climate has hot temperatures year-round and high levels of rainfall?",
+        "role": "user"
+      },
+      {
+        "content": "The climate zone characterized by hot temperatures year-round and high levels of rainfall, typically found near the Earth's equator, is the tropical rainforest climate, also known as the equatorial climate or tropical wet climate.",
+        "role": "assistant"
+      }
+    ],
+    "metadata": {}
+  }
+}
+```
+
+</details>
+
+### 2. Data Augmentation (`data_augmentation_synth.yaml`)
 
 **Purpose**: Create variations of existing datasets by sampling different attributes and regenerating content.
 
@@ -35,10 +63,40 @@ oumi synth -c configs/examples/synthesis/question_answer_generation.yaml
 
 **Run with**:
 ```bash
-oumi synth -c configs/examples/synthesis/data_augmentation.yaml
+oumi synth -c configs/examples/synthesis/data_augmentation_synth.yaml
 ```
 
-### 3. Instruction Following (`instruction_following.yaml`)
+<details>
+<summary><strong>Example Output</strong></summary>
+
+```json
+{
+  "original_instruction": "What's the weather like in Seattle today?",
+  "original_input": "",
+  "original_response": "I apologize, but I don't have access to real-time weather information for Seattle.",
+  "augmentation_type": "rephrase",
+  "phrasing_style": "formal",
+  "specificity_level": "precise",
+  "cleaned_instruction": "Please provide a comprehensive report on the current meteorological conditions in Seattle, Washington. I require specific details on temperature, precipitation, wind speed, and cloud cover for today's date. Kindly ensure the information is up-to-date and accurate as of the most recent weather update for the city.",
+  "cleaned_response": "I apologize, but I don't have access to real-time or up-to-date meteorological data for Seattle, Washington. As an AI language model, I'm not able to provide current information on temperature, precipitation, wind speed, or cloud cover for today's date in Seattle. For the most accurate and recent weather conditions, I recommend checking a reliable weather service or meteorological website.",
+  "conversation": {
+    "conversation_id": "conversation-485db404-87ea-47c1-8b3e-60cc771da4fc",
+    "messages": [
+      {
+        "content": "Please provide a comprehensive report on the current meteorological conditions in Seattle, Washington. I require specific details on temperature, precipitation, wind speed, and cloud cover for today's date. Kindly ensure the information is up-to-date and accurate as of the most recent weather update for the city.",
+        "role": "user"},
+      {
+        "content": "I apologize, but I don't have access to real-time or up-to-date meteorological data for Seattle, Washington. As an AI language model, I'm not able to provide current information on temperature, precipitation, wind speed, or cloud cover for today's date in Seattle. For the most accurate and recent weather conditions, I recommend checking a reliable weather service or meteorological website.",
+        "role": "assistant"}
+    ],
+    "metadata": {}
+  }
+}
+```
+
+</details>
+
+### 3. Instruction Following (`instruction_following_synth.yaml`)
 
 **Purpose**: Generate instruction-response pairs with varying complexity and domains.
 
@@ -52,12 +110,41 @@ oumi synth -c configs/examples/synthesis/data_augmentation.yaml
 
 **Run with**:
 ```bash
-oumi synth -c configs/examples/synthesis/instruction_following.yaml
+oumi synth -c configs/examples/synthesis/instruction_following_synth.yaml
 ```
 
-### 4. Conversation Synthesis (`conversation_synthesis.yaml`)
+<details>
+<summary><strong>Example Output</strong></summary>
 
-**Purpose**: Create multi-turn conversations by chaining generated responses.
+```json
+{
+  "domain": "writing",
+  "complexity": "beginner",
+  "task_format": "create",
+  "cleaned_instruction": "Write a short story of 250-300 words about a child's first day of school. Include descriptions of the child's emotions, the classroom environment, and an interaction with a new classmate.",
+  "cleaned_response": "Lily's heart raced as she clutched her mother's hand...already looking forward to tomorrow's adventures.",
+  "conversation": {
+    "conversation_id": "conversation-0670db9d-6147-4d71-bcbd-a05a7f8f8d1a",
+    "messages": [
+      {
+        "content": "Write a short story of 250-300 words about a child's first day of school. Include descriptions of the child's emotions, the classroom environment, and an interaction with a new classmate.",
+        "role": "user"
+      },
+      {
+        "content": "Lily's heart raced as she clutched her mother's hand...already looking forward to tomorrow's adventures.",
+        "role": "assistant"
+      }
+    ],
+    "metadata": {}
+  }
+}
+```
+
+</details>
+
+### 4. Conversation Agent (`conversation_synth.yaml`)
+
+**Purpose**: Create multi-turn conversations by chaining generated responses. Includes examples of structured actions parseable for tool-use.
 
 **What it does**: Generates realistic customer support conversations with different scenarios, customer personalities, and resolution outcomes.
 
@@ -70,10 +157,53 @@ oumi synth -c configs/examples/synthesis/instruction_following.yaml
 
 **Run with**:
 ```bash
-oumi synth -c configs/examples/synthesis/conversation_synthesis.yaml
+oumi synth -c configs/examples/synthesis/conversation_synth.yaml
 ```
 
-### 5. Domain Adaptation (`domain_adaptation.yaml`)
+<details>
+<summary><strong>Example Output</strong></summary>
+
+```json
+{
+  "scenario": "account_issue",
+  "customer_type": "concise",
+  "customer_interaction": "cooperative",
+  "cleaned_opener": "Can't log in. Need password reset ASAP. BrightTech account.",
+  "cleaned_agent_response": "<ACTION>\ntype: CLARIFY\nparameters: { \"reason\": \"Need email address to proceed with escalation\" }\n</ACTION>\nI apologize for the inconvenience you're experiencing with logging into your BrightTech account. To assist you with a password reset, I'll need to escalate this to our account specialists. Could you please provide the email address associated with your BrightTech account?",
+  "cleaned_followup": "jsmith@email.com. That's the one.",
+  "cleaned_final_response": "<ACTION>\ntype: ESCALATE\nparameters: { \"account_email\": \"jsmith@email.com\", \"reason\": \"Password reset request\" }\n</ACTION>\nThank you for providing your email address. I've escalated your password reset request to our account specialists. They will process your request as soon as possible and send instructions to jsmith@email.com on how to reset your password. Please check your email inbox (including spam/junk folders) for further instructions. Is there anything else I can help you with regarding your BrightTech account?",
+  "conversation": {
+    "conversation_id": "conversation-8658569a-8024-48e5-831e-00f0fbe150a6",
+    "messages": [
+      {
+        "content": "You are CareBot...",
+        "role": "system"
+      },
+      {
+        "content": "Can't log in. Need password reset ASAP. BrightTech account.",
+        "role": "user"
+      },
+      {
+        "content": "<ACTION>\ntype: CLARIFY\nparameters: { \"reason\": \"Need email address to proceed with escalation\" }\n</ACTION>\nI apologize for the inconvenience you're experiencing with logging into your BrightTech account. To assist you with a password reset, I'll need to escalate this to our account specialists. Could you please provide the email address associated with your BrightTech account?",
+        "role": "assistant"
+      },
+      {
+        "content": "jsmith@email.com. That's the one.",
+        "role": "user"
+      },
+      {
+        "content": "<ACTION>\ntype: ESCALATE\nparameters: { \"account_email\": \"jsmith@email.com\", \"reason\": \"Password reset request\" }\n</ACTION>\nThank you for providing your email address. I've escalated your password reset request to our account specialists. They will process your request as soon as possible and send instructions to jsmith@email.com on how to reset your password. Please check your email inbox (including spam/junk folders) for further instructions. Is there anything else I can help you with regarding your BrightTech account?",
+        "role": "assistant"
+      }
+    ],
+    "metadata": {}
+  }
+}
+```
+
+</details>
+
+### 5. Domain-specific QA (`domain_qa_synth.yaml`)
 
 **Purpose**: Generate domain-specific training data by conditioning on domain attributes.
 
@@ -88,8 +218,37 @@ oumi synth -c configs/examples/synthesis/conversation_synthesis.yaml
 
 **Run with**:
 ```bash
-oumi synth -c configs/examples/synthesis/domain_adaptation.yaml
+oumi synth -c configs/examples/synthesis/domain_qa_synth.yaml
 ```
+
+<details>
+<summary><strong>Example Output</strong></summary>
+
+```json
+{
+  "specialty": "dermatology",
+  "context_type": "prevention_advice",
+  "complexity_level": "basic",
+  "cleaned_question": "What are three important steps you can take to protect your skin from sun damage and reduce your risk of skin cancer?",
+  "cleaned_answer": "Here are three important steps you can take to protect your skin from sun damage...",
+  "conversation": {
+    "conversation_id": "conversation-ea1eccda-d7ba-4b34-86f9-52989aa11ae6",
+    "messages": [
+      {
+        "content": "What are three important steps you can take to protect your skin from sun damage and reduce your risk of skin cancer?",
+        "role": "user"
+      },
+      {
+        "content": "Here are three important steps you can take to protect your skin from sun damage...",
+        "role": "assistant"
+      }
+    ],
+    "metadata": {}
+  }
+}
+```
+
+</details>
 
 ## Usage Tips
 
@@ -143,7 +302,7 @@ inference_config:
 After generating synthetic data:
 
 1. **Review the output**: Check the generated samples for quality and relevance
-2. **Use for training**: Include the dataset in your training configuration
+2. **Use for training**: Include the dataset in your training configuration (see our [training guide](../../docs/user_guides/train/train.md) for more details)
 3. **Iterate and improve**: Modify the synthesis config based on results
 4. **Combine datasets**: Use multiple synthesis runs to create larger, more diverse datasets
 

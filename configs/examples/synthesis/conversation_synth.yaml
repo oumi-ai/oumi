@@ -21,87 +21,126 @@
 #   - Other synthesis configs: configs/**/*synth.yaml
 
 strategy: GENERAL
-num_samples: 50
+num_samples: 10
 output_path: conversation_dataset.jsonl
 
 strategy_params:
   # Define conversation scenarios and customer types
   sampled_attributes:
+    # Generate the system instruction for the agent
     - id: system_instruction
       name: System Instruction
       description: The system instruction to use for the conversation
       possible_values:
         - id: customer_support
-          name: |
+          name: Customer Support
+          description: |
             You are CareBot, a customer service assistant for BrightTech Electronics.
 
             Your goals:
+            - Specify one of the below actions you are taking at the beginning of your response.
+            - Output the action in a structured format so the system can execute it.
+            - When writing the parameters, normalize the formatting of the product names and order IDs.
             - Resolve customer issues within your capabilities.
             - Use a polite, empathetic, and professional tone.
-            - Always summarize the result for the customer in natural language.
-            - When you need to perform an action, output it in a structured format so the system can execute it.
             - If you do not have enough information to resolve the issue, ask the customer to clarify.
+            - Never suggest you have more information or capabilities than what's provided below.
 
             ### Tone Rules
             - Be polite, concise, and solution-focused.
             - Acknowledge frustration with empathy.
             - Do not provide personal opinions or unrelated advice.
-            - Never ask for personal information like name, email, phone number, etc.
+            - Never ask for personal information like name, phone number, etc.
+            - Only ask for email address if the customer requests a refund or account issues.
 
             ### Action Rules
-            When an action is required, output ONLY in the following format:
-
+            Output only one action per response in the following format:
             <ACTION>
-            type: [LOOKUP_ORDER | CHECK_SHIPPING | INITIATE_RETURN | ISSUE_REFUND | OFFER_DISCOUNT | ESCALATE]
-            parameters: { ... }   # JSON-like key/value parameters
+            type: [CLARIFY | LOOKUP_ORDER | INITIATE_RETURN | ESCALATE]
+            parameters: ...   # JSON-like key/value parameters
             </ACTION>
 
             After the action block, provide a natural-language response to the customer.
             Do not mix the action block with free text.
 
-            ### Action Types
-            1. LOOKUP_ORDER
-              - parameters: { "order_id": string }
-              - Example: Look up an order when given an order number.
+            Ensure you have all the information you need to execute the action before outputting a specialized action.
 
-            2. CHECK_SHIPPING
+            ### Action Types
+            1. CLARIFY
+              - parameters: { "reason": string }
+              - Example: Need more information to proceed with the request.
+
+            2. LOOKUP_ORDER
               - parameters: { "order_id": string }
-              - Example: Check the shipping carrier’s status for the order.
+              - Example: Order info, shipping status, etc.
 
             3. INITIATE_RETURN
-              - parameters: { "order_id": string, "item_id": string, "reason": string }
+              - parameters: { "order_id": string, "reason": string }
               - Example: Customer requests to return or exchange a product.
 
-            4. ISSUE_REFUND
-              - parameters: { "order_id": string, "amount": number }
-              - Rules: Refunds up to $200 only. Escalate otherwise.
+            4. SEARCH_PRODUCT
+              - parameters: { "product_name": string }
+              - Example: Customer requests information about a product.
 
-            5. OFFER_DISCOUNT
-              - parameters: { "order_id": string, "amount_percent": number (≤10) }
-              - Example: Offer up to 10% discount to resolve dissatisfaction.
+            5. ESCALATE
+              - parameters: { "account_email": string, "reason": string }
+              - Example: Customer requests human support, refund, legal or account issues.
 
-            6. ESCALATE
-              - parameters: { "reason": string }
-              - Example: Customer requests human support, issue > $200, legal or account issues.
-
-            ### Example Responses
+            ### Example Conversations
+            Conversation 1
             Customer: "Where's my order BT1234?"
-            Bot:
+            Agent:
             <ACTION>
-            type: CHECK_SHIPPING
+            type: LOOKUP_ORDER
             parameters: { "order_id": "BT1234" }
             </ACTION>
-            Let me check the shipping status for order BT1234. One moment please.
+            Let me check the order status for order BT1234. One moment please.
 
-            Customer: "I want to return my headphones."
-            Bot:
+            Conversation 2
+            Customer:
+            "I want to return my headphones."
+            Agent:
+            <ACTION>
+            type: CLARIFY
+            parameters: { "reason": "Need order ID to proceed with return request" }
+            </ACTION>
+            Sure, let me help you with that. What's the order ID for the headphones, and why do you want to return them?
+            Customer:
+            "I want to return my headphones because they don't fit."
+            Agent:
+            <ACTION>
+            type: CLARIFY
+            parameters: { "reason": "Need more information to proceed with return request" }
+            </ACTION>
+            I'm sorry to hear that. If you can provide me with the order ID, I can setup a return request for you right away.
+            Customer:
+            "Oh sure, it's 187390231847."
+            Agent:
             <ACTION>
             type: INITIATE_RETURN
-            parameters: { "order_id": "BT4567", "item_id": "HD998", "reason": "Product defective" }
+            parameters: { "order_id": "187390231847", "reason": "Headphones don't fit" }
             </ACTION>
-            I can help with that. I'll generate a return label for your headphones.
-          description: "N/A"
+            Thank you! I've initiated a return request for you.
 
+            Conversation 3
+            Customer:
+            "I can't login to my account."
+            Agent:
+            <ACTION>
+            type: CLARIFY
+            parameters: { "reason": "Need email address to proceed with escalation" }
+            </ACTION>
+            I'm sorry to hear that. Can you please provide me with the email address associated with your account?
+            Customer:
+            "Oh sure, it's john.doe@example.com."
+            Agent:
+            <ACTION>
+            type: ESCALATE
+            parameters: { "account_email": "john.doe@example.com", "reason": "Login issues" }
+            </ACTION>
+            Thank you! I've escalated this to a specialist. One moment please.
+
+    # Which support scenario the customer is facing
     - id: scenario
       name: Support Scenario
       description: The type of customer support issue being addressed
@@ -109,58 +148,77 @@ strategy_params:
         - id: account_issue
           name: Account Problems
           description: Login issues, password resets, account access problems
-        - id: billing_inquiry
+        - id: order_issue
+          name: Order Problems
+          description: Order issues, shipping status, etc.
+        - id: billing_issue
           name: Billing Questions
           description: Questions about charges, payments, subscription management
-        - id: product_question
+        - id: product_issue
           name: Product Information
           description: Feature questions, how-to guides, product comparisons
-        - id: technical_support
+        - id: technical_issue
           name: Technical Issues
           description: Bug reports, troubleshooting, technical difficulties
         - id: refund_request
           name: Refund Requests
           description: Return requests, cancellations, refund processing
 
+    # The customer's personality
     - id: customer_type
       name: Customer Personality
       description: The customer's communication style and emotional state
       possible_values:
+        - id: concise
+          name: Concise
+          description: Short and to the point, no fluff or unnecessary details
+          sample_rate: 0.4
         - id: friendly
           name: Friendly
           description: Polite, patient, and appreciative
+          sample_rate: 0.05
         - id: frustrated
           name: Frustrated
           description: Annoyed but still reasonable
+          sample_rate: 0.2
         - id: confused
           name: Confused
           description: Uncertain and needs clear explanations
+          sample_rate: 0.1
         - id: demanding
           name: Demanding
           description: Urgent, wants immediate resolution
+          sample_rate: 0.1
         - id: curious
           name: Curious
           description: Asking lots of questions, wants to understand
+          sample_rate: 0.05
         - id: adversarial
           name: Adversarial
           description: Attempting to deceive or manipulate the agent to say or do something it shouldn't do
+          sample_rate: 0.1
 
-    - id: resolution
-      name: Resolution Type
-      description: How the conversation should end
+    # How the customer should interact with the agent
+    - id: customer_interaction
+      name: Customer Interaction
+      description: How the customer should interact with the agent
       possible_values:
-        - id: resolved
-          name: Fully Resolved
-          description: Issue completely solved, customer satisfied
+        - id: cooperative
+          name: Cooperative
+          description: Cooperates with the agent to resolve the issue
+          sample_rate: 0.6
         - id: escalated
           name: Escalated
-          description: Transferred to specialist or supervisor
-        - id: pending
-          name: Pending
-          description: Requires follow-up or additional steps
-        - id: abandoned
-          name: Abandoned
-          description: Customer gives up and ends the conversation
+          description: Customer needs to be escalated to a specialist or supervisor
+          sample_rate: 0.2
+        - id: incomplete
+          name: Incomplete
+          description: Customer gives insufficient information to resolve the issue
+          sample_rate: 0.1
+        - id: combative
+          name: Combative
+          description: Customer is combative and refuses to cooperate with the agent
+          sample_rate: 0.1
 
   # Generate the customer's opening message
   generated_attributes:
@@ -178,11 +236,13 @@ strategy_params:
 
             Company name: BrightTech Electronics
 
-            Make it sound natural and realistic. Write only the customer's opening message.
+            Make it sound natural and realistic.
+            Write only the customer's opening message.
+            Include enough information to know what the customer is asking for, but not enough to be immediately actionable.
 
             Format your response as follows:
             Customer:
-            <customer_opener>
+            Place your customer's opening message here.
             End Customer
 
             Write only the customer's opening message, do not include additional filler text.
@@ -197,11 +257,26 @@ strategy_params:
       instruction_messages:
         - role: SYSTEM
           content: |
-            {system_instruction}
+            {system_instruction.description}
+
+            Respond to the customer's opening message.
+
+            Format your response as follows:
+            Response:
+            <ACTION>
+            type: [CLARIFY | LOOKUP_ORDER | INITIATE_RETURN | SEARCH_PRODUCT | ESCALATE]
+            parameters: ...   # JSON-like key/value parameters
+            </ACTION>
+            Place your agent's response here.
+            End Response
+
+            Write only the agent's response, do not include additional filler text.
         - role: USER
           content: "{cleaned_opener}"
       postprocessing_params:
         id: cleaned_agent_response
+        cut_prefix: "Response:"
+        cut_suffix: "End Response"
         strip_whitespace: true
 
     # Generate the customer's follow-up
@@ -213,17 +288,20 @@ strategy_params:
 
             Customer personality: {customer_type.description}
             Issue type: {scenario.description}
-            Resolution type: {resolution.description}
 
             Maintain the same personality and tone as your opening message.
+            When providing an order ID, it is a sequence of 12 digits.
+            When providing a product name, it should be a realistic product name.
             React naturally to the agent's response.
-            Try to guide the conversation toward a {resolution} resolution.
+            Your respond should maintain a similar personality to your opening message.
+            While maintaining personality, your message should be the following type:
+            {customer_interaction}: {customer_interaction.description}
 
             Opening message: "{cleaned_opener}"
 
             Format your response as follows:
             Customer:
-            <customer_followup>
+            Place your customer's follow-up message here.
             End Customer
 
             Write only the customer's follow-up message, do not include additional filler text.
@@ -240,19 +318,24 @@ strategy_params:
       instruction_messages:
         - role: SYSTEM
           content: |
-            {system_instruction}
-        - role: USER
-          content: |
-            Customer's original message: "{cleaned_opener}"
-            Your first response: "{cleaned_agent_response}"
-            Customer's follow-up: "{cleaned_followup}"
+            {system_instruction.description}
 
             Format your response as follows:
             Response:
-            <final_agent_response>
+            <ACTION>
+            type: [CLARIFY | LOOKUP_ORDER | INITIATE_RETURN | SEARCH_PRODUCT | ESCALATE]
+            parameters: ...   # JSON-like key/value parameters
+            </ACTION>
+            Place your final agent response here.
             End Response
 
             Write only the final agent response, do not include additional filler text.
+        - role: USER
+          content: "{cleaned_opener}"
+        - role: ASSISTANT
+          content: "{cleaned_agent_response}"
+        - role: USER
+          content: "{cleaned_followup}"
       postprocessing_params:
         id: cleaned_final_response
         cut_prefix: "Response:"
@@ -267,7 +350,7 @@ strategy_params:
         chat_transform:
           messages:
             - role: SYSTEM
-              content: "{system_instruction}"
+              content: "{system_instruction.description}"
             - role: USER
               content: "{cleaned_opener}"
             - role: ASSISTANT
@@ -277,18 +360,19 @@ strategy_params:
             - role: ASSISTANT
               content: "{cleaned_final_response}"
 
-  # Include relevant attributes in output
+  # Include only relevant attributes in output
   passthrough_attributes:
     - conversation
     - scenario
     - customer_type
+    - customer_interaction
     - resolution
     - cleaned_opener
     - cleaned_agent_response
     - cleaned_followup
     - cleaned_final_response
 
-# Model configuration optimized for conversation generation
+# Example inference configuration
 inference_config:
   model:
     model_name: claude-3-5-sonnet-20240620

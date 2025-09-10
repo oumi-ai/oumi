@@ -21,7 +21,7 @@
 #   - Other synthesis configs: configs/**/*synth.yaml
 
 strategy: GENERAL
-num_samples: 50
+num_samples: 10
 output_path: domain_qa.jsonl
 
 strategy_params:
@@ -52,6 +52,7 @@ strategy_params:
 
   # Define medical specialties and contexts
   sampled_attributes:
+    # The specific area of medicine being addressed
     - id: specialty
       name: Medical Specialty
       description: The specific area of medicine being addressed
@@ -75,6 +76,7 @@ strategy_params:
           name: Endocrinology
           description: Hormonal and metabolic disorders
 
+    # The setting or purpose of the medical information
     - id: context_type
       name: Context Type
       description: The setting or purpose of the medical information
@@ -95,6 +97,7 @@ strategy_params:
           name: Parent Guidance
           description: Information for parents about children's health
 
+    # The technical depth of medical information
     - id: complexity_level
       name: Medical Complexity
       description: The technical depth of medical information
@@ -114,6 +117,7 @@ strategy_params:
 
   # Generate domain-specific medical questions
   generated_attributes:
+    # Generate the medical question
     - id: medical_question
       instruction_messages:
         - role: SYSTEM
@@ -153,6 +157,7 @@ strategy_params:
         cut_suffix: "End Question"
         strip_whitespace: true
 
+    # Generate the medical answer
     - id: medical_answer
       instruction_messages:
         - role: SYSTEM
@@ -189,7 +194,7 @@ strategy_params:
             - role: ASSISTANT
               content: "{cleaned_answer}"
 
-  # Include all domain-specific attributes
+  # Include only relevant attributes in output
   passthrough_attributes:
     - conversation
     - cleaned_question
@@ -198,7 +203,7 @@ strategy_params:
     - context_type
     - complexity_level
 
-# Configure model for medical domain generation
+# Example inference configuration
 inference_config:
   model:
     model_name: claude-3-5-sonnet-20240620

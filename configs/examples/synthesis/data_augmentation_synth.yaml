@@ -21,13 +21,14 @@
 #   - Other synthesis configs: configs/**/*synth.yaml
 
 strategy: GENERAL
-num_samples: 50
+num_samples: 10
 output_path: augmented_qa_dataset.jsonl
 
 strategy_params:
   # Input existing data to augment
   input_data:
     - path: "data/dataset_examples/alpaca_format.jsonl"
+      # Map the current attributes to the new attributes used in this config
       attribute_map:
         instruction: original_instruction
         input: original_input
@@ -35,6 +36,7 @@ strategy_params:
 
   # Define augmentation approaches
   sampled_attributes:
+    # Whether to rephrase the same task or create a related task
     - id: augmentation_type
       name: Augmentation Type
       description: Whether to rephrase the same task or create a related task
@@ -48,6 +50,7 @@ strategy_params:
           description: Create similar but different tasks in the same domain
           sample_rate: 0.7  # 70% will be related tasks
 
+    # Different ways to phrase the same request
     - id: phrasing_style
       name: Instruction Phrasing Style
       description: Different ways to phrase the same request
@@ -69,6 +72,7 @@ strategy_params:
           description: Instructions that include background or context (e.g., "I'm working on X and need...")
           sample_rate: 0.25
 
+    # How detailed and specific the instruction should be
     - id: specificity_level
       name: Instruction Specificity
       description: How detailed and specific the instruction should be
@@ -85,6 +89,7 @@ strategy_params:
 
   # Generate instruction variations or related tasks
   generated_attributes:
+    # Generate the augmented instruction
     - id: augmented_instruction
       instruction_messages:
         - role: SYSTEM
@@ -121,6 +126,7 @@ strategy_params:
         cut_suffix: "End Instruction"
         strip_whitespace: true
 
+    # Generate the augmented response
     - id: augmented_response
       instruction_messages:
         - role: SYSTEM
@@ -155,7 +161,7 @@ strategy_params:
         cut_suffix: "End Response"
         strip_whitespace: true
 
-  # Create variations by sampling different combinations
+  # Specify particular combinations and how often to sample them
   combination_sampling:
     - combination:
         augmentation_type: rephrase
@@ -190,7 +196,7 @@ strategy_params:
             - role: ASSISTANT
               content: "{cleaned_response}"
 
-  # Output the augmented data
+  # Include only relevant attributes in output
   passthrough_attributes:
     - conversation
     - cleaned_instruction
@@ -202,7 +208,7 @@ strategy_params:
     - original_input
     - original_response
 
-# Configure the AI model
+# Example inference configuration
 inference_config:
   model:
     model_name: claude-3-5-sonnet-20240620

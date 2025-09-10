@@ -21,7 +21,7 @@
 #   - Other synthesis configs: configs/**/*synth.yaml
 
 strategy: GENERAL
-num_samples: 50
+num_samples: 10
 output_path: geography_qa_dataset.jsonl
 
 strategy_params:
@@ -43,6 +43,7 @@ strategy_params:
 
   # Define attributes that will vary across generated examples
   sampled_attributes:
+    # How challenging the geography question should be
     - id: difficulty
       name: Difficulty Level
       description: How challenging the geography question should be
@@ -60,6 +61,7 @@ strategy_params:
           description: Advanced geography knowledge for experts
           sample_rate: 0.2  # 20% of questions will be hard
 
+    # The specific area of geography to focus on
     - id: topic
       name: Geography Topic
       description: The specific area of geography to focus on
@@ -77,8 +79,8 @@ strategy_params:
           name: Climate and Weather
           description: Questions about climate zones and weather patterns
 
-  # Generate the question using LLM
   generated_attributes:
+    # Generate the question
     - id: question
       instruction_messages:
         - role: SYSTEM
@@ -116,7 +118,7 @@ strategy_params:
         cut_suffix: "End Question"
         strip_whitespace: true
 
-    # Generate the answer using LLM
+    # Generate the answer
     - id: answer
       instruction_messages:
         - role: SYSTEM
@@ -152,6 +154,7 @@ strategy_params:
         strip_whitespace: true
 
   transformed_attributes:
+    # Convert the question-answer pairs into a conversation format
     - id: conversation
       transformation_strategy:
         type: CHAT
@@ -162,7 +165,7 @@ strategy_params:
             - role: ASSISTANT
               content: "{cleaned_answer}"
 
-  # Specify which attributes to include in the final output
+  # Include only relevant attributes in output
   passthrough_attributes:
     - conversation
     - cleaned_question
@@ -170,7 +173,7 @@ strategy_params:
     - difficulty
     - topic
 
-# Configure the AI model for generation
+# Example inference configuration
 inference_config:
   model:
     model_name: claude-3-5-sonnet-20240620
