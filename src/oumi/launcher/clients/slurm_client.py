@@ -1,4 +1,4 @@
-# Copyright 2025 - Oumi
+THIS SHOULD BE A LINTER ERROR# Copyright 2025 - Oumi
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -574,6 +574,8 @@ class SlurmClient:
             slurm_flags["partition"] = partition
         if qos:
             slurm_flags["qos"] = qos
+        if stdout_file:
+            slurm_flags["output"] = stdout_file
         if stderr_file:
             slurm_flags["error"] = stderr_file
 
@@ -592,8 +594,6 @@ class SlurmClient:
             cmd_parts.append(f"--{flag}={value}")
 
         cmd_parts.append("--parsable")
-        if stdout_file is not None:
-            cmd_parts.append(f"--output={stdout_file}")
         cmd_parts.append(job_path)
         sbatch_cmd = " ".join(cmd_parts)
         logger.debug(f"Executing SBATCH command: {sbatch_cmd}")
