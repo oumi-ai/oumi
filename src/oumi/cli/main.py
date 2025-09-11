@@ -33,7 +33,7 @@ from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
-from oumi.cli.launch import cancel, down, status, stop, up, which
+from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
@@ -125,6 +125,7 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Launches a job."
     )(up)
     launch_app.command(help="Prints the available clouds.")(which)
+    launch_app.command(help="Gets the logs of a job.")(logs)
     app.add_typer(launch_app, name="launch", help="Launch jobs remotely.")
 
     distributed_app = typer.Typer(pretty_exceptions_enable=False)

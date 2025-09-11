@@ -29,6 +29,8 @@ from oumi.utils.logging import logger
 
 _CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
 
+_LOG_DIR = "$HOME/oumi_slurm_logs/{job_id}.out"
+
 
 class _SlurmAuthException(Exception):
     pass
@@ -202,30 +204,21 @@ class SlurmLogStream(io.TextIOBase):
 
     def __init__(
         self,
-        working_dir: str,
-        job_id: str,
         cluster_name: str,
-        stdout_filename: str,
+        job_id: str,
         client: "SlurmClient",
     ):
         """Initialize the log stream.
 
         Args:
-            working_dir: Remote working directory where the job was submitted.
-            job_id: The Slurm job ID whose output file to follow.
             cluster_name: The name of the cluster the job was run in.
-            stdout_filename: The name of the stdout file to tail.
+            job_id: The Slurm job ID whose output file to follow.
             client: The SlurmClient instance.
         """
-        self.working_dir = working_dir
         self.job_id = job_id
-        self.cluster_name = cluster_name
-        self.stdout_filename = stdout_filename
         self._client = client
         self._job_check_thread = None
-        self._proc = self._start_tail_process(
-            working_dir, cluster_name, stdout_filename
-        )
+        self._proc = self._start_tail_process(cluster_name)
 
         # Progress bar detection patterns
         self._progress_patterns = [
@@ -287,6 +280,8 @@ class SlurmLogStream(io.TextIOBase):
                 os.killpg(self._proc.pid, signal.SIGINT)
             except ProcessLookupError:
                 pass  # process already gone and can happen due to race conditions
+            except Exception as e:
+                logger.exception(f"Failed to kill process: {e}")
             finally:
                 self._proc = None
 
@@ -298,18 +293,14 @@ class SlurmLogStream(io.TextIOBase):
         """Context manager exit."""
         self.close()
 
-    def _start_tail_process(
-        self, working_dir: str, cluster_name: str, stdout_filename: str
-    ) -> subprocess.Popen:
+    def _start_tail_process(self, cluster_name: str) -> subprocess.Popen:
         """Starts a tail process for the specified job.
 
         This is an internal method that starts the SSH tail process and returns
         the subprocess object for the LogStream to read from.
 
         Args:
-            working_dir: Remote working directory where the job was submitted.
             cluster_name: The name of the cluster the job was run in.
-            stdout_filename: The name of the stdout file to tail.
 
         Returns:
             A subprocess.Popen object that can be read from.
@@ -318,13 +309,10 @@ class SlurmLogStream(io.TextIOBase):
         base_delay = 5
         max_delay = 20
 
+        log_path = Path(_LOG_DIR.format(job_id=self.job_id))
+        check_cmd = f"ssh {_CTRL_PATH} {cluster_name} test -f {log_path}"
         # Wait for log file to appear
         for attempt in range(max_attempts):
-            # Use direct SSH command to avoid pseudo-terminal issues
-            check_cmd = (
-                f"ssh {_CTRL_PATH} {cluster_name} "
-                f'"cd {working_dir} && test -f {stdout_filename}"'
-            )
             preflight = subprocess.run(
                 check_cmd,
                 shell=True,
@@ -339,15 +327,12 @@ class SlurmLogStream(io.TextIOBase):
                 time.sleep(delay)
             else:
                 raise FileNotFoundError(
-                    f"Log file not found after {max_attempts} attempts: "
-                    f"{Path(working_dir) / stdout_filename}. "
+                    f"Log file not found after {max_attempts} attempts: {log_path}. "
                     "The job may not have started."
                 )
+        logger.info(f"Log location: {log_path}")
 
-        tail_cmd = (
-            f"ssh {_CTRL_PATH} {cluster_name} "
-            f'"cd {working_dir} && tail -n +1 -F {stdout_filename}"'
-        )
+        tail_cmd = f"ssh {_CTRL_PATH} {cluster_name} tail -n +1 -F {log_path}"
 
         proc = subprocess.Popen(
             tail_cmd,
@@ -534,7 +519,7 @@ class SlurmClient:
         distribution: Optional[str] = None,
         partition: Optional[str] = None,
         qos: Optional[str] = None,
-        stdout_file: Optional[str] = None,
+        stdout_file: str = _LOG_DIR.format(job_id="%j"),
         stderr_file: Optional[str] = None,
         **kwargs,
     ) -> str:
@@ -556,8 +541,8 @@ class SlurmClient:
                 (type = block|cyclic|arbitrary)
             partition: Partition (aka queue) requested.
             qos: QoS (aka the queue on Perlmutter) requested.
-            stdout_file: File for batch script's standard output.
-            stderr_file: File for batch script's standard error.
+            stdout_file: The file to write the stdout to.
+            stderr_file: The file to write the stderr to.
             kwargs: Additional flags to pass to sbatch. Hyphens in the flag name are
                 replaced with underscores. For example, `foo_bar=baz` as a kwarg will
                 add "--foo-bar=baz" to the sbatch command.
@@ -589,8 +574,6 @@ class SlurmClient:
             slurm_flags["partition"] = partition
         if qos:
             slurm_flags["qos"] = qos
-        if stdout_file:
-            slurm_flags["output"] = stdout_file
         if stderr_file:
             slurm_flags["error"] = stderr_file
 
@@ -609,6 +592,7 @@ class SlurmClient:
             cmd_parts.append(f"--{flag}={value}")
 
         cmd_parts.append("--parsable")
+        cmd_parts.append(f"--output={stdout_file}")
         cmd_parts.append(job_path)
         sbatch_cmd = " ".join(cmd_parts)
         logger.debug(f"Executing SBATCH command: {sbatch_cmd}")
@@ -685,6 +669,13 @@ class SlurmClient:
                 return job
         return None
 
+    def get_latest_job(self) -> Optional[JobStatus]:
+        """Gets the most recent job on this cluster."""
+        job_list = self.list_jobs()
+        if len(job_list) == 0:
+            return None
+        return job_list[-1]
+
     def cancel(self, job_id) -> Optional[JobStatus]:
         """Cancels the specified job.
 
@@ -757,20 +748,20 @@ class SlurmClient:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
 
     def get_logs_stream(
-        self, working_dir: str, job_id: str, cluster_name: str, stdout_filename: str
+        self, cluster_name: str, job_id: Optional[str] = None
     ) -> SlurmLogStream:
         """Gets a stream that tails the logs of the target job.
 
         Args:
-            working_dir: Remote working directory where the job was submitted.
-            job_id: The ID of the job to tail the logs of.
             cluster_name: The name of the cluster the job was run in.
-            stdout_filename: The name of the stdout file to tail.
+            job_id: The ID of the job to tail the logs of.
         """
-        return SlurmLogStream(
-            working_dir,
-            job_id,
-            cluster_name,
-            stdout_filename,
-            client=self,
-        )
+        if job_id is None:
+            lastest_job_id = self.get_latest_job()
+            if lastest_job_id is None:
+                raise RuntimeError("No jobs found on the cluster.")
+            logger.info(
+                f"No job ID provided. Using the most recent job ID: {lastest_job_id.id}"
+            )
+            job_id = lastest_job_id.id
+        return SlurmLogStream(cluster_name, job_id, client=self)

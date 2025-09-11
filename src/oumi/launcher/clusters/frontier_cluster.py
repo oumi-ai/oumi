@@ -303,7 +303,7 @@ class FrontierCluster(BaseCluster):
         # Set the proper CHMOD permissions.
         self._client.run_commands([f"chmod +x {script_path}"])
         # Set up logging directories.
-        logging_dirs, stdout_file, stderr_file = _get_logging_dirs_and_files(job_script)
+        logging_dirs, _, _ = _get_logging_dirs_and_files(job_script)
         if len(logging_dirs) > 0:
             self._client.run_commands(
                 [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
@@ -321,16 +321,6 @@ class FrontierCluster(BaseCluster):
             threads_per_core=1,
             distribution="block:cyclic",
             partition=self._queue.value,
-            stdout_file=(
-                str(stdout_file)
-                if stdout_file
-                else "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU"
-            ),
-            stderr_file=(
-                str(stderr_file)
-                if stderr_file
-                else "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER"
-            ),
         )
         job_status = self.get_job(job_id)
         if job_status is None:
@@ -345,11 +335,13 @@ class FrontierCluster(BaseCluster):
         """This is a no-op for Frontier clusters."""
         pass
 
-    def get_logs_stream(self, job_id: str, cluster_name: str) -> io.TextIOBase:
+    def get_logs_stream(
+        self, cluster_name: str, job_id: Optional[str] = None
+    ) -> io.TextIOBase:
         """Gets a stream that tails the logs of the target job.
 
         Args:
-            job_id: The ID of the job to tail the logs of.
             cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
         """
         raise NotImplementedError

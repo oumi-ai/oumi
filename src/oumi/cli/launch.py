@@ -103,7 +103,7 @@ def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
 
 
 def _tail_logs(
-    log_stream: io.TextIOBase, job_id: str, output_filepath: Optional[str] = None
+    log_stream: io.TextIOBase, output_filepath: Optional[str] = None
 ) -> None:
     """Tails logs with pretty CLI output.
 
@@ -112,13 +112,12 @@ def _tail_logs(
 
     Args:
         log_stream: A LogStream object that can be read from.
-        job_id: The ID of the job being tailed.
         output_filepath: Optional path to a file to save the logs to.
     """
     if output_filepath:
-        cli_utils.CONSOLE.print(f"Tailed logs will be saved to: {output_filepath}")
+        cli_utils.CONSOLE.print(f"Logs will be saved to: {output_filepath}")
     else:
-        cli_utils.CONSOLE.print("Tailing logs to console...")
+        cli_utils.CONSOLE.print("Logging to console...")
     # Open output file if specified
     file_handle = None
     if output_filepath:
@@ -141,9 +140,9 @@ def _tail_logs(
                 else:
                     cli_utils.CONSOLE.print(line, end="", markup=False)
     except KeyboardInterrupt:
-        logger.info(f"Stopped tailing logs for job {job_id}")
+        logger.info("Stopped tailing logs.")
     except Exception as e:
-        logger.exception(f"Failed while tailing logs for job {job_id}: {e}")
+        logger.exception(f"Failed while tailing logs: {e}")
         raise
     finally:
         if file_handle:
@@ -191,11 +190,11 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
-    """Stops a cluster.
+def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]:
+    """Finds the cluster matching the given name and cloud.
 
-    All workers must return a boolean to indicate whether the task is done.
-    Stop has no intermediate states, so it always returns True.
+    Returns:
+        Optional[BaseCluster]: The matching cluster, or None if not found.
     """
     from oumi import launcher
 
@@ -203,31 +202,52 @@ def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
         target_cloud = launcher.get_cloud(cloud)
         target_cluster = target_cloud.get_cluster(cluster)
         if target_cluster:
-            target_cluster.stop()
-        else:
-            cli_utils.CONSOLE.print(
-                f"[red]Cluster [yellow]{cluster}[/yellow] not found.[/red]"
-            )
-        return True
-    # Make a best effort to find a single cluster to stop without a cloud.
+            return target_cluster
+        cli_utils.CONSOLE.print(
+            f"Cluster [yellow]{cluster}[/yellow] not found for cloud "
+            f"[yellow]{cloud}[/yellow]."
+        )
+        return None
+
+    # Search across all clouds
     clusters = []
     for name in launcher.which_clouds():
         target_cloud = launcher.get_cloud(name)
         target_cluster = target_cloud.get_cluster(cluster)
         if target_cluster:
             clusters.append(target_cluster)
+
     if len(clusters) == 0:
+        cli_utils.CONSOLE.print(f"Cluster [yellow]{cluster}[/yellow] not found.")
+        return None
+    if len(clusters) == 1:
+        return clusters[0]
+    cli_utils.CONSOLE.print(
+        f"Multiple clusters found with name [yellow]{cluster}[/yellow]. "
+        f"Specify a cloud to stop with `--cloud`."
+    )
+
+    return None
+
+
+def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
+    """Stops a cluster.
+
+    All workers must return a boolean to indicate whether the task is done.
+    Stop has no intermediate states, so it always returns True.
+    """
+    cluster_instance = _find_cluster(cluster, cloud)
+
+    if not cluster_instance:
         cli_utils.CONSOLE.print(
             f"[red]Cluster [yellow]{cluster}[/yellow] not found.[/red]"
         )
         return True
-    if len(clusters) == 1:
-        clusters[0].stop()
-    else:
-        cli_utils.CONSOLE.print(
-            f"[red]Multiple clusters found with name [yellow]{cluster}[/yellow]. "
-            "Specify a cloud to stop with `--cloud`.[/red]"
-        )
+
+    cluster_instance.stop()
+    cli_utils.CONSOLE.print(
+        f"Cluster [yellow]{cluster_instance.name()}[/yellow] stopped!"
+    )
     return True  # Always return true to indicate that the task is done.
 
 
@@ -261,8 +281,8 @@ def _poll_job(
     assert running_cluster
 
     try:
-        log_stream = running_cluster.get_logs_stream(job_status.id, job_status.cluster)
-        _tail_logs(log_stream, job_status.id, output_filepath)
+        log_stream = running_cluster.get_logs_stream(job_status.cluster, job_status.id)
+        _tail_logs(log_stream, output_filepath)
     except NotImplementedError:
         if output_filepath:
             cli_utils.CONSOLE.print(
@@ -611,3 +631,51 @@ def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
             border_style="blue",
         )
     )
+
+
+def logs(
+    cluster: Annotated[str, typer.Option(help="The cluster to get the logs of.")],
+    cloud: Annotated[
+        Optional[str],
+        typer.Option(help="If specified, will filter for clusters on this cloud."),
+    ] = None,
+    job_id: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The job ID to get the logs of. If unspecified, the most recent "
+            "job will be used."
+        ),
+    ] = None,
+    output_filepath: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Path to save job logs to a file. If unspecified, the logs will "
+            "be printed to the console."
+        ),
+    ] = None,
+) -> None:
+    """Gets the logs of a job.
+
+    Args:
+        cluster: The cluster to get the logs of.
+        cloud: If specified, only clusters on this cloud will be affected.
+        job_id: The job ID to get the logs of.
+        output_filepath: Path to save job logs to a file.
+    """
+    log_stream = _log_worker(cluster, cloud, job_id)
+    _tail_logs(log_stream, output_filepath)
+
+
+def _log_worker(
+    cluster: str, cloud: Optional[str], job_id: Optional[str]
+) -> io.TextIOBase:
+    """Gets logs from a cluster.
+
+    Returns a text stream containing the cluster logs.
+    """
+    cluster_instance = _find_cluster(cluster, cloud)
+
+    if not cluster_instance:
+        raise RuntimeError(f"Cluster [yellow]{cluster}[/yellow] not found.")
+
+    return cluster_instance.get_logs_stream(cluster, job_id)

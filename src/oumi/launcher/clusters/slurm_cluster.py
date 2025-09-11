@@ -154,18 +154,10 @@ class SlurmCluster(BaseCluster):
             """Gets the name of the connection in the form user@hostname."""
             return f"{self.user}@{self.hostname}"
 
-    @dataclass
-    class JobInfo:
-        """Information about a submitted job."""
-
-        working_dir: Path  # Path to the working directory on the remote cluster.
-        stdout_filename: str  # Name of the remote cluster's stdout file.
-
     def __init__(self, name: str, client: SlurmClient) -> None:
         """Initializes a new instance of the SlurmCluster class."""
         self._client = client
         self._connection = self.parse_cluster_name(name)
-        self.jobs_info: dict[str, SlurmCluster.JobInfo] = {}
 
     def __eq__(self, other: Any) -> bool:
         """Checks if two SlurmClusters are equal."""
@@ -274,12 +266,7 @@ class SlurmCluster(BaseCluster):
             str(script_path),
             str(remote_working_dir),
             job.num_nodes,
-            job_name,
-        )
-        # By default, Slurm writes to slurm-<job_id>.out.
-        self.jobs_info[job_id] = SlurmCluster.JobInfo(
-            working_dir=remote_working_dir,
-            stdout_filename=f"slurm-{job_id}.out",
+            name=job_name,
         )
         max_retries = 3
         wait_time = 5
@@ -302,22 +289,16 @@ class SlurmCluster(BaseCluster):
         """This is a no-op for Slurm clusters."""
         pass
 
-    def get_logs_stream(self, job_id: str, cluster_name: str) -> SlurmLogStream:
+    def get_logs_stream(
+        self, cluster_name: str, job_id: Optional[str] = None
+    ) -> SlurmLogStream:
         """Gets a stream that tails the logs of the target job.
 
         Args:
-            job_id: The ID of the job to tail the logs of.
             cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
 
         Returns:
             A SlurmLogStream object that can be used to read the logs.
         """
-        if job_id not in self.jobs_info:
-            raise RuntimeError(f"Job {job_id} not found in jobs_info")
-        job_info = self.jobs_info[job_id]
-        return self._client.get_logs_stream(
-            str(job_info.working_dir),
-            job_id,
-            cluster_name,
-            job_info.stdout_filename,
-        )
+        return self._client.get_logs_stream(cluster_name, job_id)

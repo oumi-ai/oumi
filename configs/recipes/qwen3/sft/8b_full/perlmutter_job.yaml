@@ -31,7 +31,6 @@ envs:
 
 setup: |
   #SBATCH -J qwen3_8b_fft
-  #SBATCH -o $CFS/$SBATCH_ACCOUNT/users/$USER/jobs/logs/%j.out
   #SBATCH -t 00:20:00
 
 run: |

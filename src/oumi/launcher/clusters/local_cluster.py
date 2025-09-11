@@ -129,11 +129,13 @@ class LocalCluster(BaseCluster):
         for job in self.get_jobs():
             self.cancel_job(job.id)
 
-    def get_logs_stream(self, job_id: str, cluster_name: str) -> io.TextIOBase:
+    def get_logs_stream(
+        self, cluster_name: str, job_id: Optional[str] = None
+    ) -> io.TextIOBase:
         """Gets a stream that tails the logs of the target job.
 
         Args:
-            job_id: The ID of the job to tail the logs of.
             cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
         """
         raise NotImplementedError

@@ -441,7 +441,7 @@ def test_slurm_cluster_run_job(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -496,7 +496,7 @@ def test_slurm_cluster_run_job_no_working_dir(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -586,7 +586,7 @@ def test_slurm_cluster_run_job_with_polling_succeeds(
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_has_calls([call(), call(), call()])
     mock_time.sleep.assert_has_calls([call(5), call(5)])
@@ -659,7 +659,7 @@ def test_slurm_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "1-2-3",
+        name="1-2-3",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -719,7 +719,7 @@ def test_slurm_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -777,7 +777,7 @@ def test_slurm_cluster_run_job_no_pbs(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -835,7 +835,7 @@ def test_slurm_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
