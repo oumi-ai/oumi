@@ -519,7 +519,7 @@ class SlurmClient:
         distribution: Optional[str] = None,
         partition: Optional[str] = None,
         qos: Optional[str] = None,
-        stdout_file: str = _LOG_DIR.format(job_id="%j"),
+        stdout_file: Optional[str] = _LOG_DIR.format(job_id="%j"),
         stderr_file: Optional[str] = None,
         **kwargs,
     ) -> str:
