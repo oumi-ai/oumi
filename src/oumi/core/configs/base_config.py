@@ -128,7 +128,7 @@ class BaseConfig:
         # Start with an empty typed config. This forces OmegaConf to validate
         # that all other configs are of this structured type as well.
         all_configs = [OmegaConf.structured(cls)]
-
+        print("This is just testing")
         # Override with configuration file if provided.
         if config_path is not None:
             if ignore_interpolation:
