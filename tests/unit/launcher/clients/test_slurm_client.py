@@ -129,7 +129,7 @@ def test_slurm_client_submit_job_name(mock_subprocess):
                     [
                         "cd work_dir",
                         "sbatch --nodes=2 --job-name=somename"
-                        "--parsable --output=$HOME/oumi_slurm_logs/%j.out "
+                        " --parsable --output=$HOME/oumi_slurm_logs/%j.out "
                         "./job.sh",
                     ]
                 ),
@@ -199,7 +199,7 @@ def test_slurm_client_submit_job_with_all_args(mock_subprocess):
                                 "--error=$HOME/stderr.txt",
                                 "--foo=bar",
                                 "--parsable",
-                                "--output=$HOME/stdout.txt",
+                                "--output=~/stdout.txt",
                                 "./job.sh",
                             ]
                         ),
