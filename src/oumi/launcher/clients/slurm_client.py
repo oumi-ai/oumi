@@ -519,7 +519,7 @@ class SlurmClient:
         distribution: Optional[str] = None,
         partition: Optional[str] = None,
         qos: Optional[str] = None,
-        stdout_file: str = _LOG_DIR.format(job_id="%j"),
+        stdout_file: Optional[str] = _LOG_DIR.format(job_id="%j"),
         stderr_file: Optional[str] = None,
         **kwargs,
     ) -> str:
@@ -574,6 +574,8 @@ class SlurmClient:
             slurm_flags["partition"] = partition
         if qos:
             slurm_flags["qos"] = qos
+        if stdout_file:
+            slurm_flags["output"] = stdout_file
         if stderr_file:
             slurm_flags["error"] = stderr_file
 
@@ -592,7 +594,6 @@ class SlurmClient:
             cmd_parts.append(f"--{flag}={value}")
 
         cmd_parts.append("--parsable")
-        cmd_parts.append(f"--output={stdout_file}")
         cmd_parts.append(job_path)
         sbatch_cmd = " ".join(cmd_parts)
         logger.debug(f"Executing SBATCH command: {sbatch_cmd}")
