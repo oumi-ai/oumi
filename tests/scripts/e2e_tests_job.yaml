@@ -28,6 +28,7 @@ envs:
   ENABLE_OUMI_UNIT_TESTS: "false"
   ENABLE_OUMI_INTEGRATION_TESTS: "false"
   ENABLE_OUMI_E2E_TESTS: "true"
+  CUDA_LAUNCH_BLOCKING: 1
 
 setup: |
   set -e
