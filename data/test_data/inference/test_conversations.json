@@ -1,0 +1,40 @@
+[
+  {
+    "conversation_id": "test_1",
+    "description": "Simple greeting with natural keyword instruction",
+    "messages": [
+      {
+        "content": "Hello! How are you? Please include the word 'Hello' somewhere in your response.",
+        "role": "user"
+      }
+    ]
+  },
+  {
+    "conversation_id": "test_2",
+    "description": "Math question with natural keyword instruction",
+    "messages": [
+      {
+        "content": "What is 2 + 2?",
+        "role": "user"
+      },
+      {
+        "content": "2 + 2 equals 4.",
+        "role": "assistant"
+      },
+      {
+        "content": "What about 3 + 3? Please include the word 'equals' in your answer.",
+        "role": "user"
+      }
+    ]
+  },
+  {
+    "conversation_id": "test_3",
+    "description": "Story prompt with natural keyword instruction",
+    "messages": [
+      {
+        "content": "Tell me about a brave knight. Please mention the word 'knight' in your response.",
+        "role": "user"
+      }
+    ]
+  }
+]
