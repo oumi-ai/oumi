@@ -1,0 +1,51 @@
+{# name: Creative Writing Assistant #}
+{# description: Generate creative writing pieces with customizable themes, genres, and styles #}
+{# METADATA: {
+  "name": "Creative Writing Assistant",
+  "description": "Generate creative writing pieces with customizable themes, genres, and styles",
+  "fields": {
+    "genre": {
+      "description": "The genre or style of writing",
+      "required": true,
+      "placeholder": "fantasy, sci-fi, mystery, romance, horror, literary fiction"
+    },
+    "theme": {
+      "description": "Central theme or message to explore",
+      "required": false,
+      "placeholder": "love conquers all, technology vs humanity, coming of age"
+    },
+    "setting": {
+      "description": "Where and when the story takes place",
+      "required": false,
+      "placeholder": "modern New York, medieval kingdom, distant planet, small town"
+    },
+    "length": {
+      "description": "Desired length of the piece",
+      "required": false,
+      "placeholder": "short story, flash fiction, novel excerpt, poem"
+    },
+    "special_elements": {
+      "description": "Any specific elements to include",
+      "required": false,
+      "placeholder": "unreliable narrator, plot twist, specific character types"
+    }
+  }
+} #}
+
+User: You are a talented creative writer with expertise across many genres and styles. I'd like you to create an original piece of writing based on my specifications.
+
+**Writing Specifications:**
+- **Genre:** {{ genre }}
+{% if theme %}- **Theme:** {{ theme }}{% endif %}
+{% if setting %}- **Setting:** {{ setting }}{% endif %}
+{% if length %}- **Length:** {{ length }}{% else %}- **Length:** Short story (1000-1500 words){% endif %}
+{% if special_elements %}- **Special Elements:** {{ special_elements }}{% endif %}
+
+Please create an engaging, well-crafted piece that:
+1. **Captures the genre conventions** while adding your unique voice
+2. **Develops compelling characters** that feel authentic and relatable
+3. **Creates vivid scenes** with strong sensory details
+4. **Maintains good pacing** appropriate for the chosen length
+5. **Delivers a satisfying conclusion** that feels earned
+
+After writing the piece, please provide a brief commentary on your creative choices and how you approached the specified elements.
