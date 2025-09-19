@@ -103,18 +103,6 @@ dev = [
     "ruff",
     "torchfix",       # Tool for automatically fixing common PyTorch issues
 ]
-docs = [
-    "myst_parser",             # Allows us to write docs in markdown
-    "myst-nb",                 # Allows us to include ipython notebooks in the docs
-    "sphinx-book-theme",       # Alternative to sphinx-rtd-theme
-    "sphinx-copybutton",       # Add copy button to code blocks in Sphinx
-    "sphinx-design",           # Allows us to include tabs in the docs
-    "sphinx-rtd-theme>=3.0.1", # Readthedocs theme for Sphinx
-    "sphinx",                  # Used to build the docs
-    "sphinxcontrib-bibtex",    # Allows us to cite bibtex references in the docs
-    "sphinxcontrib-mermaid",   # Enable mermaid diagrams in the docs
-    "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
-]
 
 # Useful dependencies when running on GPU
 gpu = [
@@ -180,7 +168,7 @@ llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,synthesis]",
+    "oumi[dev,gcp,synthesis]",
     "vllm>=0.10,<0.11",           # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
@@ -188,7 +176,7 @@ ci_cpu = [
 ]
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
-ci_gpu = ["oumi[dev,docs,gcp,gpu,synthesis]", "alpaca-eval>=0.6,<0.7"]
+ci_gpu = ["oumi[dev,gcp,gpu,synthesis]", "alpaca-eval>=0.6,<0.7"]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"

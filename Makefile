@@ -10,14 +10,7 @@ CONDA_INSTALL_PATH := $(HOME)/miniconda3
 # Source directory
 SRC_DIR := .
 TEST_DIR := tests
-DOCS_DIR := docs
 OUMI_SRC_DIR := src/oumi
-
-# Sphinx documentation variables
-SPHINXOPTS    ?= -v
-SPHINXBUILD   ?= sphinx-build
-DOCS_SOURCEDIR     = $(DOCS_DIR)
-DOCS_BUILDDIR      = $(DOCS_DIR)/_build
 
 # Default target
 ARGS :=
@@ -37,12 +30,6 @@ help:
 	@echo "  coverage          - Run tests with coverage"
 	@echo "  gcpssh            - Launch a GCP VM and ssh into it"
 	@echo "  gcpcode           - Launch a VS Code remote session on a GCP VM"
-	@echo "  docs              - Build Sphinx documentation"
-	@echo "  docs-help         - Show Sphinx documentation help"
-	@echo "  docs-serve        - Serve docs locally and open in browser"
-	@echo "  docs-rebuild      - Fully rebuild the docs: (a) Regenerate apidoc RST and (b) build html docs from source"
-	@echo "  doctest           - Run doctests on documentation files"
-	@echo "  doctest-file      - Run doctests on a specific documentation file"
 
 # If we detect the system is an Intel Mac, print an error message and exit.
 setup:
@@ -117,7 +104,7 @@ upgrade:
 		$(CONDA_RUN) pip install --upgrade -e ".[dev]"; \
 	fi
 
-clean: docs-clean
+clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	rm -rf .pytest_cache
@@ -149,39 +136,4 @@ gcpcode:
 	$(CONDA_RUN) oumi launch up $(ARGS) --cluster "${USERNAME}-dev" -c configs/examples/misc/dev_gcp_job.yaml
 	code --new-window --folder-uri=vscode-remote://ssh-remote+"${USERNAME}-dev/home/gcpuser/sky_workdir/"
 
-docs:
-	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
-
-docs-rebuild: docs-clean docs-copy-files docs-update-summaries
-	$(CONDA_RUN) sphinx-apidoc "$(SRC_DIR)/src/oumi" --output-dir "$(DOCS_SOURCEDIR)/api" --remove-old --force --module-first --implicit-namespaces  --maxdepth 2 --templatedir  "$(DOCS_SOURCEDIR)/_templates/apidoc"
-	$(CONDA_RUN) $(SPHINXBUILD) -M html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
-
-docs-help:
-	$(CONDA_RUN) $(SPHINXBUILD) -M help "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINXOPTS) $(O)
-
-docs-serve: docs
-	@echo "Serving documentation at http://localhost:8000"
-	@$(CONDA_RUN) python -c "import webbrowser; webbrowser.open('http://localhost:8000')" &
-	@$(CONDA_RUN) python -m http.server 8000 --directory $(DOCS_BUILDDIR)/html
-
-docs-copy-files:
-	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/_manage_doclinks.py copy "$(DOCS_SOURCEDIR)/_doclinks.config"
-
-docs-update-summaries:
-	$(CONDA_RUN) bash $(DOCS_SOURCEDIR)/_docsummaries.sh
-
-docs-clean:
-	rm -rf $(DOCS_BUILDDIR) "$(DOCS_SOURCEDIR)/api"
-	$(CONDA_RUN) python $(DOCS_SOURCEDIR)/_manage_doclinks.py clean "$(DOCS_SOURCEDIR)/_doclinks.config"
-
-doctest:
-	$(CONDA_RUN) $(SPHINXBUILD) -b doctest "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)"
-
-doctest-file:
-	@if [ -z "$(FILE)" ]; then \
-		echo "Error: Please specify a file using FILE=docs/path/to/file"; \
-		exit 1; \
-	fi
-	$(CONDA_RUN) $(SPHINXBUILD) -b doctest "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(FILE)
-
-.PHONY: help setup upgrade clean check format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file
+.PHONY: help setup upgrade clean check format test coverage gcpssh gcpcode
