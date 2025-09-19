@@ -18,33 +18,53 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional
 
 from oumi.core.analyze.dataset_analyzer import (
-    ConversationAnalysisResult,
-    MessageAnalysisResult,
+    FieldAnalysisResult,
+    SampleAnalysisResult,
 )
-from oumi.core.types.conversation import Conversation
 
 
 class SampleAnalyzer(ABC):
-    """Base class for sample analyzer plugins that analyze individual samples."""
+    """Base class for sample analyzer plugins that analyze individual samples.
+    
+    All analyzers work with dictionary data.
+    """
+
+    @abstractmethod
+    def analyze_fields(
+        self,
+        text_fields: list[tuple[str, str]],
+        tokenizer: Optional[Any] = None
+    ) -> list[FieldAnalysisResult]:
+        """Analyze individual text fields.
+        
+        This method provides field-level analysis for dictionary data. All analyzers
+        must implement this method.
+        
+        Args:
+            text_fields: List of (field_name, text_content) tuples
+            tokenizer: Optional tokenizer to use for analysis
+            
+        Returns:
+            List of FieldAnalysisResult objects, one for each field
+        """
+        pass
 
     @abstractmethod
     def analyze_sample(
-        self, conversation: Conversation, tokenizer: Optional[Any] = None
-    ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
-        """Analyze a conversation sample and return comprehensive analysis results.
-
-        This method analyzes a conversation and returns metrics for both individual
-        messages and the conversation as a whole. Each analyzer can decide its own
-        strategy for computing conversation-level metrics (e.g., aggregating message
-        metrics or implementing custom conversation-level analysis).
-
+        self,
+        sample: dict,
+        tokenizer: Optional[Any] = None
+    ) -> SampleAnalysisResult:
+        """Analyze a dictionary sample as a whole.
+        
+        This method provides sample-level analysis for dictionary data. All analyzers
+        must implement this method.
+        
         Args:
-            conversation: The conversation object to analyze
-            tokenizer: Optional tokenizer to use for tokenization-based analysis
-
+            sample: The sample dictionary to analyze
+            tokenizer: Optional tokenizer to use for analysis
+            
         Returns:
-            Tuple containing:
-            - List of MessageAnalysisResult objects for each message
-            - ConversationAnalysisResult for the conversation as a whole
+            SampleAnalysisResult for the entire sample
         """
         pass
