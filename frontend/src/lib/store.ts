@@ -1582,6 +1582,7 @@ if (process.env.NODE_ENV === 'development') {
             selectedModel: '',
             usageMonitoring: true,
             autoValidateKeys: true,
+            startNewSessionOnLaunch: state.settings?.startNewSessionOnLaunch ?? true,
             notifications: {
               lowBalance: true,
               highUsage: true,
