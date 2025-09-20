@@ -169,9 +169,6 @@ class DatasetAnalyzer:
                     self.text_fields = self._auto_detect_conversation_fields(first_conv)
                 else:
                     self.text_fields = []
-                # Add rendered sample if tokenizer is available
-                if self.tokenizer is not None:
-                    self.text_fields.append("rendered_sample")
             else:
                 self.text_fields = config.text_fields
                 
@@ -206,9 +203,6 @@ class DatasetAnalyzer:
                     self.text_fields = self._auto_detect_conversation_fields(first_conv)
                 else:
                     self.text_fields = []
-                # Add rendered sample if tokenizer is available
-                if self.tokenizer is not None:
-                    self.text_fields.append("rendered_sample")
             else:
                 self.text_fields = config.text_fields
                 
@@ -224,8 +218,8 @@ class DatasetAnalyzer:
         # Initialize analysis results as None
         self._analysis_results: Optional[DatasetAnalysisResult] = None
         self._merged_df: Optional[pd.DataFrame] = None
-        self._message_df: Optional[pd.DataFrame] = None
-        self._conversation_df: Optional[pd.DataFrame] = None
+        self._fields_df: Optional[pd.DataFrame] = None
+        self._samples_df: Optional[pd.DataFrame] = None
         self._analysis_summary: Optional[dict[str, Any]] = None
 
         # Decimal precision for rounding metrics
@@ -243,7 +237,7 @@ class DatasetAnalyzer:
         """Auto-detect text fields from a conversation object."""
         text_fields = []
         for i, message in enumerate(conversation.messages):
-            field_name = f"{message.role.value}_message_{i}"
+            field_name = f"{message.role.value}_{i}"
             text_fields.append(field_name)
         return text_fields
 
@@ -265,7 +259,7 @@ class DatasetAnalyzer:
         
         # Add each message as a separate field
         for i, message in enumerate(conversation.messages):
-            field_name = f"{message.role.value}_message_{i}"
+            field_name = f"{message.role.value}_{i}"
             analysis_dict[field_name] = message.content
         
         # Add rendered sample for token counting if tokenizer is available
@@ -407,7 +401,7 @@ class DatasetAnalyzer:
         )
 
         # Collect DataFrames for messages and conversations
-        message_dfs = []
+        field_dfs = []
         conversation_dfs = []
 
         # Use tqdm for progress monitoring
@@ -432,7 +426,7 @@ class DatasetAnalyzer:
                     # Use dictionary-based analysis
                     text_fields = [(field, conversation_dict.get(field, "")) for field in self.text_fields]
                     field_results = analyzer.analyze_fields(text_fields, self.tokenizer)
-                    sample_result = analyzer.analyze_sample(conversation_dict, self.tokenizer)
+                    sample_result = analyzer.analyze_sample(conversation_dict, self.text_fields, self.tokenizer)
 
                     # Convert to DataFrames with prefixed columns
                     field_df = self._convert_fields_to_df(
@@ -450,7 +444,7 @@ class DatasetAnalyzer:
 
                     # Only add field_df if it has data
                     if not field_df.empty:
-                        message_dfs.append(field_df)
+                        field_dfs.append(field_df)
                         conversation_has_data = True
 
                 except Exception as e:
@@ -470,33 +464,33 @@ class DatasetAnalyzer:
                 }
 
                 placeholder_df = pd.DataFrame([placeholder_row])
-                message_dfs.append(placeholder_df)  # Add to message_dfs instead
+                field_dfs.append(placeholder_df)  # Add to field_dfs instead
 
         # Create final DataFrames
-        if message_dfs:
-            self._message_df = pd.concat(message_dfs, ignore_index=True)
+        if field_dfs:
+            self._fields_df = pd.concat(field_dfs, ignore_index=True)
         else:
-            self._message_df = pd.DataFrame()
+            self._fields_df = pd.DataFrame()
 
         if conversation_dfs:
-            self._conversation_df = pd.concat(conversation_dfs, ignore_index=True)
+            self._samples_df = pd.concat(conversation_dfs, ignore_index=True)
         else:
-            self._conversation_df = pd.DataFrame()
+            self._samples_df = pd.DataFrame()
 
         # Create merged DataFrame with both field and sample metrics
-        if not self._message_df.empty and not self._conversation_df.empty:
+        if not self._fields_df.empty and not self._samples_df.empty:
             # Use sample_index for merging
             merge_on = ["sample_index"]
             
-            self._merged_df = self._message_df.merge(
-                self._conversation_df,
+            self._merged_df = self._fields_df.merge(
+                self._samples_df,
                 on=merge_on,
                 how="left",
             )
-        elif not self._message_df.empty:
-            self._merged_df = self._message_df.copy()
-        elif not self._conversation_df.empty:
-            self._merged_df = self._conversation_df.copy()
+        elif not self._fields_df.empty:
+            self._merged_df = self._fields_df.copy()
+        elif not self._samples_df.empty:
+            self._merged_df = self._samples_df.copy()
         else:
             self._merged_df = pd.DataFrame()
 
@@ -559,7 +553,7 @@ class DatasetAnalyzer:
                     # Use dictionary-based analysis (all analyzers now support this)
                     text_fields = [(field, sample.get(field, "")) for field in self.text_fields]
                     field_results = analyzer.analyze_fields(text_fields, self.tokenizer)
-                    sample_result = analyzer.analyze_sample(sample, self.tokenizer)
+                    sample_result = analyzer.analyze_sample(sample, self.text_fields, self.tokenizer)
 
                     # Convert to DataFrames with prefixed columns
                     field_df = self._convert_fields_to_df(
@@ -601,26 +595,26 @@ class DatasetAnalyzer:
 
         # Create final DataFrames
         if field_dfs:
-            self._message_df = pd.concat(field_dfs, ignore_index=True)
+            self._fields_df = pd.concat(field_dfs, ignore_index=True)
         else:
-            self._message_df = pd.DataFrame()
+            self._fields_df = pd.DataFrame()
 
         if sample_dfs:
-            self._conversation_df = pd.concat(sample_dfs, ignore_index=True)
+            self._samples_df = pd.concat(sample_dfs, ignore_index=True)
         else:
-            self._conversation_df = pd.DataFrame()
+            self._samples_df = pd.DataFrame()
 
         # Create merged DataFrame with both field and sample metrics
-        if not self._message_df.empty and not self._conversation_df.empty:
-            self._merged_df = self._message_df.merge(
-                self._conversation_df,
+        if not self._fields_df.empty and not self._samples_df.empty:
+            self._merged_df = self._fields_df.merge(
+                self._samples_df,
                 on=["sample_index"],
                 how="left",
             )
-        elif not self._message_df.empty:
-            self._merged_df = self._message_df.copy()
-        elif not self._conversation_df.empty:
-            self._merged_df = self._conversation_df.copy()
+        elif not self._fields_df.empty:
+            self._merged_df = self._fields_df.copy()
+        elif not self._samples_df.empty:
+            self._merged_df = self._samples_df.copy()
         else:
             self._merged_df = pd.DataFrame()
 
@@ -757,38 +751,38 @@ class DatasetAnalyzer:
         return self._merged_df
 
     @property
-    def message_df(self) -> Union[pd.DataFrame, None]:
-        """Get the message-level analysis DataFrame.
+    def fields_df(self) -> Union[pd.DataFrame, None]:
+        """Get the field-level analysis DataFrame.
 
         Returns:
-            DataFrame with message-level metrics prefixed by message_
+            DataFrame with field-level metrics prefixed by field_
 
         Raises:
             RuntimeError: If analysis has not been run yet.
         """
-        if self._message_df is None:
+        if self._fields_df is None:
             raise RuntimeError(
                 "Analysis has not been run yet. Please call analyze_dataset() first "
-                "to access the message DataFrame."
+                "to access the fields DataFrame."
             )
-        return self._message_df
+        return self._fields_df
 
     @property
-    def conversation_df(self) -> Union[pd.DataFrame, None]:
-        """Get the conversation-level analysis DataFrame.
+    def samples_df(self) -> Union[pd.DataFrame, None]:
+        """Get the sample-level analysis DataFrame.
 
         Returns:
-            DataFrame with conversation-level metrics prefixed by conversation_
+            DataFrame with sample-level metrics prefixed by sample_
 
         Raises:
             RuntimeError: If analysis has not been run yet.
         """
-        if self._conversation_df is None:
+        if self._samples_df is None:
             raise RuntimeError(
                 "Analysis has not been run yet. Please call analyze_dataset() first "
-                "to access the conversation DataFrame."
+                "to access the samples DataFrame."
             )
-        return self._conversation_df
+        return self._samples_df
 
     def query_conversations(
         self,
@@ -813,7 +807,7 @@ class DatasetAnalyzer:
             )
         """
         # Check if analysis has been run
-        if self._conversation_df is None:
+        if self._samples_df is None:
             raise RuntimeError(
                 "Analysis has not been run yet. Please call analyze_dataset() first "
                 "to query conversation results."
@@ -821,7 +815,7 @@ class DatasetAnalyzer:
 
         # Apply the query filter
         try:
-            filtered_df = self._conversation_df.query(query_expression)
+            filtered_df = self._samples_df.query(query_expression)
             logger.info(f"Query '{query_expression}' returned {len(filtered_df)} rows")
         except Exception as e:
             logger.error(f"Query failed: {e}")
@@ -922,9 +916,9 @@ class DatasetAnalyzer:
 
         summary = {
             "dataset_overview": self._get_dataset_overview(),
-            "message_level_summary": self._get_message_level_summary(),
-            "conversation_level_summary": self._get_conversation_level_summary(),
-            "conversation_turns": self._get_conversation_turns_summary(),
+            "field_level_summary": self._get_field_level_summary(),
+            "sample_level_summary": self._get_sample_level_summary(),
+            "sample_turns": self._get_sample_turns_summary(),
         }
 
         return summary
@@ -963,20 +957,20 @@ class DatasetAnalyzer:
                 else 0,
                 self._decimal_precision,
             ),
-            "total_messages": len(self._message_df)
-            if self._message_df is not None
+            "total_fields": len(self._fields_df)
+            if self._fields_df is not None
             else 0,
             "analyzers_used": list(self.sample_analyzers.keys()),
         }
 
-    def _get_message_level_summary(self) -> dict[str, Any]:
-        """Get aggregated message-level metrics across all analyzers."""
-        if self._message_df is None or self._message_df.empty:
+    def _get_field_level_summary(self) -> dict[str, Any]:
+        """Get aggregated field-level metrics across all analyzers."""
+        if self._fields_df is None or self._fields_df.empty:
             return {}
 
-        # Get all message-level analyzer columns
+        # Get all field-level analyzer columns
         message_columns = [
-            col for col in self._message_df.columns if col.startswith("message_")
+            col for col in self._fields_df.columns if col.startswith("field_")
         ]
 
         summary = {}
@@ -1001,8 +995,8 @@ class DatasetAnalyzer:
                     summary[analyzer_name] = {}
 
                 # Compute statistics for numeric columns
-                if pd.api.types.is_numeric_dtype(self._message_df[col]):
-                    values = cast(pd.Series, self._message_df[col].dropna())
+                if pd.api.types.is_numeric_dtype(self._fields_df[col]):
+                    values = cast(pd.Series, self._fields_df[col].dropna())
                     if len(values) > 0:
                         summary[analyzer_name][metric_name] = compute_statistics(
                             values, self._decimal_precision
@@ -1010,26 +1004,26 @@ class DatasetAnalyzer:
 
         return summary
 
-    def _get_conversation_level_summary(self) -> dict[str, Any]:
-        """Get aggregated conversation-level metrics across all analyzers."""
-        if self._conversation_df is None or self._conversation_df.empty:
+    def _get_sample_level_summary(self) -> dict[str, Any]:
+        """Get aggregated sample-level metrics across all analyzers."""
+        if self._samples_df is None or self._samples_df.empty:
             return {}
 
-        # Get all conversation-level analyzer columns
-        conversation_columns = [
+        # Get all sample-level analyzer columns
+        sample_columns = [
             col
-            for col in self._conversation_df.columns
-            if col.startswith("conversation_")
+            for col in self._samples_df.columns
+            if col.startswith("sample_")
         ]
 
         summary = {}
 
-        for col in conversation_columns:
+        for col in sample_columns:
             if col in ["sample_index"]:
                 continue
 
             # Extract analyzer name and metric from column
-            # Format: conversation_{analyzer}_{metric}
+            # Format: sample_{analyzer}_{metric}
             parts = col.split("_", 2)
             if len(parts) >= 3:
                 analyzer_name = parts[1]
@@ -1039,8 +1033,8 @@ class DatasetAnalyzer:
                     summary[analyzer_name] = {}
 
                 # Compute statistics for numeric columns
-                if pd.api.types.is_numeric_dtype(self._conversation_df[col]):
-                    values = cast(pd.Series, self._conversation_df[col].dropna())
+                if pd.api.types.is_numeric_dtype(self._samples_df[col]):
+                    values = cast(pd.Series, self._samples_df[col].dropna())
                     if len(values) > 0:
                         summary[analyzer_name][metric_name] = compute_statistics(
                             values, self._decimal_precision
@@ -1048,22 +1042,22 @@ class DatasetAnalyzer:
 
         return summary
 
-    def _get_conversation_turns_summary(self) -> dict[str, Any]:
+    def _get_sample_turns_summary(self) -> dict[str, Any]:
         """Get conversation turn statistics summary.
 
         Returns:
             Dictionary containing conversation turn statistics
         """
-        if self._message_df is None or self._message_df.empty:
+        if self._fields_df is None or self._fields_df.empty:
             return {}
 
         # Use sample_index for grouping
-        if "sample_index" not in self._message_df.columns:
+        if "sample_index" not in self._fields_df.columns:
             return {}
 
         # groupby().size() always returns a Series, but we cast it because
         # type checker can't infer this
         turns_per_conversation = cast(
-            pd.Series, self._message_df.groupby("sample_index").size()
+            pd.Series, self._fields_df.groupby("sample_index").size()
         )
         return compute_statistics(turns_per_conversation, self._decimal_precision)

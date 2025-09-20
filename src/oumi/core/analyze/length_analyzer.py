@@ -96,15 +96,17 @@ class LengthAnalyzer(SampleAnalyzer):
         return field_results
 
     def analyze_sample(
-        self,
-        sample: dict,
+        self, 
+        sample: dict, 
+        text_fields: list[str],
         tokenizer: Optional[Any] = None
     ) -> SampleAnalysisResult:
         """Analyze the entire sample.
         
         Args:
             sample: The sample dictionary to analyze
-            tokenizer: Optional tokenizer to use for analysis
+            text_fields: List of field names that contain text content to analyze
+            tokenizer: Optional tokenizer to use for analysis (ignored - uses instance tokenizer)
             
         Returns:
             SampleAnalysisResult for the entire sample
@@ -126,25 +128,25 @@ class LengthAnalyzer(SampleAnalyzer):
             
             # Only use token_count from rendered sample
             if self.token_count and "token_count" in rendered_metrics:
-                sample_metrics["total_token_count"] = rendered_metrics["token_count"]
+                sample_metrics["token_count"] = rendered_metrics["token_count"]
         
-        # For all other metrics, aggregate all text fields
+        # For all other metrics, aggregate only the text fields that are being analyzed
         all_text_content = []
-        for key, value in sample.items():
-            if isinstance(value, str) and value.strip():
-                all_text_content.append(value)
+        for field_name in text_fields:
+            if field_name in sample and isinstance(sample[field_name], str) and sample[field_name].strip():
+                all_text_content.append(sample[field_name])
         
         if all_text_content:
             # Compute metrics for the combined text content
             combined_text = " ".join(all_text_content)
             combined_metrics = self.compute_length_metrics(combined_text)
             
-            # Add "total_" prefix to distinguish from field-level metrics
+            # Add metrics without prefix since this is sample-level analysis
             for metric_name, metric_value in combined_metrics.items():
                 # Skip token_count if we already got it from rendered conversation
-                if metric_name == "token_count" and "total_token_count" in sample_metrics:
+                if metric_name == "token_count" and "token_count" in sample_metrics:
                     continue
-                sample_metrics[f"total_{metric_name}"] = metric_value
+                sample_metrics[metric_name] = metric_value
         
         return SampleAnalysisResult(
             sample_id=sample_id,

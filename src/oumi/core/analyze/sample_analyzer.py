@@ -51,8 +51,9 @@ class SampleAnalyzer(ABC):
 
     @abstractmethod
     def analyze_sample(
-        self,
-        sample: dict,
+        self, 
+        sample: dict, 
+        text_fields: list[str],
         tokenizer: Optional[Any] = None
     ) -> SampleAnalysisResult:
         """Analyze a dictionary sample as a whole.
@@ -62,6 +63,7 @@ class SampleAnalyzer(ABC):
         
         Args:
             sample: The sample dictionary to analyze
+            text_fields: List of field names that contain text content to analyze
             tokenizer: Optional tokenizer to use for analysis
             
         Returns:
