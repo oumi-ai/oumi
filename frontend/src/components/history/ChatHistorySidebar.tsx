@@ -71,6 +71,15 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
   const [groupNodes, setGroupNodes] = React.useState<boolean>(true);
   const [expandedConversations, setExpandedConversations] = React.useState<Record<string, boolean>>({});
 
+  // Track active branch message count to refresh Active Branch card after new messages
+  const activeBranchVersion = useChatStore((state) => {
+    const cid = state.currentConversationId;
+    const bid = state.currentBranchId;
+    if (!cid || !bid) return 0;
+    const msgs = state.conversationMessages[cid]?.[bid] || [];
+    return msgs.length;
+  });
+
   const toggleExpanded = (conversationId: string) => {
     setExpandedConversations(prev => ({ ...prev, [conversationId]: !prev[conversationId] }));
   };
@@ -252,7 +261,7 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
         )}
       </div>
     );
-  }, [viewMode, currentConversationId, currentBranchId, getBranches, getBranchMessages]);
+  }, [viewMode, currentConversationId, currentBranchId, getBranches, getBranchMessages, activeBranchVersion]);
 
   const loadConversationPreview = async (conversationId: string) => {
     try {
