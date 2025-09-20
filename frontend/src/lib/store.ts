@@ -568,6 +568,8 @@ export const useChatStore = create<ChatStore>()(
 
           // Phase A: create a new version only when explicitly committed
           const isCommit = (updates as any)?.__commit === true || (updates as any)?.meta?.commit === true;
+          let _nextNodesForConv: { [id: string]: MessageNode } | undefined;
+          let _nextHeadsForBranch: { [id: string]: string } | undefined;
           if (typeof updates.content === 'string' && isCommit) {
             const convNodes = { ...(state.messageNodes[conversationId] || {}) } as { [id: string]: MessageNode };
             const timeline = state.branchTimelines[conversationId]?.[branchId] || [];
@@ -589,14 +591,9 @@ export const useChatStore = create<ChatStore>()(
                 timestamp: Date.now(),
                 attachments: (updates as any).attachments
               };
-              node.versions = [...node.versions, newVersion];
-              heads[targetNodeId] = newVersionId;
-              // write back
-              state.messageNodes[conversationId] = { ...convNodes, [targetNodeId]: node };
-              state.branchHeads[conversationId] = {
-                ...(state.branchHeads[conversationId] || {}),
-                [branchId]: heads
-              } as any;
+              const newNode: MessageNode = { id: targetNodeId, versions: [...node.versions, newVersion] };
+              _nextNodesForConv = { ...convNodes, [targetNodeId]: newNode };
+              _nextHeadsForBranch = { ...heads, [targetNodeId]: newVersionId };
             }
           }
           
@@ -674,8 +671,10 @@ export const useChatStore = create<ChatStore>()(
           
           return { 
             conversationMessages: updatedConversationMessages, 
-            conversations: updatedConversations 
-          };
+            conversations: updatedConversations,
+            ...( _nextNodesForConv ? { messageNodes: { ...state.messageNodes, [conversationId]: _nextNodesForConv } } : {}),
+            ...( _nextHeadsForBranch ? { branchHeads: { ...state.branchHeads, [conversationId]: { ...(state.branchHeads[conversationId] || {}), [branchId]: _nextHeadsForBranch } } } : {})
+          } as any;
         }),
 
       deleteMessage: (conversationId: string, branchId: string, messageId: string) =>
