@@ -5,7 +5,7 @@
 "use client";
 
 import React from 'react';
-import { History, MessageSquare, Clock, Download, Search, Trash2, RefreshCw, ArrowLeft, Users, User } from 'lucide-react';
+import { History, MessageSquare, Clock, Download, Search, Trash2, RefreshCw, ArrowLeft, Users, User, ChevronDown, ChevronRight, GitBranch } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 import { useChatStore } from '@/lib/store';
 
@@ -46,7 +46,9 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
     setMessages,
     deleteConversation: deleteStoreConversation,
     getCurrentSessionId,
-    getBranchMessages
+    getBranchMessages,
+    getBranches,
+    setCurrentBranch
   } = useChatStore();
   const [conversations, setConversations] = React.useState<ConversationEntry[]>([]);
   const [selectedConversation, setSelectedConversation] = React.useState<string | null>(null);
@@ -57,6 +59,28 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
   const [searchTerm, setSearchTerm] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<'current' | 'all'>('current');
+  const [expandedConversations, setExpandedConversations] = React.useState<Record<string, boolean>>({});
+
+  const toggleExpanded = (conversationId: string) => {
+    setExpandedConversations(prev => ({ ...prev, [conversationId]: !prev[conversationId] }));
+  };
+
+  const handleSwitchBranch = async (branchId: string) => {
+    try {
+      const sessionId = getCurrentSessionId();
+      const resp = await apiClient.switchBranch(sessionId, branchId);
+      if (!resp.success) {
+        console.warn('Failed to switch branch from history:', resp.message);
+      }
+      setCurrentBranch(branchId);
+      if (currentConversationId) {
+        await loadStoreConversation(currentConversationId, branchId);
+      }
+    } catch (e) {
+      console.error('Error switching branch from history:', e);
+      setCurrentBranch(branchId);
+    }
+  };
 
   // Load conversation list on mount and when viewMode changes
   React.useEffect(() => {
@@ -172,6 +196,31 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
     } finally {
       setLoading(false);
     }
+  };
+
+  // Pinned card for active branch in Current Session
+  const ActiveBranchCard: React.FC = () => {
+    if (viewMode !== 'current' || !currentConversationId) return null;
+    const branches = getBranches(currentConversationId);
+    const active = branches.find(b => b.isActive) || branches.find(b => b.id === currentBranchId);
+    const msgs = active ? getBranchMessages(currentConversationId, active.id) : [];
+    const last = msgs.length > 0 ? msgs[msgs.length - 1] : undefined;
+    if (!active) return null;
+    return (
+      <div className="p-3 mb-2 rounded-lg border border-primary/30 bg-primary/5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <GitBranch size={14} className="text-primary" />
+            <span className="text-sm font-medium text-foreground">Active Branch</span>
+          </div>
+          <span className="text-xs text-muted-foreground">{msgs.length} message{msgs.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div className="mt-1 text-sm font-semibold text-foreground truncate">{active.name}</div>
+        {last && (
+          <div className="text-xs text-muted-foreground truncate mt-0.5">{String(last.content).slice(0, 120)}</div>
+        )}
+      </div>
+    );
   };
 
   const loadConversationPreview = async (conversationId: string) => {
@@ -482,6 +531,7 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
             </div>
           ) : (
             <div className="space-y-1 p-2">
+              {viewMode === 'current' && <ActiveBranchCard />}
               {filteredConversations.map((conversation) => (
                 <div
                   key={conversation.id}
@@ -494,6 +544,14 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
                   }`}
                   onClick={() => handleConversationClick(conversation.id)}
                 >
+                  {/* Expand/collapse branches */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleExpanded(conversation.id); }}
+                    className="absolute left-2 top-2 p-1 text-muted-foreground hover:text-foreground"
+                    title={expandedConversations[conversation.id] ? 'Collapse' : 'Expand'}
+                  >
+                    {expandedConversations[conversation.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </button>
                   {/* Delete button */}
                   <button
                     onClick={(e) => {
@@ -506,7 +564,7 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
                     <Trash2 size={12} className="text-red-600" />
                   </button>
 
-                  <div className="pr-6">
+                  <div className="pl-6 pr-6">
                     <div className="flex items-center gap-2 mb-1">
                       <h4 className="font-medium text-sm text-foreground truncate">
                         {conversation.name}
@@ -537,6 +595,35 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
                         {conversation.messageCount} messages
                       </div>
                     </div>
+
+                    {/* Branch list (expanded) */}
+                    {expandedConversations[conversation.id] && (
+                      <div className="mt-2 border-t pt-2 space-y-1">
+                        {(getBranches(conversation.id) || []).map((branch) => {
+                          const bMsgs = getBranchMessages(conversation.id, branch.id) || [];
+                          const bLast = bMsgs.length > 0 ? bMsgs[bMsgs.length - 1] : undefined;
+                          const isActiveBranch = branch.id === currentBranchId && conversation.id === currentConversationId;
+                          return (
+                            <button
+                              key={branch.id}
+                              onClick={(e) => { e.stopPropagation(); handleSwitchBranch(branch.id); }}
+                              className={`w-full text-left p-2 rounded hover:bg-muted transition-colors ${isActiveBranch ? 'bg-primary/10 border border-primary/20' : 'border border-transparent'}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <GitBranch size={12} className={isActiveBranch ? 'text-primary' : 'text-muted-foreground'} />
+                                  <span className="text-sm text-foreground truncate">{branch.name}</span>
+                                </div>
+                                <span className="text-xs text-muted-foreground">{bMsgs.length} msg</span>
+                              </div>
+                              {bLast && (
+                                <div className="text-xs text-muted-foreground truncate mt-0.5">{String(bLast.content).slice(0, 100)}</div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
