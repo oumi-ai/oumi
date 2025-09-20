@@ -24,6 +24,24 @@ export interface Message {
   branchId?: string;
 }
 
+// Phase A – Versioned message primitives (non-breaking)
+export interface MessageVersion {
+  id: string;          // stable id for this version
+  role: 'user' | 'assistant' | 'system';
+  content: string;     // raw content (markdown/plain)
+  timestamp: number;   // when this version was created
+  attachments?: any[];
+  meta?: {
+    editor?: 'user' | 'system' | 'regen' | string;
+    sourceVersionId?: string; // for regen/edit lineage
+  };
+}
+
+export interface MessageNode {
+  id: string;                 // node identity within a conversation
+  versions: MessageVersion[]; // ordered chronologically
+}
+
 export interface ConversationBranch {
   id: string;
   name: string;

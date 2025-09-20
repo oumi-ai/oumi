@@ -87,17 +87,16 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
     setActionInProgress('save');
     try {
       if (messageIndex !== undefined) {
-        const args = [messageIndex.toString(), editContent.trim()];
+        const args = [messageIndex.toString(), editContent.trim(), '--commit'];
         const result = await executeCommand('edit', args, COMMAND_CONFIGS.edit);
         
         if (result.success) {
-          // Update local state immediately for responsive UI
-          // The updateMessage function now requires 4 parameters
+          // Update local state immediately for responsive UI (flag commit for versioning)
           updateMessage(
             currentConversationId || '',
             currentBranchId || 'main',
             message.id, 
-            { content: editContent }
+            { content: editContent, __commit: true } as any
           );
           setIsEditing(false);
           console.log('✅ Message edited and persisted to backend');
@@ -111,7 +110,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
           currentConversationId || '',
           currentBranchId || 'main',
           message.id, 
-          { content: editContent }
+          { content: editContent, __commit: true } as any
         );
         setIsEditing(false);
         console.warn('⚠️  Message edited locally only (no messageIndex provided)');
@@ -123,6 +122,14 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
       setActionInProgress(null);
     }
   };
+
+  // Phase C: Version navigation controls
+  const { getMessageNodeInfo, cycleMessageVersion } = useChatStore();
+  const nodeInfo = React.useMemo(() => {
+    if (!currentConversationId) return { nodeId: undefined, versions: [], activeIndex: 0 };
+    return getMessageNodeInfo(currentConversationId, currentBranchId || 'main', message.id);
+  }, [getMessageNodeInfo, currentConversationId, currentBranchId, message.id]);
+  const hasVersions = nodeInfo.versions && nodeInfo.versions.length > 1;
 
   const handleCancelEdit = () => {
     setIsEditing(false);
@@ -203,9 +210,34 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
 
       {/* Message content */}
       <div className="flex-1 space-y-2 overflow-hidden">
-        {/* Role label */}
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          {isUser ? 'You' : 'Assistant'}
+        {/* Role label and version controls */}
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            {isUser ? 'You' : 'Assistant'}
+          </div>
+          {hasVersions && (
+            <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+              <button
+                className="px-2 py-1 text-xs rounded border border-border hover:bg-muted"
+                title="Previous version"
+                onClick={() => currentConversationId && nodeInfo.nodeId && cycleMessageVersion(currentConversationId, currentBranchId || 'main', nodeInfo.nodeId, -1)}
+                disabled={nodeInfo.activeIndex <= 0}
+              >
+                ←
+              </button>
+              <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted">
+                v{nodeInfo.activeIndex + 1}/{nodeInfo.versions.length}
+              </span>
+              <button
+                className="px-2 py-1 text-xs rounded border border-border hover:bg-muted"
+                title="Next version"
+                onClick={() => currentConversationId && nodeInfo.nodeId && cycleMessageVersion(currentConversationId, currentBranchId || 'main', nodeInfo.nodeId, +1)}
+                disabled={nodeInfo.activeIndex >= nodeInfo.versions.length - 1}
+              >
+                →
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Message text */}

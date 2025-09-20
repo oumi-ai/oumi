@@ -365,6 +365,13 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
         
         // Update store with loaded messages
         setMessages(targetConversationId, currentBranchId || 'main', response.data.messages);
+        // Phase B: hydrate node graph if present
+        if ((response.data as any).nodeGraph) {
+          const hydrate = (useChatStore as any).getState()?.hydrateNodeGraph;
+          if (typeof hydrate === 'function') {
+            hydrate(targetConversationId, (response.data as any).nodeGraph);
+          }
+        }
         setCurrentConversationId(targetConversationId);
         
         // If from another session, update the conversation title to indicate its source

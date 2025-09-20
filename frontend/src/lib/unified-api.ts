@@ -279,7 +279,7 @@ class UnifiedApiClient {
     sessionId: string, 
     conversationId: string,
     targetBranchId?: string
-  ): Promise<ApiResponse<{ messages: Message[] }>> {
+  ): Promise<ApiResponse<{ messages: Message[]; nodeGraph?: any; currentBranchId?: string }>> {
     if (this.isElectron()) {
       // For Electron, use storage fallback for now until backend method is implemented
       try {
@@ -294,12 +294,14 @@ class UnifiedApiClient {
         }
 
         const messages = conversationData.messages || conversationData.conversation || [];
+        const nodeGraph = conversationData.nodeGraph || undefined;
+        const currentBranchId = conversationData.currentBranchId || conversationData.current_branch || undefined;
 
         // If targetBranchId is provided, we would normally load into that branch
         // For now, just return the messages
         return {
           success: true,
-          data: { messages }
+          data: { messages, nodeGraph, currentBranchId }
         };
       } catch (error) {
         console.error('Error loading conversation:', error);
@@ -323,12 +325,14 @@ class UnifiedApiClient {
 
         const conversationData = JSON.parse(storedConversation);
         const messages = conversationData.messages || conversationData.conversation || [];
+        const nodeGraph = conversationData.nodeGraph || undefined;
+        const currentBranchId = conversationData.currentBranchId || conversationData.current_branch || undefined;
 
         // If targetBranchId is provided, we would normally load into that branch
         // For now, just return the messages
         return {
           success: true,
-          data: { messages }
+          data: { messages, nodeGraph, currentBranchId }
         };
       } catch (error) {
         console.error('Error loading conversation:', error);
@@ -553,9 +557,26 @@ class UnifiedApiClient {
     conversationData: any
   ): Promise<ApiResponse> {
     try {
-      // Save individual conversation
+      // Save individual conversation (attach node graph if available from store)
       const conversationKey = `conversation_${sessionId}_${conversationId}`;
-      await this.setStorageItem(conversationKey, conversationData);
+      let payload = conversationData;
+      try {
+        const storeMod: any = await import('./store');
+        const storeState = storeMod.useChatStore?.getState?.();
+        if (storeState) {
+          const nodeGraph = {
+            nodes: storeState.messageNodes?.[conversationId] || {},
+            timelines: storeState.branchTimelines?.[conversationId] || {},
+            heads: storeState.branchHeads?.[conversationId] || {},
+          };
+          if (Object.keys(nodeGraph.nodes).length > 0) {
+            payload = { ...conversationData, nodeGraph };
+          }
+        }
+      } catch (e) {
+        console.debug('saveConversation: nodeGraph not attached', e?.toString?.());
+      }
+      await this.setStorageItem(conversationKey, payload);
       
       // Update conversations list
       const conversationsKey = `conversations_${sessionId}`;

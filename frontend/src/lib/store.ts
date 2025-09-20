@@ -24,6 +24,26 @@ interface ChatStore {
       [branchId: string]: Message[]
     }
   };
+  messageNodes: {
+    [conversationId: string]: {
+      [nodeId: string]: MessageNode
+    }
+  };
+  branchTimelines: {
+    [conversationId: string]: {
+      [branchId: string]: string[]
+    }
+  };
+  branchHeads: {
+    [conversationId: string]: {
+      [branchId: string]: { [nodeId: string]: string }
+    }
+  };
+  branchTombstones: {
+    [conversationId: string]: {
+      [branchId: string]: { [nodeId: string]: boolean }
+    }
+  };
   
   // Current state
   currentBranchId: string;
@@ -99,6 +119,14 @@ interface ChatStore {
   // Utility actions
   clearMessages: () => void;
   resetStore: () => void;
+
+  // Phase B: Hydrate node graph from persistence
+  hydrateNodeGraph: (conversationId: string, nodeGraph: { nodes?: { [id: string]: MessageNode }, timelines?: { [branchId: string]: string[] }, heads?: { [branchId: string]: { [nodeId: string]: string } } }) => void;
+
+  // Phase C helpers: version navigation + inquiry
+  getMessageNodeInfo: (conversationId: string, branchId: string, messageId: string) => { nodeId?: string; versions: MessageVersion[]; activeIndex: number };
+  cycleMessageVersion: (conversationId: string, branchId: string, nodeId: string, delta: -1 | 1) => void;
+  setMessageVersionIndex: (conversationId: string, branchId: string, nodeId: string, index: number) => void;
 }
 
 // Note: autoSaveConversation is now imported from store-adapter.ts
@@ -134,6 +162,10 @@ export const useChatStore = create<ChatStore>()(
     (set, get) => ({
       // Branch-specific message storage
       conversationMessages: {},
+      messageNodes: {},
+      branchTimelines: {},
+      branchHeads: {},
+      branchTombstones: {},
       
       // Initial state
       currentBranchId: 'main',
@@ -194,14 +226,24 @@ export const useChatStore = create<ChatStore>()(
       
       getBranchMessages: (conversationId: string, branchId: string): Message[] => {
         const state = get();
-        const { conversationMessages } = state;
-        
-        // If conversation or branch doesn't exist, return empty array
-        if (!conversationMessages[conversationId] || !conversationMessages[conversationId][branchId]) {
-          return [];
+        const timeline = state.branchTimelines[conversationId]?.[branchId];
+        const nodes = state.messageNodes[conversationId];
+        const heads = state.branchHeads[conversationId]?.[branchId];
+        if (timeline && nodes && heads) {
+          const out: Message[] = [];
+          for (const nodeId of timeline) {
+            const isDeleted = state.branchTombstones[conversationId]?.[branchId]?.[nodeId];
+            if (isDeleted) continue;
+            const node = nodes[nodeId];
+            if (!node) continue;
+            const headId = heads[nodeId];
+            const v = node.versions.find(x => x.id === headId) || node.versions[node.versions.length - 1];
+            if (!v) continue;
+            out.push({ id: v.id, role: v.role, content: v.content, timestamp: v.timestamp, attachments: v.attachments, branchId });
+          }
+          return out;
         }
-        
-        return conversationMessages[conversationId][branchId];
+        return state.conversationMessages[conversationId]?.[branchId] || [];
       },
       
       getBranches: (conversationId?: string): ConversationBranch[] => {
@@ -306,7 +348,7 @@ export const useChatStore = create<ChatStore>()(
             message
           ];
           
-          // Update the conversation message store (single source of truth)
+          // Update the conversation message store (single source of truth - legacy flat)
           const updatedConversationMessages = {
             ...conversationMessages,
             [currentConversationId]: {
@@ -314,6 +356,22 @@ export const useChatStore = create<ChatStore>()(
               [currentBranchId]: newMessages
             }
           };
+
+          // Phase A: mirror to node/versions graph
+          const nodeId = `node-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const version: MessageVersion = {
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            timestamp: message.timestamp,
+            attachments: message.attachments
+          };
+          const convNodes = { ...(state.messageNodes[currentConversationId] || {}) } as { [id: string]: MessageNode };
+          convNodes[nodeId] = { id: nodeId, versions: [version] };
+          const convTimelines = { ...(state.branchTimelines[currentConversationId] || {}) } as { [b: string]: string[] };
+          const convHeads = { ...(state.branchHeads[currentConversationId] || {}) } as { [b: string]: { [n: string]: string } };
+          const timeline = [ ...(convTimelines[currentBranchId] || []), nodeId ];
+          const heads = { ...(convHeads[currentBranchId] || {}), [nodeId]: version.id };
           
           // Branch metadata will be derived on demand via getBranches
           
@@ -361,7 +419,10 @@ export const useChatStore = create<ChatStore>()(
 
           return { 
             conversationMessages: updatedConversationMessages,
-            conversations: updatedConversations
+            conversations: updatedConversations,
+            messageNodes: { ...state.messageNodes, [currentConversationId]: convNodes },
+            branchTimelines: { ...state.branchTimelines, [currentConversationId]: { ...convTimelines, [currentBranchId]: timeline } },
+            branchHeads: { ...state.branchHeads, [currentConversationId]: { ...convHeads, [currentBranchId]: heads } }
           };
         }),
 
@@ -378,6 +439,20 @@ export const useChatStore = create<ChatStore>()(
             }
           };
           
+          // Phase A: rebuild node/versions + timeline for this branch from provided messages
+          const convNodes = { ...(state.messageNodes[conversationId] || {}) } as { [id: string]: MessageNode };
+          const newTimeline: string[] = [];
+          const newHeads: { [id: string]: string } = {};
+          for (const msg of messages) {
+            const nodeId = `node-${conversationId}-${branchId}-${msg.id}`;
+            const ver: MessageVersion = { id: msg.id, role: msg.role, content: msg.content, timestamp: msg.timestamp, attachments: msg.attachments };
+            convNodes[nodeId] = { id: nodeId, versions: [ver] };
+            newTimeline.push(nodeId);
+            newHeads[nodeId] = ver.id;
+          }
+          const convTimelines = { ...(state.branchTimelines[conversationId] || {}), [branchId]: newTimeline };
+          const convHeads = { ...(state.branchHeads[conversationId] || {}), [branchId]: newHeads };
+
           // Update branch details if this branch exists in state
           // Get branches using the getBranches selector instead of accessing state.branches directly
           const branches = getBranchMetadata(
@@ -429,7 +504,10 @@ export const useChatStore = create<ChatStore>()(
           
           return {
             conversationMessages: updatedConversationMessages,
-            conversations: updatedConversations
+            conversations: updatedConversations,
+            messageNodes: { ...state.messageNodes, [conversationId]: convNodes },
+            branchTimelines: { ...state.branchTimelines, [conversationId]: convTimelines },
+            branchHeads: { ...state.branchHeads, [conversationId]: convHeads }
           };
         }),
 
@@ -456,6 +534,40 @@ export const useChatStore = create<ChatStore>()(
               [branchId]: newMessages
             }
           };
+
+          // Phase A: create a new version only when explicitly committed
+          const isCommit = (updates as any)?.__commit === true || (updates as any)?.meta?.commit === true;
+          if (typeof updates.content === 'string' && isCommit) {
+            const convNodes = { ...(state.messageNodes[conversationId] || {}) } as { [id: string]: MessageNode };
+            const timeline = state.branchTimelines[conversationId]?.[branchId] || [];
+            const heads = { ...(state.branchHeads[conversationId]?.[branchId] || {}) } as { [id: string]: string };
+            // Find node whose head version id matches messageId, fallback by scanning versions
+            let targetNodeId: string | undefined;
+            for (const nodeId of timeline) {
+              if (heads[nodeId] === messageId) { targetNodeId = nodeId; break; }
+              const node = convNodes[nodeId];
+              if (node && node.versions.some(v => v.id === messageId)) { targetNodeId = nodeId; break; }
+            }
+            if (targetNodeId) {
+              const node = convNodes[targetNodeId];
+              const newVersionId = `v-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+              const newVersion: MessageVersion = {
+                id: newVersionId,
+                role: (updates as any).role || (node.versions[node.versions.length - 1]?.role ?? 'assistant'),
+                content: updates.content!,
+                timestamp: Date.now(),
+                attachments: (updates as any).attachments
+              };
+              node.versions = [...node.versions, newVersion];
+              heads[targetNodeId] = newVersionId;
+              // write back
+              state.messageNodes[conversationId] = { ...convNodes, [targetNodeId]: node };
+              state.branchHeads[conversationId] = {
+                ...(state.branchHeads[conversationId] || {}),
+                [branchId]: heads
+              } as any;
+            }
+          }
           
           // Update the conversation object - do not store messages in conversation.branches
           // We'll hydrate them on demand when needed for persistence
@@ -592,10 +704,27 @@ export const useChatStore = create<ChatStore>()(
           if (updatedConv) {
             autoSaveConversation(updatedConv);
           }
-          
+          // Phase C: mark tombstone for the corresponding node in this branch (do not perturb order)
+          const convNodes = state.messageNodes[conversationId] || {};
+          const timeline = state.branchTimelines[conversationId]?.[branchId] || [];
+          const heads = state.branchHeads[conversationId]?.[branchId] || {};
+          let nodeIdToHide: string | undefined;
+          for (const nid of timeline) {
+            if (heads[nid] === messageId) { nodeIdToHide = nid; break; }
+            const node = convNodes[nid];
+            if (node && node.versions.some(v => v.id === messageId)) { nodeIdToHide = nid; break; }
+          }
+          let updatedTombs = state.branchTombstones;
+          if (nodeIdToHide) {
+            const convTombs = { ...(state.branchTombstones[conversationId] || {}) } as { [b: string]: { [n: string]: boolean } };
+            const branchTombs = { ...(convTombs[branchId] || {}), [nodeIdToHide]: true };
+            updatedTombs = { ...state.branchTombstones, [conversationId]: { ...convTombs, [branchId]: branchTombs } };
+          }
+
           return { 
             conversationMessages: updatedConversationMessages,
-            conversations: updatedConversations 
+            conversations: updatedConversations,
+            branchTombstones: updatedTombs
           };
         }),
 
@@ -1009,6 +1138,69 @@ export const useChatStore = create<ChatStore>()(
 
       setTyping: (typing: boolean) =>
         set({ isTyping: typing }),
+
+      hydrateNodeGraph: (conversationId, nodeGraph) =>
+        set((state) => {
+          if (!nodeGraph) return state;
+          const nextNodes = { ...(state.messageNodes[conversationId] || {}), ...(nodeGraph.nodes || {}) };
+          const nextTimelines = { ...(state.branchTimelines[conversationId] || {}), ...(nodeGraph.timelines || {}) };
+          const nextHeads = { ...(state.branchHeads[conversationId] || {}), ...(nodeGraph.heads || {}) };
+          return {
+            messageNodes: { ...state.messageNodes, [conversationId]: nextNodes },
+            branchTimelines: { ...state.branchTimelines, [conversationId]: nextTimelines },
+            branchHeads: { ...state.branchHeads, [conversationId]: nextHeads },
+          };
+        }),
+
+      getMessageNodeInfo: (conversationId: string, branchId: string, messageId: string) => {
+        const nodes = get().messageNodes[conversationId] || {};
+        const timeline = get().branchTimelines[conversationId]?.[branchId] || [];
+        const heads = get().branchHeads[conversationId]?.[branchId] || {};
+        let nodeId: string | undefined;
+        for (const nid of timeline) {
+          if (heads[nid] === messageId) { nodeId = nid; break; }
+          const n = nodes[nid];
+          if (n && n.versions.some(v => v.id === messageId)) { nodeId = nid; break; }
+        }
+        const node = nodeId ? nodes[nodeId] : undefined;
+        const versions = node?.versions || [];
+        const activeVersionId = nodeId ? heads[nodeId] : undefined;
+        const activeIndex = versions.findIndex(v => v.id === activeVersionId);
+        return { nodeId, versions, activeIndex: activeIndex >= 0 ? activeIndex : (versions.length > 0 ? versions.length - 1 : 0) };
+      },
+
+      cycleMessageVersion: (conversationId: string, branchId: string, nodeId: string, delta: -1 | 1) =>
+        set((state) => {
+          const nodes = state.messageNodes[conversationId];
+          if (!nodes) return state;
+          const node = nodes[nodeId];
+          if (!node || node.versions.length <= 1) return state;
+          const heads = { ...(state.branchHeads[conversationId]?.[branchId] || {}) } as { [id: string]: string };
+          const currentId = heads[nodeId] || node.versions[node.versions.length - 1].id;
+          const idx = node.versions.findIndex(v => v.id === currentId);
+          const nextIdx = Math.min(Math.max(idx + delta, 0), node.versions.length - 1);
+          heads[nodeId] = node.versions[nextIdx].id;
+          return {
+            branchHeads: {
+              ...state.branchHeads,
+              [conversationId]: { ...(state.branchHeads[conversationId] || {}), [branchId]: heads }
+            }
+          };
+        }),
+
+      setMessageVersionIndex: (conversationId: string, branchId: string, nodeId: string, index: number) =>
+        set((state) => {
+          const node = state.messageNodes[conversationId]?.[nodeId];
+          if (!node || index < 0 || index >= node.versions.length) return state as any;
+          const heads = { ...(state.branchHeads[conversationId]?.[branchId] || {}) } as { [id: string]: string };
+          heads[nodeId] = node.versions[index].id;
+          return {
+            branchHeads: {
+              ...state.branchHeads,
+              [conversationId]: { ...(state.branchHeads[conversationId] || {}), [branchId]: heads }
+            }
+          };
+        }),
 
       setGenerationParams: (params: Partial<GenerationParams>) =>
         set((state) => ({
