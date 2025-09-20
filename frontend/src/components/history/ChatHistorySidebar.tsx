@@ -66,7 +66,9 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
   const [loadingConversation, setLoadingConversation] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
-  const [viewMode, setViewMode] = React.useState<'current' | 'all'>('current');
+  const [viewMode, setViewMode] = React.useState<'current' | 'all' | 'nodes'>('current');
+  const [nodes, setNodes] = React.useState<any[]>([]);
+  const [groupNodes, setGroupNodes] = React.useState<boolean>(true);
   const [expandedConversations, setExpandedConversations] = React.useState<Record<string, boolean>>({});
 
   const toggleExpanded = (conversationId: string) => {
@@ -92,7 +94,27 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
 
   // Load conversation list on mount and when viewMode changes
   React.useEffect(() => {
-    loadConversations();
+    if (viewMode === 'nodes') {
+      (async () => {
+        setLoading(true);
+        try {
+          const sessionId = getCurrentSessionId();
+          const resp = await apiClient.listSessionNodes(sessionId);
+          if (resp.success && resp.data?.nodes) {
+            setNodes(resp.data.nodes);
+          } else {
+            setNodes([]);
+          }
+        } catch (e) {
+          console.error('Failed to load nodes:', e);
+          setNodes([]);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    } else {
+      loadConversations();
+    }
   }, [viewMode]);
 
   // Sync with store conversations for real-time updates - merge with existing backend conversations
@@ -500,6 +522,17 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
           <Users size={14} />
           <span>All Chats</span>
         </button>
+        <button 
+          className={`flex-1 py-2 text-sm font-medium flex justify-center items-center gap-1 ${
+            viewMode === 'nodes' 
+              ? 'text-primary border-b-2 border-primary' 
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          }`}
+          onClick={() => setViewMode('nodes')}
+        >
+          <GitBranch size={14} />
+          <span>Branches</span>
+        </button>
       </div>
 
       {/* Search */}
@@ -514,6 +547,12 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
             className="w-full pl-9 pr-3 py-2 text-sm bg-background border border-border rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
           />
         </div>
+        {viewMode === 'nodes' && (
+          <div className="mt-2 text-xs text-muted-foreground flex items-center justify-end gap-2">
+            <span>Group by conversation</span>
+            <input type="checkbox" checked={groupNodes} onChange={(e) => setGroupNodes(e.target.checked)} />
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -537,6 +576,71 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
               <p className="text-sm text-muted-foreground">
                 {searchTerm ? 'No conversations match your search' : 'No saved conversations found'}
               </p>
+            </div>
+          ) : viewMode === 'nodes' ? (
+            <div className="space-y-2 p-2">
+              {/* Node-centric list */}
+              {(() => {
+                const sessionId = getCurrentSessionId();
+                // Filter by search
+                const filtered = nodes.filter(n => {
+                  const text = `${n.name || ''} ${n.preview || ''}`.toLowerCase();
+                  const term = searchTerm.toLowerCase();
+                  return !term || text.includes(term);
+                });
+                if (groupNodes) {
+                  const groups: Record<string, any[]> = {};
+                  const convNames: Record<string, string> = {};
+                  for (const n of filtered) {
+                    groups[n.conversationId] = groups[n.conversationId] || [];
+                    groups[n.conversationId].push(n);
+                    if (n.isRoot) convNames[n.conversationId] = n.name;
+                  }
+                  const convIds = Object.keys(groups);
+                  return convIds.length === 0 ? (
+                    <div className="p-4 text-center text-muted-foreground text-sm">No branches found</div>
+                  ) : convIds.map(cid => (
+                    <div key={cid} className="border rounded-lg">
+                      <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-b">{convNames[cid] || cid}</div>
+                      <div className="p-2 space-y-1">
+                        {groups[cid].filter(n => !n.isRoot).map(n => (
+                          <button
+                            key={`${n.conversationId}:${n.branchId}`}
+                            onClick={() => handleSwitchBranch(n.branchId)}
+                            className={`w-full text-left p-2 rounded hover:bg-muted transition-colors ${n.branchId === currentBranchId && cid === currentConversationId ? 'bg-primary/10 border border-primary/20' : 'border border-transparent'}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <GitBranch size={12} className={n.branchId === currentBranchId && cid === currentConversationId ? 'text-primary' : 'text-muted-foreground'} />
+                                <span className="text-sm text-foreground truncate">{n.name || n.branchId}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">{n.messageCount} msg</span>
+                            </div>
+                            {n.preview && <div className="text-xs text-muted-foreground truncate mt-0.5">{String(n.preview).slice(0, 100)}</div>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ));
+                }
+                // Flattened
+                return filtered.map(n => (
+                  <button
+                    key={`${n.conversationId}:${n.branchId}`}
+                    onClick={() => handleSwitchBranch(n.branchId)}
+                    className={`w-full text-left p-2 rounded hover:bg-muted transition-colors ${n.branchId === currentBranchId && n.conversationId === currentConversationId ? 'bg-primary/10 border border-primary/20' : 'border border-transparent'}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <GitBranch size={12} className={n.branchId === currentBranchId && n.conversationId === currentConversationId ? 'text-primary' : 'text-muted-foreground'} />
+                        <span className="text-sm text-foreground truncate">{n.name || n.branchId}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{n.messageCount} msg</span>
+                    </div>
+                    {n.preview && <div className="text-xs text-muted-foreground truncate mt-0.5">{String(n.preview).slice(0, 100)}</div>}
+                  </button>
+                ));
+              })()}
             </div>
           ) : (
             <div className="space-y-1 p-2">

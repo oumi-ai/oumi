@@ -620,6 +620,17 @@ class UnifiedApiClient {
         };
       }
 
+      // Try to get current branch id for pinning/highlighting
+      let currentBranchId: string | undefined = conversationData?.currentBranchId || conversationData?.current_branch;
+      if (!currentBranchId) {
+        try {
+          const branchesResp: any = await this.getBranches(sessionId);
+          if (branchesResp?.success && branchesResp.data?.current_branch) {
+            currentBranchId = branchesResp.data.current_branch;
+          }
+        } catch {}
+      }
+
       const conversationEntry: any = {
         id: conversationId,
         name: conversationData.title || 'Untitled Conversation',
@@ -631,6 +642,9 @@ class UnifiedApiClient {
       // Persist branch summaries when available
       if (branchSummaries.length > 0) {
         conversationEntry.branches = branchSummaries;
+      }
+      if (currentBranchId) {
+        conversationEntry.currentBranchId = currentBranchId;
       }
 
       if (conversationIndex >= 0) {
