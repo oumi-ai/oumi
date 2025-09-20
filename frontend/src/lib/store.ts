@@ -4,7 +4,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Message, ConversationBranch, Conversation, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats, Session } from './types';
+import { Message, MessageNode, MessageVersion, ConversationBranch, Conversation, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats, Session } from './types';
 import apiClient from './unified-api';
 import { 
   adaptLegacyConversation, 
@@ -326,6 +326,16 @@ export const useChatStore = create<ChatStore>()(
             // Auto-save to backend asynchronously
             autoSaveConversation(newConversation);
             
+            // Phase A: initialize node graph for the first user message
+            const firstNodeId = `node-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const firstVersion: MessageVersion = {
+              id: message.id,
+              role: message.role,
+              content: message.content,
+              timestamp: message.timestamp,
+              attachments: message.attachments
+            };
+
             return {
               conversationMessages: {
                 ...conversationMessages,
@@ -338,6 +348,27 @@ export const useChatStore = create<ChatStore>()(
               conversationsBySession: {
                 ...state.conversationsBySession,
                 [sessionId]: sessionConversations
+              },
+              messageNodes: {
+                ...state.messageNodes,
+                [newConversationId]: {
+                  ...(state.messageNodes[newConversationId] || {}),
+                  [firstNodeId]: { id: firstNodeId, versions: [firstVersion] }
+                }
+              },
+              branchTimelines: {
+                ...state.branchTimelines,
+                [newConversationId]: {
+                  ...(state.branchTimelines[newConversationId] || {}),
+                  [currentBranchId]: [firstNodeId]
+                }
+              },
+              branchHeads: {
+                ...state.branchHeads,
+                [newConversationId]: {
+                  ...(state.branchHeads[newConversationId] || {}),
+                  [currentBranchId]: { [firstNodeId]: firstVersion.id }
+                }
               }
             };
           }
