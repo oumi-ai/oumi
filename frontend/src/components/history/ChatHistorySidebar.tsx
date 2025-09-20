@@ -229,14 +229,14 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
     }
   };
 
-  // Pinned card for active branch in Current Session
-  const ActiveBranchCard: React.FC = () => {
-    if (viewMode !== 'current' || !currentConversationId) return null;
+  // Pinned card for active branch in Current Session (memoized)
+  const activeBranchCard = React.useMemo(() => {
+    if (viewMode !== 'current' || !currentConversationId) return null as React.ReactNode;
     const branches = getBranches(currentConversationId);
     const active = branches.find(b => b.isActive) || branches.find(b => b.id === currentBranchId);
     const msgs = active ? getBranchMessages(currentConversationId, active.id) : [];
     const last = msgs.length > 0 ? msgs[msgs.length - 1] : undefined;
-    if (!active) return null;
+    if (!active) return null as React.ReactNode;
     return (
       <div className="p-3 mb-2 rounded-lg border border-primary/30 bg-primary/5">
         <div className="flex items-center justify-between">
@@ -252,7 +252,7 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
         )}
       </div>
     );
-  };
+  }, [viewMode, currentConversationId, currentBranchId, getBranches, getBranchMessages]);
 
   const loadConversationPreview = async (conversationId: string) => {
     try {
@@ -644,7 +644,7 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
             </div>
           ) : (
             <div className="space-y-1 p-2">
-              {viewMode === 'current' && <ActiveBranchCard />}
+              {viewMode === 'current' && activeBranchCard}
               {filteredConversations.map((conversation) => (
                 <div
                   key={conversation.id}
@@ -736,15 +736,16 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
                                     <GitBranch size={12} className={isActiveBranch ? 'text-primary' : 'text-muted-foreground'} />
-                                  <span className="text-sm text-foreground truncate">{branch.name || (branch.id === 'main' ? 'Main' : branch.id)}</span>
+                                    <span className="text-sm text-foreground truncate">{branch.name || (branch.id === 'main' ? 'Main' : branch.id)}</span>
                                   </div>
-                                <span className="text-xs text-muted-foreground">{(bMsgs.length || branch.messageCount || 0)} msg</span>
+                                  <span className="text-xs text-muted-foreground">{(bMsgs.length || branch.messageCount || 0)} msg</span>
                                 </div>
                                 {bLast && (
                                   <div className="text-xs text-muted-foreground truncate mt-0.5">{String(bLast.content).slice(0, 100)}</div>
                                 )}
                               </button>
-                          );
+                            );
+                          });
                         })()}
                       </div>
                     )}
