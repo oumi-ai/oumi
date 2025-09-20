@@ -23,6 +23,9 @@ interface ConfigOption {
   filename: string;
 }
 
+// Engine display strictly reflects the engine reported by the active config.
+// No heuristics here — we rely on the backend/config source of truth.
+
 const getEngineAbbreviation = (engine: string) => {
   switch (engine.toUpperCase()) {
     case 'LLAMACPP': return 'LLAMA';
@@ -299,7 +302,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
       return {
         displayName: currentModelConfigMetadata.display_name,
         description: currentModelConfigMetadata.description,
-        engine: currentModelConfigMetadata.engine,
+        engine: (currentModelConfigMetadata.engine || 'UNKNOWN').toUpperCase(),
         contextLength: currentModelConfigMetadata.context_length,
         modelFamily: currentModelConfigMetadata.model_family,
       };
@@ -327,7 +330,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
       return {
         displayName: matchingConfig.display_name,
         description: `${matchingConfig.model_name} (${matchingConfig.filename})`,
-        engine: matchingConfig.engine,
+        engine: (matchingConfig.engine || 'UNKNOWN').toUpperCase(),
         contextLength: matchingConfig.context_length,
         modelFamily: matchingConfig.model_family,
       };
@@ -401,6 +404,17 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
             {/* Dropdown */}
             {isDropdownOpen && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-[60] max-h-96 overflow-hidden backdrop-blur-sm">
+                {/* Current model full name header */}
+                <div className="sticky top-0 bg-card border-b border-border p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-foreground">
+                      {currentModelInfo.displayName}
+                    </div>
+                    <span className={`ml-2 px-2 py-0.5 rounded text-xs font-medium ${getEngineColor(currentModelInfo.engine)}`}>
+                      {getEngineAbbreviation(currentModelInfo.engine)}
+                    </span>
+                  </div>
+                </div>
                 {/* Search input */}
                 <div className="sticky top-0 bg-card border-b border-border p-3">
                   <div className="relative">

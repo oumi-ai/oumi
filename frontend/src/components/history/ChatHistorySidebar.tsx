@@ -69,16 +69,17 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       console.log('[HISTORY_MERGE] Store conversations updated:', storeConversations.length, 'conversations');
       
       // With branch-aware storage, conversation messages live in the
-      // branch store, not on conv.messages. Use getBranchMessages('main')
-      // to compute counts and preview for accurate sidebar summaries.
+      // branch store, not on conv.messages. Use the CURRENT BRANCH to
+      // compute counts and preview for accurate sidebar summaries when
+      // switching branches.
       const convertedStoreConversations = storeConversations.map((conv) => {
-        const mainMessages = getBranchMessages(conv.id, 'main') || [];
-        const last = mainMessages.length > 0 ? mainMessages[mainMessages.length - 1] : undefined;
+        const branchMessages = getBranchMessages(conv.id, currentBranchId) || [];
+        const last = branchMessages.length > 0 ? branchMessages[branchMessages.length - 1] : undefined;
         return {
           id: conv.id,
           name: conv.title || 'Untitled Conversation',
           lastModified: conv.updatedAt || conv.createdAt,
-          messageCount: mainMessages.length,
+          messageCount: branchMessages.length,
           preview: last ? String(last.content).slice(0, 100) : 'No messages yet'
         } as ConversationEntry;
       });
@@ -122,7 +123,7 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       });
       setLoading(false);
     }
-  }, [storeConversations]);
+  }, [storeConversations, currentBranchId]);
 
   const loadConversations = async () => {
     try {

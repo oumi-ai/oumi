@@ -344,6 +344,21 @@ export const useChatStore = create<ChatStore>()(
             autoSaveConversation(hydratedConv);
           }
           
+          // If this is the first assistant response (non-streaming path),
+          // trigger title generation now. Streaming path will handle it via updateMessage().
+          if (message.role === 'assistant' && (message.content || '').length > 0) {
+            const userMessages = newMessages.filter(m => m.role === 'user');
+            const assistantMessages = newMessages.filter(m => m.role === 'assistant');
+            if (assistantMessages.length === 1 && userMessages.length >= 1) {
+              const currentConv = updatedConversations.find(c => c.id === currentConversationId);
+              if (currentConv && (currentConv.title === 'New Chat' || currentConv.title.startsWith('New Conversation'))) {
+                setTimeout(() => {
+                  try { get().generateChatTitle(currentConversationId!); } catch {}
+                }, 100);
+              }
+            }
+          }
+
           return { 
             conversationMessages: updatedConversationMessages,
             conversations: updatedConversations
