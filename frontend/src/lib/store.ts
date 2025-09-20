@@ -474,13 +474,15 @@ export const useChatStore = create<ChatStore>()(
           const convNodes = { ...(state.messageNodes[conversationId] || {}) } as { [id: string]: MessageNode };
           const newTimeline: string[] = [];
           const newHeads: { [id: string]: string } = {};
-          for (const msg of messages) {
-            const nodeId = `node-${conversationId}-${branchId}-${msg.id}`;
-            const ver: MessageVersion = { id: msg.id, role: msg.role, content: msg.content, timestamp: msg.timestamp, attachments: msg.attachments };
+          messages.forEach((msg, i) => {
+            const base = (msg && (msg as any).id != null) ? String((msg as any).id) : 'auto';
+            const nodeId = `node-${conversationId}-${branchId}-${i}-${base}`;
+            const verId = `ver-${i}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+            const ver: MessageVersion = { id: verId, role: msg.role, content: msg.content, timestamp: msg.timestamp, attachments: msg.attachments };
             convNodes[nodeId] = { id: nodeId, versions: [ver] };
             newTimeline.push(nodeId);
             newHeads[nodeId] = ver.id;
-          }
+          });
           const convTimelines = { ...(state.branchTimelines[conversationId] || {}), [branchId]: newTimeline };
           const convHeads = { ...(state.branchHeads[conversationId] || {}), [branchId]: newHeads };
 
