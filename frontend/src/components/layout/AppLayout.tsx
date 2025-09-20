@@ -547,9 +547,7 @@ export default function AppLayout() {
         </div>
 
         {/* Chat interface */}
-        <div className={`flex-1 transition-all duration-200 ${
-          (isBranchTreeExpanded || showChatHistory) && !isSidebarCollapsed ? 'mr-80' : ''
-        }`}>
+        <div className="flex-1 transition-all duration-200">
           <ChatInterface 
             className="h-full" 
             onRef={(ref) => { chatInterfaceRef.current = ref; }}

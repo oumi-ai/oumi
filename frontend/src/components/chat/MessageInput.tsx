@@ -309,7 +309,7 @@ export default function MessageInput({
   return (
     <>
       <div className="border-t border-border bg-card p-4">
-        <form onSubmit={handleSubmit} className="flex items-end gap-3">
+        <form onSubmit={handleSubmit} className="flex items-center gap-3">
           {/* Attachment buttons */}
           {onAttachFiles && (
             <div className="flex-shrink-0 flex gap-2">
@@ -415,12 +415,12 @@ export default function MessageInput({
             placeholder={stagedAttachments.length > 0 ? "Add a message (optional)..." : placeholder}
             disabled={disabled || isLoading}
             rows={1}
-            className={`w-full resize-none border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all text-input bg-input placeholder:text-muted-foreground ${
+            className={`w-full resize-none border rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all text-input bg-input placeholder:text-muted-foreground ${
               isCommand 
                 ? 'border-red-500 bg-red-900/20' 
                 : 'border-border'
             }`}
-            style={{ minHeight: '40px' }}
+            style={{ minHeight: '56px', maxHeight: '160px' }}
           />
           
           {/* Command indicator */}
@@ -435,7 +435,7 @@ export default function MessageInput({
         <button
           type="submit"
           disabled={(!message.trim() && stagedAttachments.length === 0) || disabled || isLoading}
-          className="flex-shrink-0 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground p-2 rounded-md transition-colors flex items-center justify-center min-w-[40px] min-h-[40px]"
+          className="flex-shrink-0 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground p-3 rounded-md transition-colors flex items-center justify-center min-w-[48px] min-h-[48px]"
         >
           {isLoading ? (
             <Loader2 size={20} className="animate-spin" />

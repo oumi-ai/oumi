@@ -68,15 +68,20 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
     if (storeConversations && storeConversations.length > 0) {
       console.log('[HISTORY_MERGE] Store conversations updated:', storeConversations.length, 'conversations');
       
-      const convertedStoreConversations = storeConversations.map((conv) => ({
-        id: conv.id,
-        name: conv.title || 'Untitled Conversation',
-        lastModified: conv.updatedAt || conv.createdAt,
-        messageCount: conv.messages?.length || 0,
-        preview: conv.messages && conv.messages.length > 0 
-          ? conv.messages[conv.messages.length - 1].content.slice(0, 100)
-          : 'No messages yet'
-      }));
+      // With branch-aware storage, conversation messages live in the
+      // branch store, not on conv.messages. Use getBranchMessages('main')
+      // to compute counts and preview for accurate sidebar summaries.
+      const convertedStoreConversations = storeConversations.map((conv) => {
+        const mainMessages = getBranchMessages(conv.id, 'main') || [];
+        const last = mainMessages.length > 0 ? mainMessages[mainMessages.length - 1] : undefined;
+        return {
+          id: conv.id,
+          name: conv.title || 'Untitled Conversation',
+          lastModified: conv.updatedAt || conv.createdAt,
+          messageCount: mainMessages.length,
+          preview: last ? String(last.content).slice(0, 100) : 'No messages yet'
+        } as ConversationEntry;
+      });
 
       // Merge store conversations with existing backend conversations
       setConversations(prevConversations => {
