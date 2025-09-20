@@ -165,6 +165,7 @@ export const useChatStore = create<ChatStore>()(
         selectedModel: '',
         usageMonitoring: true,
         autoValidateKeys: true,
+        startNewSessionOnLaunch: true,
         notifications: {
           lowBalance: true,
           highUsage: true,
@@ -1635,6 +1636,9 @@ if (process.env.NODE_ENV === 'development') {
           }
 
           // Migrate missing settings for existing users
+          if (typeof state.settings.startNewSessionOnLaunch !== 'boolean') {
+            state.settings.startNewSessionOnLaunch = true;
+          }
           if (!state.settings.huggingFace) {
             state.settings.huggingFace = {
               username: undefined,
@@ -1670,17 +1674,21 @@ if (process.env.NODE_ENV === 'development') {
           }
         }
 
-        // Always start with a fresh chat on app load: clear any rehydrated
-        // conversation state, messages, branches, and start a new session.
+        // Always start with a fresh chat on app load (by default):
+        // clear any rehydrated conversation state and, if configured,
+        // create a new session for this launch.
         if (state) {
-          // Load all existing sessions from SessionManager
+          // Determine session to use on launch
+          const shouldStartNew = state.settings?.startNewSessionOnLaunch !== false;
+          const sessionId = shouldStartNew
+            ? SessionManager.resetToFreshSession()
+            : SessionManager.getCurrentSessionId();
+
+          // Load all existing sessions from SessionManager (after potential reset)
           const allSessions = SessionManager.getAllSessions();
           // Create objects with typed indices
           const sessionsMap: {[key: string]: Session} = {};
           const conversationsBySessionMap: {[key: string]: string[]} = {};
-          
-          // Get last active session or create a new one if none exists
-          const sessionId = SessionManager.getCurrentSessionId();
           const currentSession = SessionManager.getCurrentSession() || {
             id: sessionId,
             name: 'New Session',

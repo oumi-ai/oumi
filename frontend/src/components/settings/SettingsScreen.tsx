@@ -268,7 +268,25 @@ function SystemSettings() {
 
       <div className="bg-card border rounded-lg p-4 space-y-4">
         <h3 className="font-semibold">Storage</h3>
-        
+
+        {/* Start new session on launch */}
+        <label className="flex items-center justify-between">
+          <div>
+            <div className="font-medium text-sm flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Start New Session on Launch
+            </div>
+            <div className="text-xs text-muted-foreground">
+              When enabled, the app creates a fresh session each time it starts
+            </div>
+          </div>
+          <input 
+            type="checkbox" 
+            checked={settings.startNewSessionOnLaunch}
+            onChange={(e) => updateSettings({ startNewSessionOnLaunch: e.target.checked })}
+            className="rounded" 
+          />
+        </label>
 
         <label className="flex items-center justify-between">
           <div>

@@ -219,6 +219,8 @@ export interface AppSettings {
   selectedModel: string;
   usageMonitoring: boolean;
   autoValidateKeys: boolean;
+  // When true, the app creates a fresh session on each launch
+  startNewSessionOnLaunch: boolean;
   notifications: {
     lowBalance: boolean;
     highUsage: boolean;
