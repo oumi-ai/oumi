@@ -22,6 +22,7 @@ import { ChatInterfaceRef } from '@/components/chat/ChatInterface';
 export default function AppLayout() {
   const [isBranchTreeExpanded, setIsBranchTreeExpanded] = React.useState(true);
   const [isControlPanelExpanded, setIsControlPanelExpanded] = React.useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
   const [showChatHistory, setShowChatHistory] = React.useState(true);
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
@@ -513,13 +514,20 @@ export default function AppLayout() {
             </button>
 
             {/* Branch tree toggle */}
-            <button
-              onClick={() => setIsBranchTreeExpanded(!isBranchTreeExpanded)}
-              className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
-              title={isBranchTreeExpanded ? 'Collapse branches' : 'Expand branches'}
-            >
-              {isBranchTreeExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-            </button>
+              <button
+                onClick={() => setIsBranchTreeExpanded(!isBranchTreeExpanded)}
+                className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                title={isBranchTreeExpanded ? 'Collapse branches' : 'Expand branches'}
+              >
+                {isBranchTreeExpanded ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              </button>
+              <button
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {isSidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+              </button>
           </div>
         </div>
 
@@ -540,33 +548,42 @@ export default function AppLayout() {
 
         {/* Chat interface */}
         <div className={`flex-1 transition-all duration-200 ${
-          (isBranchTreeExpanded || showChatHistory) ? 'mr-80' : ''
+          (isBranchTreeExpanded || showChatHistory) && !isSidebarCollapsed ? 'mr-80' : ''
         }`}>
           <ChatInterface 
-            className="min-h-screen" 
+            className="h-full" 
             onRef={(ref) => { chatInterfaceRef.current = ref; }}
           />
         </div>
 
         {/* Right sidebar with Branch tree and Chat history */}
         <div className={`transition-all duration-200 w-80 ${
-          (isBranchTreeExpanded || showChatHistory) ? '' : 'hidden'
+          (isBranchTreeExpanded || showChatHistory) && !isSidebarCollapsed ? '' : 'hidden'
         }`}>
           <div className="flex flex-col h-full overflow-y-auto">
             {/* Right sidebar header with toggle button */}
             <div className="bg-card border-b p-3 flex items-center justify-between">
               <h3 className="font-medium text-foreground text-sm">Sidebar</h3>
-              <button
-                onClick={() => setShowChatHistory(!showChatHistory)}
-                className={`p-1 hover:bg-muted rounded transition-colors ${
-                  showChatHistory 
-                    ? 'text-orange-600 bg-orange-100 dark:bg-orange-900/30' 
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-                title={showChatHistory ? 'Hide chat history' : 'Show chat history'}
-              >
-                <History size={16} />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setShowChatHistory(!showChatHistory)}
+                  className={`p-1 hover:bg-muted rounded transition-colors ${
+                    showChatHistory 
+                      ? 'text-orange-600 bg-orange-100 dark:bg-orange-900/30' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title={showChatHistory ? 'Hide chat history' : 'Show chat history'}
+                >
+                  <History size={16} />
+                </button>
+                <button
+                  onClick={() => setIsSidebarCollapsed(true)}
+                  className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
+                  title="Collapse sidebar"
+                >
+                  <PanelLeftClose size={16} />
+                </button>
+              </div>
             </div>
             {/* Branch Tree - shows when branch tree is expanded */}
             {isBranchTreeExpanded && (

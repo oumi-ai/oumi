@@ -1553,6 +1553,8 @@ if (process.env.NODE_ENV === 'development') {
           updatedAt: new Date().toISOString(),
           conversationIds: []
         };
+        // Preserve existing app settings when resetting store
+        const preservedSettings = get().settings;
         
         set({
           conversationMessages: {},
@@ -1576,27 +1578,7 @@ if (process.env.NODE_ENV === 'development') {
             contextLength: 8192,
             stream: false,
           },
-          settings: {
-            apiKeys: {},
-            selectedProvider: '',
-            selectedModel: '',
-            usageMonitoring: true,
-            autoValidateKeys: true,
-            startNewSessionOnLaunch: state.settings?.startNewSessionOnLaunch ?? true,
-            notifications: {
-              lowBalance: true,
-              highUsage: true,
-              keyExpiry: true,
-            },
-            autoSave: {
-              enabled: true,
-              intervalMinutes: 5,
-            },
-            huggingFace: {
-              username: undefined,
-              token: undefined,
-            },
-          },
+          settings: preservedSettings,
         });
       },
     }),

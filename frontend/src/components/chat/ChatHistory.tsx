@@ -65,7 +65,7 @@ export default function ChatHistory({
         {isEmpty ? (
           // Empty state
           <div className="flex items-center justify-center h-full text-center p-8">
-            <div className="max-w-md space-y-4">
+            <div className="w-full space-y-4">
               <div className="text-6xl">💬</div>
               <h3 className="text-lg font-semibold text-foreground">
                 Start a conversation
