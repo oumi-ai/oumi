@@ -17,6 +17,14 @@ interface ConversationEntry {
   preview: string;
   size?: string;
   sessionId?: string; // Added for cross-session support
+  branches?: Array<{
+    id: string;
+    name?: string;
+    messageCount: number;
+    lastActive?: string;
+    preview?: string;
+    parentId?: string;
+  }>; // Optional persisted branch summaries
 }
 
 interface ConversationPreview {
@@ -177,7 +185,8 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
           messageCount: conv.messageCount || 0,
           preview: conv.preview || 'No preview available',
           size: conv.size || undefined,
-          sessionId: conv.sessionId || currentSessionId // Use provided sessionId or default to current
+          sessionId: conv.sessionId || currentSessionId, // Use provided sessionId or default to current
+          branches: Array.isArray(conv.branches) ? conv.branches : undefined,
         }));
         
         // Sort by last modified (newest first)
@@ -599,29 +608,40 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
                     {/* Branch list (expanded) */}
                     {expandedConversations[conversation.id] && (
                       <div className="mt-2 border-t pt-2 space-y-1">
-                        {(getBranches(conversation.id) || []).map((branch) => {
-                          const bMsgs = getBranchMessages(conversation.id, branch.id) || [];
-                          const bLast = bMsgs.length > 0 ? bMsgs[bMsgs.length - 1] : undefined;
-                          const isActiveBranch = branch.id === currentBranchId && conversation.id === currentConversationId;
-                          return (
-                            <button
-                              key={branch.id}
-                              onClick={(e) => { e.stopPropagation(); handleSwitchBranch(branch.id); }}
-                              className={`w-full text-left p-2 rounded hover:bg-muted transition-colors ${isActiveBranch ? 'bg-primary/10 border border-primary/20' : 'border border-transparent'}`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <GitBranch size={12} className={isActiveBranch ? 'text-primary' : 'text-muted-foreground'} />
-                                  <span className="text-sm text-foreground truncate">{branch.name}</span>
-                                </div>
-                                <span className="text-xs text-muted-foreground">{bMsgs.length} msg</span>
-                              </div>
-                              {bLast && (
-                                <div className="text-xs text-muted-foreground truncate mt-0.5">{String(bLast.content).slice(0, 100)}</div>
-                              )}
-                            </button>
+                        {(() => {
+                          const storeBranches = getBranches(conversation.id) || [];
+                          // Heuristic: if store has only a default main with 0 messages and no others,
+                          // prefer persisted summaries from backend.
+                          const usePersisted = (
+                            (!storeBranches || storeBranches.length === 0) ||
+                            (storeBranches.length === 1 && storeBranches[0].id === 'main' && storeBranches[0].messageCount === 0 && (conversation.branches?.length || 0) > 0)
                           );
-                        })}
+                          const renderBranches: Array<any> = usePersisted
+                            ? (conversation.branches || []).map(br => ({ id: br.id, name: br.name || (br.id === 'main' ? 'Main' : br.id), messageCount: br.messageCount }))
+                            : storeBranches;
+                          return renderBranches.map((branch: any) => {
+                            const bMsgs = getBranchMessages(conversation.id, branch.id) || [];
+                            const bLast = bMsgs.length > 0 ? bMsgs[bMsgs.length - 1] : undefined;
+                            const isActiveBranch = branch.id === currentBranchId && conversation.id === currentConversationId;
+                            return (
+                              <button
+                                key={branch.id}
+                                onClick={(e) => { e.stopPropagation(); handleSwitchBranch(branch.id); }}
+                                className={`w-full text-left p-2 rounded hover:bg-muted transition-colors ${isActiveBranch ? 'bg-primary/10 border border-primary/20' : 'border border-transparent'}`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <GitBranch size={12} className={isActiveBranch ? 'text-primary' : 'text-muted-foreground'} />
+                                  <span className="text-sm text-foreground truncate">{branch.name || (branch.id === 'main' ? 'Main' : branch.id)}</span>
+                                  </div>
+                                <span className="text-xs text-muted-foreground">{(bMsgs.length || branch.messageCount || 0)} msg</span>
+                                </div>
+                                {bLast && (
+                                  <div className="text-xs text-muted-foreground truncate mt-0.5">{String(bLast.content).slice(0, 100)}</div>
+                                )}
+                              </button>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>

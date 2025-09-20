@@ -219,6 +219,62 @@ class UnifiedApiClient {
     }
   }
 
+  /**
+   * Returns flattened branch nodes for a session.
+   * Each node represents a conversation+branch pair with summary metadata.
+   */
+  async listSessionNodes(sessionId: string): Promise<ApiResponse<{ nodes: any[] }>> {
+    try {
+      const key = `conversations_${sessionId}`;
+      const conversations = await this.getStorageItem(key, []);
+      const nodes: any[] = [];
+      if (Array.isArray(conversations)) {
+        for (const conv of conversations) {
+          const convId = conv.id || conv.filename;
+          const convName = conv.name || conv.filename || 'Untitled Conversation';
+          const convLast = conv.lastModified || conv.updatedAt || new Date().toISOString();
+          const convPreview = conv.preview || 'No preview available';
+          const convCount = conv.messageCount || 0;
+
+          // Always include main/root node even if no branches array is present
+          nodes.push({
+            conversationId: convId,
+            branchId: 'main',
+            name: convName,
+            lastActive: convLast,
+            messageCount: convCount,
+            preview: convPreview,
+            sessionId,
+            isRoot: true,
+          });
+
+          const branches = Array.isArray(conv.branches) ? conv.branches : [];
+          for (const br of branches) {
+            // Skip duplicating main if present in branches
+            if (br.id === 'main') continue;
+            nodes.push({
+              conversationId: convId,
+              branchId: br.id,
+              name: br.name || br.id,
+              lastActive: br.lastActive || convLast,
+              messageCount: br.messageCount || 0,
+              preview: br.preview || '',
+              parentId: br.parentId,
+              sessionId,
+              isRoot: false,
+            });
+          }
+        }
+      }
+      // Sort by lastActive desc, keeping current order for ties
+      nodes.sort((a, b) => new Date(b.lastActive || 0).getTime() - new Date(a.lastActive || 0).getTime());
+      return { success: true, data: { nodes } };
+    } catch (error) {
+      console.error('Error listing session nodes:', error);
+      return { success: false, error: 'Failed to list session nodes', data: { nodes: [] } };
+    }
+  }
+
   async loadConversation(
     sessionId: string, 
     conversationId: string,
@@ -510,11 +566,19 @@ class UnifiedApiClient {
       // Derive message count and preview from branches first, falling back to flat messages
       let messageCount = Array.isArray(conversationData?.messages) ? conversationData.messages.length : 0;
       let preview = 'No messages';
+      const branchSummaries: Array<{
+        id: string;
+        name?: string;
+        messageCount: number;
+        lastActive?: string;
+        preview?: string;
+        parentId?: string;
+      }> = [];
       
       if (conversationData?.branches && typeof conversationData.branches === 'object') {
         let latestMsg: any = null;
         let total = 0;
-        for (const branch of Object.values(conversationData.branches) as any[]) {
+        for (const [branchId, branch] of Object.entries(conversationData.branches) as any) {
           const msgs: any[] = Array.isArray(branch?.messages) ? branch.messages : [];
           total += msgs.length;
           if (msgs.length > 0) {
@@ -526,6 +590,17 @@ class UnifiedApiClient {
               latestMsg = candidate;
             }
           }
+          // Per-branch summary
+          const last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+          const meta = (branch && typeof branch === 'object' && branch.metadata) ? branch.metadata : {};
+          branchSummaries.push({
+            id: String(branchId),
+            name: meta?.name,
+            parentId: meta?.parentId,
+            messageCount: msgs.length,
+            lastActive: last?.timestamp ? new Date(last.timestamp).toISOString() : (meta?.lastActive || undefined),
+            preview: last?.content ? String(last.content).slice(0, 100) : undefined,
+          });
         }
         messageCount = total;
         if (latestMsg?.content) {
@@ -545,7 +620,7 @@ class UnifiedApiClient {
         };
       }
 
-      const conversationEntry = {
+      const conversationEntry: any = {
         id: conversationId,
         name: conversationData.title || 'Untitled Conversation',
         lastModified: conversationData.updatedAt || new Date().toISOString(),
@@ -553,6 +628,10 @@ class UnifiedApiClient {
         preview,
         filename: conversationId
       };
+      // Persist branch summaries when available
+      if (branchSummaries.length > 0) {
+        conversationEntry.branches = branchSummaries;
+      }
 
       if (conversationIndex >= 0) {
         existingConversations[conversationIndex] = conversationEntry;
