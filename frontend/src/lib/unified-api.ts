@@ -573,6 +573,79 @@ class UnifiedApiClient {
     }
   }
 
+  // ChatHistory save/load
+  async saveChatHistoryToFile(chatHistory: any, filename?: string): Promise<boolean> {
+    if (this.isElectron()) {
+      try {
+        const filePath = filename || await this.electronClient.showSaveDialog({
+          title: 'Save Chat History',
+          defaultPath: `chat-history-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`,
+          filters: [{ name: 'JSON Files', extensions: ['json'] }]
+        });
+        if (!filePath) return false;
+        const ok = await this.electronClient.writeFile(filePath, JSON.stringify(chatHistory, null, 2));
+        return ok;
+      } catch (e) {
+        console.error('Failed to save ChatHistory:', e);
+        return false;
+      }
+    } else {
+      try {
+        const content = JSON.stringify(chatHistory, null, 2);
+        const blob = new Blob([content], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || `chat-history-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return true;
+      } catch (e) {
+        console.error('Failed to download ChatHistory:', e);
+        return false;
+      }
+    }
+  }
+
+  async loadChatHistoryFromFile(): Promise<any | null> {
+    if (this.isElectron()) {
+      try {
+        const files = await this.electronClient.showOpenDialog({
+          title: 'Load Chat History',
+          filters: [{ name: 'JSON Files', extensions: ['json'] }],
+          properties: ['openFile']
+        });
+        if (!files || files.length === 0) return null;
+        const content = await this.electronClient.readFile(files[0]);
+        if (!content) return null;
+        return JSON.parse(content);
+      } catch (e) {
+        console.error('Failed to load ChatHistory:', e);
+        return null;
+      }
+    } else {
+      return new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = async (e) => {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (!file) return resolve(null);
+          try {
+            const content = await file.text();
+            resolve(JSON.parse(content));
+          } catch (err) {
+            console.error('Failed to parse ChatHistory:', err);
+            resolve(null);
+          }
+        };
+        input.click();
+      });
+    }
+  }
+
   async loadConversationFromFile(): Promise<Message[] | null> {
     if (this.isElectron()) {
       return this.electronClient.loadConversationFromFile();

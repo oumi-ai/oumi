@@ -511,6 +511,20 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
+          <button
+            onClick={handleExportChatHistory}
+            className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
+            title="Export Chat History"
+          >
+            <Download size={16} />
+          </button>
+          <button
+            onClick={handleImportChatHistory}
+            className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
+            title="Import Chat History"
+          >
+            <Upload size={16} />
+          </button>
         </div>
       </div>
       

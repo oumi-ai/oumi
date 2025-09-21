@@ -258,6 +258,34 @@ export interface ApiValidationResult {
   };
 }
 
+// ChatHistory artifact used for full-session save/load
+export interface ChatHistory {
+  version: string;              // schema version
+  created_at: string;           // ISO timestamp
+  saved_by?: string;            // optional user display name
+  session_id: string;           // session identifier
+  model_info?: {
+    name?: string;
+    engine?: string;
+    context_length?: number;
+  };
+  current_conversation_id?: string;
+  current_branch_id?: string;
+  conversations: Array<{
+    id: string;
+    title: string;
+    updatedAt: string;
+    branches: { [branchId: string]: { messages: Message[]; metadata?: any } };
+    nodeGraph?: {
+      nodes?: { [id: string]: MessageNode };
+      timelines?: { [branchId: string]: string[] };
+      heads?: { [branchId: string]: { [nodeId: string]: string } };
+      tombstones?: { [branchId: string]: { [nodeId: string]: boolean } };
+      merges?: MergeRecord[];
+    };
+  }>;
+}
+
 // Settings types
 export interface AppSettings {
   apiKeys: Record<string, ApiKeyConfig>;

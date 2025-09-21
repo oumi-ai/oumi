@@ -315,6 +315,29 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
           </div>
         )}
 
+        {/* Assistant meta footer (model/engine/duration) */}
+        {!isUser && message.meta && (
+          <div className="text-[11px] text-muted-foreground/80 flex items-center gap-2 pt-1">
+            {message.meta.modelName && (
+              <span title="Model">{message.meta.modelName}</span>
+            )}
+            {message.meta.engine && (
+              <>
+                <span className="opacity-50">•</span>
+                <span title="Engine">{String(message.meta.engine)}</span>
+              </>
+            )}
+            {typeof (message.meta as any).durationMs === 'number' && (message.meta as any).durationMs >= 0 && (
+              <>
+                <span className="opacity-50">•</span>
+                <span title="Generation time">
+                  {(((message.meta as any).durationMs as number) / 1000).toFixed(2)}s
+                </span>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Timestamp and actions */}
         <div className="flex items-center gap-2 pt-2 flex-wrap">
           <span className="text-xs text-gray-400">

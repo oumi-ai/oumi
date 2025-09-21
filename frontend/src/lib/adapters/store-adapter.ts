@@ -7,7 +7,7 @@
  * Note: SessionManager is now imported from '../session-manager'
  */
 
-import type { Message, Conversation, ConversationBranch } from '../types';
+import type { Message, Conversation, ConversationBranch, ChatHistory, MessageNode } from '../types';
 import { SessionManager } from '../session-manager';
 
 /**
@@ -283,4 +283,98 @@ export async function autoSaveConversation(conversation: Conversation): Promise<
       delete saveDebounceMap[conversationId];
     }
   }, SAVE_DEBOUNCE_MS);
+}
+
+// ----- ChatHistory build/hydrate -----
+
+export function buildChatHistoryForCurrentSession(): ChatHistory {
+  // Lazy import store to avoid cycles
+  const storeMod: any = require('../store');
+  const state = storeMod.useChatStore.getState();
+
+  const sessionId = SessionManager.getCurrentSessionId();
+  const conversations: ChatHistory['conversations'] = (state.conversations || []).map((conv: Conversation) => {
+    const branches = buildBranchStructure(conv.id, state.conversationMessages);
+    const nodeGraph = {
+      nodes: state.messageNodes?.[conv.id] || {},
+      timelines: state.branchTimelines?.[conv.id] || {},
+      heads: state.branchHeads?.[conv.id] || {},
+      tombstones: state.branchTombstones?.[conv.id] || {},
+      merges: state.merges?.[conv.id] || [],
+    };
+    return {
+      id: conv.id,
+      title: conv.title,
+      updatedAt: conv.updatedAt,
+      branches,
+      nodeGraph,
+    };
+  });
+
+  return {
+    version: '1.0',
+    created_at: new Date().toISOString(),
+    saved_by: state.settings?.user?.displayName,
+    session_id: sessionId,
+    model_info: {
+      name: state.settings?.selectedModel,
+      engine: state.settings?.selectedProvider,
+      context_length: state.generationParams?.contextLength,
+    },
+    current_conversation_id: state.currentConversationId || undefined,
+    current_branch_id: state.currentBranchId || 'main',
+    conversations,
+  };
+}
+
+export function hydrateStoreFromChatHistory(artifact: ChatHistory): void {
+  const storeMod: any = require('../store');
+  const state = storeMod.useChatStore.getState();
+  const setState = storeMod.useChatStore.setState;
+
+  // Build normalized maps
+  const conversationMessages: any = {};
+  const messageNodes: { [conv: string]: { [id: string]: MessageNode } } = {} as any;
+  const branchTimelines: any = {};
+  const branchHeads: any = {};
+  const branchTombstones: any = {};
+  const merges: any = {};
+
+  const conversations: Conversation[] = artifact.conversations.map((c) => ({
+    id: c.id,
+    title: c.title || 'Untitled Conversation',
+    messages: [],
+    branches: c.branches,
+    createdAt: c.updatedAt || new Date().toISOString(),
+    updatedAt: c.updatedAt || new Date().toISOString(),
+  }));
+
+  for (const c of artifact.conversations) {
+    conversationMessages[c.id] = {};
+    // branches -> normalized message store
+    for (const [bid, bdata] of Object.entries(c.branches || {})) {
+      conversationMessages[c.id][bid] = (bdata as any).messages || [];
+    }
+    // node graph
+    if (c.nodeGraph) {
+      messageNodes[c.id] = c.nodeGraph.nodes || {};
+      branchTimelines[c.id] = c.nodeGraph.timelines || {};
+      branchHeads[c.id] = c.nodeGraph.heads || {};
+      branchTombstones[c.id] = c.nodeGraph.tombstones || {};
+      merges[c.id] = c.nodeGraph.merges || [];
+    }
+  }
+
+  // Overwrite workspace
+  setState({
+    conversations,
+    conversationMessages,
+    messageNodes,
+    branchTimelines,
+    branchHeads,
+    branchTombstones,
+    merges,
+    currentConversationId: artifact.current_conversation_id || (conversations[0]?.id || null),
+    currentBranchId: artifact.current_branch_id || 'main',
+  });
 }
