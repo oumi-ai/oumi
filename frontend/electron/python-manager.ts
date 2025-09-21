@@ -701,6 +701,18 @@ export class PythonServerManager {
       if (process.env.LANG) cleanEnv.LANG = process.env.LANG;
     }
 
+    // Ensure Python resolves to the working tree's oumi package in dev
+    try {
+      const oumiRoot = this.getOumiRootPath();
+      const srcPath = require('path').join(oumiRoot, 'src');
+      const existing = process.env.PYTHONPATH || '';
+      // Prepend our src so it wins resolution order
+      cleanEnv.PYTHONPATH = srcPath + (existing ? `:${existing}` : '');
+      log.info(`[getCleanEnvironment] PYTHONPATH set to: ${cleanEnv.PYTHONPATH}`);
+    } catch (e) {
+      log.warn('[getCleanEnvironment] Failed to set PYTHONPATH for dev override:', e);
+    }
+
     // Add API keys from secure storage for inference engines
     try {
       // Import the api key manager here to avoid circular dependencies
@@ -752,8 +764,8 @@ export class PythonServerManager {
       // Continue without API keys - some inference engines don't need them
     }
 
-    // Explicitly exclude dev environment variables that could interfere
-    // DO NOT include: PYTHONPATH, CONDA_DEFAULT_ENV, CONDA_PREFIX, etc.
+    // Explicitly exclude most dev environment variables that could interfere
+    // (we intentionally include PYTHONPATH above to prefer the working tree)
     
     return cleanEnv;
   }

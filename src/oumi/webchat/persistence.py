@@ -308,6 +308,78 @@ class WebchatDB:
             conn.commit()
         return msg_id
 
+    def update_branch_message(
+        self,
+        conversation_id: str,
+        branch_id: str,
+        seq: int,
+        role: str,
+        content: str,
+        created_at: Optional[float] = None,
+        metadata: Optional[dict | str] = None,
+    ) -> Optional[str]:
+        """Update the message content/role at a given branch sequence in-place.
+
+        Looks up the message_id mapped at (branch_id, seq) and updates the
+        corresponding row in the messages table for the provided conversation.
+
+        Args:
+            conversation_id: Conversation to which the message belongs.
+            branch_id: Branch where the message mapping exists.
+            seq: Sequence index within the branch (zero-based).
+            role: New role value (typically 'user' for edits).
+            content: New content text.
+            created_at: Optional new timestamp; defaults to now.
+            metadata: Optional metadata dict or JSON string.
+
+        Returns:
+            The message_id if update succeeded, otherwise None.
+        """
+        created = float(created_at or self._now())
+        metadata_str: Optional[str]
+        if isinstance(metadata, dict):
+            try:
+                metadata_str = json.dumps(metadata)
+            except Exception:
+                metadata_str = None
+        else:
+            metadata_str = metadata
+
+        # Compute new content hash
+        content_hash = self._hash_content(role, str(content), metadata_str)
+
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
+            # Find message id for this branch/seq
+            cur.execute(
+                "SELECT message_id FROM branch_messages WHERE branch_id = ? AND seq = ?",
+                (branch_id, int(seq)),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            msg_id = row[0]
+
+            # Update the messages row but ensure it belongs to the conversation
+            cur.execute(
+                """
+                UPDATE messages
+                SET role = ?, content = ?, content_hash = ?, created_at = ?, metadata = ?
+                WHERE id = ? AND conversation_id = ?
+                """,
+                (
+                    role,
+                    str(content),
+                    content_hash,
+                    created,
+                    metadata_str,
+                    msg_id,
+                    conversation_id,
+                ),
+            )
+            conn.commit()
+            return msg_id
+
     def bulk_add_branch_history(self, conversation_id: str, branch_id: str, messages: Sequence[dict]) -> None:
         """Populate a branch with an existing list of message dicts.
 

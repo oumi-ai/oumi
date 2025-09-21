@@ -255,26 +255,28 @@ class CommandHandler:
                     self.db.ensure_branch(
                         conv_id, session.branch_manager.current_branch_id, name=session.branch_manager.current_branch_id
                     )
-                    # Persist only the edited message and capture DB id
+                    # In-place update: modify the existing message mapped at this seq
                     edited = session.conversation_history[resolved_index]
-                    new_db_id = self.db.append_message_to_branch(
+                    updated_id = self.db.update_branch_message(
                         conv_id,
                         session.branch_manager.current_branch_id,
+                        seq=resolved_index,
                         role=edited.get("role", "user"),
                         content=str(edited.get("content", "")),
                         created_at=float(edited.get("timestamp", time.time())),
-                        force_new=is_electron,
+                        metadata=None,
                     )
-                    # Overwrite in-memory id with canonical DB id
-                    try:
-                        session.conversation_history[resolved_index]["id"] = new_db_id
-                    except Exception:
-                        pass
+                    if updated_id:
+                        # Keep id stable; ensure in-memory id matches (should already)
+                        try:
+                            session.conversation_history[resolved_index]["id"] = updated_id
+                        except Exception:
+                            pass
                     # Attach to response payload for the client to update mapping
                     response_data.setdefault("updated", {})
                     response_data["updated"].update(
                         {
-                            "message_id": new_db_id,
+                            "message_id": (updated_id or session.conversation_history[resolved_index].get("id")),
                             "index": resolved_index,
                             "content": edited.get("content", ""),
                         }
