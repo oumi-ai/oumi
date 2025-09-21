@@ -365,7 +365,7 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
         
         // Update store with loaded messages
         setMessages(targetConversationId, currentBranchId || 'main', response.data.messages);
-        // Phase B: hydrate node graph if present
+        // Phase B: hydrate node graph if present (including tombstones)
         if ((response.data as any).nodeGraph) {
           const hydrate = (useChatStore as any).getState()?.hydrateNodeGraph;
           if (typeof hydrate === 'function') {

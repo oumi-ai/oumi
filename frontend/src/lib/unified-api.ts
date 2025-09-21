@@ -568,6 +568,7 @@ class UnifiedApiClient {
             nodes: storeState.messageNodes?.[conversationId] || {},
             timelines: storeState.branchTimelines?.[conversationId] || {},
             heads: storeState.branchHeads?.[conversationId] || {},
+            tombstones: storeState.branchTombstones?.[conversationId] || {},
           };
           if (Object.keys(nodeGraph.nodes).length > 0) {
             payload = { ...conversationData, nodeGraph };
