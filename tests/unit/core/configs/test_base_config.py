@@ -3,7 +3,7 @@ import tempfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from omegaconf import OmegaConf
 
@@ -15,13 +15,13 @@ class TestEnum(Enum):
     VALUE2 = "value2"
 
 
-@dataclass
+@dataclass(eq=False)
 class TestConfig(BaseConfig):
     str_value: str
     int_value: int
     float_value: float
     bool_value: bool
-    none_value: None
+    none_value: Optional[Any]
     bytes_value: bytes
     path_value: Path
     enum_value: TestEnum
@@ -260,8 +260,21 @@ def test_config_override():
         func_value=lambda x: x * 2,
     )
 
-    base_omega = OmegaConf.structured(base_config)
-    override_omega = OmegaConf.structured(override_config)
+    # Convert configs to dictionaries and process non-primitives before OmegaConf
+    base_dict = {}
+    for field_name, field_value in base_config:
+        base_dict[field_name] = field_value
+    removed_paths = set()
+    base_processed = _handle_non_primitives(base_dict, removed_paths)
+
+    override_dict = {}
+    for field_name, field_value in override_config:
+        override_dict[field_name] = field_value
+    removed_paths = set()
+    override_processed = _handle_non_primitives(override_dict, removed_paths)
+
+    base_omega = OmegaConf.create(base_processed)
+    override_omega = OmegaConf.create(override_processed)
     merged_config = OmegaConf.merge(base_omega, override_omega)
 
     assert merged_config.str_value == "override"

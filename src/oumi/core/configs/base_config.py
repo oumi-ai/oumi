@@ -85,6 +85,10 @@ def _handle_non_primitives(config: Any, removed_paths, path: str = "") -> Any:
     # Try to convert functions to their source code
     if callable(config):
         try:
+            if hasattr(config, "__name__") and config.__name__ == "<lambda>":
+                removed_paths.add(path)
+                return None
+
             # Lambda functions and built-in functions can't have source extracted
             source = inspect.getsource(config)
             # Only return source if we successfully got it
@@ -124,7 +128,7 @@ def _read_config_without_interpolation(config_path: str) -> str:
     return stringified_config
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(eq=False)
 class BaseConfig:
     def to_yaml(self, config_path: Union[str, Path, StringIO]) -> None:
         """Saves the configuration to a YAML file.
@@ -134,9 +138,12 @@ class BaseConfig:
         Args:
             config_path: Path to save the config to
         """
-        # Convert the dataclass to an OmegaConf structure first
-        omega_config = OmegaConf.structured(self)
-        config_dict = OmegaConf.to_container(omega_config, resolve=True)
+        # Convert dataclass fields to a dictionary first
+        config_dict = {}
+        for field_name, field_value in self:
+            config_dict[field_name] = field_value
+
+        # Process non-primitive values before creating OmegaConf structure
         removed_paths = set()
         processed_config = _handle_non_primitives(
             config_dict, removed_paths=removed_paths
@@ -275,9 +282,18 @@ class BaseConfig:
         if logger is None:
             logger = logging.getLogger(__name__)
 
-        # Convert the dataclass to an OmegaConf structure first
-        omega_config = OmegaConf.structured(self)
-        config_yaml = OmegaConf.to_yaml(omega_config, resolve=True)
+        # Convert dataclass fields to a dictionary first
+        config_dict = {}
+        for field_name, field_value in self:
+            config_dict[field_name] = field_value
+
+        # Process non-primitive values before creating OmegaConf structure
+        removed_paths = set()
+        processed_config = _handle_non_primitives(
+            config_dict, removed_paths=removed_paths
+        )
+
+        config_yaml = OmegaConf.to_yaml(processed_config, resolve=True)
         logger.info(f"Configuration:\n{config_yaml}")
 
     def finalize_and_validate(self) -> None:
@@ -306,3 +322,43 @@ class BaseConfig:
         """
         for param in dataclasses.fields(self):
             yield param.name, getattr(self, param.name)
+
+    def __eq__(self, other: object) -> bool:
+        """Custom equality comparison that handles callable objects specially."""
+        if not isinstance(other, self.__class__):
+            return False
+
+        for field_name, field_value in self:
+            other_value = getattr(other, field_name)
+
+            # Special handling for callable objects
+            if callable(field_value) and callable(other_value):
+                # For lambda functions, treat them as equal since they can't be serialized anyway
+                if (
+                    hasattr(field_value, "__name__")
+                    and hasattr(other_value, "__name__")
+                    and field_value.__name__ == "<lambda>"
+                    and other_value.__name__ == "<lambda>"
+                ):
+                    # Consider all lambda functions equal for config comparison purposes
+                    continue
+
+                # For regular functions, try to compare by source code
+                try:
+                    field_source = inspect.getsource(field_value).strip()
+                    other_source = inspect.getsource(other_value).strip()
+                    if field_source != other_source:
+                        return False
+                except (TypeError, OSError):
+                    # If we can't get source, fall back to identity comparison
+                    if field_value != other_value:
+                        return False
+            elif callable(field_value) or callable(other_value):
+                # One is callable, the other is not
+                return False
+            else:
+                # Normal comparison for non-callable values
+                if field_value != other_value:
+                    return False
+
+        return True
