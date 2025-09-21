@@ -621,6 +621,41 @@ class WebchatDB:
                 })
             return results
 
+    def replace_branch_history(self, conversation_id: str, branch_id: str, messages: List[Dict[str, Any]]) -> None:
+        """Replace a branch's message sequence with the provided messages.
+
+        This clears existing branch_messages rows for the branch and rebuilds the
+        sequence from the given messages. It reuses existing messages in the
+        conversation by content hash when possible, otherwise inserts new rows.
+        """
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
+            # Clear existing branch mapping
+            cur.execute("DELETE FROM branch_messages WHERE branch_id = ?", (branch_id,))
+            next_seq = 0
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = str(msg.get("content", ""))
+                created = float(msg.get("timestamp", time.time()))
+                metadata = json.dumps(msg.get("metadata", {})) if msg.get("metadata") else None
+                content_hash = self._hash_content(role, content, metadata)
+                # Reuse existing message row if available
+                existing_msg_id = self._find_existing_message(conn, conversation_id, content_hash)
+                if existing_msg_id:
+                    msg_id = existing_msg_id
+                else:
+                    msg_id = f"msg_{uuid.uuid4().hex}"
+                    cur.execute(
+                        "INSERT INTO messages(id, conversation_id, role, content, content_hash, created_at, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (msg_id, conversation_id, role, content, content_hash, created, metadata),
+                    )
+                cur.execute(
+                    "INSERT INTO branch_messages(branch_id, message_id, seq) VALUES (?, ?, ?)",
+                    (branch_id, msg_id, next_seq),
+                )
+                next_seq += 1
+            conn.commit()
+
     def get_conversation_stats(self, conversation_id: str) -> Dict[str, Any]:
         """Get statistics for a conversation."""
         with self._lock, self._connect() as conn:

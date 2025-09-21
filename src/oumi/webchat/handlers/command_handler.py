@@ -351,12 +351,12 @@ class CommandHandler:
             # Avoid bulk-add for edit and regen to prevent duplication; targeted persist above.
             if self.db and session.is_hydrated_from_db and command in ["clear", "delete"]:
                 try:
-                    # If the command modified conversation history, sync to database
+                    # If the command modified conversation history, replace branch mapping to avoid duplication
                     conv_id = self.db.ensure_conversation(session_id)
-                    self.db.bulk_add_branch_history(
-                        conv_id, 
-                        session.branch_manager.current_branch_id, 
-                        session.conversation_history
+                    self.db.replace_branch_history(
+                        conv_id,
+                        session.branch_manager.current_branch_id,
+                        session.conversation_history,
                     )
                 except Exception as pe:
                     logger.warning(f"⚠️ Dual-write persistence (command result) failed: {pe}")

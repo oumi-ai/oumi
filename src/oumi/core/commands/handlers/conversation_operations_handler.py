@@ -93,7 +93,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
             if command.args and len(command.args) > 0:
                 try:
                     index = int(command.args[0])
-                    logger.info(f"🗑️  DELETE: Deleting message at index {index}")
+                    logger.info(f"🗑️  DELETE: Deleting message pair at index {index}")
                     
                     # Validate index bounds (conversation might have changed since UI was rendered)
                     if index < 0 or index >= len(self.conversation_history):
@@ -103,10 +103,42 @@ class ConversationOperationsHandler(BaseCommandHandler):
                             message=f"Message index {index} is out of bounds. Conversation has {len(self.conversation_history)} messages (indices 0-{len(self.conversation_history)-1}). Please refresh the page to sync with current conversation state.",
                             should_continue=False,
                         )
-                    
-                    deleted_count = self._delete_at_index(index)
-                    logger.info(f"🗑️  DELETE: Successfully deleted {deleted_count} message(s) at index {index}")
-                        
+                    # Enforce pair deletion: determine the pair boundaries
+                    role = self.conversation_history[index].get("role")
+                    delete_indices: list[int] = []
+                    if role == "assistant":
+                        # Expect a user immediately before
+                        if index - 1 >= 0 and self.conversation_history[index - 1].get("role") == "user":
+                            delete_indices = [index - 1, index]
+                        else:
+                            return CommandResult(
+                                success=False,
+                                message="Cannot delete single assistant message; select a complete turn",
+                                should_continue=False,
+                            )
+                    elif role == "user":
+                        # Expect an assistant immediately after
+                        if index + 1 < len(self.conversation_history) and self.conversation_history[index + 1].get("role") == "assistant":
+                            delete_indices = [index, index + 1]
+                        else:
+                            return CommandResult(
+                                success=False,
+                                message="Cannot delete single user message; select a complete turn",
+                                should_continue=False,
+                            )
+                    else:
+                        return CommandResult(
+                            success=False,
+                            message="Unsupported message role for deletion",
+                            should_continue=False,
+                        )
+                    # Delete in reverse order to keep indices valid
+                    deleted_count = 0
+                    for i in sorted(delete_indices, reverse=True):
+                        self.conversation_history.pop(i)
+                        deleted_count += 1
+                    logger.info(f"🗑️  DELETE: Successfully deleted {deleted_count} message(s) for the turn at index {index}")
+                
                 except (ValueError, IndexError):
                     logger.error(f"🗑️  DELETE: Error deleting at index {command.args[0]}")
                     return CommandResult(
@@ -117,7 +149,17 @@ class ConversationOperationsHandler(BaseCommandHandler):
             else:
                 # Delete the last turn (could be user+assistant or just user)
                 logger.info(f"🗑️  DELETE: Deleting last turn")
-                deleted_count = self._delete_last_turn()
+                # Enforce complete turn: require at least user+assistant
+                if len(self.conversation_history) >= 2 and self.conversation_history[-1].get("role") == "assistant" and self.conversation_history[-2].get("role") == "user":
+                    self.conversation_history.pop()  # assistant
+                    self.conversation_history.pop()  # user
+                    deleted_count = 2
+                else:
+                    return CommandResult(
+                        success=False,
+                        message="Cannot delete: last turn is incomplete (requires user+assistant)",
+                        should_continue=False,
+                    )
                 logger.info(f"🗑️  DELETE: Successfully deleted {deleted_count} message(s) from last turn")
 
             if deleted_count > 0:
