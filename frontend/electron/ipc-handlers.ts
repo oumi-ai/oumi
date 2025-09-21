@@ -385,8 +385,28 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
             1,
             200
           );
-
-      const data = await response.json();
+      
+      // Handle 404 Not Found errors specially
+      if (response.status === 404) {
+        return {
+          success: false,
+          message: `Endpoint not found: ${endpoint}`,
+          error: 'not_found'
+        };
+      }
+      
+      // Try to parse response as JSON, with graceful error handling
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        log.error(`Failed to parse JSON from ${endpoint}:`, jsonError);
+        return {
+          success: false,
+          message: `Invalid response format from ${endpoint}`,
+          error: 'invalid_json_response'
+        };
+      }
       
       if (!response.ok) {
         const errMessage = (data && (data.message || data.error?.message || data.error)) || response.statusText;

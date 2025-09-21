@@ -139,20 +139,40 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     }
   };
 
-  // Handler for regenerating the last response
+  // Handler for regenerating the last response (id-first, backend regen_node)
   const handleRegenerateLastResponse = async () => {
-    const lastUserMessage = messages.slice().reverse().find(msg => msg.role === 'user');
-    if (lastUserMessage && !isLoading && !isTyping) {
-      // Remove the last assistant message if it exists
-      const lastMessageIndex = messages.length - 1;
-      if (lastMessageIndex >= 0 && messages[lastMessageIndex].role === 'assistant') {
-        const updatedMessages = messages.slice(0, -1);
-        // The setMessages function now requires 3 parameters
-        setMessages(currentConversationId || '', currentBranchId, updatedMessages);
+    if (isLoading || isTyping) return;
+    const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
+    const lastUser = [...messages].reverse().find(m => m.role === 'user');
+    if (!lastAssistant && !lastUser) return;
+
+    try {
+      setLoading(true);
+      const resp = await apiClient.regenNode({
+        assistantId: lastAssistant?.id,
+        userMessageId: lastAssistant ? undefined : lastUser?.id,
+        sessionId: getCurrentSessionId(),
+        branchId: currentBranchId || 'main',
+        historyMode: 'last_user',
+      });
+      if (!resp.success) {
+        throw new Error(resp.message || 'Regen failed');
       }
-      
-      // Regenerate response for the last user message
-      await handleChatMessage(lastUserMessage.content);
+      // Reload conversation to reflect regenerated assistant
+      await loadConversation();
+      await refreshBranches();
+    } catch (e) {
+      console.error('regenNode failed:', e);
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: `❌ Failed to regenerate: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        timestamp: Date.now(),
+      };
+      addMessage(errorMessage);
+    } finally {
+      setLoading(false);
+      setTyping(false);
     }
   };
 

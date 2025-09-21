@@ -138,8 +138,13 @@ def setup_routes(
     oumi = RouteGroup("/v1/oumi", "Oumi-specific API routes")
     oumi.get("/ws", ws_handler.handle_websocket)
     oumi.post("/command", command_handler.handle_command_api)
-    if regen_handler is not None:
-        oumi.post("/regen_node", regen_handler.handle_regen_node_api)
+    # Always register the regen_node endpoint if available
+    try:
+        if regen_handler is not None:
+            oumi.post("/regen_node", regen_handler.handle_regen_node_api)
+            logger.info(f"✅ Registered regen_node endpoint")
+    except Exception as e:
+        logger.error(f"❌ Failed to register regen_node endpoint: {e}")
     
     # Branch routes
     oumi.get("/branches", branch_handler.handle_branches_api)

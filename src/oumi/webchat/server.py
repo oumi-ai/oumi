@@ -289,10 +289,36 @@ def run_webchat_server(
     logger.info(f"   • System Stats: http://{host}:{port}/v1/oumi/system_stats")
     logger.info("🛑 Press Ctrl+C to stop")
     
-    # Debug: Check routes before starting
+    # Debug: Check routes before starting with detailed registration info
     logger.info(f"🔧 Debug: App has {len(list(app.router.routes()))} routes:")
+    all_routes = []
     for route in app.router.routes():
-        logger.info(f"   Route: {route.method} {route.resource.canonical}")
+        route_str = f"{route.method} {route.resource.canonical}"
+        all_routes.append(route_str)
+        logger.info(f"   Route: {route_str}")
+    
+    # Check for critical routes and log their status
+    critical_routes = [
+        "POST /v1/oumi/regen_node",
+        "POST /v1/oumi/command",
+        "GET /v1/oumi/branches",
+        "POST /v1/oumi/branches"
+    ]
+    
+    for critical in critical_routes:
+        if any(r == critical for r in all_routes):
+            logger.info(f"   ✅ Critical route registered: {critical}")
+        else:
+            logger.error(f"   ❌ MISSING critical route: {critical}")
+            
+            # Auto-fix missing routes if handlers are available
+            if critical == "POST /v1/oumi/regen_node" and hasattr(self, 'regen_handler'):
+                logger.info(f"   🔧 Attempting to auto-register missing route: {critical}")
+                try:
+                    app.router.add_route("POST", "/v1/oumi/regen_node", self.regen_handler.handle_regen_node_api)
+                    logger.info(f"   ✅ Successfully auto-registered: {critical}")
+                except Exception as e:
+                    logger.error(f"   ❌ Failed to auto-register route: {e}")
     
     try:
         logger.info("🔧 Starting web.run_app with proper threading setup...")

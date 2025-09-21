@@ -176,8 +176,8 @@ class UnifiedApiClient {
       assistantId: payload.assistantId,
       userMessageId: payload.userMessageId,
       prompt: payload.prompt,
-      sessionId: payload.sessionId,
-      branchId: payload.branchId,
+      sessionId: payload.sessionId || 'default',
+      branchId: payload.branchId || 'main',
       historyMode: payload.historyMode,
     });
   }
