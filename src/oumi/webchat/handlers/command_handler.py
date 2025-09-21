@@ -128,11 +128,10 @@ class CommandHandler:
             logger.debug(f"[RESOLVE] {diag}")
             return resolved_id, resolved_index, diag
         
-            try:
-                # Create a string buffer to capture console output
-                string_buffer = io.StringIO()
-                temp_console = Console(file=string_buffer, width=80)
-            
+            # Create a string buffer to capture console output
+            string_buffer = io.StringIO()
+            temp_console = Console(file=string_buffer, width=80)
+
             # Temporarily replace the session's console
             original_console = session.command_context.console
             session.command_context.console = temp_console
