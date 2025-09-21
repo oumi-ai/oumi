@@ -247,31 +247,44 @@ class CommandHandler:
             
             # If edit succeeded, align the edited message's ID with DB canonical id
             if (
-                result.success and command == "edit" and self.db is not None and resolved_index is not None
+                result.success and command == "edit" and resolved_index is not None
             ):
                 try:
-                    conv_id = self.db.ensure_conversation(session_id)
-                    # Ensure branch exists
-                    self.db.ensure_branch(
-                        conv_id, session.branch_manager.current_branch_id, name=session.branch_manager.current_branch_id
-                    )
+                    # 1) Persist in-place to DB when available
+                    if self.db is not None:
+                        conv_id = self.db.ensure_conversation(session_id)
+                        # Ensure branch exists
+                        self.db.ensure_branch(
+                            conv_id, session.branch_manager.current_branch_id, name=session.branch_manager.current_branch_id
+                        )
                     # In-place update: modify the existing message mapped at this seq
                     edited = session.conversation_history[resolved_index]
-                    updated_id = self.db.update_branch_message(
-                        conv_id,
-                        session.branch_manager.current_branch_id,
-                        seq=resolved_index,
-                        role=edited.get("role", "user"),
-                        content=str(edited.get("content", "")),
-                        created_at=float(edited.get("timestamp", time.time())),
-                        metadata=None,
-                    )
+                    updated_id = None
+                    if self.db is not None:
+                        updated_id = self.db.update_branch_message(
+                            conv_id,
+                            session.branch_manager.current_branch_id,
+                            seq=resolved_index,
+                            role=edited.get("role", "user"),
+                            content=str(edited.get("content", "")),
+                            created_at=float(edited.get("timestamp", time.time())),
+                            metadata=None,
+                        )
                     if updated_id:
                         # Keep id stable; ensure in-memory id matches (should already)
                         try:
                             session.conversation_history[resolved_index]["id"] = updated_id
                         except Exception:
                             pass
+
+                    # 2) Sync the active branch snapshot to reflect the edit for branch-based GETs
+                    try:
+                        current_branch = session.branch_manager.get_current_branch()
+                        current_branch.conversation_history = session.conversation_history.copy()
+                        from datetime import datetime as _dt
+                        current_branch.last_active = _dt.now()
+                    except Exception as sync_err:
+                        logger.debug(f"edit branch sync failed: {sync_err}")
                     # Attach to response payload for the client to update mapping
                     response_data.setdefault("updated", {})
                     response_data["updated"].update(
