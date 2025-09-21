@@ -336,6 +336,15 @@ class CommandHandler:
 
             # Broadcast conversation updates for commands that modify state
             if command in ["clear", "delete", "regen", "edit"] and result.success:
+                # For delete, sync branch snapshot first to ensure GET reflects latest
+                if command == "delete":
+                    try:
+                        current_branch = session.branch_manager.get_current_branch()
+                        current_branch.conversation_history = session.conversation_history.copy()
+                        from datetime import datetime as _dt
+                        current_branch.last_active = _dt.now()
+                    except Exception as sync_err:
+                        logger.debug(f"delete branch sync failed: {sync_err}")
                 logger.info(f"🌐 API: Broadcasting conversation update for command '{command}'")
                 await session.broadcast_to_websockets(
                     {

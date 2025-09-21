@@ -262,6 +262,17 @@ class WebchatDB:
                     (branch_id, conversation_id, name, parent_branch_id, self._now()),
                 )
                 conn.commit()
+            else:
+                # If a proper name is provided and the existing name is null or equals id, update it
+                if name:
+                    try:
+                        cur.execute(
+                            "UPDATE branches SET name = ? WHERE id = ? AND (name IS NULL OR name = id)",
+                            (name, branch_id),
+                        )
+                        conn.commit()
+                    except Exception:
+                        pass
 
     def append_message_to_branch(
         self,

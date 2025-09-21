@@ -221,14 +221,20 @@ export function useConversationCommand() {
           console.warn('[SERVER_IGNORE] Logging context failed:', e);
         }
 
-        // Handle index synchronization errors
+        // Handle index synchronization errors: prefer soft refresh over page reload
         if (errorMessage.includes('out of bounds') || 
             errorMessage.includes('Invalid message index') ||
             errorMessage.includes('out of range')) {
           console.warn('❌ Index out of sync with backend - refreshing to sync state');
-          if (fallbackToReload) {
-            setTimeout(() => window.location.reload(), 1000);
-            return { success: false, message: 'Refreshing to sync conversation state...' };
+          try {
+            const convOk = await refreshConversation();
+            const branchesOk = await refreshBranches();
+            return { success: false, message: 'Synced with backend. Please retry.' };
+          } catch (_) {
+            if (fallbackToReload) {
+              setTimeout(() => window.location.reload(), 1000);
+              return { success: false, message: 'Refreshing page to sync state...' };
+            }
           }
         }
         

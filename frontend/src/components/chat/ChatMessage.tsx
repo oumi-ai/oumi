@@ -38,8 +38,25 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
     }
   };
 
+  const getIsDeletableTurn = (): boolean => {
+    const { getCurrentMessages, currentBranchId } = useChatStore.getState();
+    const msgs = getCurrentMessages();
+    if (messageIndex === undefined || !Array.isArray(msgs)) return false;
+    if (message.role === 'assistant') {
+      return messageIndex > 0 && msgs[messageIndex - 1]?.role === 'user';
+    }
+    if (message.role === 'user') {
+      return messageIndex + 1 < msgs.length && msgs[messageIndex + 1]?.role === 'assistant';
+    }
+    return false;
+  };
+
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this message?')) return;
+    if (!getIsDeletableTurn()) {
+      alert('Delete is only allowed on complete turns (user+assistant). Select either the user or the assistant of a complete pair.');
+      return;
+    }
     
     setActionInProgress('delete');
     try {
@@ -51,6 +68,9 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
       
       if (!result.success && result.message) {
         alert(result.message);
+      } else {
+        // Soft refresh to ensure UI stays in sync
+        await refreshConversation();
       }
     } catch (error) {
       console.error('Error deleting message:', error);
