@@ -43,7 +43,10 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
     setActionInProgress('delete');
     try {
       const args = messageIndex !== undefined ? [messageIndex.toString()] : [];
-      const result = await executeCommand('delete', args, COMMAND_CONFIGS.delete);
+      const result = await executeCommand('delete', args, { 
+        ...COMMAND_CONFIGS.delete,
+        backend: { messageId: message.id, index: messageIndex }
+      });
       
       if (!result.success && result.message) {
         alert(result.message);
@@ -60,7 +63,10 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
     setActionInProgress('regen');
     try {
       const args = messageIndex !== undefined ? [messageIndex.toString()] : [];
-      const result = await executeCommand('regen', args, COMMAND_CONFIGS.regen);
+      const result = await executeCommand('regen', args, { 
+        ...COMMAND_CONFIGS.regen,
+        backend: { messageId: message.id, index: messageIndex }
+      });
       
       if (!result.success && result.message) {
         alert(result.message);
@@ -88,7 +94,10 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
     try {
       if (messageIndex !== undefined) {
         const args = [messageIndex.toString(), editContent.trim(), '--commit'];
-        const result = await executeCommand('edit', args, COMMAND_CONFIGS.edit);
+        const result = await executeCommand('edit', args, { 
+          ...COMMAND_CONFIGS.edit,
+          backend: { messageId: message.id, index: messageIndex, payload: editContent.trim() }
+        });
         
         if (result.success) {
           // Update local state immediately for responsive UI (flag commit for versioning)
@@ -127,8 +136,8 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
   const { getMessageNodeInfo, cycleMessageVersion } = useChatStore();
   const nodeInfo = React.useMemo(() => {
     if (!currentConversationId) return { nodeId: undefined, versions: [], activeIndex: 0 };
-    return getMessageNodeInfo(currentConversationId, currentBranchId || 'main', message.id);
-  }, [getMessageNodeInfo, currentConversationId, currentBranchId, message.id]);
+    return getMessageNodeInfo(currentConversationId, currentBranchId || 'main', message.id, messageIndex ?? undefined);
+  }, [getMessageNodeInfo, currentConversationId, currentBranchId, message.id, messageIndex]);
   const hasVersions = nodeInfo.versions && nodeInfo.versions.length > 1;
 
   const handleCancelEdit = () => {

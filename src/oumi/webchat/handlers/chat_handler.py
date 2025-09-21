@@ -25,6 +25,7 @@ from oumi.utils.logging import logger
 from oumi.webchat.core.session_manager import SessionManager
 from oumi.webchat.chatgraph_migration.graph_store import GraphStore
 from oumi.webchat.protocol import extract_session_id, extract_branch_id
+from oumi.webchat.utils.id_utils import generate_message_id
 
 
 class ChatHandler:
@@ -366,6 +367,7 @@ class ChatHandler:
                     for m in messages:
                         session.conversation_history.append(
                             {
+                                "id": m.get("id") or generate_message_id(),
                                 "role": m.get("role", "user"),
                                 "content": m.get("content", ""),
                                 "timestamp": time.time(),
@@ -373,6 +375,7 @@ class ChatHandler:
                         )
                     session.conversation_history.append(
                         {
+                            "id": generate_message_id(),
                             "role": "assistant",
                             "content": response_content,
                             "timestamp": time.time(),
@@ -405,17 +408,21 @@ class ChatHandler:
                                 session.branch_manager.current_branch_id, 
                                 name=session.branch_manager.current_branch_id
                             )
-                            # Append the last two messages (user + assistant)
+                            # Append the last two messages (user + assistant) and align IDs with DB ids
                             if len(session.conversation_history) >= 2:
                                 last_two = session.conversation_history[-2:]
                                 for m in last_two:
-                                    self.db.append_message_to_branch(
+                                    db_id = self.db.append_message_to_branch(
                                         conv_id,
                                         session.branch_manager.current_branch_id,
                                         role=m.get("role", "user"),
                                         content=str(m.get("content", "")),
                                         created_at=float(m.get("timestamp", time.time())),
                                     )
+                                    try:
+                                        m["id"] = db_id
+                                    except Exception:
+                                        pass
                             # Update session's current branch record
                             self.db.set_session_current_branch(
                                 session_id, 

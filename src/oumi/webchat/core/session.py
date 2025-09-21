@@ -163,6 +163,7 @@ class WebChatSession:
         self.conversation_history.clear()
         for msg in current_messages:
             self.conversation_history.append({
+                "id": msg.get("id"),
                 "role": msg["role"],
                 "content": msg["content"],
                 "timestamp": msg["timestamp"],
@@ -234,6 +235,7 @@ class WebChatSession:
             branch.conversation_history.clear()
             for msg in branch_messages:
                 branch.conversation_history.append({
+                    "id": msg.get("id"),
                     "role": msg["role"],
                     "content": msg["content"],
                     "timestamp": msg["timestamp"],
@@ -296,6 +298,7 @@ class WebChatSession:
             if isinstance(msg, dict):
                 result.append(
                     {
+                        "id": msg.get("id"),
                         "role": msg.get("role", "unknown"),
                         "content": msg.get("content", ""),
                         "timestamp": msg.get("timestamp", time.time()),
@@ -389,7 +392,9 @@ class WebChatSession:
                     # Don't remove more - let it be visible so we can debug
             
             # Add the new assistant response to conversation history
+            from oumi.webchat.utils.id_utils import generate_message_id
             self.conversation_history.append({
+                "id": generate_message_id(),
                 "role": "assistant",
                 "content": response_content,
                 "timestamp": time.time()
@@ -413,7 +418,9 @@ class WebChatSession:
             error_message = f"Regeneration failed: {str(e)}"
             
             # Add error message to conversation
+            from oumi.webchat.utils.id_utils import generate_message_id
             self.conversation_history.append({
+                "id": generate_message_id(),
                 "role": "assistant", 
                 "content": error_message,
                 "timestamp": time.time()

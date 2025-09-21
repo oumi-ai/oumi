@@ -431,6 +431,37 @@ class UnifiedApiClient {
     return this.getClient().executeCommand(command, args, sessionId, branchId);
   }
 
+  async executeCommandAdvanced(
+    command: string,
+    args: string[] = [],
+    extras?: { sessionId?: string; branchId?: string; messageId?: string; index?: number; payload?: string }
+  ): Promise<ApiResponse> {
+    // Auto-fill session/branch if not provided
+    let sessionId = extras?.sessionId;
+    let branchId = extras?.branchId;
+    try {
+      if (!sessionId || !branchId) {
+        const storeMod: any = await import('./store');
+        const st = storeMod.useChatStore?.getState?.();
+        sessionId = sessionId || st?.getCurrentSessionId?.() || st?.currentSessionId;
+        branchId = branchId || st?.currentBranchId || 'main';
+      }
+    } catch {}
+    const payload = {
+      sessionId,
+      branchId,
+      messageId: extras?.messageId,
+      index: extras?.index,
+      payload: extras?.payload,
+    };
+    const client: any = this.getClient();
+    if (typeof client.executeCommandAdvanced === 'function') {
+      return client.executeCommandAdvanced(command, args, payload);
+    }
+    // Fallback to basic executeCommand if advanced not available
+    return client.executeCommand(command, args, sessionId, branchId);
+  }
+
   // System monitoring
   async getSystemStats(sessionId?: string): Promise<ApiResponse> {
     return this.getClient().getSystemStats(sessionId);

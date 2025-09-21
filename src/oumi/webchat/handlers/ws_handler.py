@@ -221,9 +221,14 @@ class WebSocketHandler:
                 except Exception as e:
                     logger.warning(f"WS branch switch failed: {e}")
 
-            # Append user message
+            # Append user message (provisional id; canonicalized after dual-write)
             s.conversation_history.append(
-                {"role": "user", "content": user_message, "timestamp": time.time()}
+                {
+                    "id": generate_message_id(),
+                    "role": "user",
+                    "content": user_message,
+                    "timestamp": time.time(),
+                }
             )
 
             # Sync the active branch immediately
@@ -342,9 +347,10 @@ class WebSocketHandler:
             if not response_content:
                 response_content = "I'm sorry, I couldn't generate a response."
             
-            # Add response to conversation history
+            # Add response to conversation history (provisional id; canonicalized after dual-write)
             session.conversation_history.append(
                 {
+                    "id": generate_message_id(),
                     "role": "assistant",
                     "content": response_content,
                     "timestamp": time.time(),
@@ -402,17 +408,21 @@ class WebSocketHandler:
                         session.branch_manager.current_branch_id, 
                         name=session.branch_manager.current_branch_id
                     )
-                    # Append the last two messages (user + assistant)
+                    # Append the last two messages (user + assistant) and align IDs with DB ids
                     if len(session.conversation_history) >= 2:
                         last_two = session.conversation_history[-2:]
                         for m in last_two:
-                            self.db.append_message_to_branch(
+                            db_id = self.db.append_message_to_branch(
                                 conv_id,
                                 session.branch_manager.current_branch_id,
                                 role=m.get("role", "user"),
                                 content=str(m.get("content", "")),
                                 created_at=float(m.get("timestamp", time.time())),
                             )
+                            try:
+                                m["id"] = db_id
+                            except Exception:
+                                pass
                     # Update session's current branch record
                     self.db.set_session_current_branch(
                         session.session_id, 

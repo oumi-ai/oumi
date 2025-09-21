@@ -18,6 +18,7 @@ import SettingsScreen from '@/components/settings/SettingsScreen';
 import ChatHistorySidebar from '@/components/history/ChatHistorySidebar';
 import SearchHistoryWindow from '@/components/search/SearchHistoryWindow';
 import { ChatInterfaceRef } from '@/components/chat/ChatInterface';
+import ToastContainer from '@/components/ui/ToastContainer';
 
 export default function AppLayout() {
   const [isBranchTreeExpanded, setIsBranchTreeExpanded] = React.useState(true);
@@ -651,6 +652,9 @@ export default function AppLayout() {
         progressDetails={resetProgress}
         successMessage={resetSuccess}
       />
+
+      {/* Global toasts */}
+      <ToastContainer />
     </div>
   );
 }

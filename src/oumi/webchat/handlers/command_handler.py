@@ -25,6 +25,7 @@ from rich.console import Console
 from oumi.core.commands.command_parser import ParsedCommand
 from oumi.utils.logging import logger
 from oumi.webchat.core.session_manager import SessionManager
+from oumi.webchat.utils.id_utils import generate_message_id
 
 
 class CommandHandler:
@@ -61,21 +62,97 @@ class CommandHandler:
         session_id = data.get("session_id", "default")
         command = data.get("command", "")
         args = data.get("args", [])
+        # Optional id-first fields
+        branch_id = data.get("branch_id")
+        message_id = data.get("message_id")
+        index_hint = data.get("index")
+        payload = data.get("payload")  # e.g., new content for edit
         
         logger.info(f"🌐 API: Received command '{command}' with args: {args} for session: {session_id}")
         
         session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
+
+        # Optionally switch branch to ensure cache alignment
+        if branch_id and branch_id != session.branch_manager.current_branch_id:
+            async def _switch_branch(s):
+                try:
+                    s.branch_manager.sync_conversation_history(s.conversation_history)
+                    ok, msg, br = s.branch_manager.switch_branch(branch_id)
+                    if ok and br:
+                        s.conversation_history.clear()
+                        s.conversation_history.extend(br.conversation_history)
+                        logger.debug(f"[CMD] switched branch -> {branch_id}")
+                except Exception as e:
+                    logger.warning(f"[CMD] branch switch failed: {e}")
+                return s
+            session = await self.session_manager.execute_session_operation(session_id, _switch_branch)
+
+        def _normalize_target():
+            """Resolve message target via id-first, with index fallback.
+
+            Returns (resolved_id, resolved_index, diag_dict)
+            """
+            convo = session.conversation_history or []
+            resolved_id = None
+            resolved_index = None
+            if message_id:
+                for i, m in enumerate(convo):
+                    if m.get("id") == message_id:
+                        resolved_id = message_id
+                        resolved_index = i
+                        break
+            if resolved_id is None and index_hint is not None:
+                try:
+                    i = int(index_hint)
+                    if 0 <= i < len(convo):
+                        resolved_index = i
+                        resolved_id = convo[i].get("id")
+                except Exception:
+                    pass
+            diag = {
+                "requested_index": index_hint,
+                "requested_message_id": message_id,
+                "resolved_index": resolved_index,
+                "resolved_message_id": resolved_id,
+                "msg_count": len(convo),
+                "ids_first_last": (convo[0].get("id") if convo else None, convo[-1].get("id") if convo else None),
+            }
+            # Log inconsistencies
+            if message_id and resolved_id is None:
+                logger.warning(f"[ID_MISS] message_id='{message_id}' not found | {diag}")
+            if (index_hint is not None and resolved_index is None) or (
+                isinstance(index_hint, int) and not (0 <= index_hint < len(convo))
+            ):
+                logger.warning(f"[IDX_OOB] index='{index_hint}' out of range | {diag}")
+            logger.debug(f"[RESOLVE] {diag}")
+            return resolved_id, resolved_index, diag
         
-        try:
-            # Create a string buffer to capture console output
-            string_buffer = io.StringIO()
-            temp_console = Console(file=string_buffer, width=80)
+            try:
+                # Create a string buffer to capture console output
+                string_buffer = io.StringIO()
+                temp_console = Console(file=string_buffer, width=80)
             
             # Temporarily replace the session's console
             original_console = session.command_context.console
             session.command_context.console = temp_console
             
             try:
+                # If id/index provided for id-first commands, adapt args
+                id_first_cmds = {"delete", "regen", "edit"}
+                if command in id_first_cmds:
+                    resolved_id, resolved_index, _diag = _normalize_target()
+                    if resolved_index is not None:
+                        # For delete/regen/edit, ensure index is first arg
+                        if command in {"delete", "regen"}:
+                            args = [str(resolved_index)]
+                        elif command == "edit":
+                            # edit requires new content payload
+                            new_content = payload if payload is not None else (args[1] if len(args) > 1 else "")
+                            args = [str(resolved_index), new_content]
+                        logger.info(f"[CMD] normalized {command} -> index={resolved_index}, id={resolved_id}")
+                    else:
+                        logger.warning(f"[CMD] Could not resolve target for {command}; proceeding with original args={args}")
+
                 # Execute command via command router
                 parsed_command = ParsedCommand(
                     command=command,
@@ -107,6 +184,20 @@ class CommandHandler:
                 "message": full_message,
                 "should_continue": result.should_continue,
             }
+            # Attach optional structured updates for clients
+            if command in {"delete", "regen", "edit"}:
+                resolved_id, resolved_index, _ = _normalize_target()
+                response_data["target"] = {
+                    "message_id": resolved_id,
+                    "index": resolved_index,
+                }
+                if command == "edit" and result.success and payload is not None and resolved_index is not None:
+                    response_data["updated"] = {
+                        "message_id": resolved_id,
+                        "index": resolved_index,
+                        "content": payload,
+                    }
+                    response_data["broadcast"] = True
             
             # Add specific data for certain commands
             if command in ["branches", "list_branches"]:

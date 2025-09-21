@@ -558,6 +558,7 @@ class BranchHandler:
             for msg in target_branch.conversation_history:
                 if isinstance(msg, dict):
                     conversation.append({
+                        "id": msg.get("id"),
                         "role": msg.get("role", "unknown"),
                         "content": msg.get("content", ""),
                         "timestamp": msg.get("timestamp", time.time()),

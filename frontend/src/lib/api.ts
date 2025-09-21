@@ -248,6 +248,24 @@ class ApiClient {
     return response;
   }
 
+  // Command execution with explicit extras (id-first migration)
+  async executeCommandAdvanced(
+    command: string,
+    args: string[] = [],
+    extras?: { sessionId?: string; branchId?: string; messageId?: string; index?: number; payload?: string }
+  ): Promise<ApiResponse> {
+    const body: any = { command, args };
+    if (extras?.sessionId) body.session_id = extras.sessionId;
+    if (extras?.branchId) body.branch_id = extras.branchId;
+    if (extras?.messageId) body.message_id = extras.messageId;
+    if (typeof extras?.index === 'number') body.index = extras.index;
+    if (typeof extras?.payload === 'string') body.payload = extras.payload;
+    return this.fetchApi(`/v1/oumi/command`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
   // System monitoring
   async getSystemStats(sessionId?: string): Promise<ApiResponse> {
     const url = sessionId ? `/v1/oumi/system_stats?session_id=${encodeURIComponent(sessionId)}` : '/v1/oumi/system_stats';

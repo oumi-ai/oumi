@@ -20,6 +20,12 @@ interface CommandOptions {
   successMessage?: string;
   /** Error message prefix */
   errorPrefix?: string;
+  /** Backend id-first extras */
+  backend?: {
+    messageId?: string;
+    index?: number;
+    payload?: string;
+  };
 }
 
 interface CommandResult {
@@ -164,8 +170,18 @@ export function useConversationCommand() {
     setIsExecuting(true);
     
     try {
-      console.log(`🚀 Executing command '${command}' with args:`, args);
-      const response = await apiClient.executeCommand(command, args);
+      console.log(`🚀 Executing command '${command}' with args:`, args, ' backend:', options.backend);
+      const backend = options.backend;
+      let response;
+      if (backend && (backend.messageId !== undefined || backend.index !== undefined || backend.payload !== undefined)) {
+        response = await apiClient.executeCommandAdvanced(command, args, {
+          messageId: backend.messageId,
+          index: backend.index,
+          payload: backend.payload,
+        });
+      } else {
+        response = await apiClient.executeCommand(command, args);
+      }
       console.log(`🚀 Command '${command}' response:`, response);
 
       const serverDeclined = !response.success || (response.data && (response.data.success === false || response.data.error));
@@ -227,6 +243,36 @@ export function useConversationCommand() {
 
         return { success: false, message: `${errorPrefix}: ${errorMessage}` };
       }
+
+      // Surface id/index resolution mismatches as a small toast
+      try {
+        const backend = options.backend;
+        const target = (response.data && (response.data as any).target) || undefined;
+        if (backend && target) {
+          const requestedId = backend.messageId;
+          const requestedIndex = backend.index;
+          const resolvedId = target.message_id ?? target.messageId;
+          const resolvedIndex = target.index;
+          const idMismatch = requestedId && resolvedId && requestedId !== resolvedId;
+          const idxMismatch = typeof requestedIndex === 'number' && typeof resolvedIndex === 'number' && requestedIndex !== resolvedIndex;
+          if (idMismatch || idxMismatch) {
+            const parts: string[] = [];
+            if (requestedId && resolvedId && requestedId !== resolvedId) {
+              parts.push(`id ${requestedId} → ${resolvedId}`);
+            }
+            if (typeof requestedIndex === 'number' && typeof resolvedIndex === 'number' && requestedIndex !== resolvedIndex) {
+              parts.push(`index ${requestedIndex} → ${resolvedIndex}`);
+            }
+            const msg = `Adjusted by server: ${parts.join(', ')}`;
+            try {
+              const { showToast } = await import('@/lib/toastBus');
+              showToast({ message: msg, variant: 'warning', durationMs: 4000 });
+            } catch {
+              // no-op
+            }
+          }
+        }
+      } catch {}
 
       // Wait if specified (for async operations like regeneration)
       if (waitMs > 0) {

@@ -127,7 +127,7 @@ interface ChatStore {
   hydrateNodeGraph: (conversationId: string, nodeGraph: { nodes?: { [id: string]: MessageNode }, timelines?: { [branchId: string]: string[] }, heads?: { [branchId: string]: { [nodeId: string]: string } }, tombstones?: { [branchId: string]: { [nodeId: string]: boolean } }, merges?: MergeRecord[] }) => void;
 
   // Phase C helpers: version navigation + inquiry
-  getMessageNodeInfo: (conversationId: string, branchId: string, messageId: string) => { nodeId?: string; versions: MessageVersion[]; activeIndex: number };
+  getMessageNodeInfo: (conversationId: string, branchId: string, messageId: string, byIndex?: number) => { nodeId?: string; versions: MessageVersion[]; activeIndex: number };
   cycleMessageVersion: (conversationId: string, branchId: string, nodeId: string, delta: -1 | 1) => void;
   setMessageVersionIndex: (conversationId: string, branchId: string, nodeId: string, index: number) => void;
 }
@@ -487,7 +487,8 @@ export const useChatStore = create<ChatStore>()(
             messages.forEach((msg, i) => {
               const base = (msg && (msg as any).id != null) ? String((msg as any).id) : 'auto';
               const nodeId = `node-${conversationId}-${branchId}-${i}-${base}`;
-              const verId = `ver-${i}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+              // Prefer backend id for version id if available; ensures id-based mapping works
+              const verId = (msg && (msg as any).id != null) ? String((msg as any).id) : `ver-${i}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
               const ver: MessageVersion = { id: verId, role: msg.role, content: msg.content, timestamp: msg.timestamp, attachments: msg.attachments };
               newNodes[nodeId] = { id: nodeId, versions: [ver] };
               newTimeline.push(nodeId);
@@ -1230,7 +1231,7 @@ export const useChatStore = create<ChatStore>()(
           };
         }),
 
-      getMessageNodeInfo: (conversationId: string, branchId: string, messageId: string) => {
+      getMessageNodeInfo: (conversationId: string, branchId: string, messageId: string, byIndex?: number) => {
         const nodes = get().messageNodes[conversationId] || {};
         const timeline = get().branchTimelines[conversationId]?.[branchId] || [];
         const heads = get().branchHeads[conversationId]?.[branchId] || {};
@@ -1239,6 +1240,10 @@ export const useChatStore = create<ChatStore>()(
           if (heads[nid] === messageId) { nodeId = nid; break; }
           const n = nodes[nid];
           if (n && n.versions.some(v => v.id === messageId)) { nodeId = nid; break; }
+        }
+        // Fallback by index mapping when ids don't align with versions
+        if (!nodeId && typeof byIndex === 'number' && byIndex >= 0 && byIndex < timeline.length) {
+          nodeId = timeline[byIndex];
         }
         const node = nodeId ? nodes[nodeId] : undefined;
         const versions = node?.versions || [];

@@ -74,7 +74,13 @@ export interface ElectronAPI {
     sendMessage: (content: string, sessionId?: string, branchId?: string) => Promise<any>;
 
     // Command execution
-    executeCommand: (command: string, args?: string[], sessionId?: string, branchId?: string) => Promise<any>;
+    executeCommand: (
+      command: string,
+      args?: string[],
+      sessionId?: string,
+      branchId?: string,
+      target?: { messageId?: string; index?: number; payload?: string }
+    ) => Promise<any>;
   };
 
   // Real-time event system (replacing WebSocket)
@@ -244,8 +250,8 @@ const electronAPI: ElectronAPI = {
     sendMessage: (content, sessionId, branchId = 'main') => 
       ipcRenderer.invoke('chat:send-message', content, sessionId, branchId),
 
-    executeCommand: (command, args = [], sessionId?: string, branchId?: string) => 
-      ipcRenderer.invoke('chat:execute-command', command, args, sessionId, branchId)
+    executeCommand: (command, args = [], sessionId?: string, branchId?: string, target?: { messageId?: string; index?: number; payload?: string }) => 
+      ipcRenderer.invoke('chat:execute-command', command, args, sessionId, branchId, target)
   },
 
   events: {

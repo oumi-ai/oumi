@@ -337,15 +337,25 @@ class ElectronApiClient {
     command: string,
     args: string[] = [],
     sessionId?: string,
-    branchId?: string
+    branchId?: string,
+    target?: { messageId?: string; index?: number; payload?: string }
   ): Promise<ApiResponse> {
     if (!this.isElectron) {
       throw new Error('Command execution only available in Electron app');
     }
-    console.log(`🖥️  Electron API: Executing command '${command}' with args:`, args);
-    const response = await window.electronAPI.chat.executeCommand(command, args, sessionId, branchId);
+    console.log(`🖥️  Electron API: Executing command '${command}' with args:`, args, ' target:', target);
+    const response = await window.electronAPI.chat.executeCommand(command, args, sessionId, branchId, target);
     console.log(`🖥️  Electron API: Command '${command}' response:`, response);
     return response;
+  }
+
+  public async executeCommandAdvanced(
+    command: string,
+    args: string[] = [],
+    extras?: { sessionId?: string; branchId?: string; messageId?: string; index?: number; payload?: string }
+  ): Promise<ApiResponse> {
+    const { sessionId, branchId, messageId, index, payload } = extras || {};
+    return this.executeCommand(command, args, sessionId, branchId, { messageId, index, payload });
   }
 
   public async getSystemStats(sessionId?: string): Promise<ApiResponse> {
