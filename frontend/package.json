@@ -24,7 +24,7 @@
     "electron:dev": "npm run generate-configs && npm run electron:compile && concurrently \"npm run dev\" \"node scripts/wait-for-next.js\"",
     "electron:debug": "node scripts/debug-electron.js",
     "electron:debug-build": "node scripts/debug-electron.js --build",
-    "electron:build-debug": "node scripts/clear-pycache.js && npm run build:electron && npm run electron:compile && npm run electron:debug",
+    "electron:build-debug": "OUMI_LOG_LEVEL=DEBUG node scripts/clear-pycache.js && OUMI_LOG_LEVEL=DEBUG npm run build:electron && OUMI_LOG_LEVEL=DEBUG npm run electron:compile && OUMI_LOG_LEVEL=DEBUG npm run electron:debug",
     "electron:pack": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder",
     "electron:dist": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --publish=never",
     "electron:publish": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --publish=always",

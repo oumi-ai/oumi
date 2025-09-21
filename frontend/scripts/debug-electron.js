@@ -50,6 +50,8 @@ const env = {
   ELECTRON_IS_DEV: '1', // This enables DevTools while using production build
   ELECTRON_DEBUG_PRODUCTION: '1',
   DEBUG_COLORS: '1',
+  // Ensure Python backend uses verbose logging
+  OUMI_LOG_LEVEL: 'DEBUG',
 };
 
 // Launch Electron with debugging

@@ -86,6 +86,7 @@ class CommandHandler:
                             s.conversation_history.clear()
                             s.conversation_history.extend(br.conversation_history)
                             logger.debug(f"[CMD] switched branch -> {branch_id}")
+                            logger.debug(f"[CMD] post-switch history len={len(s.conversation_history)} obj={id(s.conversation_history)}")
                     except Exception as e:
                         logger.warning(f"[CMD] branch switch failed: {e}")
                     return s
@@ -118,7 +119,16 @@ class CommandHandler:
             original_console = session.command_context.console
             session.command_context.console = temp_console
 
+            # Log pre-command snapshot
             try:
+                try:
+                    pre_len = len(session.conversation_history)
+                    first_id = session.conversation_history[0].get("id") if pre_len else None
+                    last_id = session.conversation_history[-1].get("id") if pre_len else None
+                    logger.info(f"[CMD] Pre-command history len={pre_len} first={first_id} last={last_id} obj={id(session.conversation_history)}")
+                except Exception:
+                    pass
+                
                 # Normalize id-first commands to index-based arg
                 resolved_id = None
                 resolved_index = None
@@ -146,6 +156,13 @@ class CommandHandler:
                 )
                 logger.info(f"🌐 API: Executing command '{command}' via command router...")
                 result = session.command_router.handle_command(parsed_command)
+                try:
+                    post_len = len(session.conversation_history)
+                    first_id = session.conversation_history[0].get("id") if post_len else None
+                    last_id = session.conversation_history[-1].get("id") if post_len else None
+                    logger.info(f"[CMD] Post-command history len={post_len} first={first_id} last={last_id} obj={id(session.conversation_history)}")
+                except Exception:
+                    pass
 
                 # Combine message + captured console
                 console_output = string_buffer.getvalue().strip()
@@ -161,6 +178,19 @@ class CommandHandler:
                 "message": full_message,
                 "should_continue": result.should_continue,
             }
+
+            # Always include routing identifiers for clients to target updates precisely
+            try:
+                response_data["session_id"] = session_id
+                response_data["branch_id"] = session.branch_manager.current_branch_id
+                if self.db is not None:
+                    # Do not force-create new conversations here; ensure_conversation returns existing id
+                    response_data["conversation_id"] = self.db.ensure_conversation(session_id)
+                else:
+                    # Fallback to session.session_id as stable handle when DB is unavailable
+                    response_data["conversation_id"] = getattr(session, "current_conversation_id", None) or session.session_id
+            except Exception:
+                pass
 
             # Target metadata for id-first commands
             if command in {"delete", "regen", "edit"}:
@@ -232,6 +262,7 @@ class CommandHandler:
                                 session.conversation_history[resolved_index]["id"] = updated_id
                             except Exception:
                                 pass
+                        logger.info(f"[CMD] edit persisted: conv={conv_id} branch={session.branch_manager.current_branch_id} idx={resolved_index} id={session.conversation_history[resolved_index].get('id')}")
                     # Keep branch using same list object
                     try:
                         current_branch = session.branch_manager.get_current_branch()
@@ -262,6 +293,7 @@ class CommandHandler:
                             session.conversation_history[-1]["id"] = new_db_id
                         except Exception:
                             pass
+                        logger.info(f"[CMD] regen persisted: conv={conv_id} branch={session.branch_manager.current_branch_id} idx={len(session.conversation_history)-1} id={new_db_id}")
                         response_data.setdefault("updated", {})
                         response_data["updated"].update({"message_id": new_db_id, "index": len(session.conversation_history) - 1, "content": last.get("content", "")})
                         response_data["broadcast"] = True
@@ -286,6 +318,11 @@ class CommandHandler:
                     "current_branch": session.branch_manager.current_branch_id,
                     "timestamp": time.time(),
                 })
+                try:
+                    clen = len(session.conversation_history)
+                    logger.info(f"[CMD] broadcast conversation_update complete len={clen}")
+                except Exception:
+                    pass
 
             # Persist clear/delete by replacing branch mapping
             if self.db and command in ["clear", "delete"]:
@@ -296,6 +333,7 @@ class CommandHandler:
                         session.branch_manager.current_branch_id,
                         session.conversation_history,
                     )
+                    logger.info(f"[CMD] {command} persisted via replace_branch_history: conv={conv_id} branch={session.branch_manager.current_branch_id} count={len(session.conversation_history)}")
                 except Exception as pe:
                     logger.warning(f"⚠️ Dual-write persistence (command result) failed: {pe}")
 

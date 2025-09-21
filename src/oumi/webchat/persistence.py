@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Optional, Sequence, List, Dict, Tuple, Any
+from oumi.utils.logging import logger
 
 
 class WebchatDB:
@@ -640,10 +641,13 @@ class WebchatDB:
         conversation by content hash when possible, otherwise inserts new rows.
         """
         with self._lock, self._connect() as conn:
+            logger.info(f"[DB] replace_branch_history: conv={conversation_id} branch={branch_id} count={len(messages)}")
             cur = conn.cursor()
             # Clear existing branch mapping
             cur.execute("DELETE FROM branch_messages WHERE branch_id = ?", (branch_id,))
             next_seq = 0
+            reused = 0
+            inserted = 0
             for msg in messages:
                 role = msg.get("role", "user")
                 content = str(msg.get("content", ""))
@@ -654,18 +658,21 @@ class WebchatDB:
                 existing_msg_id = self._find_existing_message(conn, conversation_id, content_hash)
                 if existing_msg_id:
                     msg_id = existing_msg_id
+                    reused += 1
                 else:
                     msg_id = f"msg_{uuid.uuid4().hex}"
                     cur.execute(
                         "INSERT INTO messages(id, conversation_id, role, content, content_hash, created_at, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
                         (msg_id, conversation_id, role, content, content_hash, created, metadata),
                     )
+                    inserted += 1
                 cur.execute(
                     "INSERT INTO branch_messages(branch_id, message_id, seq) VALUES (?, ?, ?)",
                     (branch_id, msg_id, next_seq),
                 )
                 next_seq += 1
             conn.commit()
+            logger.info(f"[DB] replace_branch_history done: reused={reused} inserted={inserted} total={next_seq}")
 
     def get_conversation_stats(self, conversation_id: str) -> Dict[str, Any]:
         """Get statistics for a conversation."""

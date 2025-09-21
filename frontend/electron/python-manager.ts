@@ -686,8 +686,13 @@ export class PythonServerManager {
    */
   private async getCleanEnvironment(): Promise<NodeJS.ProcessEnv> {
     // Start with minimal environment
+    const desiredLogLevel = (process.env.OUMI_LOG_LEVEL?.toUpperCase?.() === 'DEBUG' ||
+                             process.env.ELECTRON_DEBUG_PRODUCTION === '1' ||
+                             this.isDevelopment)
+                              ? 'DEBUG' : 'INFO';
+
     const cleanEnv: NodeJS.ProcessEnv = {
-      OUMI_LOG_LEVEL: 'INFO',
+      OUMI_LOG_LEVEL: desiredLogLevel,
       NODE_ENV: 'production',  // Required by TypeScript definition
       HOME: process.env.HOME || '',
       USER: process.env.USER || '',
@@ -759,6 +764,9 @@ export class PythonServerManager {
       } else {
         log.warn('[getCleanEnvironment] No API keys found in secure storage - API-based inference will not work');
       }
+
+      // Log chosen log level for backend
+      log.info(`[getCleanEnvironment] OUMI_LOG_LEVEL=${cleanEnv.OUMI_LOG_LEVEL}`);
     } catch (error) {
       log.error('[getCleanEnvironment] Failed to load API keys from secure storage:', error);
       // Continue without API keys - some inference engines don't need them

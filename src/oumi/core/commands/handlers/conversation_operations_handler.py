@@ -88,6 +88,13 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     message="No conversation history to delete",
                     should_continue=False,
                 )
+            try:
+                pre_len = len(self.conversation_history)
+                logger.info(f"🗑️  DELETE: Pre-delete history len={pre_len}")
+                if pre_len:
+                    logger.debug(f"🗑️  DELETE: Pre first id={self.conversation_history[0].get('id')} last id={self.conversation_history[-1].get('id')}")
+            except Exception:
+                pass
 
             # Check if index is provided
             if command.args and len(command.args) > 0:
@@ -110,6 +117,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
                         # Expect a user immediately before
                         if index - 1 >= 0 and self.conversation_history[index - 1].get("role") == "user":
                             delete_indices = [index - 1, index]
+                            logger.info(f"🗑️  DELETE: Targeting indices {delete_indices} (user+assistant)")
                         else:
                             return CommandResult(
                                 success=False,
@@ -120,6 +128,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
                         # Expect an assistant immediately after
                         if index + 1 < len(self.conversation_history) and self.conversation_history[index + 1].get("role") == "assistant":
                             delete_indices = [index, index + 1]
+                            logger.info(f"🗑️  DELETE: Targeting indices {delete_indices} (user+assistant)")
                         else:
                             return CommandResult(
                                 success=False,
@@ -135,6 +144,10 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     # Delete in reverse order to keep indices valid
                     deleted_count = 0
                     for i in sorted(delete_indices, reverse=True):
+                        try:
+                            logger.debug(f"🗑️  DELETE: Removing idx={i} id={self.conversation_history[i].get('id')} role={self.conversation_history[i].get('role')}")
+                        except Exception:
+                            pass
                         self.conversation_history.pop(i)
                         deleted_count += 1
                     logger.info(f"🗑️  DELETE: Successfully deleted {deleted_count} message(s) for the turn at index {index}")
@@ -163,6 +176,13 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 logger.info(f"🗑️  DELETE: Successfully deleted {deleted_count} message(s) from last turn")
 
             if deleted_count > 0:
+                try:
+                    post_len = len(self.conversation_history)
+                    logger.info(f"🗑️  DELETE: Post-delete history len={post_len}")
+                    if post_len:
+                        logger.debug(f"🗑️  DELETE: Post first id={self.conversation_history[0].get('id')} last id={self.conversation_history[-1].get('id')}")
+                except Exception:
+                    pass
                 self._update_context_in_monitor()
                 return CommandResult(
                     success=True,

@@ -186,11 +186,19 @@ export function useConversationCommand() {
 
       // If backend returned an updated conversation snapshot, apply it immediately
       try {
-        const { currentConversationId, currentBranchId, setMessages } = useChatStore.getState();
+        const { currentConversationId, currentBranchId, setMessages, setCurrentConversationId } = useChatStore.getState();
         const snap = response?.data?.conversation;
-        if (currentConversationId && snap && Array.isArray(snap)) {
-          setMessages(currentConversationId, currentBranchId || 'main', snap);
-          console.log(`🔄 Applied snapshot from command response: ${snap.length} messages`);
+        const snapConvId: string | undefined = response?.data?.conversation_id;
+        const snapBranchId: string | undefined = response?.data?.branch_id || response?.data?.current_branch;
+        const targetConvId = snapConvId || currentConversationId;
+        const targetBranchId = snapBranchId || currentBranchId || 'main';
+        if (targetConvId && snap && Array.isArray(snap)) {
+          // If backend provided canonical conversation id, align the store selection
+          if (snapConvId && currentConversationId !== snapConvId) {
+            try { setCurrentConversationId(snapConvId); } catch {}
+          }
+          setMessages(targetConvId, targetBranchId, snap);
+          console.log(`🔄 Applied snapshot from command response: ${snap.length} messages (conv=${targetConvId}, branch=${targetBranchId})`);
         }
       } catch (e) {
         // Non-fatal; fall back to standard refresh path
