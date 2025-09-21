@@ -525,19 +525,14 @@ export const useChatStore = create<ChatStore>()(
                 nodesForConv[nodeId] = { id: nodeId, versions: [...node.versions, newVer] };
                 headsForBranch[nodeId] = newVerId;
               } else {
-                // If content matches but backend supplied a different canonical id, update head to it
-                if (backendVerId && headId !== backendVerId) {
-                  const hasBackendId = node.versions.some(v => v.id === backendVerId);
-                  if (!hasBackendId) {
-                    const copyVer: MessageVersion = {
-                      id: backendVerId,
-                      role: head?.role || backendMsg.role,
-                      content: currentText,
-                      timestamp: backendMsg.timestamp || Date.now(),
-                      attachments: backendMsg.attachments
-                    };
-                    nodesForConv[nodeId] = { ...nodesForConv[nodeId], versions: [...node.versions, copyVer] };
-                  }
+                // If content matches but backend supplied a different canonical id,
+                // do NOT create a new version. Switch head to the backend id and retag
+                // the current head version id to the canonical id.
+                if (backendVerId && headId !== backendVerId && head) {
+                  const newVersions = node.versions.map(v =>
+                    v.id === head.id ? { ...v, id: backendVerId } : v
+                  );
+                  nodesForConv[nodeId] = { ...node, versions: newVersions };
                   headsForBranch[nodeId] = backendVerId;
                 }
               }

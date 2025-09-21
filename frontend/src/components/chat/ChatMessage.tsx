@@ -26,7 +26,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
   const { updateMessage, deleteMessage, addMessage, getBranches, currentConversationId, currentBranchId } = useChatStore();
   // Get branches using the selector
   const branches = getBranches();
-  const { executeCommand, isExecuting, refreshConversation } = useConversationCommand();
+  const { executeCommand, isExecuting, refreshConversation, refreshBranches } = useConversationCommand();
 
   const handleCopy = async () => {
     try {
@@ -100,29 +100,19 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
         });
         
         if (result.success) {
-          // Update local state immediately for responsive UI (flag commit for versioning)
-          updateMessage(
-            currentConversationId || '',
-            currentBranchId || 'main',
-            message.id, 
-            { content: editContent, __commit: true } as any
-          );
+          // Avoid local commit/version bump; refresh authoritative state instead
+          await refreshConversation();
+          await refreshBranches();
           setIsEditing(false);
           console.log('✅ Message edited and persisted to backend');
         } else if (result.message) {
           alert(result.message);
         }
       } else {
-        // Fallback: update locally if no messageIndex
-        // The updateMessage function now requires 4 parameters
-        updateMessage(
-          currentConversationId || '',
-          currentBranchId || 'main',
-          message.id, 
-          { content: editContent, __commit: true } as any
-        );
+        // No index available; prefer a full refresh rather than local commit
+        await refreshConversation();
         setIsEditing(false);
-        console.warn('⚠️  Message edited locally only (no messageIndex provided)');
+        console.warn('⚠️  Message edited with no index; refreshed to sync state');
       }
     } catch (error) {
       console.error('❌ Error saving edit:', error);
