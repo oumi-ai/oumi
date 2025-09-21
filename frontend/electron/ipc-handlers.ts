@@ -581,6 +581,8 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
     const body: any = { command, args };
     if (sessionId) body.session_id = sessionId;
     if (branchId) body.branch_id = branchId;
+    // Mark requests from Electron so backend can adjust policies
+    body.electron = true;
     if (target && typeof target === 'object') {
       if (target.messageId) body.message_id = target.messageId;
       if (typeof target.index === 'number') body.index = target.index;

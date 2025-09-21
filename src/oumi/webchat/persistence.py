@@ -263,7 +263,17 @@ class WebchatDB:
                 )
                 conn.commit()
 
-    def append_message_to_branch(self, conversation_id: str, branch_id: str, role: str, content: str, created_at: Optional[float] = None, metadata: Optional[str] = None) -> str:
+    def append_message_to_branch(
+        self,
+        conversation_id: str,
+        branch_id: str,
+        role: str,
+        content: str,
+        created_at: Optional[float] = None,
+        metadata: Optional[str] = None,
+        *,
+        force_new: bool = False,
+    ) -> str:
         """Insert a new message in conversation and link it to the branch with next seq.
         
         Uses content deduplication - if identical message exists, reuses it.
@@ -274,13 +284,14 @@ class WebchatDB:
         with self._lock, self._connect() as conn:
             cur = conn.cursor()
             
-            # Try to find existing message with same content
-            existing_msg_id = self._find_existing_message(conn, conversation_id, content_hash)
+            msg_id = None
+            # Try to find existing message with same content (unless forcing new row)
+            if not force_new:
+                existing_msg_id = self._find_existing_message(conn, conversation_id, content_hash)
+                if existing_msg_id:
+                    msg_id = existing_msg_id
             
-            if existing_msg_id:
-                # Reuse existing message
-                msg_id = existing_msg_id
-            else:
+            if msg_id is None:
                 # Create new message
                 msg_id = f"msg_{uuid.uuid4().hex}"
                 cur.execute(

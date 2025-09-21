@@ -355,7 +355,11 @@ class WebChatSession:
             full_conversation = Conversation(messages=conversation_messages)
             
             logger.info(f"🔄 Built conversation with {len(conversation_messages)} messages for regeneration")
-            logger.info(f"🔄 Final user message content: {conversation_messages[-1].content[:100] if conversation_messages and conversation_messages[-1].role == Role.USER else 'None'}...")
+            # Log the exact override used to avoid ambiguity about which user text is final
+            try:
+                logger.info(f"🔄 Final user message content (override): {user_input_override[:100]}...")
+            except Exception:
+                pass
             
             # Perform inference using the same logic as OpenAI API handler
             logger.info(f"🚀 Calling inference_engine.infer() for regeneration")

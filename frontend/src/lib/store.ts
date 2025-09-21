@@ -512,8 +512,9 @@ export const useChatStore = create<ChatStore>()(
               const head = node.versions.find(v => v.id === headId) || node.versions[node.versions.length - 1];
               const backendText = backendMsg?.content ?? '';
               const currentText = head?.content ?? '';
+              const backendVerId = (backendMsg && (backendMsg as any).id != null) ? String((backendMsg as any).id) : undefined;
               if (backendText !== currentText) {
-                const newVerId = `ver-sync-${i}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+                const newVerId = backendVerId || `ver-sync-${i}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
                 const newVer: MessageVersion = {
                   id: newVerId,
                   role: backendMsg.role,
@@ -523,6 +524,22 @@ export const useChatStore = create<ChatStore>()(
                 };
                 nodesForConv[nodeId] = { id: nodeId, versions: [...node.versions, newVer] };
                 headsForBranch[nodeId] = newVerId;
+              } else {
+                // If content matches but backend supplied a different canonical id, update head to it
+                if (backendVerId && headId !== backendVerId) {
+                  const hasBackendId = node.versions.some(v => v.id === backendVerId);
+                  if (!hasBackendId) {
+                    const copyVer: MessageVersion = {
+                      id: backendVerId,
+                      role: head?.role || backendMsg.role,
+                      content: currentText,
+                      timestamp: backendMsg.timestamp || Date.now(),
+                      attachments: backendMsg.attachments
+                    };
+                    nodesForConv[nodeId] = { ...nodesForConv[nodeId], versions: [...node.versions, copyVer] };
+                  }
+                  headsForBranch[nodeId] = backendVerId;
+                }
               }
             }
             convNodes = nodesForConv;

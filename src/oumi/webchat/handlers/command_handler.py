@@ -67,6 +67,7 @@ class CommandHandler:
         message_id = data.get("message_id")
         index_hint = data.get("index")
         payload = data.get("payload")  # e.g., new content for edit
+        is_electron = bool(data.get("electron"))
         
         logger.info(f"🌐 API: Received command '{command}' with args: {args} for session: {session_id}")
         
@@ -262,6 +263,7 @@ class CommandHandler:
                         role=edited.get("role", "user"),
                         content=str(edited.get("content", "")),
                         created_at=float(edited.get("timestamp", time.time())),
+                        force_new=is_electron,
                     )
                     # Overwrite in-memory id with canonical DB id
                     try:
@@ -281,6 +283,42 @@ class CommandHandler:
                 except Exception as e:
                     logger.warning(f"[CMD] edit id alignment failed: {e}")
 
+            # For regen, align the newly generated assistant message ID with DB canonical id
+            if result.success and command == "regen" and self.db is not None:
+                try:
+                    conv_id = self.db.ensure_conversation(session_id)
+                    # Ensure branch exists
+                    self.db.ensure_branch(
+                        conv_id, session.branch_manager.current_branch_id, name=session.branch_manager.current_branch_id
+                    )
+                    # Persist the last assistant message
+                    if session.conversation_history and session.conversation_history[-1].get("role") == "assistant":
+                        last = session.conversation_history[-1]
+                        new_db_id = self.db.append_message_to_branch(
+                            conv_id,
+                            session.branch_manager.current_branch_id,
+                            role=last.get("role", "assistant"),
+                            content=str(last.get("content", "")),
+                            created_at=float(last.get("timestamp", time.time())),
+                            force_new=is_electron,
+                        )
+                        try:
+                            session.conversation_history[-1]["id"] = new_db_id
+                        except Exception:
+                            pass
+                        # Attach for clients
+                        response_data.setdefault("updated", {})
+                        response_data["updated"].update(
+                            {
+                                "message_id": new_db_id,
+                                "index": len(session.conversation_history) - 1,
+                                "content": last.get("content", ""),
+                            }
+                        )
+                        response_data["broadcast"] = True
+                except Exception as e:
+                    logger.warning(f"[CMD] regen id alignment failed: {e}")
+
             # Broadcast conversation updates for commands that modify state
             if command in ["clear", "delete", "regen", "edit"] and result.success:
                 logger.info(f"🌐 API: Broadcasting conversation update for command '{command}'")
@@ -295,8 +333,8 @@ class CommandHandler:
                 )
             
             # Save command results to persistence if available and supported
-            # Avoid bulk-add for edit to prevent duplication; targeted persist above.
-            if self.db and session.is_hydrated_from_db and command in ["clear", "delete", "regen"]:
+            # Avoid bulk-add for edit and regen to prevent duplication; targeted persist above.
+            if self.db and session.is_hydrated_from_db and command in ["clear", "delete"]:
                 try:
                     # If the command modified conversation history, sync to database
                     conv_id = self.db.ensure_conversation(session_id)
