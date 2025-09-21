@@ -184,6 +184,18 @@ export function useConversationCommand() {
       }
       console.log(`🚀 Command '${command}' response:`, response);
 
+      // If backend returned an updated conversation snapshot, apply it immediately
+      try {
+        const { currentConversationId, currentBranchId, setMessages } = useChatStore.getState();
+        const snap = response?.data?.conversation;
+        if (currentConversationId && snap && Array.isArray(snap)) {
+          setMessages(currentConversationId, currentBranchId || 'main', snap);
+          console.log(`🔄 Applied snapshot from command response: ${snap.length} messages`);
+        }
+      } catch (e) {
+        // Non-fatal; fall back to standard refresh path
+      }
+
       const serverDeclined = !response.success || (response.data && (response.data.success === false || response.data.error));
       if (serverDeclined) {
         const errorMessage = response.message || (response.data?.message || response.data?.error) || 'Unknown error';

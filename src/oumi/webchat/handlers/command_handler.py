@@ -190,6 +190,13 @@ class CommandHandler:
                 except Exception as e:
                     logger.error(f"❌ Error adding model_info to response: {e}")
 
+            # For state-mutating commands, include the latest conversation snapshot directly
+            if command in {"clear", "delete", "regen", "edit"} and result.success:
+                response_data["conversation"] = session.serialize_conversation()
+                response_data["branches"] = session.get_enhanced_branch_info(self.db)
+                response_data["current_branch"] = session.branch_manager.current_branch_id
+                response_data.setdefault("broadcast", True)
+
             # Follow-up inference for regen
             if result.success and result.should_continue and getattr(result, 'user_input_override', None):
                 logger.info(f"🌐 API: Command '{command}' requires follow-up inference with user_input_override")
