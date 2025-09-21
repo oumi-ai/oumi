@@ -1,0 +1,69 @@
+# FFT config for Qwen3 8B for Perlmutter cluster.
+#
+# Requirements:
+#   - Set up your NERSC account (only available to Oumi core team and collaborators)
+#   - Set $NERSC_USER to your NERSC username
+#
+# Usage:
+#   oumi launch up -c configs/recipes/qwen3/sft/8b_full/perlmutter_job.yaml --cluster debug.$NERSC_USER --user $NERSC_USER --log-level DEBUG
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: qwen3-8b-fft
+
+num_nodes: 1
+resources:
+  cloud: perlmutter
+
+# Upload working directory to ~/oumi_launcher/{submission_time}
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: qwen3.8b.fft
+
+setup: |
+  #SBATCH -J qwen3_8b_fft
+  #SBATCH -t 00:20:00
+
+run: |
+  set -e  # Exit if any command failed.
+
+  PERLMUTTER_NODE_RANK=${PMI_RANK:=0}
+
+  # Various setup for running on NERSC Perlmutter.
+  source "${SLURM_SUBMIT_DIR}/scripts/perlmutter/perlmutter_init.sh"
+
+  LOG_PREFIX="Node: ${PERLMUTTER_NODE_RANK}:"
+  echo "${LOG_PREFIX} ***ENV BEGIN***"
+  echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
+  echo "${LOG_PREFIX} HF_HOME: ${HF_HOME}"
+  echo "${LOG_PREFIX} ***ENV END***"
+
+  echo "Using this Python environment: $(which python3)"
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download "Qwen/Qwen3-8B"
+
+  # Log some context info and  verify that Oumi is usable in this environment:
+  python -c "from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
+
+  oumi env
+
+  set -x
+  oumi distributed torchrun \
+    -m oumi train \
+    -c configs/recipes/qwen3/sft/8b_full/train.yaml \
+    --training.output_dir="$CFS/$SBATCH_ACCOUNT/users/$USER/jobs/${SLURM_JOBID}/qwen3_8b.fft" \
+    --training.run_name="qwen3.8b.fft.${SLURM_JOBID}" \
+    --training.max_steps=50 \
+    --training.dataloader_num_workers=2 \
+    --training.dataloader_prefetch_factor=32 \
+    --training.enable_wandb=false
+
+  echo "Node ${PERLMUTTER_NODE_RANK} is all done!"

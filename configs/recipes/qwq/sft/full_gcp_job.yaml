@@ -24,7 +24,7 @@ resources:
 working_dir: .
 
 file_mounts:
-  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.netrc: ~/.netrc # WandB credentials
 
 # NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
 # For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
@@ -42,7 +42,7 @@ setup: |
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/QwQ-32B
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download Qwen/QwQ-32B
 
 run: |
   set -e  # Exit if any command failed.

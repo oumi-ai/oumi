@@ -13,17 +13,23 @@
 # limitations under the License.
 
 import functools
+import io
+import os
 import re
+import signal
 import subprocess
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.utils.logging import logger
 
 _CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
+
+_LOG_DIR = "$HOME/oumi_slurm_logs/{job_id}.out"
 
 
 class _SlurmAuthException(Exception):
@@ -52,8 +58,8 @@ def _check_connection(user: str, slurm_host: str) -> None:
     raise _SlurmAuthException("Connection to Slurm host is closed." + error_msg)
 
 
-def _is_job_done(job_state: str) -> bool:
-    """Determines if a job is done based on its state.
+def _get_job_state(job_state: str) -> JobState:
+    """Gets the JobState from a job state string.
 
     See https://slurm.schedmd.com/job_state_codes.html for more details.
 
@@ -61,12 +67,10 @@ def _is_job_done(job_state: str) -> bool:
         job_state: The state of the job.
 
     Returns:
-        True if the job is done, False otherwise.
+        The JobState.
     """
-    terminal_states = {
+    failure_states = {
         "BOOT_FAIL",
-        "CANCELLED",
-        "COMPLETED",
         "DEADLINE",
         "FAILED",
         "LAUNCH_FAILED",
@@ -77,7 +81,31 @@ def _is_job_done(job_state: str) -> bool:
         "SUSPENDED",
         "STOPPED",
     }
-    return job_state in terminal_states
+    if job_state in failure_states:
+        return JobState.FAILED
+    elif job_state == "COMPLETED":
+        return JobState.SUCCEEDED
+    elif job_state == "CANCELLED":
+        return JobState.CANCELLED
+    elif job_state == "RUNNING":
+        return JobState.RUNNING
+    return JobState.PENDING
+
+
+def _is_job_done(job_state: JobState) -> bool:
+    """Determines if a job is done based on its state.
+
+    Args:
+        job_state: The state of the job.
+
+    Returns:
+        True if the job is done, False otherwise.
+    """
+    return (
+        job_state == JobState.SUCCEEDED
+        or job_state == JobState.CANCELLED
+        or job_state == JobState.FAILED
+    )
 
 
 def _split_status_line(
@@ -117,6 +145,7 @@ def _split_status_line(
         start = sum(column_lengths[:i]) + i
         end = start + column_lengths[i]
         fields.append(line[start:end].strip())
+    state = _get_job_state(fields[3])
     return JobStatus(
         id=fields[0],
         name=fields[1],
@@ -124,7 +153,8 @@ def _split_status_line(
         status=fields[3].split(" ")[0],
         cluster=cluster_name,
         metadata=metadata,
-        done=_is_job_done(fields[3]),
+        done=_is_job_done(state),
+        state=state,
     )
 
 
@@ -151,6 +181,191 @@ def retry_auth(user_function: Callable) -> Callable:
         return user_function(self, *args, **kwargs)
 
     return wrapper
+
+
+class SlurmLogStream(io.TextIOBase):
+    """A stream that provides access to job logs.
+
+    This class inherits from io.TextIOBase to provide a file-like interface
+    for reading job logs.
+
+    Expected Order of Events:
+    1. Initialization: Starts a tail process to monitor the job's stdout file and
+       launches a background thread to check job status.
+    2. Active Reading: While the job is running, reads lines directly from the
+       tail process stdout in real-time.
+    3. Job Completion: The background thread detects when the job is done and
+       terminates the tail process.
+    4. Cleanup: When the stream is closed, resources are cleaned up.
+
+    State Transitions:
+    - _proc: None → subprocess.Popen → None (after termination)
+    """
+
+    def __init__(
+        self,
+        cluster_name: str,
+        job_id: str,
+        client: "SlurmClient",
+    ):
+        """Initialize the log stream.
+
+        Args:
+            cluster_name: The name of the cluster the job was run in.
+            job_id: The Slurm job ID whose output file to follow.
+            client: The SlurmClient instance.
+        """
+        self.job_id = job_id
+        self._client = client
+        self._job_check_thread = None
+        self._proc = self._start_tail_process(cluster_name)
+
+        # Progress bar detection patterns
+        self._progress_patterns = [
+            r"\d+%",  # Percentage patterns like "50%"
+            r"\d+/\d+",  # Fraction patterns like "100/200"
+            r"\[.*\]",  # Bracket patterns like "[████████░░]"
+        ]
+
+    def readline(self) -> str:
+        """Read a line from the stream.
+
+        Returns:
+            The line read from the stream, or an empty string if the stream is closed.
+        """
+        if self._proc is None:
+            return ""
+
+        # Process is still running, try to read from stdout
+        if self._proc and self._proc.stdout:
+            line = self._proc.stdout.readline()
+            if line:
+                if not line.strip():
+                    return self.readline()
+                if "Starting training" in line:
+                    print("starting")
+                    return line
+                # Convert progress bar lines to use \r instead of \n for updates
+                if self._is_progress_line(line):
+                    # Remove \n and add \r for in-place progress bar updates
+                    return line.rstrip("\n") + "\r"
+                return line
+        return ""
+
+    def _is_progress_line(self, line: str) -> bool:
+        """Check if a line looks like a progress bar update.
+
+        Args:
+            line: The line to check.
+
+        Returns:
+            True if the line appears to be a progress bar update.
+        """
+        # Look for multiple progress indicators in the same line
+        pattern_matches = 0
+        for pattern in self._progress_patterns:
+            if re.search(pattern, line):
+                pattern_matches += 1
+
+        # If we have multiple progress indicators, it's likely a progress bar
+        if pattern_matches >= 2:
+            return True
+
+        return False
+
+    def close(self) -> None:
+        """Close the stream and clean up resources."""
+        if self._proc:
+            try:
+                os.killpg(self._proc.pid, signal.SIGINT)
+            except ProcessLookupError:
+                pass  # process already gone and can happen due to race conditions
+            except Exception as e:
+                logger.exception(f"Failed to kill process: {e}")
+            finally:
+                self._proc = None
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
+
+    def _start_tail_process(self, cluster_name: str) -> subprocess.Popen:
+        """Starts a tail process for the specified job.
+
+        This is an internal method that starts the SSH tail process and returns
+        the subprocess object for the LogStream to read from.
+
+        Args:
+            cluster_name: The name of the cluster the job was run in.
+
+        Returns:
+            A subprocess.Popen object that can be read from.
+        """
+        max_attempts = 6
+        base_delay = 5
+        max_delay = 20
+
+        log_path = Path(_LOG_DIR.format(job_id=self.job_id))
+        check_cmd = f"ssh {_CTRL_PATH} {cluster_name} test -f {log_path}"
+        # Wait for log file to appear
+        for attempt in range(max_attempts):
+            preflight = subprocess.run(
+                check_cmd,
+                shell=True,
+                capture_output=True,
+                timeout=30,
+            )
+            if preflight.returncode == 0:
+                break
+
+            if attempt < max_attempts - 1:
+                delay = min(base_delay * (2**attempt), max_delay)
+                time.sleep(delay)
+            else:
+                raise FileNotFoundError(
+                    f"Log file not found after {max_attempts} attempts: {log_path}. "
+                    "The job may not have started."
+                )
+        logger.info(f"Log location: {log_path}")
+
+        tail_cmd = f"ssh {_CTRL_PATH} {cluster_name} tail -n +1 -F {log_path}"
+
+        proc = subprocess.Popen(
+            tail_cmd,
+            shell=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+            text=True,
+            bufsize=1,
+        )
+
+        self._start_job_checking(proc)
+
+        return proc
+
+    def _start_job_checking(self, proc: subprocess.Popen):
+        """Start background thread to check job status."""
+
+        def check_job_status():
+            while True:
+                try:
+                    job = self._client.get_job(self.job_id)
+                    if job is None or job.done:
+                        proc.terminate()
+                        proc.wait()
+                        break
+                    time.sleep(2)
+                except Exception:
+                    break
+
+        self._job_check_thread = threading.Thread(target=check_job_status, daemon=True)
+        self._job_check_thread.start()
 
 
 class SlurmClient:
@@ -303,8 +518,10 @@ class SlurmClient:
         threads_per_core: Optional[int] = None,
         distribution: Optional[str] = None,
         partition: Optional[str] = None,
-        stdout_file: Optional[str] = None,
+        qos: Optional[str] = None,
+        stdout_file: Optional[str] = _LOG_DIR.format(job_id="%j"),
         stderr_file: Optional[str] = None,
+        **kwargs,
     ) -> str:
         """Submits the specified job script to Slurm.
 
@@ -323,15 +540,20 @@ class SlurmClient:
             distribution: Distribution method for processes to nodes
                 (type = block|cyclic|arbitrary)
             partition: Partition (aka queue) requested.
-            stdout_file: File for batch script's standard output.
-            stderr_file: File for batch script's standard error.
+            qos: QoS (aka the queue on Perlmutter) requested.
+            stdout_file: The file to write the stdout to.
+            stderr_file: The file to write the stderr to.
+            kwargs: Additional flags to pass to sbatch. Hyphens in the flag name are
+                replaced with underscores. For example, `foo_bar=baz` as a kwarg will
+                add "--foo-bar=baz" to the sbatch command.
 
         Returns:
             The ID of the submitted job.
         """
         cmd_parts = ["sbatch", f"--nodes={node_count}"]
+        slurm_flags: dict[str, str] = {}
         if name:
-            cmd_parts.append(f"--job-name={name}")
+            slurm_flags["job-name"] = name
         if export is not None:
             export_str = "NONE"
             if isinstance(export, list):
@@ -339,21 +561,38 @@ class SlurmClient:
                     export_str = ",".join(export)
             else:
                 export_str = str(export)
-            cmd_parts.append(f"--export={export_str}")
+            slurm_flags["export"] = export_str
         if account:
-            cmd_parts.append(f"--account={account}")
+            slurm_flags["account"] = account
         if ntasks is not None:
-            cmd_parts.append(f"--ntasks={ntasks}")
+            slurm_flags["ntasks"] = str(ntasks)
         if threads_per_core is not None:
-            cmd_parts.append(f"--threads-per-core={threads_per_core}")
+            slurm_flags["threads-per-core"] = str(threads_per_core)
         if distribution:
-            cmd_parts.append(f"--distribution={distribution}")
+            slurm_flags["distribution"] = distribution
         if partition:
-            cmd_parts.append(f"--partition={partition}")
+            slurm_flags["partition"] = partition
+        if qos:
+            slurm_flags["qos"] = qos
         if stdout_file:
-            cmd_parts.append(f"--output={stdout_file}")
+            slurm_flags["output"] = stdout_file
         if stderr_file:
-            cmd_parts.append(f"--error={stderr_file}")
+            slurm_flags["error"] = stderr_file
+
+        # Add kwargs to slurm_flags
+        for flag, value in kwargs.items():
+            flag = flag.replace("_", "-")
+            if flag in slurm_flags:
+                logger.warning(
+                    f"Flag {flag} already set to {slurm_flags[flag]}. "
+                    f"Overwriting with {value}."
+                )
+            slurm_flags[flag] = str(value)
+
+        # Add flags to command parts
+        for flag, value in slurm_flags.items():
+            cmd_parts.append(f"--{flag}={value}")
+
         cmd_parts.append("--parsable")
         cmd_parts.append(job_path)
         sbatch_cmd = " ".join(cmd_parts)
@@ -370,11 +609,18 @@ class SlurmClient:
             A list of JobStatus.
         """
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
-        # Forcibly list all jobs since Jan 1, 2025.
+        # Get current date and subtract one month.
         # Otherwise completed jobs older than ~24 hours may not be listed.
+
+        from datetime import datetime, timedelta
+
+        current_date = datetime.now()
+        one_month_ago = current_date - timedelta(days=30)
+        start_date = one_month_ago.strftime("%Y-%m-%d")
+
         command = (
             f"sacct --user={self._user} --format='{response_format}' -X "
-            "--starttime 2025-01-01"
+            f"--starttime {start_date}"
         )
         result = self.run_commands([command])
         if result.exit_code != 0:
@@ -423,6 +669,13 @@ class SlurmClient:
             if job.id == job_id:
                 return job
         return None
+
+    def get_latest_job(self) -> Optional[JobStatus]:
+        """Gets the most recent job on this cluster."""
+        job_list = self.list_jobs()
+        if len(job_list) == 0:
+            return None
+        return job_list[-1]
 
     def cancel(self, job_id) -> Optional[JobStatus]:
         """Cancels the specified job.
@@ -494,3 +747,22 @@ class SlurmClient:
         result = self.run_commands(cmds)
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
+
+    def get_logs_stream(
+        self, cluster_name: str, job_id: Optional[str] = None
+    ) -> SlurmLogStream:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
+        """
+        if job_id is None:
+            lastest_job_id = self.get_latest_job()
+            if lastest_job_id is None:
+                raise RuntimeError("No jobs found on the cluster.")
+            logger.info(
+                f"No job ID provided. Using the most recent job ID: {lastest_job_id.id}"
+            )
+            job_id = lastest_job_id.id
+        return SlurmLogStream(cluster_name, job_id, client=self)

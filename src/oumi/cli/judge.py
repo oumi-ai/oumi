@@ -126,6 +126,23 @@ def judge_file(
         output_file=output_file,
     )
 
+    # Calculate the overall score
+    overall_score = 0.0
+    for judge_output in judge_outputs:
+        judgment_score = judge_output.field_scores.get("judgment", None)
+        if judgment_score is not None:
+            overall_score += judgment_score
+        else:
+            overall_score = None
+            break
+
+    # Display the overall score
+    if overall_score is not None:
+        overall_score = overall_score / len(judge_outputs)
+        cli_utils.CONSOLE.print(
+            f"\n[bold blue]Overall Score: {overall_score:.2%}[/bold blue]"
+        )
+
     # Display the judge outputs if no output file was specified
     if not output_file:
         table = Table(

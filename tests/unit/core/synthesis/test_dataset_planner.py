@@ -24,8 +24,8 @@ from oumi.core.configs.params.synthesis_params import (
     DocumentSource,
     ExampleSource,
     GeneralSynthesisParams,
-    PermutableAttribute,
-    PermutableAttributeValue,
+    SampledAttribute,
+    SampledAttributeValue,
     SegmentationStrategy,
 )
 from oumi.core.synthesis.dataset_ingestion import DatasetReader
@@ -60,22 +60,22 @@ def mock_document_reader():
 
 @pytest.fixture
 def mock_permutable_attributes():
-    class MockPermutableAttribute1(PermutableAttribute):
+    class MockSampledAttribute1(SampledAttribute):
         def __init__(self):
             super().__init__(
                 id="attr1",
-                attribute="test1",
+                name="test1",
                 description="First test attribute",
                 possible_values=[
-                    PermutableAttributeValue(
+                    SampledAttributeValue(
                         id="value1",
-                        value="value1",
+                        name="value1",
                         description="First value",
                         sample_rate=0.5,
                     ),
-                    PermutableAttributeValue(
+                    SampledAttributeValue(
                         id="value2",
-                        value="value2",
+                        name="value2",
                         description="Second value",
                         sample_rate=0.5,
                     ),
@@ -85,22 +85,22 @@ def mock_permutable_attributes():
         def get_value_distribution(self):
             return {"value1": 0.5, "value2": 0.5}
 
-    class MockPermutableAttribute2(PermutableAttribute):
+    class MockSampledAttribute2(SampledAttribute):
         def __init__(self):
             super().__init__(
                 id="attr2",
-                attribute="test2",
+                name="test2",
                 description="Second test attribute",
                 possible_values=[
-                    PermutableAttributeValue(
+                    SampledAttributeValue(
                         id="valueA",
-                        value="valueA",
+                        name="valueA",
                         description="Value A",
                         sample_rate=0.5,
                     ),
-                    PermutableAttributeValue(
+                    SampledAttributeValue(
                         id="valueB",
-                        value="valueB",
+                        name="valueB",
                         description="Value B",
                         sample_rate=0.5,
                     ),
@@ -110,7 +110,7 @@ def mock_permutable_attributes():
         def get_value_distribution(self):
             return {"valueA": 0.5, "valueB": 0.5}
 
-    return [MockPermutableAttribute1(), MockPermutableAttribute2()]
+    return [MockSampledAttribute1(), MockSampledAttribute2()]
 
 
 @pytest.fixture
@@ -229,33 +229,33 @@ def test_dataset_planner_default_initialization():
 
 
 def test_plan_with_no_permutable_attributes(planner):
-    params = GeneralSynthesisParams(permutable_attributes=None)
+    params = GeneralSynthesisParams(sampled_attributes=None)
     with pytest.raises(ValueError, match="Empty sample created after planning"):
         _ = planner.plan(params, sample_count=5)
 
 
 def test_plan_with_empty_permutable_attributes(planner, mock_permutable_attributes):
-    params = GeneralSynthesisParams(permutable_attributes=mock_permutable_attributes)
-    params.permutable_attributes = []
+    params = GeneralSynthesisParams(sampled_attributes=mock_permutable_attributes)
+    params.sampled_attributes = []
     with pytest.raises(ValueError, match="Empty sample created after planning"):
         _ = planner.plan(params, sample_count=5)
 
 
 def test_plan_with_zero_samples(planner, mock_permutable_attributes):
-    params = GeneralSynthesisParams(permutable_attributes=mock_permutable_attributes)
+    params = GeneralSynthesisParams(sampled_attributes=mock_permutable_attributes)
     with pytest.raises(ValueError, match="sample_count must be positive"):
         _ = planner.plan(params, sample_count=0)
 
 
 def test_plan_with_negative_samples(planner, mock_permutable_attributes):
-    params = GeneralSynthesisParams(permutable_attributes=mock_permutable_attributes)
+    params = GeneralSynthesisParams(sampled_attributes=mock_permutable_attributes)
     with pytest.raises(ValueError, match="sample_count must be positive"):
         planner.plan(params, sample_count=-1)
 
 
 def test_plan_with_valid_permutable_attributes(planner, mock_permutable_attributes):
     """Test that the distribution matches expected values with a fixed seed."""
-    params = GeneralSynthesisParams(permutable_attributes=mock_permutable_attributes)
+    params = GeneralSynthesisParams(sampled_attributes=mock_permutable_attributes)
     sample_count = 10
     result = planner.plan(params, sample_count=sample_count)
 
@@ -284,7 +284,7 @@ def test_plan_with_valid_combination_sampling(planner, mock_permutable_attribute
     """Test that combination sampling works with valid probabilities."""
     combination = {"attr1": "value1", "attr2": "valueA"}
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         combination_sampling=[
             AttributeCombination(combination=combination, sample_rate=0.8)
         ],
@@ -341,7 +341,7 @@ def test_plan_with_multiple_combinations(planner, mock_permutable_attributes):
         ),
     ]
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         combination_sampling=combinations,
     )
     sample_count = 100
@@ -370,7 +370,7 @@ def test_plan_resamples_on_combination_match(planner, mock_permutable_attributes
     # Set up a combination that would be very likely to occur randomly
     forbidden_combination = {"attr1": "value1", "attr2": "valueA"}
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         combination_sampling=[
             AttributeCombination(
                 combination=forbidden_combination,
@@ -395,7 +395,7 @@ def test_plan_resamples_on_combination_match(planner, mock_permutable_attributes
 def test_plan_with_no_dataset_sources(planner, mock_permutable_attributes):
     """Dataset plan should still be created if no dataset sources are provided."""
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_data=None,
     )
     result = planner.plan(params, sample_count=5)
@@ -411,7 +411,7 @@ def test_plan_with_no_dataset_sources(planner, mock_permutable_attributes):
 def test_plan_with_empty_dataset_sources(planner, mock_permutable_attributes):
     """Dataset plan should still be created if dataset sources are empty."""
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_data=None,  # Use None instead of [] to avoid validation error
     )
     result = planner.plan(params, sample_count=5)
@@ -429,7 +429,7 @@ def test_plan_with_example_sources(
 ):
     """Test that example sources are correctly included in the dataset plan."""
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_examples=mock_example_sources,
     )
     result = planner.plan(params, sample_count=5)
@@ -467,7 +467,7 @@ def test_plan_with_single_dataset_source(
     planner = DatasetPlanner(dataset_reader=mock_dataset_reader)
 
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_data=[mock_dataset_sources[0]],
     )
     result = planner.plan(params, sample_count=5)
@@ -505,7 +505,7 @@ def test_plan_with_multiple_dataset_sources(
     planner = DatasetPlanner(dataset_reader=mock_dataset_reader)
 
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_data=mock_dataset_sources,
     )
     result = planner.plan(params, sample_count=6)
@@ -548,7 +548,7 @@ def test_plan_with_dataset_sources_only(mock_dataset_reader, mock_dataset_source
     planner = DatasetPlanner(dataset_reader=mock_dataset_reader)
 
     params = GeneralSynthesisParams(
-        permutable_attributes=None,
+        sampled_attributes=None,
         input_data=[mock_dataset_sources[0]],
     )
     result = planner.plan(params, sample_count=4)
@@ -573,7 +573,7 @@ def test_plan_with_dataset_sources_only(mock_dataset_reader, mock_dataset_source
 def test_plan_with_no_document_sources(planner, mock_permutable_attributes):
     """Dataset plan should still be created if no document sources are provided."""
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_documents=None,
     )
     result = planner.plan(params, sample_count=5)
@@ -589,7 +589,7 @@ def test_plan_with_no_document_sources(planner, mock_permutable_attributes):
 def test_plan_with_empty_document_sources(planner, mock_permutable_attributes):
     """Dataset plan should still be created if document sources are empty."""
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_documents=None,  # Use None instead of [] to avoid validation error
     )
     result = planner.plan(params, sample_count=5)
@@ -615,7 +615,7 @@ def test_plan_with_single_document_source_no_segmentation(
     planner = DatasetPlanner(document_reader=mock_document_reader)
 
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_documents=[mock_document_sources[0]],
     )
     result = planner.plan(params, sample_count=3)
@@ -653,7 +653,7 @@ def test_plan_with_multiple_document_sources_no_segmentation(
     planner = DatasetPlanner(document_reader=mock_document_reader)
 
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_documents=mock_document_sources,
     )
     result = planner.plan(params, sample_count=4)
@@ -699,7 +699,7 @@ def test_plan_with_document_source_with_segmentation(
     planner = DatasetPlanner(document_reader=mock_document_reader)
 
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_documents=[mock_document_sources_with_segmentation[0]],
     )
     result = planner.plan(params, sample_count=4)
@@ -751,7 +751,7 @@ def test_plan_with_document_source_with_segmentation_keep_original(
 
     # Use the second document source which has keep_original_text=True
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_documents=[mock_document_sources_with_segmentation[1]],
     )
     result = planner.plan(params, sample_count=4)
@@ -823,7 +823,7 @@ def test_plan_with_mixed_document_sources(
     ]
 
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_documents=mixed_sources,
     )
     result = planner.plan(params, sample_count=6)
@@ -867,7 +867,7 @@ def test_plan_with_document_sources_only(
     planner = DatasetPlanner(document_reader=mock_document_reader)
 
     params = GeneralSynthesisParams(
-        permutable_attributes=None,
+        sampled_attributes=None,
         input_documents=mock_document_sources,
     )
     result = planner.plan(params, sample_count=3)
@@ -899,7 +899,7 @@ def test_plan_with_combined_sources_including_documents(
     planner = DatasetPlanner(document_reader=mock_document_reader)
 
     params = GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
         input_documents=[mock_document_sources[0]],
         input_examples=mock_example_sources,
     )

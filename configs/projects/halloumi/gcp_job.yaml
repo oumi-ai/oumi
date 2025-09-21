@@ -3,7 +3,7 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:
@@ -27,7 +27,7 @@ resources:
 working_dir: .
 
 file_mounts:
-  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.netrc: ~/.netrc # WandB credentials
   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
@@ -39,7 +39,7 @@ setup: |
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.1-8B-Instruct --exclude original/*
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download meta-llama/Llama-3.1-8B-Instruct --exclude original/*
 
 run: |
   set -e  # Exit if any command failed.

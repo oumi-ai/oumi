@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import os
+import re
+from collections.abc import Iterator
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 from oumi.core.configs import JobConfig
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import try_str_to_bool
 
@@ -56,6 +59,28 @@ def _get_sky_storage_mounts_from_job(job: JobConfig) -> dict[str, "sky.data.Stor
         )
         sky_mounts[k] = storage_mount
     return sky_mounts
+
+
+class SkyLogStream(io.TextIOBase):
+    """Wraps a log iterator into a readline()-capable stream."""
+
+    def __init__(self, iterator: Iterator[Optional[str]]):
+        """Initializes a new instance of the SkyLogStream class."""
+        self.iterator = iterator
+        # We want to remove ANSI escape codes from the log stream since
+        # colors are returned such as `\x1b[32m` for green text.
+        self.ansi_pattern = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
+    def readline(self) -> str:
+        """Reads a line from the log stream."""
+        # Get the next chunk from the iterator
+        for chunk in self.iterator:
+            if chunk is None:
+                return ""
+            # Remove ANSI escape codes and return immediately
+            return self.ansi_pattern.sub("", chunk)
+
+        return ""
 
 
 def _get_use_spot_vm_override() -> Optional[bool]:
@@ -184,31 +209,34 @@ class SkyClient:
                 f"{sky_cloud._REPR} does not support stopping clusters. "
                 "Will not set autostop."
             )
-
-        job_id, resource_handle = self._sky_lib.launch(
+        job_id = self._sky_lib.launch(
             sky_task,
             cluster_name=cluster_name,
-            detach_run=True,
             idle_minutes_to_autostop=idle_minutes_to_autostop,
         )
+
+        # Stream logs and get the output.
+        job_id, resource_handle = self._sky_lib.stream_and_get(job_id)
         if job_id is None or resource_handle is None:
             raise RuntimeError("Failed to launch job.")
         return JobStatus(
             name="",
             id=str(job_id),
-            cluster=resource_handle.cluster_name,
+            cluster=resource_handle.cluster_name,  # pyright: ignore[reportAttributeAccessIssue]
             status="",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
 
-    def status(self) -> list[dict[str, Any]]:
+    def status(self):  # type hinting will force sky to be imported and not lazy loaded
         """Gets a list of cluster statuses.
 
         Returns:
             A list of dictionaries, each containing the status of a cluster.
         """
-        return self._sky_lib.status()
+        handle = self._sky_lib.stream_and_get(self._sky_lib.status())
+        return handle
 
     def queue(self, cluster_name: str) -> list[dict]:
         """Gets the job queue of a cluster.
@@ -219,7 +247,7 @@ class SkyClient:
         Returns:
             A list of dictionaries, each containing the metadata of a cluster.
         """
-        return self._sky_lib.queue(cluster_name)
+        return self._sky_lib.stream_and_get(self._sky_lib.queue(cluster_name))
 
     def cancel(self, cluster_name: str, job_id: str) -> None:
         """Gets the job queue of a cluster.
@@ -228,7 +256,9 @@ class SkyClient:
             cluster_name: The name of the cluster to cancel the job on.
             job_id: The ID of the job to cancel.
         """
-        self._sky_lib.cancel(cluster_name, int(job_id))
+        self._sky_lib.stream_and_get(
+            self._sky_lib.cancel(cluster_name=cluster_name, job_ids=[int(job_id)])
+        )
 
     def exec(self, job: JobConfig, cluster_name: str) -> str:
         """Executes the specified job on the target cluster.
@@ -240,8 +270,8 @@ class SkyClient:
         Returns:
             The ID of the job that was created.
         """
-        job_id, _ = self._sky_lib.exec(
-            _convert_job_to_task(job), cluster_name, detach_run=True
+        job_id, _ = self._sky_lib.stream_and_get(
+            self._sky_lib.exec(_convert_job_to_task(job), cluster_name)
         )
         if job_id is None:
             raise RuntimeError("Failed to submit job.")
@@ -262,3 +292,24 @@ class SkyClient:
             cluster_name: The name of the cluster to tear down.
         """
         self._sky_lib.down(cluster_name)
+
+    def get_logs_stream(
+        self, cluster_name: str, job_id: Optional[str] = None
+    ) -> SkyLogStream:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
+
+        Returns:
+            A SkyLogStream object containing the captured logs.
+        """
+        return SkyLogStream(
+            self._sky_lib.tail_logs(
+                cluster_name=cluster_name,
+                job_id=int(job_id) if job_id is not None else None,
+                follow=True,
+                preload_content=False,
+            )
+        )

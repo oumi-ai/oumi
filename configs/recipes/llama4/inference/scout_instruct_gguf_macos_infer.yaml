@@ -1,11 +1,11 @@
 # LlamaCPP Inference config for Llama-4-Scout-17B-16E-Instruct GGUF (macOS compatible).
 #
 # Requirements:
-#   - Run `pip install oumi`
+#   - Run `pip install oumi[llama_cpp]`
 #
 # Usage:
 #   # 1. Download the GGUF file to current working directory:
-#   huggingface-cli download unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF \
+#   hf download unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF \
 #     Llama-4-Scout-17B-16E-Instruct-UD-Q2_K_XL.gguf --local-dir .
 #
 #   # 2. Run inference:

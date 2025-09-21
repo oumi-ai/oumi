@@ -115,6 +115,18 @@ For a detailed guide on distributed training, see {doc}`/user_guides/train/train
   :width: 80
 ```
 
+## Data Synthesis
+
+For a detailed guide on data synthesis, see {doc}`/user_guides/synth`.
+
+```{typer} oumi.cli.main.app.synth
+  :prog: oumi synth
+  :make-sections:
+  :preferred: svg
+  :theme: monokai
+  :width: 80
+```
+
 ## Environment
 
 This command is a great tool for debugging!

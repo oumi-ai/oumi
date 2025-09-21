@@ -3,7 +3,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.launcher.clients.slurm_client import SlurmClient
 from oumi.launcher.clouds.slurm_cloud import SlurmCloud
@@ -91,6 +91,7 @@ def test_slurm_cloud_up_cluster(mock_slurm_client, mock_slurm_cluster):
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("slurm")

@@ -91,10 +91,10 @@ We provide configurations for three models; Molmo-D, Molmo-O, and QwenVL-2.5. Ot
 
 Depending on how `training: output_dir` is set in the config file, the model checkpoints will be saved in the base of the specified directory.
 
-We then recommend syncing the trained model to HuggingFace Hub using the `huggingface-cli` tool to enable version control and ease of future access. The repository need not exist in advance, it will be automatically created when you use this command.
+We then recommend syncing the trained model to HuggingFace Hub using the `hf` CLI tool to enable version control and ease of future access. The repository need not exist in advance, it will be automatically created when you use this command.
 
 ```bash
-huggingface-cli upload-large-folder <YOUR_HF_REPO> <YOUR_OUTPUT_DIRECTORY> --repo-type=model
+hf upload-large-folder <YOUR_HF_REPO> <YOUR_OUTPUT_DIRECTORY> --repo-type=model
 ```
 
 ### Model Evaluation

@@ -24,7 +24,7 @@ resources:
 working_dir: .
 
 file_mounts:
-  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.netrc: ~/.netrc # WandB credentials
 
 envs:
   WANDB_PROJECT: oumi-train
@@ -41,7 +41,7 @@ setup: |
   uv pip install dill==0.3.8
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download tiiuae/Falcon-H1-3B-Instruct
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download tiiuae/Falcon-H1-3B-Instruct
 
 run: |
   set -e  # Exit if any command failed.

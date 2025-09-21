@@ -15,8 +15,8 @@
 from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
-from oumi.core.launcher import BaseCluster, JobStatus
-from oumi.launcher.clients.sky_client import SkyClient
+from oumi.core.launcher import BaseCluster, JobState, JobStatus
+from oumi.launcher.clients.sky_client import SkyClient, SkyLogStream
 
 
 class SkyCluster(BaseCluster):
@@ -37,29 +37,44 @@ class SkyCluster(BaseCluster):
             return False
         return self.name() == other.name()
 
+    def _get_job_state(self, sky_job: dict) -> JobState:
+        """Gets the JobState from a sky job."""
+        # See sky job states here:
+        # https://skypilot.readthedocs.io/en/latest/reference/cli.html#sky-jobs-queue
+        status = str(sky_job["status"])
+        failed_states = {
+            "JobStatus.FAILED",
+            "JobStatus.FAILED_SETUP",
+            "JobStatus.FAILED_NO_RESOURCE",
+            "JobStatus.FAILED_CONTROLLER",
+        }
+        if status == "JobStatus.SUCCEEDED":
+            return JobState.SUCCEEDED
+        elif status == "JobStatus.CANCELLED":
+            return JobState.CANCELLED
+        elif status == "JobStatus.RUNNING":
+            return JobState.RUNNING
+        elif status in failed_states:
+            return JobState.FAILED
+        return JobState.PENDING
+
     def _convert_sky_job_to_status(self, sky_job: dict) -> JobStatus:
         """Converts a sky job to a JobStatus."""
         required_fields = ["job_id", "job_name", "status"]
         for field in required_fields:
             if field not in sky_job:
                 raise ValueError(f"Missing required field: {field}")
+        state = self._get_job_state(sky_job)
         return JobStatus(
             id=str(sky_job["job_id"]),
             name=str(sky_job["job_name"]),
             status=str(sky_job["status"]),
             cluster=self.name(),
             metadata="",
-            # See sky job states here:
-            # https://skypilot.readthedocs.io/en/latest/reference/cli.html#sky-jobs-queue
-            done=str(sky_job["status"])
-            not in [
-                "JobStatus.PENDING",
-                "JobStatus.SUBMITTED",
-                "JobStatus.STARTING",
-                "JobStatus.RUNNING",
-                "JobStatus.RECOVERING",
-                "JobStatus.CANCELLING",
-            ],
+            done=state == JobState.SUCCEEDED
+            or state == JobState.FAILED
+            or state == JobState.CANCELLED,
+            state=state,
         )
 
     def name(self) -> str:
@@ -106,3 +121,14 @@ class SkyCluster(BaseCluster):
     def down(self) -> None:
         """Tears down the current cluster."""
         self._client.down(self.name())
+
+    def get_logs_stream(
+        self, cluster_name: str, job_id: Optional[str] = None
+    ) -> SkyLogStream:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
+        """
+        return self._client.get_logs_stream(cluster_name, job_id)

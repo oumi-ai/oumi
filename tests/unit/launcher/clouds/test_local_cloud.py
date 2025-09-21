@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.launcher.clients.local_client import LocalClient
 from oumi.launcher.clouds.local_cloud import LocalCloud
@@ -72,6 +72,7 @@ def test_local_cloud_up_cluster(mock_local_client, mock_local_cluster):
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("local")
@@ -95,6 +96,7 @@ def test_local_cloud_up_cluster_no_name(mock_local_client, mock_local_cluster):
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("local")

@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '0 */8 * * *' # Every 8 hours
   workflow_dispatch:
-  pull_request:
+  merge_group:
     paths:
       - 'docs/**'
       - 'README.md'

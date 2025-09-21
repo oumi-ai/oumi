@@ -14,6 +14,7 @@
 
 import os
 import sys
+import traceback
 
 import typer
 
@@ -21,18 +22,23 @@ from oumi.cli.cache import card as cache_card
 from oumi.cli.cache import get as cache_get
 from oumi.cli.cache import ls as cache_ls
 from oumi.cli.cache import rm as cache_rm
-from oumi.cli.cli_utils import CONSOLE, CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.cli.cli_utils import (
+    CONSOLE,
+    CONTEXT_ALLOW_EXTRA_ARGS,
+    create_github_issue_url,
+)
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
-from oumi.cli.launch import cancel, down, status, stop, up, which
+from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
+from oumi.utils.logging import should_use_rich_logging
 
 _ASCII_LOGO = r"""
    ____  _    _ __  __ _____
@@ -119,6 +125,7 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Launches a job."
     )(up)
     launch_app.command(help="Prints the available clouds.")(which)
+    launch_app.command(help="Gets the logs of a job.")(logs)
     app.add_typer(launch_app, name="launch", help="Launch jobs remotely.")
 
     distributed_app = typer.Typer(pretty_exceptions_enable=False)
@@ -156,7 +163,26 @@ def get_app() -> typer.Typer:
 def run():
     """The entrypoint for the CLI."""
     app = get_app()
-    return app()
+    try:
+        return app()
+    except Exception as e:
+        tb_str = traceback.format_exc()
+        CONSOLE.print(tb_str)
+        issue_url = create_github_issue_url(e, tb_str)
+        CONSOLE.print(
+            "\n[red]If you believe this is a bug, please file an issue:[/red]"
+        )
+        if should_use_rich_logging():
+            CONSOLE.print(
+                f"📝 [yellow]Templated issue:[/yellow] "
+                f"[link={issue_url}]Click here to report[/link]"
+            )
+        else:
+            CONSOLE.print(
+                "https://github.com/oumi-ai/oumi/issues/new?template=bug-report.yaml"
+            )
+
+        sys.exit(1)
 
 
 if "sphinx" in sys.modules:

@@ -108,6 +108,7 @@ def build_data_collator(
             max_length=max_length,
             truncation=enable_truncation,
             label_ignore_index=label_ignore_index,
+            debug=debug,
             **kwargs,
         )
     elif collator_name == "vision_language_sft":
