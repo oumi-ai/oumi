@@ -127,10 +127,10 @@ class CommandHandler:
             logger.debug(f"[RESOLVE] {diag}")
             return resolved_id, resolved_index, diag
         
-            try:
-                # Create a string buffer to capture console output
-                string_buffer = io.StringIO()
-                temp_console = Console(file=string_buffer, width=80)
+        try:
+            # Create a string buffer to capture console output
+            string_buffer = io.StringIO()
+            temp_console = Console(file=string_buffer, width=80)
             
             # Temporarily replace the session's console
             original_console = session.command_context.console
@@ -139,6 +139,8 @@ class CommandHandler:
             try:
                 # If id/index provided for id-first commands, adapt args
                 id_first_cmds = {"delete", "regen", "edit"}
+                resolved_id = None
+                resolved_index = None
                 if command in id_first_cmds:
                     resolved_id, resolved_index, _diag = _normalize_target()
                     if resolved_index is not None:
@@ -242,6 +244,43 @@ class CommandHandler:
                             {"type": "error", "message": f"Regeneration failed: {str(e)}", "timestamp": time.time()}
                         )
             
+            # If edit succeeded, align the edited message's ID with DB canonical id
+            if (
+                result.success and command == "edit" and self.db is not None and resolved_index is not None
+            ):
+                try:
+                    conv_id = self.db.ensure_conversation(session_id)
+                    # Ensure branch exists
+                    self.db.ensure_branch(
+                        conv_id, session.branch_manager.current_branch_id, name=session.branch_manager.current_branch_id
+                    )
+                    # Persist only the edited message and capture DB id
+                    edited = session.conversation_history[resolved_index]
+                    new_db_id = self.db.append_message_to_branch(
+                        conv_id,
+                        session.branch_manager.current_branch_id,
+                        role=edited.get("role", "user"),
+                        content=str(edited.get("content", "")),
+                        created_at=float(edited.get("timestamp", time.time())),
+                    )
+                    # Overwrite in-memory id with canonical DB id
+                    try:
+                        session.conversation_history[resolved_index]["id"] = new_db_id
+                    except Exception:
+                        pass
+                    # Attach to response payload for the client to update mapping
+                    response_data.setdefault("updated", {})
+                    response_data["updated"].update(
+                        {
+                            "message_id": new_db_id,
+                            "index": resolved_index,
+                            "content": edited.get("content", ""),
+                        }
+                    )
+                    response_data["broadcast"] = True
+                except Exception as e:
+                    logger.warning(f"[CMD] edit id alignment failed: {e}")
+
             # Broadcast conversation updates for commands that modify state
             if command in ["clear", "delete", "regen", "edit"] and result.success:
                 logger.info(f"🌐 API: Broadcasting conversation update for command '{command}'")
@@ -256,7 +295,8 @@ class CommandHandler:
                 )
             
             # Save command results to persistence if available and supported
-            if self.db and session.is_hydrated_from_db and command in ["clear", "delete", "regen", "edit"]:
+            # Avoid bulk-add for edit to prevent duplication; targeted persist above.
+            if self.db and session.is_hydrated_from_db and command in ["clear", "delete", "regen"]:
                 try:
                     # If the command modified conversation history, sync to database
                     conv_id = self.db.ensure_conversation(session_id)
