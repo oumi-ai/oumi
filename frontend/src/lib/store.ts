@@ -496,6 +496,36 @@ export const useChatStore = create<ChatStore>()(
             convNodes = newNodes;
             convTimelines = { ...convTimelines, [branchId]: newTimeline };
             convHeads = { ...convHeads, [branchId]: newHeads };
+          } else {
+            // Sync existing node graph heads with backend content by index
+            const timeline = convTimelines[branchId] || [];
+            const headsForBranch = { ...(convHeads[branchId] || {}) } as { [id: string]: string };
+            const nodesForConv = { ...convNodes } as { [id: string]: MessageNode };
+            const count = Math.min(messages.length, timeline.length);
+            for (let i = 0; i < count; i++) {
+              const nodeId = timeline[i];
+              const node = nodesForConv[nodeId];
+              if (!node) continue;
+              const backendMsg = messages[i];
+              const headId = headsForBranch[nodeId] || (node.versions[node.versions.length - 1]?.id);
+              const head = node.versions.find(v => v.id === headId) || node.versions[node.versions.length - 1];
+              const backendText = backendMsg?.content ?? '';
+              const currentText = head?.content ?? '';
+              if (backendText !== currentText) {
+                const newVerId = `ver-sync-${i}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+                const newVer: MessageVersion = {
+                  id: newVerId,
+                  role: backendMsg.role,
+                  content: backendText,
+                  timestamp: backendMsg.timestamp || Date.now(),
+                  attachments: backendMsg.attachments
+                };
+                nodesForConv[nodeId] = { id: nodeId, versions: [...node.versions, newVer] };
+                headsForBranch[nodeId] = newVerId;
+              }
+            }
+            convNodes = nodesForConv;
+            convHeads = { ...convHeads, [branchId]: headsForBranch };
           }
 
           // Update branch details if this branch exists in state
