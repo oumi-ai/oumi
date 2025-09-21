@@ -95,6 +95,51 @@ export function useConversationCommand() {
     }
   };
 
+  // Local fallback: regenerate assistant message at index when backend
+  // doesn't have conversation history loaded.
+  const localRegenerate = async (indexStr?: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const {
+        getCurrentSessionId,
+        currentConversationId,
+        currentBranchId,
+        getBranchMessages,
+        updateMessage,
+      } = useChatStore.getState();
+      const idx = Math.max(0, parseInt(indexStr || '', 10) || 0);
+      if (!currentConversationId) return { success: false, message: 'No active conversation' };
+      const messages = getBranchMessages(currentConversationId, currentBranchId || 'main');
+      if (idx < 0 || idx >= messages.length) return { success: false, message: 'Invalid message index' };
+      if (messages[idx].role !== 'assistant') return { success: false, message: 'Target is not an assistant message' };
+
+      // Build API messages up to the user turn before the target assistant
+      let start = idx - 1;
+      while (start > 0 && messages[start].role !== 'user') start--;
+      const context = messages.slice(0, start + 1).filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content }));
+
+      const resp = await apiClient.chatCompletion({
+        messages: context,
+        session_id: getCurrentSessionId(),
+        branch_id: currentBranchId || 'main',
+        stream: false,
+      });
+      if (!resp.success || !resp.data) return { success: false, message: resp.message || 'Local regen failed' };
+      const newText: string = resp.data.choices?.[0]?.message?.content || '';
+
+      // Commit a new version for the assistant node
+      updateMessage(
+        currentConversationId,
+        currentBranchId || 'main',
+        messages[idx].id,
+        { content: newText, __commit: true } as any
+      );
+      return { success: true, message: 'Regenerated locally' };
+    } catch (e) {
+      console.error('Local regen error:', e);
+      return { success: false, message: 'Local regen error' };
+    }
+  };
+
   /**
    * Execute a conversation command with smart state management
    */
@@ -125,7 +170,40 @@ export function useConversationCommand() {
 
       if (!response.success) {
         const errorMessage = response.message || 'Unknown error';
-        
+        // Rich diagnostics when the backend ignores/declines the operation
+        try {
+          const {
+            getCurrentSessionId,
+            currentConversationId,
+            currentBranchId,
+            getBranchMessages,
+            branchTimelines,
+            messageNodes,
+            branchHeads,
+          } = useChatStore.getState();
+          const sid = getCurrentSessionId();
+          const cid = currentConversationId;
+          const bid = currentBranchId || 'main';
+          const localMsgs = cid ? getBranchMessages(cid, bid) : [];
+          const timelineLen = cid ? (branchTimelines[cid]?.[bid]?.length || 0) : 0;
+          const nodeCount = cid ? (messageNodes[cid] ? Object.keys(messageNodes[cid]).length : 0) : 0;
+          const headCount = cid ? (branchHeads[cid]?.[bid] ? Object.keys(branchHeads[cid][bid]).length : 0) : 0;
+          console.warn('[SERVER_IGNORE]', {
+            command,
+            args,
+            reason: errorMessage,
+            sessionId: sid,
+            conversationId: cid,
+            branchId: bid,
+            localMessageCount: localMsgs.length,
+            timelineLen,
+            nodeCount,
+            headCount,
+          });
+        } catch (e) {
+          console.warn('[SERVER_IGNORE] Logging context failed:', e);
+        }
+
         // Handle index synchronization errors
         if (errorMessage.includes('out of bounds') || 
             errorMessage.includes('Invalid message index') ||
@@ -137,6 +215,15 @@ export function useConversationCommand() {
           }
         }
         
+        // Fallback for regen when backend has no conversation loaded
+        if (command === 'regen') {
+          const fallback = await localRegenerate(args[0]);
+          if (fallback.success) {
+            console.log('[SERVER_IGNORE][FALLBACK] Local regeneration succeeded for command "regen"');
+            return { success: true, message: fallback.message || 'Regenerated locally' };
+          }
+        }
+
         return { success: false, message: `${errorPrefix}: ${errorMessage}` };
       }
 
