@@ -10,6 +10,7 @@ import { User, Bot, Copy, Check, Trash2, RefreshCw, Edit3, Save, GitBranch } fro
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer';
 import { useChatStore } from '@/lib/store';
 import { useConversationCommand, COMMAND_CONFIGS } from '@/hooks/useConversationCommand';
+import apiClient from '@/lib/unified-api';
 
 interface ChatMessageProps {
   message: Message;
@@ -25,7 +26,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
   const { updateMessage, deleteMessage, addMessage, getBranches, currentConversationId, currentBranchId } = useChatStore();
   // Get branches using the selector
   const branches = getBranches();
-  const { executeCommand, isExecuting } = useConversationCommand();
+  const { executeCommand, isExecuting, refreshConversation } = useConversationCommand();
 
   const handleCopy = async () => {
     try {
@@ -62,17 +63,16 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
   const handleRegen = async () => {
     setActionInProgress('regen');
     try {
-      const args = messageIndex !== undefined ? [messageIndex.toString()] : [];
-      const result = await executeCommand('regen', args, { 
-        ...COMMAND_CONFIGS.regen,
-        backend: { messageId: message.id, index: messageIndex }
-      });
-      
-      if (!result.success && result.message) {
-        alert(result.message);
+      const { getCurrentSessionId, currentBranchId } = useChatStore.getState();
+      const resp = await apiClient.regenNode({ assistantId: message.id, sessionId: getCurrentSessionId(), branchId: currentBranchId || 'main' });
+      if (!resp.success) {
+        alert(resp.message || 'Failed to regenerate');
+      } else {
+        // Refresh conversation to pick up regenerated assistant message
+        await refreshConversation();
       }
-    } catch (error) {
-      console.error('Error regenerating message:', error);
+    } catch (e) {
+      console.error('Error regenerating message:', e);
       alert('Error regenerating message');
     } finally {
       setActionInProgress(null);

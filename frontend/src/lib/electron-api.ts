@@ -349,6 +349,20 @@ class ElectronApiClient {
     return response;
   }
 
+  public async regenNode(params: { assistantId?: string; userMessageId?: string; prompt?: string; sessionId: string; branchId: string; historyMode?: 'none'|'last_user'|'full' }): Promise<ApiResponse<{ assistant: { id: string; content: string } }>> {
+    if (!this.isElectron) {
+      throw new Error('Node regeneration only available via Electron IPC in this path');
+    }
+    return window.electronAPI.chat.regenNode({
+      assistantId: params.assistantId,
+      userMessageId: params.userMessageId,
+      prompt: params.prompt,
+      sessionId: params.sessionId,
+      branchId: params.branchId,
+      historyMode: params.historyMode || 'last_user',
+    });
+  }
+
   public async executeCommandAdvanced(
     command: string,
     args: string[] = [],

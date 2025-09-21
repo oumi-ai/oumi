@@ -81,6 +81,11 @@ export interface ElectronAPI {
       branchId?: string,
       target?: { messageId?: string; index?: number; payload?: string }
     ) => Promise<any>;
+
+    // Node regen
+    regenNode: (
+      params: { assistantId?: string; userMessageId?: string; prompt?: string; sessionId?: string; branchId?: string; historyMode?: 'none'|'last_user'|'full' }
+    ) => Promise<any>;
   };
 
   // Real-time event system (replacing WebSocket)
@@ -251,7 +256,9 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.invoke('chat:send-message', content, sessionId, branchId),
 
     executeCommand: (command, args = [], sessionId?: string, branchId?: string, target?: { messageId?: string; index?: number; payload?: string }) => 
-      ipcRenderer.invoke('chat:execute-command', command, args, sessionId, branchId, target)
+      ipcRenderer.invoke('chat:execute-command', command, args, sessionId, branchId, target),
+
+    regenNode: (params) => ipcRenderer.invoke('chat:regen-node', params),
   },
 
   events: {

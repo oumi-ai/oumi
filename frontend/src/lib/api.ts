@@ -234,6 +234,22 @@ class ApiClient {
     });
   }
 
+  // Id-first node regeneration
+  async regenNode(params: { assistantId?: string; userMessageId?: string; prompt?: string; sessionId: string; branchId: string; historyMode?: 'none'|'last_user'|'full' }): Promise<ApiResponse<{ assistant: { id: string; content: string } }>> {
+    const body: any = {
+      assistant_id: params.assistantId,
+      user_message_id: params.userMessageId,
+      prompt: params.prompt,
+      session_id: params.sessionId,
+      branch_id: params.branchId,
+      history_mode: params.historyMode || 'last_user',
+    };
+    return this.fetchApi('/v1/oumi/regen_node', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
   // Command execution
   async executeCommand(
     command: string,

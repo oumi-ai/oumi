@@ -593,6 +593,27 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
       body: JSON.stringify(body),
     });
   });
+
+  // Node regeneration (id-first)
+  ipcMain.handle('chat:regen-node', async (_, params: { assistantId?: string; userMessageId?: string; prompt?: string; sessionId?: string; branchId?: string; historyMode?: string }) => {
+    try {
+      const body: any = {
+        electron: true,
+        assistant_id: params.assistantId,
+        user_message_id: params.userMessageId,
+        prompt: params.prompt,
+        session_id: params.sessionId,
+        branch_id: params.branchId,
+        history_mode: params.historyMode || 'last_user',
+      };
+      return await proxyToPython('/v1/oumi/regen_node', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
 }
 
 /**

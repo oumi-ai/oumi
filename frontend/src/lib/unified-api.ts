@@ -145,6 +145,43 @@ class UnifiedApiClient {
     return this.getClient().getConversation(sessionId, branchId);
   }
 
+  async regenNode(params: { assistantId?: string; userMessageId?: string; prompt?: string; sessionId?: string; branchId?: string; historyMode?: 'none'|'last_user'|'full' }): Promise<ApiResponse<{ assistant: { id: string; content: string } }>> {
+    // Fill session/branch if missing
+    let sessionId = params.sessionId;
+    let branchId = params.branchId;
+    try {
+      if (!sessionId || !branchId) {
+        const storeMod: any = await import('./store');
+        const st = storeMod.useChatStore?.getState?.();
+        sessionId = sessionId || st?.getCurrentSessionId?.() || st?.currentSessionId;
+        branchId = branchId || st?.currentBranchId || 'main';
+      }
+    } catch {}
+
+    const payload = {
+      assistantId: params.assistantId,
+      userMessageId: params.userMessageId,
+      prompt: params.prompt,
+      sessionId,
+      branchId,
+      historyMode: params.historyMode || 'last_user',
+    };
+
+    const client: any = this.getClient();
+    if (typeof client.regenNode === 'function') {
+      return client.regenNode(payload);
+    }
+    // Web fallback
+    return this.webClient.regenNode({
+      assistantId: payload.assistantId,
+      userMessageId: payload.userMessageId,
+      prompt: payload.prompt,
+      sessionId: payload.sessionId,
+      branchId: payload.branchId,
+      historyMode: payload.historyMode,
+    });
+  }
+
   async listConversations(sessionId: string): Promise<ApiResponse<{ conversations: any[] }>> {
     // Scope strictly to the provided sessionId to prevent cross-session leakage
     try {

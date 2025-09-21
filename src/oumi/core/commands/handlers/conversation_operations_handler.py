@@ -275,9 +275,13 @@ class ConversationOperationsHandler(BaseCommandHandler):
             )
 
         # Remove the target assistant message and all messages after it
-        # This ensures a clean regeneration from the target point
+        # IMPORTANT: mutate the list in place to preserve shared reference with session/context
         logger.info(f"🔄 REGEN: Truncating conversation from {len(self.conversation_history)} to {index} messages")
-        self.conversation_history = self.conversation_history[:index]
+        try:
+            del self.conversation_history[index:]
+        except Exception:
+            # Fallback to slice assignment (still in-place)
+            self.conversation_history[index:] = []
         logger.info(f"🔄 REGEN: Conversation now has {len(self.conversation_history)} messages")
 
         # Update context monitor

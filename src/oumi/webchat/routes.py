@@ -26,6 +26,7 @@ from oumi.webchat.handlers.command_handler import CommandHandler
 from oumi.webchat.handlers.config_handler import ConfigHandler
 from oumi.webchat.handlers.system_handler import SystemHandler
 from oumi.webchat.handlers.ws_handler import WebSocketHandler
+from oumi.webchat.handlers.regen_handler import RegenHandler
 
 
 class RouteGroup:
@@ -103,6 +104,7 @@ def setup_routes(
     command_handler: CommandHandler,
     config_handler: ConfigHandler,
     ws_handler: WebSocketHandler,
+    regen_handler: RegenHandler = None,
     enhanced_features_available: bool = False,
     cors_handler: Callable = None
 ) -> None:
@@ -136,6 +138,8 @@ def setup_routes(
     oumi = RouteGroup("/v1/oumi", "Oumi-specific API routes")
     oumi.get("/ws", ws_handler.handle_websocket)
     oumi.post("/command", command_handler.handle_command_api)
+    if regen_handler is not None:
+        oumi.post("/regen_node", regen_handler.handle_regen_node_api)
     
     # Branch routes
     oumi.get("/branches", branch_handler.handle_branches_api)
@@ -163,6 +167,7 @@ def setup_routes(
             "/v1/oumi/branches", 
             "/v1/oumi/conversation",
             "/v1/oumi/command",
+            "/v1/oumi/regen_node",
             "/v1/oumi/sync_conversation",
             "/v1/oumi/system_stats",
             "/v1/oumi/configs",

@@ -39,6 +39,7 @@ from oumi.webchat.handlers.command_handler import CommandHandler
 from oumi.webchat.handlers.config_handler import ConfigHandler
 from oumi.webchat.handlers.system_handler import SystemHandler
 from oumi.webchat.handlers.ws_handler import WebSocketHandler
+from oumi.webchat.handlers.regen_handler import RegenHandler
 from oumi.webchat.services.branch_service import BranchService
 from oumi.webchat.services.command_service import CommandService
 from oumi.webchat.services.inference_service import InferenceService
@@ -123,6 +124,10 @@ class OumiWebServer:
             self.session_manager,
             self.persistence_service.db if self.persistence_service.is_enabled else None
         )
+        self.regen_handler = RegenHandler(
+            self.session_manager,
+            self.persistence_service.db if self.persistence_service.is_enabled else None
+        )
         self.config_handler = ConfigHandler(self.base_dir)
         self.ws_handler = WebSocketHandler(
             self.session_manager,
@@ -180,6 +185,7 @@ class OumiWebServer:
             self.command_handler,
             self.config_handler,
             self.ws_handler,
+            self.regen_handler,
             enhanced_features_available=ENHANCED_FEATURES_AVAILABLE,
             cors_handler=self.handle_cors_preflight
         )
