@@ -47,121 +47,97 @@ class CommandHandler:
     
     async def handle_command_api(self, request: web.Request) -> web.Response:
         """Handle command execution via REST API.
-        
+
         Args:
             request: Web request with command execution parameters
-            
+
         Returns:
             JSON response with command execution result
         """
+        # Parse JSON
         try:
             data = await request.json()
         except Exception:
             return web.json_response({"error": "Invalid JSON"}, status=400)
-        
+
+        # Extract inputs with safe defaults
         session_id = data.get("session_id", "default")
         command = data.get("command", "")
         args = data.get("args", [])
-        # Optional id-first fields
         branch_id = data.get("branch_id")
         message_id = data.get("message_id")
         index_hint = data.get("index")
         payload = data.get("payload")  # e.g., new content for edit
         is_electron = bool(data.get("electron"))
-        
+
         logger.info(f"🌐 API: Received command '{command}' with args: {args} for session: {session_id}")
-        
-        session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
 
-        # Optionally switch branch to ensure cache alignment
-        if branch_id and branch_id != session.branch_manager.current_branch_id:
-            async def _switch_branch(s):
-                try:
-                    s.branch_manager.sync_conversation_history(s.conversation_history)
-                    ok, msg, br = s.branch_manager.switch_branch(branch_id)
-                    if ok and br:
-                        s.conversation_history.clear()
-                        s.conversation_history.extend(br.conversation_history)
-                        logger.debug(f"[CMD] switched branch -> {branch_id}")
-                except Exception as e:
-                    logger.warning(f"[CMD] branch switch failed: {e}")
-                return s
-            session = await self.session_manager.execute_session_operation(session_id, _switch_branch)
+        try:
+            # Get or create the session
+            session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
 
-        def _normalize_target():
-            """Resolve message target via id-first, with index fallback.
+            # Optional branch switch
+            if branch_id and branch_id != session.branch_manager.current_branch_id:
+                async def _switch_branch(s):
+                    try:
+                        s.branch_manager.sync_conversation_history(s.conversation_history)
+                        ok, _msg, br = s.branch_manager.switch_branch(branch_id)
+                        if ok and br:
+                            s.conversation_history.clear()
+                            s.conversation_history.extend(br.conversation_history)
+                            logger.debug(f"[CMD] switched branch -> {branch_id}")
+                    except Exception as e:
+                        logger.warning(f"[CMD] branch switch failed: {e}")
+                    return s
+                session = await self.session_manager.execute_session_operation(session_id, _switch_branch)
 
-            Returns (resolved_id, resolved_index, diag_dict)
-            """
-            convo = session.conversation_history or []
-            resolved_id = None
-            resolved_index = None
-            if message_id:
-                for i, m in enumerate(convo):
-                    if m.get("id") == message_id:
-                        resolved_id = message_id
-                        resolved_index = i
-                        break
-            if resolved_id is None and index_hint is not None:
-                try:
-                    i = int(index_hint)
-                    if 0 <= i < len(convo):
-                        resolved_index = i
-                        resolved_id = convo[i].get("id")
-                except Exception:
-                    pass
-            diag = {
-                "requested_index": index_hint,
-                "requested_message_id": message_id,
-                "resolved_index": resolved_index,
-                "resolved_message_id": resolved_id,
-                "msg_count": len(convo),
-                "ids_first_last": (convo[0].get("id") if convo else None, convo[-1].get("id") if convo else None),
-            }
-            # Log inconsistencies
-            if message_id and resolved_id is None:
-                logger.warning(f"[ID_MISS] message_id='{message_id}' not found | {diag}")
-            if (index_hint is not None and resolved_index is None) or (
-                isinstance(index_hint, int) and not (0 <= index_hint < len(convo))
-            ):
-                logger.warning(f"[IDX_OOB] index='{index_hint}' out of range | {diag}")
-            logger.debug(f"[RESOLVE] {diag}")
-            return resolved_id, resolved_index, diag
-        
-            # Create a string buffer to capture console output
-            string_buffer = io.StringIO()
-            temp_console = Console(file=string_buffer, width=80)
-
-            # Temporarily replace the session's console
-            original_console = session.command_context.console
-            session.command_context.console = temp_console
-            
-            try:
-                # If id/index provided for id-first commands, adapt args
-                id_first_cmds = {"delete", "regen", "edit"}
+            # Helper: resolve id/index
+            def _normalize_target():
+                convo = session.conversation_history or []
                 resolved_id = None
                 resolved_index = None
-                if command in id_first_cmds:
-                    resolved_id, resolved_index, _diag = _normalize_target()
-                    if resolved_index is not None:
-                        # For delete/regen/edit, ensure index is first arg
-                        if command in {"delete", "regen"}:
-                            args = [str(resolved_index)]
-                        elif command == "edit":
-                            # edit requires new content payload
-                            new_content = payload if payload is not None else (args[1] if len(args) > 1 else "")
-                            args = [str(resolved_index), new_content]
-                        logger.info(f"[CMD] normalized {command} -> index={resolved_index}, id={resolved_id}")
-                    else:
-                        # If we cannot resolve a target for id-first commands, decline early
-                        logger.warning(f"[CMD] Could not resolve target for {command}; declining request")
+                if message_id:
+                    for i, m in enumerate(convo):
+                        if m.get("id") == message_id:
+                            resolved_id = message_id
+                            resolved_index = i
+                            break
+                if resolved_id is None and index_hint is not None:
+                    try:
+                        i = int(index_hint)
+                        if 0 <= i < len(convo):
+                            resolved_index = i
+                            resolved_id = convo[i].get("id")
+                    except Exception:
+                        pass
+                return resolved_id, resolved_index
+
+            # Capture console output during command execution
+            string_buffer = io.StringIO()
+            temp_console = Console(file=string_buffer, width=80)
+            original_console = session.command_context.console
+            session.command_context.console = temp_console
+
+            try:
+                # Normalize id-first commands to index-based arg
+                resolved_id = None
+                resolved_index = None
+                if command in {"delete", "regen", "edit"}:
+                    resolved_id, resolved_index = _normalize_target()
+                    if resolved_index is None:
                         return web.json_response({
                             "success": False,
                             "error": f"Unable to resolve target for {command}. Please refresh and retry.",
                             "should_continue": False
                         }, status=400)
+                    if command in {"delete", "regen"}:
+                        args = [str(resolved_index)]
+                    else:  # edit
+                        new_content = payload if payload is not None else (args[1] if len(args) > 1 else "")
+                        args = [str(resolved_index), new_content]
+                    logger.info(f"[CMD] normalized {command} -> index={resolved_index}, id={resolved_id}")
 
-                # Execute command via command router
+                # Execute via router
                 parsed_command = ParsedCommand(
                     command=command,
                     args=args,
@@ -170,102 +146,71 @@ class CommandHandler:
                 )
                 logger.info(f"🌐 API: Executing command '{command}' via command router...")
                 result = session.command_router.handle_command(parsed_command)
-                logger.info(f"🌐 API: Command '{command}' result: success={result.success}, message='{result.message}', should_continue={result.should_continue}")
-                
-                # Capture the console output
-                console_output = string_buffer.getvalue()
-                
-                # Combine command result message with console output
+
+                # Combine message + captured console
+                console_output = string_buffer.getvalue().strip()
                 full_message = result.message or ""
-                if console_output.strip():
-                    if full_message:
-                        full_message += "\n\n" + console_output.strip()
-                    else:
-                        full_message = console_output.strip()
-            
+                if console_output:
+                    full_message = (full_message + "\n\n" if full_message else "") + console_output
             finally:
-                # Restore the original console
                 session.command_context.console = original_console
-            
-            response_data = {
+
+            # Build base response
+            response_data: Dict[str, Any] = {
                 "success": result.success,
                 "message": full_message,
                 "should_continue": result.should_continue,
             }
-            # Attach optional structured updates for clients
+
+            # Target metadata for id-first commands
             if command in {"delete", "regen", "edit"}:
-                resolved_id, resolved_index, _ = _normalize_target()
-                response_data["target"] = {
-                    "message_id": resolved_id,
-                    "index": resolved_index,
-                }
-                if command == "edit" and result.success and payload is not None and resolved_index is not None:
-                    response_data["updated"] = {
-                        "message_id": resolved_id,
-                        "index": resolved_index,
-                        "content": payload,
-                    }
+                # Recompute in case history changed; safe best-effort
+                t_id, t_idx = _normalize_target()
+                response_data["target"] = {"message_id": t_id, "index": t_idx}
+                if command == "edit" and result.success and payload is not None and t_idx is not None:
+                    response_data["updated"] = {"message_id": t_id, "index": t_idx, "content": payload}
                     response_data["broadcast"] = True
-            
-            # Add specific data for certain commands
+
+            # Enrich responses for specific commands
             if command in ["branches", "list_branches"]:
                 response_data["branches"] = session.get_enhanced_branch_info(self.db)
-                response_data["current_branch"] = (
-                    session.branch_manager.current_branch_id
-                )
-            
+                response_data["current_branch"] = session.branch_manager.current_branch_id
             elif command == "show":
                 response_data["conversation"] = session.serialize_conversation()
-            
             elif command == "swap" and result.success:
-                # CRITICAL FIX: Update model_info when model swap is successful
                 try:
                     if hasattr(session.command_context, 'config') and session.command_context.config:
                         new_config = session.command_context.config
-                        # Include the swapped model information in the response
                         response_data["model_info"] = {
                             "name": getattr(new_config.model, "model_name", "oumi-model"),
-                            "engine": str(new_config.engine)
+                            "engine": str(new_config.engine),
                         }
-                        logger.info(f"✅ Included swapped model info in response: {response_data['model_info']['name']}")
                     else:
                         logger.warning("⚠️ Cannot include model_info: session config not available")
                 except Exception as e:
                     logger.error(f"❌ Error adding model_info to response: {e}")
-            
-            # Handle commands that require follow-up inference (e.g., regen)
-            if result.success and result.should_continue and hasattr(result, 'user_input_override') and result.user_input_override:
+
+            # Follow-up inference for regen
+            if result.success and result.should_continue and getattr(result, 'user_input_override', None):
                 logger.info(f"🌐 API: Command '{command}' requires follow-up inference with user_input_override")
-                logger.info(f"🌐 API: User input override: {result.user_input_override[:100]}...")
-                
-                # For regeneration commands, perform inference directly
-                is_regeneration = getattr(result, 'is_regeneration', False)
-                if is_regeneration:
+                if getattr(result, 'is_regeneration', False):
                     try:
-                        # Perform inference using the user_input_override (edited content)
                         await session._perform_regeneration_inference(result.user_input_override)
                     except Exception as e:
                         logger.error(f"❌ Error during regeneration inference: {e}")
-                        await session.broadcast_to_websockets(
-                            {"type": "error", "message": f"Regeneration failed: {str(e)}", "timestamp": time.time()}
-                        )
-            
-            # If edit succeeded, align the edited message's ID with DB canonical id
-            if (
-                result.success and command == "edit" and resolved_index is not None
-            ):
+                        await session.broadcast_to_websockets({"type": "error", "message": f"Regeneration failed: {str(e)}", "timestamp": time.time()})
+
+            # Persist EDIT in-place and keep branch/session identity consistent
+            if result.success and command == "edit":
                 try:
-                    # 1) Persist in-place to DB when available
+                    # Ensure conversation exists in DB
+                    conv_id = None
                     if self.db is not None:
                         conv_id = self.db.ensure_conversation(session_id)
-                        # Ensure branch exists
-                        self.db.ensure_branch(
-                            conv_id, session.branch_manager.current_branch_id, name=session.branch_manager.current_branch_id
-                        )
-                    # In-place update: modify the existing message mapped at this seq
-                    edited = session.conversation_history[resolved_index]
-                    updated_id = None
-                    if self.db is not None:
+                        self.db.ensure_branch(conv_id, session.branch_manager.current_branch_id, name=session.branch_manager.current_branch_id)
+                    # Update edited row by sequence index when DB available
+                    if self.db is not None and resolved_index is not None:
+                        edited = session.conversation_history[resolved_index]
                         updated_id = self.db.update_branch_message(
                             conv_id,
                             session.branch_manager.current_branch_id,
@@ -275,14 +220,12 @@ class CommandHandler:
                             created_at=float(edited.get("timestamp", time.time())),
                             metadata=None,
                         )
-                    if updated_id:
-                        # Keep id stable; ensure in-memory id matches (should already)
-                        try:
-                            session.conversation_history[resolved_index]["id"] = updated_id
-                        except Exception:
-                            pass
-
-                    # 2) Sync the active branch to share the SAME list object as session history
+                        if updated_id:
+                            try:
+                                session.conversation_history[resolved_index]["id"] = updated_id
+                            except Exception:
+                                pass
+                    # Keep branch using same list object
                     try:
                         current_branch = session.branch_manager.get_current_branch()
                         current_branch.conversation_history = session.conversation_history
@@ -290,28 +233,14 @@ class CommandHandler:
                         current_branch.last_active = _dt.now()
                     except Exception as sync_err:
                         logger.debug(f"edit branch sync failed: {sync_err}")
-                    # Attach to response payload for the client to update mapping
-                    response_data.setdefault("updated", {})
-                    response_data["updated"].update(
-                        {
-                            "message_id": (updated_id or session.conversation_history[resolved_index].get("id")),
-                            "index": resolved_index,
-                            "content": edited.get("content", ""),
-                        }
-                    )
-                    response_data["broadcast"] = True
                 except Exception as e:
                     logger.warning(f"[CMD] edit id alignment failed: {e}")
 
-            # For regen, align the newly generated assistant message ID with DB canonical id
+            # Persist regen’s assistant tail id when DB available
             if result.success and command == "regen" and self.db is not None:
                 try:
                     conv_id = self.db.ensure_conversation(session_id)
-                    # Ensure branch exists
-                    self.db.ensure_branch(
-                        conv_id, session.branch_manager.current_branch_id, name=session.branch_manager.current_branch_id
-                    )
-                    # Persist the last assistant message
+                    self.db.ensure_branch(conv_id, session.branch_manager.current_branch_id, name=session.branch_manager.current_branch_id)
                     if session.conversation_history and session.conversation_history[-1].get("role") == "assistant":
                         last = session.conversation_history[-1]
                         new_db_id = self.db.append_message_to_branch(
@@ -326,22 +255,14 @@ class CommandHandler:
                             session.conversation_history[-1]["id"] = new_db_id
                         except Exception:
                             pass
-                        # Attach for clients
                         response_data.setdefault("updated", {})
-                        response_data["updated"].update(
-                            {
-                                "message_id": new_db_id,
-                                "index": len(session.conversation_history) - 1,
-                                "content": last.get("content", ""),
-                            }
-                        )
+                        response_data["updated"].update({"message_id": new_db_id, "index": len(session.conversation_history) - 1, "content": last.get("content", "")})
                         response_data["broadcast"] = True
                 except Exception as e:
                     logger.warning(f"[CMD] regen id alignment failed: {e}")
 
-            # Broadcast conversation updates for commands that modify state
+            # Broadcast conversation updates
             if command in ["clear", "delete", "regen", "edit"] and result.success:
-                # For delete, sync branch snapshot first to ensure GET reflects latest
                 if command == "delete":
                     try:
                         current_branch = session.branch_manager.get_current_branch()
@@ -351,21 +272,17 @@ class CommandHandler:
                     except Exception as sync_err:
                         logger.debug(f"delete branch sync failed: {sync_err}")
                 logger.info(f"🌐 API: Broadcasting conversation update for command '{command}'")
-                await session.broadcast_to_websockets(
-                    {
-                        "type": "conversation_update",
-                        "conversation": session.serialize_conversation(),
-                        "branches": session.get_enhanced_branch_info(self.db),
-                        "current_branch": session.branch_manager.current_branch_id,
-                        "timestamp": time.time()
-                    }
-                )
-            
-            # Save command results to persistence if available and supported
-            # Avoid bulk-add for edit and regen to prevent duplication; targeted persist above.
+                await session.broadcast_to_websockets({
+                    "type": "conversation_update",
+                    "conversation": session.serialize_conversation(),
+                    "branches": session.get_enhanced_branch_info(self.db),
+                    "current_branch": session.branch_manager.current_branch_id,
+                    "timestamp": time.time(),
+                })
+
+            # Persist clear/delete by replacing branch mapping
             if self.db and command in ["clear", "delete"]:
                 try:
-                    # If the command modified conversation history, replace branch mapping to avoid duplication
                     conv_id = self.db.ensure_conversation(session_id)
                     self.db.replace_branch_history(
                         conv_id,
@@ -374,9 +291,9 @@ class CommandHandler:
                     )
                 except Exception as pe:
                     logger.warning(f"⚠️ Dual-write persistence (command result) failed: {pe}")
-            
+
             return web.json_response(response_data)
-        
+
         except Exception as e:
             logger.error(f"API command execution error: {e}")
             logger.error(f"Full traceback: {traceback.format_exc()}")
