@@ -5,6 +5,7 @@
 "use client";
 
 import React from 'react';
+import { generateDisplayName } from '@/lib/nameGen';
 import { useChatStore } from '@/lib/store';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { Message } from '@/lib/types';
@@ -30,6 +31,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     isTyping,
     currentBranchId,
     currentConversationId,
+    settings,
     addMessage,
     setLoading,
     setTyping,
@@ -107,13 +109,20 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
       const response = await apiClient.getConversation(getCurrentSessionId(), currentBranchId);
       
       if (response.success && response.data) {
-        // Transform backend messages to frontend format
+        // Transform backend messages to frontend format with minimal metadata
         const transformedMessages: Message[] = response.data.conversation.map((msg: any) => ({
           id: msg.id || `${msg.role}-${Date.now()}-${Math.random()}`,
           role: msg.role,
           content: msg.content,
           timestamp: new Date(msg.timestamp || Date.now()).getTime(),
           attachments: msg.attachments,
+          meta: {
+            authorType: msg.role === 'assistant' ? 'ai' : (msg.role === 'user' ? 'user' : 'system'),
+            authorName: msg.role === 'assistant' ? (settings.selectedModel || 'AI') : (settings.user?.displayName || 'You'),
+            modelName: msg.role === 'assistant' ? settings.selectedModel : undefined,
+            engine: msg.role === 'assistant' ? settings.selectedProvider : undefined,
+            createdAt: new Date(msg.timestamp || Date.now()).getTime(),
+          }
         }));
         
         // Use the branch-specific setMessages
@@ -200,12 +209,19 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     }
 
     // Create user message
+    const displayName = settings.user?.displayName || generateDisplayName();
+    const createdAt = Date.now();
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: 'user',
       content,
-      timestamp: Date.now(),
+      timestamp: createdAt,
       attachments,
+      meta: {
+        authorName: displayName,
+        authorType: 'user',
+        createdAt,
+      }
     };
 
     // Add user message to store immediately
@@ -348,11 +364,19 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
         
         // Create initial assistant message for progressive updates
         const assistantMessageId = `assistant-${Date.now()}`;
+        const start = performance.now();
         const assistantMessage: Message = {
           id: assistantMessageId,
           role: 'assistant',
           content: '', // Start empty for streaming
           timestamp: Date.now(),
+          meta: {
+            authorType: 'ai',
+            authorName: settings.selectedModel || 'AI',
+            modelName: settings.selectedModel || undefined,
+            engine: settings.selectedProvider || undefined,
+            createdAt: Date.now(),
+          }
         };
         
         addMessage(assistantMessage);
@@ -391,11 +415,20 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
         }
         
         console.log('✅ Streaming completed successfully');
+        // Attach duration metadata
+        const durationMs = Math.max(0, Math.round(performance.now() - start));
+        updateMessage(
+          currentConversationId || '',
+          currentBranchId,
+          assistantMessageId,
+          { meta: { ...(assistantMessage.meta || {}), durationMs } } as any
+        );
         
       } else {
         console.log('🔄 Using non-streaming mode');
         
         // Use non-streaming API (original behavior)
+        const start = performance.now();
         const response = await apiClient.chatCompletion({
           messages: apiMessages,
           session_id: getCurrentSessionId(),
@@ -408,11 +441,20 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
 
         if (response.success && response.data) {
           // Add complete assistant response
+          const durationMs = Math.max(0, Math.round(performance.now() - start));
           const assistantMessage: Message = {
             id: `assistant-${Date.now()}`,
             role: 'assistant',
             content: response.data.choices?.[0]?.message?.content || 'No response generated',
             timestamp: Date.now(),
+            meta: {
+              authorType: 'ai',
+              authorName: response.data.model || settings.selectedModel || 'AI',
+              modelName: response.data.model || settings.selectedModel || undefined,
+              engine: settings.selectedProvider || undefined,
+              createdAt: Date.now(),
+              durationMs,
+            }
           };
           addMessage(assistantMessage);
         } else {
@@ -459,9 +501,9 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
   };
 
   return (
-    <div className={`flex flex-col h-full bg-background ${className}`}>
-      {/* Chat history */}
-      <div className="flex-1 relative">
+    <div className={`flex flex-col h-full min-h-0 bg-background ${className}`}>
+      {/* Chat history (internal scroll) */}
+      <div className="flex-1 min-h-0 relative">
         <ChatHistory
           messages={messages}
           isTyping={isTyping}
@@ -469,13 +511,15 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
         />
       </div>
 
-      {/* Message input */}
-      <MessageInput
-        onSendMessage={handleSendMessage}
-        onAttachFiles={handleAttachFiles}
-        disabled={isLoading}
-        isLoading={isLoading || isTyping}
-      />
+      {/* Message input pinned to bottom */}
+      <div className="sticky bottom-0 z-10 border-t border-border bg-background">
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          onAttachFiles={handleAttachFiles}
+          disabled={isLoading}
+          isLoading={isLoading || isTyping}
+        />
+      </div>
     </div>
   );
 }

@@ -450,7 +450,7 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-card border-b border-border shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
@@ -535,20 +535,20 @@ export default function AppLayout() {
       </div>
 
       {/* Main content */}
-      <div className="flex flex-1 pt-16">
+      <div className="flex flex-1 min-h-0 pt-16">
         {/* Control panel sidebar */}
         <div className={`transition-all duration-200 ${
           isControlPanelExpanded ? 'w-80' : 'w-16'
         }`}>
           <ControlPanel 
-            className="min-h-screen" 
+            className="h-full" 
             isCollapsed={!isControlPanelExpanded}
             onToggleCollapse={() => setIsControlPanelExpanded(!isControlPanelExpanded)}
           />
         </div>
 
         {/* Chat interface */}
-        <div className="flex-1 transition-all duration-200">
+        <div className="flex-1 min-h-0 transition-all duration-200">
           <ChatInterface 
             className="h-full" 
             onRef={(ref) => { chatInterfaceRef.current = ref; }}
@@ -559,9 +559,9 @@ export default function AppLayout() {
         <div className={`transition-all duration-200 w-80 ${
           (isBranchTreeExpanded || showChatHistory) && !isSidebarCollapsed ? '' : 'hidden'
         }`}>
-          <div className="flex flex-col h-full overflow-y-auto">
+          <div className="flex flex-col h-full overflow-hidden">
             {/* Right sidebar header with toggle button */}
-            <div className="bg-card border-b p-3 flex items-center justify-between">
+            <div className="bg-card border-b p-3 flex items-center justify-between sticky top-0 z-10">
               <h3 className="font-medium text-foreground text-sm">Sidebar</h3>
               <div className="flex items-center gap-1">
                 <button
@@ -586,14 +586,14 @@ export default function AppLayout() {
             </div>
             {/* Branch Tree - shows when branch tree is expanded */}
             {isBranchTreeExpanded && (
-              <div className={`${showChatHistory ? 'flex-1' : 'h-full'} overflow-y-auto`}>
+              <div className={`${showChatHistory ? 'flex-1' : 'h-full'} min-h-0 overflow-y-auto overscroll-contain`}>
                 <BranchTree className="h-full" />
               </div>
             )}
             
             {/* Chat History - shows when chat history is enabled */}
             {showChatHistory && (
-              <div className={`${isBranchTreeExpanded ? 'flex-1' : 'h-full'} overflow-y-auto ${isBranchTreeExpanded ? 'border-t' : ''}`}>
+              <div className={`${isBranchTreeExpanded ? 'flex-1' : 'h-full'} min-h-0 overflow-y-auto overscroll-contain ${isBranchTreeExpanded ? 'border-t' : ''}`}>
                 <ChatHistorySidebar className="h-full" />
               </div>
             )}

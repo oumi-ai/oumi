@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Message, MessageNode, MessageVersion, MergeRecord, ConversationBranch, Conversation, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats, Session } from './types';
+import { generateDisplayName } from './nameGen';
 import apiClient from './unified-api';
 import { 
   adaptLegacyConversation, 
@@ -214,6 +215,9 @@ export const useChatStore = create<ChatStore>()(
         huggingFace: {
           username: undefined,
           token: undefined,
+        },
+        user: {
+          displayName: generateDisplayName(),
         },
       },
 
@@ -646,7 +650,13 @@ export const useChatStore = create<ChatStore>()(
                 role: (updates as any).role || (node.versions[node.versions.length - 1]?.role ?? 'assistant'),
                 content: updates.content!,
                 timestamp: Date.now(),
-                attachments: (updates as any).attachments
+                attachments: (updates as any).attachments,
+                meta: {
+                  editor: 'user',
+                  authorType: 'user',
+                  authorName: (get().settings.user?.displayName) || 'You',
+                  createdAt: Date.now(),
+                }
               };
               const newNode: MessageNode = { id: targetNodeId, versions: [...node.versions, newVersion] };
               _nextNodesForConv = { ...convNodes, [targetNodeId]: newNode };

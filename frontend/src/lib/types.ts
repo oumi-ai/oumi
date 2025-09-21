@@ -22,6 +22,15 @@ export interface Message {
   timestamp: number;
   attachments?: any[];
   branchId?: string;
+  meta?: {
+    authorName?: string;            // Human-friendly name (user or model label)
+    authorType?: 'user' | 'ai' | 'system';
+    modelName?: string;             // If AI generated/edited
+    engine?: string;                // Provider/engine id
+    createdAt?: number;             // Epoch ms when message was created
+    durationMs?: number;            // Generation duration (AI)
+    [k: string]: any;
+  };
 }
 
 // Phase A – Versioned message primitives (non-breaking)
@@ -34,6 +43,13 @@ export interface MessageVersion {
   meta?: {
     editor?: 'user' | 'system' | 'regen' | string;
     sourceVersionId?: string; // for regen/edit lineage
+    authorName?: string;
+    authorType?: 'user' | 'ai' | 'system';
+    modelName?: string;
+    engine?: string;
+    createdAt?: number;
+    durationMs?: number;
+    [k: string]: any;
   };
 }
 
@@ -264,5 +280,9 @@ export interface AppSettings {
   huggingFace: {
     username?: string;
     token?: string; // Personal Access Token
+  };
+  // User profile
+  user?: {
+    displayName?: string;
   };
 }

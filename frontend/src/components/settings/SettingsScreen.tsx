@@ -5,6 +5,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { generateDisplayName } from '@/lib/nameGen';
 import { 
   Settings,
   Key,
@@ -182,6 +183,7 @@ function SystemSettings() {
   const { settings, updateSettings } = useChatStore();
   const [showHfToken, setShowHfToken] = useState(false);
   const { isAutoSaveEnabled, autoSaveInterval, lastSaved, isSaving } = useAutoSave();
+  const [tempName, setTempName] = useState(settings.user?.displayName || '');
 
   const handleHuggingFaceUpdate = (field: 'username' | 'token', value: string) => {
     updateSettings({
@@ -194,6 +196,40 @@ function SystemSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Profile */}
+      <div className="bg-card border rounded-lg p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold">Profile</h3>
+          <div className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">Optional</div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          <div className="md:col-span-2">
+            <label className="block font-medium text-sm mb-2">Display Name</label>
+            <input
+              type="text"
+              value={tempName}
+              onChange={(e) => setTempName(e.target.value)}
+              placeholder="e.g., Alex Finch"
+              className="w-full px-3 py-2 bg-background border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Used to label your messages and edits.</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="flex-1 px-3 py-2 rounded-lg border hover:bg-muted text-sm"
+              onClick={() => {
+                const n = generateDisplayName();
+                setTempName(n);
+                updateSettings({ user: { ...(settings.user || {}), displayName: n } });
+              }}
+            >Randomize</button>
+            <button
+              className="flex-1 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm"
+              onClick={() => updateSettings({ user: { ...(settings.user || {}), displayName: tempName || undefined } })}
+            >Save</button>
+          </div>
+        </div>
+      </div>
       <div>
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <Monitor size={20} />

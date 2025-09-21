@@ -54,12 +54,12 @@ export default function ChatHistory({
   const isEmpty = messages.length === 0 && !isLoading;
 
   return (
-    <div className={`flex flex-col h-full ${className}`}>
+    <div className={`flex flex-col h-full min-h-0 ${className}`}>
       {/* Messages container */}
       <div
         ref={scrollAreaRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto chat-scroll"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain chat-scroll"
         style={{ scrollBehavior: 'smooth' }}
       >
         {isEmpty ? (
