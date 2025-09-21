@@ -128,10 +128,10 @@ class CommandHandler:
             logger.debug(f"[RESOLVE] {diag}")
             return resolved_id, resolved_index, diag
         
-        try:
-            # Create a string buffer to capture console output
-            string_buffer = io.StringIO()
-            temp_console = Console(file=string_buffer, width=80)
+            try:
+                # Create a string buffer to capture console output
+                string_buffer = io.StringIO()
+                temp_console = Console(file=string_buffer, width=80)
             
             # Temporarily replace the session's console
             original_console = session.command_context.console
@@ -154,7 +154,13 @@ class CommandHandler:
                             args = [str(resolved_index), new_content]
                         logger.info(f"[CMD] normalized {command} -> index={resolved_index}, id={resolved_id}")
                     else:
-                        logger.warning(f"[CMD] Could not resolve target for {command}; proceeding with original args={args}")
+                        # If we cannot resolve a target for id-first commands, decline early
+                        logger.warning(f"[CMD] Could not resolve target for {command}; declining request")
+                        return web.json_response({
+                            "success": False,
+                            "error": f"Unable to resolve target for {command}. Please refresh and retry.",
+                            "should_continue": False
+                        }, status=400)
 
                 # Execute command via command router
                 parsed_command = ParsedCommand(
@@ -277,10 +283,10 @@ class CommandHandler:
                         except Exception:
                             pass
 
-                    # 2) Sync the active branch snapshot to reflect the edit for branch-based GETs
+                    # 2) Sync the active branch to share the SAME list object as session history
                     try:
                         current_branch = session.branch_manager.get_current_branch()
-                        current_branch.conversation_history = session.conversation_history.copy()
+                        current_branch.conversation_history = session.conversation_history
                         from datetime import datetime as _dt
                         current_branch.last_active = _dt.now()
                     except Exception as sync_err:
@@ -340,7 +346,7 @@ class CommandHandler:
                 if command == "delete":
                     try:
                         current_branch = session.branch_manager.get_current_branch()
-                        current_branch.conversation_history = session.conversation_history.copy()
+                        current_branch.conversation_history = session.conversation_history
                         from datetime import datetime as _dt
                         current_branch.last_active = _dt.now()
                     except Exception as sync_err:
@@ -358,7 +364,7 @@ class CommandHandler:
             
             # Save command results to persistence if available and supported
             # Avoid bulk-add for edit and regen to prevent duplication; targeted persist above.
-            if self.db and session.is_hydrated_from_db and command in ["clear", "delete"]:
+            if self.db and command in ["clear", "delete"]:
                 try:
                     # If the command modified conversation history, replace branch mapping to avoid duplication
                     conv_id = self.db.ensure_conversation(session_id)

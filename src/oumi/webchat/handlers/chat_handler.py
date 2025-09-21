@@ -358,21 +358,46 @@ class ChatHandler:
                 )
                 
                 async def update_conversation_with_branch(session):
-                    """Update conversation history for the active branch."""
-                    # Replace session history with the client-provided messages,
-                    # then append the assistant response. This prevents old
-                    # conversations from contaminating new UI conversations that
-                    # reuse the same backend session_id.
-                    session.conversation_history.clear()
-                    for m in messages:
-                        session.conversation_history.append(
-                            {
-                                "id": m.get("id") or generate_message_id(),
-                                "role": m.get("role", "user"),
-                                "content": m.get("content", ""),
-                                "timestamp": time.time(),
-                            }
-                        )
+                    """Update conversation for the active branch without trusting stale client history.
+
+                    Rules:
+                    - If this is a fresh session (no history yet), seed from client messages once.
+                    - Otherwise, append only the latest user message from the request, then the assistant reply.
+                    - Keep the active branch sharing the SAME list object as the session for integrity.
+                    """
+                    is_fresh_session = len(session.conversation_history) == 0
+
+                    if is_fresh_session:
+                        # Seed the new session with client-provided messages (first request only)
+                        session.conversation_history.clear()
+                        for m in messages:
+                            session.conversation_history.append(
+                                {
+                                    "id": m.get("id") or generate_message_id(),
+                                    "role": m.get("role", "user"),
+                                    "content": m.get("content", ""),
+                                    "timestamp": time.time(),
+                                }
+                            )
+                    else:
+                        # Append only the latest user message to server-authoritative history
+                        # Identify the latest user message in the request
+                        last_user = None
+                        for m in reversed(messages):
+                            if m.get("role") == "user":
+                                last_user = m
+                                break
+                        if last_user is not None:
+                            session.conversation_history.append(
+                                {
+                                    "id": last_user.get("id") or generate_message_id(),
+                                    "role": "user",
+                                    "content": last_user.get("content", ""),
+                                    "timestamp": time.time(),
+                                }
+                            )
+
+                    # Append assistant response
                     session.conversation_history.append(
                         {
                             "id": generate_message_id(),
@@ -381,10 +406,10 @@ class ChatHandler:
                             "timestamp": time.time(),
                         }
                     )
-                    
-                    # CRITICAL: Sync conversation to the active branch (which is now branch_id if it was switched)
+
+                    # Sync conversation to the active branch: share SAME object for integrity
                     current_branch = session.branch_manager.get_current_branch()
-                    current_branch.conversation_history = copy.deepcopy(session.conversation_history)
+                    current_branch.conversation_history = session.conversation_history
                     # Use datetime for branch timestamps to match ConversationBranch
                     from datetime import datetime as _dt
                     current_branch.last_active = _dt.now()
