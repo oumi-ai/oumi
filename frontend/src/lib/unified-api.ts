@@ -417,7 +417,18 @@ class UnifiedApiClient {
     command: string,
     args: string[] = []
   ): Promise<ApiResponse> {
-    return this.getClient().executeCommand(command, args);
+    // Attach session + branch automatically when available
+    let sessionId: string | undefined;
+    let branchId: string | undefined;
+    try {
+      const storeMod: any = await import('./store');
+      const st = storeMod.useChatStore?.getState?.();
+      if (st) {
+        sessionId = st.getCurrentSessionId?.() || st.currentSessionId;
+        branchId = st.currentBranchId || 'main';
+      }
+    } catch {}
+    return this.getClient().executeCommand(command, args, sessionId, branchId);
   }
 
   // System monitoring
@@ -569,6 +580,7 @@ class UnifiedApiClient {
             timelines: storeState.branchTimelines?.[conversationId] || {},
             heads: storeState.branchHeads?.[conversationId] || {},
             tombstones: storeState.branchTombstones?.[conversationId] || {},
+            merges: storeState.merges?.[conversationId] || [],
           };
           if (Object.keys(nodeGraph.nodes).length > 0) {
             payload = { ...conversationData, nodeGraph };

@@ -168,8 +168,9 @@ export function useConversationCommand() {
       const response = await apiClient.executeCommand(command, args);
       console.log(`🚀 Command '${command}' response:`, response);
 
-      if (!response.success) {
-        const errorMessage = response.message || 'Unknown error';
+      const serverDeclined = !response.success || (response.data && (response.data.success === false || response.data.error));
+      if (serverDeclined) {
+        const errorMessage = response.message || (response.data?.message || response.data?.error) || 'Unknown error';
         // Rich diagnostics when the backend ignores/declines the operation
         try {
           const {

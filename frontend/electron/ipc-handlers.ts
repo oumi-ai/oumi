@@ -576,11 +576,14 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
   );
 
   // Command execution
-  ipcMain.handle('chat:execute-command', (_, command, args) => {
-    log.info(`Executing command: ${command} with args:`, args);
+  ipcMain.handle('chat:execute-command', (_, command, args, sessionId?: string, branchId?: string) => {
+    log.info(`Executing command: ${command} with args:`, args, ' session:', sessionId, ' branch:', branchId);
+    const body: any = { command, args };
+    if (sessionId) body.session_id = sessionId;
+    if (branchId) body.branch_id = branchId;
     return proxyToPython('/v1/oumi/command', {
       method: 'POST',
-      body: JSON.stringify({ command, args }),
+      body: JSON.stringify(body),
     });
   });
 }

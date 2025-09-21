@@ -4,7 +4,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Message, MessageNode, MessageVersion, ConversationBranch, Conversation, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats, Session } from './types';
+import { Message, MessageNode, MessageVersion, MergeRecord, ConversationBranch, Conversation, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats, Session } from './types';
 import apiClient from './unified-api';
 import { 
   adaptLegacyConversation, 
@@ -43,6 +43,9 @@ interface ChatStore {
     [conversationId: string]: {
       [branchId: string]: { [nodeId: string]: boolean }
     }
+  };
+  merges: {
+    [conversationId: string]: MergeRecord[]
   };
   
   // Current state
@@ -121,7 +124,7 @@ interface ChatStore {
   resetStore: () => void;
 
   // Phase B: Hydrate node graph from persistence
-  hydrateNodeGraph: (conversationId: string, nodeGraph: { nodes?: { [id: string]: MessageNode }, timelines?: { [branchId: string]: string[] }, heads?: { [branchId: string]: { [nodeId: string]: string } }, tombstones?: { [branchId: string]: { [nodeId: string]: boolean } } }) => void;
+  hydrateNodeGraph: (conversationId: string, nodeGraph: { nodes?: { [id: string]: MessageNode }, timelines?: { [branchId: string]: string[] }, heads?: { [branchId: string]: { [nodeId: string]: string } }, tombstones?: { [branchId: string]: { [nodeId: string]: boolean } }, merges?: MergeRecord[] }) => void;
 
   // Phase C helpers: version navigation + inquiry
   getMessageNodeInfo: (conversationId: string, branchId: string, messageId: string) => { nodeId?: string; versions: MessageVersion[]; activeIndex: number };
@@ -166,6 +169,7 @@ export const useChatStore = create<ChatStore>()(
       branchTimelines: {},
       branchHeads: {},
       branchTombstones: {},
+      merges: {},
       
       // Initial state
       currentBranchId: 'main',
@@ -1186,11 +1190,13 @@ export const useChatStore = create<ChatStore>()(
           const nextTimelines = { ...(state.branchTimelines[conversationId] || {}), ...(nodeGraph.timelines || {}) };
           const nextHeads = { ...(state.branchHeads[conversationId] || {}), ...(nodeGraph.heads || {}) };
           const nextTombs = { ...(state.branchTombstones[conversationId] || {}), ...(nodeGraph.tombstones || {}) };
+          const nextMerges = [ ...(state.merges[conversationId] || []), ...((nodeGraph.merges || []) as MergeRecord[]) ];
           return {
             messageNodes: { ...state.messageNodes, [conversationId]: nextNodes },
             branchTimelines: { ...state.branchTimelines, [conversationId]: nextTimelines },
             branchHeads: { ...state.branchHeads, [conversationId]: nextHeads },
             branchTombstones: { ...state.branchTombstones, [conversationId]: nextTombs },
+            merges: { ...state.merges, [conversationId]: nextMerges },
           };
         }),
 

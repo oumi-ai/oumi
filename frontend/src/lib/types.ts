@@ -42,6 +42,18 @@ export interface MessageNode {
   versions: MessageVersion[]; // ordered chronologically
 }
 
+// Merge persistence (Phase B placeholder)
+export interface MergeRecord {
+  id: string;
+  timestamp: string;
+  sourceBranchId: string;
+  targetBranchId: string;
+  sourceNodeId?: string;
+  targetNodeId?: string;
+  chosenVersionId?: string;
+  meta?: { [k: string]: any };
+}
+
 export interface ConversationBranch {
   id: string;
   name: string;

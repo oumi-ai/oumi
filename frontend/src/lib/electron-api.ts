@@ -335,13 +335,15 @@ class ElectronApiClient {
 
   public async executeCommand(
     command: string,
-    args: string[] = []
+    args: string[] = [],
+    sessionId?: string,
+    branchId?: string
   ): Promise<ApiResponse> {
     if (!this.isElectron) {
       throw new Error('Command execution only available in Electron app');
     }
     console.log(`🖥️  Electron API: Executing command '${command}' with args:`, args);
-    const response = await window.electronAPI.chat.executeCommand(command, args);
+    const response = await window.electronAPI.chat.executeCommand(command, args, sessionId, branchId);
     console.log(`🖥️  Electron API: Command '${command}' response:`, response);
     return response;
   }
