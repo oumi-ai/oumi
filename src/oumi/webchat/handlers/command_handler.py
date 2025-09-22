@@ -202,23 +202,31 @@ class CommandHandler:
                     response_data["broadcast"] = True
 
             # Enrich responses for specific commands
+            # Always include current model info when available to help clients annotate messages
+            try:
+                if hasattr(session.command_context, 'config') and session.command_context.config:
+                    cfg = session.command_context.config
+                    response_data.setdefault("model_info", {
+                        "name": getattr(cfg.model, "model_name", None),
+                        "engine": str(cfg.engine) if getattr(cfg, 'engine', None) else None,
+                    })
+                elif hasattr(session, 'config') and session.config:
+                    cfg = session.config
+                    response_data.setdefault("model_info", {
+                        "name": getattr(cfg.model, "model_name", None),
+                        "engine": str(cfg.engine) if getattr(cfg, 'engine', None) else None,
+                    })
+            except Exception as _mi_err:
+                pass
+
             if command in ["branches", "list_branches"]:
                 response_data["branches"] = session.get_enhanced_branch_info(self.db)
                 response_data["current_branch"] = session.branch_manager.current_branch_id
             elif command == "show":
                 response_data["conversation"] = session.serialize_conversation()
             elif command == "swap" and result.success:
-                try:
-                    if hasattr(session.command_context, 'config') and session.command_context.config:
-                        new_config = session.command_context.config
-                        response_data["model_info"] = {
-                            "name": getattr(new_config.model, "model_name", "oumi-model"),
-                            "engine": str(new_config.engine),
-                        }
-                    else:
-                        logger.warning("⚠️ Cannot include model_info: session config not available")
-                except Exception as e:
-                    logger.error(f"❌ Error adding model_info to response: {e}")
+                # model_info was already added above, but keep compatibility
+                pass
 
             # For state-mutating commands, include the latest conversation snapshot directly
             if command in {"clear", "delete", "regen", "edit"} and result.success:
@@ -287,6 +295,7 @@ class CommandHandler:
                             role=last.get("role", "assistant"),
                             content=str(last.get("content", "")),
                             created_at=float(last.get("timestamp", time.time())),
+                            metadata=(__import__('json').dumps(last.get("metadata", {})) if last.get("metadata") else None),
                             force_new=is_electron,
                         )
                         try:

@@ -397,13 +397,26 @@ class ChatHandler:
                                 }
                             )
 
-                    # Append assistant response
+                    # Append assistant response with model metadata
+                    try:
+                        model_name = getattr(session_config.model, 'model_name', None)
+                    except Exception:
+                        model_name = None
+                    try:
+                        engine_name = str(session_config.engine) if getattr(session_config, 'engine', None) else None
+                    except Exception:
+                        engine_name = None
                     session.conversation_history.append(
                         {
                             "id": generate_message_id(),
                             "role": "assistant",
                             "content": response_content,
                             "timestamp": time.time(),
+                            "metadata": {
+                                "model_name": model_name,
+                                "engine": engine_name,
+                                "duration_ms": int(max(0.0, (elapsed if 'elapsed' in locals() else 0.0)) * 1000),
+                            },
                         }
                     )
 
@@ -436,6 +449,7 @@ class ChatHandler:
                             # Append the last two messages (user + assistant) and align IDs with DB ids
                             if len(session.conversation_history) >= 2:
                                 last_two = session.conversation_history[-2:]
+                                import json as _json
                                 for m in last_two:
                                     db_id = self.db.append_message_to_branch(
                                         conv_id,
@@ -443,6 +457,7 @@ class ChatHandler:
                                         role=m.get("role", "user"),
                                         content=str(m.get("content", "")),
                                         created_at=float(m.get("timestamp", time.time())),
+                                        metadata=_json.dumps(m.get("metadata", {})) if m.get("metadata") else None,
                                     )
                                     try:
                                         m["id"] = db_id

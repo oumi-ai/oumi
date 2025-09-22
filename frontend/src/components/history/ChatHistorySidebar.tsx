@@ -5,9 +5,10 @@
 "use client";
 
 import React from 'react';
-import { History, MessageSquare, Clock, Download, Search, Trash2, RefreshCw, ArrowLeft, Users, User, ChevronDown, ChevronRight, GitBranch } from 'lucide-react';
+import { History, MessageSquare, Clock, Download, Upload, Search, Trash2, RefreshCw, ArrowLeft, Users, User, ChevronDown, ChevronRight, GitBranch } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 import { useChatStore } from '@/lib/store';
+import { buildChatHistoryForCurrentSession, hydrateStoreFromChatHistory } from '@/lib/adapters/store-adapter';
 
 interface ConversationEntry {
   id: string;
@@ -70,6 +71,65 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
   const [nodes, setNodes] = React.useState<any[]>([]);
   const [groupNodes, setGroupNodes] = React.useState<boolean>(true);
   const [expandedConversations, setExpandedConversations] = React.useState<Record<string, boolean>>({});
+
+  // Helpers for ChatHistory export/import
+  const estimateTokens = (text: string): number => Math.ceil((text || '').length / 4);
+  const estimateBranchTokens = (messages: any[]): number => messages.reduce((acc, m) => acc + estimateTokens(String(m?.content || '')), 0);
+  const getActiveMaxContext = (): number | undefined => {
+    try { return useChatStore.getState().generationParams?.contextLength || undefined; } catch { return undefined; }
+  };
+  const toast = async (message: string, variant: 'info' | 'warning' | 'error' | 'success' = 'info') => {
+    try { const { showToast } = await import('@/lib/toastBus'); showToast({ message, variant, durationMs: 3500 }); } catch {}
+  };
+
+  const handleExportChatHistory = async () => {
+    try {
+      const artifact = buildChatHistoryForCurrentSession();
+      const ok = await apiClient.saveChatHistoryToFile(artifact);
+      if (ok) await toast('✅ Chat history saved', 'success'); else await toast('❌ Failed to save chat history', 'error');
+    } catch (e) {
+      console.error('Export ChatHistory failed:', e);
+      await toast('❌ Export failed', 'error');
+    }
+  };
+
+  const handleImportChatHistory = async () => {
+    try {
+      const artifact = await apiClient.loadChatHistoryFromFile();
+      if (!artifact) return;
+      // Preflight warning for context length
+      const maxCtx = getActiveMaxContext();
+      if (maxCtx && Array.isArray(artifact?.conversations)) {
+        let warnCount = 0;
+        for (const c of artifact.conversations) {
+          const branches = c.branches || {};
+          for (const [, b] of Object.entries<any>(branches)) {
+            const tks = estimateBranchTokens((b as any).messages || []);
+            if (tks > maxCtx) warnCount++;
+          }
+        }
+        if (warnCount > 0) {
+          await toast(`⚠️ ${warnCount} branch(es) exceed current model context (${maxCtx}). You can still load.`, 'warning');
+        }
+      } else if (!maxCtx) {
+        await toast('⚠️ Active model max context unknown. Proceeding to load history.', 'warning');
+      }
+
+      if (!window.confirm('This will overwrite the current workspace with the imported chat history. Continue?')) return;
+
+      // Auto-backup current workspace (best-effort)
+      try {
+        const current = buildChatHistoryForCurrentSession();
+        await apiClient.saveChatHistoryToFile(current, `backup-before-import-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`);
+      } catch {}
+
+      hydrateStoreFromChatHistory(artifact);
+      await toast('✅ Chat history loaded', 'success');
+    } catch (e) {
+      console.error('Import ChatHistory failed:', e);
+      await toast('❌ Import failed', 'error');
+    }
+  };
 
   // Track active branch message count to refresh Active Branch card after new messages
   const activeBranchVersion = useChatStore((state) => {

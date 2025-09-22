@@ -302,6 +302,7 @@ class WebChatSession:
                         "role": msg.get("role", "unknown"),
                         "content": msg.get("content", ""),
                         "timestamp": msg.get("timestamp", time.time()),
+                        "metadata": msg.get("metadata", {}),
                     }
                 )
             else:
@@ -397,11 +398,26 @@ class WebChatSession:
             
             # Add the new assistant response to conversation history
             from oumi.webchat.utils.id_utils import generate_message_id
+            # Gather model metadata when available
+            try:
+                model_name = getattr(self.config.model, 'model_name', None)
+            except Exception:
+                model_name = None
+            engine_name = None
+            try:
+                engine_name = str(self.config.engine) if getattr(self.config, 'engine', None) else None
+            except Exception:
+                pass
             self.conversation_history.append({
                 "id": generate_message_id(),
                 "role": "assistant",
                 "content": response_content,
-                "timestamp": time.time()
+                "timestamp": time.time(),
+                "metadata": {
+                    "model_name": model_name,
+                    "engine": engine_name,
+                    "duration_ms": int(max(0.0, elapsed) * 1000),
+                }
             })
             
             logger.info(f"🔄 Added regenerated response to conversation (total messages: {len(self.conversation_history)})")

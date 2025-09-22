@@ -48,12 +48,40 @@ export function useConversationCommand() {
         getCurrentSessionId,
         currentConversationId,
         currentBranchId,
+        settings,
       } = useChatStore.getState();
 
       // Fetch messages for the CURRENT branch, not always 'main'
       const conversationResponse = await apiClient.getConversation(getCurrentSessionId(), currentBranchId || 'main');
       if (conversationResponse.success && conversationResponse.data?.conversation && currentConversationId) {
-        setMessages(currentConversationId, currentBranchId || 'main', conversationResponse.data.conversation);
+        // Normalize messages: fix timestamps and merge backend metadata
+        const normalizeTs = (t: any): number => {
+          if (typeof t === 'number') return t < 1e11 ? Math.round(t * 1000) : Math.round(t);
+          if (typeof t === 'string') { const f = parseFloat(t); if (!isNaN(f)) return f < 1e11 ? Math.round(f * 1000) : Math.round(f); }
+          return Date.now();
+        };
+        const mapped = (conversationResponse.data.conversation as any[]).map(m => {
+          const ts = normalizeTs(m.timestamp);
+          const md = (m.metadata || m.meta || {}) as any;
+          const modelName = md.model_name ?? md.modelName ?? (m.role === 'assistant' ? settings.selectedModel : undefined);
+          const engine = md.engine ?? (m.role === 'assistant' ? settings.selectedProvider : undefined);
+          const durationMs = md.duration_ms ?? md.durationMs;
+          return {
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            timestamp: ts,
+            meta: {
+              authorType: m.role === 'assistant' ? 'ai' : (m.role === 'user' ? 'user' : 'system'),
+              authorName: m.role === 'assistant' ? (modelName || 'AI') : (settings.user?.displayName || 'You'),
+              modelName,
+              engine,
+              createdAt: ts,
+              ...(typeof durationMs === 'number' ? { durationMs } : {}),
+            }
+          };
+        });
+        setMessages(currentConversationId, currentBranchId || 'main', mapped as any);
         console.log(`🔄 Conversation refreshed for branch '${currentBranchId || 'main'}' with ${conversationResponse.data.conversation.length} messages`);
         return true;
       }
@@ -193,20 +221,35 @@ export function useConversationCommand() {
         const targetConvId = snapConvId || currentConversationId;
         const targetBranchId = snapBranchId || currentBranchId || 'main';
         if (targetConvId && snap && Array.isArray(snap)) {
-          // Map snapshot to include minimal metadata so UI stays consistent
-          const mapped = snap.map((m: any) => ({
-            id: m.id,
-            role: m.role,
-            content: m.content,
-            timestamp: m.timestamp || Date.now(),
-            meta: {
-              authorType: m.role === 'assistant' ? 'ai' : (m.role === 'user' ? 'user' : 'system'),
-              authorName: m.role === 'assistant' ? (response?.data?.model_info?.name || settings.selectedModel || 'AI') : (settings.user?.displayName || 'You'),
-              modelName: m.role === 'assistant' ? (response?.data?.model_info?.name || settings.selectedModel) : undefined,
-              engine: m.role === 'assistant' ? (response?.data?.model_info?.engine || settings.selectedProvider) : undefined,
-              createdAt: m.timestamp || Date.now(),
+          const normalizeTs = (t: any): number => {
+            if (typeof t === 'number') return t < 1e11 ? Math.round(t * 1000) : Math.round(t);
+            if (typeof t === 'string') {
+              const f = parseFloat(t); if (!isNaN(f)) return f < 1e11 ? Math.round(f * 1000) : Math.round(f);
             }
-          }));
+            return Date.now();
+          };
+          // Map snapshot to include minimal metadata so UI stays consistent
+          const mapped = snap.map((m: any) => {
+            const ts = normalizeTs(m.timestamp);
+            const md = (m.metadata || m.meta || {}) as any;
+            const modelName = md.model_name ?? md.modelName ?? (m.role === 'assistant' ? (response?.data?.model_info?.name || settings.selectedModel) : undefined);
+            const engine = md.engine ?? (m.role === 'assistant' ? (response?.data?.model_info?.engine || settings.selectedProvider) : undefined);
+            const durationMs = md.duration_ms ?? md.durationMs;
+            return {
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              timestamp: ts,
+              meta: {
+                authorType: m.role === 'assistant' ? 'ai' : (m.role === 'user' ? 'user' : 'system'),
+                authorName: m.role === 'assistant' ? (modelName || 'AI') : (settings.user?.displayName || 'You'),
+                modelName,
+                engine,
+                createdAt: ts,
+                ...(typeof durationMs === 'number' ? { durationMs } : {}),
+              }
+            };
+          });
           // If backend provided canonical conversation id, align the store selection
           if (snapConvId && currentConversationId !== snapConvId) {
             try { setCurrentConversationId(snapConvId); } catch {}

@@ -109,21 +109,40 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
       const response = await apiClient.getConversation(getCurrentSessionId(), currentBranchId);
       
       if (response.success && response.data) {
-        // Transform backend messages to frontend format with minimal metadata
-        const transformedMessages: Message[] = response.data.conversation.map((msg: any) => ({
-          id: msg.id || `${msg.role}-${Date.now()}-${Math.random()}`,
-          role: msg.role,
-          content: msg.content,
-          timestamp: new Date(msg.timestamp || Date.now()).getTime(),
-          attachments: msg.attachments,
-          meta: {
-            authorType: msg.role === 'assistant' ? 'ai' : (msg.role === 'user' ? 'user' : 'system'),
-            authorName: msg.role === 'assistant' ? (settings.selectedModel || 'AI') : (settings.user?.displayName || 'You'),
-            modelName: msg.role === 'assistant' ? settings.selectedModel : undefined,
-            engine: msg.role === 'assistant' ? settings.selectedProvider : undefined,
-            createdAt: new Date(msg.timestamp || Date.now()).getTime(),
+        const normalizeTs = (t: any): number => {
+          if (typeof t === 'number') {
+            // If seconds (10 digits), convert to ms
+            return t < 1e11 ? Math.round(t * 1000) : Math.round(t);
           }
-        }));
+          if (typeof t === 'string') {
+            const f = parseFloat(t);
+            if (!isNaN(f)) return f < 1e11 ? Math.round(f * 1000) : Math.round(f);
+          }
+          return Date.now();
+        };
+        // Transform backend messages to frontend format with minimal metadata
+        const transformedMessages: Message[] = response.data.conversation.map((msg: any) => {
+          const ts = normalizeTs(msg.timestamp);
+          const md = (msg.metadata || msg.meta || {}) as any;
+          const modelName = md.model_name ?? md.modelName ?? (msg.role === 'assistant' ? settings.selectedModel : undefined);
+          const engine = md.engine ?? (msg.role === 'assistant' ? settings.selectedProvider : undefined);
+          const durationMs = md.duration_ms ?? md.durationMs;
+          return {
+            id: msg.id || `${msg.role}-${Date.now()}-${Math.random()}`,
+            role: msg.role,
+            content: msg.content,
+            timestamp: ts,
+            attachments: msg.attachments,
+            meta: {
+              authorType: msg.role === 'assistant' ? 'ai' : (msg.role === 'user' ? 'user' : 'system'),
+              authorName: msg.role === 'assistant' ? (modelName || 'AI') : (settings.user?.displayName || 'You'),
+              modelName,
+              engine,
+              createdAt: ts,
+              ...(typeof durationMs === 'number' ? { durationMs } : {}),
+            }
+          };
+        });
         
         // Use the branch-specific setMessages
         // The setMessages function now requires 3 parameters
