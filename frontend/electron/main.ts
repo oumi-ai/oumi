@@ -15,15 +15,39 @@ import { setupIpcHandlers } from './ipc-handlers';
 log.transports.file.level = 'info';
 log.transports.console.level = 'debug';
 
-// Initialize persistent storage
-const store = new Store({
-  name: 'chatterley-config',
-  defaults: {
-    windowBounds: { width: 1400, height: 900 },
-    pythonPort: 9000,
-    lastSession: 'default'
+// Initialize persistent storage with corrupted JSON recovery
+function createMainStore(): Store {
+  const opts: Store.Options<any> = {
+    name: 'chatterley-config',
+    defaults: {
+      windowBounds: { width: 1400, height: 900 },
+      pythonPort: 9000,
+      lastSession: 'default'
+    },
+    clearInvalidConfig: true,
+    fileExtension: 'json'
+  };
+
+  try {
+    return new Store(opts);
+  } catch (err) {
+    // Backup and recreate on parse errors
+    try {
+      const fs = require('fs');
+      const storePath = require('path').join(app.getPath('userData'), `${opts.name}.${opts.fileExtension}`);
+      if (fs.existsSync(storePath)) {
+        const backupPath = `${storePath}.bak-${Date.now()}`;
+        fs.renameSync(storePath, backupPath);
+        log.warn(`[Main] Backed up corrupted store to: ${backupPath}`);
+      }
+    } catch (backupErr) {
+      log.warn('[Main] Failed backing up corrupted store:', backupErr);
+    }
+    return new Store(opts);
   }
-});
+}
+
+const store = createMainStore();
 
 class ChatterleyApp {
   private mainWindow: BrowserWindow | null = null;

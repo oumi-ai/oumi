@@ -10,6 +10,34 @@ PLATFORM=${1:-"$(uname | tr '[:upper:]' '[:lower:]')"}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
+# Best-effort cleanup so rebuilds don't fail on existing artifacts/symlinks
+cleanup_macos_dmg_volume() {
+    # Determine product name and version from package.json
+    local product_name
+    local version
+    product_name=$(node -p "(p=> (p.build && p.build.productName) || p.productName || p.name || 'App')(require('./package.json'))" 2>/dev/null || echo "App")
+    version=$(node -p "require('./package.json').version" 2>/dev/null || echo "")
+
+    # If we couldn't determine, do nothing
+    if [[ -z "$product_name" || -z "$version" ]]; then
+        return 0
+    fi
+
+    local volume="/Volumes/${product_name} ${version}"
+
+    # Detach if mounted
+    if mount | grep -Fq "$volume"; then
+        echo "🔌 Detaching existing DMG volume: $volume"
+        hdiutil detach -force "$volume" || true
+    fi
+
+    # Remove any stale mount directory or symlinks inside
+    if [[ -d "$volume" ]]; then
+        echo "🧹 Removing stale volume directory: $volume"
+        rm -rf "$volume" || true
+    fi
+}
+
 echo "🚀 Building Chatterley Desktop for platform: $PLATFORM"
 echo "📁 Project directory: $PROJECT_DIR"
 
@@ -41,6 +69,8 @@ npm run generate-configs
 case "$PLATFORM" in
     "mac" | "darwin")
         echo "🍎 Building for macOS..."
+        echo "🧽 Pre-cleaning any stale DMG mounts/symlinks..."
+        cleanup_macos_dmg_volume
         npm run dist:mac
         ;;
     "win" | "windows")
@@ -56,6 +86,8 @@ case "$PLATFORM" in
         echo "📦 Downloading Python distributions for all platforms..."
         npm run download-python -- --all-platforms
         echo "🍎 Building macOS packages..."
+        echo "🧽 Pre-cleaning any stale DMG mounts/symlinks..."
+        cleanup_macos_dmg_volume
         npm run dist:mac
         echo "🪟 Building Windows packages..."
         npm run dist:win

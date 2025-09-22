@@ -32,13 +32,36 @@ class ApiKeyManager {
   constructor() {
     // Generate machine-specific encryption key
     this.encryptionKey = this.generateEncryptionKey();
-    
-    // Initialize encrypted store
-    this.encryptedStore = new Store({
+
+    // Initialize encrypted store with robust handling for corrupted JSON
+    const options: Store.Options<any> = {
       name: 'api-keys',
       encryptionKey: this.encryptionKey,
-      defaults: {}
-    });
+      defaults: {},
+      clearInvalidConfig: true,
+      fileExtension: 'json'
+    };
+
+    try {
+      this.encryptedStore = new Store(options);
+    } catch (err) {
+      log.error('[ApiKeyManager] electron-store initialization failed, attempting recovery:', err);
+      try {
+        const userData = app.getPath('userData');
+        const storePath = path.join(userData, `${options.name}.${options.fileExtension}`);
+        const fs = require('fs');
+        if (fs.existsSync(storePath)) {
+          const backupPath = `${storePath}.bak-${Date.now()}`;
+          fs.renameSync(storePath, backupPath);
+          log.warn(`[ApiKeyManager] Corrupted store backed up to: ${backupPath}`);
+        }
+      } catch (backupErr) {
+        log.warn('[ApiKeyManager] Failed to backup corrupted store:', backupErr);
+      }
+
+      // Retry with a fresh store
+      this.encryptedStore = new Store(options);
+    }
 
     log.info('[ApiKeyManager] Initialized with encrypted storage');
   }

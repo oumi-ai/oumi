@@ -9,7 +9,31 @@ import log from 'electron-log';
 import { PythonServerManager, DownloadProgress, DownloadErrorEvent } from './python-manager';
 import { apiKeyManager, ApiKeyConfig } from './api-key-manager';
 
-const store = new Store();
+// Create a resilient store for IPC-backed key/value operations
+function createIpcStore(): Store<any> {
+  const opts: Store.Options<any> = {
+    name: 'ipc-config',
+    clearInvalidConfig: true,
+    fileExtension: 'json'
+  };
+  try {
+    return new Store(opts);
+  } catch (err) {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const storePath = path.join((require('electron').app as any).getPath('userData'), `${opts.name}.${opts.fileExtension}`);
+      if (fs.existsSync(storePath)) {
+        const backupPath = `${storePath}.bak-${Date.now()}`;
+        fs.renameSync(storePath, backupPath);
+        (require('electron-log') as typeof import('electron-log')).warn(`[IPC] Backed up corrupted store to: ${backupPath}`);
+      }
+    } catch {}
+    return new Store(opts);
+  }
+}
+
+const store = createIpcStore();
 
 /**
  * Set up all IPC handlers
