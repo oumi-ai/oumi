@@ -298,10 +298,11 @@ class ApiClient {
     return this.fetchApi('/v1/models');
   }
 
-  async clearModel(): Promise<ApiResponse> {
-    return this.fetchApi('/v1/oumi/clear_model', {
-      method: 'POST'
-    });
+  async clearModel(sessionId?: string): Promise<ApiResponse> {
+    const url = sessionId
+      ? `/v1/oumi/clear_model?session_id=${encodeURIComponent(sessionId)}`
+      : '/v1/oumi/clear_model';
+    return this.fetchApi(url, { method: 'POST' });
   }
 
   // File operations

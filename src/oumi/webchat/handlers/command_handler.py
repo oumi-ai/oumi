@@ -364,6 +364,9 @@ class CommandHandler:
                     response_data.setdefault('trace_id', trace_id)
             except Exception:
                 pass
+            # Return 400 for command-level failures so clients don’t misinterpret as success
+            if not result.success:
+                return web.json_response(response_data, status=400)
             return web.json_response(response_data)
 
         except Exception as e:

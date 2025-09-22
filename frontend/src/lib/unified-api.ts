@@ -517,7 +517,14 @@ class UnifiedApiClient {
   }
 
   async clearModel(): Promise<ApiResponse> {
-    return this.getClient().clearModel();
+    // Always hit HTTP endpoint so we can include session_id consistently
+    let sessionId: string | undefined;
+    try {
+      const storeMod: any = await import('./store');
+      const st = storeMod.useChatStore?.getState?.();
+      sessionId = st?.getCurrentSessionId?.() || st?.currentSessionId;
+    } catch {}
+    return this.webClient.clearModel(sessionId);
   }
 
   // File operations (Electron-specific, with fallbacks)

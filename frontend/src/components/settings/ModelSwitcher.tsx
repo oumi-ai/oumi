@@ -243,12 +243,12 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
       console.log('🔄 Model switch response:', response);
       
       if (response.success) {
-        try { const { showToast } = await import('@/lib/toastBus'); showToast({ message: '✅ Model switched successfully', variant: 'success' }); } catch {}
         // CRITICAL FIX: Reload model information from server after successful swap
         try {
           const modelResponse = await apiClient.getModels();
           if (modelResponse.success && modelResponse.data?.data?.[0]) {
             const model = modelResponse.data.data[0];
+            const prev = currentModel;
             setCurrentModel(model.id);
             
             // Extract and cache updated config metadata after swap
@@ -259,17 +259,29 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
               setCurrentModelConfigMetadata(null);
               console.log(`🔄 Updated model (no metadata): ${model.id}`);
             }
+
+            // Toast only when the active model actually changed
+            try {
+              const { showToast } = await import('@/lib/toastBus');
+              if (model.id && prev && model.id !== prev) {
+                showToast({ message: `✅ Switched to ${model.id}`, variant: 'success' });
+              } else {
+                showToast({ message: '⚠️ Model appears unchanged after swap', variant: 'warning' });
+              }
+            } catch {}
           } else {
             // Fallback to config path if server response fails
             setCurrentModel(configPath);
             setCurrentModelConfigMetadata(null);
             console.warn('⚠️ Could not refresh model info from server, using config path');
+            try { const { showToast } = await import('@/lib/toastBus'); showToast({ message: '⚠️ Swap completed, but could not refresh model info', variant: 'warning' }); } catch {}
           }
         } catch (refreshError) {
           console.error('❌ Error refreshing model info:', refreshError);
           // Fallback to config path if refresh fails
           setCurrentModel(configPath);
           setCurrentModelConfigMetadata(null);
+          try { const { showToast } = await import('@/lib/toastBus'); showToast({ message: '⚠️ Swap completed, but refresh failed', variant: 'warning' }); } catch {}
         }
         
         setIsDropdownOpen(false);

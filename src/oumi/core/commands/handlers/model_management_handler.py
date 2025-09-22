@@ -15,6 +15,8 @@
 """Model management command handler."""
 
 from pathlib import Path
+import os
+import oumi
 from typing import Any
 
 from rich.panel import Panel
@@ -117,27 +119,53 @@ class ModelManagementHandler(BaseCommandHandler):
     def _handle_config_swap(self, config_path: str) -> CommandResult:
         """Handle config-based model swapping by loading an Oumi YAML config."""
         try:
-            # Resolve config path
-            if not Path(config_path).is_absolute():
-                # Try relative to current directory first
-                full_path = Path.cwd() / config_path
-                if not full_path.exists():
-                    # Try relative to config directory in project
-                    project_config_path = (
-                        Path(__file__).parent.parent.parent.parent.parent
-                        / "configs"
-                        / config_path
-                    )
-                    if project_config_path.exists():
-                        full_path = project_config_path
-                    else:
-                        return CommandResult(
-                            success=False,
-                            message=f"Config file not found: {config_path}",
-                            should_continue=False,
-                        )
-            else:
-                full_path = Path(config_path)
+            # Resolve config path robustly across dev and packaged layouts
+            def _resolve_config_path(cfg: str) -> tuple[Path | None, list[str]]:
+                attempted: list[str] = []
+                p = Path(os.path.expanduser(cfg))
+                if p.is_absolute():
+                    attempted.append(str(p))
+                    return (p if p.exists() else None), attempted
+
+                # Candidate bases to search
+                bases: list[Path] = []
+                # 1) CWD, and CWD/configs
+                bases.append(Path.cwd())
+                bases.append(Path.cwd() / "configs")
+                # 2) Relative to this file: try several parent depths + /configs
+                here = Path(__file__).resolve()
+                for i in range(1, 8):
+                    parent = here.parents[i - 1]
+                    bases.append(parent)
+                    bases.append(parent / "configs")
+                # 3) Relative to installed oumi package: up two -> repo root, then /configs
+                try:
+                    pkg_base = Path(oumi.__file__).resolve().parents[2]
+                    bases.append(pkg_base)
+                    bases.append(pkg_base / "configs")
+                except Exception:
+                    pass
+
+                # Try each base with both direct and configs/ prefix
+                for b in bases:
+                    for candidate in (b / cfg, b / "configs" / cfg):
+                        attempted.append(str(candidate))
+                        if candidate.exists():
+                            return candidate, attempted
+                return None, attempted
+
+            full_path, tried = _resolve_config_path(config_path)
+            if full_path is None:
+                # Provide helpful info about where we looked
+                details = "\n - " + "\n - ".join(tried[:10])
+                more = " (and more)" if len(tried) > 10 else ""
+                return CommandResult(
+                    success=False,
+                    message=(
+                        f"Config file not found: {config_path}\nSearched:{details}{more}"
+                    ),
+                    should_continue=False,
+                )
 
             if not full_path.exists():
                 return CommandResult(

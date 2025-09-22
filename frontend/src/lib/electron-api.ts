@@ -343,7 +343,11 @@ class ElectronApiClient {
     if (!this.isElectron) {
       throw new Error('Command execution only available in Electron app');
     }
-    console.log(`🖥️  Electron API: Executing command '${command}' with args:`, args, ' target:', target);
+    if (target && (target.messageId || typeof target.index === 'number' || target.payload)) {
+      console.log(`🖥️  Electron API: Executing command '${command}' with args:`, args, ' target:', target);
+    } else {
+      console.log(`🖥️  Electron API: Executing command '${command}' with args:`, args);
+    }
     const response = await window.electronAPI.chat.executeCommand(command, args, sessionId, branchId, target);
     console.log(`🖥️  Electron API: Command '${command}' response:`, response);
     return response;

@@ -2,7 +2,7 @@
  * Electron main process for Chatterley Desktop Application
  */
 
-import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, dialog, shell, session } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import Store from 'electron-store';
@@ -77,6 +77,15 @@ class ChatterleyApp {
 
   private async onReady(): Promise<void> {
     try {
+      // In debug modes, proactively clear Electron caches at startup
+      if (this.isDevelopment || process.env.ELECTRON_DEBUG_PRODUCTION === '1') {
+        try {
+          await this.clearCachesOnStartup();
+        } catch (err) {
+          log.warn('Failed to clear Electron caches on startup:', err);
+        }
+      }
+
       // Initialize Python server manager (but don't start server yet)
       const pythonPort = store.get('pythonPort') || 9000;
       this.pythonManager = new PythonServerManager(pythonPort);
@@ -146,6 +155,50 @@ class ChatterleyApp {
     // Check for updates in production
     if (!this.isDevelopment) {
       setTimeout(() => autoUpdater.checkForUpdatesAndNotify(), 2000);
+    }
+  }
+
+  private async clearCachesOnStartup(): Promise<void> {
+    log.info('🧹 Debug mode: clearing Electron caches on startup');
+    try {
+      // Clear Chromium HTTP cache
+      await session.defaultSession.clearCache();
+    } catch (e) {
+      log.warn('clearCache failed:', e);
+    }
+
+    try {
+      // Clear storage data: service workers, caches, local storage, etc.
+      await session.defaultSession.clearStorageData({
+        // Electron types allow: 'cookies' | 'filesystem' | 'indexdb' | 'localstorage' | 'shadercache' | 'websql' | 'serviceworkers' | 'cachestorage'
+        storages: ['cookies', 'filesystem', 'indexdb', 'localstorage', 'shadercache', 'websql', 'serviceworkers', 'cachestorage'],
+        quotas: ['temporary', 'syncable']
+      });
+    } catch (e) {
+      log.warn('clearStorageData failed:', e);
+    }
+
+    // Best-effort removal of on-disk cache directories
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const userData = app.getPath('userData');
+      const dirs = ['Cache', 'Code Cache', 'GPUCache'];
+      for (const d of dirs) {
+        const p = path.join(userData, d);
+        if (fs.existsSync(p)) {
+          fs.rmSync(p, { recursive: true, force: true });
+          log.info(`🧹 removed cache dir: ${p}`);
+        }
+        // Nested Cache_Data sometimes appears
+        const cd = path.join(userData, 'Cache', 'Cache_Data');
+        if (fs.existsSync(cd)) {
+          fs.rmSync(cd, { recursive: true, force: true });
+          log.info(`🧹 removed cache dir: ${cd}`);
+        }
+      }
+    } catch (e) {
+      log.warn('Filesystem cache cleanup failed:', e);
     }
   }
 
