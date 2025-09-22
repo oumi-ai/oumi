@@ -386,18 +386,19 @@ export default function WelcomeScreen({ onConfigSelected, systemCapabilities }: 
 
     // Search filter
     if (searchTerm) {
+      const lower = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : '');
+      const term = lower(searchTerm);
       filtered = filtered.filter(config => 
-        config.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        config.model_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        config.model_family.toLowerCase().includes(searchTerm.toLowerCase())
+        lower(config.display_name).includes(term) ||
+        lower(config.model_name).includes(term) ||
+        lower(config.model_family).includes(term)
       );
     }
 
     // Engine filter
     if (selectedEngine !== 'all') {
-      filtered = filtered.filter(config => 
-        config.engine.toLowerCase() === selectedEngine.toLowerCase()
-      );
+      const lower = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : '');
+      filtered = filtered.filter(config => lower(config.engine) === lower(selectedEngine));
     }
 
     // Size filter
@@ -600,7 +601,8 @@ export default function WelcomeScreen({ onConfigSelected, systemCapabilities }: 
   };
 
   const getEngineIcon = (engine: string) => {
-    switch (engine.toLowerCase()) {
+    const e = typeof engine === 'string' ? engine.toLowerCase() : '';
+    switch (e) {
       case 'vllm': return <Zap className="w-4 h-4 text-blue-500" />;
       case 'native': return <Bot className="w-4 h-4 text-green-500" />;
       case 'llamacpp': return <Settings className="w-4 h-4 text-purple-500" />;

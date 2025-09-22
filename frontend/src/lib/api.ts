@@ -159,8 +159,9 @@ class ApiClient {
     return this.fetchApi('/v1/oumi/configs');
   }
 
-  async getModels(): Promise<ApiResponse<{ data: Array<{ id: string; config_metadata?: any }> }>> {
-    return this.fetchApi('/v1/models');
+  async getModels(sessionId?: string): Promise<ApiResponse<{ data: Array<{ id: string; config_metadata?: any }> }>> {
+    const url = sessionId ? `/v1/models?session_id=${encodeURIComponent(sessionId)}` : '/v1/models';
+    return this.fetchApi(url);
   }
 
   // Branch management
@@ -253,12 +254,17 @@ class ApiClient {
   // Command execution
   async executeCommand(
     command: string,
-    args: string[] = []
+    args: string[] = [],
+    sessionId?: string,
+    branchId?: string
   ): Promise<ApiResponse> {
     console.log(`🌐 API Client: Executing command '${command}' with args:`, args);
+    const body: any = { command, args };
+    if (sessionId) body.session_id = sessionId;
+    if (branchId) body.branch_id = branchId;
     const response = await this.fetchApi('/v1/oumi/command', {
       method: 'POST',
-      body: JSON.stringify({ command, args }),
+      body: JSON.stringify(body),
     });
     console.log(`🌐 API Client: Command '${command}' response:`, response);
     return response;

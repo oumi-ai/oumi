@@ -243,6 +243,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
       console.log('🔄 Model switch response:', response);
       
       if (response.success) {
+        try { const { showToast } = await import('@/lib/toastBus'); showToast({ message: '✅ Model switched successfully', variant: 'success' }); } catch {}
         // CRITICAL FIX: Reload model information from server after successful swap
         try {
           const modelResponse = await apiClient.getModels();
@@ -278,11 +279,14 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
         // Show success message temporarily
         setError(null);
       } else {
-        throw new Error(response.message || 'Failed to switch model');
+        const msg = response.message || 'Failed to switch model';
+        try { const { showToast } = await import('@/lib/toastBus'); showToast({ message: `❌ ${msg}`, variant: 'error' }); } catch {}
+        throw new Error(msg);
       }
     } catch (err) {
       console.error('❌ Model switch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to switch model');
+      try { const { showToast } = await import('@/lib/toastBus'); showToast({ message: '❌ Model switch failed', variant: 'error' }); } catch {}
     } finally {
       setIsLoading(false);
       setLoadingMessage('');

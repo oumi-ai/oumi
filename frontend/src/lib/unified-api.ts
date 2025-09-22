@@ -104,7 +104,15 @@ class UnifiedApiClient {
   }
 
   async getModels(): Promise<ApiResponse<{ data: Array<{ id: string; config_metadata?: any }> }>> {
-    return this.getClient().getModels();
+    // Try to attach session_id so backend returns session-specific model
+    let sessionId: string | undefined;
+    try {
+      const storeMod: any = await import('./store');
+      const st = storeMod.useChatStore?.getState?.();
+      sessionId = st?.getCurrentSessionId?.() || st?.currentSessionId;
+    } catch {}
+    // Always hit HTTP endpoint so we can include session_id consistently
+    return this.webClient.getModels(sessionId);
   }
 
   // Branch management
