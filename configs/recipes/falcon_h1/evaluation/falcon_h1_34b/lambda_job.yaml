@@ -37,11 +37,11 @@ envs:
 setup: |
   set -e
   pip install uv
-  uv pip install oumi[gpu] hf_transfer
-  uv pip install -U vllm
-  uv pip install --force-reinstall git+https://github.com/huggingface/transformers.git
-  uv pip install --no-build-isolation git+https://github.com/Dao-AILab/causal-conv1d.git@main
-  uv pip install --no-build-isolation git+https://github.com/state-spaces/mamba.git@main
+  uv pip install --system oumi[gpu] hf_transfer
+  uv pip install --system -U vllm
+  uv pip install --system --force-reinstall git+https://github.com/huggingface/transformers.git
+  uv pip install --system --no-build-isolation git+https://github.com/Dao-AILab/causal-conv1d.git@main
+  uv pip install --system --no-build-isolation git+https://github.com/state-spaces/mamba.git@main
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
   HF_HUB_ENABLE_HF_TRANSFER=1 hf download tiiuae/Falcon-H1-34B-Instruct

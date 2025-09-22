@@ -32,13 +32,13 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install -e ".[ci_gpu]" hf_transfer
-  pip install -U flash-attn --no-build-isolation
 
 run: |
   set -xe  # Exit if any command failed.
   source "./configs/examples/misc/sky_init.sh"
-  uv pip install -U -e ".[ci_gpu]"
+  pip install uv && uv pip install --system -e ".[ci_gpu]" hf_transfer
+  pip install -U flash-attn --no-build-isolation
+  uv pip install --system -U -e ".[ci_gpu]"
 
   echo "Node ${SKYPILOT_NODE_RANK} starting..."
   echo "Unit tests: ${ENABLE_OUMI_UNIT_TESTS}"

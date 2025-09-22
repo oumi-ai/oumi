@@ -15,7 +15,7 @@ Configs for OpenAI's gpt-oss model family. See the [blog post](https://huggingfa
 2. As mentioned in the blog above, gpt-oss models require some of the latest versions of packages to run. Run the following command:
 
    ```bash
-   uv pip install -U accelerate transformers kernels torchvision git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels
+   uv pip install --system -U accelerate transformers kernels torchvision git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels
    ```
 
 3. Run your desired oumi command (examples below)!

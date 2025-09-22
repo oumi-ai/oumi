@@ -33,7 +33,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu]
+  pip install uv && uv pip install --system oumi[gpu]
   pip install -U flash-attn --no-build-isolation
 
 run: |
