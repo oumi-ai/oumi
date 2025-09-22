@@ -341,7 +341,8 @@ export const useChatStore = create<ChatStore>()(
               role: message.role,
               content: message.content,
               timestamp: message.timestamp,
-              attachments: message.attachments
+              attachments: message.attachments,
+              meta: (message as any).meta
             };
 
             return {
@@ -403,7 +404,8 @@ export const useChatStore = create<ChatStore>()(
             role: message.role,
             content: message.content,
             timestamp: message.timestamp,
-            attachments: message.attachments
+            attachments: message.attachments,
+            meta: (message as any).meta
           };
           const convNodes = { ...(state.messageNodes[currentConversationId] || {}) } as { [id: string]: MessageNode };
           convNodes[nodeId] = { id: nodeId, versions: [version] };

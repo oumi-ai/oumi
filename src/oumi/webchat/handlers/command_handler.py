@@ -302,6 +302,12 @@ class CommandHandler:
                             session.conversation_history[-1]["id"] = new_db_id
                         except Exception:
                             pass
+                        # Graph dual-write for message tail (message-id schema)
+                        try:
+                            from oumi.webchat.chatgraph_migration.graph_store import GraphStore as _GS
+                            _GS(self.db.db_path).add_edge_for_message_tail(conv_id, new_db_id)
+                        except Exception as _gge:
+                            logger.warning(f"[Graph] message-tail dual-write (regen) failed: {_gge}")
                         logger.info(f"[CMD] regen persisted: conv={conv_id} branch={session.branch_manager.current_branch_id} idx={len(session.conversation_history)-1} id={new_db_id}")
                         response_data.setdefault("updated", {})
                         response_data["updated"].update({"message_id": new_db_id, "index": len(session.conversation_history) - 1, "content": last.get("content", "")})

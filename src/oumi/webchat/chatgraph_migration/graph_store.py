@@ -105,11 +105,21 @@ class GraphStore:
                 self._dst_col = 'target_branch_id'
             elif 'dst_branch_id' in cols:
                 self._dst_col = 'dst_branch_id'
+            # Also detect message-id columns
+            if 'source_message_id' in cols:
+                self._src_msg_col = 'source_message_id'
+            elif 'src_message_id' in cols:
+                self._src_msg_col = 'src_message_id'
+            if 'target_message_id' in cols:
+                self._dst_msg_col = 'target_message_id'
+            elif 'dst_message_id' in cols:
+                self._dst_msg_col = 'dst_message_id'
             self._logger.debug(f"[GraphStore] Detected graph_edges columns: {cols} -> src={getattr(self,'_src_col',None)} dst={getattr(self,'_dst_col',None)}")
         except Exception:
             # Fail open with defaults
             self._src_col = 'source_branch_id'
             self._dst_col = 'target_branch_id'
+            # Message columns unknown by default
     
     def add_edge(self, conversation_id: str, source_branch_id: str, target_branch_id: str, 
                 relationship_type: str = 'parent', metadata: Optional[Dict[str, Any]] = None) -> None:
@@ -231,6 +241,41 @@ class GraphStore:
                     self._logger.error(f"[GraphStore] legacy tail insert failed: {oe2}")
                     raise
             conn.commit()
+
+    def add_edge_for_message_tail(self, conversation_id: str, message_id: str) -> None:
+        """Add a tail edge using message ID columns when schema uses message-based edges.
+
+        If message-id columns are not present, this call is a no-op.
+        """
+        if not conversation_id or not message_id:
+            return
+        with self._lock, self._connect() as conn:
+            cur = conn.cursor()
+            try:
+                # Ensure table exists and detect columns if needed
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='graph_edges'")
+                if not cur.fetchone():
+                    self._logger.debug("[GraphStore] add_edge_for_message_tail: graph_edges table missing; skipping")
+                    return
+                # Lazy detect if not set
+                if not hasattr(self, '_src_msg_col') or not hasattr(self, '_dst_msg_col'):
+                    self._detect_column_compat(conn)
+                if not getattr(self, '_src_msg_col', None) or not getattr(self, '_dst_msg_col', None):
+                    self._logger.debug("[GraphStore] add_edge_for_message_tail: message-id columns not present; skipping")
+                    return
+                self._logger.info(f"[GraphStore] add_msg_tail conv={conversation_id} msg={message_id} cols=({self._src_msg_col},{self._dst_msg_col})")
+                cur.execute(
+                    f"""
+                    INSERT OR IGNORE INTO graph_edges(
+                        conversation_id, {self._src_msg_col}, {self._dst_msg_col},
+                        relationship_type, created_at
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (conversation_id, message_id, message_id, 'tail', time.time())
+                )
+                conn.commit()
+            except Exception as e:
+                self._logger.warning(f"[GraphStore] add_edge_for_message_tail failed: {e}")
     
     def get_branch_connections(self, conversation_id: str, branch_id: str) -> Dict[str, List[Dict[str, Any]]]:
         """Get all connections for a specific branch.

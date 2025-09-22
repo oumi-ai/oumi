@@ -450,6 +450,7 @@ class ChatHandler:
                             if len(session.conversation_history) >= 2:
                                 last_two = session.conversation_history[-2:]
                                 import json as _json
+                                assistant_db_id = None
                                 for m in last_two:
                                     db_id = self.db.append_message_to_branch(
                                         conv_id,
@@ -463,6 +464,15 @@ class ChatHandler:
                                         m["id"] = db_id
                                     except Exception:
                                         pass
+                                    if m.get("role") == "assistant":
+                                        assistant_db_id = db_id
+                                # Graph dual-write using message id if message-based schema is present
+                                try:
+                                    gs_msg = GraphStore(self.db.db_path)
+                                    if assistant_db_id:
+                                        gs_msg.add_edge_for_message_tail(conv_id, assistant_db_id)
+                                except Exception as _gge:
+                                    logger.warning(f"[Graph] message-tail dual-write failed: {_gge}")
                             # Update session's current branch record
                             self.db.set_session_current_branch(
                                 session_id, 
