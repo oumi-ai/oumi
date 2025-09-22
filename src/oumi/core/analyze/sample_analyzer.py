@@ -16,57 +16,55 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, Optional
-
-from oumi.core.analyze.dataset_analyzer import (
-    FieldAnalysisResult,
-    SampleAnalysisResult,
-)
+import pandas as pd
 
 
 class SampleAnalyzer(ABC):
     """Base class for sample analyzer plugins that analyze individual samples.
     
-    All analyzers work with dictionary data.
+    All analyzers work with pandas DataFrames for efficient processing.
     """
 
     @abstractmethod
     def analyze_fields(
-        self,
-        text_fields: list[tuple[str, str]],
+        self, 
+        df: pd.DataFrame, 
+        text_fields: list[str],
         tokenizer: Optional[Any] = None
-    ) -> list[FieldAnalysisResult]:
-        """Analyze individual text fields.
+    ) -> pd.DataFrame:
+        """Analyze individual text fields and add field-level metrics to DataFrame.
         
-        This method provides field-level analysis for dictionary data. All analyzers
-        must implement this method.
+        This method adds field-level analysis columns to the input DataFrame.
+        All analyzers must implement this method.
         
         Args:
-            text_fields: List of (field_name, text_content) tuples
+            df: Input DataFrame with text fields
+            text_fields: List of field names that contain text content to analyze
             tokenizer: Optional tokenizer to use for analysis
             
         Returns:
-            List of FieldAnalysisResult objects, one for each field
+            DataFrame with added field-level analysis columns
         """
         pass
 
     @abstractmethod
     def analyze_sample(
         self, 
-        sample: dict, 
+        df: pd.DataFrame, 
         text_fields: list[str],
         tokenizer: Optional[Any] = None
-    ) -> SampleAnalysisResult:
-        """Analyze a dictionary sample as a whole.
+    ) -> pd.DataFrame:
+        """Analyze samples as a whole and add sample-level metrics to DataFrame.
         
-        This method provides sample-level analysis for dictionary data. All analyzers
-        must implement this method.
+        This method adds sample-level analysis columns to the input DataFrame.
+        All analyzers must implement this method.
         
         Args:
-            sample: The sample dictionary to analyze
+            df: Input DataFrame with text fields
             text_fields: List of field names that contain text content to analyze
             tokenizer: Optional tokenizer to use for analysis
             
         Returns:
-            SampleAnalysisResult for the entire sample
+            DataFrame with added sample-level analysis columns
         """
         pass

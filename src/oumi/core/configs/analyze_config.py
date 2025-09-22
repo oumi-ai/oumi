@@ -136,8 +136,8 @@ class AnalyzeConfig(BaseConfig):
     """
 
     data_type: str = "conversation"
-    """Type of data being analyzed. 'conversation' for backward compatibility,
-    'dictionary' for new dictionary-based analysis.
+    """Type of data being analyzed. 'conversation' for conversation datasets,
+    'dataframe' for DataFrame-based analysis.
     """
 
     def __post_init__(self):
