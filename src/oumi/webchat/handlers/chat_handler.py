@@ -26,6 +26,7 @@ from oumi.webchat.core.session_manager import SessionManager
 from oumi.webchat.chatgraph_migration.graph_store import GraphStore
 from oumi.webchat.protocol import extract_session_id, extract_branch_id
 from oumi.webchat.utils.id_utils import generate_message_id
+from oumi.webchat.utils.fallbacks import model_name_fallback
 
 
 class ChatHandler:
@@ -98,7 +99,7 @@ class ChatHandler:
             )
         
         # Extract optional fields
-        model = data.get("model", "oumi-model")
+        model = data.get("model", model_name_fallback("request.model"))
         temperature = data.get("temperature", 1.0)
         max_tokens = data.get("max_tokens", 100)
         stream = data.get("stream", False)
@@ -645,7 +646,7 @@ class ChatHandler:
                 "id": f"chatcmpl-{int(time.time())}",
                 "object": "chat.completion",
                 "created": int(time.time()),
-                "model": getattr(session.config.model, "model_name", "oumi-model"),
+                "model": getattr(session.config.model, "model_name", model_name_fallback("session.config.model.model_name")),
                 "choices": [
                     {
                         "index": 0,

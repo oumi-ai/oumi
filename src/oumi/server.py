@@ -23,6 +23,7 @@ from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Message, Role
 from oumi.infer import get_engine, infer
 from oumi.utils.logging import logger
+from oumi.webchat.utils.fallbacks import model_name_fallback
 
 
 class OpenAICompatibleServer:
@@ -38,8 +39,12 @@ class OpenAICompatibleServer:
         self.inference_engine: BaseInferenceEngine = get_engine(config)
 
         # Model info for /v1/models endpoint
+        model_id = getattr(config.model, "model_name", None)
+        if not model_id:
+            model_id = model_name_fallback("config.model.model_name")
+            logger.warning(f"Model name missing on config.model; using fallback '{model_id}'.")
         self.model_info = {
-            "id": getattr(config.model, "model_name", "oumi-model"),
+            "id": model_id,
             "object": "model",
             "created": int(time.time()),
             "owned_by": "oumi",

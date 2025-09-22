@@ -22,6 +22,7 @@ from aiohttp import web
 
 from oumi.utils.logging import logger
 from oumi.webchat.core.session_manager import SessionManager
+from oumi.webchat.utils.fallbacks import model_name_fallback
 
 
 class SystemHandler:
@@ -51,8 +52,12 @@ class SystemHandler:
                 logger.warning("Enhanced response formatter could not be imported")
         
         # Model info for /v1/models endpoint
+        model_id = getattr(session_manager.default_config.model, "model_name", None)
+        if not model_id:
+            model_id = model_name_fallback("default_config.model.model_name")
+            logger.warning(f"Default config model_name missing; using fallback '{model_id}'.")
         self.model_info = {
-            "id": getattr(session_manager.default_config.model, "model_name", "oumi-model"),
+            "id": model_id,
             "object": "model",
             "created": int(time.time()),
             "owned_by": "oumi",
@@ -118,7 +123,10 @@ class SystemHandler:
                 logger.debug(f"🔄 Using session's initial config for /v1/models")
             
             # Extract complete model metadata from active config
-            model_name = getattr(active_config.model, "model_name", "oumi-model")
+            model_name = getattr(active_config.model, "model_name", None)
+            if not model_name:
+                model_name = model_name_fallback("active_config.model.model_name")
+                logger.warning(f"Active config model_name missing; using fallback '{model_name}'.")
             engine = str(active_config.engine) if active_config.engine else "NATIVE"
             context_length = getattr(active_config.model, "model_max_length", 4096)
             

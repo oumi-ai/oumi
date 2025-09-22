@@ -45,6 +45,7 @@ from oumi.webchat.services.command_service import CommandService
 from oumi.webchat.services.inference_service import InferenceService
 from oumi.webchat.services.persistence_service import PersistenceService
 from oumi.webchat.routes import setup_routes, add_middlewares
+from oumi.webchat.utils.fallbacks import model_name_fallback
 
 
 # Check for enhanced features
@@ -83,8 +84,12 @@ class OumiWebServer:
         self.base_dir = base_dir
         
         # Set up OpenAI-compatible model info
+        model_id = getattr(config.model, "model_name", None)
+        if not model_id:
+            model_id = model_name_fallback("config.model.model_name")
+            logger.warning(f"Model name missing on config.model; using fallback '{model_id}'.")
         self.model_info = {
-            "id": getattr(config.model, "model_name", "oumi-model"),
+            "id": model_id,
             "object": "model",
             "created": int(time.time()),
             "owned_by": "oumi",

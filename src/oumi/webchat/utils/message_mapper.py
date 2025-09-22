@@ -231,7 +231,7 @@ class MessageMapper:
     @staticmethod
     def format_for_openai_api(
         conversation: Conversation,
-        model: str = "oumi-model"
+        model: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Format a conversation for the OpenAI API format response.
         
@@ -250,6 +250,14 @@ class MessageMapper:
         # Extract the last user message for token counting
         user_content = MessageMapper.extract_last_user_message(conversation) or ""
         
+        # Determine model name with a contextual fallback if not provided
+        if not model:
+            try:
+                from oumi.webchat.utils.fallbacks import model_name_fallback
+                model = model_name_fallback("message_mapper.model")
+            except Exception:
+                model = "Not found (<unknown>)"
+
         return {
             "id": f"chatcmpl-{int(time.time())}",
             "object": "chat.completion",
