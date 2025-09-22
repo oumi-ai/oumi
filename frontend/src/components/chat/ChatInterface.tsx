@@ -121,12 +121,16 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
           return Date.now();
         };
         // Transform backend messages to frontend format with minimal metadata
-        const transformedMessages: Message[] = response.data.conversation.map((msg: any) => {
+        const convLen = Array.isArray(response.data?.conversation) ? (response.data!.conversation as any[]).length : 0;
+        const transformedMessages: Message[] = (response.data?.conversation as any[]).map((msg: any, i: number) => {
           const ts = normalizeTs(msg.timestamp);
           const md = (msg.metadata || msg.meta || {}) as any;
           const modelName = md.model_name ?? md.modelName ?? (msg.role === 'assistant' ? settings.selectedModel : undefined);
           const engine = md.engine ?? (msg.role === 'assistant' ? settings.selectedProvider : undefined);
           const durationMs = md.duration_ms ?? md.durationMs;
+          if (convLen > 0 && i === convLen - 1) {
+            console.log('[CHAT_LOAD] last msg meta', md, 'mapped', { modelName, engine, durationMs });
+          }
           return {
             id: msg.id || `${msg.role}-${Date.now()}-${Math.random()}`,
             role: msg.role,
@@ -147,6 +151,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
         // Use the branch-specific setMessages
         // The setMessages function now requires 3 parameters
         setMessages(currentConversationId || '', currentBranchId, transformedMessages);
+        console.log('[CHAT_LOAD] setMessages with', transformedMessages.length, 'messages for', currentConversationId, currentBranchId);
       }
     } catch (error) {
       console.error('Failed to load conversation:', error);

@@ -481,6 +481,22 @@ class ChatHandler:
                                 logger.debug("[Graph] add_edge_for_branch_tail succeeded")
                             except Exception as ge:
                                 logger.warning(f"Graph dual-write failed: {type(ge).__name__}: {ge}")
+                                # Extra diagnostics: list graph_edges columns if possible
+                                try:
+                                    import sqlite3
+                                    conn = sqlite3.connect(self.db.db_path)
+                                    cur = conn.cursor()
+                                    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='graph_edges'")
+                                    has_table = bool(cur.fetchone())
+                                    if has_table:
+                                        cur.execute("PRAGMA table_info('graph_edges')")
+                                        cols = [r[1] for r in cur.fetchall()]
+                                        logger.warning(f"[Graph] graph_edges columns: {cols}")
+                                    else:
+                                        logger.warning("[Graph] graph_edges table not found")
+                                    conn.close()
+                                except Exception as diag_err:
+                                    logger.warning(f"[Graph] column inspect failed: {diag_err}")
                     except Exception as pe:
                         logger.warning(f"⚠️ Dual-write persistence failed: {pe}")
                     

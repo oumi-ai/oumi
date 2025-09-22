@@ -533,11 +533,24 @@ export const useChatStore = create<ChatStore>()(
                 // If content matches but backend supplied a different canonical id,
                 // do NOT create a new version. Switch head to the backend id and retag
                 // the current head version id to the canonical id.
+                let newNode = node;
                 if (backendVerId && headId !== backendVerId && head) {
                   const newVersions = node.versions.map(v => (v.id === head.id ? { ...v, id: backendVerId } : v));
-                  nodesForConv[nodeId] = { ...node, versions: newVersions };
+                  newNode = { ...node, versions: newVersions };
                   headsForBranch[nodeId] = backendVerId;
                 }
+                // Merge backend meta into the head version if provided
+                const bMeta = (backendMsg as any)?.meta;
+                if (bMeta && head) {
+                  const headIndex = newNode.versions.findIndex(v => v.id === (backendVerId || headId));
+                  if (headIndex >= 0) {
+                    const updatedHead: MessageVersion = { ...newNode.versions[headIndex], meta: { ...(newNode.versions[headIndex] as any).meta, ...bMeta } };
+                    const newVersions = [...newNode.versions];
+                    newVersions[headIndex] = updatedHead;
+                    newNode = { ...newNode, versions: newVersions };
+                  }
+                }
+                nodesForConv[nodeId] = newNode;
               }
             }
             convNodes = nodesForConv;

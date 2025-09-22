@@ -60,12 +60,16 @@ export function useConversationCommand() {
           if (typeof t === 'string') { const f = parseFloat(t); if (!isNaN(f)) return f < 1e11 ? Math.round(f * 1000) : Math.round(f); }
           return Date.now();
         };
-        const mapped = (conversationResponse.data.conversation as any[]).map(m => {
+        const convLen = Array.isArray(conversationResponse.data?.conversation) ? (conversationResponse.data!.conversation as any[]).length : 0;
+        const mapped = (conversationResponse.data?.conversation as any[]).map((m, i) => {
           const ts = normalizeTs(m.timestamp);
           const md = (m.metadata || m.meta || {}) as any;
           const modelName = md.model_name ?? md.modelName ?? (m.role === 'assistant' ? settings.selectedModel : undefined);
           const engine = md.engine ?? (m.role === 'assistant' ? settings.selectedProvider : undefined);
           const durationMs = md.duration_ms ?? md.durationMs;
+          if (convLen > 0 && i === convLen - 1) {
+            console.log('[CHAT_REFRESH] last msg meta', md, 'mapped', { modelName, engine, durationMs });
+          }
           return {
             id: m.id,
             role: m.role,
@@ -82,6 +86,7 @@ export function useConversationCommand() {
           };
         });
         setMessages(currentConversationId, currentBranchId || 'main', mapped as any);
+        console.log('[CHAT_REFRESH] setMessages with', mapped.length, 'messages for', currentConversationId, currentBranchId);
         console.log(`🔄 Conversation refreshed for branch '${currentBranchId || 'main'}' with ${conversationResponse.data.conversation.length} messages`);
         return true;
       }

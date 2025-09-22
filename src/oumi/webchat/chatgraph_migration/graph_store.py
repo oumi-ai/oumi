@@ -146,17 +146,40 @@ class GraphStore:
                 return
             
             # Add edge (will be ignored if it already exists due to UNIQUE constraint)
-            self._logger.debug(f"[GraphStore] add_edge: conv={conversation_id} src={source_branch_id} dst={target_branch_id} cols=({self._src_col},{self._dst_col})")
-            cur.execute(
-                f"""
-                INSERT OR IGNORE INTO graph_edges(
-                    conversation_id, {self._src_col}, {self._dst_col}, 
-                    relationship_type, created_at, metadata
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (conversation_id, source_branch_id, target_branch_id, 
-                 relationship_type, time.time(), json.dumps(metadata) if metadata is not None else None)
-            )
+            self._logger.info(f"[GraphStore] add_edge conv={conversation_id} src={source_branch_id} dst={target_branch_id} cols=({self._src_col},{self._dst_col})")
+            try:
+                cur.execute(
+                    f"""
+                    INSERT OR IGNORE INTO graph_edges(
+                        conversation_id, {self._src_col}, {self._dst_col}, 
+                        relationship_type, created_at, metadata
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (conversation_id, source_branch_id, target_branch_id, 
+                     relationship_type, time.time(), json.dumps(metadata) if metadata is not None else None)
+                )
+            except sqlite3.OperationalError as oe:
+                # Fallback to legacy column names if present
+                self._logger.warning(f"[GraphStore] primary insert failed: {oe}. Attempting legacy columns.")
+                legacy_src = 'src_branch_id'
+                legacy_dst = 'dst_branch_id'
+                try:
+                    cur.execute(
+                        f"""
+                        INSERT OR IGNORE INTO graph_edges(
+                            conversation_id, {legacy_src}, {legacy_dst}, 
+                            relationship_type, created_at, metadata
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (conversation_id, source_branch_id, target_branch_id, 
+                         relationship_type, time.time(), json.dumps(metadata) if metadata is not None else None)
+                    )
+                    # Update detected columns for next time
+                    self._src_col, self._dst_col = legacy_src, legacy_dst
+                    self._logger.info("[GraphStore] Legacy insert succeeded; switched to legacy column names.")
+                except Exception as oe2:
+                    self._logger.error(f"[GraphStore] legacy insert failed: {oe2}")
+                    raise
             conn.commit()
     
     def add_edge_for_branch_tail(self, conversation_id: str, branch_id: str) -> None:
@@ -177,16 +200,36 @@ class GraphStore:
             
             # We're adding an edge from the branch to itself as a "tail" relationship
             # This represents adding a message to the branch
-            self._logger.debug(f"[GraphStore] add_tail: conv={conversation_id} branch={branch_id} cols=({self._src_col},{self._dst_col})")
-            cur.execute(
-                f"""
-                INSERT OR IGNORE INTO graph_edges(
-                    conversation_id, {self._src_col}, {self._dst_col}, 
-                    relationship_type, created_at
-                ) VALUES (?, ?, ?, ?, ?)
-                """,
-                (conversation_id, branch_id, branch_id, 'tail', time.time())
-            )
+            self._logger.info(f"[GraphStore] add_tail conv={conversation_id} branch={branch_id} cols=({self._src_col},{self._dst_col})")
+            try:
+                cur.execute(
+                    f"""
+                    INSERT OR IGNORE INTO graph_edges(
+                        conversation_id, {self._src_col}, {self._dst_col}, 
+                        relationship_type, created_at
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (conversation_id, branch_id, branch_id, 'tail', time.time())
+                )
+            except sqlite3.OperationalError as oe:
+                self._logger.warning(f"[GraphStore] primary tail insert failed: {oe}. Attempting legacy columns.")
+                legacy_src = 'src_branch_id'
+                legacy_dst = 'dst_branch_id'
+                try:
+                    cur.execute(
+                        f"""
+                        INSERT OR IGNORE INTO graph_edges(
+                            conversation_id, {legacy_src}, {legacy_dst}, 
+                            relationship_type, created_at
+                        ) VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (conversation_id, branch_id, branch_id, 'tail', time.time())
+                    )
+                    self._src_col, self._dst_col = legacy_src, legacy_dst
+                    self._logger.info("[GraphStore] Legacy tail insert succeeded; switched to legacy column names.")
+                except Exception as oe2:
+                    self._logger.error(f"[GraphStore] legacy tail insert failed: {oe2}")
+                    raise
             conn.commit()
     
     def get_branch_connections(self, conversation_id: str, branch_id: str) -> Dict[str, List[Dict[str, Any]]]:
