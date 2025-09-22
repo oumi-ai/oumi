@@ -97,7 +97,20 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
         // Load available configs first
         const configsResponse = await apiClient.getConfigs();
         if (configsResponse.success && configsResponse.data?.configs) {
-          setAvailableConfigs(configsResponse.data.configs);
+          const sanitized = configsResponse.data.configs.map((c: any) => ({
+            id: c.id ?? c.relative_path ?? c.config_path ?? c.filename ?? '',
+            config_path: c.config_path ?? '',
+            relative_path: c.relative_path ?? '',
+            display_name: typeof c.display_name === 'string' && c.display_name.length > 0
+              ? c.display_name
+              : (c.model_name || c.filename || c.relative_path || 'Unknown'),
+            model_name: c.model_name ?? '',
+            engine: c.engine ?? 'UNKNOWN',
+            context_length: typeof c.context_length === 'number' ? c.context_length : 0,
+            model_family: c.model_family ?? 'unknown',
+            filename: c.filename ?? '',
+          }));
+          setAvailableConfigs(sanitized);
           console.log(`📋 Loaded ${configsResponse.data.configs.length} inference configurations`);
         }
 
@@ -162,24 +175,28 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
   // Filter configs based on search term
   const filteredConfigs = React.useMemo(() => {
     if (!searchTerm) return availableConfigs;
-    
+
     const term = searchTerm.toLowerCase();
-    return availableConfigs.filter(config => 
-      config.display_name.toLowerCase().includes(term) ||
-      config.model_name.toLowerCase().includes(term) ||
-      config.filename.toLowerCase().includes(term) ||
-      config.engine.toLowerCase().includes(term) ||
-      config.model_family.toLowerCase().includes(term)
+    const safe = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : '');
+    return availableConfigs.filter(config =>
+      safe(config.display_name).includes(term) ||
+      safe(config.model_name).includes(term) ||
+      safe(config.filename).includes(term) ||
+      safe(config.engine).includes(term) ||
+      safe(config.model_family).includes(term)
     );
   }, [searchTerm, availableConfigs]);
 
   // Group filtered configs by model family
   const groupedFilteredConfigs = React.useMemo(() => {
     return filteredConfigs.reduce((acc, config) => {
-      if (!acc[config.model_family]) {
-        acc[config.model_family] = [];
+      const family = (config.model_family && typeof config.model_family === 'string')
+        ? config.model_family
+        : 'unknown';
+      if (!acc[family]) {
+        acc[family] = [];
       }
-      acc[config.model_family].push(config);
+      acc[family].push(config);
       return acc;
     }, {} as Record<string, ConfigOption[]>);
   }, [filteredConfigs]);
@@ -320,8 +337,8 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
     if (!matchingConfig && currentModel.includes('/')) {
       const modelName = currentModel.split('/').pop() || currentModel;
       matchingConfig = availableConfigs.find(config => 
-        config.model_name.includes(modelName) ||
-        config.display_name.toLowerCase().includes(modelName.toLowerCase())
+        (typeof config.model_name === 'string' && config.model_name.includes(modelName)) ||
+        (typeof config.display_name === 'string' && config.display_name.toLowerCase().includes(modelName.toLowerCase()))
       );
     }
 

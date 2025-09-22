@@ -365,7 +365,8 @@ class BranchHandler:
             resp = {"success": success, "message": message}
             if trace_id:
                 resp["trace_id"] = trace_id
-            return web.json_response(resp)
+            # Return 400 so clients surface the backend message instead of a generic error
+            return web.json_response(resp, status=400)
     
     async def _handle_delete_branch(self, session_id: str, data: Dict[str, Any], trace_id: Optional[str] = None) -> web.Response:
         """Handle branch deletion operation with persistence and safety checks.
