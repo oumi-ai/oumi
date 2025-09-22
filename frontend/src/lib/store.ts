@@ -247,7 +247,7 @@ export const useChatStore = create<ChatStore>()(
             const headId = heads[nodeId];
             const v = node.versions.find(x => x.id === headId) || node.versions[node.versions.length - 1];
             if (!v) continue;
-            out.push({ id: v.id, role: v.role, content: v.content, timestamp: v.timestamp, attachments: v.attachments, branchId });
+            out.push({ id: v.id, role: v.role, content: v.content, timestamp: v.timestamp, attachments: v.attachments, branchId, meta: (v as any).meta });
           }
           return out;
         }
@@ -493,7 +493,7 @@ export const useChatStore = create<ChatStore>()(
               const nodeId = `node-${conversationId}-${branchId}-${i}-${base}`;
               // Prefer backend id for version id if available; ensures id-based mapping works
               const verId = (msg && (msg as any).id != null) ? String((msg as any).id) : `ver-${i}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
-              const ver: MessageVersion = { id: verId, role: msg.role, content: msg.content, timestamp: msg.timestamp, attachments: msg.attachments };
+              const ver: MessageVersion = { id: verId, role: msg.role, content: msg.content, timestamp: msg.timestamp, attachments: msg.attachments, meta: (msg as any).meta };
               newNodes[nodeId] = { id: nodeId, versions: [ver] };
               newTimeline.push(nodeId);
               newHeads[nodeId] = ver.id;
@@ -524,7 +524,8 @@ export const useChatStore = create<ChatStore>()(
                   role: backendMsg.role,
                   content: backendText,
                   timestamp: backendMsg.timestamp || Date.now(),
-                  attachments: backendMsg.attachments
+                  attachments: backendMsg.attachments,
+                  meta: (backendMsg as any).meta,
                 };
                 nodesForConv[nodeId] = { id: nodeId, versions: [...node.versions, newVer] };
                 headsForBranch[nodeId] = newVerId;
@@ -533,9 +534,7 @@ export const useChatStore = create<ChatStore>()(
                 // do NOT create a new version. Switch head to the backend id and retag
                 // the current head version id to the canonical id.
                 if (backendVerId && headId !== backendVerId && head) {
-                  const newVersions = node.versions.map(v =>
-                    v.id === head.id ? { ...v, id: backendVerId } : v
-                  );
+                  const newVersions = node.versions.map(v => (v.id === head.id ? { ...v, id: backendVerId } : v));
                   nodesForConv[nodeId] = { ...node, versions: newVersions };
                   headsForBranch[nodeId] = backendVerId;
                 }
