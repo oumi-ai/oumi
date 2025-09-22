@@ -333,7 +333,6 @@ class BaseConfig:
 
             # Special handling for callable objects
             if callable(field_value) and callable(other_value):
-                # For lambda functions, treat them as equal since they can't be serialized anyway
                 if (
                     hasattr(field_value, "__name__")
                     and hasattr(other_value, "__name__")
