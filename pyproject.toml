@@ -79,6 +79,7 @@ dependencies = [
     "trl>=0.21,<0.22",
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.9
+    "uvicorn<0.36.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.22",        # Logging to Weights and Biases.
 ]
 
