@@ -37,50 +37,7 @@ export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
           }
         },
         { type: 'separator' },
-        {
-          label: 'Save Conversation',
-          accelerator: 'CmdOrCtrl+S',
-          click: async () => {
-            try {
-              const result = await dialog.showSaveDialog(mainWindow, {
-                title: 'Save Conversation',
-                defaultPath: `conversation-${new Date().toISOString().slice(0, 10)}.json`,
-                filters: [
-                  { name: 'JSON Files', extensions: ['json'] },
-                  { name: 'All Files', extensions: ['*'] }
-                ]
-              });
-
-              if (!result.canceled && result.filePath) {
-                mainWindow.webContents.send('menu:save-conversation', result.filePath);
-              }
-            } catch (error) {
-              log.error('Error in save conversation dialog:', error);
-            }
-          }
-        },
-        {
-          label: 'Load Conversation',
-          accelerator: 'CmdOrCtrl+O',
-          click: async () => {
-            try {
-              const result = await dialog.showOpenDialog(mainWindow, {
-                title: 'Load Conversation',
-                filters: [
-                  { name: 'JSON Files', extensions: ['json'] },
-                  { name: 'All Files', extensions: ['*'] }
-                ],
-                properties: ['openFile']
-              });
-
-              if (!result.canceled && result.filePaths.length > 0) {
-                mainWindow.webContents.send('menu:load-conversation', result.filePaths[0]);
-              }
-            } catch (error) {
-              log.error('Error in load conversation dialog:', error);
-            }
-          }
-        },
+        // Save/Load conversation menu items removed per request
         {
           label: 'Browse for Config...',
           accelerator: 'CmdOrCtrl+Shift+O',
@@ -103,24 +60,7 @@ export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
             }
           }
         },
-        { type: 'separator' },
-        {
-          label: 'Export Chat',
-          submenu: [
-            {
-              label: 'Export as Text',
-              click: () => mainWindow.webContents.send('menu:export-text')
-            },
-            {
-              label: 'Export as Markdown',
-              click: () => mainWindow.webContents.send('menu:export-markdown')
-            },
-            {
-              label: 'Export as PDF',
-              click: () => mainWindow.webContents.send('menu:export-pdf')
-            }
-          ]
-        },
+        // Export Chat menu removed per request
         { type: 'separator' },
         {
           label: 'Preferences',

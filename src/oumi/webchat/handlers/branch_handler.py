@@ -52,15 +52,24 @@ class BranchHandler:
         Returns:
             JSON response with branch operation result
         """
+        # Correlation id for tracing
+        try:
+            trace_id = request.get('trace_id') or request.headers.get('X-Trace-ID')
+        except Exception:
+            trace_id = None
+
         if request.method == "GET":
             # For GET, extract session_id from query params only
             try:
                 session_id = extract_session_id(request)
-                logger.debug(f"🌐 DEBUG: Branch API (GET) called with session_id: '{session_id}'")
+                logger.info(f"[trace:{trace_id}] 🌐 Branches GET session_id='{session_id}'")
                 session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
             except ValueError as e:
-                logger.warning(f"⚠️ Branch API error: {e}")
-                return web.json_response({"error": str(e)}, status=400)
+                logger.warning(f"[trace:{trace_id}] ⚠️ Branch API error: {e}")
+                payload = {"error": str(e)}
+                if trace_id:
+                    payload["trace_id"] = trace_id
+                return web.json_response(payload, status=400)
             # DEBUG: Check raw branch storage
             logger.debug(f"📋 DEBUG: GET branches request - session_id: '{session_id}'")
             logger.debug(f"📋 DEBUG: Session object ID: {id(session)}")
@@ -72,17 +81,18 @@ class BranchHandler:
             current_branch = session.branch_manager.current_branch_id
             logger.debug(f"📋 DEBUG: Get branches HTTP request - current: '{current_branch}', available: {[b['id'] for b in branches]}")
             logger.debug(f"📋 DEBUG: Branch details: {[(b['id'], b['message_count'], b['created_at']) for b in branches]}")
-            return web.json_response(
-                {
-                    "branches": branches,
-                    "current_branch": current_branch,
-                    "persistence": {
-                        "is_persistent": bool(self.db),
-                        "is_hydrated_from_db": getattr(session, 'is_hydrated_from_db', False),
-                        "current_conversation_id": getattr(session, 'current_conversation_id', None),
-                    },
-                }
-            )
+            resp = {
+                "branches": branches,
+                "current_branch": current_branch,
+                "persistence": {
+                    "is_persistent": bool(self.db),
+                    "is_hydrated_from_db": getattr(session, 'is_hydrated_from_db', False),
+                    "current_conversation_id": getattr(session, 'current_conversation_id', None),
+                },
+            }
+            if trace_id:
+                resp["trace_id"] = trace_id
+            return web.json_response(resp)
         
         elif request.method == "POST":
             try:
@@ -90,6 +100,7 @@ class BranchHandler:
                 
                 # Normalize and validate action
                 action = normalize_branch_action(data.get("action", ""))
+                logger.info(f"[trace:{trace_id}] 🌐 Branches POST action='{action}' body_keys={list(data.keys())}")
                 
                 # Check if session_id is also in POST data (for consistency)
                 try:
@@ -97,30 +108,36 @@ class BranchHandler:
                     session_id = extract_session_id(request, data)
                     session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
                 except ValueError as e:
-                    logger.warning(f"⚠️ Branch API error: {e}")
-                    return web.json_response({"error": str(e)}, status=400)
+                    logger.warning(f"[trace:{trace_id}] ⚠️ Branch API error: {e}")
+                    payload = {"error": str(e)}
+                    if trace_id:
+                        payload["trace_id"] = trace_id
+                    return web.json_response(payload, status=400)
                 
                 if action == "switch":
-                    return await self._handle_switch_branch(session_id, data)
+                    return await self._handle_switch_branch(session_id, data, trace_id)
                 elif action == "create":
-                    return await self._handle_create_branch(session_id, data)
+                    return await self._handle_create_branch(session_id, data, trace_id)
                 elif action == "delete":
-                    return await self._handle_delete_branch(session_id, data)
+                    return await self._handle_delete_branch(session_id, data, trace_id)
                 else:
                     valid_actions = get_valid_branch_actions()
-                    return web.json_response(
-                        {
-                            "error": f"Unknown action: '{action}' (expected: {valid_actions})",
-                            "valid_actions": valid_actions.split(", ")
-                        },
-                        status=400
-                    )
+                    payload = {
+                        "error": f"Unknown action: '{action}' (expected: {valid_actions})",
+                        "valid_actions": valid_actions.split(", ")
+                    }
+                    if trace_id:
+                        payload["trace_id"] = trace_id
+                    return web.json_response(payload, status=400)
             
             except Exception as e:
-                logger.error(f"Branch API error: {e}")
-                return web.json_response({"error": str(e)}, status=500)
+                logger.error(f"[trace:{trace_id}] Branch API error: {e}")
+                payload = {"error": str(e)}
+                if trace_id:
+                    payload["trace_id"] = trace_id
+                return web.json_response(payload, status=500)
     
-    async def _handle_switch_branch(self, session_id: str, data: Dict[str, Any]) -> web.Response:
+    async def _handle_switch_branch(self, session_id: str, data: Dict[str, Any], trace_id: Optional[str] = None) -> web.Response:
         """Handle branch switching operation.
         
         Args:
@@ -134,7 +151,7 @@ class BranchHandler:
         
         async def switch_branch_atomically(session):
             """Switch branches atomically within session lock."""
-            logger.debug(f"🔀 DEBUG: Branch switch requested - from '{session.branch_manager.current_branch_id}' to '{branch_id}'")
+            logger.info(f"[trace:{trace_id}] 🔀 Branch switch requested from '{session.branch_manager.current_branch_id}' to '{branch_id}'")
             logger.debug(f"🔀 DEBUG: Current conversation length before switch: {len(session.conversation_history)}")
             
             # Log current conversation state
@@ -210,16 +227,17 @@ class BranchHandler:
         except Exception as pe:
             logger.warning(f"⚠️ Dual-write persistence (branch switch) failed: {pe}")
         
-        return web.json_response(
-            {
-                "success": success,
-                "message": message,
-                "conversation": session.serialize_conversation(),
-                "current_branch": session.branch_manager.current_branch_id,
-            }
-        )
+        resp = {
+            "success": success,
+            "message": message,
+            "conversation": session.serialize_conversation(),
+            "current_branch": session.branch_manager.current_branch_id,
+        }
+        if trace_id:
+            resp["trace_id"] = trace_id
+        return web.json_response(resp)
     
-    async def _handle_create_branch(self, session_id: str, data: Dict[str, Any]) -> web.Response:
+    async def _handle_create_branch(self, session_id: str, data: Dict[str, Any], trace_id: Optional[str] = None) -> web.Response:
         """Handle branch creation operation.
         
         Args:
@@ -335,22 +353,21 @@ class BranchHandler:
             }
             logger.debug(f"🌿 DEBUG: Returning created branch: {branch_data}")
             
-            return web.json_response(
-                {
-                    "success": success,
-                    "message": message,
-                    "branch": branch_data,
-                }
-            )
+            resp = {
+                "success": success,
+                "message": message,
+                "branch": branch_data,
+            }
+            if trace_id:
+                resp["trace_id"] = trace_id
+            return web.json_response(resp)
         else:
-            return web.json_response(
-                {
-                    "success": success,
-                    "message": message,
-                }
-            )
+            resp = {"success": success, "message": message}
+            if trace_id:
+                resp["trace_id"] = trace_id
+            return web.json_response(resp)
     
-    async def _handle_delete_branch(self, session_id: str, data: Dict[str, Any]) -> web.Response:
+    async def _handle_delete_branch(self, session_id: str, data: Dict[str, Any], trace_id: Optional[str] = None) -> web.Response:
         """Handle branch deletion operation with persistence and safety checks.
         
         Args:
@@ -442,6 +459,11 @@ class BranchHandler:
             except Exception as e:
                 logger.warning(f"⚠️ Failed to broadcast branch update: {e}")
         
+        if trace_id:
+            try:
+                result["trace_id"] = trace_id
+            except Exception:
+                pass
         return web.json_response(result, status=status_code)
     
     async def handle_sync_conversation_api(self, request: web.Request) -> web.Response:
@@ -459,6 +481,11 @@ class BranchHandler:
         Returns:
             JSON response with sync operation result
         """
+        # Trace id
+        try:
+            trace_id = request.get('trace_id') or request.headers.get('X-Trace-ID')
+        except Exception:
+            trace_id = None
         try:
             data = await request.json()
         except Exception:
@@ -598,8 +625,11 @@ class BranchHandler:
                 session_id = extract_session_id(request, data)
                 session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
             except ValueError as e:
-                logger.warning(f"⚠️ Reset history API error: {e}")
-                return web.json_response({"error": str(e)}, status=400)
+                logger.warning(f"[trace:{trace_id}] ⚠️ Reset history API error: {e}")
+                payload = {"error": str(e)}
+                if trace_id:
+                    payload["trace_id"] = trace_id
+                return web.json_response(payload, status=400)
                 
             # Get optional parameters
             scope = data.get("scope", "current")  # "current" or "all"
@@ -607,13 +637,13 @@ class BranchHandler:
             
             # Validation
             if confirm_phrase != "RESET":
-                return web.json_response(
-                    {
-                        "error": "Invalid confirmation phrase. Must be 'RESET'.",
-                        "success": False,
-                    },
-                    status=400
-                )
+                payload = {
+                    "error": "Invalid confirmation phrase. Must be 'RESET'.",
+                    "success": False,
+                }
+                if trace_id:
+                    payload["trace_id"] = trace_id
+                return web.json_response(payload, status=400)
             
             # Count of items to be deleted for telemetry
             delete_counts = {
@@ -624,19 +654,19 @@ class BranchHandler:
             }
             
             if scope == "all" and not data.get("admin_override"):
-                return web.json_response(
-                    {
-                        "error": "Resetting all sessions requires admin_override=true parameter.",
-                        "success": False,
-                    },
-                    status=403
-                )
+                payload = {
+                    "error": "Resetting all sessions requires admin_override=true parameter.",
+                    "success": False,
+                }
+                if trace_id:
+                    payload["trace_id"] = trace_id
+                return web.json_response(payload, status=403)
             
             # Generate a unique operation ID for this reset
             import uuid
             operation_id = f"reset_{uuid.uuid4().hex[:8]}"
             
-            logger.info(f"🧹 Starting chat history reset (scope={scope}, operation_id={operation_id})")
+            logger.info(f"[trace:{trace_id}] 🧹 Starting chat history reset (scope={scope}, operation_id={operation_id})")
             
             # Single session reset function
             async def reset_session_atomically(session):
@@ -647,7 +677,7 @@ class BranchHandler:
                 for branch_id, branch in session.branch_manager.branches.items():
                     message_count += len(branch.conversation_history)
                 
-                logger.info(f"🧹 Resetting session {session_id}: {branch_count} branches, {message_count} messages")
+                logger.info(f"[trace:{trace_id}] 🧹 Resetting session {session_id}: {branch_count} branches, {message_count} messages")
                 delete_counts["branches"] += branch_count
                 delete_counts["messages"] += message_count
                 
@@ -702,11 +732,11 @@ class BranchHandler:
                         # Reset session current branch to main
                         self.db.set_session_current_branch(session_id, conv_id, "main")
                         
-                        logger.info(f"🧹 Database cleanup complete for session {session_id}")
+                        logger.info(f"[trace:{trace_id}] 🧹 Database cleanup complete for session {session_id}")
                     except Exception as e:
                         logger.error(f"❌ Database cleanup failed for session {session_id}: {e}")
                 
-                logger.info(f"🧹 Session {session_id} reset complete")
+                logger.info(f"[trace:{trace_id}] 🧹 Session {session_id} reset complete")
                 
                 return True, "Session reset successful", session
             
@@ -788,17 +818,27 @@ class BranchHandler:
                 logger.warning(f"⚠️ Failed to log telemetry: {e}")
             
             # Return success response with counts
-            return web.json_response(
-                {
-                    "success": success,
-                    "message": message,
-                    "operation_id": operation_id,
-                    "timestamp": time.time(),
-                    "scope": scope,
-                    "deleted": delete_counts,
-                }
-            )
+            resp = {
+                "success": success,
+                "message": message,
+                "operation_id": operation_id,
+                "timestamp": time.time(),
+                "scope": scope,
+                "deleted": delete_counts,
+            }
+            try:
+                if trace_id:
+                    resp["trace_id"] = trace_id
+            except Exception:
+                pass
+            return web.json_response(resp)
             
         except Exception as e:
-            logger.error(f"Reset history API error: {e}")
-            return web.json_response({"error": str(e), "success": False}, status=500)
+            logger.error(f"[trace:{trace_id}] Reset history API error: {e}")
+            payload = {"error": str(e), "success": False}
+            try:
+                if trace_id:
+                    payload["trace_id"] = trace_id
+            except Exception:
+                pass
+            return web.json_response(payload, status=500)

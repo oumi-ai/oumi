@@ -1,0 +1,100 @@
+{
+  "version": "1.0",
+  "created_at": "2025-09-22T02:07:32.868Z",
+  "session_id": "session-1758506473857-732g7at21",
+  "model_info": {
+    "name": "",
+    "engine": ""
+  },
+  "current_conversation_id": "conv-1758506634882-jjn3lepdx",
+  "current_branch_id": "main",
+  "conversations": [
+    {
+      "id": "conv-1758506634882-jjn3lepdx",
+      "title": "Who is older VOldemort or Dumbledore",
+      "updatedAt": "2025-09-22T02:03:57.129Z",
+      "branches": {
+        "main": {
+          "messages": [
+            {
+              "id": "user-1758506634881",
+              "role": "user",
+              "content": "Who is older, VOldemort or Dumbledore?",
+              "timestamp": 1758506634881,
+              "meta": {
+                "authorName": "Hayden Ash",
+                "authorType": "user",
+                "createdAt": 1758506634881
+              }
+            },
+            {
+              "id": "assistant-1758506637028",
+              "role": "assistant",
+              "content": "Dumbledore is older than Voldemort. \n\nHere's a breakdown of their ages:\n\n*   **Albus Dumbledore:** Born in 1881. He lived for over 115 years.\n*   **Lord Voldemort:** Born in 1926. He died in 1997, at the age of 71.\n\nTherefore, Dumbledore was born almost 50 years before Voldemort, making him significantly older.\n\n\n\n",
+              "timestamp": 1758506637028,
+              "meta": {
+                "authorType": "ai",
+                "authorName": "unsloth/gemma-3n-E4B-it-GGUF",
+                "modelName": "unsloth/gemma-3n-E4B-it-GGUF",
+                "createdAt": 1758506637028,
+                "durationMs": 2117
+              }
+            }
+          ]
+        }
+      },
+      "nodeGraph": {
+        "nodes": {
+          "node-1758506634885-eccxzw": {
+            "id": "node-1758506634885-eccxzw",
+            "versions": [
+              {
+                "id": "user-1758506634881",
+                "role": "user",
+                "content": "Who is older, VOldemort or Dumbledore?",
+                "timestamp": 1758506634881,
+                "meta": {
+                  "authorName": "Hayden Ash",
+                  "authorType": "user",
+                  "createdAt": 1758506634881
+                }
+              }
+            ]
+          },
+          "node-1758506637028-xrffnf": {
+            "id": "node-1758506637028-xrffnf",
+            "versions": [
+              {
+                "id": "assistant-1758506637028",
+                "role": "assistant",
+                "content": "Dumbledore is older than Voldemort. \n\nHere's a breakdown of their ages:\n\n*   **Albus Dumbledore:** Born in 1881. He lived for over 115 years.\n*   **Lord Voldemort:** Born in 1926. He died in 1997, at the age of 71.\n\nTherefore, Dumbledore was born almost 50 years before Voldemort, making him significantly older.\n\n\n\n",
+                "timestamp": 1758506637028,
+                "meta": {
+                  "authorType": "ai",
+                  "authorName": "unsloth/gemma-3n-E4B-it-GGUF",
+                  "modelName": "unsloth/gemma-3n-E4B-it-GGUF",
+                  "createdAt": 1758506637028,
+                  "durationMs": 2117
+                }
+              }
+            ]
+          }
+        },
+        "timelines": {
+          "main": [
+            "node-1758506634885-eccxzw",
+            "node-1758506637028-xrffnf"
+          ]
+        },
+        "heads": {
+          "main": {
+            "node-1758506634885-eccxzw": "user-1758506634881",
+            "node-1758506637028-xrffnf": "assistant-1758506637028"
+          }
+        },
+        "tombstones": {},
+        "merges": []
+      }
+    }
+  ]
+}

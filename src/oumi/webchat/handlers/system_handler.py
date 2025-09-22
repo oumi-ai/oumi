@@ -209,12 +209,17 @@ class SystemHandler:
         Returns:
             JSON response with system stats
         """
+        # Trace id
+        try:
+            trace_id = request.get('trace_id') or request.headers.get('X-Trace-ID')
+        except Exception:
+            trace_id = None
         session_id = request.query.get("session_id")
         if not session_id:
-            return web.json_response(
-                {"error": "session_id is required"}, 
-                status=400
-            )
+            payload = {"error": "session_id is required"}
+            if trace_id:
+                payload["trace_id"] = trace_id
+            return web.json_response(payload, status=400)
         
         session = await self.session_manager.get_or_create_session_safe(session_id)
         
@@ -249,6 +254,8 @@ class SystemHandler:
             "max_wait_time": session_metrics["max_wait_time"],
             "contention_count": session_metrics["contention_count"]
         }
+        if trace_id:
+            response_data["trace_id"] = trace_id
         
         logger.debug(f"System stats for session {session_id}: {stats.context_used_tokens}/{stats.context_max_tokens} tokens, {stats.conversation_turns} turns")
         
@@ -263,11 +270,16 @@ class SystemHandler:
         Returns:
             JSON response with clearing operation result
         """
+        # Trace id
+        try:
+            trace_id = request.get('trace_id') or request.headers.get('X-Trace-ID')
+        except Exception:
+            trace_id = None
         try:
             session_id = request.query.get("session_id", "default")
             session = await self.session_manager.get_or_create_session_safe(session_id)
             
-            logger.info(f"🧹 Clearing model from memory for session {session_id}")
+            logger.info(f"[trace:{trace_id}] 🧹 Clearing model from memory for session {session_id}")
             
             # Clear the inference engine if it exists
             if hasattr(session, 'inference_engine') and session.inference_engine is not None:
@@ -309,14 +321,14 @@ class SystemHandler:
             
             logger.info("✅ Model clearing completed successfully")
             
-            return web.json_response({
-                "success": True,
-                "message": "Model cleared from memory successfully"
-            })
+            resp = {"success": True, "message": "Model cleared from memory successfully"}
+            if trace_id:
+                resp["trace_id"] = trace_id
+            return web.json_response(resp)
             
         except Exception as e:
-            logger.error(f"❌ Error clearing model: {e}")
-            return web.json_response({
-                "success": False,
-                "error": f"Failed to clear model: {str(e)}"
-            }, status=500)
+            logger.error(f"[trace:{trace_id}] ❌ Error clearing model: {e}")
+            payload = {"success": False, "error": f"Failed to clear model: {str(e)}"}
+            if trace_id:
+                payload["trace_id"] = trace_id
+            return web.json_response(payload, status=500)

@@ -249,6 +249,14 @@ class ChatHandler:
                 session_config = self.session_manager.default_config
                 session_engine = get_engine(session_config)
             
+            # Determine the effective model name actually used for this request
+            try:
+                effective_model_name = getattr(session_config.model, 'model_name', None)
+            except Exception:
+                effective_model_name = None
+            if not effective_model_name:
+                effective_model_name = model_name_fallback("session_config.model.model_name")
+
             # CRITICAL FIX: Use the SAME proven logic as "oumi chat" command
             # This is the battle-tested approach that works with all engine types
             try:
@@ -337,7 +345,7 @@ class ChatHandler:
                 "id": f"chatcmpl-{int(time.time())}",
                 "object": "chat.completion",
                 "created": int(time.time()),
-                "model": model,
+                "model": effective_model_name,
                 "choices": [
                     {
                         "index": 0,

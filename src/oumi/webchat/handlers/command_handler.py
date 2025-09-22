@@ -70,7 +70,13 @@ class CommandHandler:
         payload = data.get("payload")  # e.g., new content for edit
         is_electron = bool(data.get("electron"))
 
-        logger.info(f"🌐 API: Received command '{command}' with args: {args} for session: {session_id}")
+        trace_id = None
+        try:
+            trace_id = request.get('trace_id') or request.headers.get('X-Trace-ID')
+        except Exception:
+            trace_id = None
+
+        logger.info(f"[trace:{trace_id}] 🌐 API: Received command '{command}' args={args} session={session_id} branch={branch_id} msg_id={message_id}")
 
         try:
             # Get or create the session
@@ -352,9 +358,18 @@ class CommandHandler:
                 except Exception as pe:
                     logger.warning(f"⚠️ Dual-write persistence (command result) failed: {pe}")
 
+            # Attach trace id for client correlation
+            try:
+                if trace_id:
+                    response_data.setdefault('trace_id', trace_id)
+            except Exception:
+                pass
             return web.json_response(response_data)
 
         except Exception as e:
-            logger.error(f"API command execution error: {e}")
+            logger.error(f"[trace:{trace_id}] API command execution error: {e}")
             logger.error(f"Full traceback: {traceback.format_exc()}")
-            return web.json_response({"error": f"Command failed: {str(e)}"}, status=500)
+            err = {"error": f"Command failed: {str(e)}"}
+            if trace_id:
+                err['trace_id'] = trace_id
+            return web.json_response(err, status=500)

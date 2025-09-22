@@ -212,23 +212,45 @@ def add_middlewares(app: web.Application) -> None:
     async def logging_middleware(request, handler):
         start_time = time.time()
         client_ip = request.headers.get('X-Forwarded-For', request.remote)
-        
-        logger.debug(f"🌐 {request.method} {request.path} from {client_ip}")
-        
-        # Log request headers for debugging CORS/connection issues
-        if request.headers.get('Origin'):
-            logger.debug(f"🔍 Origin: {request.headers.get('Origin')}")
-        if request.headers.get('User-Agent'):
-            logger.debug(f"🔍 User-Agent: {request.headers.get('User-Agent')}")
+        # Correlation/trace id: honor inbound header or generate one
+        try:
+            inbound_trace = request.headers.get('X-Trace-ID') or request.headers.get('X-Request-ID')
+        except Exception:
+            inbound_trace = None
+        if not inbound_trace:
+            # Low-collision, human-readable trace id
+            import random
+            inbound_trace = f"trc-{int(start_time*1000)}-{random.getrandbits(16):04x}"
+        # Store on request for handlers to use
+        try:
+            request['trace_id'] = inbound_trace
+        except Exception:
+            pass
+
+        logger.info(f"[trace:{inbound_trace}] 🌐 {request.method} {request.path} from {client_ip}")
+        # Log lightweight header/query info
+        try:
+            if request.headers.get('Origin'):
+                logger.debug(f"[trace:{inbound_trace}] 🔍 Origin: {request.headers.get('Origin')}")
+            if request.headers.get('User-Agent'):
+                logger.debug(f"[trace:{inbound_trace}] 🔍 User-Agent: {request.headers.get('User-Agent')}")
+            if request.query_string:
+                logger.debug(f"[trace:{inbound_trace}] 🔍 Query: {request.query_string}")
+        except Exception:
+            pass
         
         try:
             response = await handler(request)
             elapsed = (time.time() - start_time) * 1000
-            logger.debug(f"✅ {request.method} {request.path} -> {response.status} ({elapsed:.1f}ms)")
+            try:
+                response.headers['X-Trace-ID'] = inbound_trace
+            except Exception:
+                pass
+            logger.info(f"[trace:{inbound_trace}] ✅ {request.method} {request.path} -> {response.status} ({elapsed:.1f}ms)")
             return response
         except Exception as e:
             elapsed = (time.time() - start_time) * 1000
-            logger.error(f"❌ {request.method} {request.path} -> ERROR: {e} ({elapsed:.1f}ms)")
+            logger.error(f"[trace:{inbound_trace}] ❌ {request.method} {request.path} -> ERROR: {e} ({elapsed:.1f}ms)")
             raise
     
     # Add CORS middleware

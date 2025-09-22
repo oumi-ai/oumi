@@ -124,23 +124,7 @@ export default function AppLayout() {
         setShowSearchHistory(true);
       };
 
-      const handleSaveConversation = async (filePath: string) => {
-        console.log('🔧 [AppLayout] Save Conversation from menu:', filePath);
-        try {
-          const response = await apiClient.executeCommand('save', [filePath]);
-          if (response.success) {
-            console.log('Conversation saved successfully');
-            // Could show a toast notification here instead of alert
-            alert('Conversation saved successfully!');
-          } else {
-            console.error('Failed to save conversation:', response.message);
-            alert('Failed to save conversation: ' + (response.message || 'Unknown error'));
-          }
-        } catch (error) {
-          console.error('Error saving conversation:', error);
-          alert('Error saving conversation');
-        }
-      };
+      // Removed save conversation menu handler per request
 
       const handleRegenerateLastResponse = () => {
         console.log('🔧 [AppLayout] Regenerate Last Response from menu');
@@ -177,7 +161,7 @@ export default function AppLayout() {
         window.electronAPI.onMenuMessage('menu:new-chat', handleNewChat);
         window.electronAPI.onMenuMessage('menu:preferences', handlePreferences);
         window.electronAPI.onMenuMessage('menu:find', handleFind);
-        window.electronAPI.onMenuMessage('menu:save-conversation', handleSaveConversation);
+        // Removed: menu:save-conversation handler registration
         window.electronAPI.onMenuMessage('menu:regenerate', handleRegenerateLastResponse);
         window.electronAPI.onMenuMessage('menu:stop-generation', handleStopGeneration);
         window.electronAPI.onMenuMessage('menu:reset-history', handleResetHistory);
@@ -196,7 +180,7 @@ export default function AppLayout() {
           window.electronAPI.removeMenuListener('menu:new-chat', handleNewChat);
           window.electronAPI.removeMenuListener('menu:preferences', handlePreferences);
           window.electronAPI.removeMenuListener('menu:find', handleFind);
-          window.electronAPI.removeMenuListener('menu:save-conversation', handleSaveConversation);
+          // Removed: menu:save-conversation handler cleanup
           window.electronAPI.removeMenuListener('menu:regenerate', handleRegenerateLastResponse);
           window.electronAPI.removeMenuListener('menu:stop-generation', handleStopGeneration);
           window.electronAPI.removeMenuListener('menu:reset-history', handleResetHistory);

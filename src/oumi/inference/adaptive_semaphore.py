@@ -41,7 +41,7 @@ class AdaptiveSemaphore:
         await self.acquire()
         return None
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, _exc_type, _exc, _tb):
         """Exit the context manager."""
         await self._release_async()
 

@@ -74,7 +74,7 @@ class TimerContext(ContextDecorator):
         self.start_time = time.perf_counter()
         return self
 
-    def __exit__(self, *exc) -> bool:
+    def __exit__(self, *_exc) -> bool:
         """Stops the timer and records the elapsed time."""
         if self.start_time is not None:
             if self.cuda_synchronize:
@@ -119,7 +119,7 @@ class CudaTimerContext(ContextDecorator):
         self.start_event.record()
         return self
 
-    def __exit__(self, *exc) -> bool:
+    def __exit__(self, *_exc) -> bool:
         """Stops the CUDA timer and records the elapsed time."""
         if not torch.cuda.is_available():
             LOGGER.debug("CUDA is not available. Skipping CUDA benchmark.")

@@ -108,7 +108,7 @@ class AdaptiveConcurrencyController:
         await self.acquire()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, _exc_type, _exc, _tb):
         """Exit the context manager."""
         self.release()
 

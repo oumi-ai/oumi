@@ -44,14 +44,24 @@ class ConfigHandler:
         Returns:
             JSON response with available config files
         """
+        # Trace id for correlation
         try:
+            trace_id = request.get('trace_id') or request.headers.get('X-Trace-ID')
+        except Exception:
+            trace_id = None
+        try:
+            logger.info(f"[trace:{trace_id}] 📁 Listing available inference configs")
             configs = self._scan_inference_config_files()
-            return web.json_response({"configs": configs})
+            resp = {"configs": configs}
+            if trace_id:
+                resp["trace_id"] = trace_id
+            return web.json_response(resp)
         except Exception as e:
-            logger.error(f"Error getting configs: {e}")
-            return web.json_response(
-                {"error": "Failed to scan configuration files"}, status=500
-            )
+            logger.error(f"[trace:{trace_id}] Error getting configs: {e}")
+            payload = {"error": "Failed to scan configuration files"}
+            if trace_id:
+                payload["trace_id"] = trace_id
+            return web.json_response(payload, status=500)
     
     def _scan_inference_config_files(self) -> List[Dict[str, Any]]:
         """Scan the configs directory for inference YAML files (*_infer.yaml).

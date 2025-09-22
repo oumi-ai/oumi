@@ -7,7 +7,7 @@
 import React from 'react';
 import { useChatStore } from '@/lib/store';
 import { ConversationBranch, Message } from '@/lib/types';
-import { Plus, GitBranch, Trash2, TreePine, List, MoreVertical, Shuffle, GitMerge, Save, FileDown } from 'lucide-react';
+import { Plus, GitBranch, Trash2, TreePine, List, MoreVertical, Shuffle, GitMerge } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 import BranchTreeVisualization from './BranchTreeVisualization';
 import BranchInheritanceView from './BranchInheritanceView';
@@ -56,7 +56,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     sourceBranch: IBranchData;
     targetBranch: IBranchData;
   } | null>(null);
-  const [actionInProgress, setActionInProgress] = React.useState<string | null>(null);
+  // Removed save/load action busy state per request
 
   // Load branches on component mount with retry mechanism
   React.useEffect(() => {
@@ -279,68 +279,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     setMergeDialog({ sourceBranch, targetBranch });
   };
 
-  // Handle save conversation
-  const handleSaveConversation = async () => {
-    setActionInProgress('save');
-    try {
-      // Show save dialog to let user choose location and filename
-      const timestamp = new Date().toISOString().slice(0, 10);
-      const defaultFilename = `conversation-${currentBranchId || 'main'}-${timestamp}.json`;
-      
-      const filePath = await apiClient.showSaveDialog({
-        title: 'Save Conversation',
-        defaultPath: defaultFilename,
-        filters: [
-          { name: 'JSON Files', extensions: ['json'] },
-          { name: 'All Files', extensions: ['*'] }
-        ]
-      });
-
-      if (filePath) {
-        // User selected a file path, now save the conversation
-        const response = await apiClient.executeCommand('save', [filePath]);
-        if (response.success) {
-          alert(`Conversation saved successfully!`);
-        } else {
-          console.error('Failed to save conversation:', response.message);
-          alert('Failed to save conversation: ' + (response.message || 'Unknown error'));
-        }
-      }
-      // If filePath is null, user cancelled the dialog - no action needed
-    } catch (error) {
-      console.error('Error saving conversation:', error);
-      alert('Error saving conversation');
-    } finally {
-      setActionInProgress(null);
-    }
-  };
-
-  // Handle load conversation
-  const handleLoadConversation = async () => {
-    const filename = prompt('Enter the filename to load (e.g., conversation_main_2025-01-15_14-30-00.json):');
-    if (!filename) return;
-
-    setActionInProgress('load');
-    try {
-      const response = await apiClient.executeCommand('load', [filename]);
-      if (response.success) {
-        alert('Conversation loaded successfully!');
-        // Refresh branches and messages to show loaded conversation
-        await loadBranches();
-        // The setMessages function now requires 3 parameters
-        setMessages('', 'main', []);
-        setTimeout(() => window.location.reload(), 1000);
-      } else {
-        console.error('Failed to load conversation:', response.message);
-        alert('Failed to load conversation: ' + (response.message || 'Unknown error'));
-      }
-    } catch (error) {
-      console.error('Error loading conversation:', error);
-      alert('Error loading conversation');
-    } finally {
-      setActionInProgress(null);
-    }
-  };
+  // Removed save/load conversation handlers per request
 
   // Get current branch object
   const currentBranch = branches.find(b => b.id === currentBranchId);
@@ -393,34 +332,14 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
           </div>
         </div>
 
-        {/* Conversation management buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSaveConversation}
-            disabled={actionInProgress === 'save'}
-            className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded text-xs font-medium transition-colors"
-            title="Save current conversation"
-          >
-            <Save size={12} />
-            {actionInProgress === 'save' ? 'Saving...' : 'Save'}
-          </button>
-          
-          <button
-            onClick={handleLoadConversation}
-            disabled={actionInProgress === 'load'}
-            className="flex items-center gap-1 px-2 py-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded text-xs font-medium transition-colors"
-            title="Load conversation from file"
-          >
-            <FileDown size={12} />
-            {actionInProgress === 'load' ? 'Loading...' : 'Load'}
-          </button>
-
-          {currentBranch && (
+        {/* Conversation management buttons removed per request */}
+        {currentBranch && (
+          <div className="flex items-center gap-2">
             <div className="text-xs text-muted-foreground ml-auto">
               Current: <span className="font-medium">{currentBranch.name}</span>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Main content area - List, Tree, or Inheritance view */}
