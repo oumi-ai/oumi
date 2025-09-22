@@ -473,11 +473,14 @@ class ChatHandler:
                             # Graph dual-write
                             try:
                                 # Pass exact DB path to GraphStore
-                                GraphStore(self.db.db_path).add_edge_for_branch_tail(
+                                gs = GraphStore(self.db.db_path)
+                                logger.debug(f"[Graph] Using GraphStore at {self.db.db_path}")
+                                gs.add_edge_for_branch_tail(
                                     conv_id, session.branch_manager.current_branch_id
                                 )
+                                logger.debug("[Graph] add_edge_for_branch_tail succeeded")
                             except Exception as ge:
-                                logger.warning(f"Graph dual-write failed: {ge}")
+                                logger.warning(f"Graph dual-write failed: {type(ge).__name__}: {ge}")
                     except Exception as pe:
                         logger.warning(f"⚠️ Dual-write persistence failed: {pe}")
                     

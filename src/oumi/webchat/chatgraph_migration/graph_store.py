@@ -11,6 +11,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
+import logging
 
 
 class GraphStore:
@@ -35,8 +36,16 @@ class GraphStore:
             Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         
         # Initialize schema
+        self._logger = logging.getLogger("oumi")
         with self._connect() as conn:
             self._init_schema(conn)
+            self._detect_column_compat(conn)
+        self._logger.debug(f"[GraphStore] Initialized at {self.db_path} src_col={getattr(self,'_src_col',None)} dst_col={getattr(self,'_dst_col',None)}")
+        # Default column names; may be overwritten by _detect_column_compat
+        if not hasattr(self, '_src_col'):
+            self._src_col = 'source_branch_id'
+        if not hasattr(self, '_dst_col'):
+            self._dst_col = 'target_branch_id'
     
     def _connect(self) -> sqlite3.Connection:
         """Connect to SQLite database with proper settings.
@@ -74,6 +83,33 @@ class GraphStore:
             """
         )
         conn.commit()
+
+    def _detect_column_compat(self, conn: sqlite3.Connection) -> None:
+        """Detect existing column names for backward compatibility.
+
+        Older databases used src_branch_id/dst_branch_id. Newer uses
+        source_branch_id/target_branch_id. Set internal column names accordingly.
+        """
+        try:
+            cur = conn.cursor()
+            cur.execute("PRAGMA table_info('graph_edges')")
+            cols = [r[1] for r in cur.fetchall()]
+            if not cols:
+                # Table missing; leave defaults
+                return
+            if 'source_branch_id' in cols:
+                self._src_col = 'source_branch_id'
+            elif 'src_branch_id' in cols:
+                self._src_col = 'src_branch_id'
+            if 'target_branch_id' in cols:
+                self._dst_col = 'target_branch_id'
+            elif 'dst_branch_id' in cols:
+                self._dst_col = 'dst_branch_id'
+            self._logger.debug(f"[GraphStore] Detected graph_edges columns: {cols} -> src={getattr(self,'_src_col',None)} dst={getattr(self,'_dst_col',None)}")
+        except Exception:
+            # Fail open with defaults
+            self._src_col = 'source_branch_id'
+            self._dst_col = 'target_branch_id'
     
     def add_edge(self, conversation_id: str, source_branch_id: str, target_branch_id: str, 
                 relationship_type: str = 'parent', metadata: Optional[Dict[str, Any]] = None) -> None:
@@ -110,15 +146,16 @@ class GraphStore:
                 return
             
             # Add edge (will be ignored if it already exists due to UNIQUE constraint)
+            self._logger.debug(f"[GraphStore] add_edge: conv={conversation_id} src={source_branch_id} dst={target_branch_id} cols=({self._src_col},{self._dst_col})")
             cur.execute(
-                """
+                f"""
                 INSERT OR IGNORE INTO graph_edges(
-                    conversation_id, source_branch_id, target_branch_id, 
+                    conversation_id, {self._src_col}, {self._dst_col}, 
                     relationship_type, created_at, metadata
                 ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (conversation_id, source_branch_id, target_branch_id, 
-                relationship_type, time.time(), json.dumps(metadata) if metadata is not None else None)
+                 relationship_type, time.time(), json.dumps(metadata) if metadata is not None else None)
             )
             conn.commit()
     
@@ -140,10 +177,11 @@ class GraphStore:
             
             # We're adding an edge from the branch to itself as a "tail" relationship
             # This represents adding a message to the branch
+            self._logger.debug(f"[GraphStore] add_tail: conv={conversation_id} branch={branch_id} cols=({self._src_col},{self._dst_col})")
             cur.execute(
-                """
+                f"""
                 INSERT OR IGNORE INTO graph_edges(
-                    conversation_id, source_branch_id, target_branch_id, 
+                    conversation_id, {self._src_col}, {self._dst_col}, 
                     relationship_type, created_at
                 ) VALUES (?, ?, ?, ?, ?)
                 """,
@@ -166,10 +204,10 @@ class GraphStore:
             
             # Get outgoing connections
             cur.execute(
-                """
-                SELECT target_branch_id, relationship_type, created_at, metadata
+                f"""
+                SELECT {self._dst_col}, relationship_type, created_at, metadata
                 FROM graph_edges
-                WHERE conversation_id = ? AND source_branch_id = ?
+                WHERE conversation_id = ? AND {self._src_col} = ?
                 ORDER BY created_at ASC
                 """,
                 (conversation_id, branch_id)
@@ -186,10 +224,10 @@ class GraphStore:
             
             # Get incoming connections
             cur.execute(
-                """
-                SELECT source_branch_id, relationship_type, created_at, metadata
+                f"""
+                SELECT {self._src_col}, relationship_type, created_at, metadata
                 FROM graph_edges
-                WHERE conversation_id = ? AND target_branch_id = ?
+                WHERE conversation_id = ? AND {self._dst_col} = ?
                 ORDER BY created_at ASC
                 """,
                 (conversation_id, branch_id)

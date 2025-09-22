@@ -333,6 +333,12 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
                 </span>
               </>
             )}
+            {process.env.NODE_ENV === 'development' && (
+              <>
+                <span className="opacity-50">•</span>
+                <span className="opacity-60" title="Debug meta">{JSON.stringify(message.meta || {})}</span>
+              </>
+            )}
           </div>
         )}
 

@@ -859,15 +859,20 @@ class WebchatDB:
                     # Check if table exists
                     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='graph_edges'")
                     if cur.fetchone():
-                        # Check for source edges
-                        cur.execute(
-                            "SELECT COUNT(*) FROM graph_edges WHERE conversation_id = ? AND src_branch_id = ?",
-                            (conversation_id, branch_id)
-                        )
-                        edge_count = cur.fetchone()[0]
-                        if edge_count > 0:
-                            conn.rollback()
-                            return {"success": False, "reason": f"Branch has {edge_count} graph edges; delete those first", "deleted_message_count": 0}
+                        # Determine compatible column names
+                        cur.execute("PRAGMA table_info('graph_edges')")
+                        cols = [r[1] for r in cur.fetchall()]
+                        src_col = 'source_branch_id' if 'source_branch_id' in cols else ('src_branch_id' if 'src_branch_id' in cols else None)
+                        dst_col = 'target_branch_id' if 'target_branch_id' in cols else ('dst_branch_id' if 'dst_branch_id' in cols else None)
+                        if src_col:
+                            cur.execute(
+                                f"SELECT COUNT(*) FROM graph_edges WHERE conversation_id = ? AND {src_col} = ?",
+                                (conversation_id, branch_id)
+                            )
+                            edge_count = cur.fetchone()[0]
+                            if edge_count > 0:
+                                conn.rollback()
+                                return {"success": False, "reason": f"Branch has {edge_count} graph edges; delete those first", "deleted_message_count": 0}
                 except Exception as e:
                     # Log but continue if graph_edges table doesn't exist
                     logger.debug(f"Could not check graph edges for branch {branch_id}: {e}")
@@ -896,11 +901,16 @@ class WebchatDB:
                     # Check if table exists
                     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='graph_edges'")
                     if cur.fetchone():
-                        # Delete any graph edges involving this branch
-                        cur.execute(
-                            "DELETE FROM graph_edges WHERE conversation_id = ? AND (src_branch_id = ? OR dst_branch_id = ?)",
-                            (conversation_id, branch_id, branch_id)
-                        )
+                        # Determine compatible columns
+                        cur.execute("PRAGMA table_info('graph_edges')")
+                        cols = [r[1] for r in cur.fetchall()]
+                        src_col = 'source_branch_id' if 'source_branch_id' in cols else ('src_branch_id' if 'src_branch_id' in cols else None)
+                        dst_col = 'target_branch_id' if 'target_branch_id' in cols else ('dst_branch_id' if 'dst_branch_id' in cols else None)
+                        if src_col and dst_col:
+                            cur.execute(
+                                f"DELETE FROM graph_edges WHERE conversation_id = ? AND ({src_col} = ? OR {dst_col} = ?)",
+                                (conversation_id, branch_id, branch_id)
+                            )
                 except Exception as e:
                     # Log but continue if graph_edges table doesn't exist
                     logger.debug(f"Could not delete graph edges for branch {branch_id}: {e}")
