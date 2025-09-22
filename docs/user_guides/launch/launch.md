@@ -87,7 +87,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install 'oumi[gpu]'
+  pip install uv && uv pip install --system 'oumi[gpu]'
 
 # NOTE: Update this section with your training command.
 run: |
@@ -138,7 +138,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install 'oumi[gpu]'
+  pip install uv && uv pip install --system 'oumi[gpu]'
 
 # NOTE: Update this section with your training command.
 run: |
@@ -189,7 +189,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install 'oumi[gpu]'
+  pip install uv && uv pip install --system 'oumi[gpu]'
 
 # NOTE: Update this section with your training command.
 run: |
@@ -240,7 +240,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install 'oumi[gpu]'
+  pip install uv && uv pip install --system 'oumi[gpu]'
 
 # NOTE: Update this section with your training command.
 run: |
@@ -291,7 +291,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install 'oumi[gpu]'
+  pip install uv && uv pip install --system 'oumi[gpu]'
 
 # NOTE: Update this section with your training command.
 run: |

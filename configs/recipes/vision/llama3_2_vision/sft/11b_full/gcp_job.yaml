@@ -43,9 +43,9 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] hf_transfer
+  pip install uv && uv pip install --system oumi[gpu] hf_transfer
   # TODO: OPE-1329 - torch 2.6 causes this job to crash
-  uv pip install torch==2.5.0 torchvision==0.20.0
+  uv pip install --system torch==2.5.0 torchvision==0.20.0
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 hf download meta-llama/Llama-3.2-11B-Vision-Instruct --exclude original/*
