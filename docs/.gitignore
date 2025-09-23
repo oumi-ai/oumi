@@ -1,8 +1,0 @@
-# Jupyter notebooks, auto-copied from notebooks/ to docs/
-*.ipynb
-
-# Auto-generated summary files
-api/summary/*
-
-# Automatically copied during build
-development/contributing.md
