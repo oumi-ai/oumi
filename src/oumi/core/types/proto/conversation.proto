@@ -33,6 +33,24 @@ message ContentPart {
 
         // Represents an image stored as binary data.
         IMAGE_BINARY = 4;
+
+        // Represents an audio clip referenced by its file path.
+        AUDIO_PATH = 5;
+
+        // Represents an audio clip referenced by its URL.
+        AUDIO_URL = 6;
+
+        // Represents an audio clip stored as binary data.
+        AUDIO_BINARY = 7;
+
+        // Represents a video referenced by its file path.
+        VIDEO_PATH = 8;
+
+        // Represents a video referenced by its URL.
+        VIDEO_URL = 9;
+
+        // Represents a video stored as binary data.
+        VIDEO_BINARY = 10;
     };
 
 

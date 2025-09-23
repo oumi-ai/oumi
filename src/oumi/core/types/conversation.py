@@ -92,6 +92,24 @@ class Type(str, Enum):
     IMAGE_BINARY = "image_binary"
     """Represents an image stored as binary data."""
 
+    AUDIO_PATH = "audio_path"
+    """Represents an audio clip referenced by its file path."""
+
+    AUDIO_URL = "audio_url"
+    """Represents an audio clip referenced by its URL."""
+
+    AUDIO_BINARY = "audio_binary"
+    """Represents an audio clip stored as binary data."""
+
+    VIDEO_PATH = "video_path"
+    """Represents a video referenced by its file path."""
+
+    VIDEO_URL = "video_url"
+    """Represents a video referenced by its URL."""
+
+    VIDEO_BINARY = "video_binary"
+    """Represents a video stored as binary data."""
+
     def __str__(self) -> str:
         """Return the string representation of the Type enum.
 
@@ -108,6 +126,12 @@ _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP: Final[Mapping[Type, pb2.ContentPart.Type]]
             Type.IMAGE_PATH: pb2.ContentPart.IMAGE_PATH,
             Type.IMAGE_URL: pb2.ContentPart.IMAGE_URL,
             Type.IMAGE_BINARY: pb2.ContentPart.IMAGE_BINARY,
+            Type.AUDIO_PATH: pb2.ContentPart.AUDIO_PATH,
+            Type.AUDIO_URL: pb2.ContentPart.AUDIO_URL,
+            Type.AUDIO_BINARY: pb2.ContentPart.AUDIO_BINARY,
+            Type.VIDEO_PATH: pb2.ContentPart.VIDEO_PATH,
+            Type.VIDEO_URL: pb2.ContentPart.VIDEO_URL,
+            Type.VIDEO_BINARY: pb2.ContentPart.VIDEO_BINARY,
         }
     )
 )
@@ -147,6 +171,12 @@ class ContentItemCounts(NamedTuple):
 
     image_items: int
     """The number of image content items in a message."""
+
+    audio_items: int
+    """The number of audio content items in a message."""
+
+    video_items: int
+    """The number of video content items in a message."""
 
 
 class ContentItem(pydantic.BaseModel):
@@ -189,6 +219,14 @@ class ContentItem(pydantic.BaseModel):
     def is_text(self) -> bool:
         """Checks if the item contains text."""
         return self.type == Type.TEXT
+
+    def is_audio(self) -> bool:
+        """Checks if the item contains audio."""
+        return self.type in (Type.AUDIO_BINARY, Type.AUDIO_URL, Type.AUDIO_PATH)
+
+    def is_video(self) -> bool:
+        """Checks if the item contains video."""
+        return self.type in (Type.VIDEO_BINARY, Type.VIDEO_URL, Type.VIDEO_PATH)
 
     @pydantic.field_serializer("binary")
     def _encode_binary(self, value: Optional[bytes]) -> str:
@@ -235,10 +273,33 @@ class ContentItem(pydantic.BaseModel):
                 self.content is None or len(self.content) == 0
             ):
                 raise ValueError(f"Content not provided for {self.type} message item.")
+        elif self.is_audio():
+            if self.type == Type.AUDIO_BINARY and (
+                self.binary is None or len(self.binary) == 0
+            ):
+                raise ValueError(
+                    f"No audio bytes in message content item (Item type: {self.type})."
+                )
+            if self.type in (Type.AUDIO_PATH, Type.AUDIO_URL) and (
+                self.content is None or len(self.content) == 0
+            ):
+                raise ValueError(f"Content not provided for {self.type} message item.")
+        elif self.is_video():
+            if self.type == Type.VIDEO_BINARY and (
+                self.binary is None or len(self.binary) == 0
+            ):
+                raise ValueError(
+                    f"No video bytes in message content item (Item type: {self.type})."
+                )
+            if self.type in (Type.VIDEO_PATH, Type.VIDEO_URL) and (
+                self.content is None or len(self.content) == 0
+            ):
+                raise ValueError(f"Content not provided for {self.type} message item.")
         else:
             if self.binary is not None:
                 raise ValueError(
-                    f"Binary can only be provided for images (Item type: {self.type})."
+                    "Binary can only be provided for images, audio, or videos "
+                    f"(Item type: {self.type})."
                 )
 
     @staticmethod
@@ -320,41 +381,62 @@ class Message(pydantic.BaseModel):
             )
 
     def _iter_content_items(
-        self, *, return_text: bool = False, return_images: bool = False
+        self,
+        *,
+        return_text: bool = False,
+        return_images: bool = False,
+        return_audios: bool = False,
+        return_videos: bool = False,
     ) -> Generator[ContentItem, None, None]:
         """Returns a list of content items."""
         if isinstance(self.content, str):
             if return_text:
                 yield ContentItem(type=Type.TEXT, content=self.content)
         elif isinstance(self.content, list):
-            if return_text and return_images:
+            if not any((return_text, return_images, return_audios, return_videos)):
                 yield from self.content
             else:
                 for item in self.content:
-                    if (return_text and item.is_text()) or (
-                        return_images and item.is_image()
+                    if (
+                        (return_text and item.is_text())
+                        or (return_images and item.is_image())
+                        or (return_audios and item.is_audio())
+                        or (return_videos and item.is_video())
                     ):
                         yield item
 
     def _iter_all_content_items(self) -> Generator[ContentItem, None, None]:
-        return self._iter_content_items(return_text=True, return_images=True)
+        return self._iter_content_items(
+            return_text=True,
+            return_images=True,
+            return_audios=True,
+            return_videos=True,
+        )
 
     def count_content_items(self) -> ContentItemCounts:
         """Counts content items by type."""
         total_items: int = 0
         num_text_items: int = 0
         num_image_items: int = 0
+        num_audio_items: int = 0
+        num_video_items: int = 0
         for item in self._iter_all_content_items():
             total_items += 1
             if item.is_text():
                 num_text_items += 1
             elif item.is_image():
                 num_image_items += 1
+            elif item.is_audio():
+                num_audio_items += 1
+            elif item.is_video():
+                num_video_items += 1
 
         return ContentItemCounts(
             total_items=total_items,
             text_items=num_text_items,
             image_items=num_image_items,
+            audio_items=num_audio_items,
+            video_items=num_video_items,
         )
 
     @property
@@ -366,6 +448,16 @@ class Message(pydantic.BaseModel):
     def image_content_items(self) -> list[ContentItem]:
         """Returns a list of image content items."""
         return [item for item in self._iter_content_items(return_images=True)]
+
+    @property
+    def audio_content_items(self) -> list[ContentItem]:
+        """Returns a list of audio content items."""
+        return [item for item in self._iter_content_items(return_audios=True)]
+
+    @property
+    def video_content_items(self) -> list[ContentItem]:
+        """Returns a list of video content items."""
+        return [item for item in self._iter_content_items(return_videos=True)]
 
     @property
     def text_content_items(self) -> list[ContentItem]:

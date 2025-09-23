@@ -17,14 +17,15 @@ from __future__ import annotations
 import copy
 import math
 import warnings
-from typing import cast, get_args
+from typing import Any, cast, get_args
 
 import torch
 from typing_extensions import override
 
-from oumi.builders import build_tokenizer
+from oumi.builders import build_processor, build_tokenizer
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
+from oumi.core.processors.qwen_omni_processor import QwenOmniProcessor
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
@@ -54,6 +55,11 @@ try:
     )
 except ModuleNotFoundError:
     vllm = None
+
+
+def _is_qwen_omni_model(model_name: str) -> bool:
+    lowered = model_name.lower()
+    return "qwen2.5-omni" in lowered or "qwen3-omni" in lowered
 
 
 class VLLMInferenceEngine(BaseInferenceEngine):
@@ -186,6 +192,25 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_kwargs["max_num_seqs"] = max_num_seqs
 
         self._tokenizer = build_tokenizer(model_params)
+        self._processor: QwenOmniProcessor | None = None
+        self._is_qwen_omni = _is_qwen_omni_model(model_params.model_name)
+        if self._is_qwen_omni:
+            try:
+                self._processor = cast(
+                    QwenOmniProcessor,
+                    build_processor(
+                        processor_name=model_params.model_name,
+                        tokenizer=self._tokenizer,
+                        processor_kwargs=model_params.processor_kwargs,
+                        trust_remote_code=model_params.trust_remote_code,
+                    ),
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "Failed to initialise QwenOmniProcessor for vLLM: %s", exc
+                )
+                self._processor = None
+                self._is_qwen_omni = False
 
         supported_quantization_methods = list(get_args(QuantizationMethods))
         if quantization and quantization not in supported_quantization_methods:
@@ -209,6 +234,17 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             enforce_eager=enforce_eager,
             **vllm_kwargs,
         )
+
+        if self._is_qwen_omni and "limit_mm_per_prompt" not in final_vllm_kwargs:
+            limit_mm = model_params.processor_kwargs.get("limit_mm_per_prompt")
+            if limit_mm is not None:
+                final_vllm_kwargs["limit_mm_per_prompt"] = limit_mm
+            else:
+                final_vllm_kwargs["limit_mm_per_prompt"] = {
+                    "image": 3,
+                    "video": 3,
+                    "audio": 3,
+                }
 
         # Only add quantization if not already in vllm_kwargs and not None
         if quantization is not None and "quantization" not in vllm_kwargs:
@@ -243,6 +279,48 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 )
             result.append({"role": json_dict["role"], "content": json_dict["content"]})
         return result
+
+    def _convert_conversation_to_qwen_input(
+        self, conversation: Conversation
+    ) -> dict[str, Any]:
+        if self._processor is None:
+            raise RuntimeError("QwenOmniProcessor is not initialised for vLLM.")
+
+        prompt = self._processor.apply_chat_template(
+            conversation.messages,
+            add_generation_prompt=True,
+        )
+        audios, images, videos, video_kwargs = (
+            self._processor.prepare_multimodal_inputs(
+                conversation.messages,
+                return_video_kwargs=True,
+            )
+        )
+
+        multi_modal_data: dict[str, Any] = {}
+        if images:
+            multi_modal_data["image"] = images
+        if videos:
+            multi_modal_data["video"] = videos
+        if audios:
+            multi_modal_data["audio"] = audios
+
+        request: dict[str, Any] = {
+            "prompt": prompt,
+            "multi_modal_data": multi_modal_data,
+        }
+
+        mm_processor_kwargs: dict[str, Any] = {}
+        if video_kwargs:
+            mm_processor_kwargs.update(video_kwargs)
+        if self._processor.config.use_audio_in_video:
+            mm_processor_kwargs.setdefault(
+                "use_audio_in_video", self._processor.config.use_audio_in_video
+            )
+        if mm_processor_kwargs:
+            request["mm_processor_kwargs"] = mm_processor_kwargs
+
+        return request
 
     def _infer(
         self,
@@ -296,7 +374,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             if not conversation.messages:
                 logger.warning("Conversation must have at least one message.")
                 continue
-            vllm_input = self._convert_conversation_to_vllm_input(conversation)
+            if self._is_qwen_omni and self._processor is not None:
+                vllm_input = self._convert_conversation_to_qwen_input(conversation)
+            else:
+                vllm_input = self._convert_conversation_to_vllm_input(conversation)
             vllm_conversations.append(vllm_input)
             non_skipped_conversations.append(conversation)
 
@@ -304,25 +385,35 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             return []
 
         enable_tqdm = len(vllm_conversations) >= 2
-
-        # Note: vLLM performs continuous batching under the hood.
-        # We pass all the conversations and let vLLM handle the rest.
-        chat_responses = self._llm.chat(
-            vllm_conversations,
-            sampling_params=sampling_params,
-            lora_request=self._lora_request,
-            use_tqdm=enable_tqdm,
-            chat_template=None,
-            chat_template_content_format="auto",
-        )
+        if self._is_qwen_omni and self._processor is not None:
+            chat_responses = self._llm.generate(
+                vllm_conversations,
+                sampling_params=sampling_params,
+                lora_request=self._lora_request,
+                use_tqdm=enable_tqdm,
+            )
+        else:
+            chat_responses = self._llm.chat(
+                vllm_conversations,
+                sampling_params=sampling_params,
+                lora_request=self._lora_request,
+                use_tqdm=enable_tqdm,
+                chat_template=None,
+                chat_template_content_format="auto",
+            )
 
         for conversation, chat_response in zip(
             non_skipped_conversations, chat_responses
         ):
+            if self._is_qwen_omni and self._processor is not None:
+                generated_texts = (
+                    [chat_response.outputs[0].text] if chat_response.outputs else []
+                )
+            else:
+                generated_texts = [message.text for message in chat_response.outputs]
+
             new_messages = [
-                Message(content=message.text, role=Role.ASSISTANT)
-                for message in chat_response.outputs
-                if len(chat_response.outputs) > 0
+                Message(content=text, role=Role.ASSISTANT) for text in generated_texts
             ]
             messages = [
                 *conversation.messages,

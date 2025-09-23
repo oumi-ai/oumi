@@ -23,7 +23,25 @@ from oumi.core.configs.internal.supported_models import (
 )
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.processors.default_processor import DefaultProcessor
+from oumi.core.processors.qwen_omni_processor import (
+    QwenOmniProcessor,
+    QwenOmniProcessorConfig,
+)
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+
+_QWEN_OMNI_WRAPPER_KEYS = {
+    "audio_sample_rate",
+    "audio_mono",
+    "video_fps",
+    "video_max_frames",
+    "use_audio_in_video",
+    "preferred_video_backend",
+}
+
+
+def _is_qwen_omni_model(name: str) -> bool:
+    lowered = name.lower()
+    return "qwen2.5-omni" in lowered or "qwen3-omni" in lowered
 
 
 def build_processor(
@@ -73,10 +91,36 @@ def build_processor(
         processor_name,
         trust_remote_code=trust_remote_code,
     )
+    wrapper_config_kwargs: dict[str, Any] = {}
+    if _is_qwen_omni_model(processor_name):
+        for key in list(effective_processor_kwargs.keys()):
+            if key in _QWEN_OMNI_WRAPPER_KEYS:
+                wrapper_config_kwargs[key] = effective_processor_kwargs.pop(key)
+
     if len(effective_processor_kwargs) > 0:
         worker_processor = create_processor_fn(**effective_processor_kwargs)
     else:
         worker_processor = create_processor_fn()
+
+    if _is_qwen_omni_model(processor_name):
+        if "preferred_video_backend" in wrapper_config_kwargs:
+            preferred = wrapper_config_kwargs["preferred_video_backend"]
+            if isinstance(preferred, str):
+                wrapper_config_kwargs["preferred_video_backend"] = tuple(
+                    backend.strip() for backend in preferred.split(",") if backend
+                )
+            elif isinstance(preferred, (list, tuple)):
+                wrapper_config_kwargs["preferred_video_backend"] = tuple(preferred)
+
+        config = QwenOmniProcessorConfig(**wrapper_config_kwargs)
+        return QwenOmniProcessor(
+            processor_name,
+            worker_processor,
+            tokenizer,
+            label_ignore_index=label_ignore_index,
+            ignore_features=ignore_features,
+            config=config,
+        )
 
     return DefaultProcessor(
         processor_name,

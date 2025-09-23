@@ -129,6 +129,12 @@ gpu = [
     "deepspeed>=0.17.0,<0.18.0"
 ]
 
+omni = [
+    "av>=12,<16",                  # Video decoding fallback for multimodal models
+    "torchaudio>=2.6,<2.9",    # Audio preprocessing for multimodal models
+    "qwen-omni-utils>=0.0.8,<0.1", # Multimodal preprocessing utilities
+]
+
 # Targets for supported cloud providers
 aws = ["skypilot[aws]"]
 azure = ["skypilot[azure]"]

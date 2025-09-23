@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import warnings
-from typing import Optional, cast
+from typing import Any, Optional, cast
 
 import PIL.Image
 import torch
@@ -34,6 +34,7 @@ from oumi.core.configs.internal.supported_models import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.processors.base_processor import BaseProcessor
+from oumi.core.processors.qwen_omni_processor import QwenOmniProcessor
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.conversation_utils import load_image_bytes_to_content_item
 from oumi.utils.image_utils import load_pil_image_from_bytes
@@ -199,8 +200,14 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         assert len(text_prompts) == len(conversations)
         assert self._processor is not None
 
-        pil_images: list[PIL.Image.Image] = []
-        for i, conversation in enumerate(conversations):
+        aggregated_images: list[PIL.Image.Image] = []
+        aggregated_audios: list[Any] = []
+        aggregated_videos: list[Any] = []
+        aggregated_video_kwargs: dict[str, list[Any]] = {}
+
+        supports_multimodal = hasattr(self._processor, "prepare_multimodal_inputs")
+
+        for conversation in conversations:
             image_items = [
                 item for m in conversation.messages for item in m.image_content_items
             ]
@@ -208,10 +215,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             if num_images > 0:
                 max_images = num_images if self._supports_multiple_images else 1
                 if num_images > max_images:
-                    # If a conversation contains too many images, raise an error.
-                    # We can't silently discard extra images at this point
-                    # as many models verify that the actual number of images matches
-                    # the number of image tokens in text prompt.
                     raise ValueError(
                         conversation.append_id_to_string(
                             f"A conversation contains too many images ({num_images}). "
@@ -219,24 +222,59 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                         )
                     )
 
-                for idx, image_item in enumerate(image_items):
-                    image_item = load_image_bytes_to_content_item(image_item)
-                    if image_item.binary is None or len(image_item.binary) == 0:
-                        raise ValueError(
-                            conversation.append_id_to_string(
-                                "No image bytes "
-                                f"in image item {idx + 1} of {num_images}!"
-                            )
-                        )
-                    image = load_pil_image_from_bytes(image_item.binary)
-                    pil_images.append(image)
+            if supports_multimodal:
+                assert isinstance(self._processor, QwenOmniProcessor)
+                audios, images, videos, video_kwargs = (
+                    self._processor.prepare_multimodal_inputs(
+                        conversation.messages,
+                        use_audio_in_video=self._processor.config.use_audio_in_video,
+                        return_video_kwargs=True,
+                    )
+                )
+                if audios:
+                    aggregated_audios.extend(audios)
+                if images:
+                    aggregated_images.extend(images)
+                if videos:
+                    aggregated_videos.extend(videos)
+                if video_kwargs:
+                    for key, value in video_kwargs.items():
+                        aggregated_video_kwargs.setdefault(key, []).extend(value)
+                continue
 
-        batch = self._processor(
-            text=text_prompts,
-            images=(pil_images if len(pil_images) > 0 else None),
-            return_tensors="pt",
-            padding=True,
-        )
+            # Fallback image-only handling for processors without multimodal support.
+            for idx, image_item in enumerate(image_items):
+                image_item = load_image_bytes_to_content_item(image_item)
+                if image_item.binary is None or len(image_item.binary) == 0:
+                    raise ValueError(
+                        conversation.append_id_to_string(
+                            f"No image bytes in image item {idx + 1} of {num_images}!"
+                        )
+                    )
+                image = load_pil_image_from_bytes(image_item.binary)
+                aggregated_images.append(image)
+
+        processor_kwargs: dict[str, Any] = {
+            "text": text_prompts,
+            "return_tensors": "pt",
+            "padding": True,
+        }
+        if aggregated_images:
+            processor_kwargs["images"] = aggregated_images
+        if aggregated_audios:
+            processor_kwargs["audios"] = aggregated_audios
+        if aggregated_videos:
+            processor_kwargs["videos"] = aggregated_videos
+
+        if aggregated_video_kwargs:
+            processor_kwargs["mm_processor_kwargs"] = aggregated_video_kwargs
+
+        if isinstance(self._processor, QwenOmniProcessor):
+            processor_kwargs.setdefault(
+                "use_audio_in_video", self._processor.config.use_audio_in_video
+            )
+
+        batch = self._processor(**processor_kwargs)
         return batch
 
     def _infer(
