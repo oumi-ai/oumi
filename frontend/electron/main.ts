@@ -111,7 +111,10 @@ class ChatterleyApp {
       }
 
       // Initialize Python server manager (but don't start server yet)
-      const pythonPort = store.get('pythonPort') || 9000;
+      const pythonPortVal = (store as any).get('pythonPort');
+      const pythonPort = typeof pythonPortVal === 'number'
+        ? pythonPortVal
+        : Number.parseInt(String(pythonPortVal || ''), 10) || 9000;
       this.pythonManager = new PythonServerManager(pythonPort);
       
       log.info('Python server manager initialized - checking environment setup');
