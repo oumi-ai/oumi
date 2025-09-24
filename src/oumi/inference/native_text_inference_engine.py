@@ -38,6 +38,7 @@ from oumi.core.processors.qwen_omni_processor import QwenOmniProcessor
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.conversation_utils import load_image_bytes_to_content_item
 from oumi.utils.image_utils import load_pil_image_from_bytes
+from oumi.utils.conversation_utils import convert_message_to_json_content_list
 from oumi.utils.logging import logger
 
 
@@ -184,7 +185,19 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 )
             return prompt
 
-        serialised_messages = [msg.model_dump(exclude_none=True) for msg in conversation.messages]
+        if isinstance(self._processor, QwenOmniProcessor):
+            serialised_messages = [
+                self._processor._convert_message_to_qwen_payload(message)
+                for message in conversation.messages
+            ]
+        else:
+            serialised_messages = [
+                {
+                    "role": message.role.value,
+                    "content": convert_message_to_json_content_list(message),
+                }
+                for message in conversation.messages
+            ]
         return self._processor.apply_chat_template(
             serialised_messages,
             add_generation_prompt=True,
@@ -365,7 +378,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             disable=disable_tgdm,
         ):
             batch = input_batches[batch_index]
-            output_batch: torch.LongTensor = self._model.generate(
+            raw_generation_output = self._model.generate(
                 # TODO: OPE-1328 - Fix type.
                 # type(batch) == BatchEncoding, but function expects a tensor.
                 **batch,  # type: ignore
@@ -373,10 +386,17 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 tokenizer=self._tokenizer,
             )
 
+            if hasattr(raw_generation_output, "sequences"):
+                output_batch = raw_generation_output.sequences
+            elif isinstance(raw_generation_output, tuple):
+                output_batch = raw_generation_output[0]
+            else:
+                output_batch = raw_generation_output
+
             # For each batch, remove the prepended prompts from all model responses.
             if generation_params.exclude_prompt_from_response:
                 new_batch_data = []
-                for response_index, response in enumerate(output_batch.data):
+                for response_index, response in enumerate(output_batch):
                     prompt = input_batches[batch_index]["input_ids"][response_index]  # type: ignore
                     # Sanity check
                     prompt_as_list = prompt.tolist()
@@ -389,10 +409,10 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                         )
 
                     new_batch_data.append(response[len(prompt) :])
-                output_batch.data = torch.stack(new_batch_data, dim=0)
+                output_batch = torch.stack(new_batch_data, dim=0)
 
             output_batch_decoded = self._tokenizer.batch_decode(
-                output_batch.data,
+                output_batch,
                 clean_up_tokenization_spaces=True,
                 skip_special_tokens=generation_params.skip_special_tokens,
             )

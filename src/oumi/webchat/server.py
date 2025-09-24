@@ -289,9 +289,30 @@ def run_webchat_server(
         base_dir: Optional base directory path.
         session_locking_enabled: Whether to enable session locking for concurrency control.
     """
+    def _is_qwen_omni(name: str | None) -> bool:
+        if not name:
+            return False
+        lowered = name.lower()
+        return "qwen" in lowered and "omni" in lowered
+
+    DEFAULT_QWEN_OMNI_SYSTEM_PROMPT = (
+        "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, "
+        "capable of perceiving auditory and visual inputs, as well as generating text and speech."
+    )
+
+    effective_system_prompt = system_prompt
+    model_name = getattr(config.model, "model_name", None)
+    if _is_qwen_omni(model_name):
+        if system_prompt and system_prompt.strip() != DEFAULT_QWEN_OMNI_SYSTEM_PROMPT:
+            logger.warning(
+                "Overriding custom system prompt for Qwen Omni model %s to maintain multimodal support.",
+                model_name,
+            )
+        effective_system_prompt = DEFAULT_QWEN_OMNI_SYSTEM_PROMPT
+
     server = OumiWebServer(
         config, 
-        system_prompt, 
+        effective_system_prompt,
         db_path, 
         base_dir,
         session_locking_enabled
