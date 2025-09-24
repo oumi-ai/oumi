@@ -19,6 +19,7 @@ import time
 from typing import Dict, Optional, Any
 
 from aiohttp import web
+from aiohttp import web_exceptions
 
 # Import logger first for use in error handling
 from oumi.utils.logging import logger
@@ -177,7 +178,10 @@ class OumiWebServer:
         """
         # Increase max request size to support multimodal payloads (audio/video attachments).
         client_max_size_mb = 128
-        app = web.Application(client_max_size=client_max_size_mb * 1024 * 1024)
+        app = web.Application(
+            client_max_size=client_max_size_mb * 1024 * 1024,
+            middlewares=[self._payload_too_large_middleware(client_max_size_mb)]
+        )
         
         # Make SSE handler available to the app if enabled
         if self.sse_handler:
@@ -201,6 +205,24 @@ class OumiWebServer:
         add_middlewares(app)
         
         return app
+
+    def _payload_too_large_middleware(self, max_size_mb: int):
+        async def middleware(app, handler):
+            async def wrapped_handler(request: web.Request):
+                try:
+                    return await handler(request)
+                except web_exceptions.HTTPRequestEntityTooLarge as exc:
+                    message = (
+                        "Payload too large. The server currently allows up to "
+                        f"{max_size_mb} MB per request. If you need to increase this limit, "
+                        "update the aiohttp client_max_size setting (see src/oumi/webchat/server.py)."
+                    )
+                    raise web_exceptions.HTTPRequestEntityTooLarge(
+                        text=message,
+                        headers=exc.headers
+                    ) from exc
+            return wrapped_handler
+        return middleware
 
     async def handle_health(self, request: web.Request) -> web.Response:
         """Handle health check requests.
