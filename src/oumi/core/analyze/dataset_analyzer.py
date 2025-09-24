@@ -60,11 +60,11 @@ class SampleAnalysisResult:
     """Result of analyzing a sample as a whole.
 
     Attributes:
-        sample_id: Unique identifier for the sample
+        item_id: Unique identifier for the item
         analyzer_metrics: Dictionary containing analyzer metrics for the sample
     """
 
-    sample_id: str
+    item_id: str
     analyzer_metrics: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
@@ -169,7 +169,7 @@ class DatasetAnalyzer:
             )
 
         # Initialize analyzers
-        self.sample_analyzers = self._initialize_sample_analyzers()
+        self.item_analyzers = self._initialize_item_analyzers()
 
         # Initialize analysis results as None
         self._analysis_results: Optional[DatasetAnalysisResult] = None
@@ -271,7 +271,7 @@ class DatasetAnalyzer:
         )
 
     def _get_conversation_column_config(self) -> dict:
-        """Get column configuration for conversation format based on known conversation structure.
+        """Get column configuration for conversation format based on known structure.
 
         Returns:
             Dictionary mapping column names to their configuration.
@@ -288,26 +288,16 @@ class DatasetAnalyzer:
                 "content_type": "metadata",
                 "description": "Type of item (conversation)",
             },
-            "rendered_sample": {
+            "rendered_item": {
                 "type": "string",
                 "content_type": "text",
-                "description": "Rendered conversation for token counting",
+                "description": "Rendered conversation for token counting and display",
             },
             # Rows DataFrame columns (message-level)
-            "row_id": {
-                "type": "string",
-                "content_type": "metadata",
-                "description": "Row identifier",
-            },
             "row_index": {
                 "type": "int",
                 "content_type": "metadata",
                 "description": "Message index within conversation",
-            },
-            "row_type": {
-                "type": "string",
-                "content_type": "metadata",
-                "description": "Type of row (user_message, assistant_message, etc.)",
             },
             "role": {
                 "type": "string",
@@ -361,7 +351,7 @@ class DatasetAnalyzer:
             raise ValueError(f"items_df missing required columns: {missing_item_cols}")
 
         # Validate rows_df
-        required_row_cols = ["item_index", "row_id", "row_index", "row_type", "content"]
+        required_row_cols = ["item_index", "row_index", "content"]
         missing_row_cols = [
             col for col in required_row_cols if col not in self.rows_df.columns
         ]
@@ -413,9 +403,7 @@ class DatasetAnalyzer:
         for msg_idx, message in enumerate(conversation.messages):
             row_data = {
                 "item_index": conv_idx,
-                "row_id": f"msg_{msg_idx}",
                 "row_index": msg_idx,
-                "row_type": f"{message.role.value}_message",
                 "role": message.role.value,
                 "content": message.content,
             }
@@ -431,21 +419,12 @@ class DatasetAnalyzer:
             rows_df = pd.DataFrame(row_rows)
         else:
             rows_df = pd.DataFrame(
-                columns=[
-                    "item_index",
-                    "row_id",
-                    "row_index",
-                    "row_type",
-                    "role",
-                    "content",
-                ]
+                {"item_index": [], "row_index": [], "role": [], "content": []}
             )
 
         # Set proper dtypes
         rows_df["item_index"] = rows_df["item_index"].astype("int64")
-        rows_df["row_id"] = rows_df["row_id"].astype("string")
         rows_df["row_index"] = rows_df["row_index"].astype("int64")
-        rows_df["row_type"] = rows_df["row_type"].astype("string")
         rows_df["role"] = rows_df["role"].astype("string")
         rows_df["content"] = rows_df["content"].astype("string")
 
@@ -460,7 +439,7 @@ class DatasetAnalyzer:
         if self.tokenizer is not None:
             try:
                 rendered_sample = self._render_conversation_for_tokens(conversation)
-                item_data["rendered_sample"] = rendered_sample
+                item_data["rendered_item"] = rendered_sample
             except Exception as e:
                 logger.warning(
                     f"Failed to render conversation {conversation_id} for token "
@@ -479,9 +458,9 @@ class DatasetAnalyzer:
         items_df["item_id"] = items_df["item_id"].astype("string")
         items_df["item_type"] = items_df["item_type"].astype("string")
 
-        # Set rendered_sample to string if present
-        if "rendered_sample" in items_df.columns:
-            items_df["rendered_sample"] = items_df["rendered_sample"].astype("string")
+        # Set rendered_item to string if present
+        if "rendered_item" in items_df.columns:
+            items_df["rendered_item"] = items_df["rendered_item"].astype("string")
 
         return items_df, rows_df
 
@@ -505,15 +484,15 @@ class DatasetAnalyzer:
         )
         return str(prompt_text)
 
-    def _initialize_sample_analyzers(self) -> dict[str, Any]:
+    def _initialize_item_analyzers(self) -> dict[str, Any]:
         """Initialize sample analyzer plugins from configuration.
 
         Returns:
             Dictionary mapping analyzer IDs to analyzer instances
         """
-        sample_analyzers = {}
-        if self.config.analyzers is None:
-            return sample_analyzers
+        item_analyzers = {}
+        if self.config is None or self.config.analyzers is None:
+            return item_analyzers
         for analyzer_params in self.config.analyzers:
             try:
                 # Get the analyzer class from the registry
@@ -530,15 +509,15 @@ class DatasetAnalyzer:
                     analyzer_kwargs["tokenizer"] = self.tokenizer
 
                 # Create analyzer instance with keyword arguments
-                sample_analyzer = analyzer_class(**analyzer_kwargs)
-                sample_analyzers[analyzer_params.id] = sample_analyzer
+                item_analyzer = analyzer_class(**analyzer_kwargs)
+                item_analyzers[analyzer_params.id] = item_analyzer
                 logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
             except Exception as e:
                 logger.error(
                     f"Failed to initialize sample analyzer {analyzer_params.id}: {e}"
                 )
                 logger.error(f"Analyzer configuration: {analyzer_params}")
-        return sample_analyzers
+        return item_analyzers
 
     def analyze_dataset(self) -> None:
         """Analyze the dataset and store results internally.
@@ -552,7 +531,7 @@ class DatasetAnalyzer:
         Raises:
             ValueError: If no analyzers are configured for analysis.
         """
-        if not self.sample_analyzers:
+        if not self.item_analyzers:
             raise ValueError(
                 "No analyzers configured for analysis. Please add at least one "
                 "analyzer to the configuration before calling analyze_dataset()."
@@ -560,8 +539,8 @@ class DatasetAnalyzer:
 
         logger.info(f"Starting analysis of dataset: {self.dataset_name}")
         logger.info(
-            f"Using {len(self.sample_analyzers)} sample analyzers: "
-            f"{list(self.sample_analyzers.keys())}"
+            f"Using {len(self.item_analyzers)} item analyzers: "
+            f"{list(self.item_analyzers.keys())}"
         )
 
         self._compute_conversation_metrics()
@@ -632,17 +611,17 @@ class DatasetAnalyzer:
         if self.items_df is None or self.rows_df is None:
             raise ValueError("Both items_df and rows_df must be provided")
         # Work with copies to avoid modifying original data
-        items_df = self.items_df.copy()
-        rows_df = self.rows_df.copy()
+        items_df: pd.DataFrame = self.items_df.copy()
+        rows_df: pd.DataFrame = self.rows_df.copy()
 
         # Limit to requested number of items
         if items_to_analyze < len(items_df):
             item_indices = items_df["item_index"].iloc[:items_to_analyze].tolist()
-            items_df = items_df[items_df["item_index"].isin(item_indices)]
-            rows_df = rows_df[rows_df["item_index"].isin(item_indices)]
+            items_df = pd.DataFrame(items_df[items_df["item_index"].isin(item_indices)])
+            rows_df = pd.DataFrame(rows_df[rows_df["item_index"].isin(item_indices)])
 
         # Process each analyzer
-        for analyzer_id, analyzer in self.sample_analyzers.items():
+        for analyzer_id, analyzer in self.item_analyzers.items():
             try:
                 # Apply row-level analysis
                 if not rows_df.empty:
@@ -698,7 +677,7 @@ class DatasetAnalyzer:
             )
 
             # Process each analyzer for this item
-            for analyzer_id, analyzer in self.sample_analyzers.items():
+            for analyzer_id, analyzer in self.item_analyzers.items():
                 try:
                     # Apply row-level analysis
                     if not rows_df.empty:
@@ -903,25 +882,25 @@ class DatasetAnalyzer:
         filtered_df = self.query(query_expression)
 
         # Get unique sample indices from filtered results
-        sample_indices = filtered_df.item_index.unique().tolist()
+        item_indices = filtered_df.item_index.unique().tolist()
 
         # Create a new dataset with only the filtered conversations
         if self.dataset is None:
             raise ValueError("Dataset is None, cannot filter")
-        filtered_dataset = self._create_filtered_dataset(sample_indices)
+        filtered_dataset = self._create_filtered_dataset(item_indices)
 
         logger.info(
-            f"Filtered dataset: {len(sample_indices)} samples "
+            f"Filtered dataset: {len(item_indices)} items "
             f"out of {len(self.dataset)} total"
         )
 
         return filtered_dataset
 
-    def _create_filtered_dataset(self, sample_indices: list[int]) -> BaseMapDataset:
+    def _create_filtered_dataset(self, item_indices: list[int]) -> BaseMapDataset:
         """Create a new dataset containing only the specified samples.
 
         Args:
-            sample_indices: List of sample indices to include
+            item_indices: List of item indices to include
 
         Returns:
             A new dataset object with the same format as the original
@@ -934,7 +913,7 @@ class DatasetAnalyzer:
 
         # Filter the DataFrame to only include the specified samples
         original_df = self.dataset.data
-        filtered_dataset._data = original_df.iloc[sample_indices].copy()
+        filtered_dataset._data = original_df.iloc[item_indices].copy()
 
         # Update the dataset name to indicate it's filtered
         filtered_dataset.dataset_name = f"{self.dataset.dataset_name}_filtered"
@@ -1002,7 +981,7 @@ class DatasetAnalyzer:
                 self._decimal_precision,
             ),
             "total_rows": len(self._rows_df) if self._rows_df is not None else 0,
-            "analyzers_used": list(self.sample_analyzers.keys()),
+            "analyzers_used": list(self.item_analyzers.keys()),
         }
 
     def _get_row_level_summary(self) -> dict[str, Any]:
@@ -1017,7 +996,6 @@ class DatasetAnalyzer:
 
         for col in row_columns:
             if col in [
-                "row_id",
                 "row_index",
                 "content",
                 "item_index",

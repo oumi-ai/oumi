@@ -160,51 +160,55 @@ class LengthAnalyzer(SampleAnalyzer):
 
         if self.char_count:
             char_columns = [
-                f"{field}_char_count" for field in available_text_fields
+                f"{field}_char_count"
+                for field in available_text_fields
                 if f"{field}_char_count" in field_result_df.columns
             ]
             if char_columns:
-                result_df["sample_length_char_count"] = field_result_df[
-                    char_columns
-                ].sum(axis=1)
+                result_df["item_length_char_count"] = field_result_df[char_columns].sum(
+                    axis=1
+                )
 
         if self.word_count:
             word_columns = [
-                f"{field}_word_count" for field in available_text_fields
+                f"{field}_word_count"
+                for field in available_text_fields
                 if f"{field}_word_count" in field_result_df.columns
             ]
             if word_columns:
-                result_df["sample_length_word_count"] = field_result_df[
-                    word_columns
-                ].sum(axis=1)
+                result_df["item_length_word_count"] = field_result_df[word_columns].sum(
+                    axis=1
+                )
 
         if self.sentence_count:
             sentence_columns = [
-                f"{field}_sentence_count" for field in available_text_fields
+                f"{field}_sentence_count"
+                for field in available_text_fields
                 if f"{field}_sentence_count" in field_result_df.columns
             ]
             if sentence_columns:
-                result_df["sample_length_sentence_count"] = field_result_df[
+                result_df["item_length_sentence_count"] = field_result_df[
                     sentence_columns
                 ].sum(axis=1)
 
         if self.token_count:
             token_columns = [
-                f"{field}_token_count" for field in available_text_fields
+                f"{field}_token_count"
+                for field in available_text_fields
                 if f"{field}_token_count" in field_result_df.columns
             ]
             if token_columns:
-                result_df["sample_length_token_count"] = field_result_df[
+                result_df["item_length_token_count"] = field_result_df[
                     token_columns
                 ].sum(axis=1)
 
-        # For token counting, prefer rendered sample if available (more accurate)
+        # For token counting, prefer rendered item if available (more accurate)
         if (
-            "rendered_sample" in df.columns
+            "rendered_item" in df.columns
             and self.token_count
             and self.tokenizer is not None
         ):
-            result_df["sample_length_token_count"] = df["rendered_sample"].apply(
+            result_df["item_length_token_count"] = df["rendered_item"].apply(
                 lambda text: len(
                     self.tokenizer.encode(  # type: ignore
                         text, add_special_tokens=self.include_special_tokens
@@ -216,7 +220,6 @@ class LengthAnalyzer(SampleAnalyzer):
         self._sample_df = result_df.copy()
 
         return result_df
-
 
     def get_field_results(self) -> Optional[pd.DataFrame]:
         """Get field-level analysis results.

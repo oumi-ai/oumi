@@ -102,7 +102,7 @@ class MockSampleAnalyzer:
 
         # Create SampleAnalysisResult
         conversation_result = SampleAnalysisResult(
-            sample_id=conversation.id or "unknown",
+            item_id=conversation.id or "unknown",
             analyzer_metrics=conversation_metrics,
         )
 
@@ -332,9 +332,9 @@ def test_analyzer_initialization(mock_load, mock_config):
     assert analyzer.split == "train"
 
     # Test that analyzers were initialized correctly
-    assert len(analyzer.sample_analyzers) == 2
-    assert "text_length_analyzer" in analyzer.sample_analyzers
-    assert "analyzer_2" in analyzer.sample_analyzers
+    assert len(analyzer.item_analyzers) == 2
+    assert "text_length_analyzer" in analyzer.item_analyzers
+    assert "analyzer_2" in analyzer.item_analyzers
 
 
 @patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry())
@@ -370,9 +370,9 @@ def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_
     mock_load.assert_not_called()
 
     # Test that analyzers were initialized correctly
-    assert len(analyzer.sample_analyzers) == 2
-    assert "text_length_analyzer" in analyzer.sample_analyzers
-    assert "analyzer_2" in analyzer.sample_analyzers
+    assert len(analyzer.item_analyzers) == 2
+    assert "text_length_analyzer" in analyzer.item_analyzers
+    assert "analyzer_2" in analyzer.item_analyzers
 
 
 def test_dataset_source_direct_with_dataset_success():
@@ -632,13 +632,13 @@ def test_analyze_dataset_missing_item_id(test_data_path, mock_config):
     assert len(conv_3_rows) > 0
 
 
-def test_analyze_dataset_missing_row_id(test_data_path, mock_config):
-    """Test analysis when row_id is None."""
+def test_analyze_dataset_basic_processing(test_data_path, mock_config):
+    """Test basic dataset processing."""
     config = AnalyzeConfig(
         dataset_source=DatasetSource.CONFIG,  # Required field
         dataset_name="text_sft",
         split="train",
-        sample_count=4,  # Include the conversation with null message ID
+        sample_count=4,  # Include multiple conversations
         analyzers=mock_config.analyzers,
     )
 
@@ -647,12 +647,11 @@ def test_analyze_dataset_missing_row_id(test_data_path, mock_config):
     results = analyzer.analysis_results
     assert results is not None  # Type assertion for linter
 
-    # Test that the message with missing ID was handled correctly
+    # Test that the dataset was processed correctly
     analysis_df = analyzer.analysis_df
     assert analysis_df is not None
 
-    # Check that some rows were processed (may not have the specific row_id due to
-    # test data)
+    # Check that some rows were processed
     assert len(analysis_df) > 0  # Some rows were processed
 
 
@@ -688,7 +687,7 @@ def test_analyze_dataset_analyzer_calls(test_data_path, mock_config):
     analyzer.analyze_dataset()
 
     # Check that the mock analyzer was called
-    mock_analyzer = analyzer.sample_analyzers["text_length_analyzer"]
+    mock_analyzer = analyzer.item_analyzers["text_length_analyzer"]
     # New design calls analyze_fields and analyze_sample methods
     assert len(mock_analyzer.analyze_fields_calls) > 0  # Called for field analysis
     assert len(mock_analyzer.analyze_sample_calls) > 0  # Called for sample analysis
