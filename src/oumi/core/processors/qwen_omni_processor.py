@@ -199,7 +199,7 @@ class QwenOmniProcessor(DefaultProcessor):
     def _convert_message_to_qwen_payload(self, message: Message) -> dict[str, Any]:
         payload: dict[str, Any] = {"role": message.role.value}
         if isinstance(message.content, str):
-            payload["content"] = message.content
+            payload["content"] = [{"type": "text", "text": message.content}]
             return payload
 
         qwen_items: list[dict[str, Any]] = []
@@ -232,7 +232,7 @@ class QwenOmniProcessor(DefaultProcessor):
         if item.type == Type.AUDIO_PATH:
             return {"type": "audio", "audio": item.content}
         if item.type == Type.AUDIO_URL:
-            return {"type": "audio", "audio_url": item.content}
+            return {"type": "audio", "audio": item.content}
         binary_item = load_audio_bytes_to_content_item(
             item,
             target_sample_rate=self._config.audio_sample_rate,
@@ -247,7 +247,7 @@ class QwenOmniProcessor(DefaultProcessor):
         if item.type == Type.VIDEO_PATH:
             return {"type": "video", "video": item.content}
         if item.type == Type.VIDEO_URL:
-            return {"type": "video", "video_url": item.content}
+            return {"type": "video", "video": item.content}
         binary_item = load_video_bytes_to_content_item(item)
         data_url = base64encode_content_item_video_bytes(
             binary_item, add_mime_prefix=True

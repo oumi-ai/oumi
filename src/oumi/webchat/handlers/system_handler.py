@@ -23,6 +23,7 @@ from aiohttp import web
 from oumi.utils.logging import logger
 from oumi.webchat.core.session_manager import SessionManager
 from oumi.webchat.utils.fallbacks import model_name_fallback
+from oumi.utils.model_utils import is_qwen_omni_model
 
 
 class SystemHandler:
@@ -131,7 +132,7 @@ class SystemHandler:
             context_length = getattr(active_config.model, "model_max_length", 4096)
             
             # Create enhanced model info with config metadata
-            is_omni = self._is_omni_model(model_name)
+            is_omni = is_qwen_omni_model(model_name)
 
             enhanced_model_info = {
                 "id": model_name,
@@ -160,7 +161,9 @@ class SystemHandler:
             fallback_info = dict(self.model_info)
             fallback_metadata = dict(fallback_info.get("config_metadata", {}))
             if "is_omni_capable" not in fallback_metadata:
-                fallback_metadata["is_omni_capable"] = self._is_omni_model(fallback_info.get("id", ""))
+                fallback_metadata["is_omni_capable"] = is_qwen_omni_model(
+                    fallback_info.get("id", "")
+                )
             fallback_info["config_metadata"] = fallback_metadata
             return web.json_response({"object": "list", "data": [fallback_info]})
     
@@ -208,10 +211,6 @@ class SystemHandler:
         else:
             return 'unknown'
 
-    def _is_omni_model(self, model_name: str) -> bool:
-        model_lower = (model_name or "").lower()
-        return 'omni' in model_lower and 'qwen' in model_lower
-    
     async def handle_system_stats_api(self, request: web.Request) -> web.Response:
         """Handle getting system stats from backend session.
         

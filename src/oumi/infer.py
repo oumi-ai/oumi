@@ -40,6 +40,7 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.utils.logging import logger
+from oumi.utils.model_utils import is_qwen_omni_model
 
 
 def _get_chars_per_token_ratio(model_name: str) -> float:
@@ -1425,6 +1426,11 @@ def infer(
         return []
 
     conversations = []
+    model_name = None
+    if getattr(config, "model", None) is not None:
+        model_name = getattr(config.model, "model_name", None)
+    is_omni_model = is_qwen_omni_model(model_name)
+
     for input_text in inputs:
         # Create conversation with system message (if provided) and user message
         messages = []
@@ -1435,9 +1441,17 @@ def infer(
         if input_image_bytes:
             content_items = []
             for image_bytes in input_image_bytes:
-                content_items.append(
-                    ContentItem(type=Type.IMAGE_URL, content=image_bytes)
-                )
+                if is_omni_model:
+                    content_items.append(
+                        ContentItem(
+                            type=Type.IMAGE_BINARY,
+                            binary=image_bytes,
+                        )
+                    )
+                else:
+                    content_items.append(
+                        ContentItem(type=Type.IMAGE_URL, content=image_bytes)
+                    )
             content_items.append(ContentItem(type=Type.TEXT, content=input_text))
             messages.append(Message(role=Role.USER, content=content_items))
         else:
