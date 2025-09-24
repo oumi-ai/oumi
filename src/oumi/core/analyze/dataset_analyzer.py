@@ -32,52 +32,6 @@ from oumi.utils.logging import logger
 
 
 @dataclass
-class FieldAnalysisResult:
-    """Result of analyzing a single field in a sample.
-
-    Attributes:
-        field_name: Name of the field that was analyzed
-        field_index: Index of the field within the sample
-        text_content: The text content of the field
-        analyzer_metrics: Dictionary containing analyzer metrics for this field
-    """
-
-    field_name: str
-    field_index: int
-    text_content: str
-    analyzer_metrics: dict[str, Any]
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary with flattened analyzer metrics.
-
-        Returns:
-            Dictionary representation of the analysis result
-        """
-        return asdict(self)
-
-
-@dataclass
-class SampleAnalysisResult:
-    """Result of analyzing a sample as a whole.
-
-    Attributes:
-        item_id: Unique identifier for the item
-        analyzer_metrics: Dictionary containing analyzer metrics for the sample
-    """
-
-    item_id: str
-    analyzer_metrics: dict[str, Any]
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary.
-
-        Returns:
-            Dictionary representation of the analysis result
-        """
-        return asdict(self)
-
-
-@dataclass
 class DatasetAnalysisResult:
     """Complete result of dataset analysis.
 

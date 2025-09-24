@@ -11,8 +11,6 @@ import pytest
 
 from oumi.core.analyze.dataset_analyzer import (
     DatasetAnalyzer,
-    FieldAnalysisResult,
-    SampleAnalysisResult,
 )
 from oumi.core.configs import AnalyzeConfig, DatasetSource, ItemAnalyzerParams
 from oumi.core.datasets import BaseMapDataset
@@ -45,67 +43,6 @@ class MockItemAnalyzer:
         self.analyze_calls = []
         # Extract analyzer ID from config
         self.analyzer_id = kwargs.get("analyzer_id", "mock")
-
-    def analyze_sample_legacy(
-        self, conversation, tokenizer=None
-    ) -> tuple[list[FieldAnalysisResult], SampleAnalysisResult]:
-        """
-        Mock analysis that returns both message-level and conversation-level metrics.
-        """
-        self.analyze_calls.append(conversation)
-
-        # Compute message-level metrics
-        message_results = []
-        for msg_idx, message in enumerate(conversation.messages):
-            if isinstance(message.content, str):
-                text_content = message.content
-            else:
-                text_content = message.compute_flattened_text_content()
-
-            # Create message metrics
-            message_metrics = {
-                "char_count": len(text_content),
-                "word_count": len(text_content.split()),
-                "analyzer_id": self.analyzer_id,
-            }
-
-            # Create FieldAnalysisResult
-            message_result = FieldAnalysisResult(
-                field_name=message.role.value,
-                field_index=msg_idx,
-                text_content=text_content,
-                analyzer_metrics=message_metrics,
-            )
-            message_results.append(message_result)
-
-        # Compute conversation-level metrics
-        conversation_text = ""
-        for message in conversation.messages:
-            if isinstance(message.content, str):
-                text_content = message.content
-            else:
-                text_content = message.compute_flattened_text_content()
-            conversation_text += f"{message.role.value}: {text_content}\n"
-
-        # Create conversation metrics
-        conversation_metrics = {
-            "char_count": len(conversation_text),
-            "word_count": len(conversation_text.split()),
-            "analyzer_id": self.analyzer_id,
-        }
-
-        # Use tokenizer if provided (to verify it's passed correctly)
-        if tokenizer:
-            tokenizer.encode(conversation_text, add_special_tokens=False)
-
-        # Create SampleAnalysisResult
-        conversation_result = SampleAnalysisResult(
-            item_id=conversation.id or "unknown",
-            analyzer_metrics=conversation_metrics,
-        )
-
-        # Return individual components
-        return message_results, conversation_result
 
     def analyze(self, df, tokenizer=None, column_config=None):
         """Mock analysis for DataFrame-based approach."""
