@@ -14,6 +14,20 @@ import { isValidCommand, parseCommand } from '@/lib/constants';
 import ChatHistory from './ChatHistory';
 import MessageInput, { PreparedAttachment } from './MessageInput';
 
+const deriveOmniCapability = (
+  metadata: any,
+  modelId?: string | null
+): boolean | undefined => {
+  if (metadata && typeof metadata.is_omni_capable === 'boolean') {
+    return metadata.is_omni_capable;
+  }
+  const source = metadata?.model_name ?? modelId ?? '';
+  const lower = String(source).toLowerCase();
+  if (!lower) return undefined;
+  const isOmni = lower.includes('omni') && lower.includes('qwen');
+  return isOmni;
+};
+
 interface ChatInterfaceProps {
   className?: string;
   onRef?: (ref: ChatInterfaceRef) => void;
@@ -310,14 +324,17 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
       console.log('[ChatInterface] ensureModelLoaded -> getModels response:', modelResponse);
       if (modelResponse.success && modelResponse.data?.data?.[0]) {
         try {
-          const md: any = modelResponse.data.data[0].config_metadata;
+          const modelEntry = modelResponse.data.data[0];
+          const md: any = modelEntry.config_metadata;
           console.log('[ChatInterface] config metadata from getModels:', md);
-          if (md && typeof md.is_omni_capable === 'boolean') {
-            console.log('[ChatInterface] Setting isOmniCapable from getModels:', md.is_omni_capable);
-            console.log('[ChatInterface] setIsOmniCapable (initial load) =>', md.is_omni_capable);
-            setIsOmniCapable(md.is_omni_capable);
+          const derived = deriveOmniCapability(md, modelEntry.id);
+          if (typeof derived === 'boolean') {
+            console.log('[ChatInterface] Setting isOmniCapable from getModels:', derived);
+            setIsOmniCapable(derived);
           }
-        } catch {}
+        } catch (metaError) {
+          console.warn('[ChatInterface] Failed to interpret config metadata from getModels:', metaError);
+        }
         // Model is loaded, we're good
         return;
       }
@@ -346,14 +363,17 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
       console.log('[ChatInterface] ensureModelLoaded -> recheck getModels response:', recheckResponse);
       if (recheckResponse.success && recheckResponse.data?.data?.[0]) {
         try {
-          const md: any = recheckResponse.data.data[0].config_metadata;
+          const modelEntry = recheckResponse.data.data[0];
+          const md: any = modelEntry.config_metadata;
           console.log('[ChatInterface] config metadata from recheck:', md);
-          if (md && typeof md.is_omni_capable === 'boolean') {
-            console.log('[ChatInterface] Setting isOmniCapable from recheck:', md.is_omni_capable);
-            console.log('[ChatInterface] setIsOmniCapable (auto-reload) =>', md.is_omni_capable);
-            setIsOmniCapable(md.is_omni_capable);
+          const derived = deriveOmniCapability(md, modelEntry.id);
+          if (typeof derived === 'boolean') {
+            console.log('[ChatInterface] Setting isOmniCapable from recheck:', derived);
+            setIsOmniCapable(derived);
           }
-        } catch {}
+        } catch (metaError) {
+          console.warn('[ChatInterface] Failed to interpret config metadata from recheck:', metaError);
+        }
         console.log('✅ Model auto-loaded successfully');
         
         const successMessage: Message = {
@@ -410,6 +430,18 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
   };
 
   const [isOmniCapable, setIsOmniCapable] = React.useState(false);
+
+  React.useEffect(() => {
+    void ensureModelLoaded();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  React.useEffect(() => {
+    if (settings.selectedModel) {
+      void ensureModelLoaded();
+    }
+  // eslint-disable-next-line react-hooks-exhaustive-deps
+  }, [settings.selectedModel]);
 
   const handleChatMessage = async (content: string, attachments?: PreparedAttachment[]) => {
     setTyping(true);

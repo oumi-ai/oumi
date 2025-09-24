@@ -175,7 +175,9 @@ class OumiWebServer:
         Returns:
             Configured aiohttp web Application.
         """
-        app = web.Application()
+        # Increase max request size to support multimodal payloads (audio/video attachments).
+        client_max_size_mb = 128
+        app = web.Application(client_max_size=client_max_size_mb * 1024 * 1024)
         
         # Make SSE handler available to the app if enabled
         if self.sse_handler:

@@ -100,6 +100,15 @@ interface SystemMonitorProps {
   updateInterval?: number; // milliseconds
 }
 
+const RECENT_TEST_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+
+type StoredModelTestRecord = {
+  modelName?: string;
+  configId?: string;
+  configPath?: string;
+  timestamp: number;
+};
+
 export default function SystemMonitor({ 
   className = '',
   updateInterval = 2000 // 2 seconds
@@ -131,6 +140,8 @@ export default function SystemMonitor({
   // Keep latest model status and last auto-tested model name to avoid stale closures and repeated tests
   const modelStatusRef = React.useRef<ModelStatus>(modelStatus);
   const lastAutoTestedModelRef = React.useRef<string | null>(null);
+  const lastSuccessfulTestRef = React.useRef<StoredModelTestRecord | null>(null);
+  const selectedConfigRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     modelStatusRef.current = modelStatus;
@@ -171,48 +182,129 @@ export default function SystemMonitor({
     });
   };
 
+  const hydrateModelStatusFromStorage = React.useCallback(async () => {
+    try {
+      const [storedRecord, storedConfigId] = await Promise.all([
+        apiClient.getStorageItem('lastSuccessfulModelTest', null),
+        apiClient.getStorageItem('selectedConfig', null),
+      ]);
+
+      selectedConfigRef.current = storedConfigId ?? selectedConfigRef.current;
+
+      if (storedRecord && typeof storedRecord.timestamp === 'number') {
+        console.log('[SystemMonitor] Hydrated stored model test state', {
+          storedRecord,
+          storedConfigId,
+        });
+        const isRecent = Date.now() - storedRecord.timestamp < RECENT_TEST_WINDOW_MS;
+        if (isRecent) {
+          lastSuccessfulTestRef.current = storedRecord;
+          setModelStatus(prev => ({
+            ...prev,
+            loaded: true,
+            modelName: storedRecord.modelName ?? prev.modelName,
+            lastTested: storedRecord.timestamp,
+            testResult: 'success',
+          }));
+        } else {
+          lastSuccessfulTestRef.current = null;
+        }
+      }
+    } catch (err) {
+      console.warn('[SystemMonitor] Failed to hydrate stored model test state:', err);
+    }
+  }, []);
+
   // Model status and control functions
   const checkModelStatus = async () => {
     try {
-      // Get current model information
+      try {
+        const storedConfigId = await apiClient.getStorageItem('selectedConfig', null);
+        if (storedConfigId !== undefined) {
+          selectedConfigRef.current = storedConfigId;
+        }
+      } catch (storageError) {
+        console.warn('[SystemMonitor] Failed to read selectedConfig from storage:', storageError);
+      }
+
       const modelResponse = await apiClient.getModels();
       if (modelResponse.success && modelResponse.data?.data?.[0]) {
         const model = modelResponse.data.data[0];
+        console.log('[SystemMonitor] checkModelStatus response', {
+          modelName: model.id,
+          configMetadata: model.config_metadata,
+          selectedConfig: selectedConfigRef.current,
+          lastSuccessfulTest: lastSuccessfulTestRef.current,
+        });
+
         setModelStatus(prev => ({
           ...prev,
-          // Only update the model name - preserve loaded status and test results
           modelName: model.id,
         }));
-        // If we have a model name but no test result yet, kick off a one-time background test
+
+        const now = Date.now();
+        const lastRecord = lastSuccessfulTestRef.current;
+        const isRecent = !!(lastRecord && now - lastRecord.timestamp < RECENT_TEST_WINDOW_MS);
+        const matchesModel = !!(lastRecord?.modelName && lastRecord.modelName === model.id);
+        const matchesConfig = !!(
+          lastRecord?.configId &&
+          selectedConfigRef.current &&
+          lastRecord.configId === selectedConfigRef.current
+        );
+        const shouldSkipAutoTest = isRecent && (matchesModel || matchesConfig);
+
         if (
           model.id &&
           (!modelStatusRef.current.testResult || modelStatusRef.current.testResult === 'unknown') &&
           lastAutoTestedModelRef.current !== model.id &&
           !isModelActionLoading
         ) {
-          lastAutoTestedModelRef.current = model.id;
-          // Fire and forget; do not block UI
-          console.log('[SystemMonitor] Auto-triggering testModel from status check for', model.id);
-          void testModel(model.id, 'auto-status-check');
+          if (shouldSkipAutoTest) {
+            console.log('[SystemMonitor] Skipping auto test due to recent successful record', {
+              modelId: model.id,
+              lastRecord,
+            });
+
+            setModelStatus(prev => ({
+              ...prev,
+              loaded: true,
+              testResult: 'success',
+              lastTested: lastRecord?.timestamp ?? prev.lastTested,
+            }));
+
+            if (lastRecord && !lastRecord.modelName) {
+              const updatedRecord: StoredModelTestRecord = {
+                ...lastRecord,
+                modelName: model.id,
+              };
+              lastSuccessfulTestRef.current = updatedRecord;
+              try {
+                await apiClient.setStorageItem('lastSuccessfulModelTest', updatedRecord);
+              } catch (storageError) {
+                console.warn('[SystemMonitor] Failed to persist updated model test record:', storageError);
+              }
+            }
+          } else {
+            lastAutoTestedModelRef.current = model.id;
+            console.log('[SystemMonitor] Auto-triggering testModel from status check for', model.id);
+            void testModel(model.id, 'auto-status-check');
+          }
         }
       } else {
-        // Only reset if we currently have a model name but API says no model
         setModelStatus(prev => {
           if (prev.modelName) {
             return {
               ...prev,
-              loaded: false, // If no model available, definitely not loaded
+              loaded: false,
               modelName: undefined,
               testResult: 'unknown',
             };
           }
-          return prev; // Don't change anything if we already know there's no model
+          return prev;
         });
       }
     } catch (error) {
       console.error('Failed to check model status:', error);
-      // Don't reset status on API errors - could be temporary network issues
-      // Only log the error, preserve current status
     }
   };
 
@@ -228,7 +320,7 @@ export default function SystemMonitor({
       const selectedConfigId = await apiClient.getStorageItem('selectedConfig', null);
       let configPath = null;
       let configId = selectedConfigId;
-      
+
       // If no selected config, try to find it by matching the model name
       if (!configId) {
         const configsResponse = await apiClient.getConfigs();
@@ -241,7 +333,11 @@ export default function SystemMonitor({
           }
         }
       }
-      
+
+      if (configId) {
+        selectedConfigRef.current = configId;
+      }
+
       // Now resolve the config ID to an actual file path using UnifiedConfigPathResolver
       if (configId) {
         try {
@@ -271,15 +367,31 @@ export default function SystemMonitor({
 
       const response = await apiClient.testModel(configPath);
       const success = response.success && response.data?.success;
+      const completedAt = Date.now();
       
       setModelStatus(prev => ({
         loaded: Boolean(success), // Only set loaded to true if test succeeds
         modelName: name,
-        lastTested: Date.now(),
+        lastTested: completedAt,
         testResult: success ? 'success' : 'failure',
       }));
       
       console.log(success ? '✅ Model test successful' : '❌ Model test failed', response.data?.message);
+
+      if (success) {
+        const record: StoredModelTestRecord = {
+          modelName: name,
+          configId: configId ?? undefined,
+          configPath: configPath ?? undefined,
+          timestamp: completedAt,
+        };
+        lastSuccessfulTestRef.current = record;
+        try {
+          await apiClient.setStorageItem('lastSuccessfulModelTest', record);
+        } catch (storageError) {
+          console.warn('[SystemMonitor] Failed to persist lastSuccessfulModelTest record:', storageError);
+        }
+      }
     } catch (error) {
       console.error('Model test error:', error);
       setModelStatus(prev => ({
@@ -304,6 +416,12 @@ export default function SystemMonitor({
           testResult: 'unknown',
           lastTested: undefined,
         }));
+        lastSuccessfulTestRef.current = null;
+        try {
+          await apiClient.deleteStorageItem('lastSuccessfulModelTest');
+        } catch (storageError) {
+          console.warn('[SystemMonitor] Failed to clear stored model test record after unload:', storageError);
+        }
         console.log('🧹 Model unloaded successfully');
       } else {
         throw new Error(response.message || 'Failed to unload model');
@@ -412,6 +530,13 @@ export default function SystemMonitor({
       intervalRef.current = setInterval(fetchAll, updateInterval);
     };
 
+    const beginPolling = async () => {
+      await hydrateModelStatusFromStorage();
+      if (!cancelled) {
+        startPolling();
+      }
+    };
+
     const ensureServerReadyThenStart = async () => {
       try {
         // In Electron, check server status before polling to avoid noisy fetch-failed errors
@@ -420,7 +545,7 @@ export default function SystemMonitor({
           try {
             const status = await apiClient.getServerStatus();
             if (!cancelled && status.success && status.data?.running) {
-              startPolling();
+              await beginPolling();
               return;
             }
           } catch {}
@@ -428,7 +553,7 @@ export default function SystemMonitor({
           try {
             const health = await apiClient.health();
             if (!cancelled && health.success) {
-              startPolling();
+              await beginPolling();
               return;
             }
           } catch {}
@@ -439,7 +564,7 @@ export default function SystemMonitor({
           return;
         }
         // Web: start immediately
-        startPolling();
+        await beginPolling();
       } catch {
         if (!cancelled) {
           // Try again soon
@@ -456,7 +581,7 @@ export default function SystemMonitor({
         clearInterval(intervalRef.current);
       }
     };
-  }, [updateInterval]);
+  }, [updateInterval, hydrateModelStatusFromStorage]);
 
   // Format file size
   const formatGB = (gb: number) => `${gb.toFixed(1)}GB`;

@@ -131,6 +131,8 @@ class SystemHandler:
             context_length = getattr(active_config.model, "model_max_length", 4096)
             
             # Create enhanced model info with config metadata
+            is_omni = self._is_omni_model(model_name)
+
             enhanced_model_info = {
                 "id": model_name,
                 "object": "model", 
@@ -144,7 +146,8 @@ class SystemHandler:
                     "display_name": model_name.split('/')[-1] if '/' in model_name else model_name,
                     "description": f"{model_name} ({engine} engine)",
                     "model_family": self._extract_model_family(model_name),
-                    "is_active_config": True  # Flag to indicate this is the active config
+                    "is_active_config": True,  # Flag to indicate this is the active config
+                    "is_omni_capable": is_omni,
                 }
             }
             
@@ -154,7 +157,12 @@ class SystemHandler:
         except Exception as e:
             logger.error(f"Error getting enhanced model info: {e}")
             # Fallback to basic model info
-            return web.json_response({"object": "list", "data": [self.model_info]})
+            fallback_info = dict(self.model_info)
+            fallback_metadata = dict(fallback_info.get("config_metadata", {}))
+            if "is_omni_capable" not in fallback_metadata:
+                fallback_metadata["is_omni_capable"] = self._is_omni_model(fallback_info.get("id", ""))
+            fallback_info["config_metadata"] = fallback_metadata
+            return web.json_response({"object": "list", "data": [fallback_info]})
     
     def _extract_model_family(self, model_name: str) -> str:
         """Extract model family from model name for UI categorization.
@@ -199,6 +207,10 @@ class SystemHandler:
             return 'gpt_oss'
         else:
             return 'unknown'
+
+    def _is_omni_model(self, model_name: str) -> bool:
+        model_lower = (model_name or "").lower()
+        return 'omni' in model_lower and 'qwen' in model_lower
     
     async def handle_system_stats_api(self, request: web.Request) -> web.Response:
         """Handle getting system stats from backend session.

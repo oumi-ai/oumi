@@ -531,6 +531,16 @@ export default function WelcomeScreen({ onConfigSelected, systemCapabilities }: 
         throw new Error(testResult.data?.message || 'Model test did not complete successfully');
       }
 
+      try {
+        await apiClient.setStorageItem('lastSuccessfulModelTest', {
+          configId: config.id,
+          configPath: config.config_path,
+          timestamp: Date.now(),
+        });
+      } catch (storageError) {
+        console.warn('Failed to persist lastSuccessfulModelTest after warm start:', storageError);
+      }
+
       setTestProgress('Model test successful! Starting application...');
       
       // Wait a moment for user to see success message
