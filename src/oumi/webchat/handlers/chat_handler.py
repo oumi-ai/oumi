@@ -352,6 +352,21 @@ class ChatHandler:
                     logger.debug(f"Message {i}: {msg.role} - {str(msg.content)[:100]}...")
                 
                 logger.info(f"🚀 Calling inference_engine.infer() with {session_config.engine} engine")
+                for idx, cmsg in enumerate(full_conversation.messages):
+                    logger.debug(
+                        "[infer] Conversation message %d role=%s type=%s", 
+                        idx,
+                        cmsg.role,
+                        type(cmsg.content),
+                    )
+                    if isinstance(cmsg.content, list):
+                        for part_idx, part in enumerate(cmsg.content):
+                            logger.debug(
+                                "[infer]   part %d -> type=%s content=%s",
+                                part_idx,
+                                getattr(part, 'type', None),
+                                getattr(part, 'content', None)[:60] if getattr(part, 'content', None) else None,
+                            )
                 start_time = time.time()
                 
                 # Use the same inference engine interface as oumi chat command
@@ -382,6 +397,7 @@ class ChatHandler:
                 
             except Exception as e:
                 logger.error(f"❌ Inference engine call failed: {e}")
+                logger.exception(e)
                 # Fallback to the unified infer() wrapper function
                 try:
                     from oumi.infer import infer
@@ -407,6 +423,7 @@ class ChatHandler:
                     logger.debug(f"✅ Fallback infer() succeeded: {len(response_content)} chars")
                 except Exception as fallback_error:
                     logger.error(f"❌ Fallback infer() also failed: {fallback_error}")
+                    logger.exception(fallback_error)
                     response_content = f"Inference failed: {str(e)}"
             
             # Check if we have a valid response

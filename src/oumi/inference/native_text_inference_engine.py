@@ -184,8 +184,9 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 )
             return prompt
 
+        serialised_messages = [msg.model_dump(exclude_none=True) for msg in conversation.messages]
         return self._processor.apply_chat_template(
-            conversation.messages,
+            serialised_messages,
             add_generation_prompt=True,
         )
 
