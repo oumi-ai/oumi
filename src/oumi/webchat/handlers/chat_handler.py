@@ -16,11 +16,11 @@
 
 import copy
 import time
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 from aiohttp import web
 
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, ContentItem, Message, Role, Type
 from oumi.utils.logging import logger
 from oumi.webchat.core.session_manager import SessionManager
 from oumi.webchat.chatgraph_migration.graph_store import GraphStore
@@ -62,7 +62,83 @@ class ChatHandler:
                 self.request_validator = RequestValidator()
             except ImportError:
                 logger.warning("Enhanced API components could not be imported")
-    
+
+    def _convert_client_content(self, content: Any) -> Any:
+        """Normalizes client-provided message content into Oumi types."""
+
+        if isinstance(content, list):
+            items: list[ContentItem] = []
+
+            for part in content:
+                if not isinstance(part, dict):
+                    continue
+
+                part_type = str(part.get("type", "")).lower()
+
+                def _extract_value(*keys: str) -> Optional[str]:
+                    for key in keys:
+                        value = part.get(key)
+                        if isinstance(value, str) and value:
+                            return value
+                        if isinstance(value, dict):
+                            url = value.get("url")
+                            if isinstance(url, str) and url:
+                                return url
+                    return None
+
+                if part_type == "text":
+                    value = _extract_value("content", "text") or ""
+                    items.append(ContentItem(type=Type.TEXT, content=value))
+                elif part_type == "image_url":
+                    value = _extract_value("content", "image_url", "url")
+                    if value:
+                        items.append(ContentItem(type=Type.IMAGE_URL, content=value))
+                elif part_type == "audio_url":
+                    value = _extract_value("content", "audio_url", "url")
+                    if value:
+                        items.append(ContentItem(type=Type.AUDIO_URL, content=value))
+                elif part_type == "video_url":
+                    value = _extract_value("content", "video_url", "url")
+                    if value:
+                        items.append(ContentItem(type=Type.VIDEO_URL, content=value))
+                elif part_type == "image_path":
+                    value = _extract_value("content", "path")
+                    if value:
+                        items.append(ContentItem(type=Type.IMAGE_PATH, content=value))
+                elif part_type == "audio_path":
+                    value = _extract_value("content", "path")
+                    if value:
+                        items.append(ContentItem(type=Type.AUDIO_PATH, content=value))
+                elif part_type == "video_path":
+                    value = _extract_value("content", "path")
+                    if value:
+                        items.append(ContentItem(type=Type.VIDEO_PATH, content=value))
+
+            if items:
+                return items
+
+            # Fallback: stringify any remaining payload to avoid empty content errors
+            return "\n".join(
+                str(part) for part in content if part is not None
+            )
+
+        if isinstance(content, str):
+            return content
+
+        if content is None:
+            return ""
+
+        return str(content)
+
+    def _content_items_to_text(self, content: list[ContentItem]) -> str:
+        segments: list[str] = []
+        for item in content:
+            if item.type == Type.TEXT:
+                segments.append(item.content or "")
+            else:
+                segments.append(f"<{item.type.value}>")
+        return " ".join(segment for segment in segments if segment)
+
     async def handle_chat_completions(self, request: web.Request) -> web.Response:
         """Handle chat completions requests in OpenAI format.
         
@@ -127,8 +203,9 @@ class ChatHandler:
                     "assistant": Role.ASSISTANT,
                 }
                 role = role_mapping.get(msg.get("role"), Role.USER)
-                content = msg.get("content", "")
-                oumi_messages.append(Message(role=role, content=content))
+                raw_content = msg.get("content", "")
+                normalized_content = self._convert_client_content(raw_content)
+                oumi_messages.append(Message(role=role, content=normalized_content))
             
             # Get the latest user message for inference
             user_messages = [msg for msg in messages if msg.get("role") == "user"]
@@ -143,7 +220,13 @@ class ChatHandler:
                     status=400,
                 )
             
-            latest_user_content = user_messages[-1].get("content", "")
+            latest_user_raw = user_messages[-1].get("content", "")
+            latest_user_content = self._convert_client_content(latest_user_raw)
+            latest_user_text = (
+                self._content_items_to_text(latest_user_content)
+                if isinstance(latest_user_content, list)
+                else str(latest_user_content)
+            )
             
             # CRITICAL: If we have a session_id, use the session for branch-aware chat
             if session_id:
@@ -305,7 +388,7 @@ class ChatHandler:
                     logger.info(f"🔄 Falling back to unified infer() function")
                     results = infer(
                         config=session_config,
-                        inputs=[latest_user_content],  # Simple string input fallback
+                        inputs=[latest_user_text],  # Simple string input fallback
                         system_prompt=self.system_prompt,
                         inference_engine=session_engine,
                     )
@@ -354,9 +437,9 @@ class ChatHandler:
                     }
                 ],
                 "usage": {
-                    "prompt_tokens": len(latest_user_content.split()),
+                    "prompt_tokens": len(latest_user_text.split()),
                     "completion_tokens": len(response_content.split()),
-                    "total_tokens": len(latest_user_content.split()) + len(response_content.split()),
+                    "total_tokens": len(latest_user_text.split()) + len(response_content.split()),
                 },
             }
             
@@ -613,14 +696,20 @@ class ChatHandler:
                 )
                 return create_json_response(response_data, status_code)
             
-            latest_user_content = user_messages[-1].get("content", "")
+            latest_user_raw = user_messages[-1].get("content", "")
+            latest_user_content = self._convert_client_content(latest_user_raw)
+            latest_user_text = (
+                self._content_items_to_text(latest_user_content)
+                if isinstance(latest_user_content, list)
+                else str(latest_user_content)
+            )
             
             # Run inference
             from oumi.infer import infer
             
             results = infer(
                 config=session.config,
-                inputs=[latest_user_content],
+                inputs=[latest_user_text],
                 system_prompt=self.system_prompt,
                 inference_engine=session.inference_engine,
             )
@@ -663,9 +752,9 @@ class ChatHandler:
                     }
                 ],
                 "usage": {
-                    "prompt_tokens": len(latest_user_content.split()),
+                    "prompt_tokens": len(latest_user_text.split()),
                     "completion_tokens": len(response_content.split()),
-                    "total_tokens": len(latest_user_content.split()) + len(response_content.split()),
+                    "total_tokens": len(latest_user_text.split()) + len(response_content.split()),
                 },
             }
             
@@ -673,7 +762,7 @@ class ChatHandler:
             session.conversation_history.extend([
                 {
                     "role": "user",
-                    "content": latest_user_content,
+                    "content": latest_user_text,
                     "timestamp": time.time(),
                 },
                 {

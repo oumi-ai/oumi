@@ -416,14 +416,16 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
         const att = map.get(m[1]);
         if (!att) continue;
         if (att.type === 'image') {
-          parts.push({ type: 'image_url', image_url: { url: att.dataUrl } });
+          parts.push({ type: 'image_url', content: att.dataUrl ?? att.base64 ?? '' });
         } else if (att.type === 'audio') {
-          parts.push({ type: 'audio_url', audio_url: { url: att.dataUrl } });
+          parts.push({ type: 'audio_url', content: att.dataUrl ?? att.base64 ?? '' });
         } else if (att.type === 'video') {
-          parts.push({ type: 'video_url', video_url: { url: att.dataUrl } });
+          parts.push({ type: 'video_url', content: att.dataUrl ?? att.base64 ?? '' });
+        } else if (att.type === 'document' && att.dataUrl) {
+          parts.push({ type: 'text', content: att.dataUrl });
         }
       } else if (token.trim().length > 0) {
-        parts.push({ type: 'text', text: token });
+        parts.push({ type: 'text', content: token });
       }
     }
     return parts.length > 0 ? parts : text;
