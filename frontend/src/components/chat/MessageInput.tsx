@@ -5,7 +5,7 @@
 "use client";
 
 import React from 'react';
-import { Send, Image, Paperclip, Loader2, Globe } from 'lucide-react';
+import { Send, Image, Paperclip, Loader2, Globe, Mic, Video } from 'lucide-react';
 import { isValidCommand } from '@/lib/constants';
 import apiClient from '@/lib/unified-api';
 
@@ -15,22 +15,28 @@ interface AttachmentResult {
   error?: string;
 }
 
-interface StagedAttachment {
+export interface PreparedAttachment {
   id: string;
-  file?: File;
-  type: 'image' | 'document' | 'fetch';
+  type: 'image' | 'document' | 'fetch' | 'audio' | 'video';
   name: string;
   size?: number;
+  mimeType?: string;
+  base64?: string;
+  dataUrl?: string;
   fetchUrl?: string;
   fetchContent?: string;
+  placeholder?: string;
 }
 
+type StagedAttachment = PreparedAttachment;
+
 interface MessageInputProps {
-  onSendMessage: (message: string, attachments?: StagedAttachment[]) => void;
+  onSendMessage: (message: string, attachments?: PreparedAttachment[]) => void;
   onAttachFiles?: (files: FileList) => void;
   disabled?: boolean;
   isLoading?: boolean;
   placeholder?: string;
+  isOmniCapable?: boolean;
 }
 
 export default function MessageInput({
@@ -39,25 +45,37 @@ export default function MessageInput({
   disabled = false,
   isLoading = false,
   placeholder = "Type your message...",
+  isOmniCapable = false,
 }: MessageInputProps) {
   const [message, setMessage] = React.useState('');
   const [stagedAttachments, setStagedAttachments] = React.useState<StagedAttachment[]>([]);
   const [showFetchDialog, setShowFetchDialog] = React.useState(false);
   const [fetchUrl, setFetchUrl] = React.useState('');
   const [isFetching, setIsFetching] = React.useState(false);
+  const [isProcessingAttachments, setIsProcessingAttachments] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const imageInputRef = React.useRef<HTMLInputElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const audioInputRef = React.useRef<HTMLInputElement>(null);
+  const videoInputRef = React.useRef<HTMLInputElement>(null);
 
   // Supported file types based on Oumi backend analysis
   const SUPPORTED_IMAGE_TYPES = '.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp,.svg';
-  const SUPPORTED_FILE_TYPES = '.txt,.md,.rst,.log,.cfg,.ini,.conf,.py,.js,.ts,.html,.css,.java,.cpp,.c,.h,.go,.rs,.php,.rb,.swift,.kt,.scala,.sh,.yaml,.yml,.pdf,.csv,.json';
-  const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB limit
+  const SUPPORTED_DOCUMENT_TYPES = '.txt,.md,.rst,.log,.cfg,.ini,.conf,.py,.js,.ts,.html,.css,.java,.cpp,.c,.h,.go,.rs,.php,.rb,.swift,.kt,.scala,.sh,.yaml,.yml,.pdf,.csv,.json';
+  const SUPPORTED_AUDIO_TYPES = '.wav,.mp3,.m4a,.flac,.ogg,.opus,.webm';
+  const SUPPORTED_VIDEO_TYPES = '.mp4,.mov,.m4v,.webm,.mkv,.avi,.mpeg,.mpg';
+  const MAX_IMAGE_SIZE = 30 * 1024 * 1024; // 30MB
+  const MAX_DOCUMENT_SIZE = 30 * 1024 * 1024; // 30MB
+  const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25MB
+  const MAX_VIDEO_SIZE = 80 * 1024 * 1024; // 80MB
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessingAttachments) {
+      return;
+    }
     if ((message.trim() || stagedAttachments.length > 0) && !disabled && !isLoading) {
-      onSendMessage(message.trim(), stagedAttachments.length > 0 ? stagedAttachments : undefined);
+      onSendMessage(message, stagedAttachments.length > 0 ? stagedAttachments : undefined);
       setMessage('');
       setStagedAttachments([]);
       // Reset textarea height
@@ -74,6 +92,29 @@ export default function MessageInput({
     }
   };
 
+  const insertPlaceholderAtCursor = (placeholder: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setMessage(prev => (prev ? `${prev} ${placeholder}` : placeholder));
+      return;
+    }
+    const { selectionStart, selectionEnd } = textarea;
+    setMessage(prev => {
+      const before = prev.slice(0, selectionStart);
+      const after = prev.slice(selectionEnd);
+      return `${before}${placeholder}${after}`;
+    });
+    requestAnimationFrame(() => {
+      const pos = selectionStart + placeholder.length;
+      textarea.selectionStart = textarea.selectionEnd = pos;
+    });
+  };
+
+  const removePlaceholderFromMessage = (placeholder?: string) => {
+    if (!placeholder) return;
+    setMessage(prev => (prev ? prev.split(placeholder).join('') : prev));
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.target.value);
     
@@ -85,10 +126,16 @@ export default function MessageInput({
   };
 
   // File validation functions
-  const validateFile = (file: File, allowedTypes: string[], isImage: boolean = false): { valid: boolean; error?: string } => {
+  const validateFile = (
+    file: File,
+    allowedTypes: string[],
+    options: { maxSize: number; kind: 'image' | 'audio' | 'video' | 'document' }
+  ): { valid: boolean; error?: string } => {
+    const { maxSize, kind } = options;
     // Check file size
-    if (file.size > MAX_FILE_SIZE) {
-      return { valid: false, error: `File "${file.name}" exceeds 30MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB)` };
+    if (file.size > maxSize) {
+      const limitMb = (maxSize / (1024 * 1024)).toFixed(1);
+      return { valid: false, error: `File "${file.name}" exceeds ${limitMb}MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB)` };
     }
 
     // Check for empty files
@@ -99,7 +146,7 @@ export default function MessageInput({
     // Check file extension
     const extension = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!allowedTypes.includes(extension)) {
-      const typeLabel = isImage ? 'image' : 'document';
+      const typeLabel = kind === 'image' ? 'image' : kind === 'audio' ? 'audio' : kind === 'video' ? 'video' : 'document';
       return { valid: false, error: `File "${file.name}" is not a supported ${typeLabel} format` };
     }
 
@@ -109,25 +156,32 @@ export default function MessageInput({
       return { valid: false, error: `Archive files are not allowed: "${file.name}"` };
     }
 
-    // Additional image validation
-    if (isImage) {
-      // Check MIME type if available
-      if (file.type && !file.type.startsWith('image/')) {
-        return { valid: false, error: `File "${file.name}" is not a valid image file` };
-      }
+    // Additional validation by kind
+    if (kind === 'image' && file.type && !file.type.startsWith('image/')) {
+      return { valid: false, error: `File "${file.name}" is not a valid image file` };
+    }
+    if (kind === 'audio' && file.type && !file.type.startsWith('audio/')) {
+      return { valid: false, error: `File "${file.name}" is not a valid audio file` };
+    }
+    if (kind === 'video' && file.type && !file.type.startsWith('video/')) {
+      return { valid: false, error: `File "${file.name}" is not a valid video file` };
     }
 
     return { valid: true };
   };
 
-  const validateFiles = (files: FileList, allowedTypes: string, isImage: boolean = false): AttachmentResult => {
+  const validateFiles = (
+    files: FileList,
+    allowedTypes: string,
+    options: { maxSize: number; kind: 'image' | 'audio' | 'video' | 'document' }
+  ): AttachmentResult => {
     const validFiles: File[] = [];
     const errors: string[] = [];
     const typeArray = allowedTypes.split(',');
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const validation = validateFile(file, typeArray, isImage);
+      const validation = validateFile(file, typeArray, options);
       
       if (validation.valid) {
         validFiles.push(file);
@@ -143,70 +197,89 @@ export default function MessageInput({
     return { success: true, files: validFiles };
   };
 
-  // Check if current model supports multiple images (simplified heuristic)
-  const getCurrentModelInfo = async () => {
-    try {
-      const response = await apiClient.getServerStatus();
-      // This is a simplified check - in reality you'd get model capabilities from the config
-      return {
-        supportsMultipleImages: false, // Default to single image for now
-        isVisionModel: false // Default to text-only for now
-      };
-    } catch (error) {
-      return {
-        supportsMultipleImages: false,
-        isVisionModel: false
-      };
-    }
-  };
+  const readFileAsDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
-    const validation = validateFiles(e.target.files, SUPPORTED_IMAGE_TYPES, true);
-    
+    const validation = validateFiles(e.target.files, SUPPORTED_IMAGE_TYPES, {
+      maxSize: MAX_IMAGE_SIZE,
+      kind: 'image',
+    });
+
     if (!validation.success) {
       alert(`❌ Image Attachment Error:\n\n${validation.error}`);
       e.target.value = '';
       return;
     }
 
-    const modelInfo = await getCurrentModelInfo();
-
-    // For single-image models, warn about chat reset
-    if (!modelInfo.supportsMultipleImages && (stagedAttachments.some(a => a.type === 'image') || e.target.files.length > 1)) {
+    const allowMultipleImages = isOmniCapable;
+    if (!allowMultipleImages && (stagedAttachments.some(a => a.type === 'image') || (validation.files?.length || 0) > 1)) {
       const shouldReset = confirm(
         '⚠️ Single Image Model Warning\n\n' +
-        'This model only supports one image at a time. Adding images will replace existing images.\n\n' +
-        'Do you want to continue?'
+          'This model only supports one image at a time. Adding images will replace existing images.\n\n' +
+          'Do you want to continue?'
       );
-      
+
       if (!shouldReset) {
         e.target.value = '';
         return;
       }
-      
-      // Clear existing images for single-image models
+
       setStagedAttachments(prev => prev.filter(a => a.type !== 'image'));
     }
 
-    // Stage the images instead of immediately attaching
-    const newAttachments: StagedAttachment[] = Array.from(e.target.files).map(file => ({
-      id: `image-${Date.now()}-${Math.random()}`,
-      file,
-      type: 'image' as const,
-      name: file.name,
-      size: file.size
-    }));
+    const files = validation.success ? validation.files || [] : [];
+    if (files.length === 0) {
+      e.target.value = '';
+      return;
+    }
 
-    setStagedAttachments(prev => [...prev, ...newAttachments]);
-    e.target.value = '';
+    setIsProcessingAttachments(true);
+    try {
+      const newAttachments: StagedAttachment[] = [];
+      for (const file of files) {
+        const dataUrl = await readFileAsDataUrl(file);
+        const base64 = dataUrl.split(',')[1] || '';
+        const id = `image-${Date.now()}-${Math.random()}`;
+        const placeholder = `[attachment:${id}]`;
+        insertPlaceholderAtCursor(placeholder);
+        newAttachments.push({
+          id,
+          type: 'image',
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || undefined,
+          dataUrl,
+          base64,
+          placeholder,
+        });
+      }
+      if (newAttachments.length > 0) {
+        setStagedAttachments(prev => [...prev, ...newAttachments]);
+      }
+    } catch (error) {
+      console.error('Failed to process image attachments', error);
+      alert('❌ Failed to process selected images. Please try again.');
+    } finally {
+      setIsProcessingAttachments(false);
+      e.target.value = '';
+    }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
-    const validation = validateFiles(e.target.files, SUPPORTED_FILE_TYPES, false);
+    const validation = validateFiles(e.target.files, SUPPORTED_DOCUMENT_TYPES, {
+      maxSize: MAX_DOCUMENT_SIZE,
+      kind: 'document',
+    });
     
     if (!validation.success) {
       alert(`❌ File Attachment Error:\n\n${validation.error}`);
@@ -215,7 +288,7 @@ export default function MessageInput({
     }
 
     // Warn about large files that might exceed token limits
-    const largeFiles = Array.from(e.target.files).filter(f => f.size > 1024 * 1024); // > 1MB
+    const largeFiles = (validation.files || []).filter(f => f.size > 1024 * 1024); // > 1MB
     if (largeFiles.length > 0) {
       const fileNames = largeFiles.map(f => `${f.name} (${(f.size / (1024 * 1024)).toFixed(1)}MB)`).join('\n');
       const shouldContinue = confirm(
@@ -232,16 +305,121 @@ export default function MessageInput({
     }
 
     // Stage the documents instead of immediately attaching
-    const newAttachments: StagedAttachment[] = Array.from(e.target.files).map(file => ({
+    const files = validation.files || [];
+    const newAttachments: StagedAttachment[] = files.map(file => ({
       id: `document-${Date.now()}-${Math.random()}`,
-      file,
-      type: 'document' as const,
+      type: 'document',
       name: file.name,
-      size: file.size
+      size: file.size,
+      mimeType: file.type || undefined,
     }));
 
     setStagedAttachments(prev => [...prev, ...newAttachments]);
     e.target.value = '';
+  };
+
+  const handleAudioSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    if (!isOmniCapable) {
+      alert('🎧 Audio attachments are only supported for Qwen Omni models.');
+      e.target.value = '';
+      return;
+    }
+
+    const validation = validateFiles(e.target.files, SUPPORTED_AUDIO_TYPES, {
+      maxSize: MAX_AUDIO_SIZE,
+      kind: 'audio',
+    });
+
+    if (!validation.success) {
+      alert(`❌ Audio Attachment Error:\n\n${validation.error}`);
+      e.target.value = '';
+      return;
+    }
+
+    const files = validation.files || [];
+    setIsProcessingAttachments(true);
+    try {
+      const newAttachments: StagedAttachment[] = [];
+      for (const file of files) {
+        const dataUrl = await readFileAsDataUrl(file);
+        const base64 = dataUrl.split(',')[1] || '';
+        const id = `audio-${Date.now()}-${Math.random()}`;
+        const placeholder = `[attachment:${id}]`;
+        insertPlaceholderAtCursor(placeholder);
+        newAttachments.push({
+          id,
+          type: 'audio',
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || undefined,
+          dataUrl,
+          base64,
+          placeholder,
+        });
+      }
+      if (newAttachments.length > 0) {
+        setStagedAttachments(prev => [...prev, ...newAttachments]);
+      }
+    } catch (error) {
+      console.error('Failed to process audio attachments', error);
+      alert('❌ Failed to process audio files. Please try again.');
+    } finally {
+      setIsProcessingAttachments(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    if (!isOmniCapable) {
+      alert('🎬 Video attachments are only supported for Qwen Omni models.');
+      e.target.value = '';
+      return;
+    }
+
+    const validation = validateFiles(e.target.files, SUPPORTED_VIDEO_TYPES, {
+      maxSize: MAX_VIDEO_SIZE,
+      kind: 'video',
+    });
+
+    if (!validation.success) {
+      alert(`❌ Video Attachment Error:\n\n${validation.error}`);
+      e.target.value = '';
+      return;
+    }
+
+    const files = validation.files || [];
+    setIsProcessingAttachments(true);
+    try {
+      const newAttachments: StagedAttachment[] = [];
+      for (const file of files) {
+        const dataUrl = await readFileAsDataUrl(file);
+        const base64 = dataUrl.split(',')[1] || '';
+        const id = `video-${Date.now()}-${Math.random()}`;
+        const placeholder = `[attachment:${id}]`;
+        insertPlaceholderAtCursor(placeholder);
+        newAttachments.push({
+          id,
+          type: 'video',
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || undefined,
+          dataUrl,
+          base64,
+          placeholder,
+        });
+      }
+      if (newAttachments.length > 0) {
+        setStagedAttachments(prev => [...prev, ...newAttachments]);
+      }
+    } catch (error) {
+      console.error('Failed to process video attachments', error);
+      alert('❌ Failed to process video files. Please try again.');
+    } finally {
+      setIsProcessingAttachments(false);
+      e.target.value = '';
+    }
   };
 
   const handleFetch = async () => {
@@ -301,7 +479,13 @@ export default function MessageInput({
 
   // Function to remove staged attachment
   const removeStagedAttachment = (id: string) => {
-    setStagedAttachments(prev => prev.filter(a => a.id !== id));
+    setStagedAttachments(prev => {
+      const target = prev.find(a => a.id === id);
+      if (target?.placeholder) {
+        removePlaceholderFromMessage(target.placeholder);
+      }
+      return prev.filter(a => a.id !== id);
+    });
   };
 
   const isCommand = isValidCommand(message.trim());
@@ -326,7 +510,7 @@ export default function MessageInput({
                 <button
                   type="button"
                   onClick={() => imageInputRef.current?.click()}
-                  disabled={disabled || isLoading}
+                  disabled={disabled || isLoading || isProcessingAttachments}
                   className="p-2 rounded-md border border-border hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title="Attach images (jpg, png, gif, etc.)"
                 >
@@ -342,12 +526,12 @@ export default function MessageInput({
                   multiple
                   className="hidden"
                   onChange={handleFileSelect}
-                  accept={SUPPORTED_FILE_TYPES}
+                  accept={SUPPORTED_DOCUMENT_TYPES}
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={disabled || isLoading}
+                  disabled={disabled || isLoading || isProcessingAttachments}
                   className="p-2 rounded-md border border-border hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title="Attach documents (pdf, txt, code files, etc.)"
                 >
@@ -355,11 +539,53 @@ export default function MessageInput({
                 </button>
               </>
 
+              {/* Audio attachment */}
+              <>
+                <input
+                  ref={audioInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleAudioSelect}
+                  accept={SUPPORTED_AUDIO_TYPES}
+                />
+                <button
+                  type="button"
+                  onClick={() => audioInputRef.current?.click()}
+                  disabled={disabled || isLoading || isProcessingAttachments || !isOmniCapable}
+                  className="p-2 rounded-md border border-border hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title={isOmniCapable ? 'Attach audio clips (wav, mp3, etc.)' : 'Audio attachments require a Qwen Omni model'}
+                >
+                  <Mic size={20} className={isOmniCapable ? 'text-orange-600' : 'text-muted-foreground'} />
+                </button>
+              </>
+
+              {/* Video attachment */}
+              <>
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleVideoSelect}
+                  accept={SUPPORTED_VIDEO_TYPES}
+                />
+                <button
+                  type="button"
+                  onClick={() => videoInputRef.current?.click()}
+                  disabled={disabled || isLoading || isProcessingAttachments || !isOmniCapable}
+                  className="p-2 rounded-md border border-border hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title={isOmniCapable ? 'Attach video clips (mp4, mov, webm, etc.)' : 'Video attachments require a Qwen Omni model'}
+                >
+                  <Video size={20} className={isOmniCapable ? 'text-red-600' : 'text-muted-foreground'} />
+                </button>
+              </>
+
               {/* Fetch button */}
               <button
                 type="button"
                 onClick={() => setShowFetchDialog(true)}
-                disabled={disabled || isLoading || isFetching}
+                disabled={disabled || isLoading || isFetching || isProcessingAttachments}
                 className="p-2 rounded-md border border-border hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 title="Fetch content from a website"
               >
@@ -386,6 +612,8 @@ export default function MessageInput({
                     {attachment.type === 'image' && <Image size={14} className="text-blue-600" />}
                     {attachment.type === 'document' && <Paperclip size={14} className="text-green-600" />}
                     {attachment.type === 'fetch' && <Globe size={14} className="text-purple-600" />}
+                    {attachment.type === 'audio' && <Mic size={14} className="text-orange-600" />}
+                    {attachment.type === 'video' && <Video size={14} className="text-red-600" />}
                     <span className="font-medium truncate max-w-32">
                       {attachment.name}
                     </span>
@@ -434,10 +662,10 @@ export default function MessageInput({
         {/* Send button */}
         <button
           type="submit"
-          disabled={(!message.trim() && stagedAttachments.length === 0) || disabled || isLoading}
+          disabled={(!message.trim() && stagedAttachments.length === 0) || disabled || isLoading || isProcessingAttachments}
           className="flex-shrink-0 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground p-3 rounded-md transition-colors flex items-center justify-center min-w-[48px] min-h-[48px]"
         >
-          {isLoading ? (
+          {isLoading || isProcessingAttachments ? (
             <Loader2 size={20} className="animate-spin" />
           ) : (
             <Send size={20} />

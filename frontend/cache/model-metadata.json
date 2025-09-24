@@ -1062,5 +1062,53 @@
     "error": "Invalid username or password.. URL: https://huggingface.co/api/models/undefined/revision/HEAD?expand=pipeline_tag&expand=private&expand=gated&expand=downloads&expand=likes&expand=lastModified. Request ID: Root=1-68b6bbb3-43eecec06c4509fc4f902e3b",
     "lastUpdated": "2025-09-02T09:41:07.163Z",
     "expires": "2025-09-02T10:41:07.163Z"
+  },
+  "Qwen/Qwen2.5-Omni-3B": {
+    "parameterCount": 0,
+    "tags": [],
+    "isSpecialist": false,
+    "error": "Invalid username or password.. URL: https://huggingface.co/api/models/undefined/revision/HEAD?expand=pipeline_tag&expand=private&expand=gated&expand=downloads&expand=likes&expand=lastModified. Request ID: Root=1-68d34f32-40e074587772d0ca02f7e141",
+    "lastUpdated": "2025-09-24T01:53:54.043Z",
+    "expires": "2025-09-24T02:53:54.043Z"
+  },
+  "Qwen/Qwen2.5-Omni-7B": {
+    "parameterCount": 0,
+    "tags": [],
+    "isSpecialist": false,
+    "error": "Invalid username or password.. URL: https://huggingface.co/api/models/undefined/revision/HEAD?expand=pipeline_tag&expand=private&expand=gated&expand=downloads&expand=likes&expand=lastModified. Request ID: Root=1-68d34f32-23868c012461d5556ee525b6",
+    "lastUpdated": "2025-09-24T01:53:54.147Z",
+    "expires": "2025-09-24T02:53:54.147Z"
+  },
+  "Qwen/Qwen3-VL-235B-A22B-Instruct": {
+    "parameterCount": 0,
+    "tags": [],
+    "isSpecialist": false,
+    "error": "Invalid username or password.. URL: https://huggingface.co/api/models/undefined/revision/HEAD?expand=pipeline_tag&expand=private&expand=gated&expand=downloads&expand=likes&expand=lastModified. Request ID: Root=1-68d34f34-50adea940943fddf2784b62d",
+    "lastUpdated": "2025-09-24T01:53:56.355Z",
+    "expires": "2025-09-24T02:53:56.355Z"
+  },
+  "Qwen/Qwen3-VL-235B-A22B-Thinking": {
+    "parameterCount": 0,
+    "tags": [],
+    "isSpecialist": false,
+    "error": "Invalid username or password.. URL: https://huggingface.co/api/models/undefined/revision/HEAD?expand=pipeline_tag&expand=private&expand=gated&expand=downloads&expand=likes&expand=lastModified. Request ID: Root=1-68d34f34-0e78a00b2eb35ad55e56ade7",
+    "lastUpdated": "2025-09-24T01:53:56.548Z",
+    "expires": "2025-09-24T02:53:56.548Z"
+  },
+  "Qwen/Qwen3-Omni-30B-A3B-Instruct": {
+    "parameterCount": 0,
+    "tags": [],
+    "isSpecialist": false,
+    "error": "Invalid username or password.. URL: https://huggingface.co/api/models/undefined/revision/HEAD?expand=pipeline_tag&expand=private&expand=gated&expand=downloads&expand=likes&expand=lastModified. Request ID: Root=1-68d34f35-30a256461074b26a15360e3c",
+    "lastUpdated": "2025-09-24T01:53:57.352Z",
+    "expires": "2025-09-24T02:53:57.352Z"
+  },
+  "Qwen/Qwen3-Omni-30B-A3B-Thinking": {
+    "parameterCount": 0,
+    "tags": [],
+    "isSpecialist": false,
+    "error": "Invalid username or password.. URL: https://huggingface.co/api/models/undefined/revision/HEAD?expand=pipeline_tag&expand=private&expand=gated&expand=downloads&expand=likes&expand=lastModified. Request ID: Root=1-68d34f35-7444f6045cb6ded8400be18d",
+    "lastUpdated": "2025-09-24T01:53:57.547Z",
+    "expires": "2025-09-24T02:53:57.548Z"
   }
 }

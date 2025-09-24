@@ -158,7 +158,7 @@ export interface ConfigOption {
 export interface ChatCompletionRequest {
   messages: Array<{
     role: 'user' | 'assistant' | 'system';
-    content: string;
+    content: string | any[]; // supports multimodal parts for omni models
   }>;
   session_id?: string;
   branch_id?: string;

@@ -20,7 +20,7 @@ from aiohttp.web import Response
 
 from oumi.core.configs import InferenceConfig
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.conversation import Message, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.infer import get_engine, infer
 from oumi.utils.logging import logger
 from oumi.webchat.utils.fallbacks import model_name_fallback
@@ -43,11 +43,21 @@ class OpenAICompatibleServer:
         if not model_id:
             model_id = model_name_fallback("config.model.model_name")
             logger.warning(f"Model name missing on config.model; using fallback '{model_id}'.")
+        # Compute basic capability flags for frontend gating (best-effort)
+        try:
+            import re
+            is_omni = bool(re.search(r"qwen\s*/?qwen(2\\.5|3).*omni", str(model_id), re.IGNORECASE))
+        except Exception:
+            is_omni = False
+
         self.model_info = {
             "id": model_id,
             "object": "model",
             "created": int(time.time()),
             "owned_by": "oumi",
+            "config_metadata": {
+                "is_omni_capable": is_omni,
+            },
         }
 
     async def handle_health(self, request: web.Request) -> Response:
@@ -128,13 +138,20 @@ class OpenAICompatibleServer:
 
             latest_user_content = user_messages[-1].get("content", "")
 
-            # Run inference
-            results = infer(
-                config=self.config,
-                inputs=[latest_user_content],
-                system_prompt=self.system_prompt,
-                inference_engine=self.inference_engine,
-            )
+            # Run inference. If the latest user content is multimodal (list of parts),
+            # build a full conversation and invoke the engine directly.
+            if isinstance(latest_user_content, list):
+                conversation = Conversation(messages=oumi_messages)
+                results = self.inference_engine.infer(
+                    input=[conversation], inference_config=self.config
+                )
+            else:
+                results = infer(
+                    config=self.config,
+                    inputs=[latest_user_content],
+                    system_prompt=self.system_prompt,
+                    inference_engine=self.inference_engine,
+                )
 
             if not results:
                 return web.json_response(

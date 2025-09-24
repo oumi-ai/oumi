@@ -8,11 +8,11 @@ import React from 'react';
 import { generateDisplayName } from '@/lib/nameGen';
 import { useChatStore } from '@/lib/store';
 import { useAutoSave } from '@/hooks/useAutoSave';
-import { Message } from '@/lib/types';
+import { Message, ChatCompletionRequest } from '@/lib/types';
 import apiClient from '@/lib/unified-api';
 import { isValidCommand, parseCommand } from '@/lib/constants';
 import ChatHistory from './ChatHistory';
-import MessageInput from './MessageInput';
+import MessageInput, { PreparedAttachment } from './MessageInput';
 
 interface ChatInterfaceProps {
   className?: string;
@@ -219,7 +219,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     currentStreamingMessageId.current = null;
   };
 
-  const handleSendMessage = async (content: string, attachments?: any[]) => {
+  const handleSendMessage = async (content: string, attachments?: PreparedAttachment[]) => {
     // Check if it's a valid command and block it
     if (isValidCommand(content)) {
       const errorMessage: Message = {
@@ -256,7 +256,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     // user message might not appear in the chat history.
     requestAnimationFrame(async () => {
       // Handle regular chat message (no command handling anymore)
-      await handleChatMessage(content);
+      await handleChatMessage(content, attachments);
     });
   };
 
@@ -308,6 +308,12 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
       // Check if model is currently loaded
       const modelResponse = await apiClient.getModels();
       if (modelResponse.success && modelResponse.data?.data?.[0]) {
+        try {
+          const md: any = modelResponse.data.data[0].config_metadata;
+          if (md && typeof md.is_omni_capable === 'boolean') {
+            setIsOmniCapable(md.is_omni_capable);
+          }
+        } catch {}
         // Model is loaded, we're good
         return;
       }
@@ -333,6 +339,12 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
       // Check again if model is now loaded
       const recheckResponse = await apiClient.getModels();
       if (recheckResponse.success && recheckResponse.data?.data?.[0]) {
+        try {
+          const md: any = recheckResponse.data.data[0].config_metadata;
+          if (md && typeof md.is_omni_capable === 'boolean') {
+            setIsOmniCapable(md.is_omni_capable);
+          }
+        } catch {}
         console.log('✅ Model auto-loaded successfully');
         
         const successMessage: Message = {
@@ -361,21 +373,51 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     }
   };
 
-  const handleChatMessage = async (content: string) => {
+  const buildContentParts = (text: string, attachments?: PreparedAttachment[]) => {
+    if (!attachments || attachments.length === 0) {
+      return text; // plain string
+    }
+    const map = new Map(attachments.map(a => [a.id, a] as const));
+    const parts: Array<any> = [];
+    const re = /(\[attachment:[^\]]+\])/g;
+    const tokens = text.split(re).filter(Boolean);
+    for (const token of tokens) {
+      const m = token.match(/^\[attachment:([^\]]+)\]$/);
+      if (m) {
+        const att = map.get(m[1]);
+        if (!att) continue;
+        if (att.type === 'image') {
+          parts.push({ type: 'image_url', image_url: { url: att.dataUrl } });
+        } else if (att.type === 'audio') {
+          parts.push({ type: 'audio_url', audio_url: { url: att.dataUrl } });
+        } else if (att.type === 'video') {
+          parts.push({ type: 'video_url', video_url: { url: att.dataUrl } });
+        }
+      } else if (token.trim().length > 0) {
+        parts.push({ type: 'text', text: token });
+      }
+    }
+    return parts.length > 0 ? parts : text;
+  };
+
+  const [isOmniCapable, setIsOmniCapable] = React.useState(false);
+
+  const handleChatMessage = async (content: string, attachments?: PreparedAttachment[]) => {
     setTyping(true);
     setShouldStop(false);
     
     try {
       // Prepare messages for API
-      const apiMessages = messages
+      const apiMessages: ChatCompletionRequest['messages'] = messages
         .filter(msg => msg.role !== 'system') // Exclude system messages from API
         .map(msg => ({
-          role: msg.role,
-          content: msg.content,
+          role: (msg.role as 'user' | 'assistant' | 'system'),
+          content: (msg.content as any),
         }));
 
-      // Add the current user message
-      apiMessages.push({ role: 'user', content });
+      // Add the current user message (possibly multimodal)
+      const contentOrParts = isOmniCapable ? buildContentParts(content, attachments) : content;
+      apiMessages.push({ role: 'user', content: contentOrParts as any });
 
       // Auto-reload model if needed before attempting chat
       await ensureModelLoaded();
@@ -542,6 +584,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
           onAttachFiles={handleAttachFiles}
           disabled={isLoading}
           isLoading={isLoading || isTyping}
+          isOmniCapable={isOmniCapable}
         />
       </div>
     </div>

@@ -344,11 +344,18 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
       log.info('Starting model test for config:', configPath);
       const result = await pythonManager.testModel(configPath);
       log.info('Model test result:', result);
-      
-      // Return in ApiResponse format
+
+      if (result.success) {
+        return {
+          success: true,
+          data: result,
+        };
+      }
+
       return {
-        success: true,
-        data: result
+        success: false,
+        message: result.message ?? 'Model test failed',
+        data: result,
       };
     } catch (error) {
       log.error('Model test error:', error);

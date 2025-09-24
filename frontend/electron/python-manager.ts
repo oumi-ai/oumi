@@ -874,6 +874,8 @@ export class PythonServerManager {
         { role: "user", content: "Hello world" }
       ]
     });
+
+    const fs = require('fs');
     
     // Network monitoring state
     let networkMonitorInterval: NodeJS.Timeout | null = null;
@@ -891,13 +893,13 @@ export class PythonServerManager {
       });
       
       // Write test input file
-      require('fs').writeFileSync(tempInputPath, testInput);
+      fs.writeFileSync(tempInputPath, testInput);
       
       // Resolve config path to absolute path
       const resolvedConfigPath = this.resolveConfigPath(configPath);
       
       // Verify config file exists
-      if (!require('fs').existsSync(resolvedConfigPath)) {
+      if (!fs.existsSync(resolvedConfigPath)) {
         log.error(`Config file does not exist: ${resolvedConfigPath}`);
         return { success: false, message: `Config file not found: ${resolvedConfigPath}` };
       }
@@ -1069,18 +1071,16 @@ export class PythonServerManager {
           }
           // Clean up temp files
           try {
-            require('fs').unlinkSync(tempInputPath);
-            require('fs').unlinkSync(tempOutputPath);
+            fs.unlinkSync(tempInputPath);
+            fs.unlinkSync(tempOutputPath);
           } catch (e) {
             // Ignore cleanup errors
           }
         };
 
+      // Track whether inference appeared to complete successfully
+      let inferenceCompleted = false;
 
-
-      // Track if model loading succeeded
-      let modelLoaded = false;
-      
       // Handle process completion
       testProcess.on('exit', (code, signal) => {
         if (hasCompleted) return;
@@ -1088,21 +1088,51 @@ export class PythonServerManager {
 
         log.info(`Test inference exited with code ${code}, signal ${signal}`);
         log.info(`Output buffer: ${outputBuffer.slice(-1000)}`); // Log last 1000 chars for debugging
-        
-        // In non-interactive mode, successful completion means the model loaded and ran inference
-        if (code === 0) {
-          resolve({ success: true, message: 'Model test successful - inference completed' });
-        } else if (modelLoaded) {
-          // Even if exit code is not 0, if we detected model loading, consider it a success
-          resolve({ success: true, message: 'Model test successful - model loaded (process terminated early)' });
-        } else {
-          // Include output buffer in error message for better debugging
-          const errorDetails = outputBuffer.slice(-500); // Last 500 chars of output
-          const errorMessage = errorDetails 
-            ? `Model test failed - process exited with code ${code}. Details: ${errorDetails}`
-            : `Model test failed - process exited with code ${code}`;
-          resolve({ success: false, message: errorMessage });
+
+        const exitCode = typeof code === 'number' ? code : null;
+        const outputExists = fs.existsSync(tempOutputPath);
+        const outputHasContent = outputExists
+          ? (() => {
+              try {
+                const stats = fs.statSync(tempOutputPath);
+                return stats.isFile() && stats.size > 0;
+              } catch (statError) {
+                log.warn('Unable to stat temp output file after test inference:', statError);
+                return false;
+              }
+            })()
+          : false;
+
+        if (exitCode === 0) {
+          const message = inferenceCompleted || outputHasContent
+            ? 'Model test successful - inference completed'
+            : 'Model test completed without explicit inference output';
+          resolve({ success: true, message });
+          return;
         }
+
+        const errorDetails = outputBuffer.slice(-500); // Last 500 chars of output
+        let failureMessage = `Model test failed - process exited with code ${exitCode ?? 'unknown'}`;
+        if (signal) {
+          failureMessage += ` (signal ${signal})`;
+        }
+
+        const observations: string[] = [];
+        if (inferenceCompleted) {
+          observations.push('completion logs detected before failure');
+        }
+        if (outputHasContent) {
+          observations.push('partial output file written');
+        }
+        if (observations.length > 0) {
+          failureMessage += `. Observations: ${observations.join(', ')}`;
+        }
+
+        if (errorDetails) {
+          failureMessage += `. Details: ${errorDetails}`;
+        }
+
+        resolve({ success: false, message: failureMessage });
       });
 
       testProcess.on('error', (error) => {
@@ -1125,16 +1155,17 @@ export class PythonServerManager {
             // Handle download progress during test
             this.handleDownloadProgress(output);
             
-            // Check for model loading success indicators in non-interactive mode
-            if (output.includes('Model loaded successfully') || 
-                output.includes('Starting batch inference') ||
-                output.includes('Processing') ||
-                output.includes('Inference completed') ||
-                output.includes('Writing results') ||
-                (output.includes('messages') && output.includes('role')) ||
-                output.includes('Building model')) {
-              modelLoaded = true;
-              log.info('Model loading detected, process will complete naturally');
+            const successIndicators = [
+              'Inference completed',
+              'Writing results',
+              'Test inference completed',
+              'Generated responses saved',
+              'Finished inference',
+              'All results written'
+            ];
+            if (successIndicators.some((indicator) => output.includes(indicator))) {
+              inferenceCompleted = true;
+              log.info('Inference completion detected from process output');
             }
           }
         });
@@ -1179,7 +1210,6 @@ export class PythonServerManager {
     } finally {
       // Clean up temporary files
       try {
-        const fs = require('fs');
         if (fs.existsSync(tempInputPath)) {
           fs.unlinkSync(tempInputPath);
         }

@@ -65,8 +65,22 @@ async function fetchModelMetadata(modelName) {
   try {
     console.log(`🔍 Fetching metadata for ${modelName}...`);
     
-    // Fetch model info from HuggingFace
-    const hfModelInfo = await modelInfo({ repo: modelName });
+    // Use HF token if available (supports public/gated models)
+    const hfToken = process.env.HF_TOKEN 
+      || process.env.HUGGINGFACE_TOKEN 
+      || process.env.HUGGINGFACE_HUB_TOKEN;
+
+    let hfModelInfo;
+    try {
+      // Prefer object signature used by newer @huggingface/hub versions
+      hfModelInfo = await modelInfo({ 
+        repo: modelName,
+        credentials: hfToken ? { accessToken: hfToken } : undefined,
+      });
+    } catch (sigErr) {
+      // Fallback to legacy signature (repoId: string, options?: { token })
+      hfModelInfo = await modelInfo(modelName, hfToken ? { token: hfToken } : undefined);
+    }
     
     // Extract parameter count from config or safetensors metadata
     let parameterCount = 0;
