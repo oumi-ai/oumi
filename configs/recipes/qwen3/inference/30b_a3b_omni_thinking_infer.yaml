@@ -1,0 +1,25 @@
+# Native Transformers inference config for Qwen3-Omni-30B-A3B-Thinking.
+#
+# Usage:
+#   oumi infer -i -c oumi://configs/recipes/qwen3/inference/30b_a3b_omni_thinking_infer.yaml
+#
+# Model card: https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Thinking
+
+model:
+  model_name: "Qwen/Qwen3-Omni-30B-A3B-Thinking"
+  model_max_length: 32768
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+  processor_kwargs:
+    use_audio_in_video: true
+    video_fps: 2.0
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.6
+  top_p: 0.95
+  use_sampling: true
+  presence_penalty: 0.0
+
+engine: NATIVE

@@ -2,13 +2,8 @@ from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import (
-    ClassVar as _ClassVar,
-    Iterable as _Iterable,
-    Mapping as _Mapping,
-    Optional as _Optional,
-    Union as _Union,
-)
+from collections.abc import Iterable as _Iterable, Mapping as _Mapping
+from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -45,12 +40,24 @@ class ContentPart(_message.Message):
         IMAGE_PATH: _ClassVar[ContentPart.Type]
         IMAGE_URL: _ClassVar[ContentPart.Type]
         IMAGE_BINARY: _ClassVar[ContentPart.Type]
+        AUDIO_PATH: _ClassVar[ContentPart.Type]
+        AUDIO_URL: _ClassVar[ContentPart.Type]
+        AUDIO_BINARY: _ClassVar[ContentPart.Type]
+        VIDEO_PATH: _ClassVar[ContentPart.Type]
+        VIDEO_URL: _ClassVar[ContentPart.Type]
+        VIDEO_BINARY: _ClassVar[ContentPart.Type]
 
     TYPE_UNSPECIFIED: ContentPart.Type
     TEXT: ContentPart.Type
     IMAGE_PATH: ContentPart.Type
     IMAGE_URL: ContentPart.Type
     IMAGE_BINARY: ContentPart.Type
+    AUDIO_PATH: ContentPart.Type
+    AUDIO_URL: ContentPart.Type
+    AUDIO_BINARY: ContentPart.Type
+    VIDEO_PATH: ContentPart.Type
+    VIDEO_URL: ContentPart.Type
+    VIDEO_BINARY: ContentPart.Type
     TYPE_FIELD_NUMBER: _ClassVar[int]
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     BLOB_FIELD_NUMBER: _ClassVar[int]

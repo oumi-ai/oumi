@@ -1,0 +1,25 @@
+# Native Transformers inference config for Qwen3-VL-235B-A22B-Thinking.
+#
+# Usage:
+#   oumi infer -i -c oumi://configs/recipes/qwen3/inference/235b_a22b_vl_thinking_infer.yaml \
+#     --image path/to/image.png
+#
+# Model card: https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Thinking
+
+model:
+  model_name: "Qwen/Qwen3-VL-235B-A22B-Thinking"
+  model_max_length: 32768
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+  processor_kwargs:
+    video_fps: 2.0
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.6
+  top_p: 0.95
+  use_sampling: true
+  presence_penalty: 0.0
+
+engine: NATIVE

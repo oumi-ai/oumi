@@ -1,0 +1,33 @@
+# vLLM inference config for Qwen2.5-Omni-3B.
+#
+# Requirements:
+#   - `pip install oumi[gpu]`
+#
+# Usage:
+#   oumi infer -i -c oumi://configs/recipes/qwen2_5/inference/omni_3b_vllm_infer.yaml \
+#     --audio path/to/audio.wav --video path/to/video.mp4 --image path/to/image.png
+#
+# Model card: https://huggingface.co/Qwen/Qwen2.5-Omni-3B
+
+model:
+  model_name: "Qwen/Qwen2.5-Omni-3B"
+  model_max_length: 32768
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+  processor_kwargs:
+    use_audio_in_video: true
+    video_fps: 2.0
+    limit_mm_per_prompt:
+      image: 3
+      video: 3
+      audio: 3
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.6
+  top_p: 0.95
+  use_sampling: true
+  presence_penalty: 0.0
+
+engine: VLLM

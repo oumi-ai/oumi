@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import base64
+import mimetypes
 from typing import Any, Union
 
 import PIL.Image
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Type
+from oumi.utils.audio_utils import load_audio_wav_bytes
 from oumi.utils.image_utils import (
     DEFAULT_IMAGE_MODE,
     load_image_png_bytes_from_path,
@@ -28,6 +30,7 @@ from oumi.utils.image_utils import (
     load_pil_image_from_url,
 )
 from oumi.utils.str_utils import truncate_text_pieces_to_max_tokens_limit
+from oumi.utils.video_utils import load_video_bytes
 
 
 def load_image_bytes_to_content_item(
@@ -127,6 +130,75 @@ _JSON_DICT_KEY_TYPE: str = "type"
 _JSON_DICT_KEY_TEXT: str = "text"
 _JSON_DICT_KEY_IMAGE_URL: str = "image_url"
 _JSON_DICT_KEY_URL: str = "url"
+_JSON_DICT_KEY_AUDIO_URL: str = "audio_url"
+_JSON_DICT_KEY_VIDEO_URL: str = "video_url"
+
+
+def load_audio_bytes_to_content_item(
+    item: ContentItem,
+    *,
+    target_sample_rate: int = 16000,
+    mono: bool = True,
+) -> ContentItem:
+    """Ensures that an audio content item contains inline WAV bytes."""
+    if item.type in (Type.AUDIO_PATH, Type.AUDIO_URL):
+        if item.content is None:
+            raise ValueError("Audio source is None")
+        wav_bytes = load_audio_wav_bytes(
+            path=item.content if item.type == Type.AUDIO_PATH else None,
+            url=item.content if item.type == Type.AUDIO_URL else None,
+            target_sample_rate=target_sample_rate,
+            mono=mono,
+        )
+        return ContentItem(type=Type.AUDIO_BINARY, binary=wav_bytes)
+    return item
+
+
+def base64encode_content_item_audio_bytes(
+    item: ContentItem,
+    *,
+    add_mime_prefix: bool = True,
+    mime_type: str = "audio/wav",
+) -> str:
+    """Base64 encodes audio bytes."""
+    if not item.is_audio():
+        raise ValueError(f"Message type is not audio: {item.type}")
+    if not item.binary:
+        raise ValueError(f"No audio bytes in message: {item.type}")
+    base64_str = base64.b64encode(item.binary).decode(encoding="utf8")
+    if not add_mime_prefix:
+        return base64_str
+    return f"data:{mime_type};base64,{base64_str}"
+
+
+def load_video_bytes_to_content_item(item: ContentItem) -> ContentItem:
+    """Ensures that a video content item contains inline binary data."""
+    if item.type in (Type.VIDEO_PATH, Type.VIDEO_URL):
+        if item.content is None:
+            raise ValueError("Video source is None")
+        video_bytes = load_video_bytes(
+            path=item.content if item.type == Type.VIDEO_PATH else None,
+            url=item.content if item.type == Type.VIDEO_URL else None,
+        )
+        return ContentItem(type=Type.VIDEO_BINARY, binary=video_bytes)
+    return item
+
+
+def base64encode_content_item_video_bytes(
+    item: ContentItem,
+    *,
+    add_mime_prefix: bool = True,
+    mime_type: str = "video/mp4",
+) -> str:
+    """Base64 encodes video bytes."""
+    if not item.is_video():
+        raise ValueError(f"Message type is not video: {item.type}")
+    if not item.binary:
+        raise ValueError(f"No video bytes in message: {item.type}")
+    base64_str = base64.b64encode(item.binary).decode(encoding="utf8")
+    if not add_mime_prefix:
+        return base64_str
+    return f"data:{mime_type};base64,{base64_str}"
 
 
 def convert_message_content_item_to_json_dict(
@@ -145,25 +217,75 @@ def convert_message_content_item_to_json_dict(
             _JSON_DICT_KEY_TYPE: Type.TEXT.value,
             _JSON_DICT_KEY_TEXT: (item.content or ""),
         }
-    elif not item.is_image():
+    elif not (item.is_image() or item.is_audio() or item.is_video()):
         raise ValueError(f"Unsupported message type: {item.type}")
 
-    if not item.binary and item.type != Type.IMAGE_URL:
-        item = load_image_bytes_to_content_item(item)
+    if item.is_image():
+        if not item.binary and item.type != Type.IMAGE_URL:
+            item = load_image_bytes_to_content_item(item)
 
-    if item.binary:
-        b64_image = base64encode_content_item_image_bytes(item, add_mime_prefix=True)
+        if item.binary:
+            b64_image = base64encode_content_item_image_bytes(
+                item, add_mime_prefix=True
+            )
+            return {
+                _JSON_DICT_KEY_TYPE: Type.IMAGE_URL.value,
+                _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: b64_image},
+            }
+
+        assert item.type == Type.IMAGE_URL, (
+            f"Unexpected message type: {item.type}. Must be a code bug."
+        )
         return {
             _JSON_DICT_KEY_TYPE: Type.IMAGE_URL.value,
-            _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: b64_image},
+            _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: item.content or ""},
         }
 
-    assert item.type == Type.IMAGE_URL, (
+    if item.is_audio():
+        if not item.binary and item.type != Type.AUDIO_URL:
+            item = load_audio_bytes_to_content_item(item)
+
+        if item.binary:
+            b64_audio = base64encode_content_item_audio_bytes(
+                item, add_mime_prefix=True
+            )
+            return {
+                _JSON_DICT_KEY_TYPE: Type.AUDIO_URL.value,
+                _JSON_DICT_KEY_AUDIO_URL: {_JSON_DICT_KEY_URL: b64_audio},
+            }
+
+        assert item.type == Type.AUDIO_URL, (
+            f"Unexpected message type: {item.type}. Must be a code bug."
+        )
+        return {
+            _JSON_DICT_KEY_TYPE: Type.AUDIO_URL.value,
+            _JSON_DICT_KEY_AUDIO_URL: {_JSON_DICT_KEY_URL: item.content or ""},
+        }
+
+    assert item.is_video()
+    if not item.binary and item.type != Type.VIDEO_URL:
+        item = load_video_bytes_to_content_item(item)
+
+    if item.binary:
+        mime_type = "video/mp4"
+        if item.type == Type.VIDEO_PATH and item.content:
+            guessed_mime, _ = mimetypes.guess_type(item.content)
+            if guessed_mime:
+                mime_type = guessed_mime
+        b64_video = base64encode_content_item_video_bytes(
+            item, add_mime_prefix=True, mime_type=mime_type
+        )
+        return {
+            _JSON_DICT_KEY_TYPE: Type.VIDEO_URL.value,
+            _JSON_DICT_KEY_VIDEO_URL: {_JSON_DICT_KEY_URL: b64_video},
+        }
+
+    assert item.type == Type.VIDEO_URL, (
         f"Unexpected message type: {item.type}. Must be a code bug."
     )
     return {
-        _JSON_DICT_KEY_TYPE: Type.IMAGE_URL.value,
-        _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: item.content or ""},
+        _JSON_DICT_KEY_TYPE: Type.VIDEO_URL.value,
+        _JSON_DICT_KEY_VIDEO_URL: {_JSON_DICT_KEY_URL: item.content or ""},
     }
 
 

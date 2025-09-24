@@ -1,0 +1,228 @@
+# Instruction Following Example
+# Generate instruction-response pairs with varying complexity and domains.
+# This example creates diverse task instructions across multiple domains and difficulty levels.
+#
+# Requirements:
+#   - Set your anthropic api key in the environment variable ANTHROPIC_API_KEY
+#   - example: `export ANTHROPIC_API_KEY=your_api_key`
+#   - Alternatively, change the model in the inference_config section to your desired model
+#   - See the inference_config section for more details
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/configuration.html
+#
+# Usage:
+#   oumi synth -c oumi://configs/examples/synthesis/instruction_following_synth.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Config class: oumi.core.configs.SynthesisConfig
+#   - Params class: oumi.core.configs.params.synthesis_params.GeneralSynthesisParams
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/synthesis_config.py
+#   - Params source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/synthesis_params.py
+#   - Other synthesis configs: configs/**/*synth.yaml
+
+strategy: GENERAL
+num_samples: 10
+output_path: instruction_following_dataset.jsonl
+
+strategy_params:
+  # Provide seed examples for different types of instructions
+  input_examples:
+    - examples:
+      - example_domain: "Creative Writing"
+        example_domain_description: "Tasks involving creative content creation, storytelling, poetry"
+        example_complexity: "Beginner"
+        example_complexity_description: "Simple, straightforward tasks suitable for beginners"
+        example_task_format: "Creation"
+        example_task_format_description: "Create original content, code, or solutions"
+        example_instruction: "Write a short story about a robot learning to paint"
+      - example_domain: "Analysis & Research"
+        example_domain_description: "Tasks requiring analytical thinking, comparison, evaluation"
+        example_complexity: "Intermediate"
+        example_complexity_description: "Moderately complex tasks requiring some expertise"
+        example_task_format: "Analysis"
+        example_task_format_description: "Analyze, compare, or evaluate something"
+        example_instruction: "Compare and contrast renewable vs non-renewable energy sources"
+      - example_domain: "Programming"
+        example_domain_description: "Tasks requiring software development, coding challenges, technical problems"
+        example_complexity: "Advanced"
+        example_complexity_description: "Complex tasks requiring deep knowledge and skills"
+        example_task_format: "Creation"
+        example_task_format_description: "Create original content, code, or solutions"
+        example_instruction: "Implement a thread-safe LRU cache with O(1) operations using a combination of hash map and doubly linked list, including proper memory management and concurrent access handling"
+
+  # Define the domain and complexity attributes
+  sampled_attributes:
+    # The subject area or field for the instruction
+    - id: domain
+      name: Task Domain
+      description: The subject area or field for the instruction
+      possible_values:
+        - id: writing
+          name: Creative Writing
+          description: Tasks involving creative content creation, storytelling, poetry
+        - id: analysis
+          name: Analysis & Research
+          description: Tasks requiring analytical thinking, comparison, evaluation
+        - id: coding
+          name: Programming
+          description: Software development, coding challenges, technical problems
+        - id: math
+          name: Mathematics
+          description: Mathematical problems, calculations, proofs
+        - id: science
+          name: Science
+          description: Scientific concepts, experiments, explanations
+        - id: business
+          name: Business
+          description: Business strategy, marketing, management tasks
+
+    # How challenging the instruction should be
+    - id: complexity
+      name: Task Complexity
+      description: How challenging the instruction should be
+      possible_values:
+        - id: beginner
+          name: Beginner
+          description: Simple, straightforward tasks suitable for beginners
+          sample_rate: 0.2
+        - id: intermediate
+          name: Intermediate
+          description: Moderately complex tasks requiring some expertise
+          sample_rate: 0.4
+        - id: advanced
+          name: Advanced
+          description: Complex tasks requiring deep knowledge and skills
+          sample_rate: 0.4
+
+    # The type of task being requested
+    - id: task_format
+      name: Task Format
+      description: The type of task being requested
+      possible_values:
+        - id: explain
+          name: Explanation
+          description: Explain a concept, process, or phenomenon
+        - id: create
+          name: Creation
+          description: Create original content, code, or solutions
+        - id: analyze
+          name: Analysis
+          description: Analyze, compare, or evaluate something
+        - id: solve
+          name: Problem Solving
+          description: Solve a specific problem or challenge
+        - id: summarize
+          name: Summarization
+          description: Summarize or synthesize information
+
+  # Generate diverse instructions
+  generated_attributes:
+    # Generate the instruction
+    - id: instruction
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are an expert at creating educational and training tasks across different domains.
+
+            Your goal is to create clear, specific, and engaging instructions that:
+            - Match the requested domain and complexity level
+            - Are appropriate for the specified task format
+            - Provide clear expectations for what should be delivered
+            - Are realistic and achievable
+
+            Format your response as follows:
+            Instruction:
+            <instruction>
+            End Instruction
+
+            Write only the instruction, do not include additional filler text.
+        - role: USER
+          content: |
+            Domain: {example_domain} - {example_domain_description}
+            Complexity: {example_complexity} - {example_complexity_description}
+            Task Format: {example_task_format} - {example_task_format_description}
+        - role: ASSISTANT
+          content: |
+            Instruction:
+            {example_instruction}
+            End Instruction
+        - role: USER
+          content: |
+            Domain: {domain} - {domain.description}
+            Complexity: {complexity} - {complexity.description}
+            Task Format: {task_format} - {task_format.description}
+      postprocessing_params:
+        id: cleaned_instruction
+        cut_prefix: "Instruction:"
+        cut_suffix: "End Instruction"
+        strip_whitespace: true
+
+    # Generate the response
+    - id: response
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are a knowledgeable AI assistant who follows instructions carefully and provides high-quality responses.
+
+            Provide responses that:
+            - Directly address the instruction
+            - Match the expected complexity level
+            - Are well-structured and informative
+            - Include examples when helpful
+        - role: USER
+          content: "{cleaned_instruction}"
+      postprocessing_params:
+        id: cleaned_response
+        strip_whitespace: true
+
+  # Specify particular combinations and how often to sample them
+  combination_sampling:
+    - combination:
+        domain: coding
+        complexity: advanced
+        task_format: solve
+      sample_rate: 0.15  # 15% advanced coding problems
+    - combination:
+        domain: science
+        complexity: intermediate
+        task_format: explain
+      sample_rate: 0.1   # 10% intermediate science explanations
+    - combination:
+        domain: writing
+        complexity: beginner
+        task_format: create
+      sample_rate: 0.1   # 10% beginner creative writing
+
+  # Convert the instruction-response pairs into a conversation format
+  transformed_attributes:
+    - id: conversation
+      transformation_strategy:
+        type: CHAT
+        chat_transform:
+          messages:
+            - role: USER
+              content: "{cleaned_instruction}"
+            - role: ASSISTANT
+              content: "{cleaned_response}"
+
+  # Include only relevant attributes in output
+  passthrough_attributes:
+    - conversation
+    - cleaned_instruction
+    - cleaned_response
+    - domain
+    - complexity
+    - task_format
+
+# Example inference configuration
+inference_config:
+  model:
+    model_name: claude-3-5-sonnet-20240620
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60

@@ -1,10 +1,33 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# pyright: reportGeneralTypeIssues=false
+
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any, Callable
 
 import jsonlines
 import pytest
+import transformers
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
+from oumi.core.processors.qwen_omni_processor import (
+    QwenOmniProcessor,
+    QwenOmniProcessorConfig,
+)
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -166,6 +189,197 @@ def test_infer_online_to_file():
             for line in f:
                 parsed_conversations.append(Conversation.from_json(line))
             assert expected_result == parsed_conversations
+
+
+#
+# Multimodal aggregation tests for Qwen Omni processors
+#
+
+
+class _MockOmniProcessor(QwenOmniProcessor):
+    def __init__(
+        self,
+        prepare_return: tuple[Any, Any, Any, dict[str, Any] | None],
+        *,
+        config: QwenOmniProcessorConfig | None = None,
+        prepare_hook: Callable[..., None] | None = None,
+    ) -> None:
+        # Deliberately bypass parent initialiser to avoid heavy dependencies.
+        self.prepare_return = prepare_return
+        self.prepare_hook = prepare_hook
+        self._config = config or QwenOmniProcessorConfig()
+        self.last_kwargs: dict[str, Any] | None = None
+        self.prepare_args: dict[str, Any] | None = None
+
+    def prepare_multimodal_inputs(
+        self,
+        messages: Iterable[Message],
+        *,
+        use_audio_in_video: bool | None,
+        return_video_kwargs: bool,
+    ) -> tuple[Any, Any, Any, dict[str, Any] | None]:
+        if self.prepare_hook:
+            self.prepare_hook(messages, use_audio_in_video, return_video_kwargs)
+        self.prepare_args = {
+            "messages": list(messages),
+            "use_audio_in_video": use_audio_in_video,
+            "return_video_kwargs": return_video_kwargs,
+        }
+        return self.prepare_return
+
+    def __call__(
+        self,
+        *,
+        text: list[str],
+        images: list[Any] | None = None,
+        audios: list[Any] | None = None,
+        videos: list[Any] | None = None,
+        return_tensors: str | None = "pt",
+        **kwargs: Any,
+    ) -> transformers.BatchEncoding:
+        self.last_kwargs = {
+            "text": text,
+            "images": images,
+            "audios": audios,
+            "videos": videos,
+            "return_tensors": return_tensors,
+            **kwargs,
+        }
+        return transformers.BatchEncoding(data={"dummy": []})
+
+    def apply_chat_template(self, *args: Any, **kwargs: Any) -> str:
+        return ""
+
+
+def _make_mock_omni_engine(processor: _MockOmniProcessor) -> NativeTextInferenceEngine:
+    engine = NativeTextInferenceEngine.__new__(NativeTextInferenceEngine)
+    engine._processor = processor  # type: ignore[attr-defined]
+    engine._supports_multiple_images = True  # type: ignore[attr-defined]
+    return engine
+
+
+def _make_multi_image_conversation() -> Conversation:
+    return Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(type=Type.IMAGE_PATH, content="image_a.png"),
+                    ContentItem(type=Type.IMAGE_PATH, content="image_b.png"),
+                ],
+            )
+        ]
+    )
+
+
+def test_qwen_omni_multi_image_aggregation():
+    mock_processor = _MockOmniProcessor(
+        prepare_return=(None, ["img_a", "img_b"], None, None)
+    )
+    engine = _make_mock_omni_engine(mock_processor)
+    text_prompts = ["prompt"]
+    conversation = _make_multi_image_conversation()
+
+    engine._generate_batch_encoding_with_processor(text_prompts, [conversation])
+
+    assert mock_processor.prepare_args is not None
+    assert (
+        mock_processor.prepare_args["use_audio_in_video"]
+        == mock_processor.config.use_audio_in_video
+    )
+    assert mock_processor.last_kwargs is not None
+    assert mock_processor.last_kwargs["images"] == ["img_a", "img_b"]
+    assert mock_processor.last_kwargs["audios"] is None
+    assert mock_processor.last_kwargs["videos"] is None
+
+
+def test_qwen_omni_interleaved_images_and_text():
+    observed_sequences: list[list[Type]] = []
+
+    def _hook(messages: Iterable[Message], *_: Any) -> None:
+        for message in messages:
+            observed_sequences.append([item.type for item in message.content_items])
+
+    mock_processor = _MockOmniProcessor(
+        prepare_return=(None, ["img_a", "img_b"], None, None),
+        prepare_hook=_hook,
+    )
+    engine = _make_mock_omni_engine(mock_processor)
+    conversation = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(type=Type.IMAGE_PATH, content="image_a.png"),
+                    ContentItem(type=Type.TEXT, content="Describe this"),
+                    ContentItem(type=Type.IMAGE_PATH, content="image_b.png"),
+                ],
+            )
+        ]
+    )
+
+    engine._generate_batch_encoding_with_processor(["prompt"], [conversation])
+
+    assert observed_sequences == [[Type.IMAGE_PATH, Type.TEXT, Type.IMAGE_PATH]], (
+        "Message order should be preserved when preparing multimodal inputs."
+    )
+
+
+def test_qwen_omni_video_with_audio():
+    config = QwenOmniProcessorConfig(use_audio_in_video=True)
+    mock_processor = _MockOmniProcessor(
+        prepare_return=(
+            ["audio_array"],
+            None,
+            ["video_frames"],
+            {"fps": [2.0]},
+        ),
+        config=config,
+    )
+    engine = _make_mock_omni_engine(mock_processor)
+    conversation = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(type=Type.VIDEO_PATH, content="video.mp4"),
+                    ContentItem(type=Type.AUDIO_PATH, content="audio.wav"),
+                ],
+            )
+        ]
+    )
+
+    engine._generate_batch_encoding_with_processor(["prompt"], [conversation])
+
+    assert mock_processor.last_kwargs is not None
+    assert mock_processor.last_kwargs["audios"] == ["audio_array"]
+    assert mock_processor.last_kwargs["videos"] == ["video_frames"]
+    assert mock_processor.last_kwargs["mm_processor_kwargs"] == {"fps": [2.0]}
+    assert mock_processor.last_kwargs["use_audio_in_video"] is True
+
+
+def test_qwen_omni_audio_only():
+    mock_processor = _MockOmniProcessor(
+        prepare_return=(["audio_array"], None, None, None)
+    )
+    engine = _make_mock_omni_engine(mock_processor)
+    conversation = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(type=Type.AUDIO_PATH, content="audio.wav"),
+                ],
+            )
+        ]
+    )
+
+    engine._generate_batch_encoding_with_processor(["prompt"], [conversation])
+
+    assert mock_processor.last_kwargs is not None
+    assert mock_processor.last_kwargs["audios"] == ["audio_array"]
+    assert mock_processor.last_kwargs["images"] is None
+    assert mock_processor.last_kwargs["videos"] is None
 
 
 def test_infer_from_file():

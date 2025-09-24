@@ -746,7 +746,11 @@ def test_content_item_methods_mixed_items(role: Role):
     assert message.text_content_items == [text_item1, text_item2, text_item3]
 
     assert message.count_content_items() == ContentItemCounts(
-        total_items=5, image_items=2, text_items=3
+        total_items=5,
+        text_items=3,
+        image_items=2,
+        audio_items=0,
+        video_items=0,
     )
 
 
@@ -785,7 +789,11 @@ def test_content_item_methods_single_image(image_type):
     assert message.text_content_items == []
 
     assert message.count_content_items() == ContentItemCounts(
-        total_items=1, image_items=1, text_items=0
+        total_items=1,
+        text_items=0,
+        image_items=1,
+        audio_items=0,
+        video_items=0,
     )
 
 
@@ -831,7 +839,11 @@ def test_content_item_methods_triple_image():
     assert message.text_content_items == []
 
     assert message.count_content_items() == ContentItemCounts(
-        total_items=3, image_items=3, text_items=0
+        total_items=3,
+        text_items=0,
+        image_items=3,
+        audio_items=0,
+        video_items=0,
     )
 
 
@@ -860,7 +872,11 @@ def test_content_item_methods_legacy_text():
     assert message.text_content_items == [test_text_item]
 
     assert message.count_content_items() == ContentItemCounts(
-        total_items=1, image_items=0, text_items=1
+        total_items=1,
+        text_items=1,
+        image_items=0,
+        audio_items=0,
+        video_items=0,
     )
 
 
@@ -890,7 +906,55 @@ def test_content_item_methods_double_text():
     assert message.text_content_items == [test_text_item, test_text_item]
 
     assert message.count_content_items() == ContentItemCounts(
-        total_items=2, image_items=0, text_items=2
+        total_items=2,
+        text_items=2,
+        image_items=0,
+        audio_items=0,
+        video_items=0,
+    )
+
+
+def test_content_item_methods_single_audio():
+    audio_item = ContentItem(type=Type.AUDIO_PATH, content="/tmp/audio.wav")
+    message = Message(role=Role.USER, content=[audio_item])
+
+    assert not message.contains_images()
+    assert message.count_content_items() == ContentItemCounts(
+        total_items=1,
+        text_items=0,
+        image_items=0,
+        audio_items=1,
+        video_items=0,
+    )
+
+
+def test_content_item_methods_audio_and_text():
+    audio_item = ContentItem(type=Type.AUDIO_BINARY, binary=b"\x00\x01")
+    text_item = ContentItem(type=Type.TEXT, content="describe the sound")
+    message = Message(role=Role.USER, content=[audio_item, text_item])
+
+    assert message.contains_text()
+    counts = message.count_content_items()
+    assert counts == ContentItemCounts(
+        total_items=2,
+        text_items=1,
+        image_items=0,
+        audio_items=1,
+        video_items=0,
+    )
+
+
+def test_content_item_methods_single_video():
+    video_item = ContentItem(type=Type.VIDEO_BINARY, binary=b"\x00\x01")
+    message = Message(role=Role.USER, content=[video_item])
+
+    counts = message.count_content_items()
+    assert counts == ContentItemCounts(
+        total_items=1,
+        text_items=0,
+        image_items=0,
+        audio_items=0,
+        video_items=1,
     )
 
 

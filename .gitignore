@@ -185,9 +185,16 @@ cython_debug/
 
 # VS Code Workspace
 oumi.code-workspace
+<<<<<<< HEAD
  
 # Local contributor guide (not tracked)
 AGENTS.md
 
 # Node.js dependencies
 node_modules/
+=======
+
+# AI
+CLAUDE.md
+AGENTS.md
+>>>>>>> penfever/qwen2.5-omni

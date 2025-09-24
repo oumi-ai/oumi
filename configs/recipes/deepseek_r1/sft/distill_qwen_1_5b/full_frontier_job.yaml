@@ -3,7 +3,6 @@
 # Requirements:
 #   - Set up your OLCF account (only available to Oumi core team)
 #   - Set $OLCF_USER to your OLCF username
-#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #
 # Usage:
 #   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_frontier_job.yaml --cluster batch.$OLCF_USER --user $OLCF_USER --log-level DEBUG
@@ -34,8 +33,6 @@ setup: |
   #SBATCH -N 1
   #SBATCH -A lrn081
   #SBATCH -J distill_qwen_1_5b_fft
-  #SBATCH -o /lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU
-  #SBATCH -e /lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER
   #SBATCH -t 01:00:00
   #SBATCH -p batch
   #SBATCH -q debug
@@ -93,4 +90,4 @@ run: |
     --training.dataloader_prefetch_factor=32 \
     --training.enable_wandb=false
 
-  echo "Node ${SKYPILOT_NODE_RANK} is all done!"
+  echo "Node ${FRONTIER_NODE_RANK} is all done!"

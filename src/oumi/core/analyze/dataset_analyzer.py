@@ -14,7 +14,7 @@
 
 import copy
 from dataclasses import asdict, dataclass
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 import pandas as pd
 from tqdm import tqdm
@@ -24,6 +24,7 @@ from oumi.core.datasets import BaseMapDataset
 from oumi.core.registry import REGISTRY
 from oumi.utils.analysis_utils import (
     build_tokenizer_from_config,
+    compute_statistics,
     load_dataset_from_config,
 )
 from oumi.utils.logging import logger
@@ -622,6 +623,7 @@ class DatasetAnalyzer:
             "dataset_overview": self._get_dataset_overview(),
             "message_level_summary": self._get_message_level_summary(),
             "conversation_level_summary": self._get_conversation_level_summary(),
+            "conversation_turns": self._get_conversation_turns_summary(),
         }
 
         return summary
@@ -701,20 +703,11 @@ class DatasetAnalyzer:
 
                 # Compute statistics for numeric columns
                 if pd.api.types.is_numeric_dtype(self._message_df[col]):
-                    values = self._message_df[col].dropna()
+                    values = cast(pd.Series, self._message_df[col].dropna())
                     if len(values) > 0:
-                        summary[analyzer_name][metric_name] = {
-                            "count": len(values),
-                            "mean": round(
-                                float(values.mean()), self._decimal_precision
-                            ),
-                            "std": round(float(values.std()), self._decimal_precision),
-                            "min": float(values.min()),
-                            "max": float(values.max()),
-                            "median": round(
-                                float(values.median()), self._decimal_precision
-                            ),
-                        }
+                        summary[analyzer_name][metric_name] = compute_statistics(
+                            values, self._decimal_precision
+                        )
 
         return summary
 
@@ -748,44 +741,26 @@ class DatasetAnalyzer:
 
                 # Compute statistics for numeric columns
                 if pd.api.types.is_numeric_dtype(self._conversation_df[col]):
-                    values = self._conversation_df[col].dropna()
+                    values = cast(pd.Series, self._conversation_df[col].dropna())
                     if len(values) > 0:
-                        summary[analyzer_name][metric_name] = {
-                            "count": len(values),
-                            "mean": round(
-                                float(values.mean()), self._decimal_precision
-                            ),
-                            "std": round(float(values.std()), self._decimal_precision),
-                            "min": float(values.min()),
-                            "max": float(values.max()),
-                            "median": round(
-                                float(values.median()), self._decimal_precision
-                            ),
-                        }
-
-        # Add conversation turn statistics if available
-        if self._message_df is not None and not self._message_df.empty:
-            turns_per_conversation = self._message_df.groupby("conversation_id").size()
-            # Handle pandas Series operations with proper type conversion
-            mean_val = turns_per_conversation.mean()
-            std_val = turns_per_conversation.std()
-            min_val = turns_per_conversation.min()
-            max_val = turns_per_conversation.max()
-            median_val = turns_per_conversation.median()
-
-            summary["conversation_turns"] = {
-                "count": len(turns_per_conversation),
-                "mean": round(float(mean_val), self._decimal_precision)  # type: ignore
-                if mean_val is not None
-                else 0.0,
-                "std": round(float(std_val), self._decimal_precision)  # type: ignore
-                if std_val is not None
-                else 0.0,
-                "min": int(min_val) if min_val is not None else 0,  # type: ignore
-                "max": int(max_val) if max_val is not None else 0,  # type: ignore
-                "median": round(float(median_val), self._decimal_precision)  # type: ignore
-                if median_val is not None
-                else 0.0,
-            }
+                        summary[analyzer_name][metric_name] = compute_statistics(
+                            values, self._decimal_precision
+                        )
 
         return summary
+
+    def _get_conversation_turns_summary(self) -> dict[str, Any]:
+        """Get conversation turn statistics summary.
+
+        Returns:
+            Dictionary containing conversation turn statistics
+        """
+        if self._message_df is None or self._message_df.empty:
+            return {}
+
+        # groupby().size() always returns a Series, but we cast it because
+        # type checker can't infer this
+        turns_per_conversation = cast(
+            pd.Series, self._message_df.groupby("conversation_id").size()
+        )
+        return compute_statistics(turns_per_conversation, self._decimal_precision)

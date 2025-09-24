@@ -63,7 +63,7 @@ dependencies = [
     "pydantic>=2.11,<2.12",
     "responses>=0.25,<0.26",
     "safetensors>=0.6,<0.7",
-    "skypilot>=0.7,<0.8",      #  Used by launcher
+    "skypilot>=0.10.2,<0.11",    # 0.10.2 and above is needed
     "tensorboard>=2.20,<2.21",  # Optional, for monitoring training
     "torch>=2.6,<2.9.0",       # vllm only supports up to torch==2.7
     "torchao>=0.12,<0.13",     # Used by transformers
@@ -75,10 +75,11 @@ dependencies = [
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
-    "transformers>=4.55,<4.56",
+    "transformers>=4.56,<4.57",
     "trl>=0.21,<0.22",
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.9
+    "uvicorn<0.36.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.22",        # Logging to Weights and Biases.
 ]
 
@@ -126,6 +127,12 @@ gpu = [
     "verl>=0.5,<0.6",   # Used for the VERL_GRPO trainer.
     "vllm>=0.10,<0.11", # For VLLMInferenceEngine, and vLLM-powered GRPO training.
     "deepspeed>=0.17.0,<0.18.0"
+]
+
+omni = [
+    "av>=12,<16",                  # Video decoding fallback for multimodal models
+    "torchaudio>=2.6,<2.9",    # Audio preprocessing for multimodal models
+    "qwen-omni-utils>=0.0.8,<0.1", # Multimodal preprocessing utilities
 ]
 
 # Targets for supported cloud providers
