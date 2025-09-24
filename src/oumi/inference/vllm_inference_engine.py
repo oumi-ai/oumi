@@ -238,13 +238,16 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if self._is_qwen_omni and "limit_mm_per_prompt" not in final_vllm_kwargs:
             limit_mm = model_params.processor_kwargs.get("limit_mm_per_prompt")
             if limit_mm is not None:
-                final_vllm_kwargs["limit_mm_per_prompt"] = limit_mm
+                final_vllm_kwargs["limit_mm_per_prompt"] = cast(Any, limit_mm)
             else:
-                final_vllm_kwargs["limit_mm_per_prompt"] = {
-                    "image": 3,
-                    "video": 3,
-                    "audio": 3,
-                }
+                final_vllm_kwargs["limit_mm_per_prompt"] = cast(
+                    Any,
+                    {
+                        "image": 3,
+                        "video": 3,
+                        "audio": 3,
+                    },
+                )
 
         # Only add quantization if not already in vllm_kwargs and not None
         if quantization is not None and "quantization" not in vllm_kwargs:

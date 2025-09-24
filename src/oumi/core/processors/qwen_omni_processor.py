@@ -268,8 +268,8 @@ class QwenOmniProcessor(DefaultProcessor):
         video_kwargs = {"fps": video_fps} if return_video_kwargs and video_fps else None
         if use_audio_in_video:
             logger.warning(
-                "Audio-in-video extraction is unavailable in the fallback implementation;"
-                " video audio will be ignored."
+                "Audio-in-video extraction is unavailable in the fallback implementation; "
+                "video audio will be ignored."
             )
         return audios, images, videos, video_kwargs
 
