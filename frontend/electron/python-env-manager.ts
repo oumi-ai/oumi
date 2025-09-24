@@ -408,6 +408,11 @@ export class PythonEnvironmentManager {
     
     // Always include interactive (for prompt_toolkit, etc.)
     extras.push('interactive');
+
+    // Ensure multimodal/omni dependencies are available for audio/video models
+    if (!extras.includes('omni')) {
+      extras.push('omni');
+    }
     
     try {
       // Detect system capabilities

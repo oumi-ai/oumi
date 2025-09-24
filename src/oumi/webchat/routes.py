@@ -227,7 +227,7 @@ def add_middlewares(app: web.Application) -> None:
         except Exception:
             pass
 
-        logger.info(f"[trace:{inbound_trace}] 🌐 {request.method} {request.path} from {client_ip}")
+        logger.debug(f"[trace:{inbound_trace}] 🌐 {request.method} {request.path} from {client_ip}")
         # Log lightweight header/query info
         try:
             if request.headers.get('Origin'):
@@ -246,7 +246,7 @@ def add_middlewares(app: web.Application) -> None:
                 response.headers['X-Trace-ID'] = inbound_trace
             except Exception:
                 pass
-            logger.info(f"[trace:{inbound_trace}] ✅ {request.method} {request.path} -> {response.status} ({elapsed:.1f}ms)")
+            logger.debug(f"[trace:{inbound_trace}] ✅ {request.method} {request.path} -> {response.status} ({elapsed:.1f}ms)")
             return response
         except Exception as e:
             elapsed = (time.time() - start_time) * 1000

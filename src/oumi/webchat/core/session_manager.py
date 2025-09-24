@@ -380,37 +380,37 @@ class SessionManager:
             
             if should_log_debug:
                 self._last_debug_log_time[session_id] = current_time
-                logger.info(
+                logger.debug(
                     f"🔍 DEBUG: Updating context usage for session {session.session_id}"
                 )
-                logger.info(
+                logger.debug(
                     f"🔍 DEBUG: Conversation history length: {len(session.conversation_history)}"
                 )
                 # Additional debug info to trace conversation history source
-                logger.info(
+                logger.debug(
                     f"🔍 DEBUG: Conversation history object id: {id(session.conversation_history)}"
                 )
                 if hasattr(session, 'is_hydrated_from_db') and session.is_hydrated_from_db:
-                    logger.info(f"🔍 DEBUG: Session was hydrated from database")
+                    logger.debug(f"🔍 DEBUG: Session was hydrated from database")
                 else:
-                    logger.info(f"🔍 DEBUG: Session was NOT hydrated from database")
+                    logger.debug(f"🔍 DEBUG: Session was NOT hydrated from database")
                 # Log branch manager info
                 if hasattr(session, 'branch_manager') and session.branch_manager:
-                    logger.info(f"🔍 DEBUG: Branch manager exists, branches: {list(session.branch_manager.branches.keys())}")
+                    logger.debug(f"🔍 DEBUG: Branch manager exists, branches: {list(session.branch_manager.branches.keys())}")
                     if 'main' in session.branch_manager.branches:
                         main_branch = session.branch_manager.branches['main']
-                        logger.info(
+                        logger.debug(
                             f"🔍 DEBUG: Main branch history length: {len(main_branch.conversation_history)}, object id: {id(main_branch.conversation_history)}"
                         )
                         if id(main_branch.conversation_history) != id(session.conversation_history):
                             logger.error(f"🚨 ERROR: Main branch history is not the same object as session history!")
-            
+
             # Debug inspect the history before processing
             if should_log_debug and session.conversation_history:
                 first_msg = session.conversation_history[0] if session.conversation_history else None
                 last_msg = session.conversation_history[-1] if session.conversation_history else None
-                logger.info(f"🔍 DEBUG: First message in history: {first_msg}")
-                logger.info(f"🔍 DEBUG: Last message in history: {last_msg}")
+                logger.debug(f"🔍 DEBUG: First message in history: {first_msg}")
+                logger.debug(f"🔍 DEBUG: Last message in history: {last_msg}")
             
             for i, msg in enumerate(session.conversation_history):
                 content = msg.get("content", "")
@@ -418,7 +418,7 @@ class SessionManager:
                     msg_tokens = context_manager.estimate_tokens(content)
                     total_tokens += msg_tokens
                     if should_log_debug:
-                        logger.info(
+                        logger.debug(
                             f"🔍 DEBUG: Message {i}: {msg_tokens} tokens, content preview: {content[:50]}..."
                         )
             
@@ -436,7 +436,7 @@ class SessionManager:
             # Verify the update worked (only log if debug logging is enabled for this session)
             if should_log_debug:
                 stats = session.system_monitor.get_stats()
-                logger.info(
+                logger.debug(
                     f"🔍 DEBUG: SystemMonitor stats after update - context_used: {stats.context_used_tokens}, context_max: {stats.context_max_tokens}, percent: {stats.context_percent}"
                 )
         

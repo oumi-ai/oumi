@@ -62,6 +62,17 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._model = cast(
             transformers.PreTrainedModel, build_model(self._model_params)
         )
+        self._talker_disabled: bool = False
+        if hasattr(self._model, "disable_talker") and callable(
+            getattr(self._model, "disable_talker")
+        ):
+            try:
+                self._model.disable_talker()
+                self._talker_disabled = True
+                logger.info("Disabled talker subsystem for Qwen Omni model")
+            except Exception as exc:  # pragma: no cover - defensive guard
+                logger.warning("Failed to disable talker subsystem: %s", exc)
+
         if (
             not hasattr(self._model, "generation_config")
             or self._model.generation_config is None
@@ -281,7 +292,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             processor_kwargs["videos"] = aggregated_videos
 
         if aggregated_video_kwargs:
-            processor_kwargs["mm_processor_kwargs"] = aggregated_video_kwargs
+            processor_kwargs["videos_kwargs"] = aggregated_video_kwargs
 
         if isinstance(self._processor, QwenOmniProcessor):
             processor_kwargs.setdefault(
@@ -378,13 +389,17 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             disable=disable_tgdm,
         ):
             batch = input_batches[batch_index]
-            raw_generation_output = self._model.generate(
+            generate_kwargs: dict[str, Any] = {
                 # TODO: OPE-1328 - Fix type.
                 # type(batch) == BatchEncoding, but function expects a tensor.
-                **batch,  # type: ignore
-                generation_config=generation_config,
-                tokenizer=self._tokenizer,
-            )
+                **batch,  # type: ignore[arg-type]
+                "generation_config": generation_config,
+                "tokenizer": self._tokenizer,
+            }
+            if self._talker_disabled:
+                generate_kwargs.setdefault("return_audio", False)
+
+            raw_generation_output = self._model.generate(**generate_kwargs)
 
             if hasattr(raw_generation_output, "sequences"):
                 output_batch = raw_generation_output.sequences

@@ -23,6 +23,7 @@ from oumi.core.types.conversation import ContentItem, Conversation, Message, Typ
 from oumi.utils.audio_utils import load_audio_wav_bytes
 from oumi.utils.image_utils import (
     DEFAULT_IMAGE_MODE,
+    create_png_bytes_from_image_bytes,
     load_image_png_bytes_from_path,
     load_image_png_bytes_from_url,
     load_pil_image_from_bytes,
@@ -60,7 +61,18 @@ def load_image_bytes_to_content_item(
             assert item.type == Type.IMAGE_URL
             if item.content is None:
                 raise ValueError("Image URL is None")
-            png_bytes = load_image_png_bytes_from_url(item.content, mode=mode)
+            content_value = item.content
+            if content_value.startswith("data:image"):
+                try:
+                    _, base64_data = content_value.split("base64,", 1)
+                except ValueError as exc:
+                    raise ValueError(
+                        "Malformed data URL for image content"
+                    ) from exc
+                image_bytes = base64.b64decode(base64_data)
+                png_bytes = create_png_bytes_from_image_bytes(image_bytes, mode=mode)
+            else:
+                png_bytes = load_image_png_bytes_from_url(content_value, mode=mode)
 
         return ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
 
@@ -88,7 +100,16 @@ def load_pil_image_from_content_item(
     elif image_item.type == Type.IMAGE_URL:
         if image_item.content is None:
             raise ValueError("Image URL is None")
-        image_bin = load_pil_image_from_url(image_item.content, mode=mode)
+        content_value = image_item.content
+        if content_value.startswith("data:image"):
+            try:
+                _, base64_data = content_value.split("base64,", 1)
+            except ValueError as exc:
+                raise ValueError("Malformed data URL for image content") from exc
+            image_bytes = base64.b64decode(base64_data)
+            image_bin = load_pil_image_from_bytes(image_bytes, mode=mode)
+        else:
+            image_bin = load_pil_image_from_url(content_value, mode=mode)
     elif image_item.type == Type.IMAGE_BINARY:
         if image_item.binary is None:
             raise ValueError("Image binary is None")

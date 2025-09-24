@@ -15,6 +15,12 @@ import BranchContextMenu from './BranchContextMenu';
 import { ConversationBranch as IBranchData } from '@/lib/types';
 import BranchMergeDialog from './BranchMergeDialog';
 
+const debugLog = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug(...args);
+  }
+};
+
 interface BranchTreeProps {
   className?: string;
 }
@@ -40,7 +46,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
 
   // Debug: Log branches changes
   React.useEffect(() => {
-    console.log('🌿 BranchTree: branches updated:', branches.length, branches.map(b => b.name));
+    debugLog('🌿 BranchTree: branches updated:', branches.length, branches.map(b => b.name));
   }, [branches]);
 
   // No need to update branch message counts manually since branches are now derived on demand
@@ -68,7 +74,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
       
       // Retry after 2 seconds in case backend is starting up
       retryTimeout = setTimeout(async () => {
-        console.log('Retrying branch load after backend startup delay...');
+        debugLog('Retrying branch load after backend startup delay...');
         await loadBranches();
       }, 2000);
     };
@@ -167,10 +173,10 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
 
     try {
       // Clear model from memory before switching branches to ensure clean state
-      console.log('🧹 Clearing model before branch switch...');
+      debugLog('🧹 Clearing model before branch switch...');
       const clearResult = await apiClient.clearModel();
       if (clearResult.success) {
-        console.log('✅ Model cleared successfully before branch switch');
+        debugLog('✅ Model cleared successfully before branch switch');
       } else {
         console.warn('⚠️ Model clear failed, continuing with branch switch:', clearResult.message);
       }
@@ -233,7 +239,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
   const handleRenameBranch = async (branchId: string, newName: string) => {
     try {
       // For now, just log the rename action
-      console.log(`PLACEHOLDER: Rename branch ${branchId} to ${newName}`); // TODO: Implement API call
+      debugLog(`PLACEHOLDER: Rename branch ${branchId} to ${newName}`); // TODO: Implement API call
       alert('⚠️ Branch rename is not fully implemented yet. This is a placeholder feature.');
       
       // Note: branches are now derived on demand from the store using getBranches()
@@ -246,7 +252,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
   // Handle branch merging - PLACEHOLDER: Not fully implemented
   const handleMergeBranch = async (sourceBranchId: string, targetBranchId: string, strategy: 'append' | 'interleave' | 'replace') => {
     try {
-      console.log(`PLACEHOLDER: Merge ${sourceBranchId} into ${targetBranchId} using ${strategy}`); // TODO: Implement API call
+      debugLog(`PLACEHOLDER: Merge ${sourceBranchId} into ${targetBranchId} using ${strategy}`); // TODO: Implement API call
       alert('⚠️ Branch merge is not fully implemented yet. This is a placeholder feature.');
       
       // For now, just archive the source branch (remove it)

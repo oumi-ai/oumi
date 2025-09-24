@@ -396,35 +396,9 @@ class ChatHandler:
                 logger.debug(f"✅ Got response from inference engine: {len(response_content)} chars")
                 
             except Exception as e:
-                logger.error(f"❌ Inference engine call failed: {e}")
+                logger.error("❌ Inference engine call failed: %s", e)
                 logger.exception(e)
-                # Fallback to the unified infer() wrapper function
-                try:
-                    from oumi.infer import infer
-                    logger.info(f"🔄 Falling back to unified infer() function")
-                    results = infer(
-                        config=session_config,
-                        inputs=[latest_user_text],  # Simple string input fallback
-                        system_prompt=self.system_prompt,
-                        inference_engine=session_engine,
-                    )
-                    
-                    if results and len(results) > 0:
-                        response_conversation = results[0]
-                        for msg in reversed(response_conversation.messages):
-                            if msg.role not in [Role.USER, Role.SYSTEM]:
-                                response_content = str(msg.content)
-                                break
-                        else:
-                            response_content = "No response generated"
-                    else:
-                        response_content = "No response generated"
-                        
-                    logger.debug(f"✅ Fallback infer() succeeded: {len(response_content)} chars")
-                except Exception as fallback_error:
-                    logger.error(f"❌ Fallback infer() also failed: {fallback_error}")
-                    logger.exception(fallback_error)
-                    response_content = f"Inference failed: {str(e)}"
+                raise
             
             # Check if we have a valid response
             if not response_content or response_content.startswith("Inference failed:"):

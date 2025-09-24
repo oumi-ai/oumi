@@ -1432,6 +1432,12 @@ def infer(
     is_omni_model = is_qwen_omni_model(model_name)
 
     for input_text in inputs:
+        logger.debug(
+            "[infer] preparing conversation | model=%s | is_omni=%s | input_preview=%s",
+            model_name or "unknown",
+            is_omni_model,
+            (input_text[:80] + "...") if isinstance(input_text, str) and len(input_text) > 80 else input_text,
+        )
         # Create conversation with system message (if provided) and user message
         messages = []
         if system_prompt:
@@ -1453,11 +1459,30 @@ def infer(
                         ContentItem(type=Type.IMAGE_URL, content=image_bytes)
                     )
             content_items.append(ContentItem(type=Type.TEXT, content=input_text))
+            logger.debug(
+                "[infer] constructed multimodal content items: %s",
+                [item.type.value for item in content_items],
+            )
             messages.append(Message(role=Role.USER, content=content_items))
         else:
             messages.append(Message(role=Role.USER, content=input_text))
 
         conversation = Conversation(messages=messages)
+        logger.debug(
+            "[infer] final conversation payload: %s",
+            [
+                {
+                    "role": msg.role.value,
+                    "content_type": type(msg.content).__name__,
+                    "content_summary": (
+                        [item.type.value for item in msg.content]
+                        if isinstance(msg.content, list)
+                        else (msg.content[:80] + "..." if isinstance(msg.content, str) and len(msg.content) > 80 else msg.content)
+                    ),
+                }
+                for msg in conversation.messages
+            ],
+        )
         conversations.append(conversation)
 
     model_response = inference_engine.infer(

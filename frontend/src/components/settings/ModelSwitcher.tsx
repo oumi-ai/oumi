@@ -11,6 +11,12 @@ import apiClient from '@/lib/unified-api';
 import { ModelConfigMetadata } from '@/lib/types';
 import { formatContextLength } from '@/lib/api-model-context';
 
+const debugLog = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug(...args);
+  }
+};
+
 interface ConfigOption {
   id: string;
   config_path: string;
@@ -111,7 +117,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
             filename: c.filename ?? '',
           }));
           setAvailableConfigs(sanitized);
-          console.log(`📋 Loaded ${configsResponse.data.configs.length} inference configurations`);
+          debugLog(`📋 Loaded ${configsResponse.data.configs.length} inference configurations`);
         }
 
         // Then load current model with enhanced config metadata
@@ -123,10 +129,10 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
           // CRITICAL FIX: Extract and cache config metadata from server
           if (model.config_metadata) {
             setCurrentModelConfigMetadata(model.config_metadata);
-            console.log('🎯 Current model with metadata:', model.id, model.config_metadata);
+            debugLog('🎯 Current model with metadata:', model.id, model.config_metadata);
           } else {
             setCurrentModelConfigMetadata(null);
-            console.log(`🎯 Current model (no metadata): ${model.id}`);
+            debugLog(`🎯 Current model (no metadata): ${model.id}`);
           }
         }
 
@@ -144,7 +150,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
   // Refresh model info when currentModel changes
   React.useEffect(() => {
     if (currentModel && availableConfigs.length > 0) {
-      console.log(`🔄 Updating model info for: ${currentModel}`);
+      debugLog(`🔄 Updating model info for: ${currentModel}`);
       // Force re-render by updating the key or triggering state update
       setIsInitialized(true);
     }
@@ -228,19 +234,19 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
 
     try {
       // Clear model from memory before switching to ensure clean state
-      console.log('🧹 Clearing model before model switch...');
+      debugLog('🧹 Clearing model before model switch...');
       const clearResult = await apiClient.clearModel();
       if (clearResult.success) {
-        console.log('✅ Model cleared successfully before model switch');
+        debugLog('✅ Model cleared successfully before model switch');
       } else {
         console.warn('⚠️ Model clear failed, continuing with model switch:', clearResult.message);
       }
-      
+
       // Use the command API to switch models using config path
-      console.log(`🔄 Attempting to switch model using config: ${configPath}`);
+      debugLog(`🔄 Attempting to switch model using config: ${configPath}`);
       const response = await apiClient.executeCommand('swap', [configPath]);
-      
-      console.log('🔄 Model switch response:', response);
+
+      debugLog('🔄 Model switch response:', response);
       
       if (response.success) {
         // CRITICAL FIX: Reload model information from server after successful swap
@@ -254,10 +260,10 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
             // Extract and cache updated config metadata after swap
             if (model.config_metadata) {
               setCurrentModelConfigMetadata(model.config_metadata);
-              console.log('🔄 Updated model with metadata:', model.id, model.config_metadata);
+              debugLog('🔄 Updated model with metadata:', model.id, model.config_metadata);
             } else {
               setCurrentModelConfigMetadata(null);
-              console.log(`🔄 Updated model (no metadata): ${model.id}`);
+              debugLog(`🔄 Updated model (no metadata): ${model.id}`);
             }
 
             // Toast only when the active model actually changed
@@ -286,7 +292,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
         
         setIsDropdownOpen(false);
         setSearchTerm('');
-        console.log(`✅ Successfully switched to config: ${configPath}`);
+        debugLog(`✅ Successfully switched to config: ${configPath}`);
         
         // Show success message temporarily
         setError(null);
@@ -331,7 +337,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
 
     // CRITICAL FIX: Use cached config metadata from server if available
     if (currentModelConfigMetadata) {
-      console.log(`✅ Using server's active config metadata:`, currentModelConfigMetadata);
+      debugLog(`✅ Using server's active config metadata:`, currentModelConfigMetadata);
       return {
         displayName: currentModelConfigMetadata.display_name,
         description: currentModelConfigMetadata.description,
@@ -359,7 +365,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
     }
 
     if (matchingConfig) {
-      console.log(`✅ Found matching config:`, matchingConfig);
+      debugLog(`✅ Found matching config:`, matchingConfig);
       return {
         displayName: matchingConfig.display_name,
         description: `${matchingConfig.model_name} (${matchingConfig.filename})`,
@@ -370,7 +376,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
     }
 
     // Final fallback for unknown models
-    console.log(`⚠️ No matching config found for model: ${currentModel}`);
+    debugLog(`⚠️ No matching config found for model: ${currentModel}`);
     const fallbackName = currentModel.split('/').pop() || currentModel;
     return {
       displayName: fallbackName,

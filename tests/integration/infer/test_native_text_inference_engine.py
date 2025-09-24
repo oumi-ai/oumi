@@ -354,7 +354,7 @@ def test_qwen_omni_video_with_audio():
     assert mock_processor.last_kwargs is not None
     assert mock_processor.last_kwargs["audios"] == ["audio_array"]
     assert mock_processor.last_kwargs["videos"] == ["video_frames"]
-    assert mock_processor.last_kwargs["mm_processor_kwargs"] == {"fps": [2.0]}
+    assert mock_processor.last_kwargs["videos_kwargs"] == {"fps": [2.0]}
     assert mock_processor.last_kwargs["use_audio_in_video"] is True
 
 

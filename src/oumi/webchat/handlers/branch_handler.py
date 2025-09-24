@@ -62,7 +62,7 @@ class BranchHandler:
             # For GET, extract session_id from query params only
             try:
                 session_id = extract_session_id(request)
-                logger.info(f"[trace:{trace_id}] 🌐 Branches GET session_id='{session_id}'")
+                logger.debug(f"[trace:{trace_id}] 🌐 Branches GET session_id='{session_id}'")
                 session = await self.session_manager.get_or_create_session_safe(session_id, self.db)
             except ValueError as e:
                 logger.warning(f"[trace:{trace_id}] ⚠️ Branch API error: {e}")
@@ -100,7 +100,7 @@ class BranchHandler:
                 
                 # Normalize and validate action
                 action = normalize_branch_action(data.get("action", ""))
-                logger.info(f"[trace:{trace_id}] 🌐 Branches POST action='{action}' body_keys={list(data.keys())}")
+                logger.debug(f"[trace:{trace_id}] 🌐 Branches POST action='{action}' body_keys={list(data.keys())}")
                 
                 # Check if session_id is also in POST data (for consistency)
                 try:
@@ -151,7 +151,7 @@ class BranchHandler:
         
         async def switch_branch_atomically(session):
             """Switch branches atomically within session lock."""
-            logger.info(f"[trace:{trace_id}] 🔀 Branch switch requested from '{session.branch_manager.current_branch_id}' to '{branch_id}'")
+            logger.debug(f"[trace:{trace_id}] 🔀 Branch switch requested from '{session.branch_manager.current_branch_id}' to '{branch_id}'")
             logger.debug(f"🔀 DEBUG: Current conversation length before switch: {len(session.conversation_history)}")
             
             # Log current conversation state

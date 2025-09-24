@@ -221,7 +221,14 @@ class QwenOmniProcessor(DefaultProcessor):
         if item.type == Type.IMAGE_PATH:
             return {"type": "image", "image": item.content}
         if item.type == Type.IMAGE_URL:
-            return {"type": "image", "image_url": item.content}
+            image_value = item.content or ""
+            if image_value.startswith("data:image"):
+                binary_item = load_image_bytes_to_content_item(item)
+                image_value = base64encode_content_item_image_bytes(
+                    binary_item,
+                    add_mime_prefix=True,
+                )
+            return {"type": "image", "image": image_value}
         binary_item = load_image_bytes_to_content_item(item)
         data_url = base64encode_content_item_image_bytes(
             binary_item, add_mime_prefix=True
@@ -232,7 +239,18 @@ class QwenOmniProcessor(DefaultProcessor):
         if item.type == Type.AUDIO_PATH:
             return {"type": "audio", "audio": item.content}
         if item.type == Type.AUDIO_URL:
-            return {"type": "audio", "audio": item.content}
+            audio_value = item.content or ""
+            if audio_value.startswith("data:audio"):
+                binary_item = load_audio_bytes_to_content_item(
+                    item,
+                    target_sample_rate=self._config.audio_sample_rate,
+                    mono=self._config.audio_mono,
+                )
+                audio_value = base64encode_content_item_audio_bytes(
+                    binary_item,
+                    add_mime_prefix=True,
+                )
+            return {"type": "audio", "audio": audio_value}
         binary_item = load_audio_bytes_to_content_item(
             item,
             target_sample_rate=self._config.audio_sample_rate,
@@ -247,7 +265,14 @@ class QwenOmniProcessor(DefaultProcessor):
         if item.type == Type.VIDEO_PATH:
             return {"type": "video", "video": item.content}
         if item.type == Type.VIDEO_URL:
-            return {"type": "video", "video": item.content}
+            video_value = item.content or ""
+            if video_value.startswith("data:video"):
+                binary_item = load_video_bytes_to_content_item(item)
+                video_value = base64encode_content_item_video_bytes(
+                    binary_item,
+                    add_mime_prefix=True,
+                )
+            return {"type": "video", "video": video_value}
         binary_item = load_video_bytes_to_content_item(item)
         data_url = base64encode_content_item_video_bytes(
             binary_item, add_mime_prefix=True

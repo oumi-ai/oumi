@@ -14,6 +14,12 @@ import {
   Message 
 } from './types';
 
+const debugLog = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug(...args);
+  }
+};
+
 class UnifiedApiClient {
   private webClient = apiClient;
   private electronClient = electronAPI;
@@ -67,7 +73,7 @@ class UnifiedApiClient {
   async testModel(configPath: string): Promise<ApiResponse<{ success: boolean; message?: string }>> {
     const env = this.isElectron() ? 'electron' : 'web';
     const stack = new Error().stack?.split('\n').slice(2, 6).map(line => line.trim());
-    console.log('[UnifiedApi] testModel invoked', {
+    debugLog('[UnifiedApi] testModel invoked', {
       configPath,
       environment: env,
       timestamp: new Date().toISOString(),
@@ -120,7 +126,7 @@ class UnifiedApiClient {
       sessionId = st?.getCurrentSessionId?.() || st?.currentSessionId;
     } catch {}
     const stack = new Error().stack?.split('\n').slice(2, 6).map(line => line.trim());
-    console.log('[UnifiedApi] getModels invoked', {
+    debugLog('[UnifiedApi] getModels invoked', {
       environment: this.isElectron() ? 'electron' : 'web',
       sessionId,
       timestamp: new Date().toISOString(),

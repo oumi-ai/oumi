@@ -16,38 +16,17 @@
 
 from __future__ import annotations
 
+import base64
 import io
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import requests
-
-if TYPE_CHECKING:  # pragma: no cover - typing helpers only
-    import torch
-
-try:  # pragma: no cover - optional dependency
-    import torch as _torch
-    import torchaudio as _torchaudio
-    from torchaudio import functional as _ta_functional
-except ImportError:  # pragma: no cover - handled at runtime
-    _torch = None  # type: ignore[assignment]
-    _torchaudio = None  # type: ignore[assignment]
-    _ta_functional = None  # type: ignore[assignment]
+import torch
+import torchaudio
+from torchaudio import functional as ta_functional
 
 _FILE_URL_PREFIX = "file://"
-
-
-class AudioBackendUnavailableError(RuntimeError):
-    """Raised when required audio dependencies are not available."""
-
-
-def _ensure_torchaudio_available() -> None:
-    if _torchaudio is None or _torch is None or _ta_functional is None:
-        raise AudioBackendUnavailableError(
-            "torchaudio and torch are required for audio preprocessing. "
-            "Install them via `pip install torch torchaudio`."
-        )
 
 
 def _load_bytes_from_path(path: str | Path) -> bytes:
@@ -87,6 +66,10 @@ def load_audio_bytes(
     if path is not None:
         return _load_bytes_from_path(path)
     if url is not None:
+        url_str = str(url)
+        if url_str.startswith('data:audio'):
+            _, base64_data = url_str.split('base64,', 1)
+            return base64.b64decode(base64_data)
         return _load_bytes_from_url(url)
     raise ValueError("No audio source provided")
 
@@ -98,17 +81,12 @@ def decode_audio_waveform(
     mono: bool = True,
 ) -> tuple[torch.Tensor, int]:
     """Decodes raw audio bytes into a waveform tensor."""
-    _ensure_torchaudio_available()
     if audio_bytes is None or len(audio_bytes) == 0:
         raise ValueError("Empty audio bytes")
 
     buffer = io.BytesIO(audio_bytes)
-    torchaudio_mod = cast(Any, _torchaudio)
-    torch_mod = cast("torch", _torch)
-    functional_mod = cast(Any, _ta_functional)
-
-    waveform, sample_rate = torchaudio_mod.load(buffer)
-    waveform = waveform.to(dtype=torch_mod.float32)
+    waveform, sample_rate = torchaudio.load(buffer)
+    waveform = waveform.to(dtype=torch.float32)
 
     if mono and waveform.shape[0] > 1:
         waveform = waveform.mean(dim=0, keepdim=True)
@@ -117,7 +95,7 @@ def decode_audio_waveform(
         raise ValueError("target_sample_rate must be a positive integer")
 
     if sample_rate != target_sample_rate:
-        waveform = functional_mod.resample(waveform, sample_rate, target_sample_rate)
+        waveform = ta_functional.resample(waveform, sample_rate, target_sample_rate)
         sample_rate = target_sample_rate
 
     return waveform, sample_rate
@@ -129,7 +107,6 @@ def encode_waveform_to_wav_bytes(
     sample_rate: int,
 ) -> bytes:
     """Serialises a waveform tensor to WAV bytes."""
-    _ensure_torchaudio_available()
     if waveform.ndim == 1:
         waveform = waveform.unsqueeze(0)
     if waveform.ndim != 2:
@@ -138,8 +115,7 @@ def encode_waveform_to_wav_bytes(
         )
 
     buffer = io.BytesIO()
-    torchaudio_mod = cast(Any, _torchaudio)
-    torchaudio_mod.save(buffer, waveform, sample_rate=sample_rate, format="wav")
+    torchaudio.save(buffer, waveform, sample_rate=sample_rate, format="wav")
     return buffer.getvalue()
 
 
@@ -163,7 +139,6 @@ def load_audio_wav_bytes(
 
 def waveform_to_numpy(waveform: torch.Tensor) -> np.ndarray:
     """Converts a waveform tensor to a NumPy array (channels x samples)."""
-    _ensure_torchaudio_available()
     if waveform.ndim == 1:
         waveform = waveform.unsqueeze(0)
     return waveform.detach().cpu().numpy()

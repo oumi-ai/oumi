@@ -113,7 +113,7 @@ export default function SystemMonitor({
   className = '',
   updateInterval = 2000 // 2 seconds
 }: SystemMonitorProps) {
-  const { getCurrentSessionId } = useChatStore();
+  const { getCurrentSessionId, isLoading: chatIsLoading, isTyping: chatIsTyping } = useChatStore();
   const [stats, setStats] = React.useState<SystemStats | null>(null);
   const [networkActivity, setNetworkActivity] = React.useState<NetworkActivity>({
     activeRequests: 0,
@@ -127,7 +127,7 @@ export default function SystemMonitor({
     loaded: false,
     testResult: 'unknown'
   });
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [isFetchingStats, setIsFetchingStats] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isModelActionLoading, setIsModelActionLoading] = React.useState(false);
   // Fallback (frontend-only) state when backend stats are unavailable
@@ -463,6 +463,7 @@ export default function SystemMonitor({
 
   const fetchStats = async () => {
     const startTime = Date.now();
+    setIsFetchingStats(true);
     setNetworkActivity(prev => ({ ...prev, activeRequests: prev.activeRequests + 1 }));
     
     try {
@@ -509,13 +510,22 @@ export default function SystemMonitor({
       setError(err instanceof Error ? err.message : 'Failed to fetch stats');
     } finally {
       setNetworkActivity(prev => ({ ...prev, activeRequests: Math.max(0, prev.activeRequests - 1) }));
-      setIsLoading(false);
+      setIsFetchingStats(false);
     }
   };
 
-  // Start polling when component mounts, but gate on server readiness in Electron
+  const shouldPoll = chatIsLoading || chatIsTyping;
+
+  // Start polling only while the assistant is actively processing a request
   React.useEffect(() => {
     let cancelled = false;
+
+    const stopPolling = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
 
     const startPolling = () => {
       const fetchAll = async () => {
@@ -567,21 +577,26 @@ export default function SystemMonitor({
         await beginPolling();
       } catch {
         if (!cancelled) {
-          // Try again soon
           setTimeout(ensureServerReadyThenStart, 500);
         }
       }
     };
 
-    ensureServerReadyThenStart();
+    if (shouldPoll) {
+      ensureServerReadyThenStart();
+    } else {
+      stopPolling();
+    }
 
     return () => {
       cancelled = true;
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      stopPolling();
     };
-  }, [updateInterval, hydrateModelStatusFromStorage]);
+  }, [
+    updateInterval,
+    hydrateModelStatusFromStorage,
+    shouldPoll,
+  ]);
 
   // Format file size
   const formatGB = (gb: number) => `${gb.toFixed(1)}GB`;
@@ -628,7 +643,7 @@ export default function SystemMonitor({
     );
   }
 
-  if (isLoading || !stats) {
+  if (isFetchingStats || !stats) {
     return (
       <div className={`bg-card rounded-lg p-4 border ${className}`}>
         <div className="flex items-center gap-2 text-muted-foreground">
