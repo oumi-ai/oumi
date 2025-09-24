@@ -32,8 +32,8 @@ class DatasetSource(Enum):
 
 
 @dataclass
-class SampleAnalyzerParams(BaseParams):
-    """Params for a single sample analyzer plugin."""
+class ItemAnalyzerParams(BaseParams):
+    """Params for a single item analyzer plugin."""
 
     id: str = MISSING
     """Unique identifier for the analyzer."""
@@ -87,7 +87,7 @@ class AnalyzeConfig(BaseConfig):
     Defaults to current directory ('.').
     """
 
-    analyzers: list[SampleAnalyzerParams] = field(default_factory=list)
+    analyzers: list[ItemAnalyzerParams] = field(default_factory=list)
     """List of analyzer configurations (plugin-style)."""
 
     tokenizer_config: Optional[dict[str, Any]] = None

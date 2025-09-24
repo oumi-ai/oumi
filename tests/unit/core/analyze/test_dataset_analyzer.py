@@ -14,7 +14,7 @@ from oumi.core.analyze.dataset_analyzer import (
     FieldAnalysisResult,
     SampleAnalysisResult,
 )
-from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
+from oumi.core.configs import AnalyzeConfig, DatasetSource, ItemAnalyzerParams
 from oumi.core.datasets import BaseMapDataset
 from oumi.datasets import TextSftJsonLinesDataset
 
@@ -37,14 +37,12 @@ def check_no_nans(obj):
         pass
 
 
-class MockSampleAnalyzer:
-    """Mock sample analyzer for testing."""
+class MockItemAnalyzer:
+    """Mock item analyzer for testing."""
 
     def __init__(self, **kwargs):
         self.config = kwargs
         self.analyze_calls = []
-        self.analyze_fields_calls = []
-        self.analyze_sample_calls = []
         # Extract analyzer ID from config
         self.analyzer_id = kwargs.get("analyzer_id", "mock")
 
@@ -109,37 +107,38 @@ class MockSampleAnalyzer:
         # Return individual components
         return message_results, conversation_result
 
-    def analyze_fields(self, rows_df, text_fields, tokenizer=None):
-        """Mock field-level analysis for DataFrame-based approach."""
-        self.analyze_fields_calls.append((rows_df, text_fields, tokenizer))
+    def analyze(self, df, tokenizer=None, column_config=None):
+        """Mock analysis for DataFrame-based approach."""
+        self.analyze_calls.append((df, tokenizer, column_config))
+
+        # Create a copy to avoid modifying the original DataFrame
+        result_df = df.copy()
+
+        # Use column_config to identify text fields
+        if column_config:
+            # Import ContentType for enum comparison
+            from oumi.core.analyze.column_types import ContentType
+
+            available_text_fields = [
+                col
+                for col, config in column_config.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
+        else:
+            # No column_config provided - cannot identify text fields
+            return result_df
 
         # Add analyzer metrics to each row
-        for field in text_fields:
-            if field in rows_df.columns:
+        for field in available_text_fields:
+            if field in df.columns:
                 # Add character and word counts for text fields
-                rows_df[f"{field}_char_count"] = rows_df[field].astype(str).str.len()
-                rows_df[f"{field}_word_count"] = (
-                    rows_df[field].astype(str).str.split().str.len()
+                result_df[f"{field}_char_count"] = df[field].astype(str).str.len()
+                result_df[f"{field}_word_count"] = (
+                    df[field].astype(str).str.split().str.len()
                 )
-                rows_df[f"{field}_analyzer_id"] = self.analyzer_id
+                result_df[f"{field}_analyzer_id"] = self.analyzer_id
 
-        return rows_df
-
-    def analyze_sample(self, items_df, text_fields, tokenizer=None):
-        """Mock sample-level analysis for DataFrame-based approach."""
-        self.analyze_sample_calls.append((items_df, text_fields, tokenizer))
-
-        # Add analyzer metrics to each item
-        for field in text_fields:
-            if field in items_df.columns:
-                # Add character and word counts for text fields
-                items_df[f"{field}_char_count"] = items_df[field].astype(str).str.len()
-                items_df[f"{field}_word_count"] = (
-                    items_df[field].astype(str).str.split().str.len()
-                )
-                items_df[f"{field}_analyzer_id"] = self.analyzer_id
-
-        return items_df
+        return result_df
 
 
 class MockFailingAnalyzer:
@@ -174,7 +173,13 @@ class MockRegistry:
         """Get a mock analyzer class."""
         if analyzer_id == "failing_analyzer":
             return MockFailingAnalyzer
-        return MockSampleAnalyzer
+        return MockItemAnalyzer
+
+    def get_item_analyzer(self, analyzer_id: str):
+        """Get a mock analyzer class."""
+        if analyzer_id == "failing_analyzer":
+            return MockFailingAnalyzer
+        return MockItemAnalyzer
 
 
 @pytest.fixture
@@ -295,11 +300,11 @@ def mock_config():
         sample_count=2,
         output_path="./test_output",
         analyzers=[
-            SampleAnalyzerParams(
+            ItemAnalyzerParams(
                 id="text_length_analyzer",
                 params={"char_count": True, "word_count": True},
             ),
-            SampleAnalyzerParams(id="analyzer_2", params={"analyzer_id": "analyzer_2"}),
+            ItemAnalyzerParams(id="analyzer_2", params={"analyzer_id": "analyzer_2"}),
         ],
     )
 
@@ -383,7 +388,7 @@ def test_dataset_source_direct_with_dataset_success():
     config = AnalyzeConfig(
         dataset_source=DatasetSource.DIRECT,
         dataset_name="test_dataset",
-        analyzers=[SampleAnalyzerParams(id="test_analyzer", params={})],
+        analyzers=[ItemAnalyzerParams(id="test_analyzer", params={})],
     )
 
     # This should work without error
@@ -397,7 +402,7 @@ def test_dataset_source_direct_without_dataset_failure():
     config = AnalyzeConfig(
         dataset_source=DatasetSource.DIRECT,
         dataset_name="test_dataset",
-        analyzers=[SampleAnalyzerParams(id="test_analyzer", params={})],
+        analyzers=[ItemAnalyzerParams(id="test_analyzer", params={})],
     )
 
     with pytest.raises(
@@ -417,7 +422,7 @@ def test_dataset_source_config_with_dataset_success():
     config = AnalyzeConfig(
         dataset_source=DatasetSource.CONFIG,
         dataset_name="test_dataset",
-        analyzers=[SampleAnalyzerParams(id="test_analyzer", params={})],
+        analyzers=[ItemAnalyzerParams(id="test_analyzer", params={})],
     )
 
     # Should succeed - uses the provided dataset instead of loading from config
@@ -491,7 +496,7 @@ def test_analyze_dataset_analyzer_failure(test_data_path):
         split="train",
         sample_count=2,  # Limit to first 2 conversations
         analyzers=[
-            SampleAnalyzerParams(id="failing_analyzer", params={}),
+            ItemAnalyzerParams(id="failing_analyzer", params={}),
         ],
     )
 
@@ -689,8 +694,7 @@ def test_analyze_dataset_analyzer_calls(test_data_path, mock_config):
     # Check that the mock analyzer was called
     mock_analyzer = analyzer.item_analyzers["text_length_analyzer"]
     # New design calls analyze_fields and analyze_sample methods
-    assert len(mock_analyzer.analyze_fields_calls) > 0  # Called for field analysis
-    assert len(mock_analyzer.analyze_sample_calls) > 0  # Called for sample analysis
+    assert len(mock_analyzer.analyze_calls) > 0  # Called for analysis
 
 
 def test_query_method(test_data_path, mock_config):
@@ -956,7 +960,7 @@ def test_analyzer_with_tokenizer(test_data_path):
             "model_name": "gpt2"
         },  # This will be used to build a real tokenizer
         analyzers=[
-            SampleAnalyzerParams(
+            ItemAnalyzerParams(
                 id="text_length_analyzer",
                 params={"char_count": True, "word_count": True, "token_count": True},
             ),

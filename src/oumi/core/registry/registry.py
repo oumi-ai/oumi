@@ -192,8 +192,8 @@ class Registry:
         """Gets a record that corresponds to a registered evaluation function."""
         return self.get(name, RegistryType.EVALUATION_FUNCTION)
 
-    def get_sample_analyzer(self, name: str) -> Optional[Callable]:
-        """Gets a record that corresponds to a registered sample analyzer."""
+    def get_item_analyzer(self, name: str) -> Optional[Callable]:
+        """Gets a record that corresponds to a registered item analyzer."""
         return self.get(name, RegistryType.SAMPLE_ANALYZER)
 
     def get_dataset(
@@ -335,14 +335,14 @@ def register_evaluation_function(registry_name: str) -> Callable:
     return decorator_register
 
 
-def register_sample_analyzer(registry_name: str) -> Callable:
-    """Returns function to register a sample analyzer in the Oumi global registry.
+def register_item_analyzer(registry_name: str) -> Callable:
+    """Returns function to register an item analyzer in the Oumi global registry.
 
     Args:
-        registry_name: The name that the sample analyzer should be registered with.
+        registry_name: The name that the item analyzer should be registered with.
 
     Returns:
-        Decorator function to register the target sample analyzer.
+        Decorator function to register the target item analyzer.
     """
 
     def decorator_register(obj):

@@ -15,56 +15,34 @@
 """Base classes for sample analyzer plugins."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Optional
+
 import pandas as pd
 
 
-class SampleAnalyzer(ABC):
-    """Base class for sample analyzer plugins that analyze individual samples.
-    
+class ItemAnalyzer(ABC):
+    """Base class for item analyzer plugins that analyze individual items.
+
     All analyzers work with pandas DataFrames for efficient processing.
     """
 
     @abstractmethod
-    def analyze_fields(
-        self, 
-        df: pd.DataFrame, 
-        text_fields: list[str],
-        tokenizer: Optional[Any] = None
+    def analyze(
+        self,
+        df: pd.DataFrame,
+        column_config: Optional[dict] = None,
     ) -> pd.DataFrame:
-        """Analyze individual text fields and add field-level metrics to DataFrame.
-        
-        This method adds field-level analysis columns to the input DataFrame.
-        All analyzers must implement this method.
-        
-        Args:
-            df: Input DataFrame with text fields
-            text_fields: List of field names that contain text content to analyze
-            tokenizer: Optional tokenizer to use for analysis
-            
-        Returns:
-            DataFrame with added field-level analysis columns
-        """
-        pass
+        """Analyze text fields and return analysis results.
 
-    @abstractmethod
-    def analyze_sample(
-        self, 
-        df: pd.DataFrame, 
-        text_fields: list[str],
-        tokenizer: Optional[Any] = None
-    ) -> pd.DataFrame:
-        """Analyze samples as a whole and add sample-level metrics to DataFrame.
-        
-        This method adds sample-level analysis columns to the input DataFrame.
-        All analyzers must implement this method.
-        
+        This method performs analysis on the input DataFrame and returns
+        the DataFrame with added analysis columns. All analyzers must implement this
+        method.
+
         Args:
             df: Input DataFrame with text fields
-            text_fields: List of field names that contain text content to analyze
-            tokenizer: Optional tokenizer to use for analysis
-            
+            column_config: Column configuration dict to identify text fields
+
         Returns:
-            DataFrame with added sample-level analysis columns
+            DataFrame with added analysis columns
         """
         pass

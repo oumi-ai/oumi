@@ -15,17 +15,18 @@
 """Length analyzer for text content."""
 
 import re
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import pandas as pd
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
-from oumi.core.registry import register_sample_analyzer
+from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.sample_analyzer import ItemAnalyzer
+from oumi.core.registry import register_item_analyzer
 
 
-@register_sample_analyzer("length")
-class LengthAnalyzer(SampleAnalyzer):
+@register_item_analyzer("length")
+class LengthAnalyzer(ItemAnalyzer):
     """Analyzer that computes various length metrics for text content."""
 
     def __init__(
@@ -58,10 +59,6 @@ class LengthAnalyzer(SampleAnalyzer):
         self.tokenizer = tokenizer
         self.include_special_tokens = include_special_tokens
 
-        # Store field-level results
-        self._field_df = None
-        self._sample_df = None
-
         # Validate tokenizer requirements
         if self.token_count and tokenizer is None:
             raise ValueError(
@@ -69,172 +66,77 @@ class LengthAnalyzer(SampleAnalyzer):
                 "Set token_count=False or provide a tokenizer."
             )
 
-    def analyze_fields(
+    def analyze(
         self,
         df: pd.DataFrame,
-        text_fields: list[str],
-        tokenizer: Optional[Any] = None,
+        column_config: Optional[dict] = None,
     ) -> pd.DataFrame:
-        """Analyze individual text fields and add field-level metrics to DataFrame.
+        """Analyze text fields and return metrics.
 
         Args:
             df: Input DataFrame with text fields
-            text_fields: List of field names that contain text content to analyze
-            tokenizer: Optional tokenizer to use for analysis (ignored - uses instance
-                tokenizer)
+            column_config: Column configuration dict to identify text fields
 
         Returns:
             DataFrame with added field-level analysis columns
         """
         result_df = df.copy()
 
-        # Find text fields that exist in the DataFrame
-        available_text_fields = [col for col in text_fields if col in df.columns]
-
-        if not available_text_fields:
-            return result_df
-
-        # Analyze each text field
-        for field_name in available_text_fields:
-            if field_name in df.columns:
-                # Get non-null values for this field
-                non_null_values = df[field_name].dropna()
-                if not non_null_values.empty:
-                    # Use the first non-null value for analysis
-                    text_content = str(non_null_values.iloc[0])
-
-                    # Compute metrics for this field
-                    if self.char_count:
-                        result_df[f"{field_name}_char_count"] = len(text_content)
-
-                    if self.word_count:
-                        result_df[f"{field_name}_word_count"] = len(
-                            text_content.split()
-                        )
-
-                    if self.sentence_count:
-                        sentences = re.split(r"[.!?]+", text_content)
-                        result_df[f"{field_name}_sentence_count"] = len(
-                            [s.strip() for s in sentences if s.strip()]
-                        )
-
-                    if self.token_count and self.tokenizer is not None:
-                        tokens = self.tokenizer.encode(
-                            text_content, add_special_tokens=self.include_special_tokens
-                        )
-                        result_df[f"{field_name}_token_count"] = len(tokens)
-
-        return result_df
-
-    def analyze_sample(
-        self,
-        df: pd.DataFrame,
-        text_fields: list[str],
-        tokenizer: Optional[Any] = None,
-    ) -> pd.DataFrame:
-        """Analyze samples as a whole and add sample-level metrics to DataFrame.
-
-        This method performs both field-level and sample-level analysis internally,
-        storing results in class attributes for later access.
-
-        Args:
-            df: Input DataFrame with text fields
-            text_fields: List of field names that contain text content to analyze
-            tokenizer: Optional tokenizer to use for analysis (ignored - uses instance
-                tokenizer)
-
-        Returns:
-            DataFrame with added sample-level analysis columns
-        """
-        # First, analyze fields to get field-level metrics
-        field_result_df = self.analyze_fields(df, text_fields, tokenizer)
-
-        # Store field-level results
-        self._field_df = field_result_df.copy()
-
-        # Sum field-level metrics to get sample-level metrics
-        result_df = df.copy()
-
-        # Find all field-level metric columns and sum them
-        available_text_fields = [col for col in text_fields if col in df.columns]
-
-        if self.char_count:
-            char_columns = [
-                f"{field}_char_count"
-                for field in available_text_fields
-                if f"{field}_char_count" in field_result_df.columns
-            ]
-            if char_columns:
-                result_df["item_length_char_count"] = field_result_df[char_columns].sum(
-                    axis=1
-                )
-
-        if self.word_count:
-            word_columns = [
-                f"{field}_word_count"
-                for field in available_text_fields
-                if f"{field}_word_count" in field_result_df.columns
-            ]
-            if word_columns:
-                result_df["item_length_word_count"] = field_result_df[word_columns].sum(
-                    axis=1
-                )
-
-        if self.sentence_count:
-            sentence_columns = [
-                f"{field}_sentence_count"
-                for field in available_text_fields
-                if f"{field}_sentence_count" in field_result_df.columns
-            ]
-            if sentence_columns:
-                result_df["item_length_sentence_count"] = field_result_df[
-                    sentence_columns
-                ].sum(axis=1)
-
-        if self.token_count:
-            token_columns = [
-                f"{field}_token_count"
-                for field in available_text_fields
-                if f"{field}_token_count" in field_result_df.columns
-            ]
-            if token_columns:
-                result_df["item_length_token_count"] = field_result_df[
-                    token_columns
-                ].sum(axis=1)
-
-        # For token counting, prefer rendered item if available (more accurate)
-        if (
-            "rendered_item" in df.columns
-            and self.token_count
-            and self.tokenizer is not None
-        ):
-            result_df["item_length_token_count"] = df["rendered_item"].apply(
-                lambda text: len(
-                    self.tokenizer.encode(  # type: ignore
-                        text, add_special_tokens=self.include_special_tokens
-                    )
-                )
+        if not column_config:
+            raise ValueError(
+                "column_config is required to identify text fields for length analysis."
+                "Please provide a column configuration dict that specifies which"
+                "columns contain text content."
             )
 
-        # Store sample-level results
-        self._sample_df = result_df.copy()
+        available_text_fields = [
+            col
+            for col, config in column_config.items()
+            if config.get("content_type") == ContentType.TEXT and col in df.columns
+        ]
+
+        if not available_text_fields:
+            raise ValueError(
+                "No text fields found in the DataFrame for length analysis. "
+                "Please ensure your column_config specifies columns with"
+                "content_type='text'and that those columns exist in the DataFrame."
+            )
+
+        # Analyze each text field and add field-level metrics
+        for field_name in available_text_fields:
+            if self.char_count:
+                result_df[f"{field_name}_char_count"] = (
+                    df[field_name].astype(str).str.len()
+                )
+
+            if self.word_count:
+                result_df[f"{field_name}_word_count"] = (
+                    df[field_name].astype(str).str.split().str.len()
+                )
+
+            if self.sentence_count:
+                result_df[f"{field_name}_sentence_count"] = (
+                    df[field_name]
+                    .astype(str)
+                    .apply(
+                        lambda text: len(
+                            [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
+                        )
+                    )
+                )
+
+            if self.token_count and self.tokenizer is not None:
+                tokenizer = self.tokenizer  # Type assertion for pyright
+                result_df[f"{field_name}_token_count"] = (
+                    df[field_name]
+                    .astype(str)
+                    .apply(
+                        lambda text: len(
+                            tokenizer.encode(
+                                text, add_special_tokens=self.include_special_tokens
+                            )
+                        )
+                    )
+                )
 
         return result_df
-
-    def get_field_results(self) -> Optional[pd.DataFrame]:
-        """Get field-level analysis results.
-
-        Returns:
-            DataFrame with field-level analysis results, or None if no analysis
-            has been performed
-        """
-        return self._field_df
-
-    def get_sample_results(self) -> Optional[pd.DataFrame]:
-        """Get sample-level analysis results.
-
-        Returns:
-            DataFrame with sample-level analysis results, or None if no analysis
-            has been performed
-        """
-        return self._sample_df

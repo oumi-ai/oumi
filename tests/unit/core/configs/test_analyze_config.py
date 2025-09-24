@@ -17,7 +17,7 @@ import pytest
 from oumi.core.configs.analyze_config import (
     AnalyzeConfig,
     DatasetSource,
-    SampleAnalyzerParams,
+    ItemAnalyzerParams,
 )
 
 
@@ -69,9 +69,9 @@ def test_dataset_source_validation_invalid_value():
 
 
 def test_sample_analyzer_param_validation_success():
-    """Test successful validation of SampleAnalyzerParams."""
+    """Test successful validation of ItemAnalyzerParams."""
     # Should not raise any exception during __post_init__
-    analyzer = SampleAnalyzerParams(id="test_analyzer")
+    analyzer = ItemAnalyzerParams(id="test_analyzer")
     assert analyzer.id == "test_analyzer"
 
 
@@ -81,12 +81,12 @@ def test_sample_analyzer_param_validation_missing_id():
         AnalyzeConfig(
             dataset_source=DatasetSource.CONFIG,  # Required field
             dataset_name="test_dataset",
-            analyzers=[SampleAnalyzerParams(id="")],
+            analyzers=[ItemAnalyzerParams(id="")],
         )
 
 
 def test_sample_analyzer_param_with_language_detection_params():
-    """Test SampleAnalyzerParams with language detection analyzer configuration."""
+    """Test ItemAnalyzerParams with language detection analyzer configuration."""
     language_detection_params = {
         "confidence_threshold": 0.2,
         "top_k": 3,
@@ -96,7 +96,7 @@ def test_sample_analyzer_param_with_language_detection_params():
         },
     }
 
-    analyzer = SampleAnalyzerParams(
+    analyzer = ItemAnalyzerParams(
         id="language_detection", params=language_detection_params
     )
 
@@ -254,8 +254,8 @@ def test_analyze_config_validation_is_multimodal_required():
 def test_analyze_config_validation_with_valid_analyzers():
     """Test validation with valid analyzer configurations."""
     analyzers = [
-        SampleAnalyzerParams(id="analyzer1"),
-        SampleAnalyzerParams(id="analyzer2"),
+        ItemAnalyzerParams(id="analyzer1"),
+        ItemAnalyzerParams(id="analyzer2"),
     ]
 
     # Should not raise any exception during __post_init__
@@ -265,8 +265,8 @@ def test_analyze_config_validation_with_valid_analyzers():
 def test_analyze_config_validation_duplicate_analyzer_ids():
     """Test validation failure with duplicate analyzer IDs."""
     analyzers = [
-        SampleAnalyzerParams(id="duplicate_id"),
-        SampleAnalyzerParams(id="duplicate_id"),
+        ItemAnalyzerParams(id="duplicate_id"),
+        ItemAnalyzerParams(id="duplicate_id"),
     ]
 
     with pytest.raises(ValueError, match="Duplicate analyzer ID found: 'duplicate_id'"):
@@ -290,8 +290,8 @@ def test_analyze_config_default_values():
 def test_analyze_config_with_custom_values():
     """Test AnalyzeConfig with custom parameter values."""
     analyzers = [
-        SampleAnalyzerParams(id="analyzer1", params={"param1": "value1"}),
-        SampleAnalyzerParams(id="analyzer2", params={"param2": "value2"}),
+        ItemAnalyzerParams(id="analyzer1", params={"param1": "value1"}),
+        ItemAnalyzerParams(id="analyzer2", params={"param2": "value2"}),
     ]
 
     config = AnalyzeConfig(

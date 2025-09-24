@@ -19,6 +19,7 @@ from typing import Any, Optional, Union, cast
 import pandas as pd
 from tqdm import tqdm
 
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.configs import AnalyzeConfig, DatasetSource
 from oumi.core.datasets import BaseMapDataset
 from oumi.core.registry import REGISTRY
@@ -235,34 +236,34 @@ class DatasetAnalyzer:
         self.text_fields = [
             col
             for col, config in self.column_config.items()
-            if config.get("content_type") == "text"
+            if config.get("content_type") == ContentType.TEXT
         ]
         self.image_fields = [
             col
             for col, config in self.column_config.items()
-            if config.get("content_type") == "image"
+            if config.get("content_type") == ContentType.IMAGE
         ]
         self.numeric_fields = [
             col
             for col, config in self.column_config.items()
-            if config.get("content_type") == "numeric"
+            if config.get("content_type") == ContentType.NUMERIC
         ]
         self.audio_fields = [
             col
             for col, config in self.column_config.items()
-            if config.get("content_type") == "audio"
+            if config.get("content_type") == ContentType.AUDIO
         ]
         self.video_fields = [
             col
             for col, config in self.column_config.items()
-            if config.get("content_type") == "video"
+            if config.get("content_type") == ContentType.VIDEO
         ]
 
         # Metadata fields are those with content_type="metadata"
         self.metadata_fields = [
             col
             for col, config in self.column_config.items()
-            if config.get("content_type") == "metadata"
+            if config.get("content_type") == ContentType.METADATA
         ]
 
         logger.info(
@@ -279,60 +280,60 @@ class DatasetAnalyzer:
         return {
             # Items DataFrame columns (conversation-level)
             "item_id": {
-                "type": "string",
-                "content_type": "metadata",
+                "type": ColumnType.STRING,
+                "content_type": ContentType.METADATA,
                 "description": "Conversation identifier",
             },
             "item_type": {
-                "type": "string",
-                "content_type": "metadata",
+                "type": ColumnType.STRING,
+                "content_type": ContentType.METADATA,
                 "description": "Type of item (conversation)",
             },
             "rendered_item": {
-                "type": "string",
-                "content_type": "text",
+                "type": ColumnType.STRING,
+                "content_type": ContentType.TEXT,
                 "description": "Rendered conversation for token counting and display",
             },
             # Rows DataFrame columns (message-level)
             "row_index": {
-                "type": "int",
-                "content_type": "metadata",
+                "type": ColumnType.INT,
+                "content_type": ContentType.METADATA,
                 "description": "Message index within conversation",
             },
             "role": {
-                "type": "string",
-                "content_type": "metadata",
+                "type": ColumnType.STRING,
+                "content_type": ContentType.METADATA,
                 "description": "Message role (user/assistant/system)",
             },
             "content": {
-                "type": "string",
-                "content_type": "text",
+                "type": ColumnType.STRING,
+                "content_type": ContentType.TEXT,
                 "description": "Message text content",
             },
             # Additional fields that might be present in conversations
             "timestamp": {
-                "type": "timestamp",
-                "content_type": "metadata",
+                "type": ColumnType.TIMESTAMP,
+                "content_type": ContentType.METADATA,
                 "description": "Message timestamp",
             },
             "processing_time": {
-                "type": "float",
-                "content_type": "numeric",
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
                 "description": "AI processing time in seconds",
             },
             "model": {
-                "type": "string",
-                "content_type": "metadata",
+                "type": ColumnType.STRING,
+                "content_type": ContentType.METADATA,
                 "description": "Model used for generation",
             },
             "temperature": {
-                "type": "float",
-                "content_type": "metadata",
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.METADATA,
                 "description": "Sampling temperature",
             },
             "max_tokens": {
-                "type": "int",
-                "content_type": "metadata",
+                "type": ColumnType.INT,
+                "content_type": ContentType.METADATA,
                 "description": "Maximum tokens to generate",
             },
         }
@@ -422,11 +423,8 @@ class DatasetAnalyzer:
                 {"item_index": [], "row_index": [], "role": [], "content": []}
             )
 
-        # Set proper dtypes
-        rows_df["item_index"] = rows_df["item_index"].astype("int64")
-        rows_df["row_index"] = rows_df["row_index"].astype("int64")
-        rows_df["role"] = rows_df["role"].astype("string")
-        rows_df["content"] = rows_df["content"].astype("string")
+        # Set proper dtypes from column_config
+        self._set_dtypes_from_config(rows_df)
 
         # Create items DataFrame (one row per conversation)
         item_data = {
@@ -453,14 +451,8 @@ class DatasetAnalyzer:
         # Create items_df with proper dtypes
         items_df = pd.DataFrame([item_data])
 
-        # Set proper dtypes
-        items_df["item_index"] = items_df["item_index"].astype("int64")
-        items_df["item_id"] = items_df["item_id"].astype("string")
-        items_df["item_type"] = items_df["item_type"].astype("string")
-
-        # Set rendered_item to string if present
-        if "rendered_item" in items_df.columns:
-            items_df["rendered_item"] = items_df["rendered_item"].astype("string")
+        # Set proper dtypes from column_config
+        self._set_dtypes_from_config(items_df)
 
         return items_df, rows_df
 
@@ -496,10 +488,10 @@ class DatasetAnalyzer:
         for analyzer_params in self.config.analyzers:
             try:
                 # Get the analyzer class from the registry
-                analyzer_class = REGISTRY.get_sample_analyzer(analyzer_params.id)
+                analyzer_class = REGISTRY.get_item_analyzer(analyzer_params.id)
                 if analyzer_class is None:
                     raise ValueError(
-                        f"Sample analyzer '{analyzer_params.id}' not found in registry"
+                        f"Item analyzer '{analyzer_params.id}' not found in registry"
                     )
 
                 # Prepare parameters for analyzer constructor
@@ -511,10 +503,10 @@ class DatasetAnalyzer:
                 # Create analyzer instance with keyword arguments
                 item_analyzer = analyzer_class(**analyzer_kwargs)
                 item_analyzers[analyzer_params.id] = item_analyzer
-                logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
+                logger.info(f"Initialized item analyzer: {analyzer_params.id}")
             except Exception as e:
                 logger.error(
-                    f"Failed to initialize sample analyzer {analyzer_params.id}: {e}"
+                    f"Failed to initialize item analyzer {analyzer_params.id}: {e}"
                 )
                 logger.error(f"Analyzer configuration: {analyzer_params}")
         return item_analyzers
@@ -625,14 +617,16 @@ class DatasetAnalyzer:
             try:
                 # Apply row-level analysis
                 if not rows_df.empty:
-                    rows_df = analyzer.analyze_fields(
-                        rows_df, self.text_fields, self.tokenizer
+                    rows_df = analyzer.analyze(
+                        rows_df,
+                        self.column_config,
                     )
 
                 # Apply item-level analysis
                 if not items_df.empty:
-                    items_df = analyzer.analyze_sample(
-                        items_df, self.text_fields, self.tokenizer
+                    items_df = analyzer.analyze(
+                        items_df,
+                        self.column_config,
                     )
 
             except Exception as e:
@@ -659,17 +653,15 @@ class DatasetAnalyzer:
         """Process conversation dataset input."""
         if self.dataset is None:
             raise ValueError("Dataset must be provided for conversation processing")
-        # Collect DataFrames for items and rows
+
         items_dfs = []
         rows_dfs = []
 
-        # Use tqdm for progress monitoring
         for item_idx in tqdm(
             range(items_to_analyze),
             desc=f"Analyzing items in {self.dataset_name}",
             unit="item",
         ):
-            # Handle conversation data
             conversation = self.dataset.conversation(item_idx)
             conversation_id = conversation.conversation_id or f"conv_{item_idx}"
             items_df, rows_df = self._conversation_to_df(
@@ -681,13 +673,15 @@ class DatasetAnalyzer:
                 try:
                     # Apply row-level analysis
                     if not rows_df.empty:
-                        rows_df = analyzer.analyze_fields(
-                            rows_df, self.text_fields, self.tokenizer
+                        rows_df = analyzer.analyze(
+                            rows_df,
+                            column_config=self.column_config,
                         )
 
                     # Apply item-level analysis
-                    items_df = analyzer.analyze_sample(
-                        items_df, self.text_fields, self.tokenizer
+                    items_df = analyzer.analyze(
+                        items_df,
+                        column_config=self.column_config,
                     )
 
                 except Exception as e:
@@ -1075,3 +1069,34 @@ class DatasetAnalyzer:
         # type checker can't infer this
         turns_per_item = cast(pd.Series, self._rows_df.groupby("item_index").size())
         return compute_statistics(turns_per_item, self._decimal_precision)
+
+    def _set_dtypes_from_config(self, df: pd.DataFrame) -> None:
+        """Set DataFrame column dtypes based on column_config.
+
+        Args:
+            df: DataFrame to set dtypes for
+        """
+        if not self.column_config:
+            return
+
+        # Simple mapping from type values to pandas operations
+        dtype_mapping = {
+            ColumnType.STRING: lambda col: col.astype("string"),
+            ColumnType.INT: lambda col: col.astype("int64"),
+            ColumnType.FLOAT: lambda col: col.astype("float64"),
+            ColumnType.TIMESTAMP: lambda col: pd.to_datetime(col),
+            ColumnType.BOOL: lambda col: col.astype("boolean"),
+            ColumnType.CATEGORICAL: lambda col: col.astype("category"),
+            ColumnType.OBJECT: lambda col: col,  # Keep as-is
+        }
+
+        for col_name, col_config in self.column_config.items():
+            if col_name in df.columns and "type" in col_config:
+                dtype = col_config["type"]
+                try:
+                    if dtype in dtype_mapping:
+                        df[col_name] = dtype_mapping[dtype](df[col_name])
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to set dtype '{dtype}' for column '{col_name}': {e}"
+                    )
