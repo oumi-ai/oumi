@@ -192,7 +192,8 @@ export default function SystemMonitor({
         ) {
           lastAutoTestedModelRef.current = model.id;
           // Fire and forget; do not block UI
-          void testModel(model.id);
+          console.log('[SystemMonitor] Auto-triggering testModel from status check for', model.id);
+          void testModel(model.id, 'auto-status-check');
         }
       } else {
         // Only reset if we currently have a model name but API says no model
@@ -216,10 +217,10 @@ export default function SystemMonitor({
   };
 
   // Allow explicit model name for fresh reads after status checks
-  const testModel = async (explicitModelName?: string) => {
+  const testModel = async (explicitModelName?: string, reason: string = 'unspecified') => {
     const name = explicitModelName ?? modelStatusRef.current.modelName;
     if (!name) return;
-    
+
     setIsModelActionLoading(true);
     try {
       // Get the config ID for the current model
@@ -253,13 +254,21 @@ export default function SystemMonitor({
           console.warn('Failed to resolve config path for model testing:', error);
         }
       }
-      
+
       // Don't test if no valid config path found
       if (!configPath) {
         console.warn('No valid config path found for model:', name);
         return;
       }
-      
+
+      console.log('[SystemMonitor] testModel invoked', {
+        modelName: name,
+        configId,
+        configPath,
+        reason,
+        timestamp: new Date().toISOString(),
+      });
+
       const response = await apiClient.testModel(configPath);
       const success = response.success && response.data?.success;
       
@@ -321,7 +330,7 @@ export default function SystemMonitor({
           const name = mr.success ? mr.data?.data?.[0]?.id : undefined;
           if (name) {
             setModelStatus(prev => ({ ...prev, modelName: name }));
-            await testModel(name);
+            await testModel(name, 'reload-flow');
           }
         } catch (e) {
           console.warn('Reload: failed to re-fetch models before test', e);
@@ -675,7 +684,7 @@ export default function SystemMonitor({
           {/* Model Control Buttons */}
           <div className="flex gap-1 pt-1">
             <button
-              onClick={() => testModel()}
+              onClick={() => testModel(undefined, 'manual-button')}
               disabled={!modelStatus.modelName || isModelActionLoading}
               className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               title="Test model functionality"

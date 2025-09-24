@@ -103,6 +103,10 @@ class ElectronApiClient {
     if (!this.isElectron) {
       throw new Error('Model testing only available in Electron app');
     }
+    console.log('[ElectronApi] testModel forwarding to preload', {
+      configPath,
+      timestamp: new Date().toISOString(),
+    });
     return window.electronAPI.server.testModel(configPath);
   }
 

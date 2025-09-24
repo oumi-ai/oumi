@@ -65,6 +65,14 @@ class UnifiedApiClient {
   }
 
   async testModel(configPath: string): Promise<ApiResponse<{ success: boolean; message?: string }>> {
+    const env = this.isElectron() ? 'electron' : 'web';
+    const stack = new Error().stack?.split('\n').slice(2, 6).map(line => line.trim());
+    console.log('[UnifiedApi] testModel invoked', {
+      configPath,
+      environment: env,
+      timestamp: new Date().toISOString(),
+      caller: stack,
+    });
     if (this.isElectron()) {
       return this.electronClient.testModel(configPath);
     } else {
@@ -111,6 +119,13 @@ class UnifiedApiClient {
       const st = storeMod.useChatStore?.getState?.();
       sessionId = st?.getCurrentSessionId?.() || st?.currentSessionId;
     } catch {}
+    const stack = new Error().stack?.split('\n').slice(2, 6).map(line => line.trim());
+    console.log('[UnifiedApi] getModels invoked', {
+      environment: this.isElectron() ? 'electron' : 'web',
+      sessionId,
+      timestamp: new Date().toISOString(),
+      caller: stack,
+    });
     // Always hit HTTP endpoint so we can include session_id consistently
     return this.webClient.getModels(sessionId);
   }

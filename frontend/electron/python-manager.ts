@@ -1348,6 +1348,41 @@ export class PythonServerManager {
       };
     }
 
+    const fetchMatch = output.match(/Fetching\s+(\d+)\s+files:\s+(\d+)%\|.*?(\d+)\s*\/\s*(\d+)/i);
+    if (fetchMatch) {
+      const totalFilesHint = parseInt(fetchMatch[1], 10);
+      const progress = parseInt(fetchMatch[2], 10);
+      const fetchedFiles = parseInt(fetchMatch[3], 10);
+      const totalFiles = parseInt(fetchMatch[4], 10) || totalFilesHint;
+      const statsBlock = output.match(/\[(.*?)\]/)?.[1] ?? '';
+
+      let speed = 'Detecting...';
+      let estimatedTimeRemaining: string | undefined;
+      if (statsBlock) {
+        const statsParts = statsBlock.split(',').map((part) => part.trim());
+        if (statsParts.length > 0) {
+          const remainingCandidate = statsParts[0].split('<')[1]?.trim();
+          if (remainingCandidate && remainingCandidate !== '?') {
+            estimatedTimeRemaining = remainingCandidate;
+          }
+        }
+        const speedCandidate = statsParts[statsParts.length - 1];
+        if (speedCandidate && speedCandidate !== '?it/s') {
+          speed = speedCandidate;
+        }
+      }
+
+      return {
+        filename: 'Model repository files',
+        progress,
+        downloaded: `${fetchedFiles} / ${totalFiles} files`,
+        total: `${totalFiles} files`,
+        speed,
+        isComplete: progress >= 100 || fetchedFiles >= totalFiles,
+        estimatedTimeRemaining,
+      };
+    }
+
     return null;
   }
 

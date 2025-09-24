@@ -307,10 +307,14 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     try {
       // Check if model is currently loaded
       const modelResponse = await apiClient.getModels();
+      console.log('[ChatInterface] ensureModelLoaded -> getModels response:', modelResponse);
       if (modelResponse.success && modelResponse.data?.data?.[0]) {
         try {
           const md: any = modelResponse.data.data[0].config_metadata;
+          console.log('[ChatInterface] config metadata from getModels:', md);
           if (md && typeof md.is_omni_capable === 'boolean') {
+            console.log('[ChatInterface] Setting isOmniCapable from getModels:', md.is_omni_capable);
+            console.log('[ChatInterface] setIsOmniCapable (initial load) =>', md.is_omni_capable);
             setIsOmniCapable(md.is_omni_capable);
           }
         } catch {}
@@ -332,16 +336,21 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
       // The backend uses lazy loading - making a test request should trigger model loading
       // We'll make a simple health check to trigger the lazy loading
       const healthResponse = await apiClient.health();
+      console.log('[ChatInterface] ensureModelLoaded -> health response:', healthResponse);
       
       // Wait a moment for potential model loading
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Check again if model is now loaded
       const recheckResponse = await apiClient.getModels();
+      console.log('[ChatInterface] ensureModelLoaded -> recheck getModels response:', recheckResponse);
       if (recheckResponse.success && recheckResponse.data?.data?.[0]) {
         try {
           const md: any = recheckResponse.data.data[0].config_metadata;
+          console.log('[ChatInterface] config metadata from recheck:', md);
           if (md && typeof md.is_omni_capable === 'boolean') {
+            console.log('[ChatInterface] Setting isOmniCapable from recheck:', md.is_omni_capable);
+            console.log('[ChatInterface] setIsOmniCapable (auto-reload) =>', md.is_omni_capable);
             setIsOmniCapable(md.is_omni_capable);
           }
         } catch {}

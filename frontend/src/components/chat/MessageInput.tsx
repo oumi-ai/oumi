@@ -59,6 +59,18 @@ export default function MessageInput({
   const audioInputRef = React.useRef<HTMLInputElement>(null);
   const videoInputRef = React.useRef<HTMLInputElement>(null);
 
+  React.useEffect(() => {
+    console.log(
+      '[MessageInput] omni capability changed %o',
+      {
+        isOmniCapable,
+        disabled,
+        isLoading,
+        timestamp: new Date().toISOString(),
+      }
+    );
+  }, [isOmniCapable, disabled, isLoading]);
+
   // Supported file types based on Oumi backend analysis
   const SUPPORTED_IMAGE_TYPES = '.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp,.svg';
   const SUPPORTED_DOCUMENT_TYPES = '.txt,.md,.rst,.log,.cfg,.ini,.conf,.py,.js,.ts,.html,.css,.java,.cpp,.c,.h,.go,.rs,.php,.rb,.swift,.kt,.scala,.sh,.yaml,.yml,.pdf,.csv,.json';
@@ -321,6 +333,7 @@ export default function MessageInput({
   const handleAudioSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     if (!isOmniCapable) {
+      console.warn('[MessageInput] Audio attachment blocked because omni capability is false');
       alert('🎧 Audio attachments are only supported for Qwen Omni models.');
       e.target.value = '';
       return;
@@ -373,6 +386,7 @@ export default function MessageInput({
   const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     if (!isOmniCapable) {
+      console.warn('[MessageInput] Video attachment blocked because omni capability is false');
       alert('🎬 Video attachments are only supported for Qwen Omni models.');
       e.target.value = '';
       return;

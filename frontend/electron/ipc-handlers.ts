@@ -453,7 +453,9 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
         data,
       };
     } catch (error) {
-      log.error(`Proxy error for ${endpoint}:`, error);
+      const isHealthEndpoint = endpoint === '/health';
+      const logFn = isHealthEndpoint ? log.warn : log.error;
+      logFn(`Proxy error for ${endpoint}:`, error);
       
       // Special handling for chat completion fetch failures (likely OOM)
       if (endpoint === '/v1/chat/completions' && error instanceof Error && error.message === 'fetch failed') {
@@ -481,6 +483,14 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
         };
       }
       
+      if (isHealthEndpoint) {
+        return {
+          success: false,
+          message: 'Backend health check failed: server unreachable',
+          error: 'backend_unreachable',
+        };
+      }
+
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Network error',
