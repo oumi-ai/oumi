@@ -174,7 +174,7 @@ class DatasetAnalyzer:
 
         # Initialize analysis results as None
         self._analysis_results: Optional[DatasetAnalysisResult] = None
-        self._merged_df: Optional[pd.DataFrame] = None
+        self._analyzed_df: Optional[pd.DataFrame] = None
         self._items_df: Optional[pd.DataFrame] = None
         self._rows_df: Optional[pd.DataFrame] = None
         self._analysis_summary: Optional[dict[str, Any]] = None
@@ -639,15 +639,15 @@ class DatasetAnalyzer:
         # Create merged DataFrame
         if self._rows_df is not None and self._items_df is not None:
             if not self._rows_df.empty and not self._items_df.empty:
-                self._merged_df = self._rows_df.merge(
+                self._analyzed_df = self._rows_df.merge(
                     self._items_df, on=["item_index"], how="left"
                 )
             elif not self._rows_df.empty:
-                self._merged_df = self._rows_df.copy()
+                self._analyzed_df = self._rows_df.copy()
             elif not self._items_df.empty:
-                self._merged_df = self._items_df.copy()
+                self._analyzed_df = self._items_df.copy()
         else:
-            self._merged_df = pd.DataFrame()
+            self._analyzed_df = pd.DataFrame()
 
     def _process_conversation_dataset(self, items_to_analyze: int) -> None:
         """Process conversation dataset input."""
@@ -710,17 +710,17 @@ class DatasetAnalyzer:
             # Use item_index for merging
             merge_on = ["item_index"]
 
-            self._merged_df = self._rows_df.merge(
+            self._analyzed_df = self._rows_df.merge(
                 self._items_df,
                 on=merge_on,
                 how="left",
             )
         elif not self._rows_df.empty:
-            self._merged_df = self._rows_df.copy()
+            self._analyzed_df = self._rows_df.copy()
         elif not self._items_df.empty:
-            self._merged_df = self._items_df.copy()
+            self._analyzed_df = self._items_df.copy()
         else:
-            self._merged_df = pd.DataFrame()
+            self._analyzed_df = pd.DataFrame()
 
     def query(self, query_expression: str) -> pd.DataFrame:
         """Query the analysis results using pandas query syntax.
@@ -735,7 +735,7 @@ class DatasetAnalyzer:
             RuntimeError: If analysis has not been run yet.
         """
         # Check if analysis has been run
-        if self._merged_df is None:
+        if self._analyzed_df is None:
             raise RuntimeError(
                 "Analysis has not been run yet. Please call analyze_dataset() first "
                 "to query the analysis results."
@@ -743,7 +743,7 @@ class DatasetAnalyzer:
 
         # Apply the query filter
         try:
-            filtered_df = self._merged_df.query(query_expression)
+            filtered_df = self._analyzed_df.query(query_expression)
             logger.info(f"Query '{query_expression}' returned {len(filtered_df)} rows")
         except Exception as e:
             logger.error(f"Query failed: {e}")
@@ -762,12 +762,12 @@ class DatasetAnalyzer:
         Raises:
             RuntimeError: If analysis has not been run yet.
         """
-        if self._merged_df is None:
+        if self._analyzed_df is None:
             raise RuntimeError(
                 "Analysis has not been run yet. Please call analyze_dataset() first "
                 "to access the analysis DataFrame."
             )
-        return self._merged_df
+        return self._analyzed_df
 
     @property
     def rows_df(self) -> Union[pd.DataFrame, None]:
@@ -928,7 +928,7 @@ class DatasetAnalyzer:
             - Conversation-level aggregated metrics
         """
         # Check if we have data to analyze
-        if self._merged_df is None or self._merged_df.empty:
+        if self._analyzed_df is None or self._analyzed_df.empty:
             return {"error": "No analysis data available"}
 
         summary = {
