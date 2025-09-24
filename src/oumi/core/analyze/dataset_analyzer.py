@@ -59,7 +59,7 @@ class DatasetAnalyzer:
 
     def __init__(
         self,
-        config: Optional[AnalyzeConfig] = None,
+        config: AnalyzeConfig,
         dataset: Optional[BaseMapDataset] = None,
         items_df: Optional[pd.DataFrame] = None,
         rows_df: Optional[pd.DataFrame] = None,
@@ -69,7 +69,7 @@ class DatasetAnalyzer:
         """Initialize the dataset analyzer with configuration.
 
         Args:
-            config: Optional AnalyzeConfig object containing analysis parameters
+            config: AnalyzeConfig object containing analysis parameters
             dataset: Optional pre-loaded dataset for conversation data
             items_df: Optional DataFrame with items (conversations, evaluation pairs,
                 etc.)
@@ -86,7 +86,7 @@ class DatasetAnalyzer:
         self._rows_df = rows_df
 
         # Set dataset name
-        if config and config.dataset_name:
+        if config.dataset_name:
             self.dataset_name = config.dataset_name
         elif dataset:
             self.dataset_name = getattr(dataset, "dataset_name", "Custom Dataset")
@@ -96,32 +96,71 @@ class DatasetAnalyzer:
             self.dataset_name = "Unknown Dataset"
 
         # Set split from config
-        if config and hasattr(config, "split"):
-            self.split = config.split
-        else:
-            self.split = None
+        self.split = getattr(config, "split", None)
 
         # Build tokenizer from config if provided
-        if config and config.tokenizer_config:
+        if config.tokenizer_config:
             self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
         else:
             self.tokenizer = None
 
         # Initialize data processing based on input type
-        if items_df is not None and rows_df is not None:
-            # Direct DataFrames input
-            self._initialize_direct_dataframes()
-        elif dataset is not None:
-            # Dataset input (conversation format)
-            self._initialize_dataset_input()
-        elif config and config.dataset_source == DatasetSource.CONFIG:
-            # Config-based dataset loading
-            self._initialize_config_dataset()
+        if config.dataset_source == DatasetSource.DIRECT:
+            # Direct mode: must provide either dataset OR
+            # (items_df, rows_df, column_config)
+            if dataset is not None:
+                # Use provided dataset
+                self.dataset = dataset
+                # Use the provided dataset name if config doesn't have one
+                if not self.dataset_name:
+                    self.dataset_name = getattr(
+                        dataset, "dataset_name", "Custom Dataset"
+                    )
+                logger.info(
+                    f"Using provided dataset '{self.dataset_name}' with "
+                    f"{len(dataset)} conversations"
+                )
+            elif (
+                items_df is not None
+                and rows_df is not None
+                and column_config is not None
+            ):
+                # Use direct DataFrames with column config
+                self._items_df = items_df
+                self._rows_df = rows_df
+                self.column_config = column_config
+                self.dataset = None
+                self._initialize_direct_dataframes()
+                logger.info(
+                    f"Using direct DataFrames input with {len(items_df)} items "
+                    f"and {len(rows_df)} rows"
+                )
+            else:
+                raise ValueError(
+                    "Config specifies dataset_source=DatasetSource.DIRECT but neither "
+                    "dataset nor (items_df, rows_df, column_config) were provided. "
+                    "Please provide either a dataset or all three DataFrame parameters."
+                )
+        elif config.dataset_source == DatasetSource.CONFIG:
+            # Config mode: load dataset from config parameters
+            if dataset is not None:
+                # Use provided dataset instead of loading from config
+                self.dataset = dataset
+                # Use the provided dataset name if config doesn't have one
+                if not self.dataset_name:
+                    self.dataset_name = getattr(
+                        dataset, "dataset_name", "Custom Dataset"
+                    )
+                logger.info(
+                    f"Using provided dataset '{self.dataset_name}' with "
+                    f"{len(dataset)} conversations"
+                )
+            else:
+                # Load dataset with the tokenizer
+                self.dataset = load_dataset_from_config(config, self.tokenizer)
+                logger.info(f"Loaded dataset from config: {self.dataset_name}")
         else:
-            raise ValueError(
-                "Must provide either (items_df, rows_df), dataset, or config with "
-                "dataset_source=CONFIG"
-            )
+            raise ValueError(f"Invalid dataset_source: {config.dataset_source}")
 
         # Initialize analyzers
         self.item_analyzers = self._initialize_item_analyzers()
@@ -160,9 +199,6 @@ class DatasetAnalyzer:
 
     def _initialize_config_dataset(self) -> None:
         """Initialize analyzer with config-based dataset loading."""
-        if not self.config:
-            raise ValueError("Config is required for config-based dataset loading")
-
         # Load dataset with the tokenizer
         self.dataset = load_dataset_from_config(self.config, self.tokenizer)
         self.data_type = "conversation"

@@ -64,7 +64,11 @@ def test_dataset_source_validation_invalid_value():
     # The validation will fail when trying to use this config in DatasetAnalyzer
     from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 
-    with pytest.raises(ValueError, match="Invalid dataset_source: invalid_value"):
+    with pytest.raises(
+        ValueError,
+        match="Must provide either \\(items_df, rows_df\\), dataset, or config with "
+        "dataset_source=CONFIG",
+    ):
         DatasetAnalyzer(config)
 
 
