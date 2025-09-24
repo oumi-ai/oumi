@@ -79,6 +79,25 @@ from oumi.utils.cache_utils import dict_cache
 from oumi.utils.logging import logger
 
 
+try:
+    _QWEN2_5_OMNI_MODEL_CLASS = getattr(
+        transformers, "Qwen2_5OmniForConditionalGeneration"
+    )
+except AttributeError:  # pragma: no cover - fallback for older transformers
+    _QWEN2_5_OMNI_MODEL_CLASS = transformers.AutoModelForCausalLM
+
+_QWEN3_OMNI_MOE_MODEL_CLASS = getattr(
+    transformers,
+    "Qwen3OmniMoeForConditionalGeneration",
+    transformers.AutoModelForCausalLM,
+)
+
+_QWEN3_OMNI_MOE_MODEL_TYPE = getattr(
+    getattr(_QWEN3_OMNI_MOE_MODEL_CLASS, "config_class", None),
+    "model_type",
+    "qwen3_omni_moe",
+)
+
 @dict_cache
 def find_model_hf_config(
     model_name: str,
@@ -289,6 +308,27 @@ def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
             "max_pixels": 16384 * 28 * 28,
         }
     )
+    return config
+
+
+def _create_qwen2_5_omni_config() -> InternalModelConfig:
+    config = _create_default_vlm_config(
+        supports_multiple_images=True,
+        pixel_values_variable_shape=True,
+        pixel_values_first_dim_action=InternalFeatureFirstDimAction.KEEP,
+    )
+    # Defer to model-provided chat template if available.
+    config.chat_template = ""
+    return config
+
+
+def _create_qwen3_omni_moe_config() -> InternalModelConfig:
+    config = _create_default_vlm_config(
+        supports_multiple_images=True,
+        pixel_values_variable_shape=True,
+        pixel_values_first_dim_action=InternalFeatureFirstDimAction.KEEP,
+    )
+    config.chat_template = ""
     return config
 
 
@@ -530,6 +570,16 @@ def get_all_models_map() -> Mapping[
             model_class=default_vlm_class,
             tested=True,
             config=_create_qwen2_5_vl_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="qwen2_5_omni",
+            model_class=_QWEN2_5_OMNI_MODEL_CLASS,
+            config=_create_qwen2_5_omni_config(),
+        ),
+        _ModelTypeInfo(
+            model_type=_QWEN3_OMNI_MOE_MODEL_TYPE,
+            model_class=_QWEN3_OMNI_MOE_MODEL_CLASS,
+            config=_create_qwen3_omni_moe_config(),
         ),
         _ModelTypeInfo(
             model_type="vipllava",
