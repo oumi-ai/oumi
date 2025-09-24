@@ -103,278 +103,400 @@ class DatasetAnalyzer:
     """Orchestrates the analysis of datasets using multiple sample analyzers."""
 
     def __init__(
-        self, 
-        config: AnalyzeConfig, 
+        self,
+        config: Optional[AnalyzeConfig] = None,
         dataset: Optional[BaseMapDataset] = None,
-        samples: Optional[list[dict]] = None
+        items_df: Optional[pd.DataFrame] = None,
+        rows_df: Optional[pd.DataFrame] = None,
+        column_config: Optional[dict] = None,
+        data_type: str = "conversation",
     ):
         """Initialize the dataset analyzer with configuration.
 
         Args:
-            config: AnalyzeConfig object containing all analysis parameters
+            config: Optional AnalyzeConfig object containing analysis parameters
             dataset: Optional pre-loaded dataset for conversation data
-            samples: Optional list of dictionary samples for dictionary-based analysis
+            items_df: Optional DataFrame with items (conversations, evaluation pairs,
+                etc.)
+            rows_df: Optional DataFrame with rows (messages, fields, etc.) within items
+            column_config: Optional column configuration dict for explicit field types
+            data_type: Type of data ("conversation", "dataframe", or "direct")
         """
+        # Initialize basic attributes
         self.config = config
-        self.dataset_name = config.dataset_name
-        self.split = config.split
+        self.data_type = data_type
+        self.column_config = column_config or {}
+        self.dataset = dataset
+        self._items_df = items_df
+        self._rows_df = rows_df
+
+        # Set dataset name
+        if config and config.dataset_name:
+            self.dataset_name = config.dataset_name
+        elif dataset:
+            self.dataset_name = getattr(dataset, "dataset_name", "Custom Dataset")
+        elif items_df is not None:
+            self.dataset_name = "Custom Dataset"
+        else:
+            self.dataset_name = "Unknown Dataset"
+
+        # Set split from config
+        if config and hasattr(config, "split"):
+            self.split = config.split
+        else:
+            self.split = None
 
         # Build tokenizer from config if provided
-        self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
-
-        # Determine data type and initialize accordingly
-        if samples is not None:
-            # DataFrame-based analysis
-            self.data_type = "dataframe"
-            self.samples = samples
-            self.dataset = None
-            
-            # Auto-detect field configuration if not provided
-            if not config.text_fields and samples:
-                self.text_fields = self._auto_detect_text_fields(samples[0])
-            else:
-                self.text_fields = config.text_fields or []
-            
-            self.id_field = config.id_field
-            self.metadata_fields = config.metadata_fields or []
-            
-            logger.info(
-                f"Using dictionary-based analysis with {len(samples)} samples, "
-                f"text_fields: {self.text_fields}"
-            )
-            
-        elif config.dataset_source == DatasetSource.DIRECT:
-            # Conversation-based analysis with provided dataset
-            self.data_type = "conversation"
-            self.samples = None
-            
-            if dataset is None:
-                raise ValueError(
-                    "Config specifies dataset_source=DatasetSource.DIRECT but no "
-                    "dataset was provided. Either pass a dataset to "
-                    "DatasetAnalyzer.__init__() or "
-                    "set dataset_source=DatasetSource.CONFIG.value."
-                )
-
-            self.dataset = dataset
-            # Use the provided dataset name if config doesn't have one
-            if not self.dataset_name:
-                self.dataset_name = getattr(dataset, "dataset_name", "Custom Dataset")
-            
-            # Set data type from config
-            self.data_type = config.data_type
-            
-            # Set default text fields
-            if not config.text_fields:
-                if self.data_type == "dataframe":
-                    # For DataFrame data, use all string columns as text fields
-                    if hasattr(dataset, 'to_pandas'):
-                        df = dataset.to_pandas()
-                    elif isinstance(dataset, pd.DataFrame):
-                        df = dataset
-                    else:
-                        df = None
-                    
-                    if df is not None and len(df) > 0:
-                        # Get all string columns
-                        string_cols = df.select_dtypes(include=['object', 'string']).columns.tolist()
-                        self.text_fields = string_cols
-                    else:
-                        self.text_fields = []
-                else:
-                    # Auto-detect text fields from the first conversation
-                    if len(dataset) > 0:
-                        first_conv = dataset.conversation(0)
-                        self.text_fields = self._auto_detect_conversation_fields(first_conv)
-                    else:
-                        self.text_fields = []
-            else:
-                self.text_fields = config.text_fields
-                
-            self.id_field = config.id_field
-            self.metadata_fields = config.metadata_fields or []
-            
-            # Handle DataFrame data
-            if self.data_type == "dataframe":
-                if hasattr(dataset, 'to_pandas'):
-                    self.samples = dataset.to_pandas()
-                elif isinstance(dataset, pd.DataFrame):
-                    self.samples = dataset
-                else:
-                    raise ValueError("For data_type='dataframe', dataset must be a pandas DataFrame or have a to_pandas() method")
-                logger.info(
-                    f"Using provided DataFrame '{self.dataset_name}' with "
-                    f"{len(self.samples)} samples, text_fields: {self.text_fields}"
-                )
-            else:
-                logger.info(
-                    f"Using provided dataset '{self.dataset_name}' with "
-                    f"{len(dataset)} conversations, text_fields: {self.text_fields}"
-                )
-        elif config.dataset_source == DatasetSource.CONFIG:
-            # Config mode: load dataset from config parameters
-            if dataset is not None:
-                raise ValueError(
-                    f"Dataset provided but config.dataset_source is "
-                    f"'{config.dataset_source.value}'. When using "
-                    f"DatasetSource.CONFIG, do not pass a dataset to the "
-                    f"constructor. Set dataset_source=DatasetSource.DIRECT "
-                    f"if you want to use the provided dataset."
-                )
-
-            # Load dataset with the tokenizer
-            self.dataset = load_dataset_from_config(config, self.tokenizer)
-            self.data_type = "conversation"  # Config-loaded datasets are conversation-based
-            self.samples = None
-            
-            # Set default text fields for conversation analysis
-            if not config.text_fields:
-                # Auto-detect text fields from the first conversation
-                if len(self.dataset) > 0:
-                    first_conv = self.dataset.conversation(0)
-                    self.text_fields = self._auto_detect_conversation_fields(first_conv)
-                else:
-                    self.text_fields = []
-            else:
-                self.text_fields = config.text_fields
-                
-            self.id_field = config.id_field
-            self.metadata_fields = config.metadata_fields or []
-            
-            logger.info(f"Loaded dataset from config: {self.dataset_name}")
+        if config and config.tokenizer_config:
+            self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
         else:
-            raise ValueError(f"Invalid dataset_source: {config.dataset_source}")
+            self.tokenizer = None
 
+        # Initialize data processing based on input type
+        if items_df is not None and rows_df is not None:
+            # Direct DataFrames input
+            self._initialize_direct_dataframes()
+        elif dataset is not None:
+            # Dataset input (conversation format)
+            self._initialize_dataset_input()
+        elif config and config.dataset_source == DatasetSource.CONFIG:
+            # Config-based dataset loading
+            self._initialize_config_dataset()
+        else:
+            raise ValueError(
+                "Must provide either (items_df, rows_df), dataset, or config with "
+                "dataset_source=CONFIG"
+            )
+
+        # Initialize analyzers
         self.sample_analyzers = self._initialize_sample_analyzers()
 
         # Initialize analysis results as None
         self._analysis_results: Optional[DatasetAnalysisResult] = None
         self._merged_df: Optional[pd.DataFrame] = None
-        self._fields_df: Optional[pd.DataFrame] = None
-        self._samples_df: Optional[pd.DataFrame] = None
+        self._items_df: Optional[pd.DataFrame] = None
+        self._rows_df: Optional[pd.DataFrame] = None
         self._analysis_summary: Optional[dict[str, Any]] = None
 
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
 
-    def _auto_detect_text_fields(self, sample: dict) -> list[str]:
-        """Auto-detect text fields in a sample dictionary."""
-        text_fields = []
-        for key, value in sample.items():
-            if isinstance(value, str) and len(value.strip()) > 0:
-                text_fields.append(key)
-        return text_fields
+    def _initialize_direct_dataframes(self) -> None:
+        """Initialize analyzer with direct DataFrames input."""
+        self.data_type = "direct"
+        logger.info(
+            f"Using direct DataFrames input with {len(self.items_df or [])} items "
+            f"and {len(self.rows_df or [])} rows"
+        )
 
-    def _auto_detect_conversation_fields(self, conversation) -> list[str]:
-        """Auto-detect text fields from a conversation object."""
-        # For DataFrame approach, we use role names as field names
-        # The field DataFrame will handle multiple rows with same field name
-        text_fields = []
-        for message in conversation.messages:
-            field_name = message.role.value
-            if field_name not in text_fields:
-                text_fields.append(field_name)
-        return text_fields
+        # Validate DataFrames have required columns
+        self._validate_dataframes()
 
-    def _conversation_to_df(self, conversation, conversation_id: str, conv_idx: int) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Convert a conversation or dictionary sample directly to field and sample DataFrames.
-        
-        Args:
-            conversation: The conversation object or dictionary to convert
-            conversation_id: The conversation/sample ID
-            conv_idx: The conversation/sample index
-            
+        # Setup analysis fields from column config
+        self._setup_analysis_fields_from_config()
+
+    def _initialize_dataset_input(self) -> None:
+        """Initialize analyzer with dataset input (conversation format)."""
+        self.data_type = "conversation"
+        logger.info(f"Using dataset input: {self.dataset_name}")
+
+        # Setup analysis fields from column config
+        self._setup_analysis_fields_from_config()
+
+    def _initialize_config_dataset(self) -> None:
+        """Initialize analyzer with config-based dataset loading."""
+        if not self.config:
+            raise ValueError("Config is required for config-based dataset loading")
+
+        # Load dataset with the tokenizer
+        self.dataset = load_dataset_from_config(self.config, self.tokenizer)
+        self.data_type = "conversation"
+
+        logger.info(f"Loaded dataset from config: {self.dataset_name}")
+
+        # Setup analysis fields from column config
+        self._setup_analysis_fields_from_config()
+
+    def _setup_analysis_fields_from_config(self) -> None:
+        """Setup analysis fields based on column configuration."""
+        if not self.column_config:
+            # For conversation format, use default column config
+            if self.data_type == "conversation":
+                self.column_config = self._get_conversation_column_config()
+            else:
+                raise ValueError(
+                    "Column configuration is required for direct DataFrames"
+                )
+
+        # Validate column config
+        self._validate_column_config()
+
+        # Setup analysis fields
+        self.text_fields = [
+            col
+            for col, config in self.column_config.items()
+            if config.get("content_type") == "text"
+        ]
+        self.image_fields = [
+            col
+            for col, config in self.column_config.items()
+            if config.get("content_type") == "image"
+        ]
+        self.numeric_fields = [
+            col
+            for col, config in self.column_config.items()
+            if config.get("content_type") == "numeric"
+        ]
+        self.audio_fields = [
+            col
+            for col, config in self.column_config.items()
+            if config.get("content_type") == "audio"
+        ]
+        self.video_fields = [
+            col
+            for col, config in self.column_config.items()
+            if config.get("content_type") == "video"
+        ]
+
+        # Metadata fields are those with content_type="metadata"
+        self.metadata_fields = [
+            col
+            for col, config in self.column_config.items()
+            if config.get("content_type") == "metadata"
+        ]
+
+        logger.info(
+            f"Setup analysis fields from config: text={self.text_fields}, "
+            f"metadata={self.metadata_fields}"
+        )
+
+    def _get_conversation_column_config(self) -> dict:
+        """Get column configuration for conversation format based on known conversation structure.
+
         Returns:
-            Tuple of (field_df, sample_df)
+            Dictionary mapping column names to their configuration.
         """
-        if self.data_type == "dataframe":
-            # DataFrame data is already in correct format, just add sample_index
-            # Preserve original dtypes from input DataFrame
-            field_df = conversation.copy()
-            field_df["sample_index"] = conv_idx
-            field_df["sample_index"] = field_df["sample_index"].astype("int64")
-            
-            sample_df = conversation.copy()
-            sample_df["sample_index"] = conv_idx
-            sample_df["sample_index"] = sample_df["sample_index"].astype("int64")
-            sample_df["conversation_id"] = conversation_id
-            sample_df["conversation_id"] = sample_df["conversation_id"].astype("string")
-            
-            return field_df, sample_df
-        else:
-            # Handle conversation data
-            return self._conversation_to_dataframes(conversation, conversation_id, conv_idx)
-    
-    def _conversation_to_dataframes(self, conversation, conversation_id: str, conv_idx: int) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Convert a conversation to field and sample DataFrames with proper dtypes."""
-        # Create field-level DataFrame (one row per message)
-        field_rows = []
-        for msg_idx, message in enumerate(conversation.messages):
-            field_rows.append({
-                "sample_index": conv_idx,
-                "field_name": message.role.value,
-                "field_index": msg_idx,
-                "text_content": message.content,
-            })
-        
-        # Create field_df with proper dtypes
-        if field_rows:
-            field_df = pd.DataFrame(field_rows)
-        else:
-            field_df = pd.DataFrame(columns=["sample_index", "field_name", "field_index", "text_content"])
-        
-        # Set proper dtypes
-        field_df["sample_index"] = field_df["sample_index"].astype("int64")
-        field_df["field_name"] = field_df["field_name"].astype("string")
-        field_df["field_index"] = field_df["field_index"].astype("int64")
-        field_df["text_content"] = field_df["text_content"].astype("string")
-        
-        # Create sample-level DataFrame (one row per sample)
-        sample_data = {
-            "sample_index": conv_idx,  # Integer index for efficient DataFrame operations
-            "conversation_id": conversation_id,  # conversation_id from the dataset
+        return {
+            # Items DataFrame columns (conversation-level)
+            "item_id": {
+                "type": "string",
+                "content_type": "metadata",
+                "description": "Conversation identifier",
+            },
+            "item_type": {
+                "type": "string",
+                "content_type": "metadata",
+                "description": "Type of item (conversation)",
+            },
+            "rendered_sample": {
+                "type": "string",
+                "content_type": "text",
+                "description": "Rendered conversation for token counting",
+            },
+            # Rows DataFrame columns (message-level)
+            "row_id": {
+                "type": "string",
+                "content_type": "metadata",
+                "description": "Row identifier",
+            },
+            "row_index": {
+                "type": "int",
+                "content_type": "metadata",
+                "description": "Message index within conversation",
+            },
+            "row_type": {
+                "type": "string",
+                "content_type": "metadata",
+                "description": "Type of row (user_message, assistant_message, etc.)",
+            },
+            "role": {
+                "type": "string",
+                "content_type": "metadata",
+                "description": "Message role (user/assistant/system)",
+            },
+            "content": {
+                "type": "string",
+                "content_type": "text",
+                "description": "Message text content",
+            },
+            # Additional fields that might be present in conversations
+            "timestamp": {
+                "type": "timestamp",
+                "content_type": "metadata",
+                "description": "Message timestamp",
+            },
+            "processing_time": {
+                "type": "float",
+                "content_type": "numeric",
+                "description": "AI processing time in seconds",
+            },
+            "model": {
+                "type": "string",
+                "content_type": "metadata",
+                "description": "Model used for generation",
+            },
+            "temperature": {
+                "type": "float",
+                "content_type": "metadata",
+                "description": "Sampling temperature",
+            },
+            "max_tokens": {
+                "type": "int",
+                "content_type": "metadata",
+                "description": "Maximum tokens to generate",
+            },
         }
-        
-        
+
+    def _validate_dataframes(self) -> None:
+        """Validate that the provided DataFrames have required columns."""
+        if self.items_df is None or self.rows_df is None:
+            raise ValueError("Both items_df and rows_df must be provided")
+
+        # Validate items_df
+        required_item_cols = ["item_index", "item_id", "item_type"]
+        missing_item_cols = [
+            col for col in required_item_cols if col not in self.items_df.columns
+        ]
+        if missing_item_cols:
+            raise ValueError(f"items_df missing required columns: {missing_item_cols}")
+
+        # Validate rows_df
+        required_row_cols = ["item_index", "row_id", "row_index", "row_type", "content"]
+        missing_row_cols = [
+            col for col in required_row_cols if col not in self.rows_df.columns
+        ]
+        if missing_row_cols:
+            raise ValueError(f"rows_df missing required columns: {missing_row_cols}")
+
+        # Validate that all row item_index values exist in items_df
+        row_item_indices = set(self.rows_df["item_index"].unique())
+        item_indices = set(self.items_df["item_index"].unique())
+        missing_items = row_item_indices - item_indices
+        if missing_items:
+            raise ValueError(
+                f"rows_df references items not in items_df: {missing_items}"
+            )
+
+    def _validate_column_config(self) -> None:
+        """Validate that column_config is properly formatted."""
+        for col_name, config in self.column_config.items():
+            assert "type" in config, f"Column {col_name} must have 'type'"
+            assert "content_type" in config, (
+                f"Column {col_name} must have 'content_type'"
+            )
+            # content_type can be "metadata" (not analyzed) or a valid content type
+
+    def _conversation_to_df(
+        self, conversation, conversation_id: str, conv_idx: int
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Convert a conversation to items and rows DataFrames.
+
+        Args:
+            conversation: The conversation object to convert
+            conversation_id: The conversation ID
+            conv_idx: The conversation index
+
+        Returns:
+            Tuple of (items_df, rows_df)
+        """
+        # Set column config for conversation format
+        self.column_config = self._get_conversation_column_config()
+
+        return self._conversation_to_items_rows(conversation, conversation_id, conv_idx)
+
+    def _conversation_to_items_rows(
+        self, conversation, conversation_id: str, conv_idx: int
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Convert a conversation to items and rows DataFrames with proper dtypes."""
+        # Create rows DataFrame (one row per message)
+        row_rows = []
+        for msg_idx, message in enumerate(conversation.messages):
+            row_data = {
+                "item_index": conv_idx,
+                "row_id": f"msg_{msg_idx}",
+                "row_index": msg_idx,
+                "row_type": f"{message.role.value}_message",
+                "role": message.role.value,
+                "content": message.content,
+            }
+
+            # Add any additional message metadata
+            if hasattr(message, "metadata") and message.metadata:
+                row_data.update(message.metadata)
+
+            row_rows.append(row_data)
+
+        # Create rows_df with proper dtypes
+        if row_rows:
+            rows_df = pd.DataFrame(row_rows)
+        else:
+            rows_df = pd.DataFrame(
+                columns=[
+                    "item_index",
+                    "row_id",
+                    "row_index",
+                    "row_type",
+                    "role",
+                    "content",
+                ]
+            )
+
+        # Set proper dtypes
+        rows_df["item_index"] = rows_df["item_index"].astype("int64")
+        rows_df["row_id"] = rows_df["row_id"].astype("string")
+        rows_df["row_index"] = rows_df["row_index"].astype("int64")
+        rows_df["row_type"] = rows_df["row_type"].astype("string")
+        rows_df["role"] = rows_df["role"].astype("string")
+        rows_df["content"] = rows_df["content"].astype("string")
+
+        # Create items DataFrame (one row per conversation)
+        item_data = {
+            "item_index": conv_idx,
+            "item_id": conversation_id,
+            "item_type": "conversation",
+        }
+
         # Add rendered sample for token counting if tokenizer is available
         if self.tokenizer is not None:
             try:
                 rendered_sample = self._render_conversation_for_tokens(conversation)
-                sample_data["rendered_sample"] = rendered_sample
+                item_data["rendered_sample"] = rendered_sample
             except Exception as e:
-                logger.warning(f"Failed to render conversation {conversation_id} for token counting: {e}")
-        
+                logger.warning(
+                    f"Failed to render conversation {conversation_id} for token "
+                    f"counting: {e}"
+                )
+
         # Add any additional metadata from the conversation
-        if conversation.metadata:
-            sample_data.update(conversation.metadata)
-        
-        # Create sample_df with proper dtypes
-        sample_df = pd.DataFrame([sample_data])
-        
+        if hasattr(conversation, "metadata") and conversation.metadata:
+            item_data.update(conversation.metadata)
+
+        # Create items_df with proper dtypes
+        items_df = pd.DataFrame([item_data])
+
         # Set proper dtypes
-        sample_df["sample_index"] = sample_df["sample_index"].astype("int64")
-        sample_df["conversation_id"] = sample_df["conversation_id"].astype("string")
-        
-        
+        items_df["item_index"] = items_df["item_index"].astype("int64")
+        items_df["item_id"] = items_df["item_id"].astype("string")
+        items_df["item_type"] = items_df["item_type"].astype("string")
+
         # Set rendered_sample to string if present
-        if "rendered_sample" in sample_df.columns:
-            sample_df["rendered_sample"] = sample_df["rendered_sample"].astype("string")
-        
-        return field_df, sample_df
-    
+        if "rendered_sample" in items_df.columns:
+            items_df["rendered_sample"] = items_df["rendered_sample"].astype("string")
+
+        return items_df, rows_df
 
     def _render_conversation_for_tokens(self, conversation) -> str:
         """Render a conversation using the tokenizer's chat template for token counting.
-        
+
         Args:
             conversation: The conversation object to render
-            
+
         Returns:
             Rendered conversation string
         """
         if self.tokenizer is None:
             raise ValueError("Tokenizer is required for conversation rendering")
-        
+
         # Use the tokenizer's chat template to render the conversation
         prompt_text = self.tokenizer.apply_chat_template(
             conversation,  # type: ignore
@@ -390,6 +512,8 @@ class DatasetAnalyzer:
             Dictionary mapping analyzer IDs to analyzer instances
         """
         sample_analyzers = {}
+        if self.config.analyzers is None:
+            return sample_analyzers
         for analyzer_params in self.config.analyzers:
             try:
                 # Get the analyzer class from the registry
@@ -455,116 +579,175 @@ class DatasetAnalyzer:
         return self._analysis_results
 
     def _compute_conversation_metrics(self) -> None:
-        """Compute metrics for all conversations using DataFrame-based analyzers."""
-        if self.data_type == "dataframe":
-            if self.samples is None:
-                raise ValueError("Samples is None for DataFrame analysis")
-            total_conversations = len(self.samples)
-        else:
+        """Compute metrics for all items using DataFrame-based analyzers."""
+        if self.data_type == "direct":
+            # Direct DataFrames input - use them directly
+            if self.items_df is None or self.rows_df is None:
+                raise ValueError(
+                    "items_df and rows_df are required for direct analysis"
+                )
+            total_items = len(self.items_df)
+            items_to_analyze = total_items
+            logger.info(f"Using direct DataFrames with {total_items} items")
+        elif self.data_type == "conversation":
+            # Conversation dataset input
             if self.dataset is None:
                 raise ValueError("Dataset is None for conversation analysis")
-            total_conversations = len(self.dataset)
-
-        # Apply conversation limit if specified
-        max_conversations = self.config.sample_count
-
-        if max_conversations is not None:
-            conversations_to_analyze = min(total_conversations, max_conversations)
-            logger.info(
-                f"Limiting analysis to first {max_conversations} "
-                f"conversations (dataset has {total_conversations} total)"
-            )
+            total_items = len(self.dataset)
+            items_to_analyze = total_items
         else:
-            conversations_to_analyze = total_conversations
+            raise ValueError(f"Unsupported data_type: {self.data_type}")
+
+        # Apply item limit if specified
+        max_items = self.config.sample_count if self.config else None
+
+        if max_items is not None:
+            items_to_analyze = min(total_items, max_items)
+            logger.info(
+                f"Limiting analysis to first {max_items} "
+                f"items (dataset has {total_items} total)"
+            )
 
         logger.info(
-            "Analyzing %d samples using DataFrame-based analyzers",
-            conversations_to_analyze,
+            "Analyzing %d items using DataFrame-based analyzers",
+            items_to_analyze,
         )
 
-        # Collect DataFrames for fields and samples
-        field_dfs = []
-        sample_dfs = []
-
-        # Use tqdm for progress monitoring
-        for conv_idx in tqdm(
-            range(conversations_to_analyze),
-            desc=f"Analyzing samples in {self.dataset_name}",
-            unit="sample",
-        ):
-            if self.data_type == "dataframe" and self.samples is None:
-                raise ValueError("Samples is None")
-            elif self.data_type != "dataframe" and self.dataset is None:
-                raise ValueError("Dataset is None")
-            
-            if self.data_type == "dataframe":
-                # Handle DataFrame data - use the row directly
-                sample_df = self.samples.iloc[conv_idx:conv_idx+1]  # Get single row as DataFrame
-                sample_id = sample_df["id"].iloc[0] if "id" in sample_df.columns else f"sample_{conv_idx}"
-                field_df, sample_df = self._conversation_to_df(sample_df, sample_id, conv_idx)
-            else:
-                # Handle conversation data
-                conversation = self.dataset.conversation(conv_idx)
-                conversation_id = conversation.conversation_id or f"conv_{conv_idx}"
-                field_df, sample_df = self._conversation_to_df(conversation, conversation_id, conv_idx)
-
-            # Process each analyzer for this sample
-            for analyzer_id, analyzer in self.sample_analyzers.items():
-                try:
-                    # Apply field-level analysis
-                    if not field_df.empty:
-                        field_df = analyzer.analyze_fields(field_df, self.text_fields, self.tokenizer)
-                    
-                    # Apply sample-level analysis
-                    sample_df = analyzer.analyze_sample(sample_df, self.text_fields, self.tokenizer)
-
-                except Exception as e:
-                    current_sample_id = conversation_id if self.data_type == "conversation" else sample_id
-                    logger.warning(
-                        f"Analyzer {analyzer_id} failed for sample "
-                        f"{current_sample_id}: {e}"
-                    )
-
-            # Add to collection DataFrames
-            if not field_df.empty:
-                field_dfs.append(field_df)
-            sample_dfs.append(sample_df)
-
-        # Create final DataFrames
-        if field_dfs:
-            self._fields_df = pd.concat(field_dfs, ignore_index=True)
+        if self.data_type == "direct":
+            # Direct DataFrames - process them directly
+            self._process_direct_dataframes(items_to_analyze)
         else:
-            self._fields_df = pd.DataFrame()
-
-        if sample_dfs:
-            self._samples_df = pd.concat(sample_dfs, ignore_index=True)
-        else:
-            self._samples_df = pd.DataFrame()
-
-        # Create merged DataFrame with both field and sample metrics
-        if not self._fields_df.empty and not self._samples_df.empty:
-            # Use sample_index for merging
-            merge_on = ["sample_index"]
-
-            self._merged_df = self._fields_df.merge(
-                self._samples_df,
-                on=merge_on,
-                how="left",
-            )
-        elif not self._fields_df.empty:
-            self._merged_df = self._fields_df.copy()
-        elif not self._samples_df.empty:
-            self._merged_df = self._samples_df.copy()
-        else:
-            self._merged_df = pd.DataFrame()
+            # Conversation dataset - convert and process
+            self._process_conversation_dataset(items_to_analyze)
 
         # Store metadata
         self._analysis_results = DatasetAnalysisResult(
             dataset_name=self.dataset_name or "",
-            total_conversations=total_conversations,
-            conversations_analyzed=conversations_to_analyze,
+            total_conversations=total_items,
+            conversations_analyzed=items_to_analyze,
         )
 
+    def _process_direct_dataframes(self, items_to_analyze: int) -> None:
+        """Process direct DataFrames input."""
+        if self.items_df is None or self.rows_df is None:
+            raise ValueError("Both items_df and rows_df must be provided")
+        # Work with copies to avoid modifying original data
+        items_df = self.items_df.copy()
+        rows_df = self.rows_df.copy()
+
+        # Limit to requested number of items
+        if items_to_analyze < len(items_df):
+            item_indices = items_df["item_index"].iloc[:items_to_analyze].tolist()
+            items_df = items_df[items_df["item_index"].isin(item_indices)]
+            rows_df = rows_df[rows_df["item_index"].isin(item_indices)]
+
+        # Process each analyzer
+        for analyzer_id, analyzer in self.sample_analyzers.items():
+            try:
+                # Apply row-level analysis
+                if not rows_df.empty:
+                    rows_df = analyzer.analyze_fields(
+                        rows_df, self.text_fields, self.tokenizer
+                    )
+
+                # Apply item-level analysis
+                if not items_df.empty:
+                    items_df = analyzer.analyze_sample(
+                        items_df, self.text_fields, self.tokenizer
+                    )
+
+            except Exception as e:
+                logger.warning(f"Analyzer {analyzer_id} failed: {e}")
+
+        # Store processed DataFrames
+        self._items_df = items_df
+        self._rows_df = rows_df
+
+        # Create merged DataFrame
+        if self._rows_df is not None and self._items_df is not None:
+            if not self._rows_df.empty and not self._items_df.empty:
+                self._merged_df = self._rows_df.merge(
+                    self._items_df, on=["item_index"], how="left"
+                )
+            elif not self._rows_df.empty:
+                self._merged_df = self._rows_df.copy()
+            elif not self._items_df.empty:
+                self._merged_df = self._items_df.copy()
+        else:
+            self._merged_df = pd.DataFrame()
+
+    def _process_conversation_dataset(self, items_to_analyze: int) -> None:
+        """Process conversation dataset input."""
+        if self.dataset is None:
+            raise ValueError("Dataset must be provided for conversation processing")
+        # Collect DataFrames for items and rows
+        items_dfs = []
+        rows_dfs = []
+
+        # Use tqdm for progress monitoring
+        for item_idx in tqdm(
+            range(items_to_analyze),
+            desc=f"Analyzing items in {self.dataset_name}",
+            unit="item",
+        ):
+            # Handle conversation data
+            conversation = self.dataset.conversation(item_idx)
+            conversation_id = conversation.conversation_id or f"conv_{item_idx}"
+            items_df, rows_df = self._conversation_to_df(
+                conversation, conversation_id, item_idx
+            )
+
+            # Process each analyzer for this item
+            for analyzer_id, analyzer in self.sample_analyzers.items():
+                try:
+                    # Apply row-level analysis
+                    if not rows_df.empty:
+                        rows_df = analyzer.analyze_fields(
+                            rows_df, self.text_fields, self.tokenizer
+                        )
+
+                    # Apply item-level analysis
+                    items_df = analyzer.analyze_sample(
+                        items_df, self.text_fields, self.tokenizer
+                    )
+
+                except Exception as e:
+                    logger.warning(
+                        f"Analyzer {analyzer_id} failed for item {conversation_id}: {e}"
+                    )
+
+            # Add to collection DataFrames
+            if not rows_df.empty:
+                rows_dfs.append(rows_df)
+            items_dfs.append(items_df)
+
+        # Create final DataFrames
+        if rows_dfs:
+            self._rows_df = pd.concat(rows_dfs, ignore_index=True)
+        else:
+            self._rows_df = pd.DataFrame()
+
+        if items_dfs:
+            self._items_df = pd.concat(items_dfs, ignore_index=True)
+        else:
+            self._items_df = pd.DataFrame()
+
+        # Create merged DataFrame with both row and item metrics
+        if not self._rows_df.empty and not self._items_df.empty:
+            # Use item_index for merging
+            merge_on = ["item_index"]
+
+            self._merged_df = self._rows_df.merge(
+                self._items_df,
+                on=merge_on,
+                how="left",
+            )
+        elif not self._rows_df.empty:
+            self._merged_df = self._rows_df.copy()
+        elif not self._items_df.empty:
+            self._merged_df = self._items_df.copy()
+        else:
+            self._merged_df = pd.DataFrame()
 
     def query(self, query_expression: str) -> pd.DataFrame:
         """Query the analysis results using pandas query syntax.
@@ -614,71 +797,71 @@ class DatasetAnalyzer:
         return self._merged_df
 
     @property
-    def fields_df(self) -> Union[pd.DataFrame, None]:
-        """Get the field-level analysis DataFrame.
+    def rows_df(self) -> Union[pd.DataFrame, None]:
+        """Get the rows-level analysis DataFrame.
 
         Returns:
-            DataFrame with field-level metrics prefixed by field_
+            DataFrame with row-level metrics prefixed by row_
 
         Raises:
             RuntimeError: If analysis has not been run yet.
         """
-        if self._fields_df is None:
+        if self._rows_df is None:
             raise RuntimeError(
                 "Analysis has not been run yet. Please call analyze_dataset() first "
-                "to access the fields DataFrame."
+                "to access the rows DataFrame."
             )
-        return self._fields_df
+        return self._rows_df
 
     @property
-    def samples_df(self) -> Union[pd.DataFrame, None]:
-        """Get the sample-level analysis DataFrame.
+    def items_df(self) -> Union[pd.DataFrame, None]:
+        """Get the items-level analysis DataFrame.
 
         Returns:
-            DataFrame with sample-level metrics prefixed by sample_
+            DataFrame with item-level metrics prefixed by item_
 
         Raises:
             RuntimeError: If analysis has not been run yet.
         """
-        if self._samples_df is None:
+        if self._items_df is None:
             raise RuntimeError(
                 "Analysis has not been run yet. Please call analyze_dataset() first "
-                "to access the samples DataFrame."
+                "to access the items DataFrame."
             )
-        return self._samples_df
+        return self._items_df
 
-    def query_conversations(
+    def query_items(
         self,
         query_expression: str,
     ) -> pd.DataFrame:
-        """Query conversation-level analysis results using pandas query expression.
+        """Query item-level analysis results using pandas query expression.
 
         Args:
-            query_expression: Pandas query expression to filter conversation analysis
+            query_expression: Pandas query expression to filter item analysis
                 results
 
         Returns:
-            DataFrame with filtered conversation analysis results
+            DataFrame with filtered item analysis results
 
         Raises:
             RuntimeError: If analysis has not been run yet.
 
         Examples:
-            # Filter for short conversations
-            long_conversations = analyzer.query_conversations(
-                "length_token_count > 1000"
+            # Filter for long conversations
+            long_conversations = analyzer.query_items(
+                "item_length_token_count > 1000"
             )
         """
         # Check if analysis has been run
-        if self._samples_df is None:
+        if self._items_df is None:
             raise RuntimeError(
                 "Analysis has not been run yet. Please call analyze_dataset() first "
-                "to query conversation results."
+                "to query item results."
             )
 
         # Apply the query filter
         try:
-            filtered_df = self._samples_df.query(query_expression)
+            filtered_df = self._items_df.query(query_expression)
             logger.info(f"Query '{query_expression}' returned {len(filtered_df)} rows")
         except Exception as e:
             logger.error(f"Query failed: {e}")
@@ -720,7 +903,7 @@ class DatasetAnalyzer:
         filtered_df = self.query(query_expression)
 
         # Get unique sample indices from filtered results
-        sample_indices = filtered_df.sample_index.unique().tolist()
+        sample_indices = filtered_df.item_index.unique().tolist()
 
         # Create a new dataset with only the filtered conversations
         if self.dataset is None:
@@ -734,9 +917,7 @@ class DatasetAnalyzer:
 
         return filtered_dataset
 
-    def _create_filtered_dataset(
-        self, sample_indices: list[int]
-    ) -> BaseMapDataset:
+    def _create_filtered_dataset(self, sample_indices: list[int]) -> BaseMapDataset:
         """Create a new dataset containing only the specified samples.
 
         Args:
@@ -747,7 +928,7 @@ class DatasetAnalyzer:
         """
         if self.dataset is None:
             raise ValueError("Dataset is None, cannot create filtered dataset")
-        
+
         # Deep copy the original dataset to preserve all attributes and methods
         filtered_dataset = copy.deepcopy(self.dataset)
 
@@ -779,9 +960,9 @@ class DatasetAnalyzer:
 
         summary = {
             "dataset_overview": self._get_dataset_overview(),
-            "field_level_summary": self._get_field_level_summary(),
-            "sample_level_summary": self._get_sample_level_summary(),
-            "sample_turns": self._get_sample_turns_summary(),
+            "row_level_summary": self._get_row_level_summary(),
+            "item_level_summary": self._get_item_level_summary(),
+            "item_turns": self._get_item_turns_summary(),
         }
 
         return summary
@@ -820,35 +1001,31 @@ class DatasetAnalyzer:
                 else 0,
                 self._decimal_precision,
             ),
-            "total_fields": len(self._fields_df)
-            if self._fields_df is not None
-            else 0,
+            "total_rows": len(self._rows_df) if self._rows_df is not None else 0,
             "analyzers_used": list(self.sample_analyzers.keys()),
         }
 
-    def _get_field_level_summary(self) -> dict[str, Any]:
-        """Get aggregated field-level metrics across all analyzers."""
-        if self._fields_df is None or self._fields_df.empty:
+    def _get_row_level_summary(self) -> dict[str, Any]:
+        """Get aggregated row-level metrics across all analyzers."""
+        if self._rows_df is None or self._rows_df.empty:
             return {}
 
-        # Get all field-level analyzer columns
-        message_columns = [
-            col for col in self._fields_df.columns if col.startswith("field_")
-        ]
+        # Get all row-level analyzer columns
+        row_columns = [col for col in self._rows_df.columns if col.startswith("row_")]
 
         summary = {}
 
-        for col in message_columns:
+        for col in row_columns:
             if col in [
-                "field_name",
-                "field_index", 
-                "text_content",
-                "sample_index",
+                "row_id",
+                "row_index",
+                "content",
+                "item_index",
             ]:
                 continue
 
             # Extract analyzer name and metric from column
-            # Format: message_{analyzer}_{metric}
+            # Format: row_{analyzer}_{metric}
             parts = col.split("_", 2)
             if len(parts) >= 3:
                 analyzer_name = parts[1]
@@ -858,8 +1035,8 @@ class DatasetAnalyzer:
                     summary[analyzer_name] = {}
 
                 # Compute statistics for numeric columns
-                if pd.api.types.is_numeric_dtype(self._fields_df[col]):
-                    values = cast(pd.Series, self._fields_df[col].dropna())
+                if pd.api.types.is_numeric_dtype(self._rows_df[col]):
+                    values = cast(pd.Series, self._rows_df[col].dropna())
                     if len(values) > 0:
                         summary[analyzer_name][metric_name] = compute_statistics(
                             values, self._decimal_precision
@@ -867,26 +1044,24 @@ class DatasetAnalyzer:
 
         return summary
 
-    def _get_sample_level_summary(self) -> dict[str, Any]:
-        """Get aggregated sample-level metrics across all analyzers."""
-        if self._samples_df is None or self._samples_df.empty:
+    def _get_item_level_summary(self) -> dict[str, Any]:
+        """Get aggregated item-level metrics across all analyzers."""
+        if self._items_df is None or self._items_df.empty:
             return {}
 
-        # Get all sample-level analyzer columns
-        sample_columns = [
-            col
-            for col in self._samples_df.columns
-            if col.startswith("sample_")
+        # Get all item-level analyzer columns
+        item_columns = [
+            col for col in self._items_df.columns if col.startswith("item_")
         ]
 
         summary = {}
 
-        for col in sample_columns:
-            if col in ["sample_index"]:
+        for col in item_columns:
+            if col in ["item_index"]:
                 continue
 
             # Extract analyzer name and metric from column
-            # Format: sample_{analyzer}_{metric}
+            # Format: item_{analyzer}_{metric}
             parts = col.split("_", 2)
             if len(parts) >= 3:
                 analyzer_name = parts[1]
@@ -896,8 +1071,8 @@ class DatasetAnalyzer:
                     summary[analyzer_name] = {}
 
                 # Compute statistics for numeric columns
-                if pd.api.types.is_numeric_dtype(self._samples_df[col]):
-                    values = cast(pd.Series, self._samples_df[col].dropna())
+                if pd.api.types.is_numeric_dtype(self._items_df[col]):
+                    values = cast(pd.Series, self._items_df[col].dropna())
                     if len(values) > 0:
                         summary[analyzer_name][metric_name] = compute_statistics(
                             values, self._decimal_precision
@@ -905,22 +1080,20 @@ class DatasetAnalyzer:
 
         return summary
 
-    def _get_sample_turns_summary(self) -> dict[str, Any]:
-        """Get conversation turn statistics summary.
+    def _get_item_turns_summary(self) -> dict[str, Any]:
+        """Get item turn statistics summary.
 
         Returns:
-            Dictionary containing conversation turn statistics
+            Dictionary containing item turn statistics
         """
-        if self._fields_df is None or self._fields_df.empty:
+        if self._rows_df is None or self._rows_df.empty:
             return {}
 
-        # Use sample_index for grouping
-        if "sample_index" not in self._fields_df.columns:
+        # Use item_index for grouping
+        if "item_index" not in self._rows_df.columns:
             return {}
 
         # groupby().size() always returns a Series, but we cast it because
         # type checker can't infer this
-        turns_per_conversation = cast(
-            pd.Series, self._fields_df.groupby("sample_index").size()
-        )
-        return compute_statistics(turns_per_conversation, self._decimal_precision)
+        turns_per_item = cast(pd.Series, self._rows_df.groupby("item_index").size())
+        return compute_statistics(turns_per_item, self._decimal_precision)
