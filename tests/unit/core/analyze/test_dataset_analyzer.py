@@ -351,8 +351,25 @@ def test_dataset_source_direct_without_dataset_failure():
 
 
 def test_dataset_source_config_with_dataset_success():
-    """Test that DatasetSource.CONFIG works when dataset is provided (uses provided
+    """Test that DatasetSource.DIRECT works when dataset is provided (uses provided
     dataset)."""
+
+    dataset = MockDataset()
+
+    config = AnalyzeConfig(
+        dataset_source=DatasetSource.DIRECT,
+        dataset_name="test_dataset",
+        analyzers=[ItemAnalyzerParams(id="test_analyzer", params={})],
+    )
+
+    # Should succeed - uses the provided dataset
+    analyzer = DatasetAnalyzer(config, dataset=dataset)
+    assert analyzer.dataset == dataset
+    assert analyzer.dataset_name == "test_dataset"
+
+
+def test_dataset_source_config_with_dataset_failure():
+    """Test that DatasetSource.CONFIG fails when dataset is provided."""
 
     dataset = MockDataset()
 
@@ -362,10 +379,12 @@ def test_dataset_source_config_with_dataset_success():
         analyzers=[ItemAnalyzerParams(id="test_analyzer", params={})],
     )
 
-    # Should succeed - uses the provided dataset instead of loading from config
-    analyzer = DatasetAnalyzer(config, dataset=dataset)
-    assert analyzer.dataset == dataset
-    assert analyzer.dataset_name == "test_dataset"
+    # Should fail - CONFIG mode should not accept provided datasets
+    with pytest.raises(
+        ValueError,
+        match="Dataset provided but config.dataset_source is 'config'",
+    ):
+        DatasetAnalyzer(config, dataset=dataset)
 
 
 def test_analyze_dataset_integration(test_data_path, mock_config):

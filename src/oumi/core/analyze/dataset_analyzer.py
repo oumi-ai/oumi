@@ -64,7 +64,6 @@ class DatasetAnalyzer:
         items_df: Optional[pd.DataFrame] = None,
         rows_df: Optional[pd.DataFrame] = None,
         column_config: Optional[dict] = None,
-        data_type: str = "conversation",
     ):
         """Initialize the dataset analyzer with configuration.
 
@@ -75,36 +74,20 @@ class DatasetAnalyzer:
                 etc.)
             rows_df: Optional DataFrame with rows (messages, fields, etc.) within items
             column_config: Optional column configuration dict for explicit field types
-            data_type: Type of data ("conversation", "dataframe", or "direct")
         """
         # Initialize basic attributes
         self.config = config
-        self.data_type = data_type
         self.column_config = column_config or {}
         self.dataset = dataset
         self._items_df = items_df
         self._rows_df = rows_df
 
-        # Set dataset name
-        if config.dataset_name:
-            self.dataset_name = config.dataset_name
-        elif dataset:
-            self.dataset_name = getattr(dataset, "dataset_name", "Custom Dataset")
-        elif items_df is not None:
-            self.dataset_name = "Custom Dataset"
-        else:
-            self.dataset_name = "Unknown Dataset"
-
-        # Set split from config
-        self.split = getattr(config, "split", None)
+        self.dataset_name = config.dataset_name
+        self.split = config.split
 
         # Build tokenizer from config if provided
-        if config.tokenizer_config:
-            self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
-        else:
-            self.tokenizer = None
+        self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
 
-        # Initialize data processing based on input type
         if config.dataset_source == DatasetSource.DIRECT:
             # Direct mode: must provide either dataset OR
             # (items_df, rows_df, column_config)
@@ -125,7 +108,6 @@ class DatasetAnalyzer:
                 and rows_df is not None
                 and column_config is not None
             ):
-                # Use direct DataFrames with column config
                 self._items_df = items_df
                 self._rows_df = rows_df
                 self.column_config = column_config
@@ -142,23 +124,16 @@ class DatasetAnalyzer:
                     "Please provide either a dataset or all three DataFrame parameters."
                 )
         elif config.dataset_source == DatasetSource.CONFIG:
-            # Config mode: load dataset from config parameters
             if dataset is not None:
-                # Use provided dataset instead of loading from config
-                self.dataset = dataset
-                # Use the provided dataset name if config doesn't have one
-                if not self.dataset_name:
-                    self.dataset_name = getattr(
-                        dataset, "dataset_name", "Custom Dataset"
-                    )
-                logger.info(
-                    f"Using provided dataset '{self.dataset_name}' with "
-                    f"{len(dataset)} conversations"
+                raise ValueError(
+                    f"Dataset provided but config.dataset_source is "
+                    f"'{config.dataset_source.value}'. When using "
+                    f"DatasetSource.CONFIG, do not pass a dataset to the "
+                    f"constructor. Set dataset_source=DatasetSource.DIRECT "
+                    f"if you want to use the provided dataset."
                 )
-            else:
-                # Load dataset with the tokenizer
-                self.dataset = load_dataset_from_config(config, self.tokenizer)
-                logger.info(f"Loaded dataset from config: {self.dataset_name}")
+            self.dataset = load_dataset_from_config(config, self.tokenizer)
+            logger.info(f"Loaded dataset from config: {self.dataset_name}")
         else:
             raise ValueError(f"Invalid dataset_source: {config.dataset_source}")
 
@@ -167,7 +142,7 @@ class DatasetAnalyzer:
 
         # Initialize analysis results as None
         self._analysis_results: Optional[DatasetAnalysisResult] = None
-        self._analyzed_df: Optional[pd.DataFrame] = None
+        self._analysis_df: Optional[pd.DataFrame] = None
         self._items_df: Optional[pd.DataFrame] = None
         self._rows_df: Optional[pd.DataFrame] = None
         self._analysis_summary: Optional[dict[str, Any]] = None
@@ -177,7 +152,6 @@ class DatasetAnalyzer:
 
     def _initialize_direct_dataframes(self) -> None:
         """Initialize analyzer with direct DataFrames input."""
-        self.data_type = "direct"
         logger.info(
             f"Using direct DataFrames input with {len(self.items_df or [])} items "
             f"and {len(self.rows_df or [])} rows"
@@ -191,7 +165,6 @@ class DatasetAnalyzer:
 
     def _initialize_dataset_input(self) -> None:
         """Initialize analyzer with dataset input (conversation format)."""
-        self.data_type = "conversation"
         logger.info(f"Using dataset input: {self.dataset_name}")
 
         # Setup analysis fields from column config
@@ -201,7 +174,6 @@ class DatasetAnalyzer:
         """Initialize analyzer with config-based dataset loading."""
         # Load dataset with the tokenizer
         self.dataset = load_dataset_from_config(self.config, self.tokenizer)
-        self.data_type = "conversation"
 
         logger.info(f"Loaded dataset from config: {self.dataset_name}")
 
@@ -212,7 +184,7 @@ class DatasetAnalyzer:
         """Setup analysis fields based on column configuration."""
         if not self.column_config:
             # For conversation format, use default column config
-            if self.data_type == "conversation":
+            if self.dataset is not None:
                 self.column_config = self._get_conversation_column_config()
             else:
                 raise ValueError(
@@ -541,23 +513,17 @@ class DatasetAnalyzer:
 
     def _compute_conversation_metrics(self) -> None:
         """Compute metrics for all items using DataFrame-based analyzers."""
-        if self.data_type == "direct":
+        if self._items_df is not None and self._rows_df is not None:
             # Direct DataFrames input - use them directly
-            if self.items_df is None or self.rows_df is None:
-                raise ValueError(
-                    "items_df and rows_df are required for direct analysis"
-                )
-            total_items = len(self.items_df)
+            total_items = len(self._items_df)
             items_to_analyze = total_items
             logger.info(f"Using direct DataFrames with {total_items} items")
-        elif self.data_type == "conversation":
+        elif self.dataset is not None:
             # Conversation dataset input
-            if self.dataset is None:
-                raise ValueError("Dataset is None for conversation analysis")
             total_items = len(self.dataset)
             items_to_analyze = total_items
         else:
-            raise ValueError(f"Unsupported data_type: {self.data_type}")
+            raise ValueError("Either dataset or (items_df, rows_df) must be provided")
 
         # Apply item limit if specified
         max_items = self.config.sample_count if self.config else None
@@ -574,7 +540,7 @@ class DatasetAnalyzer:
             items_to_analyze,
         )
 
-        if self.data_type == "direct":
+        if self._items_df is not None and self._rows_df is not None:
             # Direct DataFrames - process them directly
             self._process_direct_dataframes(items_to_analyze)
         else:
@@ -629,15 +595,15 @@ class DatasetAnalyzer:
         # Create merged DataFrame
         if self._rows_df is not None and self._items_df is not None:
             if not self._rows_df.empty and not self._items_df.empty:
-                self._analyzed_df = self._rows_df.merge(
+                self._analysis_df = self._rows_df.merge(
                     self._items_df, on=["item_index"], how="left"
                 )
             elif not self._rows_df.empty:
-                self._analyzed_df = self._rows_df.copy()
+                self._analysis_df = self._rows_df.copy()
             elif not self._items_df.empty:
-                self._analyzed_df = self._items_df.copy()
+                self._analysis_df = self._items_df.copy()
         else:
-            self._analyzed_df = pd.DataFrame()
+            self._analysis_df = pd.DataFrame()
 
     def _process_conversation_dataset(self, items_to_analyze: int) -> None:
         """Process conversation dataset input."""
@@ -700,17 +666,17 @@ class DatasetAnalyzer:
             # Use item_index for merging
             merge_on = ["item_index"]
 
-            self._analyzed_df = self._rows_df.merge(
+            self._analysis_df = self._rows_df.merge(
                 self._items_df,
                 on=merge_on,
                 how="left",
             )
         elif not self._rows_df.empty:
-            self._analyzed_df = self._rows_df.copy()
+            self._analysis_df = self._rows_df.copy()
         elif not self._items_df.empty:
-            self._analyzed_df = self._items_df.copy()
+            self._analysis_df = self._items_df.copy()
         else:
-            self._analyzed_df = pd.DataFrame()
+            self._analysis_df = pd.DataFrame()
 
     def query(self, query_expression: str) -> pd.DataFrame:
         """Query the analysis results using pandas query syntax.
@@ -725,7 +691,7 @@ class DatasetAnalyzer:
             RuntimeError: If analysis has not been run yet.
         """
         # Check if analysis has been run
-        if self._analyzed_df is None:
+        if self._analysis_df is None:
             raise RuntimeError(
                 "Analysis has not been run yet. Please call analyze_dataset() first "
                 "to query the analysis results."
@@ -733,7 +699,7 @@ class DatasetAnalyzer:
 
         # Apply the query filter
         try:
-            filtered_df = self._analyzed_df.query(query_expression)
+            filtered_df = self._analysis_df.query(query_expression)
             logger.info(f"Query '{query_expression}' returned {len(filtered_df)} rows")
         except Exception as e:
             logger.error(f"Query failed: {e}")
@@ -752,12 +718,12 @@ class DatasetAnalyzer:
         Raises:
             RuntimeError: If analysis has not been run yet.
         """
-        if self._analyzed_df is None:
+        if self._analysis_df is None:
             raise RuntimeError(
                 "Analysis has not been run yet. Please call analyze_dataset() first "
                 "to access the analysis DataFrame."
             )
-        return self._analyzed_df
+        return self._analysis_df
 
     @property
     def rows_df(self) -> Union[pd.DataFrame, None]:
@@ -918,7 +884,7 @@ class DatasetAnalyzer:
             - Conversation-level aggregated metrics
         """
         # Check if we have data to analyze
-        if self._analyzed_df is None or self._analyzed_df.empty:
+        if self._analysis_df is None or self._analysis_df.empty:
             return {"error": "No analysis data available"}
 
         summary = {
