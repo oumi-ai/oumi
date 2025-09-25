@@ -27,7 +27,7 @@ class SampleAnalyzer(ABC):
     """
 
     @abstractmethod
-    def analyze(
+    def analyze_sample(
         self,
         df: pd.DataFrame,
         column_config: Optional[dict] = None,

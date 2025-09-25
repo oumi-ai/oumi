@@ -44,7 +44,7 @@ class MockSampleAnalyzer:
         # Extract analyzer ID from config
         self.analyzer_id = kwargs.get("analyzer_id", "mock")
 
-    def analyze(self, df, tokenizer=None, column_config=None):
+    def analyze_sample(self, df, tokenizer=None, column_config=None):
         """Mock analysis for DataFrame-based approach."""
         self.analyze_calls.append((df, tokenizer, column_config))
 

@@ -618,14 +618,14 @@ class DatasetAnalyzer:
             try:
                 # Apply row-level analysis
                 if not rows_df.empty:
-                    rows_df = analyzer.analyze(
+                    rows_df = analyzer.analyze_sample(
                         rows_df,
                         self.column_config,
                     )
 
                 # Apply item-level analysis
                 if not items_df.empty:
-                    items_df = analyzer.analyze(
+                    items_df = analyzer.analyze_sample(
                         items_df,
                         self.column_config,
                     )
@@ -674,13 +674,13 @@ class DatasetAnalyzer:
                 try:
                     # Apply row-level analysis
                     if not rows_df.empty:
-                        rows_df = analyzer.analyze(
+                        rows_df = analyzer.analyze_sample(
                             rows_df,
                             column_config=self.column_config,
                         )
 
                     # Apply item-level analysis
-                    items_df = analyzer.analyze(
+                    items_df = analyzer.analyze_sample(
                         items_df,
                         column_config=self.column_config,
                     )

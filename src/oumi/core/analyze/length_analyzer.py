@@ -1,4 +1,4 @@
-# Copyright 2024 Oumi AI, Inc.
+# Copyright 2025 - Oumi
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,6 @@ class LengthAnalyzer(SampleAnalyzer):
         self.token_count = token_count
         self.tokenizer = tokenizer
         self.include_special_tokens = include_special_tokens
-
         # Validate tokenizer requirements
         if self.token_count and tokenizer is None:
             raise ValueError(
@@ -66,7 +65,7 @@ class LengthAnalyzer(SampleAnalyzer):
                 "Set token_count=False or provide a tokenizer."
             )
 
-    def analyze(
+    def analyze_sample(
         self,
         df: pd.DataFrame,
         column_config: Optional[dict] = None,
