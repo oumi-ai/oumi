@@ -583,7 +583,10 @@ def test_analyze_dataset_missing_item_id(test_data_path, mock_config):
     assert analysis_df is not None
 
     # Check that item_id fallback was used
-    conv_3_rows = analysis_df[analysis_df["item_id"] == "conv_3"]
+    # The conversation with item_id=None should fallback to index 3
+    # (4th conversation, 0-indexed)
+    # The fallback converts the index to a string, so we check for "3" not 3
+    conv_3_rows = analysis_df[analysis_df["item_id"] == "3"]
     assert len(conv_3_rows) > 0
 
 

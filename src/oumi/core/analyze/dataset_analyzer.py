@@ -536,71 +536,77 @@ class DatasetAnalyzer:
         if self.dataset is None:
             raise ValueError("Dataset must be provided for conversation processing")
 
-        items_dfs = []
-        rows_dfs = []
+        conversation_df_list = []
+        message_df_list = []
 
-        for item_idx in tqdm(
+        for conversation_idx in tqdm(
             range(items_to_analyze),
             desc=f"Analyzing items in {self.dataset_name}",
             unit="item",
         ):
-            conversation = self.dataset.conversation(item_idx)
-            conversation_id = conversation.conversation_id or f"conv_{item_idx}"
-            items_df, rows_df = self._conversation_to_df(
-                conversation, conversation_id, item_idx
+            conversation = self.dataset.conversation(conversation_idx)
+            conversation_id = conversation.conversation_id or str(conversation_idx)
+            conversation_df, message_df = self._conversation_to_df(
+                conversation, conversation_id, conversation_idx
             )
 
             # Process each analyzer for this item
             for analyzer_id, analyzer in self.sample_analyzers.items():
                 try:
                     # Apply row-level analysis
-                    if not rows_df.empty:
-                        rows_df = analyzer.analyze_sample(
-                            rows_df,
+                    if not message_df.empty:
+                        message_df = analyzer.analyze_sample(
+                            message_df,
                             column_config=self.column_config,
                         )
 
                     # Apply item-level analysis
-                    items_df = analyzer.analyze_sample(
-                        items_df,
+                    conversation_df = analyzer.analyze_sample(
+                        conversation_df,
                         column_config=self.column_config,
                     )
 
                 except Exception as e:
                     logger.warning(
-                        f"Analyzer {analyzer_id} failed for item {conversation_id}: {e}"
+                        f"Analyzer {analyzer_id} failed for conversation "
+                        f"{conversation_id}: {e}"
                     )
 
             # Add to collection DataFrames
-            if not rows_df.empty:
-                rows_dfs.append(rows_df)
-            items_dfs.append(items_df)
+            if not message_df.empty:
+                message_df_list.append(message_df)
+            if not conversation_df.empty:
+                conversation_df_list.append(conversation_df)
 
         # Create final DataFrames
-        if rows_dfs:
-            self._rows_df = pd.concat(rows_dfs, ignore_index=True)
+        if message_df_list:
+            messages_df = pd.concat(message_df_list, ignore_index=True)
+            self._rows_df = messages_df
         else:
-            self._rows_df = pd.DataFrame()
+            messages_df = pd.DataFrame()
+            self._rows_df = messages_df
 
-        if items_dfs:
-            self._items_df = pd.concat(items_dfs, ignore_index=True)
+        if conversation_df_list:
+            conversations_df = pd.concat(conversation_df_list, ignore_index=True)
+            self._items_df = conversations_df
         else:
-            self._items_df = pd.DataFrame()
+            conversations_df = pd.DataFrame()
+            self._items_df = conversations_df
 
         # Create merged DataFrame with both row and item metrics
-        if not self._rows_df.empty and not self._items_df.empty:
+        if not messages_df.empty and not conversations_df.empty:
             # Use item_index for merging
             merge_on = ["item_index"]
 
-            self._analysis_df = self._rows_df.merge(
-                self._items_df,
+            self._analysis_df = messages_df.merge(
+                conversations_df,
                 on=merge_on,
                 how="left",
             )
-        elif not self._rows_df.empty:
-            self._analysis_df = self._rows_df.copy()
-        elif not self._items_df.empty:
-            self._analysis_df = self._items_df.copy()
+        elif not messages_df.empty:
+            self._analysis_df = messages_df.copy()
+        elif not conversations_df.empty:
+            self._analysis_df = conversations_df.copy()
         else:
             self._analysis_df = pd.DataFrame()
 
