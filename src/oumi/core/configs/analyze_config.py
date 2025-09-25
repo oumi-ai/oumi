@@ -117,24 +117,6 @@ class AnalyzeConfig(BaseConfig):
     custom dataset_path. If False, treat as text-only.
     """
 
-    # Dictionary-based analysis fields
-    text_fields: list[str] = field(default_factory=list)
-    """List of field names that contain text content to analyze.
-    For example: ['request', 'response', 'explanation'].
-    If empty, will auto-detect text fields from the first sample.
-    """
-
-    id_field: str = "id"
-    """Field name to use as unique identifier for each sample.
-    Common values: 'id', 'sample_id', 'conversation_id', 'dataitem_id'
-    """
-
-    metadata_fields: list[str] = field(default_factory=list)
-    """List of field names to include as metadata (not analyzed as text).
-    For example: ['judge_name', 'score', 'judgment'] for judge results.
-    If empty, will include all non-text fields as metadata.
-    """
-
     def __post_init__(self):
         """Validates the configuration parameters."""
         if self.dataset_source == DatasetSource.CONFIG:
