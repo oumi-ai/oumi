@@ -137,7 +137,7 @@ class DatasetAnalyzer:
         else:
             raise ValueError(f"Invalid dataset_source: {config.dataset_source}")
 
-        self.item_analyzers = self._initialize_item_analyzers()
+        self.item_analyzers = self._initialize_sample_analyzers()
 
         # Initialize analysis results as None
         self._analysis_results: Optional[DatasetAnalysisResult] = None
@@ -437,7 +437,7 @@ class DatasetAnalyzer:
         )
         return str(prompt_text)
 
-    def _initialize_item_analyzers(self) -> dict[str, Any]:
+    def _initialize_sample_analyzers(self) -> dict[str, Any]:
         """Initialize sample analyzer plugins from configuration.
 
         Returns:
