@@ -112,11 +112,14 @@ class DatasetAnalyzer:
                 self._rows_df = rows_df
                 self.column_config = column_config
                 self.dataset = None
-                self._initialize_direct_dataframes()
                 logger.info(
                     f"Using direct DataFrames input with {len(items_df)} items "
                     f"and {len(rows_df)} rows"
                 )
+                # Validate DataFrames have required columns
+                self._validate_dataframes()
+                # Setup analysis fields from column config
+                self._setup_analysis_fields_from_config()
             else:
                 raise ValueError(
                     "Config specifies dataset_source=DatasetSource.DIRECT but neither "
@@ -134,6 +137,8 @@ class DatasetAnalyzer:
                 )
             self.dataset = load_dataset_from_config(config, self.tokenizer)
             logger.info(f"Loaded dataset from config: {self.dataset_name}")
+            # Setup analysis fields from column config
+            self._setup_analysis_fields_from_config()
         else:
             raise ValueError(f"Invalid dataset_source: {config.dataset_source}")
 
@@ -148,36 +153,6 @@ class DatasetAnalyzer:
 
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
-
-    def _initialize_direct_dataframes(self) -> None:
-        """Initialize analyzer with direct DataFrames input."""
-        logger.info(
-            f"Using direct DataFrames input with {len(self.items_df or [])} items "
-            f"and {len(self.rows_df or [])} rows"
-        )
-
-        # Validate DataFrames have required columns
-        self._validate_dataframes()
-
-        # Setup analysis fields from column config
-        self._setup_analysis_fields_from_config()
-
-    def _initialize_dataset_input(self) -> None:
-        """Initialize analyzer with dataset input (conversation format)."""
-        logger.info(f"Using dataset input: {self.dataset_name}")
-
-        # Setup analysis fields from column config
-        self._setup_analysis_fields_from_config()
-
-    def _initialize_config_dataset(self) -> None:
-        """Initialize analyzer with config-based dataset loading."""
-        # Load dataset with the tokenizer
-        self.dataset = load_dataset_from_config(self.config, self.tokenizer)
-
-        logger.info(f"Loaded dataset from config: {self.dataset_name}")
-
-        # Setup analysis fields from column config
-        self._setup_analysis_fields_from_config()
 
     def _setup_analysis_fields_from_config(self) -> None:
         """Setup analysis fields based on column configuration."""
