@@ -268,9 +268,9 @@ def test_analyzer_initialization(mock_load, mock_config):
     assert analyzer.split == "train"
 
     # Test that analyzers were initialized correctly
-    assert len(analyzer.item_analyzers) == 2
-    assert "text_length_analyzer" in analyzer.item_analyzers
-    assert "analyzer_2" in analyzer.item_analyzers
+    assert len(analyzer.sample_analyzers) == 2
+    assert "text_length_analyzer" in analyzer.sample_analyzers
+    assert "analyzer_2" in analyzer.sample_analyzers
 
 
 @patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry())
@@ -306,9 +306,9 @@ def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_
     mock_load.assert_not_called()
 
     # Test that analyzers were initialized correctly
-    assert len(analyzer.item_analyzers) == 2
-    assert "text_length_analyzer" in analyzer.item_analyzers
-    assert "analyzer_2" in analyzer.item_analyzers
+    assert len(analyzer.sample_analyzers) == 2
+    assert "text_length_analyzer" in analyzer.sample_analyzers
+    assert "analyzer_2" in analyzer.sample_analyzers
 
 
 def test_dataset_source_direct_with_dataset_success():
@@ -642,7 +642,7 @@ def test_analyze_dataset_analyzer_calls(test_data_path, mock_config):
     analyzer.analyze_dataset()
 
     # Check that the mock analyzer was called
-    mock_analyzer = analyzer.item_analyzers["text_length_analyzer"]
+    mock_analyzer = analyzer.sample_analyzers["text_length_analyzer"]
     # New design calls analyze_fields and analyze_sample methods
     assert len(mock_analyzer.analyze_calls) > 0  # Called for analysis
 

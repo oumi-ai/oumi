@@ -137,7 +137,7 @@ class DatasetAnalyzer:
         else:
             raise ValueError(f"Invalid dataset_source: {config.dataset_source}")
 
-        self.item_analyzers = self._initialize_sample_analyzers()
+        self.sample_analyzers = self._initialize_sample_analyzers()
 
         # Initialize analysis results as None
         self._analysis_results: Optional[DatasetAnalysisResult] = None
@@ -443,16 +443,16 @@ class DatasetAnalyzer:
         Returns:
             Dictionary mapping analyzer IDs to analyzer instances
         """
-        item_analyzers = {}
+        sample_analyzers = {}
         if self.config is None or self.config.analyzers is None:
-            return item_analyzers
+            return sample_analyzers
         for analyzer_params in self.config.analyzers:
             try:
                 # Get the analyzer class from the registry
                 analyzer_class = REGISTRY.get_sample_analyzer(analyzer_params.id)
                 if analyzer_class is None:
                     raise ValueError(
-                        f"Item analyzer '{analyzer_params.id}' not found in registry"
+                        f"Sample analyzer '{analyzer_params.id}' not found in registry"
                     )
 
                 # Prepare parameters for analyzer constructor
@@ -463,14 +463,14 @@ class DatasetAnalyzer:
 
                 # Create analyzer instance with keyword arguments
                 item_analyzer = analyzer_class(**analyzer_kwargs)
-                item_analyzers[analyzer_params.id] = item_analyzer
-                logger.info(f"Initialized item analyzer: {analyzer_params.id}")
+                sample_analyzers[analyzer_params.id] = item_analyzer
+                logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
             except Exception as e:
                 logger.error(
-                    f"Failed to initialize item analyzer {analyzer_params.id}: {e}"
+                    f"Failed to initialize sample analyzer {analyzer_params.id}: {e}"
                 )
                 logger.error(f"Analyzer configuration: {analyzer_params}")
-        return item_analyzers
+        return sample_analyzers
 
     def analyze_dataset(self) -> None:
         """Analyze the dataset and store results internally.
@@ -484,7 +484,7 @@ class DatasetAnalyzer:
         Raises:
             ValueError: If no analyzers are configured for analysis.
         """
-        if not self.item_analyzers:
+        if not self.sample_analyzers:
             raise ValueError(
                 "No analyzers configured for analysis. Please add at least one "
                 "analyzer to the configuration before calling analyze_dataset()."
@@ -492,8 +492,8 @@ class DatasetAnalyzer:
 
         logger.info(f"Starting analysis of dataset: {self.dataset_name}")
         logger.info(
-            f"Using {len(self.item_analyzers)} item analyzers: "
-            f"{list(self.item_analyzers.keys())}"
+            f"Using {len(self.sample_analyzers)} sample analyzers: "
+            f"{list(self.sample_analyzers.keys())}"
         )
 
         self._compute_conversation_metrics()
@@ -568,7 +568,7 @@ class DatasetAnalyzer:
             rows_df = pd.DataFrame(rows_df[rows_df["item_index"].isin(item_indices)])
 
         # Process each analyzer
-        for analyzer_id, analyzer in self.item_analyzers.items():
+        for analyzer_id, analyzer in self.sample_analyzers.items():
             try:
                 # Apply row-level analysis
                 if not rows_df.empty:
@@ -624,7 +624,7 @@ class DatasetAnalyzer:
             )
 
             # Process each analyzer for this item
-            for analyzer_id, analyzer in self.item_analyzers.items():
+            for analyzer_id, analyzer in self.sample_analyzers.items():
                 try:
                     # Apply row-level analysis
                     if not rows_df.empty:
@@ -930,7 +930,7 @@ class DatasetAnalyzer:
                 self._decimal_precision,
             ),
             "total_rows": len(self._rows_df) if self._rows_df is not None else 0,
-            "analyzers_used": list(self.item_analyzers.keys()),
+            "analyzers_used": list(self.sample_analyzers.keys()),
         }
 
     def _get_row_level_summary(self) -> dict[str, Any]:
