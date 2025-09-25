@@ -137,7 +137,6 @@ class DatasetAnalyzer:
         else:
             raise ValueError(f"Invalid dataset_source: {config.dataset_source}")
 
-        # Initialize analyzers
         self.item_analyzers = self._initialize_item_analyzers()
 
         # Initialize analysis results as None
