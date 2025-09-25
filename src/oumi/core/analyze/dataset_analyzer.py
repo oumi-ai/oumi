@@ -462,8 +462,8 @@ class DatasetAnalyzer:
                     analyzer_kwargs["tokenizer"] = self.tokenizer
 
                 # Create analyzer instance with keyword arguments
-                item_analyzer = analyzer_class(**analyzer_kwargs)
-                sample_analyzers[analyzer_params.id] = item_analyzer
+                sample_analyzer = analyzer_class(**analyzer_kwargs)
+                sample_analyzers[analyzer_params.id] = sample_analyzer
                 logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
             except Exception as e:
                 logger.error(
