@@ -112,12 +112,6 @@ class MockRegistry:
             return MockFailingAnalyzer
         return MockSampleAnalyzer
 
-    def get_item_analyzer(self, analyzer_id: str):
-        """Get a mock analyzer class."""
-        if analyzer_id == "failing_analyzer":
-            return MockFailingAnalyzer
-        return MockSampleAnalyzer
-
 
 @pytest.fixture
 def test_data():

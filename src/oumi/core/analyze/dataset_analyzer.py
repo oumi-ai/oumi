@@ -495,7 +495,7 @@ class DatasetAnalyzer:
         for analyzer_params in self.config.analyzers:
             try:
                 # Get the analyzer class from the registry
-                analyzer_class = REGISTRY.get_item_analyzer(analyzer_params.id)
+                analyzer_class = REGISTRY.get_sample_analyzer(analyzer_params.id)
                 if analyzer_class is None:
                     raise ValueError(
                         f"Item analyzer '{analyzer_params.id}' not found in registry"
