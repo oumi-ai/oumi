@@ -21,12 +21,12 @@ import pandas as pd
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from oumi.core.analyze.column_types import ContentType
-from oumi.core.analyze.sample_analyzer import ItemAnalyzer
-from oumi.core.registry import register_item_analyzer
+from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.registry import register_sample_analyzer
 
 
-@register_item_analyzer("length")
-class LengthAnalyzer(ItemAnalyzer):
+@register_sample_analyzer("length")
+class LengthAnalyzer(SampleAnalyzer):
     """Analyzer that computes various length metrics for text content."""
 
     def __init__(

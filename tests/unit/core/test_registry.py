@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from oumi.core.analyze.dataset_analyzer import (
+from oumi.core.analyze import (
     ConversationAnalysisResult,
     MessageAnalysisResult,
 )

@@ -12,7 +12,7 @@ import pytest
 from oumi.core.analyze.dataset_analyzer import (
     DatasetAnalyzer,
 )
-from oumi.core.configs import AnalyzeConfig, DatasetSource, ItemAnalyzerParams
+from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
 from oumi.core.datasets import BaseMapDataset
 from oumi.datasets import TextSftJsonLinesDataset
 
@@ -35,7 +35,7 @@ def check_no_nans(obj):
         pass
 
 
-class MockItemAnalyzer:
+class MockSampleAnalyzer:
     """Mock item analyzer for testing."""
 
     def __init__(self, **kwargs):
@@ -110,13 +110,13 @@ class MockRegistry:
         """Get a mock analyzer class."""
         if analyzer_id == "failing_analyzer":
             return MockFailingAnalyzer
-        return MockItemAnalyzer
+        return MockSampleAnalyzer
 
     def get_item_analyzer(self, analyzer_id: str):
         """Get a mock analyzer class."""
         if analyzer_id == "failing_analyzer":
             return MockFailingAnalyzer
-        return MockItemAnalyzer
+        return MockSampleAnalyzer
 
 
 @pytest.fixture
@@ -237,11 +237,11 @@ def mock_config():
         sample_count=2,
         output_path="./test_output",
         analyzers=[
-            ItemAnalyzerParams(
+            SampleAnalyzerParams(
                 id="text_length_analyzer",
                 params={"char_count": True, "word_count": True},
             ),
-            ItemAnalyzerParams(id="analyzer_2", params={"analyzer_id": "analyzer_2"}),
+            SampleAnalyzerParams(id="analyzer_2", params={"analyzer_id": "analyzer_2"}),
         ],
     )
 
@@ -325,7 +325,7 @@ def test_dataset_source_direct_with_dataset_success():
     config = AnalyzeConfig(
         dataset_source=DatasetSource.DIRECT,
         dataset_name="test_dataset",
-        analyzers=[ItemAnalyzerParams(id="test_analyzer", params={})],
+        analyzers=[SampleAnalyzerParams(id="test_analyzer", params={})],
     )
 
     # This should work without error
@@ -339,7 +339,7 @@ def test_dataset_source_direct_without_dataset_failure():
     config = AnalyzeConfig(
         dataset_source=DatasetSource.DIRECT,
         dataset_name="test_dataset",
-        analyzers=[ItemAnalyzerParams(id="test_analyzer", params={})],
+        analyzers=[SampleAnalyzerParams(id="test_analyzer", params={})],
     )
 
     with pytest.raises(
@@ -359,7 +359,7 @@ def test_dataset_source_config_with_dataset_success():
     config = AnalyzeConfig(
         dataset_source=DatasetSource.DIRECT,
         dataset_name="test_dataset",
-        analyzers=[ItemAnalyzerParams(id="test_analyzer", params={})],
+        analyzers=[SampleAnalyzerParams(id="test_analyzer", params={})],
     )
 
     # Should succeed - uses the provided dataset
@@ -376,7 +376,7 @@ def test_dataset_source_config_with_dataset_failure():
     config = AnalyzeConfig(
         dataset_source=DatasetSource.CONFIG,
         dataset_name="test_dataset",
-        analyzers=[ItemAnalyzerParams(id="test_analyzer", params={})],
+        analyzers=[SampleAnalyzerParams(id="test_analyzer", params={})],
     )
 
     # Should fail - CONFIG mode should not accept provided datasets
@@ -452,7 +452,7 @@ def test_analyze_dataset_analyzer_failure(test_data_path):
         split="train",
         sample_count=2,  # Limit to first 2 conversations
         analyzers=[
-            ItemAnalyzerParams(id="failing_analyzer", params={}),
+            SampleAnalyzerParams(id="failing_analyzer", params={}),
         ],
     )
 
@@ -916,7 +916,7 @@ def test_analyzer_with_tokenizer(test_data_path):
             "model_name": "gpt2"
         },  # This will be used to build a real tokenizer
         analyzers=[
-            ItemAnalyzerParams(
+            SampleAnalyzerParams(
                 id="text_length_analyzer",
                 params={"char_count": True, "word_count": True, "token_count": True},
             ),

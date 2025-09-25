@@ -20,8 +20,8 @@ from typing import Optional
 import pandas as pd
 
 
-class ItemAnalyzer(ABC):
-    """Base class for item analyzer plugins that analyze individual items.
+class SampleAnalyzer(ABC):
+    """Base class for sample analyzer plugins that analyze individual samples.
 
     All analyzers work with pandas DataFrames for efficient processing.
     """

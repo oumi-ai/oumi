@@ -353,3 +353,7 @@ def register_item_analyzer(registry_name: str) -> Callable:
         return obj
 
     return decorator_register
+
+
+# Alias for backward compatibility
+register_sample_analyzer = register_item_analyzer
