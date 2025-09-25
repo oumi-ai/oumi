@@ -103,6 +103,11 @@ class DatasetAnalyzer:
                     f"Using provided dataset '{self.dataset_name}' with "
                     f"{len(dataset)} conversations"
                 )
+                # Setup column config for conversation format
+                if not self.column_config:
+                    self.column_config = self._get_conversation_column_config()
+                # Validate column config
+                self._validate_column_config()
             elif (
                 items_df is not None
                 and rows_df is not None
@@ -118,8 +123,8 @@ class DatasetAnalyzer:
                 )
                 # Validate DataFrames have required columns
                 self._validate_dataframes()
-                # Setup analysis fields from column config
-                self._setup_analysis_fields_from_config()
+                # Validate column config
+                self._validate_column_config()
             else:
                 raise ValueError(
                     "Config specifies dataset_source=DatasetSource.DIRECT but neither "
@@ -137,8 +142,11 @@ class DatasetAnalyzer:
                 )
             self.dataset = load_dataset_from_config(config, self.tokenizer)
             logger.info(f"Loaded dataset from config: {self.dataset_name}")
-            # Setup analysis fields from column config
-            self._setup_analysis_fields_from_config()
+            # Setup column config for conversation format
+            if not self.column_config:
+                self.column_config = self._get_conversation_column_config()
+            # Validate column config
+            self._validate_column_config()
         else:
             raise ValueError(f"Invalid dataset_source: {config.dataset_source}")
 
@@ -153,59 +161,6 @@ class DatasetAnalyzer:
 
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
-
-    def _setup_analysis_fields_from_config(self) -> None:
-        """Setup analysis fields based on column configuration."""
-        if not self.column_config:
-            # For conversation format, use default column config
-            if self.dataset is not None:
-                self.column_config = self._get_conversation_column_config()
-            else:
-                raise ValueError(
-                    "Column configuration is required for direct DataFrames"
-                )
-
-        # Validate column config
-        self._validate_column_config()
-
-        # Setup analysis fields
-        self.text_fields = [
-            col
-            for col, config in self.column_config.items()
-            if config.get("content_type") == ContentType.TEXT
-        ]
-        self.image_fields = [
-            col
-            for col, config in self.column_config.items()
-            if config.get("content_type") == ContentType.IMAGE
-        ]
-        self.numeric_fields = [
-            col
-            for col, config in self.column_config.items()
-            if config.get("content_type") == ContentType.NUMERIC
-        ]
-        self.audio_fields = [
-            col
-            for col, config in self.column_config.items()
-            if config.get("content_type") == ContentType.AUDIO
-        ]
-        self.video_fields = [
-            col
-            for col, config in self.column_config.items()
-            if config.get("content_type") == ContentType.VIDEO
-        ]
-
-        # Metadata fields are those with content_type="metadata"
-        self.metadata_fields = [
-            col
-            for col, config in self.column_config.items()
-            if config.get("content_type") == ContentType.METADATA
-        ]
-
-        logger.info(
-            f"Setup analysis fields from config: text={self.text_fields}, "
-            f"metadata={self.metadata_fields}"
-        )
 
     def _get_conversation_column_config(self) -> dict:
         """Get column configuration for conversation format based on known structure.
