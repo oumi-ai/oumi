@@ -33,7 +33,7 @@ class DatasetSource(Enum):
 
 @dataclass
 class SampleAnalyzerParams(BaseParams):
-    """Params for a single item analyzer plugin."""
+    """Params for a single sample analyzer plugin."""
 
     id: str = MISSING
     """Unique identifier for the analyzer."""
@@ -133,11 +133,6 @@ class AnalyzeConfig(BaseConfig):
     """List of field names to include as metadata (not analyzed as text).
     For example: ['judge_name', 'score', 'judgment'] for judge results.
     If empty, will include all non-text fields as metadata.
-    """
-
-    data_type: str = "conversation"
-    """Type of data being analyzed. 'conversation' for conversation datasets,
-    'dataframe' for DataFrame-based analysis.
     """
 
     def __post_init__(self):
