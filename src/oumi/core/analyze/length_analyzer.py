@@ -88,13 +88,13 @@ class LengthAnalyzer(SampleAnalyzer):
                 "columns contain text content."
             )
 
-        available_text_fields = [
+        text_columns = [
             col
             for col, config in column_config.items()
             if config.get("content_type") == ContentType.TEXT and col in df.columns
         ]
 
-        if not available_text_fields:
+        if not text_columns:
             raise ValueError(
                 "No text fields found in the DataFrame for length analysis. "
                 "Please ensure your column_config specifies columns with"
@@ -102,20 +102,18 @@ class LengthAnalyzer(SampleAnalyzer):
             )
 
         # Analyze each text field and add field-level metrics
-        for field_name in available_text_fields:
+        for column in text_columns:
             if self.char_count:
-                result_df[f"{field_name}_char_count"] = (
-                    df[field_name].astype(str).str.len()
-                )
+                result_df[f"{column}_char_count"] = df[column].astype(str).str.len()
 
             if self.word_count:
-                result_df[f"{field_name}_word_count"] = (
-                    df[field_name].astype(str).str.split().str.len()
+                result_df[f"{column}_word_count"] = (
+                    df[column].astype(str).str.split().str.len()
                 )
 
             if self.sentence_count:
-                result_df[f"{field_name}_sentence_count"] = (
-                    df[field_name]
+                result_df[f"{column}_sentence_count"] = (
+                    df[column]
                     .astype(str)
                     .apply(
                         lambda text: len(
@@ -126,8 +124,8 @@ class LengthAnalyzer(SampleAnalyzer):
 
             if self.token_count and self.tokenizer is not None:
                 tokenizer = self.tokenizer  # Type assertion for pyright
-                result_df[f"{field_name}_token_count"] = (
-                    df[field_name]
+                result_df[f"{column}_token_count"] = (
+                    df[column]
                     .astype(str)
                     .apply(
                         lambda text: len(
