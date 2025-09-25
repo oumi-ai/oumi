@@ -281,9 +281,6 @@ class DatasetAnalyzer:
         Returns:
             Tuple of (items_df, rows_df)
         """
-        # Set column config for conversation format
-        self.column_config = self._get_conversation_column_config()
-
         return self._conversation_to_items_rows(conversation, conversation_id, conv_idx)
 
     def _conversation_to_items_rows(
