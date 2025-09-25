@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 from dataclasses import asdict, dataclass
 from typing import Any, Optional, Union, cast
 
@@ -20,6 +19,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.query_filter import QueryFilter
 from oumi.core.configs import AnalyzeConfig, DatasetSource
 from oumi.core.datasets import BaseMapDataset
 from oumi.core.registry import REGISTRY
@@ -158,6 +158,9 @@ class DatasetAnalyzer:
         self._items_df: Optional[pd.DataFrame] = None
         self._rows_df: Optional[pd.DataFrame] = None
         self._analysis_summary: Optional[dict[str, Any]] = None
+
+        # Initialize query filter
+        self._query_filter = QueryFilter()
 
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
@@ -531,6 +534,14 @@ class DatasetAnalyzer:
         else:
             self._analysis_df = pd.DataFrame()
 
+        # Update query filter with new data
+        self._query_filter.update_data(
+            analysis_df=self._analysis_df,
+            items_df=self._items_df,
+            rows_df=self._rows_df,
+            dataset=self.dataset,
+        )
+
     def _process_conversation_dataset(self, items_to_analyze: int) -> None:
         """Process conversation dataset input."""
         if self.dataset is None:
@@ -610,6 +621,14 @@ class DatasetAnalyzer:
         else:
             self._analysis_df = pd.DataFrame()
 
+        # Update query filter with new data
+        self._query_filter.update_data(
+            analysis_df=self._analysis_df,
+            items_df=self._items_df,
+            rows_df=self._rows_df,
+            dataset=self.dataset,
+        )
+
     def query(self, query_expression: str) -> pd.DataFrame:
         """Query the analysis results using pandas query syntax.
 
@@ -622,22 +641,7 @@ class DatasetAnalyzer:
         Raises:
             RuntimeError: If analysis has not been run yet.
         """
-        # Check if analysis has been run
-        if self._analysis_df is None:
-            raise RuntimeError(
-                "Analysis has not been run yet. Please call analyze_dataset() first "
-                "to query the analysis results."
-            )
-
-        # Apply the query filter
-        try:
-            filtered_df = self._analysis_df.query(query_expression)
-            logger.info(f"Query '{query_expression}' returned {len(filtered_df)} rows")
-        except Exception as e:
-            logger.error(f"Query failed: {e}")
-            raise ValueError(f"Invalid query expression: {query_expression}") from e
-
-        return filtered_df
+        return self._query_filter.query(query_expression)
 
     @property
     def analysis_df(self) -> Union[pd.DataFrame, None]:
@@ -713,22 +717,31 @@ class DatasetAnalyzer:
                 "item_length_token_count > 1000"
             )
         """
-        # Check if analysis has been run
-        if self._items_df is None:
-            raise RuntimeError(
-                "Analysis has not been run yet. Please call analyze_dataset() first "
-                "to query item results."
+        return self._query_filter.query_items(query_expression)
+
+    def query_rows(
+        self,
+        query_expression: str,
+    ) -> pd.DataFrame:
+        """Query row-level analysis results using pandas query expression.
+
+        Args:
+            query_expression: Pandas query expression to filter row analysis
+                results
+
+        Returns:
+            DataFrame with filtered row analysis results
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+
+        Examples:
+            # Filter for long messages
+            long_messages = analyzer.query_rows(
+                "row_length_word_count > 100"
             )
-
-        # Apply the query filter
-        try:
-            filtered_df = self._items_df.query(query_expression)
-            logger.info(f"Query '{query_expression}' returned {len(filtered_df)} rows")
-        except Exception as e:
-            logger.error(f"Query failed: {e}")
-            raise ValueError(f"Invalid query expression '{query_expression}': {e}")
-
-        return filtered_df
+        """
+        return self._query_filter.query_rows(query_expression)
 
     def filter(
         self,
@@ -760,47 +773,7 @@ class DatasetAnalyzer:
                 "role == 'user' and length_word_count > 100"
             )
         """
-        # Get filtered analysis results
-        filtered_df = self.query(query_expression)
-
-        # Get unique sample indices from filtered results
-        item_indices = filtered_df.item_index.unique().tolist()
-
-        # Create a new dataset with only the filtered conversations
-        if self.dataset is None:
-            raise ValueError("Dataset is None, cannot filter")
-        filtered_dataset = self._create_filtered_dataset(item_indices)
-
-        logger.info(
-            f"Filtered dataset: {len(item_indices)} items "
-            f"out of {len(self.dataset)} total"
-        )
-
-        return filtered_dataset
-
-    def _create_filtered_dataset(self, item_indices: list[int]) -> BaseMapDataset:
-        """Create a new dataset containing only the specified samples.
-
-        Args:
-            item_indices: List of item indices to include
-
-        Returns:
-            A new dataset object with the same format as the original
-        """
-        if self.dataset is None:
-            raise ValueError("Dataset is None, cannot create filtered dataset")
-
-        # Deep copy the original dataset to preserve all attributes and methods
-        filtered_dataset = copy.deepcopy(self.dataset)
-
-        # Filter the DataFrame to only include the specified samples
-        original_df = self.dataset.data
-        filtered_dataset._data = original_df.iloc[item_indices].copy()
-
-        # Update the dataset name to indicate it's filtered
-        filtered_dataset.dataset_name = f"{self.dataset.dataset_name}_filtered"
-
-        return filtered_dataset
+        return self._query_filter.filter_dataset(query_expression)
 
     def _generate_analysis_summary(self) -> dict[str, Any]:
         """Generate a comprehensive summary of dataset analysis results.
