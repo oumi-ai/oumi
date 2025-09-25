@@ -4,10 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from oumi.core.analyze.dataset_analyzer import (
-    ConversationAnalysisResult,
-    MessageAnalysisResult,
-)
 from oumi.core.configs import EvaluationBackend, EvaluationConfig, EvaluationTaskParams
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.registry import (
@@ -561,21 +557,9 @@ def test_register_evaluation_fn_without_inputs_happy_path():
 def test_registry_sample_analyzer():
     @register_sample_analyzer("dummy_analyzer")
     class DummyAnalyzer:
-        def analyze_sample(
-            self, conversation, tokenizer=None
-        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
-            return (
-                [
-                    MessageAnalysisResult(
-                        message_index=0,
-                        role="user",
-                        message_id="dummy_msg",
-                        text_content="dummy_message",
-                        analyzer_metrics={},
-                    )
-                ],
-                ConversationAnalysisResult(analyzer_metrics={}),
-            )
+        def analyze_sample(self, df, column_config=None):
+            """Mock analyzer that returns the input DataFrame."""
+            return df
 
     assert REGISTRY.contains("dummy_analyzer", RegistryType.SAMPLE_ANALYZER)
     assert REGISTRY.get("dummy_analyzer", RegistryType.SAMPLE_ANALYZER) == DummyAnalyzer
@@ -585,39 +569,15 @@ def test_registry_sample_analyzer():
 def test_registry_sample_analyzer_get_all():
     @register_sample_analyzer("analyzer_one")
     class AnalyzerOne:
-        def analyze_sample(
-            self, conversation, tokenizer=None
-        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
-            return (
-                [
-                    MessageAnalysisResult(
-                        message_index=0,
-                        role="user",
-                        message_id="dummy_msg",
-                        text_content="dummy_message",
-                        analyzer_metrics={},
-                    )
-                ],
-                ConversationAnalysisResult(analyzer_metrics={}),
-            )
+        def analyze_sample(self, df, column_config=None):
+            """Mock analyzer that returns the input DataFrame."""
+            return df
 
     @register_sample_analyzer("analyzer_two")
     class AnalyzerTwo:
-        def analyze_sample(
-            self, conversation, tokenizer=None
-        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
-            return (
-                [
-                    MessageAnalysisResult(
-                        message_index=0,
-                        role="user",
-                        message_id="dummy_msg",
-                        text_content="dummy_message",
-                        analyzer_metrics={},
-                    )
-                ],
-                ConversationAnalysisResult(analyzer_metrics={}),
-            )
+        def analyze_sample(self, df, column_config=None):
+            """Mock analyzer that returns the input DataFrame."""
+            return df
 
     all_analyzers = REGISTRY.get_all(RegistryType.SAMPLE_ANALYZER).values()
     assert list(all_analyzers) == [AnalyzerOne, AnalyzerTwo]
@@ -626,38 +586,14 @@ def test_registry_sample_analyzer_get_all():
 def test_registry_sample_analyzer_failure_register_twice():
     @register_sample_analyzer("duplicate_analyzer")
     class DummyAnalyzer:
-        def analyze_sample(
-            self, conversation, tokenizer=None
-        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
-            return (
-                [
-                    MessageAnalysisResult(
-                        message_index=0,
-                        role="user",
-                        message_id="dummy_msg",
-                        text_content="dummy_message",
-                        analyzer_metrics={},
-                    )
-                ],
-                ConversationAnalysisResult(analyzer_metrics={}),
-            )
+        def analyze_sample(self, df, column_config=None):
+            """Mock analyzer that returns the input DataFrame."""
+            return df
 
     with pytest.raises(ValueError):
 
         @register_sample_analyzer("duplicate_analyzer")
         class AnotherDummyAnalyzer:
-            def analyze_sample(
-                self, conversation, tokenizer=None
-            ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
-                return (
-                    [
-                        MessageAnalysisResult(
-                            message_index=0,
-                            role="user",
-                            message_id="dummy_msg",
-                            text_content="dummy_message",
-                            analyzer_metrics={},
-                        )
-                    ],
-                    ConversationAnalysisResult(analyzer_metrics={}),
-                )
+            def analyze_sample(self, df, column_config=None):
+                """Mock analyzer that returns the input DataFrame."""
+                return df

@@ -54,52 +54,6 @@ class DatasetAnalysisResult:
         return asdict(self)
 
 
-@dataclass
-class MessageAnalysisResult:
-    """Result of analyzing a single message.
-
-    Attributes:
-        message_index: Index of the message in the conversation
-        role: Role of the message (user, assistant, system, etc.)
-        message_id: Unique identifier for the message
-        text_content: The text content of the message
-        analyzer_metrics: Dictionary of metrics computed by analyzers
-    """
-
-    message_index: int
-    role: str
-    message_id: str
-    text_content: str
-    analyzer_metrics: dict[str, Any]
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary.
-
-        Returns:
-            Dictionary representation of the analysis result
-        """
-        return asdict(self)
-
-
-@dataclass
-class ConversationAnalysisResult:
-    """Result of analyzing a conversation.
-
-    Attributes:
-        analyzer_metrics: Dictionary of metrics computed by analyzers
-    """
-
-    analyzer_metrics: dict[str, Any]
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary.
-
-        Returns:
-            Dictionary representation of the analysis result
-        """
-        return asdict(self)
-
-
 class DatasetAnalyzer:
     """Orchestrates the analysis of datasets using multiple sample analyzers."""
 
