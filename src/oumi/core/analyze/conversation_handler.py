@@ -153,7 +153,7 @@ class ConversationHandler:
         items_to_analyze: int,
         dataset_name: str,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Convert entire dataset to complete items and rows DataFrames.
+        """Convert entire dataset to complete conversations and messages DataFrames.
 
         This method converts all conversations to complete DataFrames that are ready
         for analysis. The DataFrameAnalyzer will then work with these complete
@@ -165,7 +165,7 @@ class ConversationHandler:
             dataset_name: Name of the dataset for progress display
 
         Returns:
-            Tuple of (complete_items_df, complete_rows_df) ready for analysis
+            Tuple of (conversations_df, messages_df) ready for analysis
 
         Raises:
             ValueError: If dataset is not provided
@@ -173,8 +173,8 @@ class ConversationHandler:
         if dataset is None:
             raise ValueError("Dataset must be provided for conversation processing")
 
-        all_items_dfs = []
-        all_rows_dfs = []
+        conversation_df_list = []
+        message_df_list = []
 
         for conversation_idx in tqdm(
             range(items_to_analyze),
@@ -189,23 +189,23 @@ class ConversationHandler:
 
             # Collect all DataFrames for concatenation
             if not conversation_df.empty:
-                all_items_dfs.append(conversation_df)
+                conversation_df_list.append(conversation_df)
             if not message_df.empty:
-                all_rows_dfs.append(message_df)
+                message_df_list.append(message_df)
 
         # Create complete DataFrames by concatenating all individual DataFrames
-        complete_items_df = (
-            pd.concat(all_items_dfs, ignore_index=True)
-            if all_items_dfs
+        conversations_df = (
+            pd.concat(conversation_df_list, ignore_index=True)
+            if conversation_df_list
             else pd.DataFrame()
         )
-        complete_rows_df = (
-            pd.concat(all_rows_dfs, ignore_index=True)
-            if all_rows_dfs
+        messages_df = (
+            pd.concat(message_df_list, ignore_index=True)
+            if message_df_list
             else pd.DataFrame()
         )
 
-        return complete_items_df, complete_rows_df
+        return conversations_df, messages_df
 
     def _set_dtypes_from_config(self, df: pd.DataFrame) -> None:
         """Set DataFrame column dtypes based on schema.
