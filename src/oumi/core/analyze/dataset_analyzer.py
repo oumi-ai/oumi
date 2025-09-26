@@ -36,8 +36,7 @@ class DatasetAnalyzer:
         self,
         config: AnalyzeConfig,
         dataset: Optional[BaseMapDataset] = None,
-        items_df: Optional[pd.DataFrame] = None,
-        rows_df: Optional[pd.DataFrame] = None,
+        dataframes: Optional[list[DataFrameWithSchema]] = None,
         schema: Optional[dict] = None,
     ):
         """Initialize the dataset analyzer with configuration.
@@ -45,27 +44,24 @@ class DatasetAnalyzer:
         Args:
             config: AnalyzeConfig object containing analysis parameters
             dataset: Optional pre-loaded dataset for conversation data
-            items_df: Optional DataFrame with items (conversations, evaluation pairs,
-                etc.)
-            rows_df: Optional DataFrame with rows (messages, fields, etc.) within items
+            dataframes: Optional list of DataFrameWithSchema objects for direct analysis
             schema: Optional column schema dict for explicit field types
         """
-        # Use ConfigReader to initialize all components
+        # Use ConfigReader to initialize components
         config_reader = ConfigReader()
         components = config_reader.read_config(
             config=config,
             dataset=dataset,
-            items_df=items_df,
-            rows_df=rows_df,
+            items_df=None,
+            rows_df=None,
             column_config=schema,
         )
 
         # Initialize attributes from components
         self.config = components.config
         self.dataset = components.dataset
-        self._items_df = components.items_df
-        self._rows_df = components.rows_df
-        self.schema = components.column_config
+        self._dataframes = dataframes
+        self.schema = components.column_config or schema or {}
         self.sample_analyzers = components.sample_analyzers
         self.tokenizer = components.tokenizer
         self.dataset_name = components.dataset_name
@@ -112,28 +108,23 @@ class DatasetAnalyzer:
             f"{list(self.sample_analyzers.keys())}"
         )
 
-        self._compute_conversation_metrics()
+        self._run_analysis()
 
-        # Generate and store all results
+        # Generate analysis summary using analysis results
         analysis_summary = self.summary_generator.generate_analysis_summary(
-            analysis_df=self._analysis_df,
-            items_df=self._items_df,
-            rows_df=self._rows_df,
+            analysis_df=self._analysis_result.merged_df,
+            items_df=self._analysis_result.items_df,
+            rows_df=self._analysis_result.rows_df,
             analysis_results=self._analysis_results,
             sample_analyzers=self.sample_analyzers,
         )
 
         # Store all results in the results manager
-        if self._items_df is None or self._rows_df is None:
-            raise RuntimeError(
-                "Analysis DataFrames are None. Error in analysis process."
-            )
-
         self.results_manager.store_results(
             analysis_results=self._analysis_results,
-            analysis_df=self._analysis_df,
-            items_df=self._items_df,
-            rows_df=self._rows_df,
+            analysis_df=self._analysis_result.merged_df,
+            items_df=self._analysis_result.items_df,
+            rows_df=self._analysis_result.rows_df,
             analysis_summary=analysis_summary,
             dataset=self.dataset,
         )
@@ -147,105 +138,152 @@ class DatasetAnalyzer:
         """
         return self.results_manager.analysis_results
 
-    def _compute_conversation_metrics(self) -> None:
-        """Compute metrics for all items using DataFrame-based analyzers."""
-        if self._items_df is not None and self._rows_df is not None:
-            # Direct DataFrames input - use them directly
-            total_items = len(self._items_df)
-            items_to_analyze = total_items
-            logger.info(f"Using direct DataFrames with {total_items} items")
-        elif self.dataset is not None:
-            # Conversation dataset input
-            total_items = len(self.dataset)
-            items_to_analyze = total_items
-        else:
-            raise ValueError("Either dataset or (items_df, rows_df) must be provided")
-
-        # Apply item limit if specified
+    def _run_analysis(self) -> None:
+        """Run the complete analysis process on the dataset or DataFrames."""
         max_items = self.config.sample_count if self.config else None
-
-        if max_items is not None:
-            items_to_analyze = min(total_items, max_items)
-            logger.info(
-                f"Limiting analysis to first {max_items} "
-                f"items (dataset has {total_items} total)"
-            )
+        dataframe_list, total_items, items_to_analyze = self._prepare_dataframe_list(
+            max_items
+        )
 
         logger.info(
             "Analyzing %d items using DataFrame-based analyzers",
             items_to_analyze,
         )
 
-        if self._items_df is not None and self._rows_df is not None:
-            # Direct DataFrames - process them directly
-            self._process_direct_dataframes(items_to_analyze)
-        else:
-            # Conversation dataset - prepare and analyze using handlers
-            self._process_conversation_dataset(items_to_analyze)
+        analysis_result = self.dataframe_analyzer.analyze_dataframe_list(
+            input_data_list=dataframe_list,
+            merge_on="item_index",
+        )
 
-        # Store metadata
+        self._analysis_result = analysis_result
+
         self._analysis_results = DatasetAnalysisResult(
             dataset_name=self.dataset_name or "",
             total_conversations=total_items,
             conversations_analyzed=items_to_analyze,
         )
 
-    def _process_direct_dataframes(self, items_to_analyze: int) -> None:
-        """Process direct DataFrames input using DataFrameAnalyzer."""
-        if self.items_df is None or self.rows_df is None:
-            raise ValueError("Both items_df and rows_df must be provided")
+    def _prepare_dataframe_list(
+        self, max_items: Optional[int] = None
+    ) -> tuple[list[DataFrameWithSchema], int, int]:
+        """Prepare DataFrameWithSchema list from input source with optional limiting.
 
-        # Work with copies to avoid modifying original data
-        items_df: pd.DataFrame = self.items_df.copy()
-        rows_df: pd.DataFrame = self.rows_df.copy()
+        Args:
+            max_items: Maximum number of items to analyze (None for no limit)
 
-        # Limit to requested number of items
-        if items_to_analyze < len(items_df):
-            item_indices = items_df["item_index"].iloc[:items_to_analyze].tolist()
-            items_df = pd.DataFrame(items_df[items_df["item_index"].isin(item_indices)])
-            rows_df = pd.DataFrame(rows_df[rows_df["item_index"].isin(item_indices)])
+        Returns:
+            Tuple of (dataframe_list, total_items, items_to_analyze)
+        """
+        if self._dataframes is not None:
+            # Direct DataFrameWithSchema list provided
+            total_items = 0
+            if self._dataframes:
+                # Use the first DataFrame to determine total items
+                # Assume all DataFrames have the same number of items
+                total_items = len(self._dataframes[0].dataframe)
 
-        # Use DataFrameAnalyzer for the core analysis logic
-        analysis_result = self.dataframe_analyzer.analyze_dataframe_list(
-            input_data_list=[
-                DataFrameWithSchema(items_df, self.schema, "items"),
-                DataFrameWithSchema(rows_df, self.schema, "rows"),
-            ],
-            merge_on="item_index",
-        )
-
-        # Store processed DataFrames
-        self._items_df = analysis_result.items_df
-        self._rows_df = analysis_result.rows_df
-        self._analysis_df = analysis_result.merged_df
-
-    def _process_conversation_dataset(self, items_to_analyze: int) -> None:
-        """Process conversation dataset using handlers and analyzers."""
-        if self.dataset is None:
-            raise ValueError("Dataset must be provided for conversation processing")
-
-        # Step 1: Use ConversationHandler to convert dataset to DataFrames
-        complete_items_df, complete_rows_df = (
-            self.conversation_handler.convert_dataset_to_dataframes(
-                dataset=self.dataset,
-                items_to_analyze=items_to_analyze,
-                dataset_name=self.dataset_name,
+            logger.info(
+                f"Using provided DataFrameWithSchema list with {total_items} items"
             )
-        )
 
-        # Step 2: Use DataFrameAnalyzer to analyze the complete DataFrames
-        analysis_result = self.dataframe_analyzer.analyze_dataframe_list(
-            input_data_list=[
+            # Apply limits if specified
+            items_to_analyze = total_items
+            if max_items is not None:
+                items_to_analyze = min(total_items, max_items)
+                if items_to_analyze < total_items:
+                    logger.info(
+                        f"Limiting analysis to first {max_items} "
+                        f"items (dataset has {total_items} total)"
+                    )
+
+            # Apply limits to DataFrames if needed
+            limited_dataframes = self._apply_limits_to_dataframes(
+                self._dataframes, items_to_analyze
+            )
+            return limited_dataframes, total_items, items_to_analyze
+
+        elif self.dataset is not None:
+            # Conversation dataset input - convert to DataFrames
+            total_items = len(self.dataset)
+            logger.info(f"Converting conversation dataset with {total_items} items")
+
+            # Determine how many items to analyze
+            items_to_analyze = total_items
+            if max_items is not None:
+                items_to_analyze = min(total_items, max_items)
+                if items_to_analyze < total_items:
+                    logger.info(
+                        f"Limiting analysis to first {max_items} "
+                        f"items (dataset has {total_items} total)"
+                    )
+
+            # Use ConversationHandler to convert dataset to DataFrames
+            complete_items_df, complete_rows_df = (
+                self.conversation_handler.convert_dataset_to_dataframes(
+                    dataset=self.dataset,
+                    items_to_analyze=items_to_analyze,  # Convert only what we need
+                    dataset_name=self.dataset_name,
+                )
+            )
+
+            dataframe_list = [
                 DataFrameWithSchema(complete_items_df, self.schema, "items"),
                 DataFrameWithSchema(complete_rows_df, self.schema, "rows"),
-            ],
-            merge_on="item_index",
-        )
+            ]
+            return dataframe_list, total_items, items_to_analyze
 
-        # Store the processed DataFrames
-        self._items_df = analysis_result.items_df
-        self._rows_df = analysis_result.rows_df
-        self._analysis_df = analysis_result.merged_df
+        else:
+            raise ValueError("Either dataframes or dataset must be provided")
+
+    def _apply_limits_to_dataframes(
+        self, dataframe_list: list[DataFrameWithSchema], items_to_analyze: int
+    ) -> list[DataFrameWithSchema]:
+        """Apply item limits to DataFrames if needed.
+
+        Args:
+            dataframe_list: List of DataFrameWithSchema objects
+            items_to_analyze: Number of items to analyze
+
+        Returns:
+            List of DataFrameWithSchema objects with limits applied
+        """
+        if not dataframe_list:
+            return dataframe_list
+
+        # Find the items DataFrame to determine the limit
+        items_df = None
+        for df_with_schema in dataframe_list:
+            if df_with_schema.name == "items":
+                items_df = df_with_schema.dataframe
+                break
+
+        if items_df is None or items_to_analyze >= len(items_df):
+            # No limiting needed
+            return dataframe_list
+
+        # Get the item indices to keep
+        item_indices = items_df["item_index"].iloc[:items_to_analyze].tolist()
+
+        # Apply limits to all DataFrames
+        limited_dataframes = []
+        for df_with_schema in dataframe_list:
+            if "item_index" in df_with_schema.dataframe.columns:
+                filtered_data = df_with_schema.dataframe[
+                    df_with_schema.dataframe["item_index"].isin(item_indices)
+                ].copy()
+                limited_df = pd.DataFrame(filtered_data)
+            else:
+                # If no item_index column, just take the first N rows
+                sliced_data = df_with_schema.dataframe.iloc[:items_to_analyze].copy()
+                limited_df = pd.DataFrame(sliced_data)
+
+            limited_dataframes.append(
+                DataFrameWithSchema(
+                    limited_df, df_with_schema.schema, df_with_schema.name
+                )
+            )
+
+        return limited_dataframes
 
     def query(self, query_expression: str) -> pd.DataFrame:
         """Query the analysis results using pandas query syntax.
