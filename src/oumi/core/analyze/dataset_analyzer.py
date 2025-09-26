@@ -85,13 +85,9 @@ class DatasetAnalyzer:
         self.results_manager = AnalysisResultsManager()
 
     def analyze_dataset(self) -> None:
-        """Analyze the dataset and store results internally.
+        """Analyze the dataset.
 
-        This method performs both message-level and conversation-level analysis
-        using the configured sample analyzers. Each analyzer processes entire
-        conversations and returns metrics for both individual messages and
-        conversations as a whole. Results are stored internally and can be
-        accessed via the query() method.
+        This method performs analysis using the configured sample analyzers.
 
         Raises:
             ValueError: If no analyzers are configured for analysis.
