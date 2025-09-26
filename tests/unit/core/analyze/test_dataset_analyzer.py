@@ -937,3 +937,109 @@ def test_analyzer_with_tokenizer(test_data_path):
     analysis_df = analyzer.analysis_df
     assert analysis_df is not None
     assert len(analysis_df) > 0
+
+
+def test_message_handling_with_ids_and_multimodal():
+    """Test that message IDs are captured and multimodal content is handled properly."""
+    # Create test data with message IDs and multimodal content
+    test_data_with_multimodal = [
+        {
+            "item_id": "conv_multimodal",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "What's in this image?",
+                    "id": "msg_user_1",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I can see a cat in the image.",
+                    "id": "msg_assistant_1",
+                },
+            ],
+        },
+        {
+            "item_id": "conv_no_ids",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Hello without ID",
+                    # No ID field
+                },
+                {
+                    "role": "assistant",
+                    "content": "Response without ID",
+                    # No ID field
+                },
+            ],
+        },
+    ]
+
+    # Create temporary file with test data
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+        with jsonlines.Writer(f) as writer:
+            for item in test_data_with_multimodal:
+                writer.write(item)
+        temp_path = Path(f.name)
+
+    try:
+        # Create analyzer with mock config
+        mock_config = AnalyzeConfig(
+            dataset_source=DatasetSource.CONFIG,
+            dataset_name="text_sft",
+            dataset_path=str(temp_path),
+            dataset_format="oumi",
+            is_multimodal=False,
+            split="train",
+            sample_count=2,
+            output_path="./test_output",
+            analyzers=[
+                SampleAnalyzerParams(
+                    id="test_analyzer",
+                    params={"analyzer_type": "mock"},
+                )
+            ],
+        )
+
+        with patch("oumi.core.analyze.config_reader.REGISTRY", MockRegistry()):
+            analyzer = DatasetAnalyzer(config=mock_config)
+            analyzer.analyze_dataset()
+
+            # Check that analysis completed
+            results = analyzer.analysis_results
+            assert results is not None
+            assert results.total_conversations == 2
+            assert results.conversations_analyzed == 2
+
+            # Check messages DataFrame for message IDs
+            messages_df = analyzer.rows_df
+            assert messages_df is not None
+            assert len(messages_df) == 4  # 2 messages per conversation
+
+            # Check that message_id column exists
+            assert "message_id" in messages_df.columns
+
+            # Check that message IDs are captured when present
+            messages_with_ids = messages_df[messages_df["message_id"].notna()]
+            assert len(messages_with_ids) == 2  # Only first conversation has IDs
+
+            # Verify specific message IDs
+            msg_ids = messages_with_ids["message_id"].tolist()
+            assert "msg_user_1" in msg_ids
+            assert "msg_assistant_1" in msg_ids
+
+            # Check that messages without IDs have NaN in message_id column
+            messages_without_ids = messages_df[messages_df["message_id"].isna()]
+            assert len(messages_without_ids) == 2  # Second conversation has no IDs
+
+            # Check that content is properly extracted
+            assert "content" in messages_df.columns
+            contents = messages_df["content"].tolist()
+            assert "What's in this image?" in contents
+            assert "I can see a cat in the image." in contents
+            assert "Hello without ID" in contents
+            assert "Response without ID" in contents
+
+    finally:
+        # Clean up temporary file
+        temp_path.unlink()

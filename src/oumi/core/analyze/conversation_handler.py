@@ -51,7 +51,7 @@ class ConversationHandler:
     def conversation_to_dataframes(
         self, conversation, conversation_id: str, conv_idx: int
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Convert a conversation to items and rows DataFrames.
+        """Convert a conversation to conversations and messages DataFrames.
 
         Args:
             conversation: The conversation object to convert
@@ -59,44 +59,44 @@ class ConversationHandler:
             conv_idx: The conversation index
 
         Returns:
-            Tuple of (items_df, rows_df)
+            Tuple of (conversations_df, messages_df)
         """
-        return self._conversation_to_items_rows(conversation, conversation_id, conv_idx)
-
-    def _conversation_to_items_rows(
-        self, conversation, conversation_id: str, conv_idx: int
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Convert a conversation to items and rows DataFrames with proper dtypes."""
-        # Create rows DataFrame (one row per message)
-        row_rows = []
+        # Create messages DataFrame (one row per message)
+        message_records = []
         for msg_idx, message in enumerate(conversation.messages):
-            row_data = {
+            message_data = {
                 "item_index": conv_idx,
                 "row_index": msg_idx,
                 "role": message.role.value,
-                "content": message.content,
+                "content": self._extract_message_content(message),
             }
 
-            # Add any additional message metadata
-            if hasattr(message, "metadata") and message.metadata:
-                row_data.update(message.metadata)
+            # Add message ID if available
+            if message.id:
+                message_data["message_id"] = message.id
 
-            row_rows.append(row_data)
+            message_records.append(message_data)
 
-        # Create rows_df with proper dtypes
-        if row_rows:
-            rows_df = pd.DataFrame(row_rows)
+        # Create messages_df with proper dtypes
+        if message_records:
+            messages_df = pd.DataFrame(message_records)
         else:
-            rows_df = pd.DataFrame(
-                {"item_index": [], "row_index": [], "role": [], "content": []}
+            messages_df = pd.DataFrame(
+                {
+                    "item_index": [],
+                    "row_index": [],
+                    "role": [],
+                    "content": [],
+                    "message_id": [],
+                }
             )
 
         # Set proper dtypes from schema
-        self._set_dtypes_from_config(rows_df)
+        self._set_dtypes_from_config(messages_df)
 
-        # Create items DataFrame (one row per conversation)
-        item_data = {
-            "item_index": conv_idx,
+        # Create conversations DataFrame (one row per conversation)
+        conversation_data = {
+            "item_index": conv_idx,  # Keep column name for system compatibility
             "item_id": conversation_id,
             "item_type": "conversation",
         }
@@ -105,7 +105,7 @@ class ConversationHandler:
         if self.tokenizer is not None:
             try:
                 rendered_sample = self._render_conversation_for_tokens(conversation)
-                item_data["rendered_item"] = rendered_sample
+                conversation_data["rendered_item"] = rendered_sample
             except Exception as e:
                 logger.warning(
                     f"Failed to render conversation {conversation_id} for token "
@@ -114,15 +114,47 @@ class ConversationHandler:
 
         # Add any additional metadata from the conversation
         if hasattr(conversation, "metadata") and conversation.metadata:
-            item_data.update(conversation.metadata)
+            conversation_data.update(conversation.metadata)
 
-        # Create items_df with proper dtypes
-        items_df = pd.DataFrame([item_data])
+        # Create conversations_df with proper dtypes
+        conversations_df = pd.DataFrame([conversation_data])
 
         # Set proper dtypes from schema
-        self._set_dtypes_from_config(items_df)
+        self._set_dtypes_from_config(conversations_df)
 
-        return items_df, rows_df
+        return conversations_df, messages_df
+
+    def _extract_message_content(self, message) -> str:
+        """Extract content from a message, handling both text and multimodal content.
+
+        Args:
+            message: The message object to extract content from
+
+        Returns:
+            String representation of the message content
+        """
+        if isinstance(message.content, str):
+            # Simple text content
+            return message.content
+        elif isinstance(message.content, list):
+            # Multimodal content - extract text parts and describe non-text parts
+            content_parts = []
+            for item in message.content:
+                if hasattr(item, "is_text") and item.is_text():
+                    content_parts.append(item.content)
+                else:
+                    # For non-text content, add a description
+                    content_type = getattr(item, "type", "unknown")
+                    type_name = (
+                        content_type.upper()
+                        if hasattr(content_type, "upper")
+                        else content_type
+                    )
+                    content_parts.append(f"[{type_name}]")
+            return " ".join(content_parts)
+        else:
+            # Fallback for unexpected content types
+            return str(message.content)
 
     def _render_conversation_for_tokens(self, conversation) -> str:
         """Render a conversation using the tokenizer's chat template for token counting.
@@ -153,7 +185,7 @@ class ConversationHandler:
         items_to_analyze: int,
         dataset_name: str,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Convert entire dataset to complete conversations and messages DataFrames.
+        """Convert a conversation dataset to conversations and messages DataFrames.
 
         This method converts all conversations to complete DataFrames that are ready
         for analysis. The DataFrameAnalyzer will then work with these complete
