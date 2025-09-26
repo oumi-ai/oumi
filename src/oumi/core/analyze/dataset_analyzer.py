@@ -378,7 +378,7 @@ class DatasetAnalyzer:
         dataset_name: str,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Convert a conversation dataset to conversations and messages DataFrames.
-        
+
         This method converts all conversations to complete DataFrames that are ready
         for analysis. The DataFrameAnalyzer will then work with these complete
         DataFrames.
@@ -891,7 +891,7 @@ class DatasetAnalyzer:
 
         for col in analyzer_columns:
             # Use the same parsing logic as message level summary
-            # Format: text_content_{analyzer}_{metric} 
+            # Format: text_content_{analyzer}_{metric}
             # (for conversation-level aggregated metrics)
             parts = col.split("_")
             if len(parts) >= 5:  # text_content_analyzer_metric_type
