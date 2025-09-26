@@ -36,7 +36,7 @@ class DatasetAnalyzer:
         self,
         config: AnalyzeConfig,
         dataset: Optional[BaseMapDataset] = None,
-        dataframes: Optional[list[DataFrameWithSchema]] = None,
+        structured_dfs: Optional[list[DataFrameWithSchema]] = None,
         schema: Optional[dict] = None,
     ):
         """Initialize the dataset analyzer with configuration.
@@ -44,7 +44,7 @@ class DatasetAnalyzer:
         Args:
             config: AnalyzeConfig object containing analysis parameters
             dataset: Optional pre-loaded dataset for conversation data
-            dataframes: Optional list of DataFrameWithSchema objects for direct analysis
+            structured_dfs: Optional list of DataFrameWithSchema objects
             schema: Optional column schema dict for explicit field types
         """
         # Use ConfigReader to initialize components
@@ -57,7 +57,7 @@ class DatasetAnalyzer:
 
         # Initialize attributes from components
         self.dataset = components.dataset
-        self._dataframes = dataframes
+        self._structured_dfs = structured_dfs
         self.schema = components.schema or schema or {}
         self.sample_analyzers = components.sample_analyzers
         self.tokenizer = components.tokenizer
@@ -155,13 +155,13 @@ class DatasetAnalyzer:
         Returns:
             Tuple of (dataframe_list, total_items, items_to_analyze)
         """
-        if self._dataframes is not None:
+        if self._structured_dfs is not None:
             # Direct DataFrameWithSchema list provided
             total_items = 0
-            if self._dataframes:
+            if self._structured_dfs:
                 # Use the first DataFrame to determine total items
                 # Assume all DataFrames have the same number of items
-                total_items = len(self._dataframes[0].dataframe)
+                total_items = len(self._structured_dfs[0].dataframe)
 
             logger.info(
                 f"Using provided DataFrameWithSchema list with {total_items} items"
@@ -177,10 +177,10 @@ class DatasetAnalyzer:
                         f"items (dataset has {total_items} total)"
                     )
 
-            limited_dataframes = self._apply_limits_to_dataframes(
-                self._dataframes, items_to_analyze
+            limited_structured_dfs = self._apply_limits_to_structured_dfs(
+                self._structured_dfs, items_to_analyze
             )
-            return limited_dataframes, total_items, items_to_analyze
+            return limited_structured_dfs, total_items, items_to_analyze
 
         elif self.dataset is not None:
             # Conversation dataset input - convert to DataFrames
@@ -213,34 +213,34 @@ class DatasetAnalyzer:
             return dataframe_list, total_items, items_to_analyze
 
         else:
-            raise ValueError("Either dataframes or dataset must be provided")
+            raise ValueError("Either structured_dfs or dataset must be provided")
 
-    def _apply_limits_to_dataframes(
-        self, dataframe_list: list[DataFrameWithSchema], items_to_analyze: int
+    def _apply_limits_to_structured_dfs(
+        self, structured_dfs_list: list[DataFrameWithSchema], items_to_analyze: int
     ) -> list[DataFrameWithSchema]:
         """Apply item limits to all DataFrames.
 
         Args:
-            dataframe_list: List of DataFrameWithSchema objects
+            structured_dfs_list: List of DataFrameWithSchema objects
             items_to_analyze: Number of items to analyze
 
         Returns:
             List of DataFrameWithSchema objects with limits applied
         """
-        if not dataframe_list:
-            return dataframe_list
+        if not structured_dfs_list:
+            return structured_dfs_list
 
-        limited_dataframes = []
-        for df_with_schema in dataframe_list:
-            limited_df = df_with_schema.dataframe.iloc[:items_to_analyze].copy()
+        limited_structured_dfs = []
+        for data_with_schema in structured_dfs_list:
+            limited_df = data_with_schema.dataframe.iloc[:items_to_analyze].copy()
 
-            limited_dataframes.append(
+            limited_structured_dfs.append(
                 DataFrameWithSchema(
-                    limited_df, df_with_schema.schema, df_with_schema.name
+                    limited_df, data_with_schema.schema, data_with_schema.name
                 )
             )
 
-        return limited_dataframes
+        return limited_structured_dfs
 
     def query(self, query_expression: str) -> pd.DataFrame:
         """Query the analysis results using pandas query syntax.
