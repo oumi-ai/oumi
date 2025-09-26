@@ -56,7 +56,6 @@ class DatasetAnalyzer:
         )
 
         # Initialize attributes from components
-        self.config = components.config
         self.dataset = components.dataset
         self._dataframes = dataframes
         self.schema = components.schema or schema or {}
@@ -64,6 +63,7 @@ class DatasetAnalyzer:
         self.tokenizer = components.tokenizer
         self.dataset_name = components.dataset_name
         self.split = config.split
+        self.sample_count = config.sample_count
 
         # Initialize conversation handler for conversation-specific processing
         self.conversation_handler = ConversationHandler(
@@ -102,7 +102,7 @@ class DatasetAnalyzer:
             f"{list(self.sample_analyzers.keys())}"
         )
 
-        max_items = self.config.sample_count if self.config else None
+        max_items = self.sample_count
         dataframe_list, total_items, items_to_analyze = self._prepare_dataframe_list(
             max_items
         )

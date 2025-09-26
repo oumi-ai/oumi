@@ -263,9 +263,9 @@ def test_analyzer_initialization(mock_load, mock_config):
     analyzer = DatasetAnalyzer(mock_config)
 
     # Test basic initialization
-    assert analyzer.config == mock_config
     assert analyzer.dataset_name == "text_sft"
     assert analyzer.split == "train"
+    assert analyzer.sample_count == mock_config.sample_count
 
     # Test that analyzers were initialized correctly
     assert len(analyzer.sample_analyzers) == 2
@@ -293,8 +293,8 @@ def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_
     analyzer = DatasetAnalyzer(direct_config, dataset=dataset)
 
     # Test basic initialization
-    assert analyzer.config == direct_config
     assert analyzer.dataset_name == "text_sft"
+    assert analyzer.sample_count == direct_config.sample_count
 
     # Test that the provided dataset was used instead of loading from config
     assert analyzer.dataset == dataset
