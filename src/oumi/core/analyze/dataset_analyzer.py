@@ -109,17 +109,10 @@ class DatasetAnalyzer:
             max_items
         )
 
-        logger.info(
-            "Analyzing %d items using DataFrame-based analyzers",
-            items_to_analyze,
-        )
-
-        analysis_result = self.dataframe_analyzer.analyze_dataframe_list(
+        self._analysis_result = self.dataframe_analyzer.analyze_dataframe_list(
             input_data_list=dataframe_list,
             merge_on="item_index",
         )
-
-        self._analysis_result = analysis_result
 
         self._analysis_results = DatasetAnalysisResult(
             dataset_name=self.dataset_name or "",
@@ -127,7 +120,6 @@ class DatasetAnalyzer:
             conversations_analyzed=items_to_analyze,
         )
 
-        # Generate analysis summary using analysis results
         analysis_summary = self.summary_generator.generate_analysis_summary(
             analysis_df=self._analysis_result.merged_df,
             items_df=self._analysis_result.items_df,
@@ -136,7 +128,6 @@ class DatasetAnalyzer:
             sample_analyzers=self.sample_analyzers,
         )
 
-        # Store all results in the results manager
         self.results_manager.store_results(
             analysis_results=self._analysis_results,
             analysis_df=self._analysis_result.merged_df,
