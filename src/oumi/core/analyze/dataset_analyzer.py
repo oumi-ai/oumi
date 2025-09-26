@@ -52,8 +52,6 @@ class DatasetAnalyzer:
         components = config_reader.read_config(
             config=config,
             dataset=dataset,
-            items_df=None,
-            rows_df=None,
             column_config=schema,
         )
 

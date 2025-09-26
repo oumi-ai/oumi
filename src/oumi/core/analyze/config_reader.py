@@ -15,8 +15,6 @@
 from dataclasses import dataclass
 from typing import Any, Optional
 
-import pandas as pd
-
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.configs import AnalyzeConfig, DatasetSource
 from oumi.core.datasets import BaseMapDataset
@@ -35,8 +33,6 @@ class AnalysisComponents:
     Attributes:
         config: The analysis configuration
         dataset: The loaded dataset (if using conversation format)
-        items_df: DataFrame with items (conversations, evaluation pairs, etc.)
-        rows_df: DataFrame with rows (messages, fields, etc.) within items
         column_config: Column configuration dict for explicit field types
         sample_analyzers: Dictionary of initialized sample analyzers
         tokenizer: The tokenizer instance (if configured)
@@ -45,8 +41,6 @@ class AnalysisComponents:
 
     config: AnalyzeConfig
     dataset: Optional[BaseMapDataset]
-    items_df: Optional[pd.DataFrame]
-    rows_df: Optional[pd.DataFrame]
     column_config: dict[str, Any]
     sample_analyzers: dict[str, Any]
     tokenizer: Optional[Any]
@@ -72,8 +66,6 @@ class ConfigReader:
         self,
         config: AnalyzeConfig,
         dataset: Optional[BaseMapDataset] = None,
-        items_df: Optional[pd.DataFrame] = None,
-        rows_df: Optional[pd.DataFrame] = None,
         column_config: Optional[dict] = None,
     ) -> AnalysisComponents:
         """Read configuration and initialize all analysis components.
@@ -81,9 +73,6 @@ class ConfigReader:
         Args:
             config: AnalyzeConfig object containing analysis parameters
             dataset: Optional pre-loaded dataset for conversation data
-            items_df: Optional DataFrame with items (conversations, evaluation pairs,
-                etc.)
-            rows_df: Optional DataFrame with rows (messages, fields, etc.) within items
             column_config: Optional column configuration dict for explicit field types
 
         Returns:
@@ -95,13 +84,13 @@ class ConfigReader:
         # Build tokenizer from config if provided
         tokenizer = build_tokenizer_from_config(config.tokenizer_config)
 
-        # Initialize dataset and data structures based on source
+        # Initialize dataset based on source
         if config.dataset_source == DatasetSource.DIRECT:
-            dataset, items_df, rows_df, column_config = self._handle_direct_source(
-                config, dataset, items_df, rows_df, column_config
+            dataset, column_config = self._handle_direct_source(
+                config, dataset, column_config
             )
         elif config.dataset_source == DatasetSource.CONFIG:
-            dataset, items_df, rows_df, column_config = self._handle_config_source(
+            dataset, column_config = self._handle_config_source(
                 config, dataset, tokenizer
             )
         else:
@@ -113,18 +102,12 @@ class ConfigReader:
         # Validate column configuration
         self._validate_column_config(column_config)
 
-        # Validate DataFrames if provided
-        if items_df is not None and rows_df is not None:
-            self._validate_dataframes(items_df, rows_df)
-
         # Initialize sample analyzers
         sample_analyzers = self._initialize_sample_analyzers(config, tokenizer)
 
         return AnalysisComponents(
             config=config,
             dataset=dataset,
-            items_df=items_df,
-            rows_df=rows_df,
             column_config=column_config,
             sample_analyzers=sample_analyzers,
             tokenizer=tokenizer,
@@ -135,23 +118,17 @@ class ConfigReader:
         self,
         config: AnalyzeConfig,
         dataset: Optional[BaseMapDataset],
-        items_df: Optional[pd.DataFrame],
-        rows_df: Optional[pd.DataFrame],
         column_config: Optional[dict],
-    ) -> tuple[
-        Optional[BaseMapDataset], Optional[pd.DataFrame], Optional[pd.DataFrame], dict
-    ]:
+    ) -> tuple[Optional[BaseMapDataset], dict]:
         """Handle DatasetSource.DIRECT configuration.
 
         Args:
             config: The analysis configuration
             dataset: Optional pre-loaded dataset
-            items_df: Optional items DataFrame
-            rows_df: Optional rows DataFrame
             column_config: Optional column configuration
 
         Returns:
-            Tuple of (dataset, items_df, rows_df, column_config)
+            Tuple of (dataset, column_config)
 
         Raises:
             ValueError: If required components are missing for direct mode
@@ -162,20 +139,11 @@ class ConfigReader:
             # Setup column config for conversation format
             if column_config is None:
                 column_config = self._get_conversation_column_config()
-            return dataset, items_df, rows_df, column_config
-
-        elif items_df is not None and rows_df is not None and column_config is not None:
-            logger.info(
-                f"Using direct DataFrames input with {len(items_df)} items "
-                f"and {len(rows_df)} rows"
-            )
-            return None, items_df, rows_df, column_config
-
+            return dataset, column_config
         else:
             raise ValueError(
-                "Config specifies dataset_source=DatasetSource.DIRECT but neither "
-                "dataset nor (items_df, rows_df, column_config) were provided. "
-                "Please provide either a dataset or all three DataFrame parameters."
+                "Config specifies dataset_source=DatasetSource.DIRECT but no "
+                "dataset was provided. Please provide a dataset."
             )
 
     def _handle_config_source(
@@ -183,9 +151,7 @@ class ConfigReader:
         config: AnalyzeConfig,
         dataset: Optional[BaseMapDataset],
         tokenizer: Optional[Any],
-    ) -> tuple[
-        Optional[BaseMapDataset], Optional[pd.DataFrame], Optional[pd.DataFrame], dict
-    ]:
+    ) -> tuple[Optional[BaseMapDataset], dict]:
         """Handle DatasetSource.CONFIG configuration.
 
         Args:
@@ -194,7 +160,7 @@ class ConfigReader:
             tokenizer: Optional tokenizer instance
 
         Returns:
-            Tuple of (dataset, items_df, rows_df, column_config)
+            Tuple of (dataset, column_config)
 
         Raises:
             ValueError: If dataset is provided when using config source
@@ -214,7 +180,7 @@ class ConfigReader:
         # Setup column config for conversation format
         column_config = self._get_conversation_column_config()
 
-        return dataset, None, None, column_config
+        return dataset, column_config
 
     def _get_dataset_name(
         self, config: AnalyzeConfig, dataset: Optional[BaseMapDataset]
@@ -301,43 +267,6 @@ class ConfigReader:
                 "description": "Maximum tokens to generate",
             },
         }
-
-    def _validate_dataframes(
-        self, items_df: pd.DataFrame, rows_df: pd.DataFrame
-    ) -> None:
-        """Validate that the provided DataFrames have required columns.
-
-        Args:
-            items_df: DataFrame with items
-            rows_df: DataFrame with rows
-
-        Raises:
-            ValueError: If required columns are missing or data is inconsistent
-        """
-        # Validate items_df
-        required_item_cols = ["item_index", "item_id", "item_type"]
-        missing_item_cols = [
-            col for col in required_item_cols if col not in items_df.columns
-        ]
-        if missing_item_cols:
-            raise ValueError(f"items_df missing required columns: {missing_item_cols}")
-
-        # Validate rows_df
-        required_row_cols = ["item_index", "row_index", "content"]
-        missing_row_cols = [
-            col for col in required_row_cols if col not in rows_df.columns
-        ]
-        if missing_row_cols:
-            raise ValueError(f"rows_df missing required columns: {missing_row_cols}")
-
-        # Validate that all row item_index values exist in items_df
-        row_item_indices = set(rows_df["item_index"].unique())
-        item_indices = set(items_df["item_index"].unique())
-        missing_items = row_item_indices - item_indices
-        if missing_items:
-            raise ValueError(
-                f"rows_df references items not in items_df: {missing_items}"
-            )
 
     def _validate_column_config(self, column_config: dict) -> None:
         """Validate that column_config is properly formatted.

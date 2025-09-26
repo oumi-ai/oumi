@@ -338,8 +338,8 @@ def test_dataset_source_direct_without_dataset_failure():
 
     with pytest.raises(
         ValueError,
-        match="Config specifies dataset_source=DatasetSource.DIRECT but neither "
-        "dataset nor \\(items_df, rows_df, column_config\\) were provided",
+        match="Config specifies dataset_source=DatasetSource.DIRECT but no "
+        "dataset was provided",
     ):
         DatasetAnalyzer(config)
 
