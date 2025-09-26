@@ -179,7 +179,6 @@ class DatasetAnalyzer:
                         f"items (dataset has {total_items} total)"
                     )
 
-            # Apply limits to DataFrames if needed
             limited_dataframes = self._apply_limits_to_dataframes(
                 self._dataframes, items_to_analyze
             )
@@ -221,7 +220,7 @@ class DatasetAnalyzer:
     def _apply_limits_to_dataframes(
         self, dataframe_list: list[DataFrameWithSchema], items_to_analyze: int
     ) -> list[DataFrameWithSchema]:
-        """Apply item limits to DataFrames if needed.
+        """Apply item limits to all DataFrames.
 
         Args:
             dataframe_list: List of DataFrameWithSchema objects
@@ -233,32 +232,9 @@ class DatasetAnalyzer:
         if not dataframe_list:
             return dataframe_list
 
-        # Find the items DataFrame to determine the limit
-        items_df = None
-        for df_with_schema in dataframe_list:
-            if df_with_schema.name == "items":
-                items_df = df_with_schema.dataframe
-                break
-
-        if items_df is None or items_to_analyze >= len(items_df):
-            # No limiting needed
-            return dataframe_list
-
-        # Get the item indices to keep
-        item_indices = items_df["item_index"].iloc[:items_to_analyze].tolist()
-
-        # Apply limits to all DataFrames
         limited_dataframes = []
         for df_with_schema in dataframe_list:
-            if "item_index" in df_with_schema.dataframe.columns:
-                filtered_data = df_with_schema.dataframe[
-                    df_with_schema.dataframe["item_index"].isin(item_indices)
-                ].copy()
-                limited_df = pd.DataFrame(filtered_data)
-            else:
-                # If no item_index column, just take the first N rows
-                sliced_data = df_with_schema.dataframe.iloc[:items_to_analyze].copy()
-                limited_df = pd.DataFrame(sliced_data)
+            limited_df = df_with_schema.dataframe.iloc[:items_to_analyze].copy()
 
             limited_dataframes.append(
                 DataFrameWithSchema(
