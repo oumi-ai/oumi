@@ -33,7 +33,7 @@ class AnalysisComponents:
     Attributes:
         config: The analysis configuration
         dataset: The loaded dataset (if using conversation format)
-        column_config: Column configuration dict for explicit field types
+        schema: Schema dict for explicit field types
         sample_analyzers: Dictionary of initialized sample analyzers
         tokenizer: The tokenizer instance (if configured)
         dataset_name: Name of the dataset
@@ -41,7 +41,7 @@ class AnalysisComponents:
 
     config: AnalyzeConfig
     dataset: Optional[BaseMapDataset]
-    column_config: dict[str, Any]
+    schema: dict[str, Any]
     sample_analyzers: dict[str, Any]
     tokenizer: Optional[Any]
     dataset_name: str
@@ -66,14 +66,14 @@ class ConfigReader:
         self,
         config: AnalyzeConfig,
         dataset: Optional[BaseMapDataset] = None,
-        column_config: Optional[dict] = None,
+        schema: Optional[dict] = None,
     ) -> AnalysisComponents:
         """Read configuration and initialize all analysis components.
 
         Args:
             config: AnalyzeConfig object containing analysis parameters
             dataset: Optional pre-loaded dataset for conversation data
-            column_config: Optional column configuration dict for explicit field types
+            schema: Optional schema dict for explicit field types
 
         Returns:
             AnalysisComponents containing all initialized components
@@ -86,21 +86,17 @@ class ConfigReader:
 
         # Initialize dataset based on source
         if config.dataset_source == DatasetSource.DIRECT:
-            dataset, column_config = self._handle_direct_source(
-                config, dataset, column_config
-            )
+            dataset, schema = self._handle_direct_source(config, dataset, schema)
         elif config.dataset_source == DatasetSource.CONFIG:
-            dataset, column_config = self._handle_config_source(
-                config, dataset, tokenizer
-            )
+            dataset, schema = self._handle_config_source(config, dataset, tokenizer)
         else:
             raise ValueError(f"Invalid dataset_source: {config.dataset_source}")
 
         # Get dataset name
         dataset_name = self._get_dataset_name(config, dataset)
 
-        # Validate column configuration
-        self._validate_column_config(column_config)
+        # Validate schema
+        self._validate_schema(schema)
 
         # Initialize sample analyzers
         sample_analyzers = self._initialize_sample_analyzers(config, tokenizer)
@@ -108,7 +104,7 @@ class ConfigReader:
         return AnalysisComponents(
             config=config,
             dataset=dataset,
-            column_config=column_config,
+            schema=schema,
             sample_analyzers=sample_analyzers,
             tokenizer=tokenizer,
             dataset_name=dataset_name,
@@ -118,17 +114,17 @@ class ConfigReader:
         self,
         config: AnalyzeConfig,
         dataset: Optional[BaseMapDataset],
-        column_config: Optional[dict],
+        schema: Optional[dict],
     ) -> tuple[Optional[BaseMapDataset], dict]:
         """Handle DatasetSource.DIRECT configuration.
 
         Args:
             config: The analysis configuration
             dataset: Optional pre-loaded dataset
-            column_config: Optional column configuration
+            schema: Optional schema configuration
 
         Returns:
-            Tuple of (dataset, column_config)
+            Tuple of (dataset, schema)
 
         Raises:
             ValueError: If required components are missing for direct mode
@@ -136,10 +132,10 @@ class ConfigReader:
         if dataset is not None:
             # Use provided dataset
             logger.info(f"Using provided dataset with {len(dataset)} conversations")
-            # Setup column config for conversation format
-            if column_config is None:
-                column_config = self._get_conversation_column_config()
-            return dataset, column_config
+            # Setup schema for conversation format
+            if schema is None:
+                schema = self._get_conversation_schema()
+            return dataset, schema
         else:
             raise ValueError(
                 "Config specifies dataset_source=DatasetSource.DIRECT but no "
@@ -177,10 +173,10 @@ class ConfigReader:
         dataset = load_dataset_from_config(config, tokenizer)
         logger.info(f"Loaded dataset from config: {config.dataset_name}")
 
-        # Setup column config for conversation format
-        column_config = self._get_conversation_column_config()
+        # Setup schema for conversation format
+        schema = self._get_conversation_schema()
 
-        return dataset, column_config
+        return dataset, schema
 
     def _get_dataset_name(
         self, config: AnalyzeConfig, dataset: Optional[BaseMapDataset]
@@ -201,7 +197,7 @@ class ConfigReader:
         else:
             return "Custom Dataset"
 
-    def _get_conversation_column_config(self) -> dict:
+    def _get_conversation_schema(self) -> dict:
         """Get column configuration for conversation format based on known structure.
 
         Returns:
@@ -268,16 +264,16 @@ class ConfigReader:
             },
         }
 
-    def _validate_column_config(self, column_config: dict) -> None:
-        """Validate that column_config is properly formatted.
+    def _validate_schema(self, schema: dict) -> None:
+        """Validate that schema is properly formatted.
 
         Args:
-            column_config: Column configuration dictionary
+            schema: Schema configuration dictionary
 
         Raises:
             AssertionError: If column configuration is invalid
         """
-        for col_name, config in column_config.items():
+        for col_name, config in schema.items():
             assert "type" in config, f"Column {col_name} must have 'type'"
             assert "content_type" in config, (
                 f"Column {col_name} must have 'content_type'"

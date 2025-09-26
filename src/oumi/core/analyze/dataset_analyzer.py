@@ -52,14 +52,14 @@ class DatasetAnalyzer:
         components = config_reader.read_config(
             config=config,
             dataset=dataset,
-            column_config=schema,
+            schema=schema,
         )
 
         # Initialize attributes from components
         self.config = components.config
         self.dataset = components.dataset
         self._dataframes = dataframes
-        self.schema = components.column_config or schema or {}
+        self.schema = components.schema or schema or {}
         self.sample_analyzers = components.sample_analyzers
         self.tokenizer = components.tokenizer
         self.dataset_name = components.dataset_name
