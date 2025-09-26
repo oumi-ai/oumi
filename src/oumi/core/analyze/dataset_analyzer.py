@@ -108,7 +108,28 @@ class DatasetAnalyzer:
             f"{list(self.sample_analyzers.keys())}"
         )
 
-        self._run_analysis()
+        max_items = self.config.sample_count if self.config else None
+        dataframe_list, total_items, items_to_analyze = self._prepare_dataframe_list(
+            max_items
+        )
+
+        logger.info(
+            "Analyzing %d items using DataFrame-based analyzers",
+            items_to_analyze,
+        )
+
+        analysis_result = self.dataframe_analyzer.analyze_dataframe_list(
+            input_data_list=dataframe_list,
+            merge_on="item_index",
+        )
+
+        self._analysis_result = analysis_result
+
+        self._analysis_results = DatasetAnalysisResult(
+            dataset_name=self.dataset_name or "",
+            total_conversations=total_items,
+            conversations_analyzed=items_to_analyze,
+        )
 
         # Generate analysis summary using analysis results
         analysis_summary = self.summary_generator.generate_analysis_summary(
@@ -137,31 +158,6 @@ class DatasetAnalyzer:
             DatasetAnalysisResult if analysis has been run, None otherwise
         """
         return self.results_manager.analysis_results
-
-    def _run_analysis(self) -> None:
-        """Run the complete analysis process on the dataset or DataFrames."""
-        max_items = self.config.sample_count if self.config else None
-        dataframe_list, total_items, items_to_analyze = self._prepare_dataframe_list(
-            max_items
-        )
-
-        logger.info(
-            "Analyzing %d items using DataFrame-based analyzers",
-            items_to_analyze,
-        )
-
-        analysis_result = self.dataframe_analyzer.analyze_dataframe_list(
-            input_data_list=dataframe_list,
-            merge_on="item_index",
-        )
-
-        self._analysis_result = analysis_result
-
-        self._analysis_results = DatasetAnalysisResult(
-            dataset_name=self.dataset_name or "",
-            total_conversations=total_items,
-            conversations_analyzed=items_to_analyze,
-        )
 
     def _prepare_dataframe_list(
         self, max_items: Optional[int] = None
