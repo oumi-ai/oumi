@@ -481,55 +481,6 @@ class DatasetAnalyzer:
         """
         return self._analysis_results
 
-    def _convert_messages_to_df(
-        self,
-        messages: list[MessageAnalysisResult],
-        analyzer_id: str,
-        conversation_id: str,
-        conversation_index: int,
-    ) -> pd.DataFrame:
-        """Convert message results to DataFrame with prefixed columns."""
-        if not messages:
-            return pd.DataFrame()
-
-        rows = []
-        for message in messages:
-            row = {
-                "conversation_id": conversation_id,
-                "conversation_index": conversation_index,
-                "message_index": message.message_index,
-                "role": message.role,
-                "message_id": message.message_id,
-                "text_content": message.text_content,
-            }
-
-            # Add analyzer metrics with message_ prefix
-            for key, value in message.analyzer_metrics.items():
-                row[f"message_{analyzer_id}_{key}"] = value
-
-            rows.append(row)
-
-        return pd.DataFrame(rows)
-
-    def _convert_conversation_to_df(
-        self,
-        conversation: ConversationAnalysisResult,
-        analyzer_id: str,
-        conversation_id: str,
-        conversation_index: int,
-    ) -> pd.DataFrame:
-        """Convert conversation result to DataFrame with prefixed columns."""
-        row = {
-            "conversation_id": conversation_id,
-            "conversation_index": conversation_index,
-        }
-
-        # Add analyzer metrics with conversation_ prefix
-        for key, value in conversation.analyzer_metrics.items():
-            row[f"conversation_{analyzer_id}_{key}"] = value
-
-        return pd.DataFrame([row])
-
     def query(self, query_expression: str) -> pd.DataFrame:
         """Query the analysis results using pandas query syntax.
 
