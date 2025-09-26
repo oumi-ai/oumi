@@ -60,7 +60,7 @@ class AnalysisResult:
 
 class DataFrameAnalyzer:
     """Core DataFrame analysis engine.
-    
+
     This class encapsulates the essence of analysis: applying sample analyzers
     to pandas DataFrames with column configuration.
     """
@@ -108,7 +108,7 @@ class DataFrameAnalyzer:
         merge_on: Union[str, list[str]],
     ) -> AnalysisResult:
         """Apply analyzers to a list of DataFrames with their schemas and merge results.
-        
+
         This is a general method that can handle any number of DataFrames,
         each with its own schema, analyze each one, and then merge them sequentially.
 
