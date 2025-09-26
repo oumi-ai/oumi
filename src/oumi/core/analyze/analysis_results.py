@@ -144,20 +144,6 @@ class AnalysisResultsManager:
         return self._messages_df
 
     @property
-    def rows_df(self) -> Union[pd.DataFrame, None]:
-        """Get the rows-level analysis DataFrame.
-
-        Deprecated: Use messages_df instead.
-
-        Returns:
-            DataFrame with message-level metrics prefixed by message_
-
-        Raises:
-            RuntimeError: If analysis has not been run yet.
-        """
-        return self.messages_df
-
-    @property
     def conversations_df(self) -> Union[pd.DataFrame, None]:
         """Get the conversations-level analysis DataFrame.
 
@@ -173,20 +159,6 @@ class AnalysisResultsManager:
                 "to access the conversations DataFrame."
             )
         return self._conversations_df
-
-    @property
-    def items_df(self) -> Union[pd.DataFrame, None]:
-        """Get the items-level analysis DataFrame.
-
-        Deprecated: Use conversations_df instead.
-
-        Returns:
-            DataFrame with conversation-level metrics prefixed by conversation_
-
-        Raises:
-            RuntimeError: If analysis has not been run yet.
-        """
-        return self.conversations_df
 
     @property
     def analysis_summary(self) -> dict[str, Any]:
