@@ -67,7 +67,7 @@ def test_char_count():
     conv = _single_message_conversation("Hello, world!")
     test_df = _conversation_to_dataframe(conv)
     result_df = analyzer.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["content_char_count"] == 13
     # Only char_count should be present
@@ -82,7 +82,7 @@ def test_word_count():
     conv = _single_message_conversation("Hello world! This is a test.")
     test_df = _conversation_to_dataframe(conv)
     result_df = analyzer.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["content_word_count"] == 6
     # Only word_count should be present
@@ -98,7 +98,7 @@ def test_sentence_count():
     test_df = _conversation_to_dataframe(conv)
 
     result_df = analyzer.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["content_sentence_count"] == 3
     # Only sentence_count should be present
@@ -113,7 +113,7 @@ def test_analyzer_instantiation():
     test_df = _conversation_to_dataframe(conv)
 
     result_df = analyzer.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["content_char_count"] == 13
     assert result_df.iloc[0]["content_word_count"] == 2
@@ -128,7 +128,7 @@ def test_analyzer_instantiation():
     test_df = _conversation_to_dataframe(conv)
 
     result_df = analyzer.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["content_char_count"] == 13
     assert "word_count" not in result_df.columns
@@ -141,7 +141,7 @@ def test_analyzer_instantiation():
     test_df = _conversation_to_dataframe(conv)
 
     result_df = analyzer.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
     assert "char_count" not in result_df.columns
     assert result_df.iloc[0]["content_word_count"] == 2
@@ -167,7 +167,7 @@ def test_token_count():
     test_df = _conversation_to_dataframe(conv)
 
     result_df = analyzer.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["content_token_count"] == 7
     # analyze calls tokenizer once per field
@@ -190,7 +190,7 @@ def test_token_count():
     conv = _single_message_conversation("Hello, world!")
     test_df = _conversation_to_dataframe(conv)
     result_df = analyzer_no_special.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["content_token_count"] == 5
     # Check that it was called without special tokens
@@ -209,7 +209,7 @@ def test_token_count():
         )
         test_df = _conversation_to_dataframe(conv)
         analyzer_no_tokenizer.analyze_sample(
-            test_df, column_config={"content": {"content_type": "text"}}
+            test_df, schema={"content": {"content_type": "text"}}
         )
 
     # Test with tokenizer but token_count=False (should not call tokenizer)
@@ -224,7 +224,7 @@ def test_token_count():
     conv = _single_message_conversation("Hello, world!")
     test_df = _conversation_to_dataframe(conv)
     result_df = analyzer_unused.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
     # Should not call tokenizer since token_count=False
     mock_tokenizer_unused.encode.assert_not_called()
@@ -263,7 +263,7 @@ def test_conversation_level_token_count():
     # Analyze the conversation
     test_df = _conversation_to_dataframe(conv)
     result_df = analyzer.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
 
     # Check that field-level token count is computed for each message
@@ -309,7 +309,7 @@ def test_conversation_level_token_count_without_dataset():
     # Analyze the conversation
     test_df = _conversation_to_dataframe(conv)
     result_df = analyzer.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
 
     # Check that field-level token count is computed for each message
@@ -356,7 +356,7 @@ def test_conversation_level_metrics_aggregation():
     # Analyze the conversation
     test_df = _conversation_to_dataframe(conv)
     result_df = analyzer.analyze_sample(
-        test_df, column_config={"content": {"content_type": "text"}}
+        test_df, schema={"content": {"content_type": "text"}}
     )
 
     # Check field-level metrics for each message

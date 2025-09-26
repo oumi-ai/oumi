@@ -30,7 +30,7 @@ class SampleAnalyzer(ABC):
     def analyze_sample(
         self,
         df: pd.DataFrame,
-        column_config: Optional[dict] = None,
+        schema: Optional[dict] = None,
     ) -> pd.DataFrame:
         """Analyze text fields and return analysis results.
 
@@ -40,7 +40,7 @@ class SampleAnalyzer(ABC):
 
         Args:
             df: Input DataFrame with text fields
-            column_config: Column configuration dict to identify text fields
+            schema: Column schema dict to identify text fields
 
         Returns:
             DataFrame with added analysis columns

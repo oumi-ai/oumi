@@ -44,25 +44,25 @@ class MockSampleAnalyzer:
         # Extract analyzer ID from config
         self.analyzer_id = kwargs.get("analyzer_id", "mock")
 
-    def analyze_sample(self, df, tokenizer=None, column_config=None):
+    def analyze_sample(self, df, tokenizer=None, schema=None):
         """Mock analysis for DataFrame-based approach."""
-        self.analyze_calls.append((df, tokenizer, column_config))
+        self.analyze_calls.append((df, tokenizer, schema))
 
         # Create a copy to avoid modifying the original DataFrame
         result_df = df.copy()
 
-        # Use column_config to identify text fields
-        if column_config:
+        # Use schema to identify text fields
+        if schema:
             # Import ContentType for enum comparison
             from oumi.core.analyze.column_types import ContentType
 
             available_text_fields = [
                 col
-                for col, config in column_config.items()
+                for col, config in schema.items()
                 if config.get("content_type") == ContentType.TEXT and col in df.columns
             ]
         else:
-            # No column_config provided - cannot identify text fields
+            # No schema provided - cannot identify text fields
             return result_df
 
         # Add analyzer metrics to each row
@@ -245,17 +245,17 @@ def create_analyzer_with_jsonl_dataset(test_data_path, config):
     # Create a real TextSftJsonLinesDataset from the JSONL file
     dataset = TextSftJsonLinesDataset(dataset_path=test_data_path)
 
-    with patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry()):
+    with patch("oumi.core.analyze.config_reader.REGISTRY", MockRegistry()):
         with patch(
-            "oumi.core.analyze.dataset_analyzer.load_dataset_from_config"
+            "oumi.core.analyze.config_reader.load_dataset_from_config"
         ) as mock_load:
             mock_load.return_value = dataset
             analyzer = DatasetAnalyzer(config)
             return analyzer, dataset
 
 
-@patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry())
-@patch("oumi.core.analyze.dataset_analyzer.load_dataset_from_config")
+@patch("oumi.core.analyze.config_reader.REGISTRY", MockRegistry())
+@patch("oumi.core.analyze.config_reader.load_dataset_from_config")
 def test_analyzer_initialization(mock_load, mock_config):
     """Test DatasetAnalyzer initialization."""
     mock_load.return_value = "mock_dataset"
@@ -273,8 +273,8 @@ def test_analyzer_initialization(mock_load, mock_config):
     assert "analyzer_2" in analyzer.sample_analyzers
 
 
-@patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry())
-@patch("oumi.core.analyze.dataset_analyzer.load_dataset_from_config")
+@patch("oumi.core.analyze.config_reader.REGISTRY", MockRegistry())
+@patch("oumi.core.analyze.config_reader.load_dataset_from_config")
 def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_path):
     """Test DatasetAnalyzer initialization with optional dataset parameter."""
     # Create a real dataset from test data

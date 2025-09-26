@@ -68,36 +68,36 @@ class LengthAnalyzer(SampleAnalyzer):
     def analyze_sample(
         self,
         df: pd.DataFrame,
-        column_config: Optional[dict] = None,
+        schema: Optional[dict] = None,
     ) -> pd.DataFrame:
         """Analyze text fields and return metrics.
 
         Args:
             df: Input DataFrame with text fields
-            column_config: Column configuration dict to identify text fields
+            schema: Column schema dict to identify text fields
 
         Returns:
             DataFrame with added field-level analysis columns
         """
         result_df = df.copy()
 
-        if not column_config:
+        if not schema:
             raise ValueError(
-                "column_config is required to identify text fields for length analysis."
-                "Please provide a column configuration dict that specifies which"
+                "schema is required to identify text fields for length analysis. "
+                "Please provide a column schema dict that specifies which "
                 "columns contain text content."
             )
 
         text_columns = [
             col
-            for col, config in column_config.items()
+            for col, config in schema.items()
             if config.get("content_type") == ContentType.TEXT and col in df.columns
         ]
 
         if not text_columns:
             raise ValueError(
                 "No text fields found in the DataFrame for length analysis. "
-                "Please ensure your column_config specifies columns with"
+                "Please ensure your schema specifies columns with"
                 "content_type='text'and that those columns exist in the DataFrame."
             )
 
