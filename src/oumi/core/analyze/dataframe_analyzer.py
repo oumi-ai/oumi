@@ -48,23 +48,21 @@ class AnalysisResult:
     merged_df: pd.DataFrame
 
     @property
-    def items_df(self) -> pd.DataFrame:
-        """Get the 'items' DataFrame for backward compatibility."""
-        return self.dataframes.get("items", pd.DataFrame())
+    def conversations_df(self) -> pd.DataFrame:
+        """Get the 'conversations' DataFrame."""
+        return self.dataframes.get("conversations", pd.DataFrame())
 
     @property
-    def rows_df(self) -> pd.DataFrame:
-        """Get the 'rows' DataFrame for backward compatibility."""
-        return self.dataframes.get("rows", pd.DataFrame())
+    def messages_df(self) -> pd.DataFrame:
+        """Get the 'messages' DataFrame."""
+        return self.dataframes.get("messages", pd.DataFrame())
 
 
 class DataFrameAnalyzer:
     """Core DataFrame analysis engine.
 
     This class encapsulates the essence of analysis: applying sample analyzers
-    to pandas DataFrames with column configuration. It handles both single
-    DataFrame analysis and the special case of items/rows DataFrame pairs
-    (like conversations/messages) that need to be analyzed separately and merged.
+    to pandas DataFrames with column configuration.
     """
 
     def __init__(

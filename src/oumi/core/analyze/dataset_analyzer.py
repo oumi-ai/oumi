@@ -122,8 +122,8 @@ class DatasetAnalyzer:
 
         analysis_summary = self.summary_generator.generate_analysis_summary(
             analysis_df=self._analysis_result.merged_df,
-            items_df=self._analysis_result.items_df,
-            rows_df=self._analysis_result.rows_df,
+            conversations_df=self._analysis_result.conversations_df,
+            messages_df=self._analysis_result.messages_df,
             analysis_results=self._analysis_results,
             sample_analyzers=self.sample_analyzers,
         )
@@ -131,8 +131,8 @@ class DatasetAnalyzer:
         self.results_manager.store_results(
             analysis_results=self._analysis_results,
             analysis_df=self._analysis_result.merged_df,
-            items_df=self._analysis_result.items_df,
-            rows_df=self._analysis_result.rows_df,
+            conversations_df=self._analysis_result.conversations_df,
+            messages_df=self._analysis_result.messages_df,
             analysis_summary=analysis_summary,
             dataset=self.dataset,
         )
@@ -200,17 +200,17 @@ class DatasetAnalyzer:
                     )
 
             # Use ConversationHandler to convert dataset to DataFrames
-            complete_items_df, complete_rows_df = (
+            conversations_df, messages_df = (
                 self.conversation_handler.convert_dataset_to_dataframes(
                     dataset=self.dataset,
-                    items_to_analyze=items_to_analyze,  # Convert only what we need
+                    items_to_analyze=items_to_analyze,
                     dataset_name=self.dataset_name,
                 )
             )
 
             dataframe_list = [
-                DataFrameWithSchema(complete_items_df, self.schema, "items"),
-                DataFrameWithSchema(complete_rows_df, self.schema, "rows"),
+                DataFrameWithSchema(conversations_df, self.schema, "conversations"),
+                DataFrameWithSchema(messages_df, self.schema, "messages"),
             ]
             return dataframe_list, total_items, items_to_analyze
 
@@ -272,28 +272,28 @@ class DatasetAnalyzer:
         return self.results_manager.analysis_df
 
     @property
-    def rows_df(self) -> Optional[pd.DataFrame]:
-        """Get the rows-level analysis DataFrame.
+    def messages_df(self) -> Optional[pd.DataFrame]:
+        """Get the messages-level analysis DataFrame.
 
         Returns:
-            DataFrame with row-level metrics prefixed by row_
+            DataFrame with message-level metrics prefixed by message_
 
         Raises:
             RuntimeError: If analysis has not been run yet.
         """
-        return self.results_manager.rows_df
+        return self.results_manager.messages_df
 
     @property
-    def items_df(self) -> Optional[pd.DataFrame]:
-        """Get the items-level analysis DataFrame.
+    def conversations_df(self) -> Optional[pd.DataFrame]:
+        """Get the conversations-level analysis DataFrame.
 
         Returns:
-            DataFrame with item-level metrics prefixed by item_
+            DataFrame with conversation-level metrics prefixed by conversation_
 
         Raises:
             RuntimeError: If analysis has not been run yet.
         """
-        return self.results_manager.items_df
+        return self.results_manager.conversations_df
 
     def query_items(
         self,

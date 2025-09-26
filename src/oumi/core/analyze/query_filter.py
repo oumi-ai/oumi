@@ -27,8 +27,8 @@ class QueryFilter:
     def __init__(
         self,
         analysis_df: Optional[pd.DataFrame] = None,
-        items_df: Optional[pd.DataFrame] = None,
-        rows_df: Optional[pd.DataFrame] = None,
+        conversations_df: Optional[pd.DataFrame] = None,
+        messages_df: Optional[pd.DataFrame] = None,
         dataset: Optional[BaseMapDataset] = None,
     ):
         """Initialize the QueryFilter with analysis data.
@@ -36,36 +36,44 @@ class QueryFilter:
         Args:
             analysis_df: Merged analysis DataFrame with both message and
                 conversation metrics
-            items_df: Items-level analysis DataFrame
-            rows_df: Rows-level analysis DataFrame
+            conversations_df: Conversations-level analysis DataFrame
+            messages_df: Messages-level analysis DataFrame
             dataset: Original dataset for filtering operations
+
         """
         self._analysis_df = analysis_df
-        self._items_df = items_df
-        self._rows_df = rows_df
+        self._conversations_df = conversations_df
+        self._messages_df = messages_df
         self._dataset = dataset
+
+        # Maintain backward compatibility
+        self._items_df = self._conversations_df
+        self._rows_df = self._messages_df
 
     def update_data(
         self,
         analysis_df: Optional[pd.DataFrame] = None,
-        items_df: Optional[pd.DataFrame] = None,
-        rows_df: Optional[pd.DataFrame] = None,
+        conversations_df: Optional[pd.DataFrame] = None,
+        messages_df: Optional[pd.DataFrame] = None,
         dataset: Optional[BaseMapDataset] = None,
     ) -> None:
         """Update the data used for querying and filtering.
 
         Args:
             analysis_df: Merged analysis DataFrame
-            items_df: Items-level analysis DataFrame
-            rows_df: Rows-level analysis DataFrame
+            conversations_df: Conversations-level analysis DataFrame
+            messages_df: Messages-level analysis DataFrame
             dataset: Original dataset
+
         """
         if analysis_df is not None:
             self._analysis_df = analysis_df
-        if items_df is not None:
-            self._items_df = items_df
-        if rows_df is not None:
-            self._rows_df = rows_df
+        if conversations_df is not None:
+            self._conversations_df = conversations_df
+            self._items_df = self._conversations_df
+        if messages_df is not None:
+            self._messages_df = messages_df
+            self._rows_df = self._messages_df
         if dataset is not None:
             self._dataset = dataset
 
@@ -119,15 +127,15 @@ class QueryFilter:
             )
         """
         # Check if analysis has been run
-        if self._items_df is None:
+        if self._conversations_df is None:
             raise RuntimeError(
-                "Items data is not available. Please ensure analysis has been run "
-                "and items data has been provided to the QueryFilter."
+                "Conversations data is not available. Please ensure analysis has been "
+                "run and conversations data has been provided to the QueryFilter."
             )
 
         # Apply the query filter
         try:
-            filtered_df = self._items_df.query(query_expression)
+            filtered_df = self._conversations_df.query(query_expression)
             logger.info(f"Query '{query_expression}' returned {len(filtered_df)} rows")
         except Exception as e:
             logger.error(f"Query failed: {e}")
@@ -155,15 +163,15 @@ class QueryFilter:
             )
         """
         # Check if analysis has been run
-        if self._rows_df is None:
+        if self._messages_df is None:
             raise RuntimeError(
-                "Rows data is not available. Please ensure analysis has been run "
-                "and rows data has been provided to the QueryFilter."
+                "Messages data is not available. Please ensure analysis has been run "
+                "and messages data has been provided to the QueryFilter."
             )
 
         # Apply the query filter
         try:
-            filtered_df = self._rows_df.query(query_expression)
+            filtered_df = self._messages_df.query(query_expression)
             logger.info(f"Query '{query_expression}' returned {len(filtered_df)} rows")
         except Exception as e:
             logger.error(f"Query failed: {e}")
@@ -256,22 +264,22 @@ class QueryFilter:
         return self._analysis_df
 
     @property
-    def items_df(self) -> Union[pd.DataFrame, None]:
-        """Get the items-level analysis DataFrame.
+    def conversations_df(self) -> Union[pd.DataFrame, None]:
+        """Get the conversations-level analysis DataFrame.
 
         Returns:
-            DataFrame with item-level metrics
+            DataFrame with conversation-level metrics
         """
-        return self._items_df
+        return self._conversations_df
 
     @property
-    def rows_df(self) -> Union[pd.DataFrame, None]:
-        """Get the rows-level analysis DataFrame.
+    def messages_df(self) -> Union[pd.DataFrame, None]:
+        """Get the messages-level analysis DataFrame.
 
         Returns:
-            DataFrame with row-level metrics
+            DataFrame with message-level metrics
         """
-        return self._rows_df
+        return self._messages_df
 
     @property
     def dataset(self) -> Union[BaseMapDataset, None]:

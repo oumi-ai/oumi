@@ -59,8 +59,8 @@ class AnalysisResultsManager:
         # Analysis results
         self._analysis_results: Optional[DatasetAnalysisResult] = None
         self._analysis_df: Optional[pd.DataFrame] = None
-        self._items_df: Optional[pd.DataFrame] = None
-        self._rows_df: Optional[pd.DataFrame] = None
+        self._conversations_df: Optional[pd.DataFrame] = None
+        self._messages_df: Optional[pd.DataFrame] = None
         self._analysis_summary: Optional[dict[str, Any]] = None
 
         # Query filter for result querying
@@ -70,8 +70,8 @@ class AnalysisResultsManager:
         self,
         analysis_results: DatasetAnalysisResult,
         analysis_df: pd.DataFrame,
-        items_df: pd.DataFrame,
-        rows_df: pd.DataFrame,
+        conversations_df: pd.DataFrame,
+        messages_df: pd.DataFrame,
         analysis_summary: dict[str, Any],
         dataset: Optional[BaseMapDataset] = None,
     ) -> None:
@@ -80,22 +80,22 @@ class AnalysisResultsManager:
         Args:
             analysis_results: Metadata about the analysis
             analysis_df: Merged analysis DataFrame
-            items_df: Items-level DataFrame
-            rows_df: Rows-level DataFrame
+            conversations_df: Conversations-level DataFrame
+            messages_df: Messages-level DataFrame
             analysis_summary: Analysis summary dictionary
             dataset: Optional original dataset for filtering
         """
         self._analysis_results = analysis_results
         self._analysis_df = analysis_df
-        self._items_df = items_df
-        self._rows_df = rows_df
+        self._conversations_df = conversations_df
+        self._messages_df = messages_df
         self._analysis_summary = analysis_summary
 
         # Update query filter with new data
         self._query_filter.update_data(
             analysis_df=analysis_df,
-            items_df=items_df,
-            rows_df=rows_df,
+            conversations_df=conversations_df,
+            messages_df=messages_df,
             dataset=dataset,
         )
 
@@ -127,38 +127,66 @@ class AnalysisResultsManager:
         return self._analysis_df
 
     @property
-    def rows_df(self) -> Union[pd.DataFrame, None]:
-        """Get the rows-level analysis DataFrame.
+    def messages_df(self) -> Union[pd.DataFrame, None]:
+        """Get the messages-level analysis DataFrame.
 
         Returns:
-            DataFrame with row-level metrics prefixed by row_
+            DataFrame with message-level metrics prefixed by message_
 
         Raises:
             RuntimeError: If analysis has not been run yet.
         """
-        if self._rows_df is None:
+        if self._messages_df is None:
             raise RuntimeError(
                 "Analysis has not been run yet. Please call analyze_dataset() first "
-                "to access the rows DataFrame."
+                "to access the messages DataFrame."
             )
-        return self._rows_df
+        return self._messages_df
+
+    @property
+    def rows_df(self) -> Union[pd.DataFrame, None]:
+        """Get the rows-level analysis DataFrame.
+
+        Deprecated: Use messages_df instead.
+
+        Returns:
+            DataFrame with message-level metrics prefixed by message_
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+        """
+        return self.messages_df
+
+    @property
+    def conversations_df(self) -> Union[pd.DataFrame, None]:
+        """Get the conversations-level analysis DataFrame.
+
+        Returns:
+            DataFrame with conversation-level metrics prefixed by conversation_
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+        """
+        if self._conversations_df is None:
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the conversations DataFrame."
+            )
+        return self._conversations_df
 
     @property
     def items_df(self) -> Union[pd.DataFrame, None]:
         """Get the items-level analysis DataFrame.
 
+        Deprecated: Use conversations_df instead.
+
         Returns:
-            DataFrame with item-level metrics prefixed by item_
+            DataFrame with conversation-level metrics prefixed by conversation_
 
         Raises:
             RuntimeError: If analysis has not been run yet.
         """
-        if self._items_df is None:
-            raise RuntimeError(
-                "Analysis has not been run yet. Please call analyze_dataset() first "
-                "to access the items DataFrame."
-            )
-        return self._items_df
+        return self.conversations_df
 
     @property
     def analysis_summary(self) -> dict[str, Any]:

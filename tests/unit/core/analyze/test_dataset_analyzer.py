@@ -1012,7 +1012,7 @@ def test_message_handling_with_ids_and_multimodal():
             assert results.conversations_analyzed == 2
 
             # Check messages DataFrame for message IDs
-            messages_df = analyzer.rows_df
+            messages_df = analyzer.messages_df
             assert messages_df is not None
             assert len(messages_df) == 4  # 2 messages per conversation
 
