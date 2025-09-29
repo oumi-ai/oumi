@@ -27,7 +27,7 @@ class TestConfig(BaseConfig):
     enum_value: TestEnum
     list_value: list[Any]
     dict_value: dict[str, Any]
-    func_value: Any
+    func_value: Optional[Any] = None
 
 
 def test_primitive_types():
@@ -170,9 +170,9 @@ def test_config_loading_from_str():
         float_value: 3.14
         bool_value: true
         none_value: null
-        bytes_value: "test"
+        bytes_value: !!binary dGVzdA==
         path_value: "test/path"
-        enum_value: "value1"
+        enum_value: "VALUE1"
         list_value: ["primitive", [1, 2, 3]]
         dict_value:
             primitive: "value"
