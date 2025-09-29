@@ -17,7 +17,6 @@ from dataclasses import asdict, dataclass
 from typing import Any, Optional, Union, cast
 
 import pandas as pd
-from tqdm import tqdm
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.dataframe_analyzer import DataFrameAnalyzer, DataFrameWithSchema
@@ -27,6 +26,7 @@ from oumi.core.registry import REGISTRY
 from oumi.utils.analysis_utils import (
     build_tokenizer_from_config,
     compute_statistics,
+    convert_dataset_to_dataframes,
     load_dataset_from_config,
 )
 from oumi.utils.logging import logger
@@ -353,8 +353,8 @@ class DatasetAnalyzer:
                         f"items (dataset has {total_items} total)"
                     )
 
-            # Use ConversationHandler to convert dataset to DataFrames
-            conversations_df, messages_df = self._convert_dataset_to_dataframes(
+            # Use utility function to convert dataset to DataFrames
+            conversations_df, messages_df = convert_dataset_to_dataframes(
                 dataset=self.dataset,
                 items_to_analyze=items_to_analyze,
                 dataset_name=self.dataset_name or "Unknown Dataset",
@@ -370,107 +370,6 @@ class DatasetAnalyzer:
 
         else:
             raise ValueError("Either dataframes or dataset must be provided")
-
-    def _convert_dataset_to_dataframes(
-        self,
-        dataset: BaseMapDataset,
-        items_to_analyze: int,
-        dataset_name: str,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Convert a conversation dataset to conversations and messages DataFrames.
-
-        This method converts all conversations to complete DataFrames that are ready
-        for analysis. The DataFrameAnalyzer will then work with these complete
-        DataFrames.
-
-        Args:
-            dataset: The conversation dataset to process
-            items_to_analyze: Number of items to analyze
-            dataset_name: Name of the dataset for progress display
-        Returns:
-            Tuple of (conversations_df, messages_df) ready for analysis
-        Raises:
-            ValueError: If dataset is not provided
-        """
-        if dataset is None:
-            raise ValueError("Dataset must be provided for conversation processing")
-
-        conversation_df_list = []
-        message_df_list = []
-
-        for conversation_idx in tqdm(
-            range(items_to_analyze),
-            desc=f"Converting {dataset_name} to DataFrames",
-            unit="item",
-        ):
-            conversation = dataset.conversation(conversation_idx)
-            conversation_id = conversation.conversation_id or str(conversation_idx)
-            conversation_df, message_df = self._conversation_to_dataframes(
-                conversation, conversation_id, conversation_idx
-            )
-
-            # Collect all DataFrames for concatenation
-            if not conversation_df.empty:
-                conversation_df_list.append(conversation_df)
-            if not message_df.empty:
-                message_df_list.append(message_df)
-
-        # Create complete DataFrames by concatenating all individual DataFrames
-        conversations_df = (
-            pd.concat(conversation_df_list, ignore_index=True)
-            if conversation_df_list
-            else pd.DataFrame()
-        )
-        messages_df = (
-            pd.concat(message_df_list, ignore_index=True)
-            if message_df_list
-            else pd.DataFrame()
-        )
-
-        return conversations_df, messages_df
-
-    def _conversation_to_dataframes(
-        self, conversation, conversation_id: str, conversation_idx: int
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Convert a single conversation to DataFrames.
-
-        Args:
-            conversation: The conversation object to convert
-            conversation_id: ID of the conversation
-            conversation_idx: Index of the conversation
-
-        Returns:
-            Tuple of (conversation_df, message_df)
-        """
-        # Create conversation-level data
-        conversation_data = {
-            "conversation_index": conversation_idx,
-            "conversation_id": conversation_id,
-            "num_messages": len(conversation.messages),
-        }
-        conversation_df = pd.DataFrame([conversation_data])
-
-        # Create message-level data
-        messages_data = []
-        for msg_idx, message in enumerate(conversation.messages):
-            text_content = (
-                message.content
-                if isinstance(message.content, str)
-                else message.compute_flattened_text_content()
-            )
-            messages_data.append(
-                {
-                    "conversation_index": conversation_idx,
-                    "conversation_id": conversation_id,
-                    "message_index": msg_idx,
-                    "message_id": message.id or f"msg_{conversation_idx}_{msg_idx}",
-                    "role": message.role.value,
-                    "text_content": text_content,
-                }
-            )
-
-        message_df = pd.DataFrame(messages_data)
-        return conversation_df, message_df
 
     @property
     def analysis_results(self) -> Optional[DatasetAnalysisResult]:

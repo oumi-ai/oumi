@@ -17,12 +17,14 @@ from pathlib import Path
 from typing import Any, Optional
 
 import pandas as pd
+from tqdm import tqdm
 
 from oumi.builders.models import build_tokenizer
 from oumi.core.configs.analyze_config import AnalyzeConfig
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.registry.registry import REGISTRY
+from oumi.core.types.conversation import Conversation
 
 logger = logging.getLogger(__name__)
 
@@ -246,3 +248,109 @@ def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[st
         "max": round(series.max(), decimal_precision),
         "median": round(series.median(), decimal_precision),
     }
+
+
+def conversation_to_dataframes(
+    conversation: Conversation, conversation_id: str, conversation_idx: int
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Convert a single conversation to separate conversation and message DataFrames.
+
+    This creates two DataFrames: one for conversation-level data and one for
+    message-level data, suitable for comprehensive dataset analysis.
+
+    Args:
+        conversation: The conversation object to convert
+        conversation_id: ID of the conversation
+        conversation_idx: Index of the conversation
+
+    Returns:
+        Tuple of (conversation_df, message_df)
+    """
+    # Create conversation-level data
+    conversation_data = {
+        "conversation_index": conversation_idx,
+        "conversation_id": conversation_id,
+        "num_messages": len(conversation.messages),
+    }
+    conversation_df = pd.DataFrame([conversation_data])
+
+    # Create message-level data
+    messages_data = []
+    for msg_idx, message in enumerate(conversation.messages):
+        text_content = (
+            message.content
+            if isinstance(message.content, str)
+            else message.compute_flattened_text_content()
+        )
+        messages_data.append(
+            {
+                "conversation_index": conversation_idx,
+                "conversation_id": conversation_id,
+                "message_index": msg_idx,
+                "message_id": message.id or f"msg_{msg_idx}",
+                "role": message.role.value,
+                "text_content": text_content,
+            }
+        )
+
+    message_df = pd.DataFrame(messages_data)
+    return conversation_df, message_df
+
+
+def convert_dataset_to_dataframes(
+    dataset: BaseMapDataset,
+    items_to_analyze: int,
+    dataset_name: str = "Dataset",
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Convert a conversation dataset to conversations and messages DataFrames.
+
+    This method converts all conversations to complete DataFrames that are ready
+    for analysis.
+
+    Args:
+        dataset: The conversation dataset to process
+        items_to_analyze: Number of items to analyze
+        dataset_name: Name of the dataset for progress display
+
+    Returns:
+        Tuple of (conversations_df, messages_df) ready for analysis
+
+    Raises:
+        ValueError: If dataset is not provided
+    """
+    if dataset is None:
+        raise ValueError("Dataset must be provided for conversation processing")
+
+    conversation_df_list = []
+    message_df_list = []
+
+    for conversation_idx in tqdm(
+        range(items_to_analyze),
+        desc=f"Converting {dataset_name} to DataFrames",
+        unit="item",
+    ):
+        conversation = dataset.conversation(conversation_idx)
+        conversation_id = conversation.conversation_id or str(conversation_idx)
+        conversation_df, message_df = conversation_to_dataframes(
+            conversation, conversation_id, conversation_idx
+        )
+
+        # Collect all DataFrames for concatenation
+        if not conversation_df.empty:
+            conversation_df_list.append(conversation_df)
+        if not message_df.empty:
+            message_df_list.append(message_df)
+
+    # Create complete DataFrames by concatenating all individual DataFrames
+    conversations_df = (
+        pd.concat(conversation_df_list, ignore_index=True)
+        if conversation_df_list
+        else pd.DataFrame()
+    )
+    messages_df = (
+        pd.concat(message_df_list, ignore_index=True)
+        if message_df_list
+        else pd.DataFrame()
+    )
+
+    return conversations_df, messages_df
