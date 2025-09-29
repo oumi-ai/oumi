@@ -238,7 +238,7 @@ def mock_config():
         output_path="./test_output",
         analyzers=[
             SampleAnalyzerParams(
-                id="text_length_analyzer",
+                id="length_analyzer",
                 params={"char_count": True, "word_count": True},
             ),
             SampleAnalyzerParams(id="analyzer_2", params={"analyzer_id": "analyzer_2"}),
@@ -275,7 +275,7 @@ def test_analyzer_initialization(mock_load, mock_config):
 
     # Test that analyzers were initialized correctly
     assert len(analyzer.sample_analyzers) == 2
-    assert "text_length_analyzer" in analyzer.sample_analyzers
+    assert "length_analyzer" in analyzer.sample_analyzers
     assert "analyzer_2" in analyzer.sample_analyzers
 
 
@@ -311,7 +311,7 @@ def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_
 
     # Test that analyzers were initialized correctly
     assert len(analyzer.sample_analyzers) == 2
-    assert "text_length_analyzer" in analyzer.sample_analyzers
+    assert "length_analyzer" in analyzer.sample_analyzers
     assert "analyzer_2" in analyzer.sample_analyzers
 
 
@@ -619,7 +619,7 @@ def test_analyze_dataset_analyzer_calls(test_data_path, mock_config):
     analyzer.analyze_dataset()
 
     # Check that the mock analyzer was called
-    mock_analyzer = analyzer.sample_analyzers["text_length_analyzer"]
+    mock_analyzer = analyzer.sample_analyzers["length_analyzer"]
     assert len(mock_analyzer.analyze_calls) == 2  # Called for each conversation
 
 
@@ -634,10 +634,10 @@ def test_query_method(test_data_path, mock_config):
     assert all(row["role"] == "user" for _, row in results.iterrows())
 
     # Test query with analyzer metrics
-    results = analyzer.query("text_content_text_length_analyzer_char_count > 10")
+    results = analyzer.query("text_content_length_analyzer_char_count > 10")
     assert len(results) > 0
     assert all(
-        row["text_content_text_length_analyzer_char_count"] > 10
+        row["text_content_length_analyzer_char_count"] > 10
         for _, row in results.iterrows()
     )
 
@@ -662,14 +662,14 @@ def test_query_complex_expressions_examples(test_data_path, mock_config):
 
     # Test various query expressions with proper validation
     queries = [
-        "text_content_text_length_analyzer_word_count < 10",  # Short messages
+        "text_content_length_analyzer_word_count < 10",  # Short messages
         "role == 'assistant'",  # Filter for assistant messages
-        "role == 'user' and text_content_text_length_analyzer_word_count > 5",  # Long
+        "role == 'user' and text_content_length_analyzer_word_count > 5",  # Long
         # messages
         "role == 'user' or role == 'assistant'",  # Any user or assistant messages
         # Medium-length
-        "text_content_text_length_analyzer_char_count > 10 and "
-        "text_content_text_length_analyzer_word_count < 20",
+        "text_content_length_analyzer_char_count > 10 and "
+        "text_content_length_analyzer_word_count < 20",
     ]
 
     for query in queries:
@@ -890,7 +890,7 @@ def test_analyzer_with_tokenizer(test_data_path):
         },  # This will be used to build a real tokenizer
         analyzers=[
             SampleAnalyzerParams(
-                id="text_length_analyzer",
+                id="length_analyzer",
                 params={"char_count": True, "word_count": True, "token_count": True},
             ),
         ],

@@ -763,13 +763,13 @@ class DatasetAnalyzer:
         for col in analyzer_columns:
             # Extract analyzer name and metric from column
             # Format: text_content_{analyzer}_{metric}
-            # Example: text_content_text_length_analyzer_char_count
+            # Example: text_content_length_analyzer_char_count
             parts = col.split("_")
             if len(parts) >= 5:  # text_content_analyzer_metric_type
                 if parts[0] == "text" and parts[1] == "content":
                     # The analyzer name and metric are in the remaining parts
-                    # For "text_content_text_length_analyzer_char_count":
-                    # parts[2:] = ["text", "length", "analyzer", "char", "count"]
+                    # For "text_content_length_analyzer_char_count":
+                    # parts[2:] = ["length", "analyzer", "char", "count"]
                     # We need to find where the analyzer name ends and metric begins
 
                     # Look for known metric suffixes to split correctly
