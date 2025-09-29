@@ -82,6 +82,22 @@ def _handle_non_primitives(config: Any, removed_paths, path: str = "") -> Any:
     if _is_primitive_type(config):
         return config
 
+    if hasattr(config, "__dataclass_fields__"):
+        result = {}
+        for field_name in config.__dataclass_fields__:
+            field_value = getattr(config, field_name)
+            current_path = f"{path}.{field_name}" if path else field_name
+            processed_value = _handle_non_primitives(
+                field_value, removed_paths, current_path
+            )
+            if processed_value is not None:
+                result[field_name] = processed_value
+            elif (
+                field_value is not None
+            ):  # Only track removal if original value was not None
+                removed_paths.add(current_path)
+        return result if result else None
+
     # Try to convert functions to their source code
     if callable(config):
         try:
