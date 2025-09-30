@@ -22,6 +22,7 @@ from tqdm import tqdm
 from oumi.builders.models import build_tokenizer
 from oumi.core.configs.analyze_config import AnalyzeConfig
 from oumi.core.configs.params.model_params import ModelParams
+from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.registry.registry import REGISTRY
 from oumi.core.types.conversation import Conversation
@@ -99,6 +100,26 @@ def load_dataset_from_config(
         dataset_class = REGISTRY.get_dataset(dataset_name, subset=subset)
 
         if dataset_class is not None:
+            # Check if this is an iterable dataset that supports streaming
+            from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+            is_iterable_dataset = issubclass(dataset_class, BaseIterableDataset)
+
+            # For iterable datasets, force streaming mode to avoid downloading all
+            if is_iterable_dataset:
+                logger.info(
+                    f"Using streaming mode for iterable dataset: {dataset_name}"
+                )
+                # Don't modify split for iterable datasets - streaming handles limiting
+            else:
+                # For map datasets, modify split to include slicing if sample_count set
+                if config.sample_count is not None and config.sample_count > 0:
+                    # Use a larger slice (10x sample_count) to ensure enough data
+                    # after any filtering that might happen in the dataset
+                    slice_size = config.sample_count * 10
+                    if "[" not in split:  # Only add slicing if not already present
+                        split = f"{split}[:{slice_size}]"
+
             # Prepare dataset constructor arguments
             dataset_kwargs = {
                 "dataset_name": dataset_name,
@@ -107,6 +128,10 @@ def load_dataset_from_config(
                 "subset": subset,
                 "trust_remote_code": config.trust_remote_code,
             }
+
+            # Force streaming for iterable datasets
+            if is_iterable_dataset:
+                dataset_kwargs["stream"] = True
 
             # Add tokenizer if provided
             if tokenizer is not None:
@@ -118,16 +143,39 @@ def load_dataset_from_config(
                 dataset_kwargs["processor_kwargs"] = config.processor_kwargs
                 dataset_kwargs["trust_remote_code"] = config.trust_remote_code
 
+            # Add required parameters for pretraining datasets
+            if is_iterable_dataset and issubclass(dataset_class, BaseIterableDataset):
+                # Import here to avoid circular imports
+                from oumi.core.datasets.base_pretraining_dataset import (
+                    BasePretrainingDataset,
+                )
+
+                if issubclass(dataset_class, BasePretrainingDataset):
+                    # Pretraining datasets require seq_length and tokenizer
+                    if "seq_length" not in dataset_kwargs:
+                        dataset_kwargs["seq_length"] = 64  # Default sequence length
+                    if tokenizer is None:
+                        # Create a default tokenizer if none provided
+                        from oumi.builders.models import build_tokenizer
+                        from oumi.core.configs.params.model_params import ModelParams
+
+                        model_params = ModelParams(
+                            model_name="openai-community/gpt2",
+                            tokenizer_kwargs={"pad_token": "<|endoftext|>"},
+                        )
+                        dataset_kwargs["tokenizer"] = build_tokenizer(model_params)
+
             # Load registered dataset with parameters
             dataset = dataset_class(**dataset_kwargs)
 
-            # Ensure we return a BaseMapDataset
-            if isinstance(dataset, BaseMapDataset):
+            # Ensure we return a supported dataset type
+            if isinstance(dataset, (BaseMapDataset, BaseIterableDataset)):
                 return dataset
             else:
                 raise NotImplementedError(
                     f"Dataset type {type(dataset)} is not supported for analysis. "
-                    "Please use a dataset that inherits from BaseMapDataset."
+                    "Please use a dataset that inherits from BaseMapDataset or "
+                    "BaseIterableDataset."
                 )
         else:
             # TODO: Implement HuggingFace Hub loading
@@ -298,17 +346,19 @@ def conversation_to_dataframes(
 
 
 def convert_dataset_to_dataframes(
-    dataset: BaseMapDataset,
+    dataset,  # Union[BaseMapDataset, BaseIterableDataset]
     items_to_analyze: int,
     dataset_name: str = "Dataset",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Convert a conversation dataset to conversations and messages DataFrames.
+    """Convert a dataset to conversations and messages DataFrames.
 
-    This method converts all conversations to complete DataFrames that are ready
-    for analysis.
+    This method handles different dataset types:
+    - SFT/Vision-SFT/GRPO datasets: Convert via conversation() method
+    - DPO/KTO/Pretraining datasets: Convert raw data structure
+    - Iterable datasets: Stream and limit to items_to_analyze
 
     Args:
-        dataset: The conversation dataset to process
+        dataset: The dataset to process (BaseMapDataset or BaseIterableDataset)
         items_to_analyze: Number of items to analyze
         dataset_name: Name of the dataset for progress display
 
@@ -321,6 +371,103 @@ def convert_dataset_to_dataframes(
     if dataset is None:
         raise ValueError("Dataset must be provided for conversation processing")
 
+    # Handle iterable datasets (streaming datasets like C4)
+    if isinstance(dataset, BaseIterableDataset):
+        return _convert_iterable_dataset_to_dataframes(
+            dataset, items_to_analyze, dataset_name
+        )
+
+    # Check if dataset has conversation() method (SFT/Vision-SFT/GRPO datasets)
+    elif hasattr(dataset, "conversation") and callable(
+        getattr(dataset, "conversation")
+    ):
+        return _convert_conversation_dataset_to_dataframes(
+            dataset, items_to_analyze, dataset_name
+        )
+    else:
+        # For non-conversation datasets (DPO, KTO, pretraining), convert raw data
+        return _convert_raw_dataset_to_dataframes(
+            dataset, items_to_analyze, dataset_name
+        )
+
+
+def _convert_iterable_dataset_to_dataframes(
+    dataset: BaseIterableDataset, items_to_analyze: int, dataset_name: str
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Convert iterable datasets (streaming) to DataFrames.
+
+    This handles datasets like C4, Pile, etc. that are streamed and don't support index.
+    We iterate through the dataset and stop after items_to_analyze items.
+    """
+    from oumi.utils.logging import logger
+
+    # For now, create empty conversations DataFrame since these datasets don't have
+    # conversation structure
+    conversations_df = pd.DataFrame()
+
+    # Stream raw data and limit to items_to_analyze
+    raw_data_list = []
+
+    try:
+        # Use tqdm to show progress while streaming
+        dataset_iter = iter(dataset)
+        for idx in tqdm(
+            range(items_to_analyze),
+            desc=f"Streaming {dataset_name} data",
+            unit="item",
+        ):
+            try:
+                # Get next item from the iterator
+                raw_item = next(dataset_iter)
+
+                # Convert to dict if it's not already
+                if hasattr(raw_item, "to_dict"):
+                    raw_item = raw_item.to_dict()
+                elif not isinstance(raw_item, dict):
+                    # For pretraining datasets, the item might be a tensor or list
+                    # Convert to a simple dict structure
+                    raw_item = {"input_ids": raw_item, "item_index": idx}
+
+                # Add index information
+                raw_item["item_index"] = idx
+                raw_data_list.append(raw_item)
+
+            except StopIteration:
+                # Dataset ended before we reached items_to_analyze
+                logger.info(
+                    f"Dataset ended after {idx} items (requested {items_to_analyze})"
+                )
+                break
+            except Exception as e:
+                logger.warning(f"Failed to process item {idx} from {dataset_name}: {e}")
+                continue
+
+    except Exception as e:
+        logger.error(f"Failed to iterate over dataset {dataset_name}: {e}")
+        # Return empty DataFrames if we can't iterate
+        return pd.DataFrame(), pd.DataFrame()
+
+    # Create a DataFrame from raw data for analysis
+    if raw_data_list:
+        messages_df = pd.DataFrame(raw_data_list)
+        # Add required columns for analysis compatibility
+        messages_df["conversation_index"] = messages_df["item_index"]
+        messages_df["message_index"] = (
+            0  # Single message per item for non-conversation data
+        )
+        messages_df["message_id"] = messages_df["item_index"].apply(
+            lambda x: f"msg_{x}"
+        )
+    else:
+        messages_df = pd.DataFrame()
+
+    return conversations_df, messages_df
+
+
+def _convert_conversation_dataset_to_dataframes(
+    dataset, items_to_analyze: int, dataset_name: str
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Convert datasets with conversation() method to DataFrames."""
     conversation_df_list = []
     message_df_list = []
 
@@ -354,3 +501,360 @@ def convert_dataset_to_dataframes(
     )
 
     return conversations_df, messages_df
+
+
+def _convert_raw_dataset_to_dataframes(
+    dataset, items_to_analyze: int, dataset_name: str
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Convert datasets without conversation() method to DataFrames.
+
+    This handles DPO, KTO, and pretraining datasets that maintain their original.
+    """
+    from oumi.utils.logging import logger
+
+    # For now, create empty conversations DataFrame since these datasets don't have
+    # conversation structure
+    conversations_df = pd.DataFrame()
+
+    # Get raw data structure for analysis
+    raw_data_list = []
+    for idx in tqdm(
+        range(items_to_analyze),
+        desc=f"Converting {dataset_name} raw data",
+        unit="item",
+    ):
+        try:
+            # Get raw data from the dataset
+            if hasattr(dataset, "raw"):
+                raw_item = dataset.raw(idx)
+            else:
+                raw_item = dataset[idx]
+
+            # Convert to dict if it's a pandas Series
+            if hasattr(raw_item, "to_dict"):
+                raw_item = raw_item.to_dict()
+
+            # Add index information
+            raw_item["item_index"] = idx
+            raw_data_list.append(raw_item)
+
+        except Exception as e:
+            logger.warning(f"Failed to process item {idx} from {dataset_name}: {e}")
+            continue
+
+    # Create a DataFrame from raw data for analysis
+    if raw_data_list:
+        messages_df = pd.DataFrame(raw_data_list)
+        # Add required columns for analysis compatibility
+        messages_df["conversation_index"] = messages_df["item_index"]
+        messages_df["message_index"] = (
+            0  # Single message per item for non-conversation data
+        )
+        messages_df["message_id"] = messages_df["item_index"].apply(
+            lambda x: f"msg_{x}"
+        )
+    else:
+        messages_df = pd.DataFrame()
+
+    return conversations_df, messages_df
+
+
+def get_schema_for_format(dataset_format: str) -> dict:
+    """Get column schema configuration based on dataset format.
+
+    Args:
+        dataset_format: Format of the dataset. Supported formats:
+            - 'oumi': Conversation format (messages with roles)
+            - 'alpaca': Instruction format (instruction/input/output)
+            - 'prompt_response': Simple prompt/response pairs
+            - 'dpo': Preference tuning format (prompt/chosen/rejected)
+            - 'pretraining': Raw text for pretraining
+            - 'kto': Binary feedback format (prompt/completion/label)
+
+    Returns:
+        Dictionary mapping column names to their configuration
+
+    Raises:
+        ValueError: If dataset_format is not supported
+    """
+    format_map = {
+        "oumi": get_conversation_schema,
+        "alpaca": get_alpaca_schema,
+        "prompt_response": get_prompt_response_schema,
+        "dpo": get_dpo_schema,
+        "pretraining": get_pretraining_schema,
+        "kto": get_kto_schema,
+    }
+
+    if dataset_format in format_map:
+        return format_map[dataset_format]()
+    else:
+        raise ValueError(
+            f"Unsupported dataset format: {dataset_format}. "
+            f"Supported formats: {list(format_map.keys())}"
+        )
+
+
+def get_conversation_schema() -> dict:
+    """Get column configuration for conversation format (oumi format).
+
+    Returns:
+        Dictionary mapping column names to their configuration.
+    """
+    from oumi.core.analyze.column_types import ColumnType, ContentType
+
+    return {
+        # Conversation DataFrame columns
+        "conversation_index": {
+            "type": ColumnType.INT,
+            "content_type": ContentType.METADATA,
+            "description": "Conversation index in dataset",
+        },
+        "conversation_id": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.METADATA,
+            "description": "Conversation identifier",
+        },
+        "num_messages": {
+            "type": ColumnType.INT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Number of messages in conversation",
+        },
+        # Message DataFrame columns
+        "message_index": {
+            "type": ColumnType.INT,
+            "content_type": ContentType.METADATA,
+            "description": "Message index within conversation",
+        },
+        "message_id": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.METADATA,
+            "description": "Message identifier",
+        },
+        "role": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.CATEGORICAL,
+            "description": "Message role (user/assistant/system)",
+        },
+        "text_content": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Message text content",
+        },
+        # Additional fields that might be present
+        "timestamp": {
+            "type": ColumnType.TIMESTAMP,
+            "content_type": ContentType.METADATA,
+            "description": "Message timestamp",
+        },
+        "processing_time": {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "AI processing time in seconds",
+        },
+        "model": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.METADATA,
+            "description": "Model used for generation",
+        },
+        "temperature": {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.METADATA,
+            "description": "Sampling temperature",
+        },
+        "max_tokens": {
+            "type": ColumnType.INT,
+            "content_type": ContentType.METADATA,
+            "description": "Maximum tokens to generate",
+        },
+    }
+
+
+def get_alpaca_schema() -> dict:
+    """Get column configuration for alpaca format (instruction format).
+
+    Returns:
+        Dictionary mapping column names to their configuration.
+    """
+    from oumi.core.analyze.column_types import ColumnType, ContentType
+
+    return {
+        "instruction": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Instruction or prompt text",
+        },
+        "input": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Input context or additional information",
+        },
+        "output": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Expected output or response",
+        },
+        # Common additional fields
+        "text": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Combined text content",
+        },
+    }
+
+
+def get_prompt_response_schema() -> dict:
+    """Get column configuration for prompt/response format.
+
+    Returns:
+        Dictionary mapping column names to their configuration.
+    """
+    from oumi.core.analyze.column_types import ColumnType, ContentType
+
+    return {
+        "prompt": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Input prompt or question",
+        },
+        "response": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Model response or answer",
+        },
+        # Common variations
+        "instruction": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Instruction or prompt text",
+        },
+        "output": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Expected output or response",
+        },
+    }
+
+
+def get_dpo_schema() -> dict:
+    """Get column configuration for DPO (preference tuning) format.
+
+    Returns:
+        Dictionary mapping column names to their configuration.
+    """
+    from oumi.core.analyze.column_types import ColumnType, ContentType
+
+    return {
+        "prompt": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Input prompt for preference comparison",
+        },
+        "chosen": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Preferred response",
+        },
+        "rejected": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Rejected response",
+        },
+        # Metadata fields
+        "score_chosen": {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Score for chosen response",
+        },
+        "score_rejected": {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Score for rejected response",
+        },
+    }
+
+
+def get_pretraining_schema() -> dict:
+    """Get column configuration for pretraining format.
+
+    Returns:
+        Dictionary mapping column names to their configuration.
+    """
+    from oumi.core.analyze.column_types import ColumnType, ContentType
+
+    return {
+        "text": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Raw text content for pretraining",
+        },
+        "content": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Text content (alternative field name)",
+        },
+        # Metadata fields common in pretraining datasets
+        "url": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.METADATA,
+            "description": "Source URL",
+        },
+        "timestamp": {
+            "type": ColumnType.TIMESTAMP,
+            "content_type": ContentType.METADATA,
+            "description": "Content timestamp",
+        },
+        "source": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.CATEGORICAL,
+            "description": "Data source identifier",
+        },
+        "language": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.CATEGORICAL,
+            "description": "Content language",
+        },
+        "quality_score": {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Content quality score",
+        },
+        "length": {
+            "type": ColumnType.INT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Content length in characters",
+        },
+    }
+
+
+def get_kto_schema() -> dict:
+    """Get column configuration for KTO (binary feedback) format.
+
+    Returns:
+        Dictionary mapping column names to their configuration.
+    """
+    from oumi.core.analyze.column_types import ColumnType, ContentType
+
+    return {
+        "prompt": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Input prompt",
+        },
+        "completion": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Model completion/response",
+        },
+        "label": {
+            "type": ColumnType.BOOL,
+            "content_type": ContentType.CATEGORICAL,
+            "description": "Binary feedback label (True=desirable, False=undesirable)",
+        },
+        # Additional fields
+        "score": {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Numeric score for the completion",
+        },
+    }

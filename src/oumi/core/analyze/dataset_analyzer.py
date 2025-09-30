@@ -18,15 +18,16 @@ from typing import Any, Optional, Union, cast
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.dataframe_analyzer import DataFrameAnalyzer, DataFrameWithSchema
 from oumi.core.configs import AnalyzeConfig, DatasetSource
 from oumi.core.datasets import BaseMapDataset
+from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.registry import REGISTRY
 from oumi.utils.analysis_utils import (
     build_tokenizer_from_config,
     compute_statistics,
     convert_dataset_to_dataframes,
+    get_schema_for_format,
     load_dataset_from_config,
 )
 from oumi.utils.logging import logger
@@ -134,10 +135,14 @@ class DatasetAnalyzer:
             # Use the provided dataset name if config doesn't have one
             if not self.dataset_name:
                 self.dataset_name = getattr(dataset, "dataset_name", "Custom Dataset")
-            logger.info(
-                f"Using provided dataset '{self.dataset_name}' with "
-                f"{len(dataset)} conversations"
-            )
+            # Handle iterable datasets that don't support len()
+            if isinstance(dataset, BaseIterableDataset):
+                logger.info(f"Using provided streaming dataset '{self.dataset_name}'")
+            else:
+                logger.info(
+                    f"Using provided dataset '{self.dataset_name}' with "
+                    f"{len(dataset)} conversations"
+                )
         elif config.dataset_source == DatasetSource.CONFIG:
             # Config mode: load dataset from config parameters
             if dataset is not None:
@@ -170,77 +175,77 @@ class DatasetAnalyzer:
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
 
-    def _get_conversation_schema(self) -> dict:
-        """Get column configuration for conversation format based on known structure.
+    def _get_schema_for_dataset(self) -> dict:
+        """Get column schema configuration based on dataset type.
+
+        Detects the appropriate schema based on the dataset class inheritance.
+        Based on analysis of all 60 Oumi datasets:
+        - 37 datasets (SFT/Vision-SFT/GRPO) convert to conversation format → use 'oumi'
+        - 23 datasets (pretraining/DPO/KTO) maintain original structure → use specific
 
         Returns:
             Dictionary mapping column names to their configuration.
         """
-        return {
-            # Conversation DataFrame columns
-            "conversation_index": {
-                "type": ColumnType.INT,
-                "content_type": ContentType.METADATA,
-                "description": "Conversation index in dataset",
-            },
-            "conversation_id": {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.METADATA,
-                "description": "Conversation identifier",
-            },
-            "num_messages": {
-                "type": ColumnType.INT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Number of messages in conversation",
-            },
-            # Message DataFrame columns
-            "message_index": {
-                "type": ColumnType.INT,
-                "content_type": ContentType.METADATA,
-                "description": "Message index within conversation",
-            },
-            "message_id": {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.METADATA,
-                "description": "Message identifier",
-            },
-            "role": {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.CATEGORICAL,
-                "description": "Message role (user/assistant/system)",
-            },
-            "text_content": {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.TEXT,
-                "description": "Message text content",
-            },
-            # Additional fields that might be present
-            "timestamp": {
-                "type": ColumnType.TIMESTAMP,
-                "content_type": ContentType.METADATA,
-                "description": "Message timestamp",
-            },
-            "processing_time": {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "AI processing time in seconds",
-            },
-            "model": {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.METADATA,
-                "description": "Model used for generation",
-            },
-            "temperature": {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.METADATA,
-                "description": "Sampling temperature",
-            },
-            "max_tokens": {
-                "type": ColumnType.INT,
-                "content_type": ContentType.METADATA,
-                "description": "Maximum tokens to generate",
-            },
-        }
+        # Detect dataset type based on the dataset class
+        dataset_type = self._detect_dataset_type()
+
+        try:
+            return get_schema_for_format(dataset_type)
+        except ValueError:
+            # Fallback to conversation schema for unknown types
+            logger.warning(
+                f"Unknown dataset type '{dataset_type}', using conversation schema"
+            )
+            return get_schema_for_format("oumi")
+
+    def _detect_dataset_type(self) -> str:
+        """Detect the dataset type based on the dataset class and configuration.
+
+        Returns:
+            String indicating the dataset type for schema selection.
+        """
+        if self.dataset is None:
+            # No dataset provided, use config format or default to conversation
+            return getattr(self.config, "dataset_format", None) or "oumi"
+
+        # Check dataset class inheritance hierarchy for accurate detection
+        dataset_class_bases = [base.__name__ for base in self.dataset.__class__.__mro__]
+
+        # Datasets that convert to conversation format during loading
+        if any(
+            base in dataset_class_bases
+            for base in [
+                "BaseSftDataset",
+                "VisionLanguageSftDataset",
+                "BaseExperimentalGrpoDataset",
+            ]
+        ):
+            return "oumi"  # All convert to conversation format
+
+        # Datasets that maintain original structure
+        elif "BasePretrainingDataset" in dataset_class_bases:
+            return "pretraining"
+        elif any(
+            base in dataset_class_bases
+            for base in ["BaseDpoDataset", "VisionLanguageDpoDataset"]
+        ):
+            return "dpo"
+        elif "BaseExperimentalKtoDataset" in dataset_class_bases:
+            return "kto"
+        else:
+            # Check if we have explicit format from config
+            config_format = getattr(self.config, "dataset_format", None)
+            if config_format in [
+                "alpaca",
+                "prompt_response",
+                "dpo",
+                "pretraining",
+                "kto",
+            ]:
+                return config_format
+            else:
+                # Default to conversation format for unknown SFT-like datasets
+                return "oumi"
 
     def _initialize_sample_analyzers(self) -> dict[str, Any]:
         """Initialize sample analyzer plugins from configuration.
@@ -299,12 +304,28 @@ class DatasetAnalyzer:
             f"{list(self.sample_analyzers.keys())}"
         )
 
-        total_conversations = len(self.dataset)
-        conversations_to_analyze = min(
-            total_conversations, self.config.sample_count or total_conversations
-        )
-
-        logger.info(f"Analyzing {conversations_to_analyze} conversations")
+        # Handle iterable datasets differently to avoid downloading everything
+        if isinstance(self.dataset, BaseIterableDataset):
+            # For iterable datasets, we can't get the total length without iterating
+            # So we'll use the sample_count directly and iterate only what we need
+            conversations_to_analyze = (
+                self.config.sample_count or 1000
+            )  # Default limit for streaming
+            total_conversations = None  # Unknown for iterable datasets
+            logger.info(
+                f"Analyzing up to {conversations_to_analyze} conversations from "
+                f"streaming dataset"
+            )
+        else:
+            # For map datasets, we can get the total length
+            total_conversations = len(self.dataset)
+            conversations_to_analyze = min(
+                total_conversations, self.config.sample_count or total_conversations
+            )
+            logger.info(
+                f"Analyzing {conversations_to_analyze} of {total_conversations} "
+                f"conversations"
+            )
 
         dataframe_list, total_items, items_to_analyze = self._prepare_dataframe_list(
             conversations_to_analyze
@@ -320,7 +341,7 @@ class DatasetAnalyzer:
 
         self._analysis_results = DatasetAnalysisResult(
             dataset_name=self.dataset_name or "",
-            total_conversations=total_conversations,
+            total_conversations=total_conversations or conversations_to_analyze,
             conversations_analyzed=conversations_to_analyze,
         )
 
@@ -340,18 +361,27 @@ class DatasetAnalyzer:
         """
         if self.dataset is not None:
             # Conversation dataset input - convert to DataFrames
-            total_items = len(self.dataset)
-            logger.info(f"Converting conversation dataset with {total_items} items")
+            if isinstance(self.dataset, BaseIterableDataset):
+                # For iterable datasets, we can't get the total length
+                total_items = max_items or 1000  # Use max_items or default
+                items_to_analyze = total_items
+                logger.info(
+                    f"Converting streaming dataset with up to {items_to_analyze} items"
+                )
+            else:
+                # For map datasets, we can get the total length
+                total_items = len(self.dataset)
+                logger.info(f"Converting conversation dataset with {total_items} items")
 
-            # Determine how many items to analyze
-            items_to_analyze = total_items
-            if max_items is not None:
-                items_to_analyze = min(total_items, max_items)
-                if items_to_analyze < total_items:
-                    logger.info(
-                        f"Limiting analysis to first {max_items} "
-                        f"items (dataset has {total_items} total)"
-                    )
+                # Determine how many items to analyze
+                items_to_analyze = total_items
+                if max_items is not None:
+                    items_to_analyze = min(total_items, max_items)
+                    if items_to_analyze < total_items:
+                        logger.info(
+                            f"Limiting analysis to first {max_items} "
+                            f"items (dataset has {total_items} total)"
+                        )
 
             # Use utility function to convert dataset to DataFrames
             conversations_df, messages_df = convert_dataset_to_dataframes(
@@ -360,7 +390,7 @@ class DatasetAnalyzer:
                 dataset_name=self.dataset_name or "Unknown Dataset",
             )
 
-            schema = self._get_conversation_schema()
+            schema = self._get_schema_for_dataset()
 
             dataframe_list = [
                 DataFrameWithSchema(conversations_df, schema, "conversations"),
@@ -588,9 +618,9 @@ class DatasetAnalyzer:
 
         summary = {
             "dataset_overview": self._get_dataset_overview(),
-            "message_level_summary": self._get_message_level_summary(),
-            "conversation_level_summary": self._get_conversation_level_summary(),
-            "conversation_turns": self._get_conversation_turns_summary(),
+            # "message_level_summary": self._get_message_level_summary(),
+            # "conversation_level_summary": self._get_conversation_level_summary(),
+            # "conversation_turns": self._get_conversation_turns_summary(),
         }
 
         return summary
