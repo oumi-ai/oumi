@@ -15,8 +15,6 @@
 import asyncio
 from typing import Any, Optional
 
-import boto3
-from botocore.exceptions import ClientError
 from tqdm.asyncio import tqdm
 from typing_extensions import override
 
@@ -26,6 +24,13 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
+
+try:
+    import boto3  # pyright: ignore[reportMissingImports]
+    from botocore.exceptions import ClientError  # pyright: ignore[reportMissingImports]
+except ModuleNotFoundError:
+    boto3 = None  # type: ignore
+    ClientError = None  # type: ignore
 
 _CONTENT_KEY: str = "content"
 _ROLE_KEY: str = "role"
@@ -38,7 +43,39 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
     for interacting with Bedrock's language models via their API. It handles
     the conversion of Oumi's Conversation objects to Bedrock's expected input
     format, as well as parsing the API responses back into Conversation objects.
+
+    Note:
+        This engine requires the boto3 package to be installed.
+        If not installed, it will raise a RuntimeError.
     """
+
+    def __init__(
+        self,
+        model_params: ModelParams,
+        *,
+        generation_params: Optional[GenerationParams] = None,
+        remote_params: Optional[RemoteParams] = None,
+    ):
+        """Initializes the BedrockInferenceEngine.
+
+        Args:
+            model_params: Parameters for the model.
+            generation_params: Parameters for generation.
+            remote_params: Parameters for remote inference.
+
+        Raises:
+            RuntimeError: If the boto3 package is not installed.
+        """
+        if not boto3:
+            raise RuntimeError(
+                "boto3 is not installed. Please install it with 'pip install boto3'."
+            )
+
+        super().__init__(
+            model_params=model_params,
+            generation_params=generation_params,
+            remote_params=remote_params,
+        )
 
     @property
     @override
@@ -54,7 +91,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
 
     def _bedrock_client(self, remote_params: RemoteParams) -> Any:
         region = getattr(remote_params, "extra", {}).get("aws_region")
-        return boto3.client("bedrock-runtime", region_name=region)
+        return boto3.client("bedrock-runtime", region_name=region)  # type: ignore
 
     @override
     def _convert_conversation_to_api_input(
@@ -264,7 +301,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
                         self._save_conversation_to_scratch(result, output_path)
                     await self._try_record_success()
                     return result
-                except ClientError as e:
+                except ClientError as e:  # type: ignore
                     # Capture AWS error message for logging/propagation
                     failure_reason = e.response.get("Error", {}).get("Message") or str(
                         e
