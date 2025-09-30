@@ -183,7 +183,11 @@ def _get_config_for_category(
         # Get dataset class to check if it's iterable
         dataset_class = REGISTRY.get_dataset(dataset_key)
         if dataset_class:
-            is_iterable_dataset = issubclass(dataset_class, BaseIterableDataset)
+            import inspect
+
+            is_iterable_dataset = inspect.isclass(dataset_class) and issubclass(
+                dataset_class, BaseIterableDataset
+            )
 
             if not is_iterable_dataset:
                 # For map datasets, modify split to include slicing

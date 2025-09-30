@@ -14,7 +14,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import pandas as pd
 from tqdm import tqdm
@@ -60,7 +60,7 @@ def build_tokenizer_from_config(tokenizer_config: Optional[dict[str, Any]]):
 
 def load_dataset_from_config(
     config: AnalyzeConfig, tokenizer: Optional[Any] = None
-) -> BaseMapDataset:
+) -> Union[BaseMapDataset, BaseIterableDataset]:
     """Load dataset based on configuration.
 
     This function loads datasets directly from the registry for analysis purposes.
@@ -101,9 +101,14 @@ def load_dataset_from_config(
 
         if dataset_class is not None:
             # Check if this is an iterable dataset that supports streaming
+            import inspect
+
             from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 
-            is_iterable_dataset = issubclass(dataset_class, BaseIterableDataset)
+            # Ensure dataset_class is actually a class before using issubclass
+            is_iterable_dataset = inspect.isclass(dataset_class) and issubclass(
+                dataset_class, BaseIterableDataset
+            )
 
             # For iterable datasets, force streaming mode to avoid downloading all
             if is_iterable_dataset:
@@ -144,7 +149,7 @@ def load_dataset_from_config(
                 dataset_kwargs["trust_remote_code"] = config.trust_remote_code
 
             # Add required parameters for pretraining datasets
-            if is_iterable_dataset and issubclass(dataset_class, BaseIterableDataset):
+            if is_iterable_dataset:
                 # Import here to avoid circular imports
                 from oumi.core.datasets.base_pretraining_dataset import (
                     BasePretrainingDataset,
@@ -166,6 +171,11 @@ def load_dataset_from_config(
                         dataset_kwargs["tokenizer"] = build_tokenizer(model_params)
 
             # Load registered dataset with parameters
+            if not inspect.isclass(dataset_class):
+                raise TypeError(
+                    f"Expected class, got {type(dataset_class)} for "
+                    f"dataset {dataset_name}"
+                )
             dataset = dataset_class(**dataset_kwargs)
 
             # Ensure we return a supported dataset type
@@ -421,8 +431,10 @@ def _convert_iterable_dataset_to_dataframes(
                 raw_item = next(dataset_iter)
 
                 # Convert to dict if it's not already
-                if hasattr(raw_item, "to_dict"):
-                    raw_item = raw_item.to_dict()
+                if hasattr(raw_item, "to_dict") and callable(
+                    getattr(raw_item, "to_dict")
+                ):
+                    raw_item = raw_item.to_dict()  # type: ignore
                 elif not isinstance(raw_item, dict):
                     # For pretraining datasets, the item might be a tensor or list
                     # Convert to a simple dict structure
