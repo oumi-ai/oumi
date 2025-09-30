@@ -155,7 +155,9 @@ def load_dataset_from_config(
                     BasePretrainingDataset,
                 )
 
-                if issubclass(dataset_class, BasePretrainingDataset):
+                if inspect.isclass(dataset_class) and issubclass(
+                    dataset_class, BasePretrainingDataset
+                ):
                     # Pretraining datasets require seq_length and tokenizer
                     if "seq_length" not in dataset_kwargs:
                         dataset_kwargs["seq_length"] = 64  # Default sequence length

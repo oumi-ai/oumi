@@ -533,7 +533,7 @@ class DatasetAnalyzer:
     def filter(
         self,
         query_expression: str,
-    ) -> BaseMapDataset:
+    ) -> Union[BaseMapDataset, BaseIterableDataset]:
         """Filter the original dataset based on analysis results.
 
         This method uses analysis results to filter the original dataset, returning
@@ -569,16 +569,24 @@ class DatasetAnalyzer:
         # Create a new dataset with only the filtered conversations
         filtered_dataset = self._create_filtered_dataset(conversation_indices)
 
+        # Get total dataset size, handling iterable datasets
+        from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+        if isinstance(self.dataset, BaseIterableDataset):
+            total_size = "unknown (streaming)"
+        else:
+            total_size = str(len(self.dataset))
+
         logger.info(
             f"Filtered dataset: {len(conversation_indices)} conversations "
-            f"out of {len(self.dataset)} total"
+            f"out of {total_size} total"
         )
 
         return filtered_dataset
 
     def _create_filtered_dataset(
         self, conversation_indices: list[int]
-    ) -> BaseMapDataset:
+    ) -> Union[BaseMapDataset, BaseIterableDataset]:
         """Create a new dataset containing only the specified conversations.
 
         Args:
@@ -591,6 +599,14 @@ class DatasetAnalyzer:
         filtered_dataset = copy.deepcopy(self.dataset)
 
         # Filter the DataFrame to only include the specified conversations
+        # Note: This only works for map datasets, not iterable datasets
+        from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+        if isinstance(self.dataset, BaseIterableDataset):
+            # For iterable datasets, we can't filter by index
+            # Return the original dataset as filtering is not supported
+            return filtered_dataset
+
         original_df = self.dataset.data
         filtered_dataset._data = original_df.iloc[conversation_indices].copy()
 

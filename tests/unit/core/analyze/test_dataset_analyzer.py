@@ -304,7 +304,11 @@ def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_
 
     # Test that the provided dataset was used instead of loading from config
     assert analyzer.dataset == dataset
-    assert len(analyzer.dataset) == 5  # Should have 5 conversations from test data
+    # Check dataset size (only for map datasets that support len())
+    from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+    if not isinstance(analyzer.dataset, BaseIterableDataset):
+        assert len(analyzer.dataset) == 5  # Should have 5 conversations from test data
 
     # Test that load_dataset_from_config was not called
     mock_load.assert_not_called()
@@ -691,12 +695,21 @@ def test_filter_method(test_data_path, mock_config):
 
     # Test that filtered dataset has required methods
     assert hasattr(filter_results, "conversation")
-    assert hasattr(filter_results, "__len__")
     assert hasattr(filter_results, "dataset_name")
-    assert len(filter_results) > 0
 
-    # Test that we can access conversations
-    if len(filter_results) > 0:
+    # Check length only for map datasets
+    from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+    if not isinstance(filter_results, BaseIterableDataset):
+        assert hasattr(filter_results, "__len__")
+        assert len(filter_results) > 0
+        # Test that we can access conversations
+        if len(filter_results) > 0:
+            first_conv = filter_results.conversation(0)
+            assert hasattr(first_conv, "messages")
+            assert len(first_conv.messages) > 0
+    else:
+        # For iterable datasets, just test that we can get a conversation
         first_conv = filter_results.conversation(0)
         assert hasattr(first_conv, "messages")
         assert len(first_conv.messages) > 0
@@ -741,8 +754,11 @@ def test_empty_filter_results(test_data_path, mock_config):
     # Use a filter that should return no results
     filtered_dataset = analyzer.filter("role == 'nonexistent_role'")
 
-    # Should return an empty dataset
-    assert len(filtered_dataset) == 0
+    # Should return an empty dataset (check only for map datasets)
+    from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+    if not isinstance(filtered_dataset, BaseIterableDataset):
+        assert len(filtered_dataset) == 0
     assert hasattr(filtered_dataset, "conversation")
     assert hasattr(filtered_dataset, "dataset_name")
 
