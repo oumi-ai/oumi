@@ -14,6 +14,7 @@ from oumi.core.configs import (
 )
 from oumi.inference import (
     AnthropicInferenceEngine,
+    BedrockInferenceEngine,
     DeepSeekInferenceEngine,
     GoogleGeminiInferenceEngine,
     GoogleVertexInferenceEngine,
@@ -44,6 +45,13 @@ try:
 except ImportError:
     llama_cpp_import_failed = True
 
+try:
+    import boto3  # noqa: F401 # pyright: ignore[reportMissingImports]
+
+    boto3_import_failed = False
+except ImportError:
+    boto3_import_failed = True
+
 # Group engines by whether they require remote params
 LOCAL_ENGINES = [
     NativeTextInferenceEngine,
@@ -59,6 +67,7 @@ REMOTE_ENGINES = [
 
 REMOTE_API_ENGINES = [
     AnthropicInferenceEngine,
+    BedrockInferenceEngine,
     DeepSeekInferenceEngine,
     GoogleGeminiInferenceEngine,
     GoogleVertexInferenceEngine,
@@ -70,8 +79,10 @@ REMOTE_API_ENGINES = [
 
 
 def _should_skip_engine(engine_class) -> bool:
-    return (engine_class == VLLMInferenceEngine and vllm_import_failed) or (
-        engine_class == LlamaCppInferenceEngine and llama_cpp_import_failed
+    return (
+        (engine_class == VLLMInferenceEngine and vllm_import_failed)
+        or (engine_class == LlamaCppInferenceEngine and llama_cpp_import_failed)
+        or (engine_class == BedrockInferenceEngine and boto3_import_failed)
     )
 
 
@@ -94,6 +105,8 @@ def _mock_engine(engine_class):
         )
     elif engine_class == LlamaCppInferenceEngine:
         mock_ctx = patch("llama_cpp.Llama.from_pretrained")
+    elif engine_class == BedrockInferenceEngine:
+        mock_ctx = patch("boto3.client")
     elif engine_class == SGLangInferenceEngine:
         mock_ctx = patch.multiple(
             "oumi.inference.sglang_inference_engine",
