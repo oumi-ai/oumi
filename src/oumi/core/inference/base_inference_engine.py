@@ -305,31 +305,31 @@ class BaseInferenceEngine(ABC):
     def _get_scratch_filepath(self, output_filepath: Optional[str]) -> str:
         """Returns a scratch filepath for the given output filepath.
 
-        For example, if the output filepath is "/foo/bar/output.json", the scratch
-        filepath will be "/foo/bar/scratch/output.json"
-
-        If no output filepath is provided, a temporary file is used and placed in the
-        current working directory under the name "tmp/temp_inference_output.jsonl".
+        The scratch file is always placed in a local temporary directory to avoid
+        issues with cloud-mounted filesystems that may not support all file operations.
 
         Args:
-            output_filepath: The output filepath.
+            output_filepath: The output filepath (used for generating unique filename).
 
         Returns:
-            str: The scratch filepath.
+            str: The scratch filepath in a local temporary directory.
         """
-        if output_filepath is not None:
-            original_filepath = Path(output_filepath)
-            return str(original_filepath.parent / "scratch" / original_filepath.name)
-
         model_params = self._model_params
         model_params_str = json.dumps(dataclasses.asdict(model_params))
         generation_params = self._generation_params
         generation_params_str = json.dumps(dataclasses.asdict(generation_params))
-        inference_hash = hashlib.sha256(
-            f"{model_params_str}_{generation_params_str}_{self._dataset_hash}".encode()
-        ).hexdigest()
 
-        path_prefix = Path.home() / ".cache" / "oumi" / "tmp"
+        # Include output_filepath in hash if provided for uniqueness
+        hash_input = f"{model_params_str}_{generation_params_str}_{self._dataset_hash}"
+        if output_filepath is not None:
+            hash_input += f"_{output_filepath}"
+
+        inference_hash = hashlib.sha256(hash_input.encode()).hexdigest()
+
+        # Always use /tmp for scratch files to avoid cloud filesystem issues
+        # /tmp is guaranteed to be on local disk,
+        # unlike home directory which may be mounted
+        path_prefix = Path("/tmp") / "oumi" / "scratch"
         return str(path_prefix / f"temp_inference_output_{inference_hash}.jsonl")
 
     def _save_conversation_to_scratch(
