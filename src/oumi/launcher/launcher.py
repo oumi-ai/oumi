@@ -25,7 +25,6 @@ class Launcher:
     def __init__(self):
         """Initializes a new instance of the Launcher class."""
         self._clouds: dict[str, BaseCloud] = dict()
-        self._initialize_new_clouds()
 
     def _initialize_new_clouds(self) -> None:
         """Initializes new clouds. Existing clouds are not re-initialized."""
