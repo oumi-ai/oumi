@@ -72,7 +72,7 @@ def test_launcher_get_cloud(mock_registry):
     def _polaris_builder():
         return polaris_mock
 
-    mock_registry.get_all.return_value = {
+    mock_registry.get.side_effect = lambda name, reg_type: {
         "sky": _sky_builder,
         "polaris": _polaris_builder,
     }
