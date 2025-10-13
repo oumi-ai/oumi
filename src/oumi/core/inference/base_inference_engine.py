@@ -316,8 +316,8 @@ class BaseInferenceEngine(ABC):
         For example, if the output filepath is "/foo/bar/output.json", the scratch
         filepath will be "/foo/bar/scratch/output_<hash>.json"
 
-        If no output filepath is provided, a temporary file is used and placed in the
-        current working directory under "tmp/temp_inference_output_<hash>.jsonl".
+        If no output filepath is provided, a temporary file is used and placed in
+        "~/.cache/oumi/tmp/temp_inference_output_<hash>.jsonl".
 
         Args:
             output_filepath: The output filepath.
