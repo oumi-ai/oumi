@@ -79,7 +79,7 @@ class DatasetSource:
 
         file_path = Path(self.path)
         prefix = self.path.split(":")[0]
-        if prefix == "hf":
+        if prefix == "hf" or prefix == "oumi":
             return
         if file_path.suffix.lower() not in _SUPPORTED_DATASET_FILE_TYPES:
             raise ValueError(
