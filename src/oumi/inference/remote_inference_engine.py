@@ -241,15 +241,40 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self._remote_params.finalize_and_validate()
 
         if self._remote_params.use_adaptive_concurrency:
-            max_concurrency = self._remote_params.num_workers
-            # Lowest concurrency is 1.
-            min_concurrency = 1
-            # Initial concurrency is 1/2 of the range between min and max concurrency.
-            initial_concurrency_factor = 0.5
-            # Step size is 1/8 of the range between min and max concurrency.
-            concurrency_step = max(1, (max_concurrency - min_concurrency) // 8)
-            # Min update time is 1 second less than the politeness policy.
-            min_update_time = max(1, self._remote_params.politeness_policy - 1)
+            if self._remote_params.num_workers == 0:
+                # Special adaptive mode for unknown API limits
+                # Start at ~10 requests per minute and scale exponentially to ~200
+                # in 2 minutes
+                max_concurrency = 10000  # Very high upper bound, no real maximum
+                min_concurrency = 10  # Start at ~10 requests per minute
+                initial_concurrency_factor = 0.0  # Start at minimum (10)
+                # For exponential growth, we'll use a multiplier approach
+                # The step will be calculated as current_concurrency in the controller
+                concurrency_step = 1  # This will be overridden for exponential growth
+                # Use 15s updates for exponential scaling every 15 seconds
+                min_update_time = 15.0
+                # More aggressive retry strategy
+                self._remote_params.max_retries = max(
+                    5, self._remote_params.max_retries
+                )
+                self._remote_params.retry_backoff_max = max(
+                    60.0, self._remote_params.retry_backoff_max
+                )
+                # Set politeness policy to 60s for per-minute rate limiting
+                if self._remote_params.politeness_policy == 0.0:
+                    self._remote_params.politeness_policy = 60.0
+            else:
+                max_concurrency = self._remote_params.num_workers
+                # Lowest concurrency is 1.
+                min_concurrency = 1
+                # Initial concurrency is 1/2 of the range between min and max
+                # concurrency.
+                initial_concurrency_factor = 0.5
+                # Step size is 1/8 of the range between min and max concurrency.
+                concurrency_step = max(1, (max_concurrency - min_concurrency) // 8)
+                # Min update time is 1 second less than the politeness policy.
+                min_update_time = max(1, self._remote_params.politeness_policy - 1)
+
             self._adaptive_concurrency_controller = AdaptiveConcurrencyController(
                 AdaptiveConcurrencyParams(
                     min_concurrency=min_concurrency,
@@ -257,6 +282,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     initial_concurrency_factor=initial_concurrency_factor,
                     concurrency_step=concurrency_step,
                     min_update_time=min_update_time,
+                    use_exponential_scaling=(self._remote_params.num_workers == 0),
+                    exponential_scaling_factor=1.44,
                 ),
                 politeness_policy=self._remote_params.politeness_policy,
             )
@@ -615,11 +642,22 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        # Limit number of HTTP connections to the number of workers.
-        connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
+        # Determine the effective max concurrency for HTTP connections
+        if self._remote_params.num_workers == 0:
+            # For adaptive mode with unknown limits, use the adaptive controller's max
+            effective_max_workers = (
+                self._adaptive_concurrency_controller._config.max_concurrency
+                if self._remote_params.use_adaptive_concurrency
+                else 10000  # Fallback, though this shouldn't happen due to validation
+            )
+        else:
+            effective_max_workers = self._remote_params.num_workers
+
+        # Limit number of HTTP connections to the effective max workers.
+        connector = aiohttp.TCPConnector(limit=effective_max_workers)
         # Control the number of concurrent tasks via a semaphore.
         semaphore = PoliteAdaptiveSemaphore(
-            capacity=self._remote_params.num_workers,
+            capacity=effective_max_workers,
             politeness_policy=self._remote_params.politeness_policy,
         )
         async with aiohttp.ClientSession(connector=connector) as session:

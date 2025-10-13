@@ -84,9 +84,15 @@ class RemoteParams(BaseParams):
 
     def __post_init__(self):
         """Validate the remote parameters."""
-        if self.num_workers < 1:
+        if self.num_workers < 0:
             raise ValueError(
-                "Number of num_workers must be greater than or equal to 1."
+                "Number of num_workers must be greater than or equal to 0."
+            )
+        if self.num_workers == 0 and not self.use_adaptive_concurrency:
+            raise ValueError(
+                "num_workers=0 is only allowed when use_adaptive_concurrency=True. "
+                "This enables automatic discovery of API rate limits starting from a "
+                "low concurrency and scaling up aggressively."
             )
         if self.politeness_policy < 0:
             raise ValueError("Politeness policy must be greater than or equal to 0.")
@@ -139,6 +145,22 @@ class AdaptiveConcurrencyParams(BaseParams):
     During warmup, concurrency will be increased by this amount. (i.e. if concurrency is
     50, and the concurrency step is 5, the concurrency will be increased to 55). This
     change will happen no sooner than min_update_time seconds after the last update.
+    """
+
+    use_exponential_scaling: bool = False
+    """Whether to use exponential scaling during warmup.
+
+    If True, concurrency will be multiplied by exponential_scaling_factor during each
+    warmup step instead of using the fixed concurrency_step. This is useful for
+    discovering API limits quickly when starting from a low baseline.
+    """
+
+    exponential_scaling_factor: float = 2.0
+    """Multiplier for exponential scaling during warmup.
+
+    When use_exponential_scaling is True, concurrency will be multiplied by this factor
+    during each warmup step. Default is 2.0 (doubling). Use values like 1.44 for more
+    moderate growth (e.g., 10 -> 200 in 8 steps).
     """
 
     min_update_time: float = 60.0
@@ -201,3 +223,5 @@ class AdaptiveConcurrencyParams(BaseParams):
             raise ValueError("Recovery threshold must be less than error threshold.")
         if self.min_window_size < 1:
             raise ValueError("Min window size must be greater than or equal to 1.")
+        if self.exponential_scaling_factor <= 1.0:
+            raise ValueError("Exponential scaling factor must be greater than 1.0.")
