@@ -634,9 +634,9 @@ class DatasetAnalyzer:
 
         summary = {
             "dataset_overview": self._get_dataset_overview(),
-            # "message_level_summary": self._get_message_level_summary(),
-            # "conversation_level_summary": self._get_conversation_level_summary(),
-            # "conversation_turns": self._get_conversation_turns_summary(),
+            "message_level_summary": self._get_message_level_summary(),
+            "conversation_level_summary": self._get_conversation_level_summary(),
+            "conversation_turns": self._get_conversation_turns_summary(),
         }
 
         return summary
