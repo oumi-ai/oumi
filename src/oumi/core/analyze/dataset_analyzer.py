@@ -632,6 +632,10 @@ class DatasetAnalyzer:
         if self._merged_df is None or self._merged_df.empty:
             return {"error": "No analysis data available"}
 
+        # TODO: Refactor summary methods to be dataset agnostic
+        # Currently these methods assume conversation dataset structure with
+        # messages/conversations.
+        # They should be generalized to work with any dataset type and column structure.
         summary = {
             "dataset_overview": self._get_dataset_overview(),
             "message_level_summary": self._get_message_level_summary(),
