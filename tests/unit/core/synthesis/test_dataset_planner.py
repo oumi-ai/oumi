@@ -927,3 +927,216 @@ def test_plan_with_combined_sources_including_documents(
 
         # Should have 5 attributes (1 from document + 2 from examples + 2 permutable)
         assert len(sample) == 5
+
+
+# Tests for document validation and segmentation error handling
+@patch("oumi.core.synthesis.dataset_planner.DocumentSegmenter")
+def test_plan_with_empty_document_raises_error(
+    mock_segmenter_class,
+    mock_document_reader,
+    mock_permutable_attributes,
+):
+    """Test that empty document raises ValueError during segmentation."""
+    # Return empty string as document
+    mock_document_reader.read.return_value = [""]
+
+    mock_segmenter = Mock()
+    mock_segmenter_class.return_value = mock_segmenter
+
+    planner = DatasetPlanner(document_reader=mock_document_reader)
+
+    document_source = DocumentSource(
+        path="test_document.pdf",
+        id="doc1",
+        segmentation_params=DocumentSegmentationParams(
+            id="doc1_segment",
+            segmentation_strategy=SegmentationStrategy.TOKENS,
+            segment_length=512,
+            segment_overlap=50,
+        ),
+    )
+
+    params = GeneralSynthesisParams(
+        sampled_attributes=mock_permutable_attributes,
+        input_documents=[document_source],
+    )
+
+    with pytest.raises(
+        ValueError, match="No non-empty documents were found in the document source"
+    ):
+        planner.plan(params, sample_count=1)
+
+
+@patch("oumi.core.synthesis.dataset_planner.DocumentSegmenter")
+def test_plan_with_none_document_raises_error(
+    mock_segmenter_class,
+    mock_document_reader,
+    mock_permutable_attributes,
+):
+    """Test that None document raises ValueError during segmentation."""
+    # Return None as document
+    mock_document_reader.read.return_value = [None]
+
+    mock_segmenter = Mock()
+    mock_segmenter_class.return_value = mock_segmenter
+
+    planner = DatasetPlanner(document_reader=mock_document_reader)
+
+    document_source = DocumentSource(
+        path="test_document.pdf",
+        id="doc1",
+        segmentation_params=DocumentSegmentationParams(
+            id="doc1_segment",
+            segmentation_strategy=SegmentationStrategy.TOKENS,
+            segment_length=512,
+            segment_overlap=50,
+        ),
+    )
+
+    params = GeneralSynthesisParams(
+        sampled_attributes=mock_permutable_attributes,
+        input_documents=[document_source],
+    )
+
+    with pytest.raises(
+        ValueError, match="No non-empty documents were found in the document source"
+    ):
+        planner.plan(params, sample_count=1)
+
+
+@patch("oumi.core.synthesis.dataset_planner.DocumentSegmenter")
+def test_plan_with_empty_segmentation_results_raises_error(
+    mock_segmenter_class,
+    mock_document_reader,
+    mock_permutable_attributes,
+):
+    """Test that empty segmentation results raise ValueError."""
+    mock_document_reader.read.return_value = ["Valid document content"]
+
+    mock_segmenter = Mock()
+    # Return empty list from segmentation
+    mock_segmenter.segment.return_value = []
+    mock_segmenter_class.return_value = mock_segmenter
+
+    planner = DatasetPlanner(document_reader=mock_document_reader)
+
+    document_source = DocumentSource(
+        path="test_document.pdf",
+        id="doc1",
+        segmentation_params=DocumentSegmentationParams(
+            id="doc1_segment",
+            segmentation_strategy=SegmentationStrategy.TOKENS,
+            segment_length=512,
+            segment_overlap=50,
+        ),
+    )
+
+    params = GeneralSynthesisParams(
+        sampled_attributes=mock_permutable_attributes,
+        input_documents=[document_source],
+    )
+
+    with pytest.raises(
+        ValueError, match="Document segmentation returned only empty segments"
+    ):
+        planner.plan(params, sample_count=1)
+
+
+@patch("oumi.core.synthesis.dataset_planner.DocumentSegmenter")
+def test_plan_skips_whitespace_only_segments(
+    mock_segmenter_class,
+    mock_document_reader,
+    mock_permutable_attributes,
+):
+    """Test that whitespace-only segments are skipped during processing."""
+    mock_document_reader.read.return_value = ["Valid document content"]
+
+    mock_segmenter = Mock()
+    # Return segments with whitespace-only content mixed with valid content
+    mock_segmenter.segment.return_value = [
+        "Valid segment 1",
+        "",  # Empty string
+        "   ",  # Whitespace only
+        "Valid segment 2",
+        "\n\t  \n",  # Mixed whitespace
+        "Valid segment 3",
+        None,  # None value (should also be skipped)
+    ]
+    mock_segmenter_class.return_value = mock_segmenter
+
+    planner = DatasetPlanner(document_reader=mock_document_reader)
+
+    document_source = DocumentSource(
+        path="test_document.pdf",
+        id="doc1",
+        segmentation_params=DocumentSegmentationParams(
+            id="doc1_segment",
+            segmentation_strategy=SegmentationStrategy.TOKENS,
+            segment_length=512,
+            segment_overlap=50,
+        ),
+    )
+
+    params = GeneralSynthesisParams(
+        sampled_attributes=mock_permutable_attributes,
+        input_documents=[document_source],
+    )
+
+    result = planner.plan(params, sample_count=6)
+
+    # Should have 6 samples, cycling through the 3 valid segments
+    assert len(result) == 6
+
+    expected_segments = ["Valid segment 1", "Valid segment 2", "Valid segment 3"]
+    for i, sample in enumerate(result):
+        segment_index = i % len(expected_segments)
+        expected_segment = expected_segments[segment_index]
+        assert sample["doc1_segment"] == expected_segment
+
+        # Verify permutable attributes are still present
+        assert "attr1" in sample
+        assert "attr2" in sample
+
+
+@patch("oumi.core.synthesis.dataset_planner.DocumentSegmenter")
+def test_plan_with_all_whitespace_segments_raises_error(
+    mock_segmenter_class,
+    mock_document_reader,
+    mock_permutable_attributes,
+):
+    """Test when all segments are whitespace, an error is raised."""
+    mock_document_reader.read.return_value = ["Valid document content"]
+
+    mock_segmenter = Mock()
+    # Return only whitespace segments
+    mock_segmenter.segment.return_value = [
+        "",  # Empty string
+        "   ",  # Whitespace only
+        "\n\t  \n",  # Mixed whitespace
+        None,  # None value
+    ]
+    mock_segmenter_class.return_value = mock_segmenter
+
+    planner = DatasetPlanner(document_reader=mock_document_reader)
+
+    document_source = DocumentSource(
+        path="test_document.pdf",
+        id="doc1",
+        segmentation_params=DocumentSegmentationParams(
+            id="doc1_segment",
+            segmentation_strategy=SegmentationStrategy.TOKENS,
+            segment_length=512,
+            segment_overlap=50,
+        ),
+    )
+
+    params = GeneralSynthesisParams(
+        sampled_attributes=mock_permutable_attributes,
+        input_documents=[document_source],
+    )
+
+    # This should raise a ValueError because all segments are whitespace
+    with pytest.raises(
+        ValueError, match="Document segmentation returned only empty segments"
+    ):
+        planner.plan(params, sample_count=1)
