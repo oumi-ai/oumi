@@ -1023,7 +1023,6 @@ def test_launcher_status_inits_new_clouds(mock_registry):
 
     mock_registry.get_all.side_effect = [
         {},
-        {},
         {
             "sky": _sky_builder,
             "polaris": _polaris_builder,
@@ -1206,7 +1205,6 @@ def test_launcher_which_clouds_updates_over_time(mock_registry):
         return custom_mock
 
     mock_registry.get_all.side_effect = [
-        {},
         {
             "sky": _sky_builder,
         },
