@@ -173,9 +173,10 @@ def load_dataset_from_config(
                         dataset_kwargs["tokenizer"] = build_tokenizer(model_params)
 
             # Load registered dataset with parameters
-            if not inspect.isclass(dataset_class):
+            # Check if dataset_class is callable (class or mock for testing)
+            if not (inspect.isclass(dataset_class) or callable(dataset_class)):
                 raise TypeError(
-                    f"Expected class, got {type(dataset_class)} for "
+                    f"Expected class or callable, got {type(dataset_class)} for "
                     f"dataset {dataset_name}"
                 )
             dataset = dataset_class(**dataset_kwargs)
