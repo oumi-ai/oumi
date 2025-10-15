@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import os
 from typing import Any, Optional
 
 from tqdm.asyncio import tqdm
@@ -33,6 +34,7 @@ except ModuleNotFoundError:
 
 _CONTENT_KEY: str = "content"
 _ROLE_KEY: str = "role"
+_AWS_REGION_ENV_VAR: str = "AWS_REGION"
 
 
 class BedrockInferenceEngine(RemoteInferenceEngine):
@@ -89,7 +91,9 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         return None
 
     def _bedrock_client(self, remote_params: RemoteParams) -> Any:
-        region = getattr(remote_params, "extra", {}).get("aws_region")
+        region = os.getenv(_AWS_REGION_ENV_VAR)
+        if not region:
+            raise ValueError(f"Environment variable {_AWS_REGION_ENV_VAR} not set.")
         return boto3.client("bedrock-runtime", region_name=region)  # type: ignore
 
     @override
