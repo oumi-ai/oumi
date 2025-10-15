@@ -49,6 +49,14 @@ def test_dataset_source_valid():
         ds = DatasetSource(path=path)
         assert ds.path == path
 
+    # Test HuggingFace paths
+    ds = DatasetSource(path="hf:repo/dataset")
+    assert ds.path == "hf:repo/dataset"
+
+    # Test Oumi paths
+    ds = DatasetSource(path="oumi:dataset_id")
+    assert ds.path == "oumi:dataset_id"
+
     ds = DatasetSource(path="data.jsonl", attribute_map={"original_name": "new_name"})
     assert ds.attribute_map == {"original_name": "new_name"}
 

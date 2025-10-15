@@ -1389,7 +1389,7 @@ def test_infer_from_file_to_file():
             )
             assert expected_result == result
             # Ensure that intermediary results are cleaned up after inference.
-            scratch_path = output_path.parent / "scratch" / output_path.name
+            scratch_path = Path(engine._get_scratch_filepath(str(output_path)))
             assert not scratch_path.exists(), f"Scratch file {scratch_path} exists"
             # Ensure the final output is in order.
             with open(output_path) as f:
@@ -1511,7 +1511,7 @@ def test_infer_from_file_to_file_failure_midway():
                 )
 
             # Verify scratch file exists and contains only first conversation
-            scratch_path = output_path.parent / "scratch" / output_path.name
+            scratch_path = Path(engine._get_scratch_filepath(str(output_path)))
             assert scratch_path.exists(), f"Scratch file {scratch_path} does not exist"
 
             # Read scratch file and verify contents
