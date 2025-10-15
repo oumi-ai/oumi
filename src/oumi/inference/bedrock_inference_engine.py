@@ -18,7 +18,6 @@ from typing import Any, Optional
 from tqdm.asyncio import tqdm
 from typing_extensions import override
 
-from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
@@ -191,15 +190,6 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
     def _set_required_fields_for_inference(self, remote_params: RemoteParams):
         """Override to skip API key validation since Bedrock uses AWS credentials."""
         pass
-
-    @override
-    def _infer_online(
-        self,
-        input: list[Conversation],
-        inference_config: Optional[Any] = None,
-    ) -> list[Conversation]:
-        """Runs model inference online using the parent class implementation."""
-        return safe_asyncio_run(self._infer(input, inference_config))
 
     async def _infer(
         self,
