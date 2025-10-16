@@ -37,7 +37,7 @@ jobs:
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        uv pip install -e '.[ci_cpu]' --system
+        uv pip install --system -e '.[ci_cpu]'
 
     - name: Cache pre-commit
       uses: actions/cache@v4

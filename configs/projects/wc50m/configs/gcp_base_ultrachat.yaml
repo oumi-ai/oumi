@@ -28,7 +28,7 @@ envs:
   TOKENIZERS_PARALLELISM: false
 setup: |
   set -e
-  pip install uv && uv pip install -e .[gpu,evaluation] hf_transfer
+  pip install uv && uv pip install --system -e .[gpu,evaluation] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 hf download meta-llama/Meta-Llama-3.1-8B --exclude original/*
