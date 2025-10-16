@@ -333,6 +333,10 @@ def train(
         # to be dropped from the dataset.
         if config.training.trainer_type == TrainerType.TRL_SFT:
             config.training.trainer_kwargs["remove_unused_columns"] = False
+            logger.info(
+                "Set `training.trainer_kwargs.remove_unused_columns=False` for VLM "
+                "training with TRL_SFT trainer."
+            )
 
     # Load datasets.
     train_dataset = build_dataset_mixture(
