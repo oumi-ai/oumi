@@ -292,11 +292,11 @@ def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
     return config
 
 
+# TODO: Update. Confirm multi image works.
 def _create_qwen3_vl_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
         pixel_values_variable_shape=True,
-        # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
-        supports_multiple_images=False,
+        supports_multiple_images=True,
     )
     config.chat_template = "qwen3-vl-instruct"
     # FIXME OPE-946 Consider updating to "right":
@@ -310,12 +310,6 @@ def _create_qwen3_vl_vlm_config() -> InternalModelConfig:
                 image_dependent=True,
             )
             for feature_name in ("image_grid_thw",)
-        }
-    )
-    config.processor_kwargs.update(
-        {
-            "min_pixels": 256 * 28 * 28,
-            "max_pixels": 1280 * 28 * 28,
         }
     )
     return config

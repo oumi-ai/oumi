@@ -17,6 +17,7 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 4096
   trust_remote_code: True
+  # TODO: Enable flash attention
   attn_implementation: "sdpa"
   chat_template: "qwen3-vl-instruct"
   freeze_layers:
@@ -82,7 +83,6 @@ training:
   enable_wandb: True
 
 peft:
-  q_lora: False
   lora_r: 8
   lora_alpha: 16
   lora_dropout: 0.05
@@ -94,4 +94,3 @@ peft:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-  lora_init_weights: DEFAULT
