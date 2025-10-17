@@ -20,6 +20,7 @@ from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.configs.params.style_params import StyleParams
 
 
 @dataclass
@@ -59,3 +60,6 @@ class InferenceConfig(BaseConfig):
 
     remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""
+
+    style: StyleParams = field(default_factory=StyleParams)
+    """Parameters for customizing console styling in interactive inference."""

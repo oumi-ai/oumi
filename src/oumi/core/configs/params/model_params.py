@@ -26,6 +26,78 @@ from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
 
+def _is_flash_attn_3_available() -> bool:
+    """Check if Flash Attention 3 is available from source installation."""
+    try:
+        import flash_attn_interface
+
+        # Test that the main function is accessible
+        flash_attn_interface.flash_attn_func
+        return True
+    except ImportError:
+        return False
+
+
+def _is_kernels_fa3_available() -> bool:
+    """Check if Flash Attention 3 is available via kernels package."""
+    try:
+        from oumi.core.kernels.detection import is_flash_attn3_kernel_available
+
+        return is_flash_attn3_kernel_available()
+    except ImportError:
+        return False
+    except Exception:
+        # If detection fails for any reason, assume not available
+        return False
+
+
+def _resolve_flash_attention_implementation(requested: str) -> Optional[str]:
+    """Resolve requested Flash Attention to best available implementation.
+
+    Args:
+        requested: The requested attention implementation ("flash_attention",
+                  "flash_attention_2", kernel path, or other)
+
+    Returns:
+        The resolved attention implementation, or None if not available
+    """
+    # Handle kernel-based implementations (e.g., "kernels-community/vllm-flash-attn3")
+    if "/" in requested and "kernels" in requested.lower():
+        logger.info(f"Using kernel-based attention implementation: {requested}")
+        return requested
+
+    # Handle backward compatibility and new "flash_attention" syntax
+    if requested not in ["flash_attention", "flash_attention_2"]:
+        return requested
+
+    # Deprecation warning for old syntax
+    if requested == "flash_attention_2":
+        logger.warning(
+            "attn_implementation='flash_attention_2' is deprecated. "
+            "Use 'flash_attention' for automatic detection of best available version."
+        )
+
+    # Priority order: FA3 source → FA3 kernels → FA2 pip → SDPA fallback
+    if _is_flash_attn_3_available():
+        logger.info("Using Flash Attention 3 (source installation)")
+        return "flash_attention_2"  # HF still expects this value internally
+
+    if _is_kernels_fa3_available():
+        logger.info("Using Flash Attention 3 (kernels package)")
+        return "kernels-community/vllm-flash-attn3"
+
+    if is_flash_attn_2_available():
+        logger.info("Using Flash Attention 2 (pip installation)")
+        return "flash_attention_2"
+
+    logger.warning(
+        "Flash Attention requested but not available. "
+        "Falling back to PyTorch SDPA. For optimal performance, install: "
+        "pip install flash-attn --no-build-isolation"
+    )
+    return "sdpa"
+
+
 @dataclass
 class ModelParams(BaseParams):
     model_name: str = MISSING
@@ -150,8 +222,11 @@ class ModelParams(BaseParams):
 
     - None: Use the default attention implementation (spda for torch>=2.1.1, else eager)
     - "sdpa": Use PyTorch's scaled dot-product attention
-    - "flash_attention_2": Use Flash Attention 2 for potentially faster computation.
-      Requires "flash-attn" package to be installed
+    - "flash_attention": Automatically detect and use the best available Flash
+      Attention version (Flash Attention 3 from source, Flash Attention 2 from pip,
+      or SDPA fallback)
+    - "flash_attention_2": [DEPRECATED] Use Flash Attention 2. Use "flash_attention"
+      instead.
     - "eager": Manual implementation of attention
     - "kernels-community/vllm-flash-attn3": Use vLLM Flash Attention 3 kernel from
       HF Hub
@@ -189,6 +264,19 @@ class ModelParams(BaseParams):
         model and hardware before use in production.
     """
 
+    enable_hf_kernels: bool = False
+    """Whether to enable HuggingFace kernels for optimized attention computation.
+
+    When enabled and Flash Attention 3 is detected, this will apply optimized
+    kernels from kernels-community/flash-attn3 for better performance on
+    supported hardware (H100/H800 GPUs).
+
+    Requires:
+        - kernels package: pip install kernels
+        - Flash Attention 3 source installation
+        - Compatible hardware (H100/H800)
+    """
+
     shard_for_eval: bool = False
     """Whether to shard the model for evaluation.
 
@@ -210,6 +298,35 @@ class ModelParams(BaseParams):
 
     This is used to specify the version of the model to use.
     """
+
+    def _is_using_flash_attention_3(self) -> bool:
+        """Check if this configuration will use Flash Attention 3."""
+        return (
+            self.attn_implementation in ["flash_attention", "flash_attention_2"]
+            and _is_flash_attn_3_available()
+        )
+
+    def _validate_flash_attention_3_requirements(self) -> None:
+        """Validate Flash Attention 3 hardware and software requirements."""
+        try:
+            import torch
+
+            if not torch.cuda.is_available():
+                raise HardwareException(
+                    "Flash Attention 3 requires CUDA but no CUDA devices found."
+                )
+
+            # Check CUDA capability (H100/H800 requirement)
+            device_capability = torch.cuda.get_device_capability()
+            if device_capability[0] < 9:  # H100/H800 are compute capability 9.0
+                logger.warning(
+                    f"Flash Attention 3 is optimized for H100/H800 GPUs "
+                    f"(compute capability 9.0+). Current device has compute "
+                    f"capability {device_capability[0]}.{device_capability[1]}. "
+                    "Performance may be suboptimal."
+                )
+        except Exception as e:
+            logger.warning(f"Could not validate Flash Attention 3 requirements: {e}")
 
     def __post_init__(self):
         """Populate additional params."""
@@ -277,15 +394,22 @@ class ModelParams(BaseParams):
                         f"Setting `model_name` to {model_name} found in adapter config."
                     )
 
-        # Check if flash-attention-2 is requested and supported
-        if (self.attn_implementation == "flash_attention_2") and (
-            not is_flash_attn_2_available()
-        ):
-            raise HardwareException(
-                "Flash attention 2 was requested but it is not "
-                "supported. Confirm that your hardware is compatible and then "
-                "consider installing it: pip install -U flash-attn --no-build-isolation"
+        # Resolve and validate attention implementation
+        if self.attn_implementation is not None:
+            resolved_attn = _resolve_flash_attention_implementation(
+                self.attn_implementation
             )
+            if resolved_attn is None:
+                raise HardwareException(
+                    f"Attention implementation '{self.attn_implementation}' is not "
+                    "available. Check hardware compatibility and installation "
+                    "requirements."
+                )
+            self.attn_implementation = resolved_attn
+
+            # Validate Flash Attention 3 requirements if we're using it
+            if self._is_using_flash_attention_3():
+                self._validate_flash_attention_3_requirements()
 
         if self.model_max_length is not None and self.model_max_length <= 0:
             raise ValueError("model_max_length must be a positive integer or None.")
