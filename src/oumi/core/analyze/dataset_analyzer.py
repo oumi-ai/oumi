@@ -17,14 +17,17 @@ from dataclasses import asdict, dataclass
 from typing import Any, Optional, Union, cast
 
 import pandas as pd
-from tqdm import tqdm
 
+from oumi.core.analyze.dataframe_analyzer import DataFrameAnalyzer, DataFrameWithSchema
 from oumi.core.configs import AnalyzeConfig, DatasetSource
 from oumi.core.datasets import BaseMapDataset
+from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.registry import REGISTRY
 from oumi.utils.analysis_utils import (
     build_tokenizer_from_config,
     compute_statistics,
+    convert_dataset_to_dataframes,
+    get_schema_for_format,
     load_dataset_from_config,
 )
 from oumi.utils.logging import logger
@@ -132,10 +135,14 @@ class DatasetAnalyzer:
             # Use the provided dataset name if config doesn't have one
             if not self.dataset_name:
                 self.dataset_name = getattr(dataset, "dataset_name", "Custom Dataset")
-            logger.info(
-                f"Using provided dataset '{self.dataset_name}' with "
-                f"{len(dataset)} conversations"
-            )
+            # Handle iterable datasets that don't support len()
+            if isinstance(dataset, BaseIterableDataset):
+                logger.info(f"Using provided streaming dataset '{self.dataset_name}'")
+            else:
+                logger.info(
+                    f"Using provided dataset '{self.dataset_name}' with "
+                    f"{len(dataset)} conversations"
+                )
         elif config.dataset_source == DatasetSource.CONFIG:
             # Config mode: load dataset from config parameters
             if dataset is not None:
@@ -155,6 +162,9 @@ class DatasetAnalyzer:
 
         self.sample_analyzers = self._initialize_sample_analyzers()
 
+        # Initialize dataframe analyzer with sample analyzers
+        self.dataframe_analyzer = DataFrameAnalyzer(self.sample_analyzers)
+
         # Initialize analysis results as None
         self._analysis_results: Optional[DatasetAnalysisResult] = None
         self._merged_df: Optional[pd.DataFrame] = None
@@ -164,6 +174,78 @@ class DatasetAnalyzer:
 
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
+
+    def _get_schema_for_dataset(self) -> dict:
+        """Get column schema configuration based on dataset type.
+
+        Detects the appropriate schema based on the dataset class inheritance.
+        Based on analysis of all 60 Oumi datasets:
+        - 37 datasets (SFT/Vision-SFT/GRPO) convert to conversation format → use 'oumi'
+        - 23 datasets (pretraining/DPO/KTO) maintain original structure → use specific
+
+        Returns:
+            Dictionary mapping column names to their configuration.
+        """
+        # Detect dataset type based on the dataset class
+        dataset_type = self._detect_dataset_type()
+
+        try:
+            return get_schema_for_format(dataset_type)
+        except ValueError:
+            # Fallback to conversation schema for unknown types
+            logger.warning(
+                f"Unknown dataset type '{dataset_type}', using conversation schema"
+            )
+            return get_schema_for_format("oumi")
+
+    def _detect_dataset_type(self) -> str:
+        """Detect the dataset type based on the dataset class and configuration.
+
+        Returns:
+            String indicating the dataset type for schema selection.
+        """
+        if self.dataset is None:
+            # No dataset provided, use config format or default to conversation
+            return getattr(self.config, "dataset_format", None) or "oumi"
+
+        # Check dataset class inheritance hierarchy for accurate detection
+        dataset_class_bases = [base.__name__ for base in self.dataset.__class__.__mro__]
+
+        # Datasets that convert to conversation format during loading
+        if any(
+            base in dataset_class_bases
+            for base in [
+                "BaseSftDataset",
+                "VisionLanguageSftDataset",
+                "BaseExperimentalGrpoDataset",
+            ]
+        ):
+            return "oumi"  # All convert to conversation format
+
+        # Datasets that maintain original structure
+        elif "BasePretrainingDataset" in dataset_class_bases:
+            return "pretraining"
+        elif any(
+            base in dataset_class_bases
+            for base in ["BaseDpoDataset", "VisionLanguageDpoDataset"]
+        ):
+            return "dpo"
+        elif "BaseExperimentalKtoDataset" in dataset_class_bases:
+            return "kto"
+        else:
+            # Check if we have explicit format from config
+            config_format = getattr(self.config, "dataset_format", None)
+            if config_format in [
+                "alpaca",
+                "prompt_response",
+                "dpo",
+                "pretraining",
+                "kto",
+            ]:
+                return config_format
+            else:
+                # Default to conversation format for unknown SFT-like datasets
+                return "oumi"
 
     def _initialize_sample_analyzers(self) -> dict[str, Any]:
         """Initialize sample analyzer plugins from configuration.
@@ -222,17 +304,102 @@ class DatasetAnalyzer:
             f"{list(self.sample_analyzers.keys())}"
         )
 
-        total_conversations = len(self.dataset)
-        conversations_to_analyze = min(
-            total_conversations, self.config.sample_count or total_conversations
+        # Handle iterable datasets differently to avoid downloading everything
+        if isinstance(self.dataset, BaseIterableDataset):
+            # For iterable datasets, we can't get the total length without iterating
+            # So we'll use the sample_count directly and iterate only what we need
+            conversations_to_analyze = (
+                self.config.sample_count or 1000
+            )  # Default limit for streaming
+            total_conversations = None  # Unknown for iterable datasets
+            logger.info(
+                f"Analyzing up to {conversations_to_analyze} conversations from "
+                f"streaming dataset"
+            )
+        else:
+            # For map datasets, we can get the total length
+            total_conversations = len(self.dataset)
+            conversations_to_analyze = min(
+                total_conversations, self.config.sample_count or total_conversations
+            )
+            logger.info(
+                f"Analyzing {conversations_to_analyze} of {total_conversations} "
+                f"conversations"
+            )
+
+        dataframe_list, total_items, items_to_analyze = self._prepare_dataframe_list(
+            conversations_to_analyze
         )
 
-        logger.info(f"Analyzing {conversations_to_analyze} conversations")
+        analysis_result = self.dataframe_analyzer.analyze_dataframe_list(
+            input_data_list=dataframe_list,
+            merge_on=["conversation_index", "conversation_id"],
+        )
+        self._merged_df = analysis_result.merged_df
+        self._message_df = analysis_result.messages_df
+        self._conversation_df = analysis_result.conversations_df
 
-        self._compute_conversation_metrics()
+        self._analysis_results = DatasetAnalysisResult(
+            dataset_name=self.dataset_name or "",
+            total_conversations=total_conversations or conversations_to_analyze,
+            conversations_analyzed=conversations_to_analyze,
+        )
 
         # Generate and store the analysis summary after metrics are computed
         self._analysis_summary = self._generate_analysis_summary()
+
+    def _prepare_dataframe_list(
+        self, max_items: Optional[int] = None
+    ) -> tuple[list[DataFrameWithSchema], int, int]:
+        """Prepare DataFrameWithSchema list from input source with optional limiting.
+
+        Args:
+            max_items: Maximum number of items to analyze (None for no limit)
+
+        Returns:
+            Tuple of (dataframe_list, total_items, items_to_analyze)
+        """
+        if self.dataset is not None:
+            # Conversation dataset input - convert to DataFrames
+            if isinstance(self.dataset, BaseIterableDataset):
+                # For iterable datasets, we can't get the total length
+                total_items = max_items or 1000  # Use max_items or default
+                items_to_analyze = total_items
+                logger.info(
+                    f"Converting streaming dataset with up to {items_to_analyze} items"
+                )
+            else:
+                # For map datasets, we can get the total length
+                total_items = len(self.dataset)
+                logger.info(f"Converting conversation dataset with {total_items} items")
+
+                # Determine how many items to analyze
+                items_to_analyze = total_items
+                if max_items is not None:
+                    items_to_analyze = min(total_items, max_items)
+                    if items_to_analyze < total_items:
+                        logger.info(
+                            f"Limiting analysis to first {max_items} "
+                            f"items (dataset has {total_items} total)"
+                        )
+
+            # Use utility function to convert dataset to DataFrames
+            conversations_df, messages_df = convert_dataset_to_dataframes(
+                dataset=self.dataset,
+                items_to_analyze=items_to_analyze,
+                dataset_name=self.dataset_name or "Unknown Dataset",
+            )
+
+            schema = self._get_schema_for_dataset()
+
+            dataframe_list = [
+                DataFrameWithSchema(conversations_df, schema, "conversations"),
+                DataFrameWithSchema(messages_df, schema, "messages"),
+            ]
+            return dataframe_list, total_items, items_to_analyze
+
+        else:
+            raise ValueError("Either dataframes or dataset must be provided")
 
     @property
     def analysis_results(self) -> Optional[DatasetAnalysisResult]:
@@ -242,176 +409,6 @@ class DatasetAnalyzer:
             DatasetAnalysisResult if analysis has been run, None otherwise
         """
         return self._analysis_results
-
-    def _compute_conversation_metrics(self) -> None:
-        """Compute metrics for all conversations in the dataset.
-
-        This method processes each conversation and creates DataFrames with
-        prefixed columns for each analyzer's metrics.
-        """
-        total_conversations = len(self.dataset)
-
-        # Apply conversation limit if specified
-        max_conversations = self.config.sample_count
-
-        if max_conversations is not None:
-            # AnalyzeConfig ensures sample_count is greater than 0
-            conversations_to_analyze = min(total_conversations, max_conversations)
-            logger.info(
-                f"Limiting analysis to first {max_conversations} "
-                f"conversations (dataset has {total_conversations} total)"
-            )
-        else:
-            conversations_to_analyze = total_conversations
-
-        logger.info(
-            "Analyzing %d conversations for both message-level and "
-            "conversation-level metrics",
-            conversations_to_analyze,
-        )
-
-        # Collect DataFrames for messages and conversations
-        message_dfs = []
-        conversation_dfs = []
-
-        # Use tqdm for progress monitoring
-        for conv_idx in tqdm(
-            range(conversations_to_analyze),
-            desc=f"Analyzing conversations in {self.dataset_name}",
-            unit="conv",
-        ):
-            conversation = self.dataset.conversation(conv_idx)
-            conversation_id = conversation.conversation_id or f"conv_{conv_idx}"
-
-            # Process each analyzer for this conversation
-            conversation_has_data = False
-            for analyzer_id, analyzer in self.sample_analyzers.items():
-                try:
-                    message_results, conversation_result = analyzer.analyze_sample(
-                        conversation, self.tokenizer
-                    )
-
-                    # Convert to DataFrames with prefixed columns
-                    message_df = self._convert_messages_to_df(
-                        message_results, analyzer_id, conversation_id, conv_idx
-                    )
-                    conversation_df = self._convert_conversation_to_df(
-                        conversation_result,
-                        analyzer_id,
-                        conversation_id,
-                        conv_idx,
-                    )
-
-                    # Always add conversation_df (even if empty) to ensure conversation
-                    # is represented
-                    conversation_dfs.append(conversation_df)
-
-                    # Only add message_df if it has data
-                    if not message_df.empty:
-                        message_dfs.append(message_df)
-                        conversation_has_data = True
-
-                except Exception as e:
-                    logger.warning(
-                        f"Analyzer {analyzer_id} failed for conversation "
-                        f"{conv_idx}: {e}"
-                    )
-
-            # If no analyzers succeeded, add a placeholder row for this conversation
-            if not conversation_has_data:
-                # Create a placeholder row with only basic columns (no analyzer columns)
-                placeholder_row = {
-                    "conversation_id": conversation_id,
-                    "conversation_index": conv_idx,
-                    "message_index": 0,  # Add required message columns
-                    "role": "system",  # Default role
-                    "message_id": f"placeholder_{conv_idx}_0",
-                    "text_content": "",  # Empty content
-                }
-
-                placeholder_df = pd.DataFrame([placeholder_row])
-                message_dfs.append(placeholder_df)  # Add to message_dfs instead
-
-        # Create final DataFrames
-        if message_dfs:
-            self._message_df = pd.concat(message_dfs, ignore_index=True)
-        else:
-            self._message_df = pd.DataFrame()
-
-        if conversation_dfs:
-            self._conversation_df = pd.concat(conversation_dfs, ignore_index=True)
-        else:
-            self._conversation_df = pd.DataFrame()
-
-        # Create merged DataFrame with both message and conversation metrics
-        if not self._message_df.empty and not self._conversation_df.empty:
-            self._merged_df = self._message_df.merge(
-                self._conversation_df,
-                on=["conversation_id", "conversation_index"],
-                how="left",
-            )
-        elif not self._message_df.empty:
-            self._merged_df = self._message_df.copy()
-        elif not self._conversation_df.empty:
-            self._merged_df = self._conversation_df.copy()
-        else:
-            self._merged_df = pd.DataFrame()
-
-        # Store metadata
-        self._analysis_results = DatasetAnalysisResult(
-            dataset_name=self.dataset_name or "",
-            total_conversations=total_conversations,
-            conversations_analyzed=conversations_to_analyze,
-        )
-
-    def _convert_messages_to_df(
-        self,
-        messages: list[MessageAnalysisResult],
-        analyzer_id: str,
-        conversation_id: str,
-        conversation_index: int,
-    ) -> pd.DataFrame:
-        """Convert message results to DataFrame with prefixed columns."""
-        if not messages:
-            return pd.DataFrame()
-
-        rows = []
-        for message in messages:
-            row = {
-                "conversation_id": conversation_id,
-                "conversation_index": conversation_index,
-                "message_index": message.message_index,
-                "role": message.role,
-                "message_id": message.message_id,
-                "text_content": message.text_content,
-            }
-
-            # Add analyzer metrics with message_ prefix
-            for key, value in message.analyzer_metrics.items():
-                row[f"message_{analyzer_id}_{key}"] = value
-
-            rows.append(row)
-
-        return pd.DataFrame(rows)
-
-    def _convert_conversation_to_df(
-        self,
-        conversation: ConversationAnalysisResult,
-        analyzer_id: str,
-        conversation_id: str,
-        conversation_index: int,
-    ) -> pd.DataFrame:
-        """Convert conversation result to DataFrame with prefixed columns."""
-        row = {
-            "conversation_id": conversation_id,
-            "conversation_index": conversation_index,
-        }
-
-        # Add analyzer metrics with conversation_ prefix
-        for key, value in conversation.analyzer_metrics.items():
-            row[f"conversation_{analyzer_id}_{key}"] = value
-
-        return pd.DataFrame([row])
 
     def query(self, query_expression: str) -> pd.DataFrame:
         """Query the analysis results using pandas query syntax.
@@ -536,7 +533,7 @@ class DatasetAnalyzer:
     def filter(
         self,
         query_expression: str,
-    ) -> BaseMapDataset:
+    ) -> Union[BaseMapDataset, BaseIterableDataset]:
         """Filter the original dataset based on analysis results.
 
         This method uses analysis results to filter the original dataset, returning
@@ -572,16 +569,24 @@ class DatasetAnalyzer:
         # Create a new dataset with only the filtered conversations
         filtered_dataset = self._create_filtered_dataset(conversation_indices)
 
+        # Get total dataset size, handling iterable datasets
+        from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+        if isinstance(self.dataset, BaseIterableDataset):
+            total_size = "unknown (streaming)"
+        else:
+            total_size = str(len(self.dataset))
+
         logger.info(
             f"Filtered dataset: {len(conversation_indices)} conversations "
-            f"out of {len(self.dataset)} total"
+            f"out of {total_size} total"
         )
 
         return filtered_dataset
 
     def _create_filtered_dataset(
         self, conversation_indices: list[int]
-    ) -> BaseMapDataset:
+    ) -> Union[BaseMapDataset, BaseIterableDataset]:
         """Create a new dataset containing only the specified conversations.
 
         Args:
@@ -594,6 +599,14 @@ class DatasetAnalyzer:
         filtered_dataset = copy.deepcopy(self.dataset)
 
         # Filter the DataFrame to only include the specified conversations
+        # Note: This only works for map datasets, not iterable datasets
+        from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+        if isinstance(self.dataset, BaseIterableDataset):
+            # For iterable datasets, we can't filter by index
+            # Return the original dataset as filtering is not supported
+            return filtered_dataset
+
         original_df = self.dataset.data
         filtered_dataset._data = original_df.iloc[conversation_indices].copy()
 
@@ -619,6 +632,10 @@ class DatasetAnalyzer:
         if self._merged_df is None or self._merged_df.empty:
             return {"error": "No analysis data available"}
 
+        # TODO: Refactor summary methods to be dataset agnostic
+        # Currently these methods assume conversation dataset structure with
+        # messages/conversations.
+        # They should be generalized to work with any dataset type and column structure.
         summary = {
             "dataset_overview": self._get_dataset_overview(),
             "message_level_summary": self._get_message_level_summary(),
@@ -673,41 +690,81 @@ class DatasetAnalyzer:
         if self._message_df is None or self._message_df.empty:
             return {}
 
-        # Get all message-level analyzer columns
-        message_columns = [
-            col for col in self._message_df.columns if col.startswith("message_")
+        # Get all analyzer columns (columns that are not base message columns)
+        base_columns = {
+            "conversation_index",
+            "conversation_id",
+            "message_index",
+            "message_id",
+            "role",
+            "text_content",
+        }
+
+        analyzer_columns = [
+            col
+            for col in self._message_df.columns
+            if col not in base_columns
+            and pd.api.types.is_numeric_dtype(self._message_df[col])
         ]
 
         summary = {}
 
-        for col in message_columns:
-            if col in [
-                "message_index",
-                "role",
-                "message_id",
-                "text_content",
-                "conversation_id",
-                "conversation_index",
-            ]:
-                continue
-
+        for col in analyzer_columns:
             # Extract analyzer name and metric from column
-            # Format: message_{analyzer}_{metric}
-            parts = col.split("_", 2)
-            if len(parts) >= 3:
-                analyzer_name = parts[1]
-                metric_name = "_".join(parts[2:])
+            # Format: text_content_{analyzer}_{metric}
+            # Example: text_content_length_analyzer_char_count
+            parts = col.split("_")
+            if len(parts) >= 5:  # text_content_analyzer_metric_type
+                if parts[0] == "text" and parts[1] == "content":
+                    # The analyzer name and metric are in the remaining parts
+                    # For "text_content_length_analyzer_char_count":
+                    # parts[2:] = ["length", "analyzer", "char", "count"]
+                    # We need to find where the analyzer name ends and metric begins
 
-                if analyzer_name not in summary:
-                    summary[analyzer_name] = {}
+                    # Look for known metric suffixes to split correctly
+                    remaining_parts = parts[2:]
+                    metric_suffixes = [
+                        "char_count",
+                        "word_count",
+                        "sentence_count",
+                        "token_count",
+                    ]
 
-                # Compute statistics for numeric columns
-                if pd.api.types.is_numeric_dtype(self._message_df[col]):
-                    values = cast(pd.Series, self._message_df[col].dropna())
-                    if len(values) > 0:
-                        summary[analyzer_name][metric_name] = compute_statistics(
-                            values, self._decimal_precision
-                        )
+                    analyzer_name = None
+                    metric_name = None
+
+                    # Try to find a metric suffix
+                    for i in range(
+                        1, len(remaining_parts)
+                    ):  # Start from 1 to ensure analyzer_name is not empty
+                        potential_metric = "_".join(remaining_parts[i:])
+                        if any(
+                            potential_metric.endswith(suffix)
+                            for suffix in metric_suffixes
+                        ):
+                            analyzer_name = "_".join(remaining_parts[:i])
+                            metric_name = f"text_content_{potential_metric}"
+                            break
+
+                    # Fallback: assume last two parts are metric
+                    if analyzer_name is None:
+                        if len(remaining_parts) >= 2:
+                            analyzer_name = "_".join(remaining_parts[:-2])
+                            metric_name = (
+                                f"text_content_{remaining_parts[-2]}_"
+                                f"{remaining_parts[-1]}"
+                            )
+
+                    if analyzer_name and metric_name:
+                        if analyzer_name not in summary:
+                            summary[analyzer_name] = {}
+
+                        # Compute statistics for numeric columns
+                        values = cast(pd.Series, self._message_df[col].dropna())
+                        if len(values) > 0:
+                            summary[analyzer_name][metric_name] = compute_statistics(
+                                values, self._decimal_precision
+                            )
 
         return summary
 
@@ -716,36 +773,72 @@ class DatasetAnalyzer:
         if self._conversation_df is None or self._conversation_df.empty:
             return {}
 
-        # Get all conversation-level analyzer columns
-        conversation_columns = [
+        # Get all analyzer columns (columns that are not base conversation columns)
+        base_columns = {
+            "conversation_index",
+            "conversation_id",
+            "num_messages",
+        }
+
+        analyzer_columns = [
             col
             for col in self._conversation_df.columns
-            if col.startswith("conversation_")
+            if col not in base_columns
+            and pd.api.types.is_numeric_dtype(self._conversation_df[col])
         ]
 
         summary = {}
 
-        for col in conversation_columns:
-            if col in ["conversation_id", "conversation_index"]:
-                continue
+        for col in analyzer_columns:
+            # Use the same parsing logic as message level summary
+            # Format: text_content_{analyzer}_{metric}
+            # (for conversation-level aggregated metrics)
+            parts = col.split("_")
+            if len(parts) >= 5:  # text_content_analyzer_metric_type
+                if parts[0] == "text" and parts[1] == "content":
+                    remaining_parts = parts[2:]
+                    metric_suffixes = [
+                        "char_count",
+                        "word_count",
+                        "sentence_count",
+                        "token_count",
+                    ]
 
-            # Extract analyzer name and metric from column
-            # Format: conversation_{analyzer}_{metric}
-            parts = col.split("_", 2)
-            if len(parts) >= 3:
-                analyzer_name = parts[1]
-                metric_name = "_".join(parts[2:])
+                    analyzer_name = None
+                    metric_name = None
 
-                if analyzer_name not in summary:
-                    summary[analyzer_name] = {}
+                    # Try to find a metric suffix
+                    for i in range(
+                        1, len(remaining_parts)
+                    ):  # Start from 1 to ensure analyzer_name is not empty
+                        potential_metric = "_".join(remaining_parts[i:])
+                        if any(
+                            potential_metric.endswith(suffix)
+                            for suffix in metric_suffixes
+                        ):
+                            analyzer_name = "_".join(remaining_parts[:i])
+                            metric_name = f"text_content_{potential_metric}"
+                            break
 
-                # Compute statistics for numeric columns
-                if pd.api.types.is_numeric_dtype(self._conversation_df[col]):
-                    values = cast(pd.Series, self._conversation_df[col].dropna())
-                    if len(values) > 0:
-                        summary[analyzer_name][metric_name] = compute_statistics(
-                            values, self._decimal_precision
-                        )
+                    # Fallback: assume last two parts are metric
+                    if analyzer_name is None:
+                        if len(remaining_parts) >= 2:
+                            analyzer_name = "_".join(remaining_parts[:-2])
+                            metric_name = (
+                                f"text_content_{remaining_parts[-2]}_"
+                                f"{remaining_parts[-1]}"
+                            )
+
+                    if analyzer_name and metric_name:
+                        if analyzer_name not in summary:
+                            summary[analyzer_name] = {}
+
+                        # Compute statistics for numeric columns
+                        values = cast(pd.Series, self._conversation_df[col].dropna())
+                        if len(values) > 0:
+                            summary[analyzer_name][metric_name] = compute_statistics(
+                                values, self._decimal_precision
+                            )
 
         return summary
 
