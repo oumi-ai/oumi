@@ -18,6 +18,7 @@ This module provides various implementations for running model inference.
 """
 
 from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
+from oumi.inference.bedrock_inference_engine import BedrockInferenceEngine
 from oumi.inference.deepseek_inference_engine import DeepSeekInferenceEngine
 from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
 from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
@@ -35,6 +36,7 @@ from oumi.inference.vllm_inference_engine import VLLMInferenceEngine
 
 __all__ = [
     "AnthropicInferenceEngine",
+    "BedrockInferenceEngine",
     "DeepSeekInferenceEngine",
     "GoogleGeminiInferenceEngine",
     "GoogleVertexInferenceEngine",

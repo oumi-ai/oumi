@@ -62,3 +62,6 @@ class InferenceEngineType(str, Enum):
 
     SAMBANOVA = "SAMBANOVA"
     """The inference engine for SambaNova API."""
+
+    BEDROCK = "BEDROCK"
+    """The inference engine for AWS Bedrock API."""
