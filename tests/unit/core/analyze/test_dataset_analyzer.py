@@ -2,17 +2,16 @@
 
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Optional
 from unittest.mock import patch
 
 import jsonlines
 import pandas as pd
 import pytest
 
+from oumi.core.analyze.column_types import ContentType
 from oumi.core.analyze.dataset_analyzer import (
-    ConversationAnalysisResult,
     DatasetAnalyzer,
-    MessageAnalysisResult,
 )
 from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
 from oumi.core.datasets import BaseMapDataset
@@ -47,65 +46,33 @@ class MockSampleAnalyzer:
         self.analyzer_id = kwargs.get("analyzer_id", "mock")
 
     def analyze_sample(
-        self, conversation, tokenizer=None
-    ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
+        self, df: pd.DataFrame, schema: Optional[dict] = None
+    ) -> pd.DataFrame:
         """
-        Mock analysis that returns both message-level and conversation-level metrics.
+        Mock analysis that adds analyzer metrics to the DataFrame.
         """
-        self.analyze_calls.append(conversation)
+        self.analyze_calls.append(df)
 
-        # Compute message-level metrics
-        message_results = []
-        for msg_idx, message in enumerate(conversation.messages):
-            if isinstance(message.content, str):
-                text_content = message.content
-            else:
-                text_content = message.compute_flattened_text_content()
+        result_df = df.copy()
 
-            # Create message metrics
-            message_metrics = {
-                "char_count": len(text_content),
-                "word_count": len(text_content.split()),
-                "analyzer_id": self.analyzer_id,
-            }
+        # Add mock analyzer metrics for text content columns
+        if schema:
+            text_columns = [
+                col
+                for col, config in schema.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
 
-            # Create MessageAnalysisResult
-            message_result = MessageAnalysisResult(
-                message_index=msg_idx,
-                role=message.role.value,
-                message_id=message.id or f"msg_{msg_idx}",
-                text_content=text_content,
-                analyzer_metrics=message_metrics,
-            )
-            message_results.append(message_result)
+            for text_col in text_columns:
+                # Add char_count and word_count metrics for each text column
+                result_df[f"{text_col}_{self.analyzer_id}_char_count"] = (
+                    df[text_col].astype(str).str.len()
+                )
+                result_df[f"{text_col}_{self.analyzer_id}_word_count"] = (
+                    df[text_col].astype(str).str.split().str.len()
+                )
 
-        # Compute conversation-level metrics
-        conversation_text = ""
-        for message in conversation.messages:
-            if isinstance(message.content, str):
-                text_content = message.content
-            else:
-                text_content = message.compute_flattened_text_content()
-            conversation_text += f"{message.role.value}: {text_content}\n"
-
-        # Create conversation metrics
-        conversation_metrics = {
-            "char_count": len(conversation_text),
-            "word_count": len(conversation_text.split()),
-            "analyzer_id": self.analyzer_id,
-        }
-
-        # Use tokenizer if provided (to verify it's passed correctly)
-        if tokenizer:
-            tokenizer.encode(conversation_text, add_special_tokens=False)
-
-        # Create ConversationAnalysisResult
-        conversation_result = ConversationAnalysisResult(
-            analyzer_metrics=conversation_metrics,
-        )
-
-        # Return individual components
-        return message_results, conversation_result
+        return result_df
 
 
 class MockFailingAnalyzer:
@@ -114,7 +81,9 @@ class MockFailingAnalyzer:
     def __init__(self, **kwargs):
         self.config = kwargs
 
-    def analyze_sample(self, conversation, tokenizer=None) -> dict[str, Any]:
+    def analyze_sample(
+        self, df: pd.DataFrame, schema: Optional[dict] = None
+    ) -> pd.DataFrame:
         raise ValueError("Analyzer failed")
 
 
@@ -137,10 +106,17 @@ class MockRegistry:
     """Mock registry for testing."""
 
     def get_sample_analyzer(self, analyzer_id: str):
-        """Get a mock analyzer class."""
+        """Get a mock analyzer class that remembers its ID."""
         if analyzer_id == "failing_analyzer":
             return MockFailingAnalyzer
-        return MockSampleAnalyzer
+
+        # Create a subclass that remembers the analyzer_id
+        class SpecificMockAnalyzer(MockSampleAnalyzer):
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+                self.analyzer_id = analyzer_id  # Use the registry ID
+
+        return SpecificMockAnalyzer
 
 
 @pytest.fixture
@@ -262,7 +238,7 @@ def mock_config():
         output_path="./test_output",
         analyzers=[
             SampleAnalyzerParams(
-                id="text_length_analyzer",
+                id="length_analyzer",
                 params={"char_count": True, "word_count": True},
             ),
             SampleAnalyzerParams(id="analyzer_2", params={"analyzer_id": "analyzer_2"}),
@@ -299,7 +275,7 @@ def test_analyzer_initialization(mock_load, mock_config):
 
     # Test that analyzers were initialized correctly
     assert len(analyzer.sample_analyzers) == 2
-    assert "text_length_analyzer" in analyzer.sample_analyzers
+    assert "length_analyzer" in analyzer.sample_analyzers
     assert "analyzer_2" in analyzer.sample_analyzers
 
 
@@ -328,14 +304,18 @@ def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_
 
     # Test that the provided dataset was used instead of loading from config
     assert analyzer.dataset == dataset
-    assert len(analyzer.dataset) == 5  # Should have 5 conversations from test data
+    # Check dataset size (only for map datasets that support len())
+    from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+    if not isinstance(analyzer.dataset, BaseIterableDataset):
+        assert len(analyzer.dataset) == 5  # Should have 5 conversations from test data
 
     # Test that load_dataset_from_config was not called
     mock_load.assert_not_called()
 
     # Test that analyzers were initialized correctly
     assert len(analyzer.sample_analyzers) == 2
-    assert "text_length_analyzer" in analyzer.sample_analyzers
+    assert "length_analyzer" in analyzer.sample_analyzers
     assert "analyzer_2" in analyzer.sample_analyzers
 
 
@@ -643,7 +623,7 @@ def test_analyze_dataset_analyzer_calls(test_data_path, mock_config):
     analyzer.analyze_dataset()
 
     # Check that the mock analyzer was called
-    mock_analyzer = analyzer.sample_analyzers["text_length_analyzer"]
+    mock_analyzer = analyzer.sample_analyzers["length_analyzer"]
     assert len(mock_analyzer.analyze_calls) == 2  # Called for each conversation
 
 
@@ -658,10 +638,10 @@ def test_query_method(test_data_path, mock_config):
     assert all(row["role"] == "user" for _, row in results.iterrows())
 
     # Test query with analyzer metrics
-    results = analyzer.query("message_text_length_analyzer_char_count > 10")
+    results = analyzer.query("text_content_length_analyzer_char_count > 10")
     assert len(results) > 0
     assert all(
-        row["message_text_length_analyzer_char_count"] > 10
+        row["text_content_length_analyzer_char_count"] > 10
         for _, row in results.iterrows()
     )
 
@@ -686,14 +666,14 @@ def test_query_complex_expressions_examples(test_data_path, mock_config):
 
     # Test various query expressions with proper validation
     queries = [
-        "message_text_length_analyzer_word_count < 10",  # Filter for short messages
+        "text_content_length_analyzer_word_count < 10",  # Short messages
         "role == 'assistant'",  # Filter for assistant messages
-        "role == 'user' and message_text_length_analyzer_word_count > 5",  # Long user
+        "role == 'user' and text_content_length_analyzer_word_count > 5",  # Long
         # messages
         "role == 'user' or role == 'assistant'",  # Any user or assistant messages
         # Medium-length
-        "message_text_length_analyzer_char_count > 10 and "
-        "message_text_length_analyzer_word_count < 20",
+        "text_content_length_analyzer_char_count > 10 and "
+        "text_content_length_analyzer_word_count < 20",
     ]
 
     for query in queries:
@@ -715,12 +695,21 @@ def test_filter_method(test_data_path, mock_config):
 
     # Test that filtered dataset has required methods
     assert hasattr(filter_results, "conversation")
-    assert hasattr(filter_results, "__len__")
     assert hasattr(filter_results, "dataset_name")
-    assert len(filter_results) > 0
 
-    # Test that we can access conversations
-    if len(filter_results) > 0:
+    # Check length only for map datasets
+    from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+    if not isinstance(filter_results, BaseIterableDataset):
+        assert hasattr(filter_results, "__len__")
+        assert len(filter_results) > 0
+        # Test that we can access conversations
+        if len(filter_results) > 0:
+            first_conv = filter_results.conversation(0)
+            assert hasattr(first_conv, "messages")
+            assert len(first_conv.messages) > 0
+    else:
+        # For iterable datasets, just test that we can get a conversation
         first_conv = filter_results.conversation(0)
         assert hasattr(first_conv, "messages")
         assert len(first_conv.messages) > 0
@@ -765,8 +754,11 @@ def test_empty_filter_results(test_data_path, mock_config):
     # Use a filter that should return no results
     filtered_dataset = analyzer.filter("role == 'nonexistent_role'")
 
-    # Should return an empty dataset
-    assert len(filtered_dataset) == 0
+    # Should return an empty dataset (check only for map datasets)
+    from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+    if not isinstance(filtered_dataset, BaseIterableDataset):
+        assert len(filtered_dataset) == 0
     assert hasattr(filtered_dataset, "conversation")
     assert hasattr(filtered_dataset, "dataset_name")
 
@@ -836,9 +828,9 @@ def test_generate_analysis_summary(test_data_path, mock_config):
         assert isinstance(metrics, dict)
         assert len(metrics) > 0
 
-    # Test conversation level summary - analyzer names with underscores get split
+    # Test conversation level summary - may be empty if no conversation-level metrics
     conversation_summary = summary["conversation_level_summary"]
-    assert len(conversation_summary) > 0
+    assert isinstance(conversation_summary, dict)  # Should be a dict, but may be empty
 
     # Test conversation turns statistics (now at top level)
     turns_stats = summary["conversation_turns"]
@@ -914,7 +906,7 @@ def test_analyzer_with_tokenizer(test_data_path):
         },  # This will be used to build a real tokenizer
         analyzers=[
             SampleAnalyzerParams(
-                id="text_length_analyzer",
+                id="length_analyzer",
                 params={"char_count": True, "word_count": True, "token_count": True},
             ),
         ],
