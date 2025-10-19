@@ -4,7 +4,7 @@
 # We use the oumi-ai version of the model instead until the original model is updated.
 #
 # Requirements:
-#   - uv pip install --system einops tf-keras
+#   - uv pip install einops tf-keras
 #
 # Usage:
 #   torchrun --nproc-per-node 4 --standalone -m	oumi train -c configs/recipes/vision/molmo/sft/molmo_d_full/train.yaml
