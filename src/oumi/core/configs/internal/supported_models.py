@@ -292,7 +292,6 @@ def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
     return config
 
 
-# TODO: Update. Confirm multi image works.
 def _create_qwen3_vl_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
         pixel_values_variable_shape=True,
@@ -312,6 +311,16 @@ def _create_qwen3_vl_vlm_config() -> InternalModelConfig:
             for feature_name in ("image_grid_thw",)
         }
     )
+    config.processor_kwargs.update(
+        # Defaults per Qwen3-VL:
+        # https://github.com/QwenLM/Qwen3-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py
+        {
+            "min_pixels": 4 * 28 * 28,
+            "max_pixels": 16384 * 28 * 28,
+            "patch_size": 16,
+        }
+    )
+
     return config
 
 
