@@ -284,7 +284,7 @@ class PerlmutterCluster(BaseCluster):
             "pip install -U uv",
             "fi",
             f"cd {remote_working_dir}",
-            "uv pip install --system -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer",
+            "uv pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer",
         ]
         self._client.run_commands(install_cmds)
         # Copy all file mounts.

@@ -91,7 +91,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${SSH_TARGET}" "bash -s $varsStr" <<'EOF'
       pip install -U uv
   fi
 
-  uv pip install --system -U -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer
+  uv pip install -U -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer
 
   echo "Submitting job... -----------------------------------------"
   # Create a logs directory for the user if it doesn't exist.

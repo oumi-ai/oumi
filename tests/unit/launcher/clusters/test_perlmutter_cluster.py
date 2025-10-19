@@ -56,7 +56,7 @@ _COMMON_INIT_COMMANDS: Final[list[str]] = [
     "pip install -U uv",
     "fi",
     "cd ~/oumi_launcher/20241009_130424513094",
-    "uv pip install --system -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer",
+    "uv pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer",
 ]
 
 
