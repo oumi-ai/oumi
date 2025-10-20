@@ -36,7 +36,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu,evaluation] hf_transfer
+  pip install uv && uv pip install --system oumi[gpu,evaluation] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
   HF_HUB_ENABLE_HF_TRANSFER=1 hf download Qwen/QwQ-32B
