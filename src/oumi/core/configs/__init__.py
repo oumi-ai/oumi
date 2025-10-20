@@ -150,9 +150,14 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.core.configs.params.tuning_params import (
+    TunerType,
+    TuningParams,
+)
 from oumi.core.configs.quantization_config import QuantizationConfig
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.configs.training_config import TrainingConfig
+from oumi.core.configs.tuning_config import TuningConfig
 
 __all__ = [
     "AlpacaEvalTaskParams",
@@ -202,6 +207,9 @@ __all__ = [
     "TrainerType",
     "TrainingConfig",
     "TrainingParams",
+    "TunerType",
+    "TuningConfig",
+    "TuningParams",
     "AttributeCombination",
     "DatasetSourceParam",
     "DocumentSegmentationParams",
