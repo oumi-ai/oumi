@@ -44,6 +44,8 @@ def create_config(**kwargs):
         "backoff_factor": 0.8,
         "recovery_threshold": 0.05,  # 5%
         "min_window_size": 5,
+        "use_exponential_scaling": False,
+        "exponential_scaling_factor": 2.0,
     }
     defaults.update(kwargs)
     # Ensure recovery_threshold < error_threshold
@@ -353,6 +355,7 @@ async def test_warmup_on_low_error_rate(mock_time):
         recovery_threshold=0.1,
         min_window_size=5,
         min_update_time=0.1,
+        use_exponential_scaling=False,
     )
     controller = AdaptiveConcurrencyController(
         config, politeness_policy=_DEFAULT_POLITENESS_POLICY
@@ -384,6 +387,7 @@ async def test_warmup_max_concurrency_limit(mock_time):
         recovery_threshold=0.1,
         min_window_size=5,
         min_update_time=0.1,
+        use_exponential_scaling=False,
     )
     controller = AdaptiveConcurrencyController(
         config, politeness_policy=_DEFAULT_POLITENESS_POLICY
@@ -1068,3 +1072,255 @@ def test_consecutive_windows_constants():
 
     assert controller._consecutive_good_windows_required_for_recovery == 2
     assert controller._consecutive_error_windows_for_additional_backoff == 2
+
+
+@pytest.mark.asyncio
+async def test_exponential_scaling_warmup(mock_time):
+    """Test exponential scaling during warmup."""
+    config = create_config(
+        min_concurrency=10,
+        max_concurrency=100,
+        use_exponential_scaling=True,
+        exponential_scaling_factor=2.0,
+        recovery_threshold=0.1,
+        min_window_size=5,
+        min_update_time=0.1,
+    )
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
+
+    # Set current concurrency to a known value
+    await controller._update_concurrency(20)
+
+    # Create low error rate (all successes)
+    for _ in range(10):
+        await controller.record_success()
+
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
+
+    await controller._try_adjust_concurrency()
+
+    # Should have multiplied by exponential factor (20 * 2.0 = 40)
+    assert controller._current_concurrency == 40
+
+
+@pytest.mark.asyncio
+async def test_exponential_scaling_max_limit(mock_time):
+    """Test exponential scaling respects max concurrency limit."""
+    config = create_config(
+        min_concurrency=10,
+        max_concurrency=50,
+        use_exponential_scaling=True,
+        exponential_scaling_factor=3.0,
+        recovery_threshold=0.1,
+        min_window_size=5,
+        min_update_time=0.1,
+    )
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
+
+    # Set current concurrency to a value that would exceed max when multiplied
+    await controller._update_concurrency(30)
+
+    # Create low error rate (all successes)
+    for _ in range(10):
+        await controller.record_success()
+
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
+
+    await controller._try_adjust_concurrency()
+
+    # Should be capped at max_concurrency (30 * 3.0 = 90, but max is 50)
+    assert controller._current_concurrency == config.max_concurrency
+
+
+@pytest.mark.asyncio
+async def test_linear_scaling_warmup(mock_time):
+    """Test linear scaling during warmup (default behavior)."""
+    config = create_config(
+        min_concurrency=10,
+        max_concurrency=100,
+        concurrency_step=5,
+        use_exponential_scaling=False,
+        recovery_threshold=0.1,
+        min_window_size=5,
+        min_update_time=0.1,
+    )
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
+
+    # Set current concurrency to a known value
+    await controller._update_concurrency(20)
+
+    # Create low error rate (all successes)
+    for _ in range(10):
+        await controller.record_success()
+
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
+
+    await controller._try_adjust_concurrency()
+
+    # Should have added the step size (20 + 5 = 25)
+    assert controller._current_concurrency == 25
+
+
+@pytest.mark.asyncio
+async def test_exponential_scaling_with_fractional_result(mock_time):
+    """Test exponential scaling handles fractional results correctly."""
+    config = create_config(
+        min_concurrency=1,
+        max_concurrency=100,
+        use_exponential_scaling=True,
+        exponential_scaling_factor=1.5,
+        recovery_threshold=0.1,
+        min_window_size=5,
+        min_update_time=0.1,
+    )
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
+
+    # Set current concurrency to a value that results in a fraction
+    await controller._update_concurrency(3)
+
+    # Create low error rate (all successes)
+    for _ in range(10):
+        await controller.record_success()
+
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
+
+    await controller._try_adjust_concurrency()
+
+    # Should be rounded to integer (3 * 1.5 = 4.5 -> 4)
+    assert controller._current_concurrency == 4
+
+
+def test_exponential_scaling_config_validation():
+    """Test that exponential scaling factor validation works."""
+    # Valid exponential scaling factor
+    config = create_config(
+        use_exponential_scaling=True,
+        exponential_scaling_factor=1.5,
+    )
+    # Should not raise an exception
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
+    assert controller._config.exponential_scaling_factor == 1.5
+
+    # Test that invalid factor (≤ 1.0) is caught by config validation
+    with pytest.raises(
+        ValueError, match="Exponential scaling factor must be greater than 1.0"
+    ):
+        AdaptiveConcurrencyParams(
+            use_exponential_scaling=True,
+            exponential_scaling_factor=1.0,
+        )
+
+
+@pytest.mark.asyncio
+async def test_exponential_scaling_asymmetric_behavior(mock_time):
+    """Test that exponential scaling up vs backoff down are asymmetric."""
+    config = create_config(
+        min_concurrency=1,
+        max_concurrency=1000,
+        use_exponential_scaling=True,
+        exponential_scaling_factor=2.0,  # Double on warmup
+        backoff_factor=0.8,  # 20% reduction on backoff
+        error_threshold=0.1,
+        recovery_threshold=0.05,
+        min_window_size=5,
+        min_update_time=0.1,
+    )
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
+    controller._semaphore = AsyncMock()
+
+    # Start at a known concurrency
+    await controller._update_concurrency(50)
+
+    # Test exponential warmup: 50 * 2.0 = 100
+    for _ in range(10):
+        await controller.record_success()
+
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
+    await controller._try_adjust_concurrency()
+
+    assert controller._current_concurrency == 100  # Doubled
+
+    # Test backoff: 100 * 0.8 = 80 (uses backoff_factor, not 1/exponential_factor)
+    for _ in range(2):  # Create error rate above threshold
+        await controller.record_error()
+    for _ in range(8):
+        await controller.record_success()
+
+    controller._last_adjustment_time = 0
+    await controller._try_adjust_concurrency()
+
+    # Should use backoff_factor (0.8), not 1/exponential_scaling_factor (0.5)
+    assert controller._current_concurrency == 80  # 100 * 0.8, not 100 * 0.5
+
+
+@pytest.mark.asyncio
+async def test_exponential_scaling_factor_144_design_intent(mock_time):
+    """Test that 1.44 factor achieves the design intent: 10->200 in 8 steps."""
+    config = create_config(
+        min_concurrency=10,
+        max_concurrency=10000,
+        use_exponential_scaling=True,
+        exponential_scaling_factor=1.44,  # Special mode factor
+        recovery_threshold=0.0,  # Always warmup
+        min_window_size=1,  # Minimal window
+        min_update_time=0.1,
+    )
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
+    controller._semaphore = AsyncMock()
+
+    # Start at 10 (special mode starting point)
+    await controller._update_concurrency(10)
+
+    # Simulate 8 warmup cycles (2 minutes with 15-second intervals)
+    expected_values = []
+    current_expected = 10
+
+    for step in range(8):
+        # Record success to trigger warmup
+        await controller.record_success()
+
+        mock_time.time.return_value = (step + 1) * 0.1
+        controller._last_adjustment_time = step * 0.1
+
+        # Calculate expected next value
+        current_expected = int(current_expected * 1.44)
+        expected_values.append(current_expected)
+
+        await controller._try_adjust_concurrency()
+
+        assert controller._current_concurrency == current_expected, (
+            f"Step {step + 1}: expected {current_expected}, "
+            f"got {controller._current_concurrency}"
+        )
+
+    # Final value should be approximately 200
+    final_concurrency = controller._current_concurrency
+    assert 200 <= final_concurrency <= 210, (
+        f"Expected final concurrency ~200, got {final_concurrency}"
+    )
+
+    # Verify the progression: 10 -> 14 -> 20 -> 28 -> 40 -> 57 -> 82 -> 118 -> 169
+    expected_progression = [14, 20, 28, 40, 57, 82, 118, 169]
+    for i, expected in enumerate(expected_progression):
+        assert abs(expected_values[i] - expected) <= 1, (
+            f"Step {i + 1}: expected ~{expected}, got {expected_values[i]}"
+        )
