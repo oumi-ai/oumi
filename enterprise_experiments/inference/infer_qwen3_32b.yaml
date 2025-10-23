@@ -1,0 +1,6 @@
+model:
+  model_name: "Qwen/Qwen3-32B"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 1024
+
+engine: VLLM

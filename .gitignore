@@ -1,6 +1,9 @@
 # Local experiments
 tmp/
 wandb/
+mlruns/
+enterprise_experiments/data/
+enterprise_experiments/logs/
 # default output directory for training, evaluation, inference, etc.
 output/
 # test coverage report
