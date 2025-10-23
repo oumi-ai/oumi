@@ -1,10 +1,10 @@
-# LoRA fine-tune config for Qwen3 VL 4B Instruct.
+# Full fine-tune config for Qwen3 VL 4B Instruct.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi train -c configs/recipes/vision/qwen3_vl/sft/4b_instruct_lora_train.yaml
+#   oumi train -c configs/recipes/vision/qwen3_vl/sft/4b_instruct_fft_train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
