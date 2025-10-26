@@ -325,6 +325,7 @@ class PeftParams(BaseParams):
             lora_alpha=self.lora_alpha,
             lora_dropout=self.lora_dropout,
             target_modules=target_modules,
+            target_parameters=self.lora_target_parameters,
             modules_to_save=self.lora_modules_to_save,
             bias=self.lora_bias,  # type: ignore
             task_type=self.lora_task_type,

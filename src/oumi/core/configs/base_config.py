@@ -37,14 +37,13 @@ _PRIMITIVE_TYPES = {str, int, float, bool, type(None), bytes, Path, Enum}
 def _is_primitive_type(value: Any) -> bool:
     """Check if a value is of a primitive type that OmegaConf can handle."""
     return (
-        isinstance(value, (str, int, float, bool, bytes))
-        or value is None
-        or isinstance(value, Path)
+        type(value) in _PRIMITIVE_TYPES  
+        or isinstance(value, Path)  
         or isinstance(value, Enum)
     )
 
 
-def _handle_non_primitives(config: Any, removed_paths, path: str = "") -> Any:
+def _handle_non_primitives(config: Any, removed_paths: set, path: str = "") -> Any:
     """Recursively process config object to handle non-primitive values.
 
     Args:
@@ -92,11 +91,10 @@ def _handle_non_primitives(config: Any, removed_paths, path: str = "") -> Any:
             )
             if processed_value is not None:
                 result[field_name] = processed_value
-            elif (
-                field_value is not None
-            ):  # Only track removal if original value was not None
+            else:
                 removed_paths.add(current_path)
-        return result if result else None
+                result[field_name] = None
+        return result
 
     # Try to convert functions to their source code
     if callable(config):
