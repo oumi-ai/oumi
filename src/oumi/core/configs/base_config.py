@@ -37,8 +37,8 @@ _PRIMITIVE_TYPES = {str, int, float, bool, type(None), bytes, Path, Enum}
 def _is_primitive_type(value: Any) -> bool:
     """Check if a value is of a primitive type that OmegaConf can handle."""
     return (
-        type(value) in _PRIMITIVE_TYPES  
-        or isinstance(value, Path)  
+        type(value) in _PRIMITIVE_TYPES
+        or isinstance(value, Path)
         or isinstance(value, Enum)
     )
 
