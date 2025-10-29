@@ -154,3 +154,11 @@ class HuggingFaceTrainer(BaseTrainer):
         if self._processor is not None:
             self._processor.save_config(output_dir)
             logger.info(f"Processor config has been saved at {output_dir}")
+
+    def get_last_eval_metrics(self) -> dict:
+        """Gets the last evaluation metrics from the trainer.
+
+        Returns:
+            A dictionary containing the last evaluation metrics.
+        """
+        return self._hf_trainer.evaluate()

@@ -191,6 +191,8 @@ ci_cpu = [
 # gpu actions runner, so we skip it for now
 ci_gpu = ["oumi[dev,docs,gcp,gpu,synthesis]", "alpaca-eval>=0.6,<0.7"]
 
+tune = ["optuna>=4.0.0,<5.0"]
+
 [project.scripts]
 oumi = "oumi.cli.main:run"
 
