@@ -26,6 +26,7 @@ from oumi.core.trainers import (
     BaseTrainer,
     HuggingFaceTrainer,
     TrlDpoTrainer,
+    TrlGkdTrainer,
     VerlGrpoTrainer,
 )
 from oumi.core.trainers import Trainer as OumiTrainer
@@ -115,6 +116,8 @@ def build_trainer(
         return _create_hf_builder_fn(trl.KTOTrainer)
     elif trainer_type == TrainerType.TRL_GRPO:
         return _create_hf_builder_fn(trl.GRPOTrainer)
+    elif trainer_type == TrainerType.TRL_GKD:
+        return _create_hf_builder_fn(TrlGkdTrainer)
     elif trainer_type == TrainerType.HF:
         return _create_hf_builder_fn(transformers.Trainer)
     elif trainer_type == TrainerType.OUMI:

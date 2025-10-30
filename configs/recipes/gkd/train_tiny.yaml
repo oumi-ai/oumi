@@ -1,0 +1,90 @@
+# Minimal GKD training config for testing with tiny models
+#
+# This config uses very small models for quick testing and validation.
+# Uses GPT-2 variants to minimize memory requirements.
+#
+# Usage:
+#   oumi train -c configs/recipes/gkd/train_tiny.yaml
+
+model:
+  # Student model - SmolLM 135M (smallest SmolLM)
+  model_name: "HuggingFaceTB/SmolLM-135M"
+  model_max_length: 256
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+  tokenizer_kwargs:
+    pad_token: "<|endoftext|>"  # SmolLM needs pad token
+
+data:
+  train:
+    datasets:
+      # Very small subset for quick testing
+      # Note: TrlGkdTrainer will automatically mark prompt/completion boundary
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train[:50]"
+        shuffle: True
+        seed: 42
+
+  validation:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train[50:60]"
+        shuffle: False
+
+training:
+  trainer_type: "TRL_GKD"
+  output_dir: "output/gkd_smollm_test"
+
+  # Minimal training for quick test
+  max_steps: 10
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 1
+
+  # Simple optimization
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-04
+  warmup_steps: 2
+
+  # Frequent logging for testing
+  save_steps: 5
+  logging_steps: 1
+  eval_strategy: "steps"
+  eval_steps: 5
+
+  # No special features for testing
+  enable_gradient_checkpointing: False
+  enable_wandb: False
+  log_model_summary: False
+
+  # GKD-specific parameters
+  gkd:
+    # Teacher model - SmolLM 360M (larger variant)
+    # TRL will load this automatically
+    teacher_model_name_or_path: "HuggingFaceTB/SmolLM-360M"
+
+    # Teacher model initialization kwargs
+    # Passed to AutoModelForCausalLM.from_pretrained() when loading the teacher
+    teacher_model_init_kwargs:
+      torch_dtype: "bfloat16"
+
+    # Generation parameters
+    temperature: 0.9
+    max_new_tokens: 64
+
+    # Distillation parameters
+    lmbda: 0.5
+    beta: 0.5
+
+    # Training stability
+    disable_dropout: True
+    seq_kd: False
+
+  # TRL trainer kwargs
+  trainer_kwargs:
+    # Tell TRL not to prepare dataset - Oumi already prepared it
+    dataset_kwargs:
+      skip_prepare_dataset: true
+
+  # Disable PEFT for simplicity in testing
+  use_peft: False
