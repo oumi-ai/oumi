@@ -1,0 +1,5 @@
+{"prompts": "Explain the concept of recursion in programming.", "responses": "Recursion is a programming technique where a function calls itself to solve a problem by breaking it down into smaller, similar subproblems."}
+{"prompts": "What are the main differences between Python and JavaScript?", "responses": "Python is a general-purpose language known for readability and data science, while JavaScript is primarily used for web development and runs in browsers."}
+{"prompts": "Write a simple function to calculate the factorial of a number.", "responses": "Here's a simple factorial function:\n\ndef factorial(n):\n    if n <= 1:\n        return 1\n    return n * factorial(n-1)"}
+{"prompts": "Describe the benefits of using version control systems.", "responses": "Version control systems track changes, enable collaboration, provide backup, allow reverting to previous versions, and maintain a history of modifications."}
+{"prompts": "What is machine learning and how does it work?", "responses": "Machine learning is a subset of AI where systems learn from data to make predictions or decisions without explicit programming, using algorithms to identify patterns."}

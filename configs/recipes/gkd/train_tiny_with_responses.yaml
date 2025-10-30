@@ -13,7 +13,7 @@ model:
   torch_dtype_str: "bfloat16"
   load_pretrained_weights: True
   tokenizer_kwargs:
-    pad_token: "<|endoftext|>" # SmolLM needs pad token
+    pad_token: "<|endoftext|>"  # SmolLM needs pad token
 
 data:
   train:
@@ -59,6 +59,7 @@ training:
   eval_strategy: "steps"
   eval_steps: 5
 
+  # No special features for testing
   enable_gradient_checkpointing: False
   enable_wandb: False
   enable_tensorboard: False
@@ -70,7 +71,6 @@ training:
     teacher_model_name_or_path: "HuggingFaceTB/SmolLM-360M"
 
     # Teacher model initialization kwargs
-    # Passed to AutoModelForCausalLM.from_pretrained() when loading the teacher
     teacher_model_init_kwargs:
       torch_dtype: "bfloat16"
 

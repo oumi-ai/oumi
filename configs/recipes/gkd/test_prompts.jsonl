@@ -1,0 +1,50 @@
+{"prompts": "Explain the concept of recursion in programming."}
+{"prompts": "What are the main differences between Python and JavaScript?"}
+{"prompts": "Write a simple function to calculate the factorial of a number."}
+{"prompts": "Describe the benefits of using version control systems."}
+{"prompts": "What is machine learning and how does it work?"}
+{"prompts": "Explain the difference between a list and a tuple in Python."}
+{"prompts": "How do you handle errors in programming?"}
+{"prompts": "What is the purpose of a database index?"}
+{"prompts": "Describe the concept of object-oriented programming."}
+{"prompts": "What are RESTful APIs and why are they important?"}
+{"prompts": "How does garbage collection work in programming languages?"}
+{"prompts": "Explain the concept of Big O notation."}
+{"prompts": "What is the difference between synchronous and asynchronous programming?"}
+{"prompts": "Describe what a data structure is and give examples."}
+{"prompts": "What is functional programming?"}
+{"prompts": "How do compilers and interpreters differ?"}
+{"prompts": "What is the purpose of unit testing?"}
+{"prompts": "Explain what an algorithm is."}
+{"prompts": "What are design patterns in software development?"}
+{"prompts": "Describe the concept of encapsulation in OOP."}
+{"prompts": "What is the difference between a stack and a queue?"}
+{"prompts": "How do hash tables work?"}
+{"prompts": "What is the purpose of code refactoring?"}
+{"prompts": "Explain the concept of inheritance in OOP."}
+{"prompts": "What is polymorphism?"}
+{"prompts": "Describe what binary search is."}
+{"prompts": "What are lambda functions?"}
+{"prompts": "How does memory management work in programming?"}
+{"prompts": "What is the difference between pass by value and pass by reference?"}
+{"prompts": "Explain what a linked list is."}
+{"prompts": "What are the benefits of code modularity?"}
+{"prompts": "Describe what a binary tree is."}
+{"prompts": "What is the purpose of logging in software applications?"}
+{"prompts": "How do you optimize code performance?"}
+{"prompts": "What is the difference between a process and a thread?"}
+{"prompts": "Explain the concept of deadlock."}
+{"prompts": "What are race conditions?"}
+{"prompts": "Describe the purpose of continuous integration."}
+{"prompts": "What is the role of a software architect?"}
+{"prompts": "How do you ensure code quality?"}
+{"prompts": "What is test-driven development?"}
+{"prompts": "Explain the concept of dependency injection."}
+{"prompts": "What are microservices?"}
+{"prompts": "Describe what containerization is."}
+{"prompts": "What is the purpose of load balancing?"}
+{"prompts": "How does caching improve application performance?"}
+{"prompts": "What are the principles of clean code?"}
+{"prompts": "Explain what a singleton pattern is."}
+{"prompts": "What is the difference between SQL and NoSQL databases?"}
+{"prompts": "Describe what an API gateway is."}
