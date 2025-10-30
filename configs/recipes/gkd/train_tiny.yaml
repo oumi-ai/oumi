@@ -18,17 +18,19 @@ model:
 data:
   train:
     datasets:
-      # Very small subset for quick testing
-      # Note: TrlGkdTrainer will automatically mark prompt/completion boundary
-      - dataset_name: "yahma/alpaca-cleaned"
-        split: "train[:50]"
+      # Using DistillationDataset with prompts-only
+      # TRL's GKDTrainer handles tokenization and marks proper prompt/completion boundaries
+      - dataset_name: "distillation"
+        dataset_path: "configs/recipes/gkd/test_prompts.jsonl"
+        split: "train[:40]"
         shuffle: True
         seed: 42
 
   validation:
     datasets:
-      - dataset_name: "yahma/alpaca-cleaned"
-        split: "train[50:60]"
+      - dataset_name: "distillation"
+        dataset_path: "configs/recipes/gkd/test_prompts.jsonl"
+        split: "train[40:]"
         shuffle: False
 
 training:
@@ -55,6 +57,7 @@ training:
   # No special features for testing
   enable_gradient_checkpointing: False
   enable_wandb: False
+  enable_tensorboard: False  # Disable TensorBoard to avoid JSON serialization issues
   log_model_summary: False
 
   # GKD-specific parameters
@@ -79,12 +82,6 @@ training:
     # Training stability
     disable_dropout: True
     seq_kd: False
-
-  # TRL trainer kwargs
-  trainer_kwargs:
-    # Tell TRL not to prepare dataset - Oumi already prepared it
-    dataset_kwargs:
-      skip_prepare_dataset: true
 
   # Disable PEFT for simplicity in testing
   use_peft: False

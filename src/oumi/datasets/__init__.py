@@ -41,6 +41,7 @@ from oumi.datasets.debug import (
     DebugPretrainingDataset,
     DebugSftDataset,
 )
+from oumi.datasets.distillation import DistillationDataset
 from oumi.datasets.evaluation import AlpacaEvalDataset
 from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
 from oumi.datasets.grpo.tldr import TldrGrpoDataset
@@ -114,6 +115,7 @@ __all__ = [
     "DebugClassificationDataset",
     "DebugPretrainingDataset",
     "DebugSftDataset",
+    "DistillationDataset",
     "DocmatixDataset",
     "DolmaDataset",
     "FalconRefinedWebDataset",

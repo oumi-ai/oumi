@@ -136,9 +136,11 @@ class GkdParams(BaseParams):
         """Converts GkdParams to TRL's GKDConfig kwargs.
 
         Note:
-            The teacher_model_name_or_path is passed to the GKDTrainer constructor
-            (not in GKDConfig), while teacher_model_init_kwargs goes into GKDConfig
-            for TRL to use when loading the teacher model.
+            The teacher_model_name_or_path is NOT passed to GKDConfig.
+            Instead, it's passed to the GKDTrainer constructor via train.py.
+
+            The teacher_model_init_kwargs goes into GKDConfig for TRL to use when loading
+            the teacher model.
 
         Returns:
             Dictionary of kwargs to pass to TRL's GKDConfig.

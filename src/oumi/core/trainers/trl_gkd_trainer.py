@@ -33,13 +33,46 @@ from trl.trainer.sft_config import SFTConfig
 
 
 class TrlGkdTrainer(GKDTrainer):
-    """Wrapper around TRL's GKDTrainer to handle Oumi's pre-tokenized datasets.
+    """Wrapper around TRL's GKDTrainer for on-policy knowledge distillation.
 
-    This wrapper overrides the dataset preparation and collator setup to work with
-    Oumi's pre-tokenized datasets instead of TRL's expected ChatML format.
+    This trainer uses DistillationDataset which provides prompts in TRL's
+    conversational format. TRL handles tokenization and properly marks
+    prompt/completion boundaries using the conversation structure.
 
-    The key difference from the base GKDTrainer is that we skip the ChatML collator
-    creation when the dataset is already tokenized and use the provided collator instead.
+    Key Features:
+    - Proper prompt/response boundaries (no heuristics!)
+    - TRL's ChatML collator handles tokenization
+    - Chat templates properly applied
+    - On-policy knowledge distillation from teacher to student
+
+    Example usage:
+        ```yaml
+        data:
+          train:
+            datasets:
+              - dataset_name: "distillation"
+                dataset_path: "prompts.jsonl"  # {"prompts": "text"}
+        training:
+          trainer_type: "TRL_GKD"
+          gkd:
+            teacher_model_name_or_path: "larger-model"
+            lmbda: 0.5
+            beta: 0.5
+            temperature: 1.0
+        ```
+
+    The DistillationDataset wraps prompts in conversation format:
+        ```python
+        {
+            "messages": [
+                {"role": "user", "content": "prompt text"},
+                {"role": "assistant", "content": ""}  # Placeholder
+            ]
+        }
+        ```
+
+    TRL extracts the prompt using `messages[:-1]` (all but last message),
+    then uses teacher/student distributions for distillation.
     """
 
     def __init__(
@@ -70,44 +103,38 @@ class TrlGkdTrainer(GKDTrainer):
         peft_config: Optional[Any] = None,
         formatting_func: Optional[Callable] = None,
     ):
-        """Initialize GKD trainer, using provided collator for pre-tokenized datasets."""
-        # Set remove_unused_columns=False
-        args.remove_unused_columns = False
+        """Initialize GKD trainer for distillation training.
 
-        # Check if dataset is already tokenized (has input_ids)
-        is_processed = False
-        if train_dataset is not None:
-            column_names = list(next(iter(train_dataset)).keys())
-            is_processed = "input_ids" in column_names
+        Expects DistillationDataset which provides untokenized conversations
+        in TRL's format. TRL handles tokenization and boundary detection.
+        """
+        # Check dataset format
+        if train_dataset is not None and len(train_dataset) > 0:
+            first_example = train_dataset[0]
+            has_messages = "messages" in first_example
+            is_tokenized = "input_ids" in first_example
 
-        # Handle collator based on dataset type
-        if not is_processed:
-            # Dataset needs ChatML conversion - use TRL's collator
-            from trl.trainer.utils import DataCollatorForChatML
-
-            data_collator = DataCollatorForChatML(
-                tokenizer=processing_class, max_length=args.max_length
-            )
-        elif is_processed:
-            # Dataset is tokenized - wrap the collator to add "prompts" field
-            from oumi.core.collators.gkd_collator import GkdCollator
-
-            # If no collator provided, create default DataCollatorForLanguageModeling
-            if data_collator is None:
-                from transformers import DataCollatorForLanguageModeling
-
-                data_collator = DataCollatorForLanguageModeling(
-                    tokenizer=processing_class, mlm=False
+            if not has_messages or is_tokenized:
+                raise ValueError(
+                    "GKD training requires untokenized datasets with 'messages' field. "
+                    "Use DistillationDataset which provides prompts in conversation format:\n"
+                    "  data:\n"
+                    "    train:\n"
+                    "      datasets:\n"
+                    "        - dataset_name: 'distillation'\n"
+                    "          dataset_path: 'prompts.jsonl'\n"
+                    "\n"
+                    "Create prompts.jsonl with format: {\"prompts\": \"your prompt here\"}"
                 )
 
-            data_collator = GkdCollator(data_collator)
+        # Set remove_unused_columns=False to preserve "messages" field
+        # TRL will tokenize but needs messages for the collator
+        args.remove_unused_columns = False
 
-        # Note: Prompt/completion boundary marking is handled by GkdCollator at collation time
-        # No need to modify the dataset here
-
-        # Call SFTTrainer's __init__ (skip GKDTrainer's __init__)
-        super(GKDTrainer, self).__init__(
-            model,
+        # Call GKDTrainer's __init__ - it handles everything properly
+        super().__init__(
+            model=model,
+            teacher_model=teacher_model,
             args=args,
             data_collator=data_collator,
             train_dataset=train_dataset,
@@ -121,96 +148,3 @@ class TrlGkdTrainer(GKDTrainer):
             formatting_func=formatting_func,
         )
 
-        # Set GKD-specific attributes from config (copied from GKDTrainer.__init__)
-        self.lmbda = args.lmbda
-        self.beta = args.beta
-        self.temperature = args.temperature
-        self.seq_kd = args.seq_kd
-
-        # Load teacher model (copied from GKDTrainer.__init__)
-        if args.teacher_model_init_kwargs is None:
-            teacher_model_init_kwargs = {}
-        elif not isinstance(teacher_model, str):
-            raise ValueError(
-                "You passed teacher_model_init_kwargs to the GKDConfig, but your teacher_model is already instantiated."
-            )
-        else:
-            # Make a copy to avoid modifying the original config dict
-            teacher_model_init_kwargs = args.teacher_model_init_kwargs.copy()
-            if "torch_dtype" in teacher_model_init_kwargs:
-                dtype_value = teacher_model_init_kwargs["torch_dtype"]
-                if dtype_value not in ["auto", None]:
-                    # Convert string to torch.dtype only in our local copy
-                    teacher_model_init_kwargs["torch_dtype"] = getattr(
-                        torch, dtype_value
-                    )
-
-        if isinstance(teacher_model, str):
-            teacher_model = AutoModelForCausalLM.from_pretrained(
-                teacher_model, **teacher_model_init_kwargs
-            )
-
-        # Prepare teacher model with accelerator
-        if self.is_deepspeed_enabled:
-            from transformers.integrations import prepare_deepspeed
-
-            teacher_model = prepare_deepspeed(teacher_model, self.accelerator)
-        else:
-            teacher_model = self.accelerator.prepare_model(
-                teacher_model, evaluation_mode=True
-            )
-
-        self.teacher_model = teacher_model
-        self.teacher_model.eval()
-
-        # Create generation config (copied from GKDTrainer.__init__)
-        from transformers import GenerationConfig
-
-        self.generation_config = GenerationConfig(
-            max_new_tokens=args.max_new_tokens,
-            temperature=self.temperature,
-            do_sample=True,
-        )
-
-        if hasattr(self.model.generation_config, "eos_token_id"):
-            self.generation_config.eos_token_id = (
-                self.model.generation_config.eos_token_id
-            )
-
-    def _prepare_dataset(
-        self,
-        dataset: Union[Dataset, IterableDataset],
-        processing_class: Any,
-        args: SFTConfig,
-        packing: bool,
-        formatting_func: Optional[Callable[[dict], str]],
-        dataset_name: str,
-    ) -> Union[Dataset, IterableDataset]:
-        """Override dataset preparation to skip ChatML conversion for pre-tokenized data.
-
-        Oumi datasets are already tokenized, so we skip TRL's dataset preparation
-        which expects raw conversation data in "messages" format.
-
-        Args:
-            dataset: The dataset to prepare.
-            processing_class: Tokenizer or processor.
-            args: SFT training arguments.
-            packing: Whether to use packing.
-            formatting_func: Optional formatting function.
-            dataset_name: Name of the dataset.
-
-        Returns:
-            The dataset unchanged, since it's already prepared by Oumi.
-        """
-        # Check if dataset is already tokenized
-        column_names = list(next(iter(dataset)).keys())
-        is_processed = "input_ids" in column_names
-
-        if is_processed:
-            # Dataset is already tokenized by Oumi, return as-is
-            return dataset
-
-        # If not tokenized, fall back to parent's preparation
-        return super()._prepare_dataset(
-            dataset, processing_class, args, packing, formatting_func, dataset_name
-        )
