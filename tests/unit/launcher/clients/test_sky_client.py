@@ -21,6 +21,7 @@ def mock_sky_data_storage():
     with patch("sky.data.Storage") as mock_storage:
         yield mock_storage
 
+
 def _get_default_job(cloud: str) -> JobConfig:
     resources = JobResources(
         cloud=cloud,
@@ -52,7 +53,6 @@ def _get_default_job(cloud: str) -> JobConfig:
         run="./hello_world.sh",
     )
 
-#
 
 #
 # Tests
@@ -128,6 +128,7 @@ def test_convert_job_to_task(
                     mock_task.set_storage_mounts.assert_called_once()
                     mock_task.set_resources.assert_called_once()
 
+
 def test_convert_job_to_task_with_dict_image_id(
     mock_sky_data_storage,
 ):
@@ -150,7 +151,7 @@ def test_convert_job_to_task_with_dict_image_id(
                         "us-west5": "docker://ubuntu:latest",
                         "us-west6": "docker://ubuntu:latest",
                         None: "docker://ubuntu:latest",
-                        }
+                    }
                     _ = _convert_job_to_task(job)
                     mock_resources.assert_has_calls(
                         [
@@ -184,6 +185,7 @@ def test_convert_job_to_task_with_dict_image_id(
                     mock_task.set_file_mounts.assert_called_once()
                     mock_task.set_storage_mounts.assert_called_once()
                     mock_task.set_resources.assert_called_once()
+
 
 def test_convert_job_to_task_with_empty_dict_image_id(
     mock_sky_data_storage,
@@ -231,6 +233,7 @@ def test_convert_job_to_task_with_empty_dict_image_id(
                     mock_task.set_file_mounts.assert_called_once()
                     mock_task.set_storage_mounts.assert_called_once()
                     mock_task.set_resources.assert_called_once()
+
 
 @pytest.mark.parametrize(
     "env_var_use_spot_vm,expected_use_spot_vm",
