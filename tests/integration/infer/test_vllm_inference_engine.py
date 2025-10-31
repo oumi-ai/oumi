@@ -42,7 +42,7 @@ def test_qwen_no_think_block_with_enable_thinking_false():
 
     engine = VLLMInferenceEngine(_get_default_model_params(), tensor_parallel_size=1)
     inference_config = _get_default_inference_config()
-    inference_config.generation.chat_template_kwargs = {"enable_thinking": False}
+    inference_config.model.chat_template_kwargs = {"enable_thinking": False}
 
     outputs = engine.infer([convo], inference_config=inference_config)
     output = outputs[-1].messages[-1].content

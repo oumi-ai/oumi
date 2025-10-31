@@ -632,17 +632,16 @@ def test_guided_decoding_choice(mock_vllm, mock_sampling_params):
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_chat_template_kwargs_enable_thinking_false(mock_vllm):
-    # Prepare a minimal conversation
     convo = Conversation(messages=[Message(content="hi", role=Role.USER)])
-    gen_params = GenerationParams(chat_template_kwargs={"enable_thinking": False})
+    model_params = _get_default_model_params()
+    model_params.chat_template_kwargs = {"enable_thinking": False}
 
-    # Patch engine so _llm.chat records its kwargs
-    engine = VLLMInferenceEngine(_get_default_model_params())
+    engine = VLLMInferenceEngine(model_params)
     engine._llm = MagicMock()
     engine._llm.chat.return_value = [MagicMock(outputs=[MagicMock(text="response")])]
 
     inference_config = _get_default_inference_config()
-    inference_config.generation = gen_params
+    inference_config.model = model_params
 
     engine._infer([convo], inference_config=inference_config)
 
