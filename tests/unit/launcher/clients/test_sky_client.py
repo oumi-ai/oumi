@@ -21,7 +21,6 @@ def mock_sky_data_storage():
     with patch("sky.data.Storage") as mock_storage:
         yield mock_storage
 
-
 def _get_default_job(cloud: str) -> JobConfig:
     resources = JobResources(
         cloud=cloud,
@@ -53,6 +52,7 @@ def _get_default_job(cloud: str) -> JobConfig:
         run="./hello_world.sh",
     )
 
+#
 
 #
 # Tests
@@ -128,6 +128,109 @@ def test_convert_job_to_task(
                     mock_task.set_storage_mounts.assert_called_once()
                     mock_task.set_resources.assert_called_once()
 
+def test_convert_job_to_task_with_dict_image_id(
+    mock_sky_data_storage,
+):
+    with patch.dict(os.environ, {"OUMI_USE_SPOT_VM": "nonspot"}, clear=True):
+        with patch("sky.Resources") as mock_resources:
+            with patch("sky.clouds.GCP") as mock_cloud:
+                mock_gcp = Mock()
+                mock_cloud.return_value = mock_gcp
+                with patch("sky.Task") as mock_task_cls:
+                    mock_task = Mock()
+                    mock_task_cls.return_value = mock_task
+                    job = _get_default_job("gcp")
+                    job.resources.image_id = {
+                        "us-central1": "docker://ubuntu:latest",
+                        "us-east1": "docker://ubuntu:latest",
+                        "us-west1": "docker://ubuntu:latest",
+                        "us-west2": "docker://ubuntu:latest",
+                        "us-west3": "docker://ubuntu:latest",
+                        "us-west4": "docker://ubuntu:latest",
+                        "us-west5": "docker://ubuntu:latest",
+                        "us-west6": "docker://ubuntu:latest",
+                        None: "docker://ubuntu:latest",
+                        }
+                    _ = _convert_job_to_task(job)
+                    mock_resources.assert_has_calls(
+                        [
+                            call(
+                                cloud=mock_gcp,
+                                instance_type=job.resources.instance_type,
+                                cpus=job.resources.cpus,
+                                memory=job.resources.memory,
+                                accelerators=job.resources.accelerators,
+                                use_spot=False,
+                                region=job.resources.region,
+                                zone=job.resources.zone,
+                                disk_size=job.resources.disk_size,
+                                disk_tier=job.resources.disk_tier,
+                                image_id=job.resources.image_id,
+                            )
+                        ]
+                    )
+                    mock_task_cls.assert_has_calls(
+                        [
+                            call(
+                                name=job.name,
+                                setup=job.setup,
+                                run=job.run,
+                                envs=job.envs,
+                                workdir=job.working_dir,
+                                num_nodes=job.num_nodes,
+                            )
+                        ]
+                    )
+                    mock_task.set_file_mounts.assert_called_once()
+                    mock_task.set_storage_mounts.assert_called_once()
+                    mock_task.set_resources.assert_called_once()
+
+def test_convert_job_to_task_with_empty_dict_image_id(
+    mock_sky_data_storage,
+):
+    with patch.dict(os.environ, {"OUMI_USE_SPOT_VM": "nonspot"}, clear=True):
+        with patch("sky.Resources") as mock_resources:
+            with patch("sky.clouds.GCP") as mock_cloud:
+                mock_gcp = Mock()
+                mock_cloud.return_value = mock_gcp
+                with patch("sky.Task") as mock_task_cls:
+                    mock_task = Mock()
+                    mock_task_cls.return_value = mock_task
+                    job = _get_default_job("gcp")
+                    job.resources.image_id = {}
+                    _ = _convert_job_to_task(job)
+                    mock_resources.assert_has_calls(
+                        [
+                            call(
+                                cloud=mock_gcp,
+                                instance_type=job.resources.instance_type,
+                                cpus=job.resources.cpus,
+                                memory=job.resources.memory,
+                                accelerators=job.resources.accelerators,
+                                use_spot=False,
+                                region=job.resources.region,
+                                zone=job.resources.zone,
+                                disk_size=job.resources.disk_size,
+                                disk_tier=job.resources.disk_tier,
+                                image_id=job.resources.image_id,
+                            )
+                        ]
+                    )
+                    mock_task_cls.assert_has_calls(
+                        [
+                            call(
+                                name=job.name,
+                                setup=job.setup,
+                                run=job.run,
+                                envs=job.envs,
+                                workdir=job.working_dir,
+                                num_nodes=job.num_nodes,
+                            )
+                        ]
+                    )
+                    mock_task.set_file_mounts.assert_called_once()
+                    mock_task.set_storage_mounts.assert_called_once()
+                    mock_task.set_resources.assert_called_once()
 
 @pytest.mark.parametrize(
     "env_var_use_spot_vm,expected_use_spot_vm",
