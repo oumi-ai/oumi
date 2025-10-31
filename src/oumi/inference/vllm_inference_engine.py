@@ -314,6 +314,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             use_tqdm=enable_tqdm,
             chat_template=None,
             chat_template_content_format="auto",
+            chat_template_kwargs=generation_params.chat_template_kwargs,
         )
 
         for conversation, chat_response in zip(
