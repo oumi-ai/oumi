@@ -299,6 +299,7 @@ def test_infer_online_lora(mock_vllm, mock_lora_request):
         use_tqdm=False,
         chat_template=None,
         chat_template_content_format="auto",
+        chat_template_kwargs={},
     )
 
 
@@ -627,3 +628,24 @@ def test_guided_decoding_choice(mock_vllm, mock_sampling_params):
     call_kwargs = mock_sampling_params.call_args[1]
     assert "guided_decoding" in call_kwargs
     assert call_kwargs["guided_decoding"].choice == choices
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_chat_template_kwargs_enable_thinking_false(mock_vllm):
+    convo = Conversation(messages=[Message(content="hi", role=Role.USER)])
+    model_params = _get_default_model_params()
+    model_params.chat_template_kwargs = {"enable_thinking": False}
+
+    engine = VLLMInferenceEngine(model_params)
+    engine._llm = MagicMock()
+    engine._llm.chat.return_value = [MagicMock(outputs=[MagicMock(text="response")])]
+
+    inference_config = _get_default_inference_config()
+    inference_config.model = model_params
+
+    engine._infer([convo], inference_config=inference_config)
+
+    # Assert the parameter was passed
+    call_kwargs = engine._llm.chat.call_args.kwargs
+    assert "chat_template_kwargs" in call_kwargs
+    assert call_kwargs["chat_template_kwargs"].get("enable_thinking") is False

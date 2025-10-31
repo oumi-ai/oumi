@@ -266,6 +266,12 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             else self._generation_params
         )
 
+        model_params = (
+            inference_config.model
+            if inference_config and inference_config.model
+            else self._model_params
+        )
+
         if generation_params.guided_decoding is not None:
             guided_decoding = VLLMGuidedDecodingParams.from_optional(
                 json=generation_params.guided_decoding.json,
@@ -314,6 +320,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             use_tqdm=enable_tqdm,
             chat_template=None,
             chat_template_content_format="auto",
+            chat_template_kwargs=model_params.chat_template_kwargs,
         )
 
         for conversation, chat_response in zip(
