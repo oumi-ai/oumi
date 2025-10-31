@@ -14,8 +14,4 @@
 
 """GRPO rollout functions module."""
 
-from oumi.datasets.grpo.rollouts.echo_env_vllm_rollout import echo_env_vllm_rollout
-
-__all__ = [
-    "echo_env_vllm_rollout",
-]
+__all__ = []
