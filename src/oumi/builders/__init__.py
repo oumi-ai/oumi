@@ -40,6 +40,7 @@ from oumi.builders.optimizers import build_optimizer
 from oumi.builders.processors import build_processor
 from oumi.builders.quantizers import build_quantizer
 from oumi.builders.rewards import build_reward_functions
+from oumi.builders.rollouts import build_rollout_function
 from oumi.builders.training import build_trainer
 
 __all__ = [
@@ -54,6 +55,7 @@ __all__ = [
     "build_processor",
     "build_quantizer",
     "build_reward_functions",
+    "build_rollout_function",
     "build_tokenizer",
     "build_trainer",
     "build_training_callbacks",
