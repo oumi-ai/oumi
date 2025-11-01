@@ -210,6 +210,14 @@ def _create_optional_training_kwargs(
     else:
         kwargs["compute_metrics"] = metrics_function
         kwargs["data_collator"] = collator
+
+    # Handle GKD teacher model - pass the teacher model path to the trainer constructor
+    # TRL's GKDTrainer will load the teacher model automatically using
+    # teacher_model_init_kwargs from the config
+    if trainer_type == TrainerType.TRL_GKD:
+        if config.training.gkd.teacher_model_name_or_path:
+            kwargs["teacher_model"] = config.training.gkd.teacher_model_name_or_path
+
     kwargs.update(additional_trainer_kwargs or {})
     return kwargs
 
