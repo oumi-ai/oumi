@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from omegaconf import MISSING
 from typing_extensions import override
@@ -120,7 +120,7 @@ class JobResources:
     disk tiers.
     """
 
-    image_id: Union[dict[Optional[str], str], str, None] = None
+    image_id: Union[Dict[Optional[str], str], str, None] = None
     """The image id used to boot the instances (optional).
 
     You can specify a docker by using the format `docker:<image_id>`.
