@@ -1,0 +1,7 @@
+{
+  "max_new_tokens": 20,
+  "temperature": 0.0,
+  "seed": 42,
+  "use_sampling": false,
+  "_description": "Standard generation parameters for consistent testing - keep short for fast tests, deterministic output for reproducible results"
+}

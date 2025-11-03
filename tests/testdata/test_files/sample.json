@@ -1,0 +1,37 @@
+{
+  "name": "Oumi AI Assistant",
+  "version": "1.0.0",
+  "description": "Interactive AI assistant with file attachment capabilities",
+  "features": [
+    "Multi-line input support",
+    "Command system",
+    "File attachments",
+    "Context window management",
+    "Rich terminal UI"
+  ],
+  "supported_file_types": {
+    "images": ["jpg", "png", "gif", "bmp", "tiff", "webp"],
+    "documents": ["pdf", "txt", "md"],
+    "data": ["csv", "json"],
+    "code": ["py", "js", "ts", "html", "css", "java", "cpp", "go", "rs"]
+  },
+  "configuration": {
+    "max_context_length": 4096,
+    "file_size_thresholds": {
+      "small": "10KB",
+      "medium": "100KB",
+      "large": "1MB"
+    },
+    "processing_strategies": [
+      "full_content",
+      "summarized",
+      "chunked",
+      "preview_only"
+    ]
+  },
+  "metadata": {
+    "created": "2025-08-06",
+    "author": "Oumi Team",
+    "license": "Apache 2.0"
+  }
+}
