@@ -25,7 +25,6 @@ def build_rollout_function(config: TrainingParams) -> Optional[Callable]:
     # Import to ensure GRPO rollout functions are added to REGISTRY.
     import oumi.datasets.grpo.rollouts as grpo_rollouts  # noqa: F401
 
-    # print(REGISTRY.__repr__())
     rollout_function = REGISTRY.get_rollout_function(config.grpo.rollout_function)
     if not rollout_function:
         raise KeyError(
