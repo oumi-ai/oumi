@@ -1,0 +1,63 @@
+# Minimal GKD training config for testing with responses
+#
+# Usage:
+#   oumi train -c configs/examples/gkd/train.yaml
+
+model:
+  # Student model - SmolLM 135M (smallest SmolLM)
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 1024
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: "dict" # required for TRL_GKD trainer
+
+training:
+  trainer_type: "TRL_GKD"
+  output_dir: "output/gkd_smollm_test_responses"
+
+  # Minimal training for quick test
+  max_steps: 5
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 1
+
+  # Simple optimization
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-04
+  warmup_steps: 1
+
+  save_steps: 5
+  logging_steps: 1
+
+  enable_gradient_checkpointing: False
+  enable_wandb: False
+  enable_tensorboard: False
+  log_model_summary: False
+
+  # GKD-specific parameters
+  gkd:
+    # Teacher model
+    teacher_model_name_or_path: "HuggingFaceTB/SmolLM2-360M-Instruct"
+
+    # Teacher model initialization kwargs
+    # Passed to AutoModelForCausalLM.from_pretrained() when loading the teacher
+    # See https://huggingface.co/docs/transformers/model_doc/auto#transformers.AutoModelForCausalLM.from_pretrained for more details
+    teacher_model_init_kwargs:
+      attn_implementation: "sdpa"
+
+    # Generation parameters
+    temperature: 0.9
+    max_new_tokens: 512
+
+    # Distillation parameters
+    lmbda: 0.5
+    beta: 0.5
+    disable_dropout: True
+    seq_kd: False

@@ -48,6 +48,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         response_template: Optional[str] = None,
         instruction_template: Optional[str] = None,
         return_conversations: bool = False,
+        return_conversations_format: Literal["dict", "json"] = "json",
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseSftDataset class."""
@@ -67,6 +68,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         self._response_template = response_template
         self._instruction_template = instruction_template
         self._return_conversations = return_conversations
+        self._return_conversations_format = return_conversations_format
 
         if self._assistant_only:
             self._verify_assistant_only_compatibility()
@@ -155,8 +157,17 @@ class BaseSftDataset(BaseMapDataset, ABC):
         if self._return_conversations:
             # This may require `use_torchdata=True` for TRL_SFT trainer,
             # but compatible with TRL_GRPO trainer.
-            conversation_json = conversation.to_json()
-            return {"conversation_json": conversation_json}
+            if self._return_conversations_format == "json":
+                conversation_json = conversation.to_json()
+                return {"conversation_json": conversation_json}
+            elif self._return_conversations_format == "dict":
+                return conversation.to_dict()
+            else:
+                raise ValueError(
+                    f"Invalid return_conversations_format: "
+                    f"'{self._return_conversations_format}'."
+                    "Supported formats are 'json' and 'dict'."
+                )
         return self.tokenize(conversation)
 
     def tokenize(
