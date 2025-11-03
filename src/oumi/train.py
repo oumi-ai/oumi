@@ -32,6 +32,7 @@ from oumi.builders import (
     build_peft_model,
     build_processor,
     build_reward_functions,
+    build_rollout_function,
     build_tokenizer,
     build_trainer,
     build_training_callbacks,
@@ -191,6 +192,7 @@ def _create_optional_training_kwargs(
     trainer_type: TrainerType,
     metrics_function: Optional[Callable],
     reward_functions: list[Callable],
+    rollout_function: Optional[Callable],
     collator: Optional[Callable],
     additional_trainer_kwargs: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
@@ -207,6 +209,7 @@ def _create_optional_training_kwargs(
         if collator:
             raise ValueError(f"collator isn't supported for {trainer_type}")
         kwargs["reward_funcs"] = reward_functions
+        kwargs["rollout_func"] = rollout_function
     else:
         kwargs["compute_metrics"] = metrics_function
         kwargs["data_collator"] = collator
@@ -366,6 +369,7 @@ def train(
     trainer_type: Final[TrainerType] = config.training.trainer_type
     metrics_function: Optional[Callable] = build_metrics_function(config.training)
     reward_functions: list[Callable] = build_reward_functions(config.training)
+    rollout_function: Optional[Callable] = build_rollout_function(config.training)
     if trainer_type == TrainerType.TRL_GRPO:
         if len(reward_functions) == 0:
             logger.warning(f"No reward_function specified for {trainer_type}!")
@@ -391,6 +395,7 @@ def train(
         trainer_type,
         metrics_function,
         reward_functions,
+        rollout_function,
         collator,
         additional_trainer_kwargs=additional_trainer_kwargs,
     )
