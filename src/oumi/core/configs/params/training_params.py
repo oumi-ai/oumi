@@ -25,6 +25,7 @@ import transformers
 import trl
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.gkd_params import GkdParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
@@ -62,6 +63,18 @@ class TrainerType(Enum):
     introduced in the paper https://arxiv.org/pdf/2402.03300
     for fine-tuning language models.
     Optionally, supports user-defined reward functions.
+    """
+
+    TRL_GKD = "trl_gkd"
+    """Generalized Knowledge Distillation trainer from `trl` library.
+
+    This trainer implements on-policy distillation where the student model
+    generates outputs and learns from teacher corrections in real-time.
+    Based on the paper "On-Policy Distillation of Language Models: Learning from
+    Self-Generated Mistakes" (https://arxiv.org/abs/2306.13649).
+
+    Warning: GKDTrainer is marked as experimental in TRL and may be subject to
+    changes or removal in future versions.
     """
 
     HF = "hf"
@@ -347,6 +360,9 @@ class TrainingParams(BaseParams):
 
     grpo: GrpoParams = field(default_factory=GrpoParams)
     """Parameters for GRPO training."""
+
+    gkd: GkdParams = field(default_factory=GkdParams)
+    """Parameters for GKD (Generalized Knowledge Distillation) training."""
 
     log_level: str = "info"
     """The logging level for the main Oumi logger.
@@ -750,6 +766,8 @@ class TrainingParams(BaseParams):
             config_class = trl.KTOConfig
         elif self.trainer_type == TrainerType.TRL_GRPO:
             config_class = trl.GRPOConfig
+        elif self.trainer_type == TrainerType.TRL_GKD:
+            config_class = trl.GKDConfig
         else:
             config_class = transformers.TrainingArguments
 
@@ -778,6 +796,19 @@ class TrainingParams(BaseParams):
                     "Use properties of GrpoParams instead."
                 )
             trainer_kwargs.update(grpo_kwargs)
+
+        if self.trainer_type == TrainerType.TRL_GKD:
+            gkd_kwargs = self.gkd.to_hf_trainer_kwargs()
+            conflicting_keys = set(trainer_kwargs.keys()).intersection(
+                gkd_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "trainer_kwargs attempt to override the following "
+                    f"GKD kwargs: {conflicting_keys}. "
+                    "Use properties of GkdParams instead."
+                )
+            trainer_kwargs.update(gkd_kwargs)
 
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
