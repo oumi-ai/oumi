@@ -146,14 +146,14 @@ def test_convert_job_to_task_with_dict_image_id(
                     # Should use image_id_map.
                     job.resources.image_id = None
                     job.resources.image_id_map = {
-                        "us-central1": "docker://ubuntu:latest",
-                        "us-east1": "docker://ubuntu:latest",
-                        "us-west1": "docker://ubuntu:latest",
-                        "us-west2": "docker://ubuntu:latest",
-                        "us-west3": "docker://ubuntu:latest",
-                        "us-west4": "docker://ubuntu:latest",
-                        "us-west5": "docker://ubuntu:latest",
-                        "us-west6": "docker://ubuntu:latest",
+                        "us-central1": "ami-0c1a2b3c4d5e6f701",
+                        "us-east1":    "ami-0d2e3f4g5h6i7j802",
+                        "us-west1":    "ami-0e3f4g5h6i7j8k903",
+                        "us-west2":    "ami-0f4g5h6i7j8k9l004",
+                        "us-west3":    "ami-0a5b6c7d8e9f0g105",
+                        "us-west4":    "ami-0b6c7d8e9f0g1h206",
+                        "us-west5":    "ami-0c7d8e9f0g1h2i307",
+                        "us-west6":    "ami-0d8e9f0g1h2i3j408",
                     }
 
                     _ = _convert_job_to_task(job)
@@ -207,14 +207,14 @@ def test_convert_job_to_task_with_populated_image_and_dict(
                     # Test with populated image_id_map and image_id.
                     # Should use image_id.
                     job.resources.image_id_map = {
-                        "us-central1": "docker://ubuntu:latest",
-                        "us-east1": "docker://ubuntu:latest",
-                        "us-west1": "docker://ubuntu:latest",
-                        "us-west2": "docker://ubuntu:latest",
-                        "us-west3": "docker://ubuntu:latest",
-                        "us-west4": "docker://ubuntu:latest",
-                        "us-west5": "docker://ubuntu:latest",
-                        "us-west6": "docker://ubuntu:latest",
+                        "us-central1": "ami-0c1a2b3c4d5e6f701",
+                        "us-east1":    "ami-0d2e3f4g5h6i7j802",
+                        "us-west1":    "ami-0e3f4g5h6i7j8k903",
+                        "us-west2":    "ami-0f4g5h6i7j8k9l004",
+                        "us-west3":    "ami-0a5b6c7d8e9f0g105",
+                        "us-west4":    "ami-0b6c7d8e9f0g1h206",
+                        "us-west5":    "ami-0c7d8e9f0g1h2i307",
+                        "us-west6":    "ami-0d8e9f0g1h2i3j408",
                     }
                     _ = _convert_job_to_task(job)
                     mock_resources.assert_has_calls(
