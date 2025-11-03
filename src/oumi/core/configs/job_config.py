@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Union
+from typing import Optional
 
 from omegaconf import MISSING
 from typing_extensions import override
@@ -120,11 +120,24 @@ class JobResources:
     disk tiers.
     """
 
-    image_id: Union[Dict[Optional[str], str], str, None] = None
+    image_id: Optional[str] = None
     """The image id used to boot the instances (optional).
 
     You can specify a docker by using the format `docker:<image_id>`.
     This field is not applicable for all clouds.
+
+    Overrides image_id_map if both are specified.
+    """
+
+    image_id_map: dict[str, str] = field(default_factory=dict)
+    """The image id map used to boot the instances (optional).
+    Map is in the form of {region: image_id}.
+
+    You can specify a docker by using the format `docker:<image_id>`.
+    This field is not applicable for all clouds. Recommended for AMI based clouds for
+    multiple region support.
+
+    Overridden by image_id if both are specified.
     """
 
 

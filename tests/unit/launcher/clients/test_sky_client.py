@@ -141,7 +141,11 @@ def test_convert_job_to_task_with_dict_image_id(
                     mock_task = Mock()
                     mock_task_cls.return_value = mock_task
                     job = _get_default_job("gcp")
-                    job.resources.image_id = {
+
+                    # Test with image_id_map and empty image_id.
+                    # Should use image_id_map.
+                    job.resources.image_id = None
+                    job.resources.image_id_map = {
                         "us-central1": "docker://ubuntu:latest",
                         "us-east1": "docker://ubuntu:latest",
                         "us-west1": "docker://ubuntu:latest",
@@ -150,8 +154,8 @@ def test_convert_job_to_task_with_dict_image_id(
                         "us-west4": "docker://ubuntu:latest",
                         "us-west5": "docker://ubuntu:latest",
                         "us-west6": "docker://ubuntu:latest",
-                        None: "docker://ubuntu:latest",
                     }
+
                     _ = _convert_job_to_task(job)
                     mock_resources.assert_has_calls(
                         [
@@ -166,7 +170,7 @@ def test_convert_job_to_task_with_dict_image_id(
                                 zone=job.resources.zone,
                                 disk_size=job.resources.disk_size,
                                 disk_tier=job.resources.disk_tier,
-                                image_id=job.resources.image_id,
+                                image_id=job.resources.image_id_map,
                             )
                         ]
                     )
@@ -187,7 +191,7 @@ def test_convert_job_to_task_with_dict_image_id(
                     mock_task.set_resources.assert_called_once()
 
 
-def test_convert_job_to_task_with_empty_dict_image_id(
+def test_convert_job_to_task_with_populated_image_and_dict(
     mock_sky_data_storage,
 ):
     with patch.dict(os.environ, {"OUMI_USE_SPOT_VM": "nonspot"}, clear=True):
@@ -199,7 +203,19 @@ def test_convert_job_to_task_with_empty_dict_image_id(
                     mock_task = Mock()
                     mock_task_cls.return_value = mock_task
                     job = _get_default_job("gcp")
-                    job.resources.image_id = {}
+
+                    # Test with populated image_id_map and image_id.
+                    # Should use image_id.
+                    job.resources.image_id_map = {
+                        "us-central1": "docker://ubuntu:latest",
+                        "us-east1": "docker://ubuntu:latest",
+                        "us-west1": "docker://ubuntu:latest",
+                        "us-west2": "docker://ubuntu:latest",
+                        "us-west3": "docker://ubuntu:latest",
+                        "us-west4": "docker://ubuntu:latest",
+                        "us-west5": "docker://ubuntu:latest",
+                        "us-west6": "docker://ubuntu:latest",
+                    }
                     _ = _convert_job_to_task(job)
                     mock_resources.assert_has_calls(
                         [
