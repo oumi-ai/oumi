@@ -39,11 +39,16 @@ class GkdParams(BaseParams):
     This is required for GKD training. Can be a HuggingFace model ID or local path.
     """
 
-    teacher_model_init_kwargs: dict[str, Any] = field(default_factory=dict)
+    teacher_model_init_kwargs: dict[str, Any] = field(
+        default_factory=lambda: {"torch_dtype": "auto"}
+    )
     """Keyword arguments for loading the teacher model.
 
     Passed to `AutoModelForCausalLM.from_pretrained(...)` when loading the teacher.
-    Common kwargs include `torch_dtype`, `device_map`, `attn_implementation`, etc.
+    Common kwargs include `device_map`, `attn_implementation`, etc.
+
+    Defaults to {"torch_dtype": "auto"} to allow the model to use the default dtype
+    of the teacher model.
     """
 
     temperature: float = 0.9
@@ -155,5 +160,8 @@ class GkdParams(BaseParams):
 
         if len(self.teacher_model_init_kwargs) > 0:
             result["teacher_model_init_kwargs"] = self.teacher_model_init_kwargs
+
+        if "torch_dtype" not in result["teacher_model_init_kwargs"]:
+            result["teacher_model_init_kwargs"]["torch_dtype"] = "auto"
 
         return result
