@@ -1,0 +1,110 @@
+model:
+  model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+  model_max_length: 16384
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+  device_map: "auto"
+  attn_implementation: "flash_attention_2"
+  chat_template: "qwen2-vl-instruct"
+
+data:
+  train:
+    use_torchdata: True
+    seed: 42
+    collator_name: "vision_language_with_padding"
+    datasets:
+      - dataset_name: vl_sft
+        dataset_path: /home/shanghong/web_agent/web_agent_train/data/chat_data_train_filtered.jsonl
+        shuffle: True
+        split: "train"
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+          return_tensors: True
+  validation:
+    use_torchdata: True
+    seed: 42
+    collator_name: "vision_language_with_padding"
+    datasets:
+      - dataset_name: vl_sft
+        dataset_path: /home/shanghong/web_agent/web_agent_train/data/chat_data_validation_filtered.jsonl
+        shuffle: True
+        split: "validation"
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+          return_tensors: True
+
+training:
+  # Basic settings
+  output_dir: "training_output"
+  run_name: "web_agent_sft"
+  seed: 42
+
+  # Training duration
+  num_train_epochs: 3
+
+  # batch size settings
+  per_device_train_batch_size: 1 # Must be 1: the model generates variable-sized image features
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 1
+
+  # Optimization
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  weight_decay: 0.01
+
+  # Learning rate schedule
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.03
+
+  # Mixed precision and performance
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+    use_reentrant: False
+  compile: False
+
+  # Checkpointing
+  save_epoch: false
+  save_steps: 40
+  # If this is not passed, checkpoints may be saved which are suitable for resuming training but not for loading from HF
+  save_final_model: True
+
+  # Evaluation
+  eval_strategy: "steps" # When to evaluate ("no", "steps", "epoch")
+  eval_steps: 20 # Evaluate every N steps
+
+  # Logging
+  logging_steps: 2
+  log_level: "debug" # Main logger level
+  dep_log_level: "debug" # Dependencies logger level
+  enable_wandb: True
+
+  # Dataloader settings
+  dataloader_num_workers: 64 # Match LIMO preprocessing workers
+  dataloader_prefetch_factor: 32
+
+  # Distributed training
+  ddp_find_unused_parameters: False
+
+  # Performance monitoring
+  include_performance_metrics: True
+  empty_device_cache_steps: 1
+  log_model_summary: False
+
+  trainer_type: "TRL_SFT"
+
+  trainer_kwargs:
+    save_total_limit: 20
+    save_only_model: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "FULL_SHARD" # Similar to DeepSpeed ZeRO-3
+  forward_prefetch: True
+  use_orig_params: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "transformers.models.qwen2_5_vl.modeling_qwen2_5_vl.Qwen2_5_VLDecoderLayer"

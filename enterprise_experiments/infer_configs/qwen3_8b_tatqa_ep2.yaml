@@ -1,0 +1,11 @@
+model:
+  model_name: "/home/shanghong/oumi/output/qwen3_8b.fft_tatqa/checkpoint-416"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+  tokenizer_kwargs:
+    enable_thinking: False
+
+generation:
+  max_new_tokens: 8192
+  batch_size: 1
+  skip_special_tokens: False

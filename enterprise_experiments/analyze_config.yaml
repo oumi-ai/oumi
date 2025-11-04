@@ -1,0 +1,11 @@
+
+dataset_source: CONFIG
+dataset_name: "HuggingFaceDataset"
+dataset_path: "/home/shanghong/oumi/configs/recipes/enterprise/multilingual_thinking_train.json"
+dataset_format: "oumi"
+split: "train"
+output_path: "."
+analyzers:
+  - id: "length"
+    params: {"char_count": True, "word_count": True, "token_count": True}
+is_multimodal: False

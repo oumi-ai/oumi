@@ -1,0 +1,11 @@
+model:
+  model_name: "Qwen/Qwen3-8B"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+  chat_template_kwargs:
+    enable_thinking: True
+
+generation:
+  max_new_tokens: 8192
+  batch_size: 5
+  skip_special_tokens: False
