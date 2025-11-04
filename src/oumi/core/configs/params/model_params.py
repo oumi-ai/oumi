@@ -143,6 +143,13 @@ class ModelParams(BaseParams):
         documentation for the appropriate template to use.
     """
 
+    chat_template_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass into the chat template's constructor.
+
+    This allows for passing any chat template-specific parameters that are not
+    covered by other fields in ModelParams.
+    """
+
     attn_implementation: Optional[str] = None
     """The attention implementation to use.
 

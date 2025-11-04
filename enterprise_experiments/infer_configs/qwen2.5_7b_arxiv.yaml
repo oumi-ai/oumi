@@ -1,9 +1,0 @@
-model:
-  model_name: "/home/shanghong/oumi/enterprise_experiments/output/qwen2.5_7b.fft_arxiv/checkpoint-157"
-  trust_remote_code: true
-  torch_dtype_str: "bfloat16"
-
-generation:
-  max_new_tokens: 2048
-  batch_size: 1
-  skip_special_tokens: False
