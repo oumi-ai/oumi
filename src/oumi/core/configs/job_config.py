@@ -125,6 +125,19 @@ class JobResources:
 
     You can specify a docker by using the format `docker:<image_id>`.
     This field is not applicable for all clouds.
+
+    Overrides image_id_map if both are specified.
+    """
+
+    image_id_map: dict[str, str] = field(default_factory=dict)
+    """The image id map used to boot the instances (optional).
+    Map is in the form of {region: image_id}.
+
+    You can specify a docker by using the format `docker:<image_id>`.
+    This field is not applicable for all clouds. Recommended for AMI based clouds for
+    multiple region support.
+
+    Overridden by image_id if both are specified.
     """
 
 

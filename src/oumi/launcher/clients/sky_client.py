@@ -17,7 +17,7 @@ import os
 import re
 from collections.abc import Iterator
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import JobState, JobStatus
@@ -119,6 +119,12 @@ def _convert_job_to_task(job: JobConfig) -> "sky.Task":
     elif use_spot_vm != job.resources.use_spot:
         logger.info(f"Set use_spot={use_spot_vm} based on 'OUMI_USE_SPOT_VM' override.")
 
+    image_id: Union[str, dict[Optional[str], str], None] = None
+    if job.resources.image_id is not None:
+        image_id = job.resources.image_id
+    elif job.resources.image_id_map is not None:
+        image_id = job.resources.image_id_map  # type: ignore[assignment]
+
     resources = sky.Resources(
         cloud=sky_cloud,
         instance_type=job.resources.instance_type,
@@ -130,7 +136,7 @@ def _convert_job_to_task(job: JobConfig) -> "sky.Task":
         zone=job.resources.zone,
         disk_size=job.resources.disk_size,
         disk_tier=job.resources.disk_tier,
-        image_id=job.resources.image_id,
+        image_id=image_id,
     )
     sky_task = sky.Task(
         name=job.name,

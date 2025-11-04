@@ -129,6 +129,128 @@ def test_convert_job_to_task(
                     mock_task.set_resources.assert_called_once()
 
 
+def test_convert_job_to_task_with_dict_image_id(
+    mock_sky_data_storage,
+):
+    with patch.dict(os.environ, {"OUMI_USE_SPOT_VM": "nonspot"}, clear=True):
+        with patch("sky.Resources") as mock_resources:
+            with patch("sky.clouds.GCP") as mock_cloud:
+                mock_gcp = Mock()
+                mock_cloud.return_value = mock_gcp
+                with patch("sky.Task") as mock_task_cls:
+                    mock_task = Mock()
+                    mock_task_cls.return_value = mock_task
+                    job = _get_default_job("gcp")
+
+                    # Test with image_id_map and empty image_id.
+                    # Should use image_id_map.
+                    job.resources.image_id = None
+                    job.resources.image_id_map = {
+                        "us-central1": "ami-0c1a2b3c4d5e6f701",
+                        "us-east1": "ami-0d2e3f4g5h6i7j802",
+                        "us-west1": "ami-0e3f4g5h6i7j8k903",
+                        "us-west2": "ami-0f4g5h6i7j8k9l004",
+                        "us-west3": "ami-0a5b6c7d8e9f0g105",
+                        "us-west4": "ami-0b6c7d8e9f0g1h206",
+                        "us-west5": "ami-0c7d8e9f0g1h2i307",
+                        "us-west6": "ami-0d8e9f0g1h2i3j408",
+                    }
+
+                    _ = _convert_job_to_task(job)
+                    mock_resources.assert_has_calls(
+                        [
+                            call(
+                                cloud=mock_gcp,
+                                instance_type=job.resources.instance_type,
+                                cpus=job.resources.cpus,
+                                memory=job.resources.memory,
+                                accelerators=job.resources.accelerators,
+                                use_spot=False,
+                                region=job.resources.region,
+                                zone=job.resources.zone,
+                                disk_size=job.resources.disk_size,
+                                disk_tier=job.resources.disk_tier,
+                                image_id=job.resources.image_id_map,
+                            )
+                        ]
+                    )
+                    mock_task_cls.assert_has_calls(
+                        [
+                            call(
+                                name=job.name,
+                                setup=job.setup,
+                                run=job.run,
+                                envs=job.envs,
+                                workdir=job.working_dir,
+                                num_nodes=job.num_nodes,
+                            )
+                        ]
+                    )
+                    mock_task.set_file_mounts.assert_called_once()
+                    mock_task.set_storage_mounts.assert_called_once()
+                    mock_task.set_resources.assert_called_once()
+
+
+def test_convert_job_to_task_with_populated_image_and_dict(
+    mock_sky_data_storage,
+):
+    with patch.dict(os.environ, {"OUMI_USE_SPOT_VM": "nonspot"}, clear=True):
+        with patch("sky.Resources") as mock_resources:
+            with patch("sky.clouds.GCP") as mock_cloud:
+                mock_gcp = Mock()
+                mock_cloud.return_value = mock_gcp
+                with patch("sky.Task") as mock_task_cls:
+                    mock_task = Mock()
+                    mock_task_cls.return_value = mock_task
+                    job = _get_default_job("gcp")
+
+                    # Test with populated image_id_map and image_id.
+                    # Should use image_id.
+                    job.resources.image_id_map = {
+                        "us-central1": "ami-0c1a2b3c4d5e6f701",
+                        "us-east1": "ami-0d2e3f4g5h6i7j802",
+                        "us-west1": "ami-0e3f4g5h6i7j8k903",
+                        "us-west2": "ami-0f4g5h6i7j8k9l004",
+                        "us-west3": "ami-0a5b6c7d8e9f0g105",
+                        "us-west4": "ami-0b6c7d8e9f0g1h206",
+                        "us-west5": "ami-0c7d8e9f0g1h2i307",
+                        "us-west6": "ami-0d8e9f0g1h2i3j408",
+                    }
+                    _ = _convert_job_to_task(job)
+                    mock_resources.assert_has_calls(
+                        [
+                            call(
+                                cloud=mock_gcp,
+                                instance_type=job.resources.instance_type,
+                                cpus=job.resources.cpus,
+                                memory=job.resources.memory,
+                                accelerators=job.resources.accelerators,
+                                use_spot=False,
+                                region=job.resources.region,
+                                zone=job.resources.zone,
+                                disk_size=job.resources.disk_size,
+                                disk_tier=job.resources.disk_tier,
+                                image_id=job.resources.image_id,
+                            )
+                        ]
+                    )
+                    mock_task_cls.assert_has_calls(
+                        [
+                            call(
+                                name=job.name,
+                                setup=job.setup,
+                                run=job.run,
+                                envs=job.envs,
+                                workdir=job.working_dir,
+                                num_nodes=job.num_nodes,
+                            )
+                        ]
+                    )
+                    mock_task.set_file_mounts.assert_called_once()
+                    mock_task.set_storage_mounts.assert_called_once()
+                    mock_task.set_resources.assert_called_once()
+
+
 @pytest.mark.parametrize(
     "env_var_use_spot_vm,expected_use_spot_vm",
     [
