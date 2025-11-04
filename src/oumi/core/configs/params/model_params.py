@@ -143,6 +143,12 @@ class ModelParams(BaseParams):
         documentation for the appropriate template to use.
     """
 
+    chat_template_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword args to pass to the chat template renderer.
+    Currently, it is only used by the vLLM inference engine to pass additional kwargs
+    for generation of assistant messages.
+    """
+
     attn_implementation: Optional[str] = None
     """The attention implementation to use.
 
