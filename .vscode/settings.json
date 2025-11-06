@@ -19,5 +19,6 @@
     },
     "[yaml]": {
         "editor.defaultFormatter": "redhat.vscode-yaml"
-    }
+    },
+    "makefile.configureOnOpen": false
 }
