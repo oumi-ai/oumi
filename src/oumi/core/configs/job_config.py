@@ -129,7 +129,7 @@ class JobResources:
     Overrides image_id_map if both are specified.
     """
 
-    image_id_map: dict[str, str] = field(default_factory=dict)
+    image_id_map: Optional[dict[str, str]] = None
     """The image id map used to boot the instances (optional).
     Map is in the form of {region: image_id}.
 
