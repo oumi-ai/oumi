@@ -244,7 +244,9 @@ class SkyClient:
         handle = self._sky_lib.stream_and_get(self._sky_lib.status())
         return handle
 
-    def queue(self, cluster_name: str) -> list[dict]:
+    def queue(
+        self, cluster_name: str
+    ) -> Union[list[dict], list["sky.schemas.api.responses.ClusterJobRecord"]]:  # pyright: ignore[reportAttributeAccessIssue]
         """Gets the job queue of a cluster.
 
         Args:

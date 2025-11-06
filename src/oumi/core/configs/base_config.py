@@ -54,20 +54,47 @@ def _handle_non_primitives(config: Any, removed_paths: set, path: str = "") -> A
     Returns:
         The processed config with non-primitive values removed
     """
+    if _is_primitive_type(config):
+        return config
+
+    # Try to convert functions to their source code
+    if callable(config):
+        try:
+            # Lambda functions and built-in functions can't have source extracted
+            if hasattr(config, "__name__") and config.__name__ == "<lambda>":
+                removed_paths.add(path)
+                return None
+
+            source = inspect.getsource(config)
+            # Only return source if we successfully got it
+            return source
+        except (TypeError, OSError):
+            # Can't get source for lambdas, built-ins, or C extensions
+            removed_paths.add(path)
+            return None
+
     if isinstance(config, list):
         return [
             _handle_non_primitives(item, removed_paths, f"{path}[{i}]")
             for i, item in enumerate(config)
         ]
 
-    if isinstance(config, dict):
+    # Handle dicts and dataclasses.
+    if isinstance(config, dict) or hasattr(config, "__dataclass_fields__"):
         result = {}
-        for key, value in config.items():
+        if isinstance(config, dict):
+            items = config.items()
+        else:  # dataclass
+            items = (
+                (field_name, getattr(config, field_name))
+                for field_name in config.__dataclass_fields__
+            )
+        for key, value in items:
+            # Compose path as per type
             current_path = f"{path}.{key}" if path else key
             if _is_primitive_type(value):
                 result[key] = value
             else:
-                # Recursively process nested dictionaries and other non-primitive values
                 processed_value = _handle_non_primitives(
                     value, removed_paths, current_path
                 )
@@ -77,40 +104,6 @@ def _handle_non_primitives(config: Any, removed_paths: set, path: str = "") -> A
                     removed_paths.add(current_path)
                     result[key] = None
         return result
-
-    if _is_primitive_type(config):
-        return config
-
-    if hasattr(config, "__dataclass_fields__"):
-        result = {}
-        for field_name in config.__dataclass_fields__:
-            field_value = getattr(config, field_name)
-            current_path = f"{path}.{field_name}" if path else field_name
-            processed_value = _handle_non_primitives(
-                field_value, removed_paths, current_path
-            )
-            if processed_value is not None:
-                result[field_name] = processed_value
-            else:
-                removed_paths.add(current_path)
-                result[field_name] = None
-        return result
-
-    # Try to convert functions to their source code
-    if callable(config):
-        try:
-            if hasattr(config, "__name__") and config.__name__ == "<lambda>":
-                removed_paths.add(path)
-                return None
-
-            # Lambda functions and built-in functions can't have source extracted
-            source = inspect.getsource(config)
-            # Only return source if we successfully got it
-            return source
-        except (TypeError, OSError):
-            # Can't get source for lambdas, built-ins, or C extensions
-            removed_paths.add(path)
-            return None
 
     # For any other type, remove it and track the path
     removed_paths.add(path)
