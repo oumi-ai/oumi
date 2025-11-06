@@ -72,7 +72,7 @@ class DatasetSource:
     """Map of attributes to be used in synthesis.
     Will use the existing keys in the dataset if not specified."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if not self.path:
             raise ValueError("DatasetSource.path cannot be empty.")
@@ -120,7 +120,7 @@ class DocumentSegmentationParams:
     keep_original_text: bool = False
     """Whether to keep the original text of the document."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if self.segment_length <= 0:
             raise ValueError("Segment length must be positive.")
@@ -149,7 +149,7 @@ class DocumentSource:
     segmentation_params: Optional[DocumentSegmentationParams] = None
     """Segmentation parameters to be used when segmenting the document."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if not self.path:
             raise ValueError("DocumentSource.path cannot be empty.")
@@ -164,7 +164,7 @@ class ExampleSource:
     examples: list[dict[str, Any]]
     """Examples to be used in synthesis."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if not self.examples:
             raise ValueError("ExampleSource.examples cannot be empty.")
@@ -194,7 +194,7 @@ class SampledAttributeValue:
     """Sample rate for the attribute value. If not specified, will assume uniform
     sampling among possible values."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if not self.id:
             raise ValueError("SampledAttributeValue.id cannot be empty.")
@@ -233,7 +233,7 @@ class SampledAttribute:
             value_distribution[value.id] = value.sample_rate
         return value_distribution
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if not self.id:
             raise ValueError("SampledAttribute.id cannot be empty.")
@@ -292,7 +292,7 @@ class AttributeCombination:
     sample_rate: float
     """Sample rate for the combination."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if self.sample_rate < 0 or self.sample_rate > 1:
             raise ValueError(
@@ -347,7 +347,7 @@ class GeneratedAttributePostprocessingParams:
     added_suffix: Optional[str] = None
     """Suffix to be added to the value."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if not self.id:
             raise ValueError(
@@ -376,7 +376,7 @@ class GeneratedAttribute:
     postprocessing_params: Optional[GeneratedAttributePostprocessingParams] = None
     """Postprocessing parameters for the generated attribute."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if not self.id:
             raise ValueError("GeneratedAttribute.id cannot be empty.")
@@ -423,7 +423,7 @@ class TransformationStrategy:
     chat_transform: Optional[TextConversation] = None
     """Chat transform for chat messages (used when type=CHAT)."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params based on the type."""
         if self.type == TransformationType.STRING:
             if self.string_transform is None or self.string_transform == "":
@@ -477,7 +477,7 @@ class TransformedAttribute:
     transformation_strategy: TransformationStrategy
     """Strategy to be used for the transformation."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if not self.id:
             raise ValueError("TransformedAttribute.id cannot be empty.")
@@ -708,7 +708,7 @@ class GeneralSynthesisParams(BaseParams):
                 "GeneralSynthesisParams.passthrough_attributes cannot be empty."
             )
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         all_attribute_ids = set()
         self._check_dataset_source_attribute_ids(all_attribute_ids)

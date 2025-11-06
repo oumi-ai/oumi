@@ -48,7 +48,7 @@ class GuidedDecodingParams(BaseParams):
     the model to select from a predefined set of options.
     """
 
-    def __post_init__(self) -> None:
+    def __finalize_and_validate__(self) -> None:
         """Validate parameters."""
         provided = sum(x is not None for x in [self.json, self.regex, self.choice])
         if provided > 1:

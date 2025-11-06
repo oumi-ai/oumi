@@ -144,11 +144,7 @@ class JudgeParams(BaseParams):
         ]
     """
 
-    def __post_init__(self):
-        """Validate the parameters after initialization."""
-        self._validate_params()
-
-    def _validate_params(self):
+    def __finalize_and_validate__(self):
         """Validate the parameters for consistency and completeness.
 
         Raises:

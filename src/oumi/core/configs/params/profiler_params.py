@@ -65,7 +65,7 @@ class ProfilerScheduleParams(BaseParams):
     session (`ProfilerAction.NONE`).
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
         if not (
             self.wait >= 0

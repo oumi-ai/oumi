@@ -82,7 +82,7 @@ class RemoteParams(BaseParams):
     requests.
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Validate the remote parameters."""
         if self.num_workers < 1:
             raise ValueError(
@@ -177,7 +177,7 @@ class AdaptiveConcurrencyParams(BaseParams):
     concurrency will not be adjusted.
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Validate the adaptive concurrency parameters."""
         if self.min_concurrency < 1:
             raise ValueError("Min concurrency must be greater than or equal to 1.")

@@ -49,11 +49,8 @@ def test_custom_synthesis_config():
 
 def test_invalid_strategy():
     """Test that invalid strategy raises ValueError."""
-    config = SynthesisConfig()
-    config.strategy = "invalid_strategy"  # type: ignore
-
     with pytest.raises(ValueError, match="Unsupported synthesis strategy"):
-        config.__post_init__()
+        SynthesisConfig(strategy="invalid_strategy")  # pyright: ignore[reportArgumentType]
 
 
 def test_invalid_input_path():

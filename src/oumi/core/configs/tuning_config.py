@@ -51,7 +51,7 @@ class TuningConfig(BaseConfig):
     For more details, see :class:`oumi.core.configs.params.model_params.TuningParams`
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         # for param_name, values in self.tuning_params.tunable_params.items():
         #     if self.tuning_params.tuner_type == TunerType.OPTUNA:

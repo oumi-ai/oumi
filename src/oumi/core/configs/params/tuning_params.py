@@ -233,7 +233,7 @@ class TuningParams(BaseParams):
         TODO: Add more options in the future.
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
         if self.logging_dir is None:
             self.logging_dir = f"{self.output_dir}/logs"

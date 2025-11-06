@@ -97,7 +97,7 @@ class GkdParams(BaseParams):
     level. If `False`, uses token-level KD (default and recommended).
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Validates GKD parameters."""
         if self.teacher_model_name_or_path is not None:
             if not isinstance(self.teacher_model_name_or_path, str):

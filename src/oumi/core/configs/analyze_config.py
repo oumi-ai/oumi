@@ -117,7 +117,7 @@ class AnalyzeConfig(BaseConfig):
     custom dataset_path. If False, treat as text-only.
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Validates the configuration parameters."""
         if self.dataset_source == DatasetSource.CONFIG:
             # Only require dataset info when loading from config

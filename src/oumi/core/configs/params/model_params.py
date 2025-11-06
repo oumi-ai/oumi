@@ -217,8 +217,8 @@ class ModelParams(BaseParams):
     This is used to specify the version of the model to use.
     """
 
-    def __post_init__(self):
-        """Populate additional params."""
+    def __finalize_and_validate__(self):
+        """Finalizes and validates final config params."""
         self.torch_dtype = None
         if self.torch_dtype_str != "auto":
             self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
@@ -241,8 +241,6 @@ class ModelParams(BaseParams):
             )
             self.model_revision = self.model_kwargs.pop("revision")
 
-    def __finalize_and_validate__(self):
-        """Finalizes and validates final config params."""
         # If the user didn't specify a LoRA adapter, check to see if the dir/repo
         # specified by `model_name` contains an adapter, and set `adapter_name` if so.
         if self.adapter_model is None:

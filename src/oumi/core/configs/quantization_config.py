@@ -71,7 +71,7 @@ class QuantizationConfig(BaseConfig):
     calibration_samples: int = 512
     """AWQ calibration samples. 512 (balanced), 128 (faster), 1024 (more accurate)."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Post-initialization validation."""
         from oumi.quantize.constants import SUPPORTED_METHODS, SUPPORTED_OUTPUT_FORMATS
 

@@ -129,7 +129,7 @@ class GenerationParams(BaseParams):
     format (e.g., reasoning tokens, tool call markers).
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Validates generation-specific parameters."""
         if self.batch_size is not None and self.batch_size < 1:
             raise ValueError("Batch size must be positive.")

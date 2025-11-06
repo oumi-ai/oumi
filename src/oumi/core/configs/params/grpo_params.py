@@ -109,7 +109,7 @@ class GrpoParams(BaseParams):
     trl's GRPO trainer. This field is ignored if not using trl' GRPO trainer. If not
     specified, the default rollout function will be used."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
         if self.max_prompt_length is not None and self.max_prompt_length <= 0:
             raise ValueError(

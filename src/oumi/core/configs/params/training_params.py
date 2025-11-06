@@ -890,7 +890,7 @@ class TrainingParams(BaseParams):
             report_to.append("none")
         return report_to
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
         self.run_name = sanitize_run_name(self.run_name)
 

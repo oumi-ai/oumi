@@ -140,7 +140,7 @@ class EvaluationTaskParams(BaseParams):
         """Returns a string listing all available evaluation backends."""
         return ", ".join([backend.value for backend in EvaluationBackend])
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
         if self.num_samples is not None and self.num_samples <= 0:
             raise ValueError("`num_samples` must be None or a positive integer.")
@@ -162,7 +162,7 @@ class LMHarnessTaskParams(EvaluationTaskParams):
     If set to 0: no few-shot examples will be added in the prompt.
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
         if not self.task_name:
             raise ValueError("`task_name` must be a valid LM Harness task.")
@@ -185,7 +185,7 @@ class AlpacaEvalTaskParams(EvaluationTaskParams):
     version: Optional[float] = 2.0
     """The version of AlpacaEval to use. Options: 1.0 or 2.0 (default)."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
         if self.version not in [1.0, 2.0]:
             raise ValueError("AlpacaEval `version` must be 1.0 or 2.0.")

@@ -292,6 +292,22 @@ def train(
 
     config = _finalize_training_config(config)
 
+    # Check for potential multi-node DeepSpeed ZeRO-3 saving issue early
+    if (
+        config.deepspeed
+        and config.deepspeed.is_zero3_enabled()
+        and config.deepspeed.stage3_gather_16bit_weights_on_model_save
+        and get_device_rank_info().world_size > get_device_rank_info().local_world_size
+    ):
+        logger.warning(
+            "⚠️  Multi-node DeepSpeed ZeRO-3 model saving detected with "
+            "stage3_gather_16bit_weights_on_model_save=True. This can cause hangs "
+            "during weight gathering across nodes. Consider setting "
+            "stage3_gather_16bit_weights_on_model_save=False and using "
+            "zero_to_fp32.py for post-training conversion. "
+            "See: https://github.com/microsoft/DeepSpeed/issues/2450"
+        )
+
     if is_local_process_zero():
         if verbose:
             logger.info(f"TrainingConfig:\n{pformat(config)}")

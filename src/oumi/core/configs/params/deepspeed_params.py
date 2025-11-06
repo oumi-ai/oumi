@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.distributed import get_device_rank_info
+from oumi.utils.logging import logger
 
 
 class ZeRORuntimeStage(str, Enum):
@@ -280,7 +282,7 @@ class DeepSpeedParams(BaseParams):
     wall_clock_breakdown: bool = False
     """Enable detailed wall clock time breakdown logging."""
 
-    def __post_init__(self) -> None:
+    def __finalize_and_validate__(self) -> None:
         """Validate DeepSpeed configuration parameters."""
         # Validate offloading configurations
         if (
@@ -300,6 +302,22 @@ class DeepSpeedParams(BaseParams):
             raise ValueError(
                 "Optimizer offloading requires ZeRO stage 1, 2, or 3. "
                 f"Current stage: {self.zero_stage}"
+            )
+
+        # Check for potential multi-node DeepSpeed ZeRO-3 saving issue early
+        if (
+            self.is_zero3_enabled()
+            and self.stage3_gather_16bit_weights_on_model_save
+            and get_device_rank_info().world_size
+            > get_device_rank_info().local_world_size
+        ):
+            logger.warning(
+                "⚠️  Multi-node DeepSpeed ZeRO-3 model saving detected with "
+                "stage3_gather_16bit_weights_on_model_save=True. This can cause hangs "
+                "during weight gathering across nodes. Consider setting "
+                "stage3_gather_16bit_weights_on_model_save=False and using "
+                "zero_to_fp32.py for post-training conversion. "
+                "See: https://github.com/microsoft/DeepSpeed/issues/2450"
             )
 
     def to_deepspeed(self) -> dict[str, Any]:

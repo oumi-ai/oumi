@@ -86,7 +86,7 @@ class TrainingConfig(BaseConfig):
     :class:`oumi.core.configs.params.deepspeed_params.DeepSpeedParams`.
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if self.model.compile:
             raise ValueError(

@@ -139,7 +139,7 @@ class DatasetParams(BaseParams):
     The parameter is only supported for Map (non-iterable) datasets.
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
         if self.sample_count is not None:
             if self.sample_count < 0:
@@ -258,7 +258,7 @@ class DatasetSplitParams(BaseParams):
     If set to `None`, this setting may be auto-inferred.
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(

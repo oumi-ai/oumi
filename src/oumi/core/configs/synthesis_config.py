@@ -52,7 +52,7 @@ class SynthesisConfig(BaseConfig):
     num_samples: int = 1
     """The number of synthetic samples to generate."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if self.strategy == SynthesisStrategy.GENERAL:
             pass

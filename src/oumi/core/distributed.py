@@ -18,7 +18,7 @@ import os
 import random
 from contextlib import contextmanager
 from datetime import timedelta
-from typing import NamedTuple, Optional, TypeVar, Union, cast
+from typing import TYPE_CHECKING, NamedTuple, Optional, TypeVar, Union, cast
 
 import numpy as np
 import torch
@@ -35,7 +35,9 @@ from torch.distributed.fsdp.wrap import (
 from torch.nn.parallel import DistributedDataParallel
 
 from oumi.core.configs.params.fsdp_params import AutoWrapPolicy
-from oumi.core.configs.training_config import TrainingConfig
+
+if TYPE_CHECKING:
+    from oumi.core.configs.training_config import TrainingConfig
 from oumi.utils.logging import logger
 from oumi.utils.torch_naming_heuristics import (
     resolve_transformer_layer_cls_string_as_module_set,
@@ -53,7 +55,7 @@ class DeviceRankInfo(NamedTuple):
     local_rank: int
 
 
-def _get_use_orig_params(config: TrainingConfig) -> bool:
+def _get_use_orig_params(config: "TrainingConfig") -> bool:
     """Returns whether to use the PyTorch Module's original parameters for FSDP.
 
     If the user specified a value, return that. Else, infer its value based on other
@@ -313,7 +315,7 @@ def cleanup_distributed():
 #
 def prepare_model_for_distributed(
     model: torch.nn.Module,
-    config: TrainingConfig,
+    config: "TrainingConfig",
     ddp_find_unused_parameters: Optional[bool] = None,
 ) -> torch.nn.Module:
     """Wrap the model for distributed training (DDP, FSDP, or DeepSpeed).
@@ -448,7 +450,7 @@ def prepare_model_for_distributed(
 #
 # DeepSpeed utilities
 #
-def is_deepspeed_zero3_enabled(config: TrainingConfig) -> bool:
+def is_deepspeed_zero3_enabled(config: "TrainingConfig") -> bool:
     """Check if DeepSpeed ZeRO-3 is enabled in the configuration.
 
     Args:
@@ -460,7 +462,7 @@ def is_deepspeed_zero3_enabled(config: TrainingConfig) -> bool:
     return config.deepspeed.is_zero3_enabled()
 
 
-def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> Union[str, dict]:
+def get_deepspeed_config_path_or_dict(config: "TrainingConfig") -> Union[str, dict]:
     """Get DeepSpeed configuration as file path or dictionary.
 
     Args:
@@ -475,7 +477,7 @@ def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> Union[str, dict
         return config.deepspeed.to_deepspeed()
 
 
-def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
+def get_accelerate_env_vars(config: "TrainingConfig") -> dict[str, str]:
     """Gets environment vars for FSDP Accelerate corresponding to Oumi training params.
 
     This mimics the environment variables set here:
@@ -530,7 +532,7 @@ def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
     return env_vars
 
 
-def prepare_accelerate_fsdp_run(config: TrainingConfig) -> dict[str, str]:
+def prepare_accelerate_fsdp_run(config: "TrainingConfig") -> dict[str, str]:
     """Prepares our FSDP training job to run with the HuggingFace Accelerate library.
 
     This function should be run if we didn't invoke the current training job from the

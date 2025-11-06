@@ -72,6 +72,6 @@ class EvaluationConfig(BaseConfig):
     output_dir: str = "output"
     """Where to write computed evaluations."""
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
         self.run_name = sanitize_run_name(self.run_name)

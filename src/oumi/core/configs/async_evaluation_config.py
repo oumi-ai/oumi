@@ -45,7 +45,7 @@ class AsyncEvaluationConfig(BaseConfig):
     model checkpoint to evaluate. Defaults to 5. Cannot be negative.
     """
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies/populates params."""
         if self.polling_interval < 0:
             raise ValueError("`polling_interval` must be non-negative.")
