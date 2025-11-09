@@ -17,6 +17,7 @@ import inspect
 import time
 from dataclasses import fields
 from datetime import datetime
+from pprint import pformat
 from typing import Any, Callable, Optional, Union
 
 from oumi.builders.inference_engines import build_inference_engine
@@ -27,7 +28,7 @@ from oumi.core.configs import (
     LMHarnessTaskParams,
 )
 from oumi.core.configs.params.evaluation_params import EvaluationBackend
-from oumi.core.distributed import is_world_process_zero
+from oumi.core.distributed import is_local_process_zero, is_world_process_zero
 from oumi.core.evaluation.backends.alpaca_eval import evaluate as evaluate_alpaca_eval
 from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_harness
 from oumi.core.evaluation.evaluation_result import EvaluationResult
@@ -35,6 +36,7 @@ from oumi.core.evaluation.utils.platform_prerequisites import check_prerequisite
 from oumi.core.evaluation.utils.save_utils import save_evaluation_output
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.registry import REGISTRY
+from oumi.utils.logging import logger
 
 _EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME = "inference_engine"
 _EVALUATION_FN_TASK_PARAMS_INPUT_PARAM_NAME = "task_params"
@@ -49,6 +51,9 @@ RESERVED_KEYS = {
     _EVALUATION_FN_TASK_PARAMS_INPUT_PARAM_NAME,
     _EVALUATION_FN_CONFIG_INPUT_PARAM_NAME,
 }
+
+# Track which config objects we've already logged to prevent duplicates.
+_LOGGED_CONFIG_IDS: set[int] = set()
 
 
 class Evaluator:
@@ -85,6 +90,13 @@ class Evaluator:
         Returns:
             List of evaluation results (one per task, in the same order with `tasks`).
         """
+        # Log config once per object
+        if is_local_process_zero():
+            config_id = id(config)
+            if config_id not in _LOGGED_CONFIG_IDS:
+                _LOGGED_CONFIG_IDS.add(config_id)
+                logger.info(f"EvaluationConfig:\n{pformat(config)}")
+
         # Create a copy of the evaluation config, without tasks, so that there is no
         # redundant information in the `config` input parameter of `self.evaluate_task`.
         config_without_tasks = copy.deepcopy(config)

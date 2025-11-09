@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pprint import pformat
 from typing import Optional
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import InferenceConfig, InferenceEngineType
+from oumi.core.distributed import is_local_process_zero
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import (
     ContentItem,
@@ -26,6 +28,9 @@ from oumi.core.types.conversation import (
 )
 from oumi.utils.logging import logger
 
+# Track which config objects we've already logged to prevent duplicates.
+_LOGGED_CONFIG_IDS: set[int] = set()
+
 
 def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
     """Returns the inference engine based on the provided config."""
@@ -33,6 +38,14 @@ def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
         logger.warning(
             "No inference engine specified. Using the default 'native' engine."
         )
+
+    # Log config once per object
+    if is_local_process_zero():
+        config_id = id(config)
+        if config_id not in _LOGGED_CONFIG_IDS:
+            _LOGGED_CONFIG_IDS.add(config_id)
+            logger.info(f"InferenceConfig:\n{pformat(config)}")
+
     return build_inference_engine(
         engine_type=config.engine or InferenceEngineType.NATIVE,
         model_params=config.model,
