@@ -78,6 +78,7 @@ Note:
 
 from oumi.core.configs.analyze_config import (
     AnalyzeConfig,
+    DatasetSource,
     SampleAnalyzerParams,
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
@@ -122,6 +123,26 @@ from oumi.core.configs.params.peft_params import (
 )
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.configs.params.synthesis_params import (
+    AttributeCombination,
+    DocumentSegmentationParams,
+    DocumentSource,
+    ExampleSource,
+    GeneralSynthesisParams,
+    GeneratedAttribute,
+    GeneratedAttributePostprocessingParams,
+    SampledAttribute,
+    SampledAttributeValue,
+    SegmentationStrategy,
+    TextConversation,
+    TextMessage,
+    TransformationStrategy,
+    TransformationType,
+    TransformedAttribute,
+)
+from oumi.core.configs.params.synthesis_params import (
+    DatasetSource as DatasetSourceParam,
+)
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.core.configs.params.training_params import (
     MixedPrecisionDtype,
@@ -129,9 +150,14 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.core.configs.params.tuning_params import (
+    TunerType,
+    TuningParams,
+)
 from oumi.core.configs.quantization_config import QuantizationConfig
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.configs.training_config import TrainingConfig
+from oumi.core.configs.tuning_config import TuningConfig
 
 __all__ = [
     "AlpacaEvalTaskParams",
@@ -144,6 +170,7 @@ __all__ = [
     "DatasetSplit",
     "DatasetSplitParams",
     "AnalyzeConfig",
+    "DatasetSource",
     "SampleAnalyzerParams",
     "EvaluationTaskParams",
     "EvaluationConfig",
@@ -180,4 +207,23 @@ __all__ = [
     "TrainerType",
     "TrainingConfig",
     "TrainingParams",
+    "TunerType",
+    "TuningConfig",
+    "TuningParams",
+    "AttributeCombination",
+    "DatasetSourceParam",
+    "DocumentSegmentationParams",
+    "DocumentSource",
+    "ExampleSource",
+    "GeneratedAttributePostprocessingParams",
+    "GeneralSynthesisParams",
+    "GeneratedAttribute",
+    "SampledAttribute",
+    "SampledAttributeValue",
+    "SegmentationStrategy",
+    "TextConversation",
+    "TextMessage",
+    "TransformationStrategy",
+    "TransformationType",
+    "TransformedAttribute",
 ]

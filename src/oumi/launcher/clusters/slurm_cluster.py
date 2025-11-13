@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
-from oumi.launcher.clients.slurm_client import SlurmClient
+from oumi.launcher.clients.slurm_client import SlurmClient, SlurmLogStream
 from oumi.utils.logging import logger
 
 _OUMI_SLURM_CONNECTIONS = "OUMI_SLURM_CONNECTIONS"
@@ -266,7 +266,7 @@ class SlurmCluster(BaseCluster):
             str(script_path),
             str(remote_working_dir),
             job.num_nodes,
-            job_name,
+            name=job_name,
         )
         max_retries = 3
         wait_time = 5
@@ -288,3 +288,17 @@ class SlurmCluster(BaseCluster):
     def down(self) -> None:
         """This is a no-op for Slurm clusters."""
         pass
+
+    def get_logs_stream(
+        self, cluster_name: str, job_id: Optional[str] = None
+    ) -> SlurmLogStream:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
+
+        Returns:
+            A SlurmLogStream object that can be used to read the logs.
+        """
+        return self._client.get_logs_stream(cluster_name, job_id)

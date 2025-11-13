@@ -13,6 +13,7 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
+from oumi.core.configs.params.gkd_params import GkdParams
 
 
 def test_train_basic():
@@ -237,6 +238,62 @@ def test_train_kto():
                     "remove_unused_columns": False,
                     "desirable_weight": 0.8,
                 },
+            ),
+        )
+
+        train(config)
+
+
+def test_train_gkd():
+    """Test GKD (Generalized Knowledge Distillation) training workflow."""
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        output_training_dir = str(pathlib.Path(output_temp_dir) / "train")
+        config: TrainingConfig = TrainingConfig(
+            data=DataParams(
+                train=DatasetSplitParams(
+                    datasets=[
+                        DatasetParams(
+                            dataset_name="debug_sft",
+                            dataset_kwargs={
+                                "dataset_size": 5,
+                                "return_conversations": True,
+                                "return_conversations_format": "dict",
+                            },
+                        )
+                    ],
+                ),
+            ),
+            model=ModelParams(
+                # Small student model for fast testing
+                model_name="HuggingFaceTB/SmolLM2-135M-Instruct",
+                model_max_length=512,
+                trust_remote_code=True,
+            ),
+            training=TrainingParams(
+                per_device_train_batch_size=1,
+                trainer_type=TrainerType.TRL_GKD,
+                max_steps=2,
+                logging_steps=1,
+                log_model_summary=False,
+                enable_wandb=False,
+                enable_tensorboard=False,
+                enable_mlflow=False,
+                output_dir=output_training_dir,
+                try_resume_from_last_checkpoint=False,
+                save_final_model=False,
+                gkd=GkdParams(
+                    # Small teacher model for fast testing
+                    teacher_model_name_or_path="HuggingFaceTB/SmolLM2-360M-Instruct",
+                    teacher_model_init_kwargs={
+                        "attn_implementation": "sdpa",
+                    },
+                    temperature=0.9,
+                    lmbda=0.5,
+                    beta=0.5,
+                    max_new_tokens=128,
+                    disable_dropout=True,
+                    seq_kd=False,
+                ),
             ),
         )
 

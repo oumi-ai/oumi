@@ -18,13 +18,18 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import jsonlines
+import pandas as pd
 import pytest
 
-from oumi.core.configs import AnalyzeConfig
+from oumi.core.configs.analyze_config import (
+    AnalyzeConfig,
+    DatasetSource,
+)
 from oumi.core.datasets import BaseMapDataset
 from oumi.datasets import TextSftJsonLinesDataset, VLJsonlinesDataset
 from oumi.utils.analysis_utils import (
     build_tokenizer_from_config,
+    compute_statistics,
     load_dataset_from_config,
 )
 
@@ -182,9 +187,12 @@ def test_load_dataset_from_config_success(
 def test_load_dataset_from_config_missing_dataset_name():
     """Test error handling when dataset_name is not provided."""
     with pytest.raises(
-        ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
+        ValueError,
+        match="Either 'dataset_name' or 'dataset_path' must be provided when "
+        "dataset_source=DatasetSource.CONFIG",
     ):
         AnalyzeConfig(
+            dataset_source=DatasetSource.CONFIG,  # Required field
             dataset_name=None,
             dataset_path=None,
             split="train",
@@ -453,3 +461,67 @@ def test_load_custom_dataset_directory_path():
             ValueError, match="Dataset path must be a file, not a directory"
         ):
             load_dataset_from_config(config)
+
+
+def test_compute_statistics_empty_series():
+    """Test compute_statistics with empty pandas Series."""
+    empty_series = pd.Series([], dtype=float)
+    result = compute_statistics(empty_series)
+
+    expected = {
+        "count": 0,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0,
+        "max": 0,
+        "median": 0.0,
+    }
+    assert result == expected
+
+
+def test_compute_statistics_single_value():
+    """Test compute_statistics with single value (edge case for NaN std)."""
+    single_series = pd.Series([42.5])
+    result = compute_statistics(single_series)
+
+    expected = {
+        "count": 1,
+        "mean": 42.5,
+        "std": 0.0,  # Standard deviation is 0 for single value
+        "min": 42.5,
+        "max": 42.5,
+        "median": 42.5,
+    }
+    assert result == expected
+
+
+def test_compute_statistics_multiple_values():
+    """Test compute_statistics with multiple values."""
+    series = pd.Series([1, 2, 3, 4, 5])
+    result = compute_statistics(series)
+
+    expected = {
+        "count": 5,
+        "mean": 3.0,
+        "std": 1.58,
+        "min": 1,
+        "max": 5,
+        "median": 3.0,
+    }
+    assert result == expected
+
+
+def test_compute_statistics_multiple_values_with_precision():
+    """Test compute_statistics with multiple values and custom decimal precision."""
+    series = pd.Series([1.1, 2.2, 3.3, 4.4, 5.5])
+    result = compute_statistics(series, decimal_precision=1)
+
+    expected = {
+        "count": 5,
+        "mean": 3.3,
+        "std": 1.7,
+        "min": 1.1,
+        "max": 5.5,
+        "median": 3.3,
+    }
+    assert result == expected

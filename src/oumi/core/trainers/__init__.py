@@ -31,11 +31,13 @@ Note:
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.core.trainers.hf_trainer import HuggingFaceTrainer
 from oumi.core.trainers.oumi_trainer import Trainer
+from oumi.core.trainers.trl_dpo_trainer import TrlDpoTrainer
 from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
 
 __all__ = [
     "BaseTrainer",
     "HuggingFaceTrainer",
     "Trainer",
+    "TrlDpoTrainer",
     "VerlGrpoTrainer",
 ]

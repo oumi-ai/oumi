@@ -41,7 +41,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] hf_transfer
+  pip install uv && uv pip install --system oumi[gpu] hf_transfer
   # Download the model from HF.
   # We exclude original/* because it contains two redundant copies of the model weights.
   HF_HUB_ENABLE_HF_TRANSFER=1 hf download meta-llama/Llama-3.1-405B-Instruct --exclude original/*

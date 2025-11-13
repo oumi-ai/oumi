@@ -77,7 +77,6 @@ def test_scratch_file_creation_and_cleanup(mock_engine):
         )
 
         conversations = [create_test_conversation(1)]
-        scratch_path = Path(temp_dir) / "scratch" / "output.jsonl"
 
         # Run inference with a patched _cleanup_scratch_file to prevent cleanup
         with patch.object(mock_engine, "_cleanup_scratch_file") as mock_cleanup:
@@ -85,6 +84,9 @@ def test_scratch_file_creation_and_cleanup(mock_engine):
                 input=conversations,
                 inference_config=inference_config,
             )
+
+            # Get the actual scratch path used by the engine
+            scratch_path = Path(mock_engine._get_scratch_filepath(output_path))
 
             # Verify scratch file was created and exists
             assert scratch_path.exists(), "Scratch file should exist after inference"
@@ -117,8 +119,6 @@ def test_infer_no_resume_from_scratch_on_success(mock_engine):
             create_test_conversation(2),
         ]
 
-        scratch_path = Path(temp_dir) / "scratch" / "output.jsonl"
-
         with patch.object(
             mock_engine,
             "_infer_online",
@@ -137,7 +137,8 @@ def test_infer_no_resume_from_scratch_on_success(mock_engine):
                 # Verify scratch file was created and saved to
                 assert mock_save.called
 
-            # Verify scratch file was cleaned up after first inference
+            # Get scratch path and verify it was cleaned up after first inference
+            scratch_path = Path(mock_engine._get_scratch_filepath(output_path))
             assert not scratch_path.exists()
 
             # Process all conversations
@@ -175,7 +176,8 @@ def test_infer_no_resume_from_scratch_on_success(mock_engine):
                 ]
             )
 
-            # Verify scratch file was cleaned up after final inference
+            # Get scratch path and verify it was cleaned up after final inference
+            scratch_path = Path(mock_engine._get_scratch_filepath(output_path))
             assert not scratch_path.exists()
 
 
@@ -193,8 +195,6 @@ def test_infer_resume_from_scratch_on_failure(mock_engine):
             create_test_conversation(1),
             create_test_conversation(2),
         ]
-
-        scratch_path = Path(temp_dir) / "scratch" / "output.jsonl"
 
         # Run inference which fails on the second conversation
         def mock_infer_online(input_convs, config):
@@ -231,7 +231,8 @@ def test_infer_resume_from_scratch_on_failure(mock_engine):
                     inference_config=inference_config,
                 )
 
-            # Verify scratch file exists and contains first conversation
+            # Get scratch path and verify it exists and contains first conversation
+            scratch_path = Path(mock_engine._get_scratch_filepath(output_path))
             assert scratch_path.exists()
 
             # Verify infer_online was called with both conversations
@@ -269,7 +270,8 @@ def test_infer_resume_from_scratch_on_failure(mock_engine):
             assert len(results[0].messages) == 2
             assert len(results[1].messages) == 2
 
-            # Verify that the scratch file was cleaned up
+            # Get the actual scratch path and verify that it was cleaned up
+            scratch_path = Path(mock_engine._get_scratch_filepath(output_path))
             assert not scratch_path.exists()
 
             # Verify that infer_online was called with only the second conversation
@@ -331,8 +333,8 @@ def test_scratch_file_handling_with_errors(mock_engine):
                     inference_config=inference_config,
                 )
 
-        # Verify scratch file was cleaned up despite the error
-        scratch_path = Path(temp_dir) / "scratch" / "output.jsonl"
+        # Get the actual scratch path and verify it was cleaned up despite the error
+        scratch_path = Path(mock_engine._get_scratch_filepath(output_path))
         assert not scratch_path.exists()
 
 
@@ -345,10 +347,10 @@ def test_empty_scratch_file(mock_engine):
             generation=GenerationParams(max_new_tokens=10),
         )
 
-        # Create scratch directory and empty file
-        scratch_path = Path(temp_dir) / "scratch"
-        scratch_path.mkdir(parents=True)
-        (scratch_path / "output.jsonl").touch()
+        # Create scratch directory and empty file using the engine's actual path
+        actual_scratch_path = Path(mock_engine._get_scratch_filepath(output_path))
+        actual_scratch_path.parent.mkdir(parents=True, exist_ok=True)
+        actual_scratch_path.touch()
 
         conversations = [create_test_conversation(1)]
 
@@ -375,11 +377,14 @@ def test_full_scratch_file(mock_engine):
 
         conversations = [create_test_conversation(1)]
 
-        # Create scratch directory and file with all conversations
-        scratch_path = Path(temp_dir) / "scratch"
-        scratch_path.mkdir(parents=True)
-        (scratch_path / "output.jsonl").touch()
-        with jsonlines.open(scratch_path / "output.jsonl", "w") as writer:
+        # Create scratch file with all conversations using engine's actual path
+        mock_engine._dataset_hash = (
+            "8a03cc24121fd45c48ee2950b404ff17f66caa7a04284cd9b8b7aab9cf63996e"
+        )
+        actual_scratch_path = Path(mock_engine._get_scratch_filepath(output_path))
+        actual_scratch_path.parent.mkdir(parents=True, exist_ok=True)
+        actual_scratch_path.touch()
+        with jsonlines.open(actual_scratch_path, "w") as writer:
             writer.write(conversations[0].to_dict())
 
         # Run inference
@@ -444,8 +449,8 @@ def test_final_conversations_saved_to_output_file(mock_engine):
             assert saved_conv.messages[1].role == Role.ASSISTANT
             assert saved_conv.messages[1].content == f"Mock response {i}"
 
-        # Verify that scratch file was cleaned up
-        scratch_path = Path(temp_dir) / "scratch" / "output.jsonl"
+        # Get the actual scratch path and verify that it was cleaned up
+        scratch_path = Path(mock_engine._get_scratch_filepath(output_path))
         assert not scratch_path.exists(), (
             "Scratch file should be cleaned up after successful inference"
         )

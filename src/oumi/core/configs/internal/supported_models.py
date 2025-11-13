@@ -292,6 +292,38 @@ def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
     return config
 
 
+def _create_qwen3_vl_vlm_config() -> InternalModelConfig:
+    config = _create_default_vlm_config(
+        pixel_values_variable_shape=True,
+        supports_multiple_images=True,
+    )
+    config.chat_template = "qwen3-vl-instruct"
+    # FIXME OPE-946 Consider updating to "right":
+    # config.padding_side = InternalPaddingSide.PAD_RIGHT
+    config.model_input_features.update(
+        {
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
+                required=True,
+                variable_shape=False,
+                image_dependent=True,
+            )
+            for feature_name in ("image_grid_thw",)
+        }
+    )
+    config.processor_kwargs.update(
+        # Defaults per Qwen3-VL:
+        # https://github.com/QwenLM/Qwen3-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py
+        {
+            "min_pixels": 4 * 28 * 28,
+            "max_pixels": 16384 * 28 * 28,
+            "patch_size": 16,
+        }
+    )
+
+    return config
+
+
 def _create_phi3_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
         pixel_values_variable_shape=True,
@@ -530,6 +562,12 @@ def get_all_models_map() -> Mapping[
             model_class=default_vlm_class,
             tested=True,
             config=_create_qwen2_5_vl_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="qwen3_vl",
+            model_class=default_vlm_class,
+            tested=True,
+            config=_create_qwen3_vl_vlm_config(),
         ),
         _ModelTypeInfo(
             model_type="vipllava",

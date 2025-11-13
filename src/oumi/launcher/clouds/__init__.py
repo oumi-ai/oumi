@@ -34,6 +34,7 @@ Note:
 
 from oumi.launcher.clouds.frontier_cloud import FrontierCloud
 from oumi.launcher.clouds.local_cloud import LocalCloud
+from oumi.launcher.clouds.perlmutter_cloud import PerlmutterCloud
 from oumi.launcher.clouds.polaris_cloud import PolarisCloud
 from oumi.launcher.clouds.sky_cloud import SkyCloud
 from oumi.launcher.clouds.slurm_cloud import SlurmCloud
@@ -45,6 +46,7 @@ logging.configure_dependency_warnings()
 __all__ = [
     "FrontierCloud",
     "LocalCloud",
+    "PerlmutterCloud",
     "PolarisCloud",
     "SkyCloud",
     "SlurmCloud",

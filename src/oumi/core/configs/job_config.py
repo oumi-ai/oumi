@@ -53,13 +53,18 @@ class JobResources:
     """The cloud used to run the job (required).
 
     Options:
+        Major cloud providers:
         - aws: Amazon Web Services
         - azure: Microsoft Azure
         - gcp: Google Cloud Platform
         - lambda: Lambda Cloud
-        - local: The local machine launching the job
-        - polaris: The Polaris cluster at Argonne National Laboratory
         - runpod: RunPod
+        Research clusters (not intended for general use):
+        - polaris: The Polaris cluster at Argonne National Laboratory
+        - frontier: The Frontier cluster at Oak Ridge National Laboratory
+        - perlmutter: The Perlmutter cluster at Lawrence Berkeley National Laboratory
+        Other clouds:
+        - local: The local machine launching the job
     """
 
     region: Optional[str] = None
@@ -120,6 +125,19 @@ class JobResources:
 
     You can specify a docker by using the format `docker:<image_id>`.
     This field is not applicable for all clouds.
+
+    Overrides image_id_map if both are specified.
+    """
+
+    image_id_map: Optional[dict[str, str]] = None
+    """The image id map used to boot the instances (optional).
+    Map is in the form of {region: image_id}.
+
+    You can specify a docker by using the format `docker:<image_id>`.
+    This field is not applicable for all clouds. Recommended for AMI based clouds for
+    multiple region support.
+
+    Overridden by image_id if both are specified.
     """
 
 

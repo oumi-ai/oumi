@@ -21,7 +21,7 @@ from oumi.core.configs.params.synthesis_params import (
     DocumentSource,
     ExampleSource,
     GeneralSynthesisParams,
-    PermutableAttribute,
+    SampledAttribute,
 )
 from oumi.core.synthesis.dataset_ingestion import DatasetReader
 from oumi.core.synthesis.document_ingestion import DocumentReader, DocumentSegmenter
@@ -84,7 +84,7 @@ class DatasetPlanner:
         )
 
         permutable_attribute_samples = self._plan_permutable_attributes(
-            synthesis_params.permutable_attributes,
+            synthesis_params.sampled_attributes,
             synthesis_params.combination_sampling,
             sample_count,
         )
@@ -171,18 +171,46 @@ class DatasetPlanner:
             records = []
             path = document_source.path
             documents = self._document_reader.read(path)
+            non_empty_documents = [
+                document
+                for document in documents
+                if document and document.strip() != ""
+            ]
+            if not non_empty_documents:
+                raise ValueError(
+                    "No non-empty documents were found in the document source, "
+                    "please check the document source."
+                )
+
             if document_source.segmentation_params is None:
-                for document in documents:
+                for document in non_empty_documents:
                     records.append({document_source.id: document})
             else:
                 segmenter = DocumentSegmenter(document_source.segmentation_params)
-                for document in documents:
+                for document in non_empty_documents:
                     segments = segmenter.segment(document)
-                    for segment in segments:
+                    non_empty_segments = [
+                        segment
+                        for segment in segments
+                        if segment and segment.strip() != ""
+                    ]
+
+                    if not non_empty_segments:
+                        raise ValueError(
+                            "Document segmentation returned only empty segments."
+                        )
+
+                    for segment in non_empty_segments:
                         record = {document_source.segmentation_params.id: segment}
                         if document_source.segmentation_params.keep_original_text:
                             record[document_source.id] = document
                         records.append(record)
+
+            if not records:
+                raise ValueError(
+                    "No records were created from document source, check to ensure "
+                    "that at least one document is not empty."
+                )
 
             per_source_records.append(records)
 
@@ -190,7 +218,7 @@ class DatasetPlanner:
 
     def _plan_permutable_attributes(
         self,
-        permutable_attributes: Optional[list[PermutableAttribute]],
+        permutable_attributes: Optional[list[SampledAttribute]],
         combination_sampling: Optional[list[AttributeCombination]],
         sample_count: int,
     ) -> list[dict]:
