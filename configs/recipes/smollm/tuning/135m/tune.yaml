@@ -1,7 +1,7 @@
 # Tuning config for SmolLM 135M Instruct.
 #
 # Usage:
-#   oumi tune -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
+#   oumi tune -c configs/recipes/smollm/tuning/135m/tune.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/tune/tune.html
