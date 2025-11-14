@@ -225,12 +225,31 @@ class AdaptiveConcurrencyController:
 
     async def _try_warmup(self):
         """Try to increase concurrency during warmup."""
-        new_concurrency = min(
-            self._config.max_concurrency,
-            self._current_concurrency + self._config.concurrency_step,
-        )
+        if self._config.use_exponential_scaling:
+            # Exponential scaling: multiply by the configured factor
+            new_concurrency = min(
+                self._config.max_concurrency,
+                int(
+                    self._current_concurrency * self._config.exponential_scaling_factor
+                ),
+            )
+        else:
+            # Linear scaling: add the fixed step size
+            new_concurrency = min(
+                self._config.max_concurrency,
+                self._current_concurrency + self._config.concurrency_step,
+            )
 
         if new_concurrency != self._current_concurrency:
+            logger.info(
+                "Scaling up concurrency from %d to %d (%s mode, factor=%.2f).",
+                self._current_concurrency,
+                new_concurrency,
+                "exponential" if self._config.use_exponential_scaling else "linear",
+                self._config.exponential_scaling_factor
+                if self._config.use_exponential_scaling
+                else self._config.concurrency_step,
+            )
             await self._update_concurrency(new_concurrency)
         else:
             if not self._logged_warmup_warning:
