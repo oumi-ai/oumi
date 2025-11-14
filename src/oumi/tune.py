@@ -16,33 +16,19 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Optional
-
-import torch
+from typing import Any, Optional
 
 from oumi.builders import (
-    build_collator_from_config,
-    build_dataset_mixture,
-    # build_metrics_functions,
-    build_model,
-    build_processor,
-    build_tokenizer,
-    build_trainer,
     build_tuner,
-    is_image_text_llm,
 )
-from oumi.builders.callbacks import build_training_callbacks
-from oumi.builders.models import build_peft_model
 from oumi.core.configs import (
-    DatasetSplit,
+    EvaluationConfig,
+    PeftParams,
+    TrainerType,
+    TrainingConfig,
+    TrainingParams,
     TuningConfig,
 )
-from oumi.core.configs.internal.supported_models import (
-    is_custom_model,
-)
-from oumi.core.configs.params.peft_params import PeftParams
-from oumi.core.configs.params.training_params import TrainerType, TrainingParams
-from oumi.core.configs.training_config import TrainingConfig
 from oumi.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -50,13 +36,8 @@ from oumi.core.distributed import (
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
-    verify_torch_distributed_initialized_if_needed,
 )
-from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.tokenizers import BaseTokenizer
-from oumi.core.trainers.hf_trainer import HuggingFaceTrainer
-from oumi.performance.torch_profiler_utils import torch_profile
-from oumi.train import _ensure_dir_exists
+from oumi.train import _ensure_dir_exists, _log_feedback_request, train
 from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
 )
@@ -66,8 +47,6 @@ from oumi.utils.logging import configure_logger, logger
 from oumi.utils.torch_utils import (
     device_cleanup,
     log_devices_info,
-    log_model_summary,
-    log_number_of_model_parameters,
     log_peak_gpu_memory,
     log_versioning_info,
 )
@@ -109,14 +88,6 @@ def _log_tuning_info(config: TuningConfig) -> None:
             logger.info(f"Git tag: {get_git_tag()}")
 
 
-def _log_feedback_request():
-    """Logs a feedback request for the platform."""
-    logger.info(
-        "\n\n» We're always looking for feedback. "
-        "What's one thing we can improve? https://oumi.ai/feedback"
-    )
-
-
 def tune(
     config: TuningConfig,
     additional_model_kwargs: Optional[dict[str, Any]] = None,
@@ -147,41 +118,6 @@ def tune(
             config.to_yaml(str(config_path))
             logger.info(f"Training config saved to {config_path}")
 
-    # Initialize tokenizer
-    tokenizer: Optional[BaseTokenizer] = None
-    if is_custom_model(config.model.model_name) and not config.model.tokenizer_name:
-        # Keep tokenizer as None for custom models unless `tokenizer_name` is specified.
-        tokenizer = None
-    else:
-        tokenizer = build_tokenizer(config.model)
-
-    # Initialize processor if needed
-    processor: Optional[BaseProcessor] = None
-    if is_image_text_llm(config.model):
-        assert tokenizer is not None
-        processor = build_processor(
-            config.model.model_name,
-            tokenizer,
-            trust_remote_code=config.model.trust_remote_code,
-            processor_kwargs=config.model.processor_kwargs,
-        )
-
-    # Load datasets
-    train_dataset = build_dataset_mixture(
-        config.data,
-        tokenizer,
-        DatasetSplit.TRAIN,
-        seq_length=config.model.model_max_length,
-    )
-
-    # Eval dataset is required for hyperparameter tuning
-    eval_dataset = build_dataset_mixture(
-        config.data,
-        tokenizer,
-        DatasetSplit.VALIDATION,
-        seq_length=config.model.model_max_length,
-    )
-
     # metrics_functions = build_metrics_functions(config.tuning)
     tuner = build_tuner(config.tuning)
 
@@ -203,6 +139,7 @@ def tune(
             )
         )
         trial_training_params = TrainingParams(**training_params)
+        trial_training_params.trainer_type = TrainerType.TRL_SFT
 
         # Merged suggested and fixed PEFT params
         peft_params = {
@@ -218,116 +155,93 @@ def tune(
             peft=trial_peft_params,
         )
 
-        # Build model for this trial
-        use_peft = trial_training_params.use_peft
-
-        model = build_model(
-            model_params=config.model,
-            peft_params=trial_peft_params if use_peft else None,
+        # Trains model for this trial
+        # TODO: This could be a boolean, but I think for the future a dict like this is
+        # good.
+        eval_results = train(
+            trial_train_config, additional_tuning_kwargs={"some_variable": True}
         )
-        if use_peft:
-            logger.info("Building PEFT model...")
-            model = build_peft_model(
-                model,
-                trial_training_params.enable_gradient_checkpointing,
-                trial_peft_params,
+
+        # TODO: Add better support for tuning with custom evaluations results
+        #  there should be a better way to do this other then reloading
+        #  everything post-training.
+        custom_results = {}
+        if config.tuning.custom_eval_metrics:
+            # Delayed import in case the user needs custom evaluations
+            from oumi.core.configs import EvaluationTaskParams
+            from oumi.core.configs.params.evaluation_params import EvaluationBackend
+            from oumi.core.configs.params.generation_params import GenerationParams
+            from oumi.evaluate import evaluate
+
+            task_names = config.tuning.custom_eval_metrics
+            # Build EvaluationConfig mirroring training configuration
+            eval_model_params = trial_train_config.model
+            # Load the just-saved fine-tuned model from output_dir
+            eval_model_params.model_name = trial_train_config.training.output_dir
+
+            eval_tasks = [
+                EvaluationTaskParams(
+                    evaluation_backend=EvaluationBackend.CUSTOM.value,
+                    task_name=task_name,
+                )
+                for task_name in task_names
+            ]
+
+            generation = GenerationParams(
+                batch_size=(
+                    trial_train_config.training.per_device_eval_batch_size or 1
+                ),
+                seed=trial_train_config.training.seed,
+                max_new_tokens=(
+                    eval_model_params.model_max_length
+                    if eval_model_params.model_max_length
+                    else 1024
+                ),
             )
 
-        # Create trainer with suggested parameters
-        create_trainer_fn = build_trainer(
-            config.tuning.trainer_type, processor=processor, verbose=verbose
+            eval_output_dir = str(
+                Path(trial_train_config.training.output_dir) / "custom_eval"
+            )
+
+            eval_config = EvaluationConfig(
+                tasks=eval_tasks,
+                model=eval_model_params,
+                generation=generation,
+                run_name=trial_train_config.training.run_name,
+                enable_wandb=trial_train_config.training.enable_wandb,
+                output_dir=eval_output_dir,
+            )
+
+            device_cleanup()
+            task_results = evaluate(eval_config)
+            # Unpack result metrics
+            custom_results = {
+                task_name: task_result[task_name]
+                for task_name, task_result in zip(task_names, task_results)
+            }
+
+        if not eval_results:
+            logger.error(
+                "Eval results needs to be an dictionary of metrics, "
+                "for tune to work correctly"
+            )
+            raise
+
+        logger.info(
+            f"Trial {trial_number} finished. Evaluation results: {eval_results}"
         )
 
-        if is_local_process_zero():
-            log_number_of_model_parameters(model)
-            if trial_training_params.log_model_summary:
-                log_model_summary(
-                    model,
-                    telemetry_dir / "model_summary.txt" if telemetry_dir else None,
-                )
+        output_metrics_dict = {}
+        metrics_list = list(config.tuning.evaluation_metrics)
+        if config.tuning.custom_eval_metrics:
+            metrics_list.extend(config.tuning.custom_eval_metrics)
+        for metric in metrics_list:
+            if metric in eval_results:
+                output_metrics_dict[metric] = eval_results[metric]
+            elif metric in custom_results:
+                output_metrics_dict[metric] = custom_results[metric]
 
-        collator: Optional[Callable] = build_collator_from_config(
-            trial_train_config, tokenizer, debug=config.tuning.log_examples
-        )
-
-        # trl's SFTTrainer has its own dataset processing code. We should skip it if
-        # the dataset is already processed, i.e. it's tokenized and has an `input_ids`
-        # field. This generally occurs if the dataset is:
-        # 1. In the Oumi registry and thus is processed by the `BasePretrainingDataset`
-        # or `BaseSftDataset` classes
-        # 2. Packing is requested, and thus is processed by the
-        # `PretrainingAsyncTextDataset` class
-        # See OPE-1108 for more details.
-        if trial_training_params.trainer_type == TrainerType.TRL_SFT:
-            example = next(iter(train_dataset))
-            if "input_ids" in example:
-                logger.info(
-                    "Skipping dataset preparation for TRL_SFT trainer"
-                    "since the dataset is already processed."
-                )
-                if "dataset_kwargs" not in trial_training_params.trainer_kwargs:
-                    trial_training_params.trainer_kwargs["dataset_kwargs"] = {}
-                # Skip preparing dataset if `skip_prepare_dataset` isn't already set.
-                if (
-                    "skip_prepare_dataset"
-                    not in trial_training_params.trainer_kwargs["dataset_kwargs"]
-                ):
-                    trial_training_params.trainer_kwargs["dataset_kwargs"][
-                        "skip_prepare_dataset"
-                    ] = True
-
-        _ensure_dir_exists(
-            trial_training_params.output_dir, "trial_{trial_number}.train.output_dir"
-        )
-        device_cleanup()
-        with torch_profile(
-            trial_training_params.profiler,
-            training_output_dir=trial_training_params.output_dir,
-            record_function_name="oumi.tune",
-        ) as profiler:
-            with torch.profiler.record_function("create_trainer"):
-                callbacks = build_training_callbacks(
-                    trial_train_config,
-                    model,
-                    profiler,
-                )
-
-                trainer = create_trainer_fn(
-                    model=model,
-                    processing_class=tokenizer,
-                    args=trial_training_params,
-                    train_dataset=train_dataset,
-                    eval_dataset=eval_dataset,
-                    callbacks=callbacks,
-                    data_collator=collator,
-                    # compute_metrics=metrics_functions,
-                    **(trial_training_params.trainer_kwargs or {}),
-                )
-                assert isinstance(trainer, HuggingFaceTrainer)
-
-                with torch.profiler.record_function("log_and_verify"):
-                    log_nvidia_gpu_runtime_info(
-                        log_prefix="GPU Metrics Before Training:"
-                    )
-                    verify_torch_distributed_initialized_if_needed()
-
-                # Reclaim memory before training starts.
-                device_cleanup()
-                # Train
-                trainer.train()
-
-                # Save model and training config
-                trainer.save_model(config=trial_train_config)
-                trial_train_config.to_yaml(
-                    Path(trial_training_params.output_dir, "training_config.yaml")
-                )
-
-                # Evaluate and extract metrics
-                eval_results = trainer.get_last_eval_metrics()
-                logger.info(f"Trial {trial_number} Evaluation results: {eval_results}")
-        return {
-            metric: eval_results[metric] for metric in config.tuning.evaluation_metrics
-        }
+        return output_metrics_dict
 
     logger.info(f"Tuning init time: {time.time() - _START_TIME:.3f}s")
     logger.info("Starting hyperparameter tuning...")
@@ -338,9 +252,12 @@ def tune(
         logger.info(f"Best trial: {best_trial}")
     else:
         best_trials = tuner.get_best_trials()
-        logger.info(f"Best trials: {best_trials}")
+        logger.info(f"Best trials: {pformat(best_trials)}")
 
-    logger.info("Tuning is Complete. Saving study results...")
+    logger.info(
+        "Tuning is Complete. Saving study results at "
+        f"{config.tuning.output_dir}/trials_results.csv ..."
+    )
     tuner.save_study(config)
 
     log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics After Tuning:")

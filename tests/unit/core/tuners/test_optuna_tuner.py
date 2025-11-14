@@ -249,17 +249,14 @@ def test_get_best_trial_without_study(tuner):
 
 def test_save_study(tuner, mock_objective_fn, mock_tuning_config, tmp_path):
     """Test saving study results to CSV."""
-    # Crie o diretório de saída
     output_dir = Path(mock_tuning_config.tuning.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Execute o processo de otimização
     tuner.optimize(mock_objective_fn, n_trials=3)
 
-    # Salve os resultados do estudo
     tuner.save_study(mock_tuning_config)
 
-    # Verifique se o arquivo CSV foi criado
+    # Checking the if the csv file creation was sucessfull
     csv_path = output_dir / "trials_results.csv"
     assert csv_path.exists()
     assert csv_path.is_file()

@@ -35,7 +35,7 @@ class OptunaTuner(BaseTuner):
         """Initializes the Optuna based hyperparameter tuner.
 
         Args:
-            tuning_params (TuningParams): _description_
+            tuning_params (TuningParams): the tuning parameters to be used
         """
         super().__init__(tuning_params)
         self._study: optuna.Study

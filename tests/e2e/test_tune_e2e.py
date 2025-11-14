@@ -185,7 +185,7 @@ def _test_tune_impl(
 )
 @pytest.mark.e2e
 @pytest.mark.single_gpu
-def test_tune_1gpu_24gb(
+def test_tune_1gpu_6gb(
     test_config: TuneTestConfig,
     tmp_path: Path,
 ):

@@ -24,6 +24,7 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.core.registry import REGISTRY, RegistryType
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import sanitize_run_name
 
@@ -262,6 +263,13 @@ class TuningParams(BaseParams):
     used.
     """
 
+    custom_eval_metrics: Optional[list[str]] = field(default_factory=list)
+    """Custom evaluation metrics.
+
+    This specifies if the tuner will use user defined evaluation metrics to tune the
+    model parameters.
+    """
+
     def __post_init__(self):
         """Verifies params."""
         if self.logging_dir is None:
@@ -350,6 +358,31 @@ class TuningParams(BaseParams):
             )
 
         self.tuning_study_name = sanitize_run_name(self.tuning_study_name)
+
+        # Validate custom evaluation metrics are registered in Oumi
+        if self.custom_eval_metrics:
+            try:
+                import oumi.evaluation.registry  # noqa: F401
+            except Exception:
+                # Best-effort: continue, REGISTRY decorator may still lazy-load
+                pass
+
+            unknown: list[str] = []
+            for name in self.custom_eval_metrics:
+                if not isinstance(name, str) or not name:
+                    unknown.append(str(name))
+                    continue
+                if REGISTRY.get_evaluation_function(name) is None:
+                    unknown.append(name)
+
+            if unknown:
+                available = sorted(
+                    REGISTRY.get_all(RegistryType.EVALUATION_FUNCTION).keys()
+                )
+                raise ValueError(
+                    "Unregistered custom_eval_metrics detected: "
+                    f"{unknown}. Available evaluation functions: {available}"
+                )
 
     @property
     def telemetry_dir(self) -> Optional[Path]:
