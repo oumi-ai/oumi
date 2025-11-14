@@ -18,7 +18,7 @@ import copy
 import os
 from pathlib import Path
 from pprint import pformat
-from typing import Callable, Optional, Union, cast
+from typing import Any, Callable, Optional, Union, cast
 
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
@@ -522,3 +522,7 @@ class VerlGrpoTrainer(BaseTrainer):
         merger.merge_and_save()
         logger.info(f"Successfully exported model to '{final_dir}'!")
         return True
+
+    def get_last_eval_metrics(self) -> dict[str, Any]:
+        """TODO: This should be implemented in the future to enable verl grpo in the hyper parameters tuning loops."""  # noqa: E501
+        raise NotImplementedError

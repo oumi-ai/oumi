@@ -38,6 +38,7 @@ from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
+from oumi.cli.tune import tune
 from oumi.utils.logging import should_use_rich_logging
 
 _ASCII_LOGO = r"""
@@ -100,6 +101,10 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
     )(train)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Tune the parameters for a model.",
+    )(tune)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Quantize a model.",

@@ -24,7 +24,9 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.core.registry import REGISTRY, RegistryType
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import sanitize_run_name
 
 
 class TunerType(Enum):
@@ -100,6 +102,13 @@ class ParamType(Enum):
 
 @dataclass
 class TuningParams(BaseParams):
+    n_trials: int = field(default_factory=int)
+    """Number of tuning trials to perform.
+
+    This defines how many different hyperparameter configurations will be evaluated
+    during the tuning process.
+    """
+
     tunable_training_params: dict[str, dict] = field(default_factory=dict)
     """Dictionary mapping parameter names to their search spaces.
 
@@ -159,7 +168,7 @@ class TuningParams(BaseParams):
     produced during the tuning process.
     """
 
-    tuning_study_name: str = "tuning-study"
+    tuning_study_name: Optional[str] = "oumi-tuning"
     """A unique identifier for the current tuning run.
 
     This name is used to identify the tuning study in logging outputs, saved model
@@ -215,6 +224,23 @@ class TuningParams(BaseParams):
     This field contains telemetry configuration options.
     """
 
+    load_if_exists: bool = field(default_factory=bool)
+    """Whether to load an existing tuning study if it exists.
+
+    If True, the tuner will attempt to load a previously saved tuning study from disk.
+    If no existing study is found, a new one will be created.
+    """
+
+    storage: Optional[str] = None
+    """The storage URL for the tuning study.
+
+    This can be a database URL (e.g., SQLite, PostgreSQL) or a file path for local
+    storage. If not specified, the study will be stored in memory and will not persist.
+
+    NOTE: In-memory storage does not support loading existing studies later.
+    If something breaks during tuning, all progress will be lost.
+    """
+
     tuner_type: TunerType = TunerType.OPTUNA
     """The type of tuner to use for hyperparameter optimization.
 
@@ -222,15 +248,26 @@ class TuningParams(BaseParams):
         - OPTUNA: Optuna tuner.
     """
 
-    # # # # # # # # # # # # # # # # # #
-    # Training specific parameters
-    # # # # # # # # # # # # # # # # # #
-
     trainer_type: TrainerType = TrainerType.TRL_SFT
     """The type of trainer to use for model training.
     Possible values are:
         - TRL_SFT: TRL's SFT Trainer
         TODO: Add more options in the future.
+    """
+
+    tuner_sampler: Optional[str] = None
+    """The sampler to use for the tuner.
+
+    This is specific to the tuner type. For Optuna, this could be "TPESampler",
+    "RandomSampler", etc. If not specified, the default sampler for the tuner will be
+    used.
+    """
+
+    custom_eval_metrics: Optional[list[str]] = field(default_factory=list)
+    """Custom evaluation metrics.
+
+    This specifies if the tuner will use user defined evaluation metrics to tune the
+    model parameters.
     """
 
     def __post_init__(self):
@@ -319,6 +356,33 @@ class TuningParams(BaseParams):
             ParamType.verify_param_spec(
                 param_name, param_spec, valid_training_params, "PeftParams"
             )
+
+        self.tuning_study_name = sanitize_run_name(self.tuning_study_name)
+
+        # Validate custom evaluation metrics are registered in Oumi
+        if self.custom_eval_metrics:
+            try:
+                import oumi.evaluation.registry  # noqa: F401
+            except Exception:
+                # Best-effort: continue, REGISTRY decorator may still lazy-load
+                pass
+
+            unknown: list[str] = []
+            for name in self.custom_eval_metrics:
+                if not isinstance(name, str) or not name:
+                    unknown.append(str(name))
+                    continue
+                if REGISTRY.get_evaluation_function(name) is None:
+                    unknown.append(name)
+
+            if unknown:
+                available = sorted(
+                    REGISTRY.get_all(RegistryType.EVALUATION_FUNCTION).keys()
+                )
+                raise ValueError(
+                    "Unregistered custom_eval_metrics detected: "
+                    f"{unknown}. Available evaluation functions: {available}"
+                )
 
     @property
     def telemetry_dir(self) -> Optional[Path]:
