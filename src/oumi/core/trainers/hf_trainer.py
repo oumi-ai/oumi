@@ -22,16 +22,57 @@ from oumi.core.configs import TrainingConfig
 from oumi.core.configs.params.peft_params import PeftSaveMode
 from oumi.core.distributed import is_world_process_zero
 from oumi.core.trainers.base_trainer import BaseTrainer
+from oumi.core.trainers.local_trainer import LocalTrainer
 from oumi.utils.logging import logger
 
 
-class HuggingFaceTrainer(BaseTrainer):
+class HuggingFaceTrainer(LocalTrainer):
     def __init__(
         self,
-        hf_trainer: transformers.Trainer,
+        model,
+        tokenizer,
+        config,
+        train_dataset,
+        eval_dataset,
+        callbacks,
+        training_kwargs,
     ):
         """Initializes HuggingFace-specific Trainer version."""
-        self._hf_trainer = hf_trainer
+        super().__init__(
+            model,
+            tokenizer,
+            config,
+            train_dataset,
+            eval_dataset,
+            callbacks,
+            training_kwargs,
+        )
+        # Initialize HuggingFace Trainer
+        kwargs = self.config.training.trainer_kwargs
+        callbacks = kwargs.pop("callbacks", [])
+
+        # if set, convert to HuggingFace Trainer args format
+        training_args = cast(TrainingParams, training_args)
+        hf_args = training_args.to_hf(training_config)
+        if verbose and is_world_process_zero():
+            logger.info(pformat(hf_args))
+        trainer = cls(*args, **kwargs, args=hf_args)
+        if callbacks:
+            # TODO(OPE-250): Define generalizable callback abstraction
+            # Incredibly ugly, but this is the only way to add callbacks that add
+            # metrics to wandb. Transformers trainer has no public method of
+            # allowing us to control the order callbacks are called.
+            training_callbacks = (
+                [transformers.trainer_callback.DefaultFlowCallback]
+                + callbacks
+                # Skip the first callback, which is the DefaultFlowCallback above.
+                + trainer._hf_trainer.callback_handler.callbacks[1:]
+            )
+            trainer._hf_trainer.callback_handler.callbacks = []
+            for c in training_callbacks:
+                trainer._hf_trainer.add_callback(c)
+
+        self.trainer = trainer
 
     def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
         """Trains a model."""
