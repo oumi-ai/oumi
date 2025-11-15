@@ -14,32 +14,29 @@
 
 import warnings
 from pprint import pformat
-from typing import Callable, Optional, cast
+from typing import Callable, cast
 
 import transformers
 import trl
 
 from oumi.core.configs import TrainerType, TrainingParams
 from oumi.core.distributed import is_world_process_zero
-from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.trainers import (
     BaseTrainer,
     HuggingFaceTrainer,
     TrlDpoTrainer,
-    VerlGrpoTrainer,
 )
 from oumi.core.trainers import Trainer as OumiTrainer
 from oumi.utils.logging import logger
 
 
 def build_trainer(
-    trainer_type: TrainerType, processor: Optional[BaseProcessor], verbose: bool = False
+    trainer_type: TrainerType, verbose: bool = False
 ) -> Callable[..., BaseTrainer]:
     """Builds a trainer creator functor based on the provided configuration.
 
     Args:
         trainer_type (TrainerType): Enum indicating the type of training.
-        processor: An optional processor.
         verbose (bool): Whether to enable verbose logging of training arguments.
 
     Returns:
@@ -58,16 +55,15 @@ def build_trainer(
         def _init_hf_trainer(*args, **kwargs) -> BaseTrainer:
             training_args = kwargs.pop("args", None)
             training_config = kwargs.pop("training_config", None)
+            # TODO: Move this into HF Trainer
             callbacks = kwargs.pop("callbacks", [])
-            if training_args is not None:
-                # if set, convert to HuggingFace Trainer args format
-                training_args = cast(TrainingParams, training_args)
-                training_args.finalize_and_validate()
 
+            # if set, convert to HuggingFace Trainer args format
+            training_args = cast(TrainingParams, training_args)
             hf_args = training_args.to_hf(training_config)
             if verbose and is_world_process_zero():
                 logger.info(pformat(hf_args))
-            trainer = HuggingFaceTrainer(cls(*args, **kwargs, args=hf_args), processor)
+            trainer = HuggingFaceTrainer(cls(*args, **kwargs, args=hf_args))
             if callbacks:
                 # TODO(OPE-250): Define generalizable callback abstraction
                 # Incredibly ugly, but this is the only way to add callbacks that add
@@ -88,24 +84,9 @@ def build_trainer(
 
     def _create_oumi_builder_fn() -> Callable[..., BaseTrainer]:
         def _init_oumi_trainer(*args, **kwargs) -> BaseTrainer:
-            kwargs_processor = kwargs.get("processor", None)
-            if processor is not None:
-                if kwargs_processor is None:
-                    kwargs["processor"] = processor
-                elif id(kwargs_processor) != id(processor):
-                    raise ValueError(
-                        "Different processor instances passed to Oumi trainer, "
-                        "and build_trainer()."
-                    )
             return OumiTrainer(*args, **kwargs)
 
         return _init_oumi_trainer
-
-    def _create_verl_grpo_builder_fn() -> Callable[..., BaseTrainer]:
-        def _init_verl_grpo_trainer(*args, **kwargs) -> BaseTrainer:
-            return VerlGrpoTrainer(*args, **kwargs)
-
-        return _init_verl_grpo_trainer
 
     if trainer_type == TrainerType.TRL_SFT:
         return _create_hf_builder_fn(trl.SFTTrainer)
@@ -125,7 +106,5 @@ def build_trainer(
             "Prefer to use HF trainer when possible."
         )
         return _create_oumi_builder_fn()
-    elif trainer_type == TrainerType.VERL_GRPO:
-        return _create_verl_grpo_builder_fn()
 
     raise NotImplementedError(f"Trainer type {trainer_type} not supported.")

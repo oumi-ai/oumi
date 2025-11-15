@@ -75,7 +75,7 @@ class Trainer(BaseTrainer):
         eval_dataset: Optional[Dataset] = None,
         callbacks: Optional[list[TrainerCallback]] = None,
         data_collator: Optional[Callable] = None,
-        config: Optional[TrainingConfig] = None,
+        training_config: Optional[TrainingConfig] = None,
         **kwargs,
     ):
         """Initializes the Oumi trainer."""
@@ -99,7 +99,7 @@ class Trainer(BaseTrainer):
             float(args.max_grad_norm) if args.max_grad_norm is not None else None
         )
 
-        self.config = config or TrainingConfig()
+        self.config = training_config or TrainingConfig()
         self.fsdp_params = self.config.fsdp or FSDPParams()
         self.is_using_fsdp = self.fsdp_params.enable_fsdp
         # TODO OPE-333 Define a param to enable ring attention + check pre-conditions:

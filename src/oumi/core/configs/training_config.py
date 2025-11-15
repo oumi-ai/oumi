@@ -29,6 +29,7 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.core.distributed import estimate_dataloader_num_workers, get_device_rank_info
 from oumi.utils.logging import logger
 
 
@@ -252,3 +253,29 @@ class TrainingConfig(BaseConfig):
             raise ValueError(
                 "At least one validation dataset is required for VERL_GRPO training."
             )
+
+        # Verify that the global batch size is divisible by the number of generations.
+        if self.training.trainer_type == TrainerType.TRL_GRPO:
+            world_size = get_device_rank_info().world_size
+            batch_size = self.training.per_device_train_batch_size
+            global_batch_size = world_size * batch_size
+            num_generations = self.training.grpo.num_generations
+            if num_generations is not None and global_batch_size % num_generations != 0:
+                logger.warning(
+                    f"For {self.training.trainer_type}, global batch size "
+                    f"({global_batch_size}) should be evenly divisible "
+                    f"by `grpo.num_generations` ({num_generations}). It's not! "
+                    f"World size: {world_size}. "
+                    f"Per-device batch size: {batch_size}."
+                )
+
+        if self.training.dataloader_num_workers == "auto":
+            # Resolve "auto" to an actual number.
+            num_workers = estimate_dataloader_num_workers()
+            logger.info(
+                "Resolved 'training.dataloader_num_workers=auto' to "
+                f"'training.dataloader_num_workers={num_workers}'"
+            )
+            self.training.dataloader_num_workers = num_workers
+
+        assert isinstance(self.training.dataloader_num_workers, int)
