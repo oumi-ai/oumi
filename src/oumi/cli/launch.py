@@ -13,11 +13,10 @@
 # limitations under the License.
 
 import io
-import time
 from collections import defaultdict
 from multiprocessing.pool import Pool
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Callable, Optional
+from typing import TYPE_CHECKING, Annotated, Callable, Optional, TypeVar
 
 import typer
 from rich.columns import Columns
@@ -33,6 +32,8 @@ from oumi.utils.version_utils import is_dev_build
 
 if TYPE_CHECKING:
     from oumi.core.launcher import BaseCluster, JobStatus
+
+T = TypeVar("T")
 
 
 def _get_working_dir(current: Optional[str]) -> Optional[str]:
@@ -52,24 +53,21 @@ def _get_working_dir(current: Optional[str]) -> Optional[str]:
 
 
 def _print_and_wait(
-    message: str, task: Callable[..., bool], asynchronous=True, **kwargs
-) -> None:
+    message: str, task: Callable[..., T], asynchronous=True, **kwargs
+) -> T:
     """Prints a message with a loading spinner until the provided task is done."""
     with cli_utils.CONSOLE.status(message):
         if asynchronous:
             with Pool(processes=1) as worker_pool:
-                task_done = False
-                while not task_done:
-                    worker_result = worker_pool.apply_async(task, kwds=kwargs)
-                    worker_result.wait()
-                    # Call get() to reraise any exceptions that occurred in the worker.
-                    task_done = worker_result.get()
+                worker_result = worker_pool.apply_async(task, kwds=kwargs)
+                worker_result.wait()
+                # Call get() to reraise exceptions AND get the return value
+                result = worker_result.get()
         else:
-            # Synchronous tasks should be atomic and not block for a significant amount
-            # of time. If a task is blocking, it should be run asynchronously.
-            while not task(**kwargs):
-                sleep_duration = 0.1
-                time.sleep(sleep_duration)
+            # Synchronous tasks
+            result = task(**kwargs)
+
+        return result
 
 
 def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
@@ -99,7 +97,7 @@ def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
     if not cloud:
         return True
     launcher.cancel(id, cloud, cluster)
-    return True  # Always return true to indicate that the task is done.
+    return True
 
 
 def _tail_logs(
@@ -118,7 +116,7 @@ def _tail_logs(
         cli_utils.CONSOLE.print(f"Logs will be saved to: {output_filepath}")
     else:
         cli_utils.CONSOLE.print("Logging to console...")
-    # Open output file if specified
+
     file_handle = None
     if output_filepath:
         file_handle = open(output_filepath, "w", encoding="utf-8")
@@ -131,8 +129,6 @@ def _tail_logs(
                     file_handle.flush()
         else:
             for line in iter(log_stream.readline, ""):
-                # Because Rich is rendering markup/styled text and
-                # escapes control characters like \r, we need to handle it specially.
                 if "\r" in line:
                     cli_utils.CONSOLE.file.write("\r")
                     cli_utils.CONSOLE.print(line.strip(), end="", markup=False)
@@ -168,7 +164,7 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
                 f"[red]Cluster [yellow]{cluster}[/yellow] not found.[/red]"
             )
         return True
-    # Make a best effort to find a single cluster to turn down without a cloud.
+
     clusters = []
     for name in launcher.which_clouds():
         target_cloud = launcher.get_cloud(name)
@@ -187,7 +183,7 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
             f"[red]Multiple clusters found with name [yellow]{cluster}[/yellow]. "
             "Specify a cloud to turn down with `--cloud`.[/red]"
         )
-    return True  # Always return true to indicate that the task is done.
+    return True
 
 
 def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]:
@@ -209,7 +205,6 @@ def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]
         )
         return None
 
-    # Search across all clouds
     clusters = []
     for name in launcher.which_clouds():
         target_cloud = launcher.get_cloud(name)
@@ -248,7 +243,7 @@ def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
     cli_utils.CONSOLE.print(
         f"Cluster [yellow]{cluster_instance.name()}[/yellow] stopped!"
     )
-    return True  # Always return true to indicate that the task is done.
+    return True
 
 
 def _poll_job(
@@ -411,10 +406,8 @@ def run(
         )
     )
 
-    # Delayed imports
     from oumi import launcher
 
-    # End imports
     parsed_config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )

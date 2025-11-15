@@ -15,6 +15,7 @@
 from typing import Optional
 
 from oumi.builders.inference_engines import build_inference_engine
+from oumi.cli.launch import _print_and_wait
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import (
@@ -49,21 +50,25 @@ def infer_interactive(
     """Interactively provide the model response for a user-provided input."""
     # Create engine up front to avoid reinitializing it for each input.
     inference_engine = get_engine(config)
+
     while True:
         try:
             input_text = input("Enter your input prompt: ")
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
             print("\nExiting...")
             return
-        model_response = infer(
+
+        model_response = _print_and_wait(
+            "Running inference...",
+            infer,
+            asynchronous=False,
             config=config,
-            inputs=[
-                input_text,
-            ],
+            inputs=[input_text],
             system_prompt=system_prompt,
             input_image_bytes=input_image_bytes,
             inference_engine=inference_engine,
         )
+
         for g in model_response:
             print("------------")
             print(repr(g))
