@@ -1,0 +1,172 @@
+# Megatron GRPO config for Llama 70B with Tensor and Pipeline Parallelism.
+#
+# This configuration uses Megatron-LM backend for advanced model parallelism,
+# enabling efficient training of 70B models with TP=8, PP=2 on 16 GPUs.
+#
+# Hardware Requirements:
+#   - 16x A100-80GB GPUs (or equivalent)
+#   - NVLink or InfiniBand for inter-node communication
+#
+# Prerequisites:
+#   - Install Megatron dependencies: pip install oumi[megatron]
+#   - Log into HF: hf auth login
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct
+#   - Download model (optional but recommended):
+#     HF_HUB_ENABLE_HF_TRANSFER=1 hf download meta-llama/Llama-3.1-70B-Instruct --exclude original/*
+#
+# Usage:
+#   # Single node (16 GPUs):
+#   oumi distributed torchrun -c configs/recipes/llama3_1/grpo/70b_megatron/train.yaml
+#
+#   # Multi-node (2 nodes x 8 GPUs = 16 GPUs):
+#   # On node 0:
+#   oumi distributed torchrun --nnodes=2 --node_rank=0 --master_addr=<node0_ip> \
+#     -c configs/recipes/llama3_1/grpo/70b_megatron/train.yaml
+#   # On node 1:
+#   oumi distributed torchrun --nnodes=2 --node_rank=1 --master_addr=<node0_ip> \
+#     -c configs/recipes/llama3_1/grpo/70b_megatron/train.yaml
+#
+# See Also:
+#   - Megatron-Bridge docs: https://github.com/NVIDIA-NeMo/Megatron-Bridge
+#   - GRPO paper: https://arxiv.org/pdf/2402.03300
+#   - Config class: oumi.core.configs.params.megatron_params.MegatronParams
+
+model:
+  model_name: "meta-llama/Llama-3.1-70B-Instruct"
+  model_max_length: 4096  # Longer context for RL tasks
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2"  # Recommended for Megatron
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "gsm8k"  # Math reasoning dataset for GRPO
+        split: "train"
+    # GRPO expects single-turn conversations with answers
+    collator_name: null  # No collator for GRPO
+
+  validation:
+    datasets:
+      - dataset_name: "gsm8k"
+        split: "test[:500]"  # Use first 500 examples for validation
+
+training:
+  trainer_type: "MEGATRON_GRPO"
+
+  # Training schedule
+  max_steps: 1000
+  num_train_epochs: 1
+  per_device_train_batch_size: 1  # Micro-batch size (per GPU)
+  gradient_accumulation_steps: 4
+
+  # Optimizer
+  optimizer: "adamw_torch"
+  learning_rate: 5.0e-7  # Lower LR for RL fine-tuning
+  weight_decay: 0.01
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1.0e-8
+  max_grad_norm: 1.0
+
+  # Learning rate schedule
+  lr_scheduler_type: "cosine"
+  warmup_steps: 50
+
+  # Logging and checkpointing
+  logging_steps: 10
+  save_steps: 100
+  eval_steps: 50
+  output_dir: "output/llama70b_megatron_grpo"
+  save_final_model: True
+
+  # Performance
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  compile: False  # Not compatible with Megatron
+
+  # Monitoring
+  include_performance_metrics: True
+  enable_wandb: True
+  log_model_summary: False
+
+# Megatron-specific configuration
+megatron:
+  # Parallelism strategy for 70B model on 16 GPUs
+  # Total model parallel size: TP (8) * PP (2) = 16
+  # Data parallel size: 16 GPUs / 16 MP = 1 (no data parallelism)
+  tensor_model_parallel_size: 8   # Split attention/FF across 8 GPUs
+  pipeline_model_parallel_size: 2  # Split layers across 2 pipeline stages
+  context_parallel_size: 1         # No context parallelism (seq_len < 8K)
+  expert_model_parallel_size: 1    # No MoE experts
+
+  # Batch configuration
+  micro_batch_size: 1              # Matches per_device_train_batch_size
+  global_batch_size: 4             # micro_batch * gradient_accumulation_steps
+
+  # Sequence packing (recommended for RL)
+  enable_sequence_packing: True
+
+  # DDP configuration
+  ddp_config:
+    grad_reduce_in_fp32: True      # Better numerical stability
+    overlap_grad_reduce: False     # Disable for debugging initially
+    overlap_param_gather: False
+    average_in_collective: True
+
+  # Optimizer configuration
+  optimizer_config:
+    overlap_cpu_optimizer_d2h_h2d: False
+    use_precision_aware_optimizer: False
+    optimizer_cpu_offload: False   # Keep optimizer on GPU
+    optimizer_offload_fraction: 0.0
+
+  # Transformer configuration (activation checkpointing)
+  transformer_config:
+    recompute_granularity: "selective"  # Checkpoint only attention
+    recompute_method: "uniform"
+    recompute_num_layers: null      # Checkpoint all layers
+    recompute_modules: ["core_attn"]  # Only checkpoint attention
+
+  # Checkpointing strategy
+  checkpoint_config:
+    use_async_checkpoint: False     # Synchronous for reliability
+    use_fully_parallel_strategy: True
+    async_persistent: True
+
+  # Weight synchronization (for actor-rollout disaggregation)
+  enable_weight_sync: True
+  weight_sync_method: "nccl"  # Fast GPU-to-GPU sync
+
+  # Inference backend for generation
+  inference_backend: "vllm"   # Use vLLM for rollout generation
+
+  # Model config overrides
+  model_config_kwargs: {}
+
+# GRPO-specific parameters
+grpo:
+  # Reward and generation
+  max_prompt_length: 512
+  max_completion_length: 512
+  num_generations: 4  # Samples per prompt
+  temperature: 0.9
+
+  # GRPO hyperparameters
+  epsilon: 0.2  # Clipping parameter
+  kl_beta: 0.001  # KL divergence penalty weight
+
+  # vLLM configuration
+  use_vllm: True
+  vllm_mode: "colocate"  # Run vLLM in same process
+  vllm_gpu_memory_utilization: 0.85
+
+# Note: FSDP and DeepSpeed are not compatible with Megatron
+# Megatron provides its own distributed training strategy
+fsdp:
+  enable_fsdp: False
+
+deepspeed:
+  enable_deepspeed: False

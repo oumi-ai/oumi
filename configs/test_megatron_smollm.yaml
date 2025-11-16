@@ -1,0 +1,104 @@
+# Test config for Megatron GRPO with SmolLM-135M
+# This is a minimal test to verify the Megatron integration works
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 512
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "eager"  # Use eager for small models
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "gsm8k"
+        split: "train[:10]"  # Just 10 examples for testing
+
+  validation:
+    datasets:
+      - dataset_name: "gsm8k"
+        split: "test[:5]"  # Just 5 examples for validation
+
+training:
+  trainer_type: "MEGATRON_GRPO"
+
+  # Minimal training for testing
+  max_steps: 20
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 1
+
+  # Optimizer
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-5
+
+  # Logging
+  logging_steps: 1
+  save_steps: 10  # Don't save during test
+  eval_steps: 5
+  output_dir: "output/test_megatron_smollm"
+  save_final_model: False  # Don't save for quick test
+
+  # Monitoring
+  enable_wandb: False  # Disable for testing
+  log_model_summary: True
+
+  # GRPO params (nested under training)
+  grpo:
+    max_prompt_length: 256
+    max_completion_length: 128
+    num_generations: 2  # Minimal for testing
+    temperature: 0.9
+    epsilon: 0.2
+    use_vllm: False  # Disable vLLM for simplicity in test
+
+# Minimal Megatron config for testing
+# For SmolLM-135M, we don't need parallelism, but we test the integration
+megatron:
+  # No parallelism (all sizes = 1)
+  tensor_model_parallel_size: 1
+  pipeline_model_parallel_size: 1
+  context_parallel_size: 1
+  expert_model_parallel_size: 1
+
+  # Batch config
+  micro_batch_size: 1
+  global_batch_size: 1
+
+  # Features
+  enable_sequence_packing: False  # Disable for simplicity
+
+  # DDP config
+  ddp_config:
+    grad_reduce_in_fp32: True
+    overlap_grad_reduce: False
+    overlap_param_gather: False
+    average_in_collective: True
+
+  # Optimizer config
+  optimizer_config:
+    optimizer_cpu_offload: False
+    optimizer_offload_fraction: 0.0
+
+  # Transformer config (no checkpointing for small model)
+  transformer_config:
+    recompute_granularity: null
+    recompute_method: null
+    recompute_num_layers: null
+    recompute_modules: []
+
+  # Checkpointing
+  checkpoint_config:
+    use_async_checkpoint: False
+    use_fully_parallel_strategy: False
+
+  # Inference backend
+  inference_backend: "vllm"
+
+# Disable FSDP and DeepSpeed
+fsdp:
+  enable_fsdp: False
+
+deepspeed:
+  enable_deepspeed: False

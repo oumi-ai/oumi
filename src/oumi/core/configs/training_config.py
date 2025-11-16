@@ -22,6 +22,7 @@ from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.data_params import DataParams
 from oumi.core.configs.params.deepspeed_params import DeepSpeedParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
+from oumi.core.configs.params.megatron_params import MegatronParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import PeftParams
 from oumi.core.configs.params.training_params import (
@@ -86,6 +87,17 @@ class TrainingConfig(BaseConfig):
     :class:`oumi.core.configs.params.deepspeed_params.DeepSpeedParams`.
     """
 
+    megatron: MegatronParams = field(default_factory=MegatronParams)
+    """Parameters for Megatron-based distributed training.
+
+    This field enables advanced model parallelism strategies (tensor, pipeline,
+    context, and expert parallelism) for training very large models (70B+).
+    Only used when trainer_type is MEGATRON_GRPO.
+
+    For more details, see
+    :class:`oumi.core.configs.params.megatron_params.MegatronParams`.
+    """
+
     def __post_init__(self):
         """Verifies/populates params."""
         if self.model.compile:
@@ -106,6 +118,33 @@ class TrainingConfig(BaseConfig):
                 "Cannot enable both FSDP and DeepSpeed simultaneously. "
                 "Please enable only one distributed training method."
             )
+
+        # Validate Megatron configuration
+        is_megatron_enabled = (
+            self.megatron.tensor_model_parallel_size > 1
+            or self.megatron.pipeline_model_parallel_size > 1
+            or self.megatron.context_parallel_size > 1
+            or self.megatron.expert_model_parallel_size > 1
+        )
+
+        if is_megatron_enabled:
+            if self.fsdp.enable_fsdp:
+                raise ValueError(
+                    "Cannot enable both Megatron model parallelism and FSDP. "
+                    "Megatron provides its own data parallelism via DDP."
+                )
+            if self.deepspeed.enable_deepspeed:
+                raise ValueError(
+                    "Cannot enable both Megatron model parallelism and DeepSpeed. "
+                    "Megatron provides its own distributed training strategy."
+                )
+            if trainer_type != TrainerType.MEGATRON_GRPO:
+                raise ValueError(
+                    f"Megatron parallelism is only supported with MEGATRON_GRPO trainer, "
+                    f"but trainer_type is {trainer_type}. "
+                    "Please set training.trainer_type = 'MEGATRON_GRPO' or disable "
+                    "Megatron parallelism by setting all megatron parallelism sizes to 1."
+                )
 
         # Validate DeepSpeed batch size configuration for TRL trainers
         trainer_type: Final[TrainerType] = self.training.trainer_type

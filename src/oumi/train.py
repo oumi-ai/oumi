@@ -203,7 +203,7 @@ def _create_optional_training_kwargs(
     # Pass config to all trainer types so DeepSpeed can be configured in HF trainers
     kwargs["training_config"] = config
 
-    if trainer_type in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO):
+    if trainer_type in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO, TrainerType.MEGATRON_GRPO):
         if metrics_function:
             raise ValueError(f"metrics_function isn't supported for {trainer_type}")
         if collator:
@@ -420,6 +420,34 @@ def train(
             **training_kwargs,
         )
         _verl_train(partial_trainer)
+        return
+
+    # Megatron training is handled separately because:
+    # 1. It uses Megatron-Core's own distributed setup
+    # 2. Model initialization happens within the trainer
+    if config.training.trainer_type == TrainerType.MEGATRON_GRPO:
+        from oumi.core.trainers.megatron.megatron_grpo_trainer import OumiMegatronGrpoTrainer
+
+        logger.info("Initializing Megatron GRPO trainer...")
+        trainer = OumiMegatronGrpoTrainer(
+            processing_class=tokenizer,
+            config=config,
+            reward_funcs=training_kwargs.get("reward_funcs", []),
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            processor=processor,
+        )
+
+        checkpoint_location = _find_checkpoint_to_resume_from(
+            config.training.resume_from_checkpoint,
+            config.training.try_resume_from_last_checkpoint,
+            config.training.output_dir,
+        )
+
+        logger.info("Starting Megatron GRPO training...")
+        trainer.train(resume_from_checkpoint=checkpoint_location)
+
+        logger.info("Megatron GRPO training complete!")
         return
 
     checkpoint_location = _find_checkpoint_to_resume_from(

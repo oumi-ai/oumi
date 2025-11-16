@@ -129,6 +129,22 @@ gpu = [
     "deepspeed>=0.17.0,<0.18.0",
 ]
 
+# Megatron-LM dependencies for large-scale model parallelism
+megatron = [
+    # Megatron-Bridge provides HF ↔ Megatron conversion
+    # Note: May require installing from source if not available on PyPI:
+    # pip install git+https://github.com/NVIDIA-NeMo/Megatron-Bridge.git
+    "megatron-bridge>=0.1.0",
+    # Megatron-Core provides the distributed training backend
+    "megatron-core>=0.9.0",
+    # Megatron-LM provides additional utilities and examples
+    "megatron-lm>=0.9.0",
+    # vLLM is required for inference/generation in GRPO training
+    "vllm>=0.10,<0.11",
+    # Flash Attention 2 is recommended for Megatron training
+    "flash-attn>=2.0.0",
+]
+
 # Targets for supported cloud providers
 aws = ["skypilot[aws]"]
 azure = ["skypilot[azure]"]

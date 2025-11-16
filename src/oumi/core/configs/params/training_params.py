@@ -100,6 +100,15 @@ class TrainerType(Enum):
     Optionally, supports user-defined reward functions.
     """
 
+    MEGATRON_GRPO = "megatron_grpo"
+    """Group Relative Policy Optimization trainer with Megatron-LM backend.
+
+    This trainer implements GRPO using Megatron-LM and Megatron-Bridge for advanced
+    model parallelism (tensor, pipeline, context, and expert parallelism).
+    Designed for training very large models (70B+) with full parallelism support.
+    Supports custom reward functions like VERL_GRPO.
+    """
+
 
 class SchedulerType(str, Enum):
     """Enum representing the supported learning rate schedulers.

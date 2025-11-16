@@ -1,0 +1,188 @@
+# Megatron GRPO config for Llama 405B with full parallelism (TP + PP + CP).
+#
+# This configuration uses Megatron-LM backend for advanced model parallelism,
+# enabling efficient training of 405B models with TP=8, PP=16, CP=2 on 256 GPUs.
+#
+# Hardware Requirements:
+#   - 256x H100-80GB GPUs (32 nodes x 8 GPUs)
+#   - NVLink or InfiniBand for inter-node communication
+#   - High-bandwidth storage for checkpoints
+#
+# Prerequisites:
+#   - Install Megatron dependencies: pip install oumi[megatron]
+#   - Log into HF: hf auth login
+#   - Request access to Llama 4: https://huggingface.co/meta-llama/Llama-4-405B-Instruct
+#   - Download model (strongly recommended):
+#     HF_HUB_ENABLE_HF_TRANSFER=1 hf download meta-llama/Llama-4-405B-Instruct --exclude original/*
+#
+# Usage:
+#   # Multi-node (32 nodes x 8 GPUs = 256 GPUs):
+#   # Use a SLURM script or similar cluster manager
+#   srun --nodes=32 --ntasks-per-node=8 --gpus-per-node=8 \
+#     oumi distributed torchrun \
+#     --nnodes=32 --nproc_per_node=8 \
+#     -c configs/recipes/llama4/grpo/405b_megatron/train.yaml
+#
+# Parallelism Strategy:
+#   - Tensor Parallel (TP): 8 (split model layers across 8 GPUs)
+#   - Pipeline Parallel (PP): 16 (split 126 layers across 16 stages)
+#   - Context Parallel (CP): 2 (split long sequences across 2 GPUs)
+#   - Total model parallel size: 8 * 16 * 2 = 256 GPUs
+#   - Data parallel size: 256 / 256 = 1 (no data parallelism in this config)
+#
+# See Also:
+#   - Megatron-Bridge docs: https://github.com/NVIDIA-NeMo/Megatron-Bridge
+#   - GRPO paper: https://arxiv.org/pdf/2402.03300
+#   - Megatron-LM: https://github.com/NVIDIA/Megatron-LM
+
+model:
+  model_name: "meta-llama/Llama-4-405B-Instruct"
+  model_max_length: 8192  # Long context for complex reasoning
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "gsm8k"  # Math reasoning
+        split: "train"
+    collator_name: null
+
+  validation:
+    datasets:
+      - dataset_name: "gsm8k"
+        split: "test[:500]"
+
+training:
+  trainer_type: "MEGATRON_GRPO"
+
+  # Training schedule
+  max_steps: 2000
+  num_train_epochs: 1
+  per_device_train_batch_size: 1  # Micro-batch size
+  gradient_accumulation_steps: 8  # Larger global batch
+
+  # Optimizer
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-7  # Very low LR for 405B model
+  weight_decay: 0.01
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1.0e-8
+  max_grad_norm: 1.0
+
+  # Learning rate schedule
+  lr_scheduler_type: "cosine"
+  warmup_steps: 100
+
+  # Logging and checkpointing
+  logging_steps: 10
+  save_steps: 200
+  eval_steps: 100
+  output_dir: "output/llama405b_megatron_grpo"
+  save_final_model: True
+
+  # Performance
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  compile: False
+
+  # Monitoring
+  include_performance_metrics: True
+  enable_wandb: True
+  log_model_summary: False
+
+# Megatron-specific configuration for 405B model
+megatron:
+  # Parallelism strategy for 405B model on 256 GPUs
+  # Llama 405B: 126 layers, 16384 hidden size, 128 attention heads
+  tensor_model_parallel_size: 8    # Split heads: 128 heads / 8 = 16 heads per GPU
+  pipeline_model_parallel_size: 16  # Split layers: 126 layers / 16 = ~8 layers per stage
+  context_parallel_size: 2          # Split sequences for 8K+ context
+  expert_model_parallel_size: 1     # No MoE experts in Llama 405B
+
+  # Optional: Virtual pipeline parallelism for better efficiency
+  virtual_pipeline_model_parallel_size: 32  # 2x interleaving
+
+  # Batch configuration
+  micro_batch_size: 1
+  global_batch_size: 8  # micro_batch * gradient_accumulation_steps
+
+  # Sequence packing (highly recommended for RL)
+  enable_sequence_packing: True
+
+  # DDP configuration
+  ddp_config:
+    grad_reduce_in_fp32: True
+    overlap_grad_reduce: True   # Enable overlap for better performance
+    overlap_param_gather: True  # Enable overlap
+    average_in_collective: True
+
+  # Optimizer configuration (enable CPU offloading for 405B)
+  optimizer_config:
+    overlap_cpu_optimizer_d2h_h2d: True  # Overlap optimizer transfers
+    use_precision_aware_optimizer: False
+    optimizer_cpu_offload: True  # Offload optimizer to CPU
+    optimizer_offload_fraction: 1.0  # Offload all optimizer states
+
+  # Transformer configuration (aggressive activation checkpointing)
+  transformer_config:
+    recompute_granularity: "full"  # Checkpoint everything
+    recompute_method: "uniform"
+    recompute_num_layers: 1  # Checkpoint every layer
+    recompute_modules: ["core_attn", "mlp"]  # Checkpoint both attention and MLP
+
+  # Checkpointing strategy
+  checkpoint_config:
+    use_async_checkpoint: True  # Async for faster checkpointing
+    use_fully_parallel_strategy: True
+    async_persistent: True
+
+  # Weight synchronization
+  enable_weight_sync: True
+  weight_sync_method: "nccl"
+
+  # Inference backend
+  inference_backend: "vllm"
+
+  # Model config overrides
+  model_config_kwargs:
+    # Any model-specific overrides go here
+    use_cache: False  # Disable KV cache during training
+
+# GRPO-specific parameters
+grpo:
+  # Reward and generation
+  max_prompt_length: 1024
+  max_completion_length: 1024
+  num_generations: 4
+  temperature: 0.9
+
+  # GRPO hyperparameters
+  epsilon: 0.2
+  kl_beta: 0.001
+
+  # vLLM configuration for 405B
+  use_vllm: True
+  vllm_mode: "colocate"
+  vllm_gpu_memory_utilization: 0.75  # Leave room for training
+
+# Disable incompatible distributed training methods
+fsdp:
+  enable_fsdp: False
+
+deepspeed:
+  enable_deepspeed: False
+
+# Notes:
+# 1. This config requires 256 GPUs and is designed for large-scale clusters
+# 2. Adjust parallelism sizes based on your hardware:
+#    - For 128 GPUs: TP=8, PP=8, CP=2
+#    - For 64 GPUs: TP=8, PP=4, CP=2
+# 3. Context parallelism (CP=2) is essential for 8K+ sequences
+# 4. Virtual pipeline parallelism improves pipeline bubble efficiency
+# 5. Optimizer CPU offloading saves GPU memory but adds overhead
+# 6. Full activation checkpointing trades compute for memory
