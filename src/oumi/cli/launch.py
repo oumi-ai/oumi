@@ -70,7 +70,7 @@ def _print_and_wait(
             with Pool(processes=1) as worker_pool:
                 worker_result = worker_pool.apply_async(task, kwds=kwargs)
                 worker_result.wait()
-                # Call get() to reraise exceptions AND get the return value
+                # Call get() to reraise any exceptions that occurred in the worker.
                 result = worker_result.get()
         else:
             # Synchronous tasks should be atomic and not block for a significant amount
@@ -215,10 +215,6 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-
-
-
-
 def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]:
     """Finds the cluster matching the given name and cloud.
 
@@ -239,9 +235,6 @@ def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]
             f"[yellow]{cloud}[/yellow]."
         )
         return None
-
-
-
 
     # Search across all clouds
     clusters = []
@@ -282,16 +275,13 @@ def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
         cli_utils.CONSOLE.print(
             f"[red]Cluster [yellow]{cluster}[/yellow] not found.[/red]"
         )
-        return True  # Always return true to indicate that the task is done.
-
+        return True
 
     cluster_instance.stop()
     cli_utils.CONSOLE.print(
         f"Cluster [yellow]{cluster_instance.name()}[/yellow] stopped!"
     )
-    return True
-
-
+    return True  # Always return true to indicate that the task is done.
 
 
 def _poll_job(
@@ -309,7 +299,6 @@ def _poll_job(
     """
     from oumi import launcher
 
-
     is_local = cloud == "local"
     if detach and not is_local:
         cli_utils.CONSOLE.print(
@@ -318,7 +307,6 @@ def _poll_job(
         return
     if detach and is_local:
         cli_utils.CONSOLE.print("Cannot detach from jobs in local mode.")
-
 
     if not running_cluster:
         running_cloud = launcher.get_cloud(cloud)
@@ -357,11 +345,9 @@ def _poll_job(
 
 
 
-
 # ----------------------------
 # Launch CLI subcommands
 # ----------------------------
-
 
 
 
@@ -394,8 +380,6 @@ def cancel(
     )
 
 
-
-
 def down(
     cluster: Annotated[str, typer.Option(help="The cluster to turn down.")],
     cloud: Annotated[
@@ -421,8 +405,6 @@ def down(
         cloud=cloud,
     )
     cli_utils.CONSOLE.print(f"Cluster [yellow]{cluster}[/yellow] turned down!")
-
-
 
 
 def run(
@@ -530,7 +512,6 @@ def status(
     """
     # Delayed imports
     from oumi import launcher
-
 
     # End imports
     filtered_jobs = launcher.status(cloud=cloud, cluster=cluster, id=id)
@@ -651,7 +632,6 @@ def up(
     # Delayed imports
     from oumi import launcher
 
-
     # End imports
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
@@ -700,7 +680,6 @@ def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
     """Prints the available clouds."""
     # Delayed imports
     from oumi import launcher
-
 
     # End imports
     clouds = launcher.which_clouds()
