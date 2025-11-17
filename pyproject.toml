@@ -191,7 +191,7 @@ ci_cpu = [
 ]
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
-ci_gpu = ["oumi[dev,docs,gcp,gpu,synthesis]", "alpaca-eval>=0.6,<0.7"]
+ci_gpu = ["oumi[dev,docs,gcp,gpu,synthesis,tune]", "alpaca-eval>=0.6,<0.7"]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
