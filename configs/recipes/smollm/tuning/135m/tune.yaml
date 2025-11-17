@@ -1,0 +1,71 @@
+# Tuning config for SmolLM 135M Instruct.
+#
+# Usage:
+#   oumi tune -c configs/recipes/smollm/tuning/135m/tune.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/tune/tune.html
+#   - Config class: oumi.core.configs.TuningConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/tuning_config.py
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train[90%:]"
+    target_col: "prompt"
+
+  validation:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train[:10%]" # Use last 10% as validation
+    target_col: "prompt"
+
+tuning:
+  n_trials: 2
+  tunable_training_params:
+    # Categorical (list format)
+    optimizer:
+      type: categorical
+      choices: ["adamw_torch", "sgd", "adafactor"]
+
+    # Log-uniform float
+    learning_rate:
+      type: loguniform
+      low: 1e-5
+      high: 1e-2
+
+    # Uniform float
+    warmup_ratio:
+      type: uniform
+      low: 0.0
+      high: 0.3
+
+    # Integer
+    gradient_accumulation_steps:
+      type: int
+      low: 1
+      high: 8
+
+  fixed_training_params:
+    trainer_type: TRL_SFT
+    per_device_train_batch_size: 1
+    num_train_epochs: 3
+    optimizer: "adamw_torch"
+    max_steps: 1000
+
+  fixed_peft_params:
+    q_lora: false
+
+  evaluation_metrics: ["eval_loss", "eval_mean_token_accuracy"]
+  evaluation_direction: ["minimize", "maximize"]
+  tuner_type: OPTUNA
+  tuner_sampler: "RandomSampler"
