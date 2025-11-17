@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 try:
-    import optuna
+    import optuna  # type: ignore[reportMissingImports]
 except ImportError:
     pytest.skip("Optuna not installed", allow_module_level=True)
 

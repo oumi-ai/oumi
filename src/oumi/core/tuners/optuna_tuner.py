@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any, Callable
 
 try:
-    import optuna
+    import optuna  # type: ignore[reportMissingImports]
 except ImportError:
-    raise ImportError(
-        "Optuna is not installed. Please install"
-        " oumi with the 'tuning' extra to use the OptunaTuner"
-    )
+    optuna = None  # type: ignore[assignment]
 
 from oumi.core.configs import TuningConfig
 from oumi.core.configs.params.tuning_params import ParamType, TuningParams
@@ -36,13 +35,25 @@ class OptunaTuner(BaseTuner):
 
         Args:
             tuning_params (TuningParams): the tuning parameters to be used
+
+        Raises:
+            ImportError: If optuna is not installed.
         """
+        if optuna is None:
+            raise ImportError(
+                "Optuna is not installed. Please install"
+                " oumi with the 'tune' extra to use the OptunaTuner:"
+                " pip install oumi[tune]"
+            )
         super().__init__(tuning_params)
-        self._study: optuna.Study
-        self._sampler: optuna.samplers.BaseSampler
+        # Type checker knows optuna is not None after the check above
+        assert optuna is not None
+        self._study: optuna.Study  # type: ignore[type-arg]
+        self._sampler: optuna.samplers.BaseSampler  # type: ignore[type-arg]
 
     def create_study(self) -> None:
         """Create an Optuna study with multi-objective optimization support."""
+        assert optuna is not None  # Type guard for type checker
         # Determine optimization directions
         directions = []
         for direction in self.tuning_params.evaluation_direction:
@@ -78,7 +89,8 @@ class OptunaTuner(BaseTuner):
         )
 
     def suggest_parameters(
-        self, trial: optuna.Trial
+        self,
+        trial: optuna.Trial,  # type: ignore[type-arg]
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Suggest parameters using Optuna's suggest methods."""
 
@@ -143,7 +155,7 @@ class OptunaTuner(BaseTuner):
         if self._study is None:
             self.create_study()
 
-        def _objective(trial: optuna.Trial) -> Union[float, list[float]]:
+        def _objective(trial: optuna.Trial) -> float | list[float]:  # type: ignore[type-arg]
             # Get suggested parameters
             train_params, peft_params = self.suggest_parameters(trial)
 
