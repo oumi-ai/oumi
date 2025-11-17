@@ -70,6 +70,7 @@ inference_config:
 ```
 
 Run it with:
+
 ```bash
 oumi synth -c my_first_synth.yaml
 ```
@@ -79,11 +80,13 @@ oumi synth -c my_first_synth.yaml
 ## Understanding the Results
 
 After running synthesis, you'll see:
+
 - A preview table showing the first few generated samples
 - The total number of samples created
 - Instructions for using the dataset in training
 
 Each line in the output file contains one example:
+
 ```json
 {"difficulty": "easy", "question": "What is the largest continent?", "answer": "Asia"}
 {"difficulty": "hard", "question": "Which country has the most time zones?", "answer": "France"}
@@ -94,7 +97,9 @@ Each line in the output file contains one example:
 Once you're comfortable with the basics, you can create more sophisticated datasets:
 
 ### Adding Multiple Attributes
+
 Mix and match different properties (topic + difficulty + style):
+
 ```yaml
 sampled_attributes:
   - id: topic
@@ -106,7 +111,9 @@ sampled_attributes:
 ```
 
 ### Using Your Own Data
+
 Feed in existing datasets or documents:
+
 ```yaml
 input_data:
   - path: "my_existing_data.jsonl"
@@ -115,7 +122,9 @@ input_documents:
 ```
 
 ### Creating Conversations
+
 Build multi-turn dialogues:
+
 ```yaml
 transformed_attributes:
   - id: conversation
@@ -152,6 +161,7 @@ The `strategy_params` section defines the core synthesis logic:
 You can provide data from multiple sources:
 
 **`input_data`**: Existing datasets to sample from
+
 ```yaml
 input_data:
   - path: "hf:dataset_name"  # HuggingFace dataset
@@ -162,6 +172,7 @@ input_data:
 ```
 
 **`input_documents`**: Documents to segment and use in synthesis
+
 ```yaml
 input_documents:
   - path: "/path/to/document.pdf"
@@ -173,6 +184,7 @@ input_documents:
 ```
 
 **`input_examples`**: Inline examples for few-shot learning
+
 ```yaml
 input_examples:
   - examples:
@@ -185,6 +197,7 @@ input_examples:
 #### Attribute Types
 
 **Sampled Attributes**: Randomly selected values from predefined options
+
 ```yaml
 sampled_attributes:
   - id: difficulty
@@ -206,6 +219,7 @@ sampled_attributes:
 ```
 
 **Generated Attributes**: Created by LLM using instruction messages
+
 ```yaml
 generated_attributes:
   - id: summary
@@ -221,6 +235,7 @@ generated_attributes:
 ```
 
 **Transformed Attributes**: Rule-based transformations of existing attributes
+
 ```yaml
 transformed_attributes:
   - id: conversation
@@ -237,6 +252,7 @@ transformed_attributes:
 #### Advanced Features
 
 **Combination Sampling**: Control probability of specific attribute combinations
+
 ```yaml
 combination_sampling:
   - combination:
@@ -246,6 +262,7 @@ combination_sampling:
 ```
 
 **Passthrough Attributes**: Specify which attributes to include in final output
+
 ```yaml
 passthrough_attributes:
   - question
@@ -280,8 +297,10 @@ postprocessing_params:
 ```
 
 ## Transformation Strategies
+
 For the following examples, let's assume we have a data sample with the following values.
-```
+
+```json
 {
   "question": "What color is the sky?",
   "answer": "The sky is blue."
@@ -289,6 +308,7 @@ For the following examples, let's assume we have a data sample with the followin
 ```
 
 ### String Transformation
+
 ```yaml
 transformed_attributes:
   - id: example_string_attribute
@@ -298,6 +318,7 @@ transformed_attributes:
 ```
 
 Example Result:
+
 ```
 {
   "example_string_attribute": "Question: What color is the sky?\nAnswer: The sky is blue."
@@ -305,6 +326,7 @@ Example Result:
 ```
 
 ### List Transformation
+
 ```yaml
 transformed_attributes:
   - id: example_list_attribute
@@ -316,7 +338,8 @@ transformed_attributes:
 ```
 
 Example Result:
-```
+
+```json
 {
   "example_list_attribute": [
     "What color is the sky?",
@@ -326,6 +349,7 @@ Example Result:
 ```
 
 ### Dictionary Transformation
+
 ```yaml
 transformed_attributes:
   - id: example_dict_attribute
@@ -337,6 +361,7 @@ transformed_attributes:
 ```
 
 Example Result:
+
 ```
 {
   "example_list_attribute": {
@@ -347,6 +372,7 @@ Example Result:
 ```
 
 ### Chat Transformation
+
 ```yaml
 transformed_attributes:
   - id: string_attribute
@@ -359,8 +385,6 @@ transformed_attributes:
           - role: ASSISTANT
             content: "{answer}"
 ```
-
-
 
 ## Document Segmentation
 
@@ -458,29 +482,34 @@ data:
 ## Common Use Cases
 
 ### Question-Answer Generation
+
 Generate QA pairs from documents or contexts for training conversational models.
 
-**Example**: See [`configs/examples/synthesis/question_answer_generation.yaml`](../../configs/examples/synthesis/question_answer_generation.yaml) for a complete geography Q&A generation example.
+**Example**: See {gh}`configs/examples/synthesis/question_answer_synth.yaml` for a complete geography Q&A generation example.
 
 ### Data Augmentation
+
 Create variations of existing datasets by sampling different attributes and regenerating content.
 
-**Example**: See [`configs/examples/synthesis/data_augmentation.yaml`](../../configs/examples/synthesis/data_augmentation.yaml) for an example that augments existing datasets with different styles and complexity levels.
+**Example**: See {gh}`configs/examples/synthesis/data_augmentation_synth.yaml` for an example that augments existing datasets with different styles and complexity levels.
 
 ### Instruction Following
+
 Generate instruction-response pairs with varying complexity and domains.
 
-**Example**: See [`configs/examples/synthesis/instruction_following.yaml`](../../configs/examples/synthesis/instruction_following.yaml) for a multi-domain instruction generation example covering writing, coding, analysis, and more.
+**Example**: See {gh}`configs/examples/synthesis/instruction_following_synth.yaml` for a multi-domain instruction generation example covering writing, coding, analysis, and more.
 
 ### Conversation Synthesis
+
 Create multi-turn conversations by chaining generated responses.
 
-**Example**: See [`configs/examples/synthesis/conversation_synthesis.yaml`](../../configs/examples/synthesis/conversation_synthesis.yaml) for a customer support conversation generation example.
+**Example**: See {gh}`configs/examples/synthesis/conversation_synth.yaml` for a customer support conversation generation example.
 
 ### Domain Adaptation
+
 Generate domain-specific training data by conditioning on domain attributes.
 
-**Example**: See [`configs/examples/synthesis/domain_qa.yaml`](../../configs/examples/synthesis/domain_qa.yaml) for a medical domain Q&A generation example with specialty-specific content.
+**Example**: See {gh}`configs/examples/synthesis/domain_qa_synth.yaml` for a medical domain Q&A generation example with specialty-specific content.
 
 ## Troubleshooting
 
