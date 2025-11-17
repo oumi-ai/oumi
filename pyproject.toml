@@ -166,6 +166,8 @@ evaluation = [
 
 quantization = ["autoawq>=0.2,<0.3", "bitsandbytes>=0.47,<0.48"]
 
+tune = ["optuna>=4.0.0,<5.0"]
+
 bitnet = ["onebitllms>=0.0.3"]
 
 cambrian = [
@@ -181,8 +183,8 @@ llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,synthesis]",
-    "vllm>=0.10,<0.11",             # For VLLMInferenceEngine
+    "oumi[dev,docs,gcp,synthesis,tune]",
+    "vllm>=0.10,<0.11",                  # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3,<0.4", # For LlamaCppInferenceEngine
@@ -190,8 +192,6 @@ ci_cpu = [
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
 ci_gpu = ["oumi[dev,docs,gcp,gpu,synthesis]", "alpaca-eval>=0.6,<0.7"]
-
-tune = ["optuna>=4.0.0,<5.0"]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
