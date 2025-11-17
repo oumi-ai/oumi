@@ -38,8 +38,9 @@ user_guides/evaluate/evaluate
 user_guides/judge/judge
 user_guides/launch/launch
 user_guides/synth
-user_guides/customization
+user_guides/tune
 user_guides/quantization
+user_guides/customization
 ```
 
 ```{toctree}
