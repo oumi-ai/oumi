@@ -39,6 +39,12 @@ def mock_popen():
 
 
 @pytest.fixture
+def mock_subprocess():
+    with patch("oumi.cli.distributed_run.subprocess") as subprocess_mock:
+        yield subprocess_mock
+
+
+@pytest.fixture
 def mock_torch():
     torch_mock = Mock()
     with patch.dict("sys.modules", {"torch": torch_mock}):
@@ -227,17 +233,18 @@ def test_torchrun_frontier_multi_gpu(
     app,
     mock_os,
     mock_popen,
+    mock_subprocess,
     mock_torch,
     monkeypatch,
 ):
     test_env_vars = {
-        "SLURM_NODELIST": "z111,x222,x333",
+        "SLURM_NODELIST": "frontier[04316-04317]",
         "PMI_RANK": 1,
         "SLURM_JOBID": "123456.frontier",
         # Define the redundant OUMI_ variables to activate consistency checks.
-        "OUMI_TOTAL_NUM_GPUS": 24,
-        "OUMI_NUM_NODES": 3,
-        "OUMI_MASTER_ADDR": "z111",
+        "OUMI_TOTAL_NUM_GPUS": 16,
+        "OUMI_NUM_NODES": 2,
+        "OUMI_MASTER_ADDR": "frontier04316",
     }
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
     mock_torch.cuda.device_count.return_value = 8
@@ -245,6 +252,10 @@ def test_torchrun_frontier_multi_gpu(
     mock_process = Mock()
     mock_popen.return_value = mock_process
     mock_process.wait.return_value = 0
+
+    mock_subprocess_run = Mock()
+    mock_subprocess.run.return_value = mock_subprocess_run
+    mock_subprocess_run.stdout = "frontier04316\nfrontier04317"
 
     monkeypatch.setattr("oumi.cli.distributed_run.sys.stdout", sys.stdout)
     monkeypatch.setattr("oumi.cli.distributed_run.sys.stderr", sys.stderr)
@@ -267,10 +278,10 @@ def test_torchrun_frontier_multi_gpu(
     mock_popen.assert_called_once_with(
         [
             "torchrun",
-            "--nnodes=3",
+            "--nnodes=2",
             "--node-rank=1",
             "--nproc-per-node=8",
-            "--master-addr=z111",
+            "--master-addr=frontier04316",
             "--master-port=8007",
             "-m",
             "oumi",
