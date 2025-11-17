@@ -112,15 +112,16 @@ class TuningParams(BaseParams):
     tunable_training_params: dict[str, dict] = field(default_factory=dict)
     """Dictionary mapping parameter names to their search spaces.
 
-    Each value should be:
-    - A dict specifying the parameter type and range:
-      {
-          "type": "float",  # or ParamType enum value
-          "low": 1e-5,
-          "high": 1e-2
-      }
+    Each value should be a dict specifying the parameter type and range::
+
+        {
+            "type": "float",  # or ParamType enum value
+            "low": 1e-5,
+            "high": 1e-2
+        }
 
     Supported types from ParamType enum:
+
     - CATEGORICAL: List of discrete choices
     - INT: Integer range
     - FLOAT: Float range (uniform sampling)
@@ -139,13 +140,15 @@ class TuningParams(BaseParams):
     tunable_peft_params: dict[str, dict] = field(default_factory=dict)
     """Dictionary mapping PEFT parameter names to their search spaces.
 
-    Each value should be:
-    - A dict specifying the parameter type and range:
+    Each value should be a dict specifying the parameter type and range::
+
         {
             "type": "categorical",  # or ParamType enum value
             "choices": ["8", "16", "32"]
         }
+
     Supported types from ParamType enum:
+
     - CATEGORICAL: List of discrete choices
     - INT: Integer range
     - FLOAT: Float range (uniform sampling)
@@ -250,9 +253,12 @@ class TuningParams(BaseParams):
 
     trainer_type: TrainerType = TrainerType.TRL_SFT
     """The type of trainer to use for model training.
+
     Possible values are:
-        - TRL_SFT: TRL's SFT Trainer
-        TODO: Add more options in the future.
+
+    - TRL_SFT: TRL's SFT Trainer
+
+    TODO: Add more options in the future.
     """
 
     tuner_sampler: Optional[str] = None

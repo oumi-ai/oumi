@@ -111,6 +111,7 @@ class ModelParams(BaseParams):
     """The data type to use for the model's parameters, as a string.
 
     Valid options are:
+
     - "auto": Use the default dtype of the model, which is usually specified in the
       config.json file for HF models.
     - "float32" or "f32" or "float" for 32-bit floating point
