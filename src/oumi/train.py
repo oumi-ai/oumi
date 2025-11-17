@@ -12,41 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import functools
 import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Final, Optional, Union, cast
+from typing import Any, Callable, Optional, Union
 
-import datasets as hf_datasets
 import torch
 import transformers
 from transformers.trainer_utils import get_last_checkpoint
 
 from oumi.builders import (
-    build_collator_from_config,
-    build_dataset_mixture,
-    build_metrics_function,
-    build_model,
-    build_peft_model,
-    build_processor,
-    build_reward_functions,
-    build_rollout_function,
-    build_tokenizer,
-    build_trainer,
-    build_training_callbacks,
     is_image_text_llm,
 )
 from oumi.core.configs import (
-    DatasetSplit,
     TrainerType,
     TrainingConfig,
 )
-from oumi.core.configs.internal.supported_models import (
-    is_custom_model,
-)
-from oumi.core.datasets import BaseExperimentalGrpoDataset
 from oumi.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -58,25 +40,18 @@ from oumi.core.distributed import (
     prepare_accelerate_fsdp_run,
     verify_torch_distributed_initialized_if_needed,
 )
-from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.tokenizers import BaseTokenizer
-from oumi.core.trainers import BaseTrainer, LocalTrainer, VerlGrpoTrainer
+from oumi.core.trainers import BaseTrainer, LocalTrainer
 from oumi.performance.torch_profiler_utils import torch_profile
 from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
 )
-from oumi.utils.distributed_utils import is_using_accelerate, is_using_accelerate_fsdp
+from oumi.utils.distributed_utils import is_using_accelerate
 from oumi.utils.git_utils import get_git_revision_hash, get_git_tag
-from oumi.utils.grpo_utils import try_prepare_trl_grpo_dataset
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
 from oumi.utils.torch_utils import (
-    coerce_model_to_dtype,
     device_cleanup,
-    get_torch_dtype,
     log_devices_info,
-    log_model_summary,
-    log_number_of_model_parameters,
     log_peak_gpu_memory,
     log_versioning_info,
 )
@@ -206,8 +181,9 @@ def train(
     config: TrainingConfig,
     additional_model_kwargs: Optional[dict[str, Any]] = None,
     additional_trainer_kwargs: Optional[dict[str, Any]] = None,
+    additional_tuning_kwargs: Optional[dict[str, Any]] = None,
     verbose: bool = False,
-) -> None:
+) -> Union[None, dict[str, Any]]:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
@@ -340,4 +316,9 @@ def train(
 
     if is_distributed():
         cleanup_distributed()
+
+    if additional_tuning_kwargs:
+        logger.info("Retrieving last evaluation metrics for tuning...")
+        return {**trainer.get_last_eval_metrics()}
+
     _log_feedback_request()

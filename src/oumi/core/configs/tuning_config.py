@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.data_params import DataParams
+from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.tuning_params import TuningParams
 
@@ -42,7 +43,7 @@ class TuningConfig(BaseConfig):
     class.
     """
 
-    tuning_params: TuningParams = field(default_factory=TuningParams)
+    tuning: TuningParams = field(default_factory=TuningParams)
     """Parameters for the tuning process.
 
     This field includes settings reagarding the tuning process and specific to the
@@ -51,7 +52,11 @@ class TuningConfig(BaseConfig):
     For more details, see :class:`oumi.core.configs.params.model_params.TuningParams`
     """
 
-    def __post_init__(self):
-        """Verifies/populates params."""
-        # for param_name, values in self.tuning_params.tunable_params.items():
-        #     if self.tuning_params.tuner_type == TunerType.OPTUNA:
+    fsdp: FSDPParams = field(default_factory=FSDPParams)
+    """Parameters for Fully Sharded Data Parallel (FSDP) training.
+
+    This field contains settings related to FSDP, which is used for efficient
+    distributed training of large models. It includes options for enabling FSDP,
+    sharding strategies, and other FSDP-specific configurations.
+    For more details, see :class:`oumi.core.configs.params.fsdp_params.FSDPParams`
+    """

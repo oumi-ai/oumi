@@ -76,7 +76,7 @@ dependencies = [
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
     "transformers>=4.57,<4.58",
-    "trl>=0.24,<0.25",
+    "trl>=0.25,<0.26",
     "typer",                    # Used by CLI
     "typing_extensions",        # Backports of typing updates to python 3.9
     "uvicorn<0.36.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
@@ -166,6 +166,8 @@ evaluation = [
 
 quantization = ["autoawq>=0.2,<0.3", "bitsandbytes>=0.47,<0.48"]
 
+tune = ["optuna>=4.0.0,<5.0"]
+
 bitnet = ["onebitllms>=0.0.3"]
 
 cambrian = [
@@ -181,8 +183,8 @@ llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,synthesis]",
-    "vllm>=0.10,<0.11",             # For VLLMInferenceEngine
+    "oumi[dev,docs,gcp,synthesis,tune]",
+    "vllm>=0.10,<0.11",                  # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3,<0.4", # For LlamaCppInferenceEngine

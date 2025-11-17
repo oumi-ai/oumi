@@ -21,7 +21,6 @@ import transformers
 from oumi.core.configs import TrainingConfig
 from oumi.core.configs.params.peft_params import PeftSaveMode
 from oumi.core.distributed import is_world_process_zero
-from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.core.trainers.local_trainer import LocalTrainer
 from oumi.utils.logging import logger
 
@@ -184,3 +183,11 @@ class HuggingFaceTrainer(LocalTrainer):
         output_dir = config.training.output_dir
         self._hf_trainer.save_model(output_dir)
         logger.info(f"Model has been saved at {output_dir}")
+
+    def get_last_eval_metrics(self) -> dict:
+        """Gets the last evaluation metrics from the trainer.
+
+        Returns:
+            A dictionary containing the last evaluation metrics.
+        """
+        return self._hf_trainer.evaluate()
