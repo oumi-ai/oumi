@@ -302,6 +302,20 @@ run: |
 :::
 ::::
 
+## HPC Clusters
+
+In addition to cloud providers, Oumi supports running jobs on HPC (High-Performance Computing) clusters including:
+
+- **NERSC Perlmutter**: One of the world's fastest supercomputers
+- **ALCF Polaris**: Argonne Leadership Computing Facility's supercomputer
+- **OLCF Frontier**: Oak Ridge Leadership Computing Facility's exascale system
+
+These clusters use SLURM for job scheduling and require specific setup procedures. For detailed instructions on running Oumi on these systems, see:
+
+- {gh}`Perlmutter Setup Guide <scripts/perlmutter/README.md>`
+- {gh}`Polaris Setup Guide <scripts/polaris/README.md>`
+- {gh}`Frontier Setup Guide <scripts/frontier/README.md>`
+
 ```{note}
 Don't forget:
 - Make sure your training config is saved under `working_dir` so it will be copied by
