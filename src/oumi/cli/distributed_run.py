@@ -422,17 +422,15 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunI
     if len(node_ips) == 0:
         raise RuntimeError("Empty list of nodes in 'SLURM_NODELIST'!")
     gpus_per_node = torch.cuda.device_count()
-    node_rank = _get_optional_int_env_var("SLURM_PROCID", env)
-    if node_rank is None:
-        node_rank = _get_optional_int_env_var("PMI_RANK", env)
 
+    node_rank = _get_optional_int_env_var("SLURM_NODEID", env)
     # If running on a single node, default to 0.
     if node_rank is None and len(node_ips) == 1:
         node_rank = 0
     if node_rank is None:
         raise ValueError(
             "Unable to determine node rank on a multi-node setup. "
-            "Neither 'SLURM_PROCID' nor 'PMI_RANK' is set "
+            "'SLURM_NODEID' is not set."
         )
 
     return _ProcessRunInfo(

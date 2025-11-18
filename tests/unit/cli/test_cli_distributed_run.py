@@ -229,7 +229,7 @@ def test_torchrun_polaris_multi_gpu(
         assert logger.level == logging.DEBUG
 
 
-def test_torchrun_frontier_multi_gpu(
+def test_torchrun_slurm_multi_gpu(
     app,
     mock_os,
     mock_popen,
@@ -239,7 +239,7 @@ def test_torchrun_frontier_multi_gpu(
 ):
     test_env_vars = {
         "SLURM_NODELIST": "frontier[04316-04317]",
-        "PMI_RANK": 1,
+        "SLURM_NODEID": 1,
         "SLURM_JOBID": "123456.frontier",
         # Define the redundant OUMI_ variables to activate consistency checks.
         "OUMI_TOTAL_NUM_GPUS": 16,
