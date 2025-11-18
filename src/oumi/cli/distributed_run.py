@@ -437,7 +437,7 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunI
         node_rank=node_rank,
         world_info=_WorldInfo(num_nodes=len(node_ips), gpus_per_node=gpus_per_node),
         master_address=node_ips[0],
-        master_port=_DEFAULT_MASTER_PORT,
+        master_port=int(env.get(_MASTER_PORT_ENV, _DEFAULT_MASTER_PORT)),
         node_ips=node_ips,
     )
 
@@ -462,7 +462,7 @@ def _detect_skypilot_process_run_info(env: dict[str, str]) -> Optional[_ProcessR
         node_rank=node_rank,
         world_info=_WorldInfo(num_nodes=len(node_ips), gpus_per_node=gpus_per_node),
         master_address=node_ips[0],
-        master_port=_DEFAULT_MASTER_PORT,
+        master_port=int(env.get(_MASTER_PORT_ENV, _DEFAULT_MASTER_PORT)),
         node_ips=node_ips,
     )
 
