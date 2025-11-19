@@ -115,6 +115,7 @@ def test_configure_common_env_vars_empty():
         "FOO": "1",
         "ACCELERATE_LOG_LEVEL": "info",
         "TOKENIZERS_PARALLELISM": "false",
+        "HF_HUB_ENABLE_HF_TRANSFER": "1",
     }
 
 
@@ -132,6 +133,7 @@ def test_configure_common_env_vars_partially_preconfigured():
         "FOO": "1",
         "ACCELERATE_LOG_LEVEL": "info",
         "TOKENIZERS_PARALLELISM": "true",
+        "HF_HUB_ENABLE_HF_TRANSFER": "1",
     }
 
 
@@ -145,6 +147,26 @@ def test_configure_common_env_vars_fully_preconfigured():
     assert os.environ == {
         "ACCELERATE_LOG_LEVEL": "debug",
         "TOKENIZERS_PARALLELISM": "true",
+        "HF_HUB_ENABLE_HF_TRANSFER": "1",
+    }
+
+
+@patch.dict(
+    os.environ,
+    {
+        "TOKENIZERS_PARALLELISM": "true",
+        "ACCELERATE_LOG_LEVEL": "debug",
+        "HF_HUB_ENABLE_HF_TRANSFER": "0",
+    },
+    clear=True,
+)
+def test_configure_common_env_vars_with_hf_transfer_disabled():
+    configure_common_env_vars()
+    # Should not override user's explicit choice to disable hf_transfer
+    assert os.environ == {
+        "ACCELERATE_LOG_LEVEL": "debug",
+        "TOKENIZERS_PARALLELISM": "true",
+        "HF_HUB_ENABLE_HF_TRANSFER": "0",
     }
 
 

@@ -127,6 +127,13 @@ def configure_common_env_vars() -> None:
         os.environ["ACCELERATE_LOG_LEVEL"] = "info"
     if "TOKENIZERS_PARALLELISM" not in os.environ:
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    if "HF_HUB_ENABLE_HF_TRANSFER" not in os.environ:
+        # Enable hf_transfer for faster parallel downloads from HuggingFace Hub
+        os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+        logger.debug(
+            "Enabled hf_transfer for parallel downloads from HuggingFace Hub. "
+            "To disable, set HF_HUB_ENABLE_HF_TRANSFER=0."
+        )
 
 
 class LogLevel(str, Enum):

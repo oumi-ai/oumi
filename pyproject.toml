@@ -45,6 +45,7 @@ dependencies = [
     "click<8.3.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2,<3.3",         # breaking change for 4.0
     "hdrhistogram>=0.10,<0.11",
+    "hf_transfer>=0.1.8",         # Fast parallel downloads from HuggingFace Hub
     "jsonlines",
     "lm_eval[wandb]>=0.4,<0.5.0",
     "mlflow>=3.1",                # >=3.1.4 requires Python3.10>=
