@@ -11,8 +11,96 @@ Before installing Oumi, ensure you have the following:
 - Python 3.9 or later
 - pip (Python package installer)
 - Git (if cloning the repository; required for steps 1 and 2)
+- Adequate disk space (see [Storage Requirements](#storage-requirements) below)
 
 We recommend using a virtual environment to install Oumi. You can find instructions for setting up a Conda environment in the {doc}`/development/dev_setup` guide.
+
+### Storage Requirements
+
+Oumi requires sufficient disk space for models, datasets, checkpoints, and cache directories. The amount of storage needed depends on your specific use case, but here are general guidelines:
+
+#### Minimum Storage Requirements
+
+For basic usage (small model inference and evaluation):
+
+- **~50 GB minimum** - Enough for:
+  - Oumi installation and dependencies (~5-10 GB)
+  - Small models (1B-3B parameters) (~2-8 GB per model)
+  - Small datasets (~1-5 GB)
+  - Model cache and temporary files (~10-20 GB)
+
+#### Recommended Storage for Training
+
+For training and fine-tuning workflows:
+
+- **200-500 GB recommended** - Sufficient for:
+  - Multiple model checkpoints during training
+  - Medium-sized models (7B-13B parameters)
+  - Moderate-sized datasets
+  - Training artifacts and logs
+
+#### Large-Scale Usage
+
+For production deployments or large-scale training:
+
+- **1-5 TB recommended** - Required for:
+  - Large models (70B+ parameters)
+  - Multiple large model variants
+  - Large pre-training datasets (100GB+)
+  - Multiple training checkpoints
+  - Extensive experiment logs and artifacts
+
+#### Storage Breakdown by Component
+
+Here's what contributes to storage usage:
+
+**Model Weights** (cached at `~/.cache/huggingface/hub` by default):
+
+| Model Size | BF16/FP16 | FP32 | Q4 Quantized |
+|-----------|-----------|------|-------------|
+| 1B        | ~2 GB     | ~4 GB | ~0.5 GB |
+| 3B        | ~6 GB     | ~12 GB | ~1.5 GB |
+| 7B        | ~14 GB    | ~28 GB | ~3.5 GB |
+| 13B       | ~26 GB    | ~52 GB | ~6.5 GB |
+| 33B       | ~66 GB    | ~132 GB | ~16.5 GB |
+| 70B       | ~140 GB   | ~280 GB | ~35 GB |
+
+**Training Checkpoints**: Each checkpoint is approximately the same size as the model weights. By default, Oumi may save multiple checkpoints during training. Configure `training.save_total_limit` to control the number of checkpoints retained.
+
+**Datasets**: Varies widely based on use case:
+- Small fine-tuning datasets: 1-100 MB
+- Medium datasets: 100 MB - 10 GB  
+- Large pre-training datasets: 10 GB - 1 TB+
+
+**Cache and Temporary Files**: 10-50 GB for intermediate processing, compilation caches, and temporary artifacts.
+
+#### Managing Storage
+
+To manage storage effectively:
+
+1. **Configure cache directories**: Set `HF_HOME` or `TRANSFORMERS_CACHE` environment variables to control where models are cached:
+
+   ```bash
+   export HF_HOME=/path/to/large/disk/.cache/huggingface
+   ```
+
+2. **Clean up cache**: Use Oumi's cache management tools to remove unused models:
+
+   ```bash
+   oumi cache ls  # List cached models
+   oumi cache rm <model-name>  # Remove specific cached model
+   ```
+
+3. **Limit checkpoints**: Configure checkpoint retention in your training config:
+
+   ```yaml
+   training:
+     save_total_limit: 2  # Keep only the 2 most recent checkpoints
+   ```
+
+4. **Use cloud storage**: For remote training, mount cloud storage (GCS, S3, Azure Blob) to avoid filling local disks. See {doc}`/user_guides/launch/launch` for details.
+
+5. **Use quantization**: Employ quantized models (Q4, Q8) to reduce storage requirements by 2-4x with minimal quality impact.
 
 ## Installation Methods
 

@@ -9,14 +9,14 @@ For cloud-based training options, see {doc}`/user_guides/launch/launch`.
 Before starting local training, ensure you have:
 
 1. **Hardware Requirements**
-   - CUDA-capable GPU(s) recommended
-   - Sufficient RAM (16GB minimum)
-   - Adequate disk space for storing your models and datasets
+   - CUDA-capable GPU(s) recommended (see {doc}`/faq/oom` for GPU memory guidance)
+   - Sufficient RAM (16GB minimum, 32GB+ recommended for training)
+   - Adequate disk space (minimum 50GB for basic usage, 200-500GB recommended for training; see {doc}`/get_started/installation` for detailed storage requirements)
 
 2. **Software Setup**
    - Python environment configured & `oumi` installed
 
-For detailed installation instructions, refer to our {doc}`/get_started/installation` guide.
+For detailed installation instructions and comprehensive storage requirements, refer to our {doc}`/get_started/installation` guide.
 
 ## Basic Usage
 
