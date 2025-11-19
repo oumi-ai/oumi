@@ -11,11 +11,6 @@ on:
       - "scripts/**"
       - "README.md"
   merge_group:
-    paths-ignore:
-      - "docs/**"
-      - "notebooks/**"
-      - "scripts/**"
-      - "README.md"
 
 jobs:
   static-checks:
