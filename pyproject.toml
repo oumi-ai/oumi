@@ -159,7 +159,7 @@ evaluation = [
     "langdetect",                   # leaderboard_ifeval
     "immutabledict",                # leaderboard_ifeval
     "nltk>=3.9",                    # leaderboard_ifeval
-    "antlr4-python3-runtime==4.11", # leaderboard_math_hard
+    "antlr4-python3-runtime==4.13.2", # leaderboard_math_hard
     "sympy>=1.14",                  # leaderboard_math_hard
     "sentencepiece>=0.2.0",
 ]
@@ -174,7 +174,7 @@ cambrian = [
     "timm==0.9.16",
     "open_clip_torch",
     "diffusers[torch]",
-    "einops==0.6.1",
+    "einops==0.8.1",
 ]
 
 file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
