@@ -4,10 +4,11 @@ on:
   schedule:
     - cron: "0 */8 * * *" # Every 8 hours
   workflow_dispatch:
-  merge_group:
+  pull_request:
     paths:
       - "docs/**"
       - "README.md"
+  merge_group:
 
 jobs:
   static-checks:
