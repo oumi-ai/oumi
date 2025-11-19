@@ -62,7 +62,7 @@ dependencies = [
     "protobuf>=6.32",
     "pydantic>=2.11,<2.12",
     "responses>=0.25,<0.26",
-    "safetensors>=0.6,<0.7",
+    "safetensors>=0.6,<0.8",
     "skypilot>=0.10.2,<0.11",  # 0.10.2 and above is needed
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "torch>=2.6,<2.9.0",       # vllm only supports up to torch==2.7
