@@ -9,7 +9,8 @@ on:
         description: 'Docker image tag (defaults to release tag or "manual")'
         required: false
         type: string
-  merge_group:
+
+  pull_request:
     paths:
       - "Dockerfile"
 
