@@ -20,6 +20,9 @@ updates:
     labels:
       - "dependencies"
       - "python"
+    assignees:
+      - "oelachqar"
+      - "wizeng23"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -35,3 +38,6 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    assignees:
+      - "oelachqar"
+      - "wizeng23"
