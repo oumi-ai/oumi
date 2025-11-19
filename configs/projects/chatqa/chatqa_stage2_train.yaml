@@ -65,6 +65,7 @@ data:
         mixture_proportion: 0.1  # Original: 0.2
 
 training:
+  save_final_model: True
   trainer_type: "TRL_SFT"
 
   output_dir: "output/chatqa.stage2"

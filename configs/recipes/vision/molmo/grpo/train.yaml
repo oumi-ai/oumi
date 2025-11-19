@@ -49,6 +49,7 @@ data:
           return_conversations: True
 
 training:
+  save_final_model: True
   output_dir: "output/grpo-verl-molmo-o"
   enable_wandb: True
 

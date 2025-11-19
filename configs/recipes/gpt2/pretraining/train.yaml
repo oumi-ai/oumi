@@ -34,6 +34,7 @@ data:
     target_col: "text"
 
 training:
+  save_final_model: True
   trainer_type: "TRL_SFT"
   save_steps: 200
   per_device_train_batch_size: 64 # Use 64 for A100-80GB

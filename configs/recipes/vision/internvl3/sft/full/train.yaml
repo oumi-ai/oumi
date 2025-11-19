@@ -58,6 +58,7 @@ data:
       #     return_tensors: True
 
 training:
+  save_final_model: True
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT" # or "OUMI"
   enable_gradient_checkpointing: True

@@ -29,6 +29,7 @@ data:
       - dataset_name: "yahma/alpaca-cleaned"
 
 training:
+  save_final_model: True
   trainer_type: "TRL_SFT" # Could also be TRL_DPO.
   save_steps: 800
 
