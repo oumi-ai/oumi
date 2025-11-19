@@ -35,6 +35,7 @@ from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
+from oumi.cli.list_cmd import list_configs, list_datasets, list_models, list_registry
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
@@ -161,6 +162,21 @@ def get_app() -> typer.Typer:
         cache_rm
     )
     app.add_typer(cache_app, name="cache", help="Manage local Hugging Face cache.")
+
+    list_app = typer.Typer(pretty_exceptions_enable=False)
+    list_app.command(name="datasets", help="List all registered datasets.")(
+        list_datasets
+    )
+    list_app.command(name="models", help="List all supported model types.")(list_models)
+    list_app.command(name="configs", help="List available configuration files.")(
+        list_configs
+    )
+    list_app.command(name="registry", help="List all items in the global registry.")(
+        list_registry
+    )
+    app.add_typer(
+        list_app, name="list", help="List available models, datasets, and configs."
+    )
 
     return app
 
