@@ -10,9 +10,9 @@ on:
         required: false
         type: string
 
-  pull_request:
-    paths:
-      - "Dockerfile"
+  # pull_request:
+  #   paths:
+  #     - "Dockerfile"
 
 env:
   REGISTRY: ghcr.io
