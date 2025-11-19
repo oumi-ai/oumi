@@ -20,8 +20,6 @@ updates:
     labels:
       - "dependencies"
       - "python"
-    assignees:
-      - "oumi-ai/core-team"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -37,5 +35,3 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
-    assignees:
-      - "oumi-ai/core-team"
