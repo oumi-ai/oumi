@@ -156,11 +156,11 @@ flash_attn = [
 
 evaluation = [
     "alpaca-eval>=0.6,<0.7",
-    "langdetect",                   # leaderboard_ifeval
-    "immutabledict",                # leaderboard_ifeval
-    "nltk>=3.9",                    # leaderboard_ifeval
+    "langdetect",                     # leaderboard_ifeval
+    "immutabledict",                  # leaderboard_ifeval
+    "nltk>=3.9",                      # leaderboard_ifeval
     "antlr4-python3-runtime==4.13.2", # leaderboard_math_hard
-    "sympy>=1.14",                  # leaderboard_math_hard
+    "sympy>=1.14",                    # leaderboard_math_hard
     "sentencepiece>=0.2.0",
 ]
 
@@ -169,13 +169,6 @@ quantization = ["autoawq>=0.2,<0.3", "bitsandbytes>=0.47,<0.48"]
 tune = ["optuna>=4.0.0,<5.0"]
 
 bitnet = ["onebitllms>=0.0.3"]
-
-cambrian = [
-    "timm==0.9.16",
-    "open_clip_torch",
-    "diffusers[torch]",
-    "einops==0.8.1",
-]
 
 file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
 
@@ -234,22 +227,6 @@ ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
-"src/oumi/models/experimental/cambrian/**" = [
-    "F401",   # Ignore pyflakes: `torch_xla` imported but unused;
-    "F601",   # Ignore pyflakes: Dictionary key literal `"mistral_v2"` repeated
-    "F841",   # Ignore pyflakes: Local variable is assigned but never used
-    "E501",   # Ignore pycodestyle: Line too long
-    "E701",   # Ignore pycodestyle: Multiple statements on one line
-    "E721",   # Ignore pycodestyle: Do not compare types, use `isinstance()`
-    "E722",   # Ignore pycodestyle: Do not use bare `except`
-    "E731",   # Ignore pycodestyle: Do not assign a `lambda` expression, use a `def`
-    "E741",   # Ignore pycodestyle: Ambiguous variable name
-    "D",      # Ignore docstring checks in Cambrian
-    "TID252", # Ignore flake8-tidy-imports: Prefer absolute imports over relative imports
-    "W291",   # Ignore pycodestyle: warnings: Trailing whitespace
-    "UP035",  # UP035 `typing.List` is deprecated, use `list` instead
-    "UP006",  # UP006 Use `list` instead of `List` for type annotation
-]
 "src/oumi/utils/verl_model_merger.*" = [
     "E501", # Line too long
     "D",    # Ignore docstring checks
@@ -265,7 +242,6 @@ known-first-party = ["oumi"]
 [tool.pyright]
 include = ["src/oumi/**", "tests/**"]
 exclude = [
-    "src/oumi/models/experimental/cambrian/**",
     "src/oumi/core/types/proto/**",
     "src/oumi/utils/verl_model_merger.py",
 ]
