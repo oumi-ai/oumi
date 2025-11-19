@@ -53,7 +53,7 @@ dependencies = [
     # conflicts. We'll use the dev version until a new stable version is released.
     # See https://github.com/oumi-ai/oumi/issues/1377
     # We pin the exact dev version so that the --pre flag isn't needed for uv pip install.
-    "omegaconf==2.4.0.dev3",
+    "omegaconf==2.4.0.dev4",
     "packaging",
     "pandas>=2.3,<3",
     "peft>=0.17,<0.18",
