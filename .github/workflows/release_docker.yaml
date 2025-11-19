@@ -35,7 +35,7 @@ jobs:
           sudo docker builder prune -a
       - run: df -h
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # For releases, checkout the release tag; for workflow_dispatch, checkout the latest commit
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
@@ -76,7 +76,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.event_name == 'release' }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
