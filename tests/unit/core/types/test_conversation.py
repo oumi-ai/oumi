@@ -951,3 +951,13 @@ def test_frozen_message():
     message.content.append(test_item)
     assert isinstance(message.content, list)
     assert len(message.content) == 3
+
+
+def test_conversation_metadata_independence():
+    conv1 = Conversation(messages=[Message(role=Role.USER, content="hi")])
+    conv2 = Conversation(messages=[Message(role=Role.USER, content="hello")])
+
+    conv1.metadata["foo"] = "bar"
+
+    assert conv2.metadata == {}
+    assert conv1.metadata == {"foo": "bar"}
