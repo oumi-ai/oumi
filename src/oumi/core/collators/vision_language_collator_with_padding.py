@@ -19,6 +19,7 @@ import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.utils.logging import logger
 from oumi.utils.torch_utils import pad_to_max_dim_and_stack
 
 
@@ -51,6 +52,9 @@ class VisionLanguageCollatorWithPadding:
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._main_image_feature = main_image_feature
+        self._debug = debug
+        self._has_logged_example = False
+        self._tokenizer = tokenizer
         self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
@@ -61,7 +65,7 @@ class VisionLanguageCollatorWithPadding:
                 # allow 2 variable-sized dimensions: `seq_len`, `num_images`.
                 2 if allow_multi_image_inputs else 1
             ),
-            debug=debug,
+            debug=False,  # We'll handle debug logging at this level
         )
 
     def __call__(self, batch) -> dict[str, Any]:
@@ -129,7 +133,103 @@ class VisionLanguageCollatorWithPadding:
                 )
                 collated_batch[input_name] = collated_value
 
+        # Log debug example if enabled
+        if self._debug and not self._has_logged_example and len(batch) > 0:
+            self._log_multimodal_debug_example(batch, collated_batch)
+
         return collated_batch
+
+    def _log_multimodal_debug_example(
+        self,
+        batch: list[dict[str, Any]],
+        collated_batch: dict[str, Any],
+    ) -> None:
+        """Logs a multimodal debug example.
+
+        Args:
+            batch: The original batch of data.
+            collated_batch: The collated batch after processing.
+        """
+        self._has_logged_example = True
+
+        # Log text information
+        first_input_ids = collated_batch["input_ids"][0]
+        formatted_text = self._tokenizer.decode(
+            first_input_ids, skip_special_tokens=False
+        )
+        raw_text = self._tokenizer.decode(first_input_ids, skip_special_tokens=True)
+
+        # Log tokenized text
+        tokenized_example = []
+        for tid in first_input_ids:
+            if hasattr(tid, "item"):
+                token_id = int(tid.item())
+                decoded_token = self._tokenizer.decode([tid])
+            else:
+                token_id = int(tid)
+                decoded_token = self._tokenizer.decode([tid])
+            tokenized_example.append((token_id, decoded_token))
+
+        # Log image information
+        image_info = {}
+        if self._main_image_feature in collated_batch:
+            image_tensor = collated_batch[self._main_image_feature]
+            image_info["image_feature_key"] = self._main_image_feature
+            image_info["image_tensor_shape"] = (
+                tuple(image_tensor.shape)
+                if hasattr(image_tensor, "shape")
+                else "unknown"
+            )
+            image_info["image_tensor_dtype"] = (
+                str(image_tensor.dtype)
+                if hasattr(image_tensor, "dtype")
+                else "unknown"
+            )
+            image_info["batch_size"] = image_tensor.shape[0] if len(image_tensor.shape) > 0 else 0
+
+            # For multi-image inputs, log additional info
+            if self._allow_multi_image_inputs and len(image_tensor.shape) > 1:
+                image_info["num_images_first_example"] = (
+                    image_tensor.shape[1] if len(image_tensor.shape) > 1 else 1
+                )
+
+        # Build model input dict
+        model_input = {
+            "input_ids": (
+                first_input_ids.tolist()
+                if hasattr(first_input_ids, "tolist")
+                else first_input_ids
+            ),
+            "attention_mask": (
+                collated_batch["attention_mask"][0].tolist()
+                if hasattr(collated_batch["attention_mask"][0], "tolist")
+                else collated_batch["attention_mask"][0]
+            ),
+        }
+
+        if "labels" in collated_batch:
+            lbl = collated_batch["labels"][0]
+            model_input["labels"] = lbl.tolist() if hasattr(lbl, "tolist") else lbl
+
+        # Log all debug information
+        logger.debug("=" * 80)
+        logger.debug("MULTIMODAL DEBUG EXAMPLE")
+        logger.debug("=" * 80)
+        logger.debug("Raw text: %s", raw_text)
+        logger.debug("Formatted text: %s", formatted_text)
+        logger.debug("Tokenized example (first 10 tokens): %s", tokenized_example[:10])
+        logger.debug("Image information: %s", image_info)
+        logger.debug("Model input keys: %s", list(model_input.keys()))
+        logger.debug("Model input (truncated): input_ids length=%d, attention_mask length=%d",
+                    len(model_input["input_ids"]),
+                    len(model_input["attention_mask"]))
+
+        # Log any additional features beyond standard keys
+        standard_keys = {"input_ids", "attention_mask", "labels", self._main_image_feature}
+        additional_features = set(collated_batch.keys()) - standard_keys
+        if additional_features:
+            logger.debug("Additional features in batch: %s", list(additional_features))
+        logger.debug("=" * 80)
 
     def collate_images(self, images) -> torch.Tensor:
         """Collate images for multi-modal training.

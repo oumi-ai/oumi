@@ -43,6 +43,7 @@ from oumi.core.feature_generators import (
 )
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types import Conversation
+from oumi.utils.logging import logger
 from oumi.utils.torch_utils import pad_to_max_dim_and_stack
 
 
@@ -86,6 +87,7 @@ class VisionLanguageSftCollator:
         response_template: Optional[str] = None,
         instruction_template: Optional[str] = None,
         process_individually: bool = False,
+        debug: bool = False,
     ):
         """Initializes the vision-language SFT collator.
 
@@ -177,9 +179,14 @@ class VisionLanguageSftCollator:
                     - Phi-3: "<|user|>"
                     - Llama-3: "<|start_header_id|>user<|end_header_id|>"
                     - Custom: "User: " or "Human: "
+
+            debug: Whether to log a debug example.
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._process_individually = process_individually
+        self._debug = debug
+        self._has_logged_example = False
+        self._tokenizer = tokenizer
 
         if not processor_name:
             raise ValueError("processor_name is required for VisionLanguageSftCollator")
@@ -288,7 +295,98 @@ class VisionLanguageSftCollator:
                 FeatureGeneratorOptions(allow_feature_reshape=False),
             )
 
+        # Log debug example if enabled
+        if self._debug and not self._has_logged_example and len(conversations) > 0:
+            self._log_multimodal_debug_example(conversations, result)
+
         return result
+
+    def _log_multimodal_debug_example(
+        self,
+        conversations: list[Conversation],
+        result: dict[str, Any],
+    ) -> None:
+        """Logs a multimodal debug example from SFT collator.
+
+        Args:
+            conversations: The original conversations.
+            result: The processed result dictionary.
+        """
+        self._has_logged_example = True
+
+        # Log conversation information
+        first_conversation = conversations[0]
+        logger.debug("=" * 80)
+        logger.debug("MULTIMODAL SFT DEBUG EXAMPLE")
+        logger.debug("=" * 80)
+        logger.debug("Conversation messages: %s", first_conversation.messages)
+        logger.debug("Number of images: %s", len(first_conversation.images) if first_conversation.images else 0)
+
+        # Log text information
+        if "input_ids" in result:
+            first_input_ids = result["input_ids"][0]
+            formatted_text = self._tokenizer.decode(
+                first_input_ids, skip_special_tokens=False
+            )
+            raw_text = self._tokenizer.decode(first_input_ids, skip_special_tokens=True)
+
+            logger.debug("Raw text: %s", raw_text)
+            logger.debug("Formatted text: %s", formatted_text)
+
+            # Log tokenized text (first 10 tokens)
+            tokenized_example = []
+            for tid in first_input_ids[:10]:
+                if hasattr(tid, "item"):
+                    token_id = int(tid.item())
+                    decoded_token = self._tokenizer.decode([tid])
+                else:
+                    token_id = int(tid)
+                    decoded_token = self._tokenizer.decode([tid])
+                tokenized_example.append((token_id, decoded_token))
+            logger.debug("Tokenized example (first 10 tokens): %s", tokenized_example)
+
+        # Log image information
+        image_feature_keys = [
+            "pixel_values",
+            "image_features",
+            "pixel_values_videos",
+            "image_patches",
+        ]
+        for key in image_feature_keys:
+            if key in result:
+                image_tensor = result[key]
+                logger.debug("Image feature key: %s", key)
+                logger.debug(
+                    "Image tensor shape: %s",
+                    tuple(image_tensor.shape) if hasattr(image_tensor, "shape") else "unknown",
+                )
+                logger.debug(
+                    "Image tensor dtype: %s",
+                    str(image_tensor.dtype) if hasattr(image_tensor, "dtype") else "unknown",
+                )
+                if hasattr(image_tensor, "shape") and len(image_tensor.shape) > 0:
+                    logger.debug("Batch size: %d", image_tensor.shape[0])
+                    if self._allow_multi_image_inputs and len(image_tensor.shape) > 1:
+                        logger.debug("Num images in first example: %d", image_tensor.shape[1])
+                break
+
+        # Log model input information
+        model_input_keys = list(result.keys())
+        logger.debug("Model input keys: %s", model_input_keys)
+
+        if "input_ids" in result and "attention_mask" in result:
+            logger.debug(
+                "Model input (truncated): input_ids length=%d, attention_mask length=%d",
+                len(result["input_ids"][0]) if hasattr(result["input_ids"][0], "__len__") else 0,
+                len(result["attention_mask"][0]) if hasattr(result["attention_mask"][0], "__len__") else 0,
+            )
+
+        # Log any additional features
+        standard_keys = {"input_ids", "attention_mask", "labels"}.union(set(image_feature_keys))
+        additional_features = set(result.keys()) - standard_keys
+        if additional_features:
+            logger.debug("Additional features in result: %s", list(additional_features))
+        logger.debug("=" * 80)
 
     def _collate_individual_results(
         self, results: list[dict[str, Any]]
