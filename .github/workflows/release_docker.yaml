@@ -10,7 +10,7 @@ on:
         required: false
         type: string
 
-  # pull_request:
+  pull_request:
   #   paths:
   #     - "Dockerfile"
 
