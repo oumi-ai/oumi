@@ -330,6 +330,11 @@ class Trainer(BaseTrainer):
                             .item()
                         )
                         self.state.total_tokens_seen += num_tokens
+                        # Calculate average sequence length for this batch
+                        batch_size = batch["input_ids"].shape[0]
+                        avg_seq_len = num_tokens / batch_size if batch_size > 0 else 0.0
+                    else:
+                        avg_seq_len = 0.0
 
                 with self._telemetry_block("moving batch to device"):
                     if not self.is_using_fsdp:
@@ -399,6 +404,7 @@ class Trainer(BaseTrainer):
                             "tokens_per_second": self.state.total_tokens_seen / elapsed,
                             "tokens_per_step_per_gpu": self.state.total_tokens_seen
                             / self.state.global_step,
+                            "sequence_length": avg_seq_len,
                         }
                         callback_metrics = self._process_callbacks("on_log", metrics)
                         metrics.update(callback_metrics)

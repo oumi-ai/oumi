@@ -557,6 +557,14 @@ class TrainingParams(BaseParams):
     include_performance_metrics: bool = False
     """Whether to include performance metrics such as token statistics."""
 
+    report_sequence_stats: bool = True
+    """Whether to track and report sequence length statistics at end of training.
+
+    When enabled, a callback tracks average sequence lengths during training and
+    reports summary statistics (mean, std, min, max) at the end of training.
+    The statistics are saved to a JSON file in the telemetry directory.
+    """
+
     include_alternative_mfu_metrics: bool = False
     """Whether to report alternative MFU (Model FLOPs Utilization) metrics.
 

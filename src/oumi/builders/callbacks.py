@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pathlib
 from typing import Any, Optional
 
 import torch
@@ -22,6 +23,9 @@ from oumi.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from oumi.core.callbacks.mfu_callback import MfuTrainerCallback
 from oumi.core.callbacks.nan_inf_detection_callback import NanInfDetectionCallback
 from oumi.core.callbacks.profiler_step_callback import ProfilerStepCallback
+from oumi.core.callbacks.sequence_length_stats_callback import (
+    SequenceLengthStatsCallback,
+)
 from oumi.core.callbacks.telemetry_callback import TelemetryCallback
 from oumi.core.configs import TrainerType, TrainingConfig
 from oumi.performance.mfu import _get_device_flops
@@ -126,6 +130,22 @@ def build_training_callbacks(
     result.append(
         NanInfDetectionCallback(metrics=["loss", "train/loss", " train_loss"])
     )
+
+    # Add sequence length statistics callback if enabled
+    if config.training.report_sequence_stats:
+        seq_stats_output_dir = (
+            config.training.telemetry_dir or config.training.output_dir
+        )
+        result.append(
+            SequenceLengthStatsCallback(
+                output_dir=seq_stats_output_dir
+                if seq_stats_output_dir is None
+                else pathlib.Path(seq_stats_output_dir),
+                world_process_zero_only=(
+                    not config.training.telemetry.collect_telemetry_for_all_ranks
+                ),
+            )
+        )
 
     # TelemetryCallback goes last to make sure it can read MFU metrics.
     result.append(
