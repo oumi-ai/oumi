@@ -35,6 +35,7 @@ from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
+from oumi.cli.magic import magic
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
@@ -148,6 +149,10 @@ def get_app() -> typer.Typer:
     app.command(
         help="Fetch configuration files from the oumi GitHub repository.",
     )(fetch)
+
+    app.command(
+        help="Interactive getting started wizard.",
+    )(magic)
 
     cache_app = typer.Typer(pretty_exceptions_enable=False)
     cache_app.command(name="ls", help="List locally cached items.")(cache_ls)
