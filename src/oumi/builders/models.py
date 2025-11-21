@@ -141,16 +141,52 @@ def build_oumi_model(
     peft_params: Optional[PeftParams] = None,
     **kwargs,
 ) -> nn.Module:
-    """Builds a custom model from our Oumi registry."""
-    model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
-    model = model_class(**model_params.model_kwargs)
+    """Builds a custom model from our Oumi registry.
 
+    Supports loading pretrained weights saved with BaseModel.save_pretrained().
+    """
+    model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
+
+    # Determine if we should load from pretrained weights
     if model_params.load_pretrained_weights:
-        raise NotImplementedError(
-            "Loading pretrained weights for custom Oumi models is not yet implemented. "
-            "Currently, custom models can only be initialized from scratch. "
-            "Please open a feature request at https://github.com/oumi-ai/oumi."
+        # Get pretrained directory from custom_pretrained_dir or model_kwargs
+        custom_pretrained_dir = model_params.custom_pretrained_dir or model_params.model_kwargs.get(
+            "pretrained_dir", None
         )
+
+        if not custom_pretrained_dir:
+            raise ValueError(
+                f"For custom model '{model_params.model_name}', "
+                "'load_pretrained_weights=True' requires either:\n"
+                "  1. Setting 'custom_pretrained_dir' in ModelParams, or\n"
+                "  2. Providing 'pretrained_dir' in model_kwargs.\n\n"
+                "Example YAML config:\n"
+                "  model:\n"
+                "    model_name: 'MlpEncoder'\n"
+                "    load_pretrained_weights: true\n"
+                "    custom_pretrained_dir: 'path/to/saved/model'\n\n"
+                "The pretrained directory should contain files created by "
+                "BaseModel.save_pretrained()."
+            )
+
+        # Extract override kwargs from kwargs if provided
+        override_kwargs = kwargs.get("override_init_kwargs", None)
+
+        logger.info(
+            f"Loading pretrained custom model '{model_params.model_name}' "
+            f"from {custom_pretrained_dir}"
+        )
+
+        # Load model using from_pretrained classmethod
+        model = model_class.from_pretrained(
+            load_directory=custom_pretrained_dir,
+            override_kwargs=override_kwargs,
+            map_location="cpu",  # Load to CPU first
+            strict=True,
+        )
+    else:
+        # Initialize model from scratch
+        model = model_class(**model_params.model_kwargs)
 
     if peft_params and peft_params.q_lora:
         raise NotImplementedError(
