@@ -18,7 +18,7 @@ readme = "README.md"
 requires-python = ">=3.9,<3.13"
 description = "Oumi Chat - Interactive chat interface for Oumi models"
 authors = [{ name = "Oumi Team", email = "contact@oumi.ai" }]
-license = { file = "../../LICENSE" }
+license = { file = "LICENSE" }
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",

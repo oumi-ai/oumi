@@ -17,7 +17,7 @@
 __version__ = "0.1.0"
 
 from oumi_chat.attachments import (
-    AttachmentContextManager,
+    ContextWindowManager,
     FileHandler,
 )
 from oumi_chat.commands import (
@@ -30,10 +30,10 @@ from oumi_chat.monitoring import SystemMonitor
 from oumi_chat.thinking import ThinkingProcessor
 
 __all__ = [
-    "AttachmentContextManager",
     "CommandContext",
     "CommandParser",
     "CommandRouter",
+    "ContextWindowManager",
     "EnhancedInput",
     "FileHandler",
     "InputAction",
