@@ -1,5 +1,13 @@
 ARG TARGETPLATFORM=linux/amd64
-FROM --platform=${TARGETPLATFORM} pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+
+# Use CUDA runtime for AMD64, CPU-only for ARM64
+# AMD64: CUDA 12.4 with GPU support
+# ARM64: CPU-only
+FROM --platform=linux/amd64 pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime AS base-amd64
+FROM --platform=linux/arm64 pytorch/pytorch:2.5.1-cpu AS base-arm64
+
+# Select base image based on build architecture
+FROM base-${TARGETARCH} AS final
 
 # ARG for oumi version - defaults to empty string which will install latest
 ARG OUMI_VERSION=
@@ -25,12 +33,19 @@ RUN apt-get update && \
 
 
 # Install Oumi dependencies
-# If OUMI_VERSION is provided, install that specific version, otherwise install latest
+# AMD64: Install with GPU support
+# ARM64: Install CPU-only version (no CUDA support on Apple Silicon)
+ARG TARGETARCH
 RUN pip install --no-cache-dir uv && \
-    if [ -z "$OUMI_VERSION" ]; then \
-        uv pip install --system --no-cache-dir --prerelease=allow "oumi[gpu]"; \
+    if [ "$TARGETARCH" = "arm64" ]; then \
+        OUMI_EXTRAS=""; \
     else \
-        uv pip install --system --no-cache-dir --prerelease=allow "oumi[gpu]==$OUMI_VERSION"; \
+        OUMI_EXTRAS="[gpu]"; \
+    fi && \
+    if [ -z "$OUMI_VERSION" ]; then \
+        uv pip install --system --no-cache-dir --prerelease=allow "oumi${OUMI_EXTRAS}"; \
+    else \
+        uv pip install --system --no-cache-dir --prerelease=allow "oumi${OUMI_EXTRAS}==$OUMI_VERSION"; \
     fi
 
 # Switch to oumi user
