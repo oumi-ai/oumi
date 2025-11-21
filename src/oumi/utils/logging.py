@@ -234,9 +234,6 @@ def configure_dependency_warnings(level: Union[str, int] = "info") -> None:
             "torch.distributed.elastic.multiprocessing.redirects"
         ).setLevel(logging.ERROR)
 
-        # Suppress verbose wandb logging
-        logging.getLogger("wandb").setLevel(logging.ERROR)
-
 
 # Default logger for the package
 logger = get_logger("oumi")
