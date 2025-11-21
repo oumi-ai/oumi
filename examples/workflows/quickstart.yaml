@@ -1,0 +1,45 @@
+# Quickstart workflow: Train and evaluate SmolLM 135M
+# This workflow trains a tiny model (135M parameters) for 10 steps and evaluates it.
+# Perfect for testing the workflow system quickly (~5 minutes total).
+#
+# Usage:
+#   oumi workflow run examples/workflows/quickstart.yaml
+#   oumi workflow run examples/workflows/quickstart.yaml --no-tui  # Headless mode
+#
+# Note: This uses the actual SmolLM quickstart configs from oumi
+
+name: "quickstart-train-eval"
+description: "Quick test: Train SmolLM 135M for 10 steps, then evaluate on MMLU"
+
+resources:
+  gpus: [0]  # Uses only 1 GPU
+  allocation: "dynamic"
+
+env:
+  # Optional: Add your weights & biases project
+  # WANDB_PROJECT: "oumi-workflow-test"
+
+output_dir: "./output/workflows/quickstart"
+
+# Set working directory to project root
+workdir: "."  # Run from current directory (project root)
+
+jobs:
+  # Job 1: Train SmolLM 135M for 10 steps (takes ~2 minutes)
+  - name: "train-smollm"
+    verb: "train"
+    config: "configs/recipes/smollm/sft/135m/quickstart_train.yaml"
+    workdir: "."  # Use current directory as working directory
+    resources:
+      gpu: 0
+    timeout: 600  # 10 minutes max
+
+  # Job 2: Evaluate the base model on MMLU (takes ~2-3 minutes)
+  - name: "eval-smollm"
+    verb: "evaluate"
+    config: "configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml"
+    workdir: "."  # Use current directory as working directory
+    depends_on: ["train-smollm"]  # Wait for training to complete
+    resources:
+      gpu: 0
+    timeout: 600  # 10 minutes max

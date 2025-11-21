@@ -1,0 +1,54 @@
+# Full ML pipeline workflow
+# Data synthesis → Training → Evaluation → Quantization → Inference
+
+name: "full-pipeline"
+description: "Complete ML pipeline from data synthesis to inference"
+
+resources:
+  gpus: [0, 1]
+  allocation: "dynamic"
+
+output_dir: "./outputs/full-pipeline"
+
+jobs:
+  # Step 1: Synthesize training data
+  - name: "synthesize-data"
+    verb: "synth"
+    config: "configs/synthesis/default.yaml"
+    resources:
+      gpu: 0
+
+  # Step 2: Train model on synthesized data
+  - name: "train-model"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    depends_on: ["synthesize-data"]
+    resources:
+      gpu: 0
+
+  # Step 3: Evaluate trained model
+  - name: "evaluate-model"
+    verb: "evaluate"
+    config: "configs/eval/mmlu.yaml"
+    depends_on: ["train-model"]
+    resources:
+      gpu: 0
+
+  # Step 4: Quantize model for efficient inference
+  - name: "quantize-model"
+    verb: "quantize"
+    config: "configs/quantization/int8.yaml"
+    depends_on: ["evaluate-model"]
+    resources:
+      gpu: 0
+
+  # Step 5: Run inference on quantized model
+  - name: "infer-quantized"
+    verb: "infer"
+    config: "configs/inference/default.yaml"
+    depends_on: ["quantize-model"]
+    resources:
+      gpu: 1
+    args:
+      - "--interactive=false"
+      - "--num_samples=100"

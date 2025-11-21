@@ -1,0 +1,23 @@
+# Simple workflow: Train a model then evaluate it
+# This is the most basic workflow pattern
+
+name: "simple-train-eval"
+description: "Train a model and then evaluate it on a benchmark"
+
+resources:
+  gpus: [0]  # Use GPU 0
+  allocation: "dynamic"
+
+jobs:
+  - name: "train-model"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    resources:
+      gpu: 0
+
+  - name: "evaluate-model"
+    verb: "evaluate"
+    config: "configs/eval/mmlu.yaml"
+    depends_on: ["train-model"]  # Wait for training to complete
+    resources:
+      gpu: 0

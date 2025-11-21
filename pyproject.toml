@@ -65,6 +65,7 @@ dependencies = [
     "safetensors>=0.6,<0.8",
     "skypilot>=0.10.2,<0.11",  # 0.10.2 and above is needed
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
+    "textual>=1.0,<2.0",       # TUI framework for workflow management
     "torch>=2.6,<2.9.0",       # vllm only supports up to torch==2.7
     "torchao>=0.12,<0.13",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use

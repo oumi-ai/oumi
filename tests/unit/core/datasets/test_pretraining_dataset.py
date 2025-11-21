@@ -16,7 +16,7 @@ def tokenizer():
     return AutoTokenizer.from_pretrained("gpt2")
 
 
-class TestDataset(BasePretrainingDataset):
+class _TestDataset(BasePretrainingDataset):
     def __init__(self, *args, mock_data=None, **kwargs):
         self.mock_data = (
             mock_data if mock_data is not None else self._default_mock_data()
@@ -36,7 +36,7 @@ class TestDataset(BasePretrainingDataset):
 
 @pytest.fixture
 def test_dataset(tokenizer):
-    return TestDataset(
+    return _TestDataset(
         tokenizer=tokenizer,
         dataset_name="dummy_path",
         seq_length=10,
@@ -74,7 +74,7 @@ class DiskDataset(BasePretrainingDataset):
 # Tests
 #
 def test_initialization(tokenizer):
-    dataset = TestDataset(
+    dataset = _TestDataset(
         tokenizer=tokenizer,
         dataset_name="dummy_path",
         seq_length=10,
@@ -117,7 +117,7 @@ def test_iter(test_dataset, tokenizer):
 
 
 def test_buffer_handling(tokenizer):
-    dataset = TestDataset(
+    dataset = _TestDataset(
         tokenizer=tokenizer,
         dataset_name="dummy_path",
         seq_length=20,  # Longer sequence length to test buffer handling
@@ -173,7 +173,7 @@ def test_dataset_with_exact_sequence_length(tokenizer):
             "for testing purposes using gpt2's default tokenizer."
         }
     ]
-    dataset = TestDataset(
+    dataset = _TestDataset(
         tokenizer=tokenizer,
         dataset_name="dummy",
         seq_length=20,
@@ -184,7 +184,7 @@ def test_dataset_with_exact_sequence_length(tokenizer):
     assert len(samples) == 1, "Dataset contains 20 tokens, we should have one sample"
     assert all(tensor.shape[0] == 20 for tensor in samples[0].values())
 
-    dataset = TestDataset(
+    dataset = _TestDataset(
         tokenizer=tokenizer,
         dataset_name="dummy",
         seq_length=19,
@@ -203,7 +203,7 @@ def test_dataset_with_exact_sequence_length(tokenizer):
 
 def test_dataset_with_very_long_sequence(tokenizer):
     mock_data = [{"text": "long " * 1000}]  # 1000 tokens
-    dataset = TestDataset(
+    dataset = _TestDataset(
         tokenizer=tokenizer,
         dataset_name="dummy",
         seq_length=10,
@@ -219,7 +219,7 @@ def test_dataset_with_very_long_sequence(tokenizer):
 
 def test_dataset_with_non_text_field(tokenizer):
     mock_data = [{"non_text": "This should not be processed."}]
-    dataset = TestDataset(
+    dataset = _TestDataset(
         tokenizer=tokenizer,
         dataset_name="dummy",
         seq_length=10,
@@ -232,7 +232,7 @@ def test_dataset_with_non_text_field(tokenizer):
 
 def test_dataset_with_no_docs(tokenizer):
     mock_data = []
-    dataset = TestDataset(
+    dataset = _TestDataset(
         tokenizer=tokenizer,
         dataset_name="dummy",
         seq_length=10,
@@ -247,7 +247,7 @@ def test_dataset_with_no_docs(tokenizer):
 
 def test_dataset_with_empty_docs(tokenizer):
     mock_data = [{"text": ""}, {"text": ""}, {"text": ""}, {"text": ""}, {"text": ""}]
-    dataset = TestDataset(
+    dataset = _TestDataset(
         tokenizer=tokenizer,
         dataset_name="dummy",
         seq_length=10,

@@ -39,6 +39,12 @@ from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
 from oumi.cli.tune import tune
+from oumi.cli.workflow import cancel as workflow_cancel
+from oumi.cli.workflow import errors as workflow_errors
+from oumi.cli.workflow import logs as workflow_logs
+from oumi.cli.workflow import run as workflow_run
+from oumi.cli.workflow import status as workflow_status
+from oumi.cli.workflow import validate as workflow_validate
 from oumi.utils.logging import should_use_rich_logging
 
 _ASCII_LOGO = r"""
@@ -161,6 +167,31 @@ def get_app() -> typer.Typer:
         cache_rm
     )
     app.add_typer(cache_app, name="cache", help="Manage local Hugging Face cache.")
+
+    workflow_app = typer.Typer(pretty_exceptions_enable=False)
+    workflow_app.command(
+        name="run", help="Execute a workflow from a configuration file."
+    )(workflow_run)
+    workflow_app.command(
+        name="validate", help="Validate a workflow configuration file."
+    )(workflow_validate)
+    workflow_app.command(name="status", help="Show status of running workflows.")(
+        workflow_status
+    )
+    workflow_app.command(name="logs", help="View logs for a workflow or specific job.")(
+        workflow_logs
+    )
+    workflow_app.command(name="errors", help="Show all errors from a workflow.")(
+        workflow_errors
+    )
+    workflow_app.command(name="cancel", help="Cancel a running workflow.")(
+        workflow_cancel
+    )
+    app.add_typer(
+        workflow_app,
+        name="workflow",
+        help="Manage and execute workflows for orchestrating oumi verbs.",
+    )
 
     return app
 

@@ -33,7 +33,7 @@ def _get_hf_collator_result(conversation, tokenizer):
     return collator(batch)
 
 
-class TestBaseSftDataset(BaseSftDataset):
+class _TestBaseSftDataset(BaseSftDataset):
     default_dataset = "test"
 
     def transform_conversation(self, example):
@@ -50,7 +50,7 @@ class TestBaseSftDataset(BaseSftDataset):
 
 @pytest.fixture
 def sft_dataset(gpt2_tokenizer):
-    return TestBaseSftDataset(
+    return _TestBaseSftDataset(
         tokenizer=gpt2_tokenizer,
         assistant_only=True,
         response_template=_RESPONSE_PREFIX,
@@ -75,7 +75,7 @@ def gpt2_tokenizer():
 
 
 def test_tokenize_conversation(
-    single_turn_conversation, sft_dataset: TestBaseSftDataset
+    single_turn_conversation, sft_dataset: _TestBaseSftDataset
 ):
     result = sft_dataset.tokenize(single_turn_conversation)
 
@@ -107,7 +107,7 @@ def test_tokenize_assistant_template(sft_dataset, gpt2_tokenizer):
     assert dec == turn
 
 
-def test_tokenize_long_input(sft_dataset: TestBaseSftDataset, gpt2_tokenizer):
+def test_tokenize_long_input(sft_dataset: _TestBaseSftDataset, gpt2_tokenizer):
     gpt2_tokenizer.model_max_length = 20
     conversation = Conversation(
         messages=[
@@ -130,7 +130,7 @@ def test_tokenize_long_input(sft_dataset: TestBaseSftDataset, gpt2_tokenizer):
     assert len(result["labels"]) == 20
 
 
-def test_tokenize_empty_conversation(sft_dataset: TestBaseSftDataset):
+def test_tokenize_empty_conversation(sft_dataset: _TestBaseSftDataset):
     conversation = Conversation(messages=[])
 
     result = sft_dataset.tokenize(conversation)
@@ -211,7 +211,7 @@ def test_tokenize_assistant_only_turn_with_template():
             tokenizer_pad_token="<|endoftext|>",
         )
     )
-    sft_dataset = TestBaseSftDataset(
+    sft_dataset = _TestBaseSftDataset(
         tokenizer=tokenizer,
         assistant_only=True,
     )
@@ -249,7 +249,7 @@ def test_tokenize_assistant_only_turn_with_template():
 
 
 def test_tokenize_return_tensors(gpt2_tokenizer):
-    dataset = TestBaseSftDataset(
+    dataset = _TestBaseSftDataset(
         tokenizer=gpt2_tokenizer,
         return_tensors=True,
         assistant_only=True,
@@ -276,7 +276,7 @@ def test_tokenize_invalid_input(sft_dataset):
 
 
 def test_tokenize_no_return_tensors(gpt2_tokenizer):
-    dataset = TestBaseSftDataset(tokenizer=gpt2_tokenizer, return_tensors=False)
+    dataset = _TestBaseSftDataset(tokenizer=gpt2_tokenizer, return_tensors=False)
     conversation = Conversation(
         messages=[
             Message(role=Role.USER, content="Hello"),
@@ -315,7 +315,7 @@ def test_with_generation_prompt():
         )
     )
 
-    dataset = TestBaseSftDataset(tokenizer=tokenizer, assistant_only=True)
+    dataset = _TestBaseSftDataset(tokenizer=tokenizer, assistant_only=True)
 
     conversation = Conversation(
         messages=[Message(role=Role.ASSISTANT, content="Hello, oumi!")]
@@ -332,7 +332,7 @@ def test_with_generation_prompt():
 
 def test_return_conversations_json_format(gpt2_tokenizer):
     """Test that return_conversations with 'json' format returns conversation_json."""
-    dataset = TestBaseSftDataset(
+    dataset = _TestBaseSftDataset(
         tokenizer=gpt2_tokenizer,
         return_conversations=True,
         return_conversations_format="json",
@@ -349,7 +349,7 @@ def test_return_conversations_json_format(gpt2_tokenizer):
 
 def test_return_conversations_dict_format(gpt2_tokenizer):
     """Test that return_conversations with 'dict' format returns conversation dict."""
-    dataset = TestBaseSftDataset(
+    dataset = _TestBaseSftDataset(
         tokenizer=gpt2_tokenizer,
         return_conversations=True,
         return_conversations_format="dict",
@@ -368,7 +368,7 @@ def test_return_conversations_dict_format(gpt2_tokenizer):
 
 def test_return_conversations_invalid_format(gpt2_tokenizer):
     """Test that invalid return_conversations_format raises ValueError."""
-    dataset = TestBaseSftDataset(
+    dataset = _TestBaseSftDataset(
         tokenizer=gpt2_tokenizer,
         return_conversations=True,
         return_conversations_format="invalid_format",  # type: ignore
@@ -385,7 +385,7 @@ def test_return_conversations_invalid_format(gpt2_tokenizer):
 
 def test_return_conversations_default_format(gpt2_tokenizer):
     """Test that return_conversations defaults to 'json' format."""
-    dataset = TestBaseSftDataset(
+    dataset = _TestBaseSftDataset(
         tokenizer=gpt2_tokenizer,
         return_conversations=True,
         # Not specifying return_conversations_format, should default to "json"

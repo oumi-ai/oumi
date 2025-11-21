@@ -10,13 +10,13 @@ from omegaconf import OmegaConf
 from oumi.core.configs.base_config import BaseConfig, _handle_non_primitives
 
 
-class TestEnum(Enum):
+class _TestEnum(Enum):
     VALUE1 = "value1"
     VALUE2 = "value2"
 
 
 @dataclass(eq=False)
-class TestConfig(BaseConfig):
+class _TestConfig(BaseConfig):
     str_value: str
     int_value: int
     float_value: float
@@ -24,7 +24,7 @@ class TestConfig(BaseConfig):
     none_value: Optional[Any]
     bytes_value: bytes
     path_value: Path
-    enum_value: TestEnum
+    enum_value: _TestEnum
     list_value: list[Any]
     dict_value: dict[str, Any]
     func_value: Optional[Any] = None
@@ -40,7 +40,7 @@ def test_primitive_types():
         "none": None,
         "bytes": b"test",
         "path": Path("test/path"),
-        "enum": TestEnum.VALUE1,
+        "enum": _TestEnum.VALUE1,
     }
 
     removed_paths = set()
@@ -129,7 +129,7 @@ def test_complex_object():
 def test_config_serialization():
     """Test config serialization to YAML file."""
     with tempfile.TemporaryDirectory() as folder:
-        config = TestConfig(
+        config = _TestConfig(
             str_value="test",
             int_value=42,
             float_value=3.14,
@@ -137,7 +137,7 @@ def test_config_serialization():
             none_value=None,
             bytes_value=b"test",
             path_value=Path("test/path"),
-            enum_value=TestEnum.VALUE1,
+            enum_value=_TestEnum.VALUE1,
             list_value=["primitive", [1, 2, 3]],
             dict_value={"primitive": "value", "nested": {"list": [1, 2, 3]}},
             func_value=lambda x: x * 2,
@@ -148,7 +148,7 @@ def test_config_serialization():
 
         assert os.path.exists(filename)
 
-        loaded_config = TestConfig.from_yaml(filename)
+        loaded_config = _TestConfig.from_yaml(filename)
         assert loaded_config.str_value == config.str_value
         assert loaded_config.int_value == config.int_value
         assert loaded_config.float_value == config.float_value
@@ -181,7 +181,7 @@ def test_config_loading_from_str():
         func_value: "def test_func(x): return x * 2"
     """
 
-    config = TestConfig.from_str(yaml_str)
+    config = _TestConfig.from_str(yaml_str)
     assert config.str_value == "test"
     assert config.int_value == 42
     assert config.float_value == 3.14
@@ -189,14 +189,14 @@ def test_config_loading_from_str():
     assert config.none_value is None
     assert config.bytes_value == b"test"
     assert config.path_value == Path("test/path")
-    assert config.enum_value == TestEnum.VALUE1
+    assert config.enum_value == _TestEnum.VALUE1
     assert config.list_value == ["primitive", [1, 2, 3]]
     assert config.dict_value == {"primitive": "value", "nested": {"list": [1, 2, 3]}}
 
 
 def test_config_equality():
     """Test config equality comparison."""
-    config_a = TestConfig(
+    config_a = _TestConfig(
         str_value="test",
         int_value=42,
         float_value=3.14,
@@ -210,7 +210,7 @@ def test_config_equality():
         func_value=lambda x: x * 2,
     )
 
-    config_b = TestConfig(
+    config_b = _TestConfig(
         str_value="test",
         int_value=42,
         float_value=3.14,
@@ -232,7 +232,7 @@ def test_config_equality():
 
 def test_config_override():
     """Test config override with CLI arguments."""
-    base_config = TestConfig(
+    base_config = _TestConfig(
         str_value="base",
         int_value=1,
         float_value=1.0,
@@ -246,7 +246,7 @@ def test_config_override():
         func_value=lambda x: x,
     )
 
-    override_config = TestConfig(
+    override_config = _TestConfig(
         str_value="override",
         int_value=2,
         float_value=2.0,
@@ -254,7 +254,7 @@ def test_config_override():
         none_value=None,
         bytes_value=b"override",
         path_value=Path("override/path"),
-        enum_value=TestEnum.VALUE2,
+        enum_value=_TestEnum.VALUE2,
         list_value=["override"],
         dict_value={"key": "override"},
         func_value=lambda x: x * 2,
@@ -283,7 +283,7 @@ def test_config_override():
     assert merged_config.bool_value is False
     assert str(merged_config.bytes_value) == "b'override'"
     assert str(merged_config.path_value) == "override/path"
-    assert merged_config.enum_value == TestEnum.VALUE2
+    assert merged_config.enum_value == _TestEnum.VALUE2
     assert merged_config.list_value == ["override"]
     assert merged_config.dict_value == {"key": "override"}
     assert merged_config.func_value is None
@@ -292,7 +292,7 @@ def test_config_override():
 def test_config_from_yaml_and_arg_list():
     """Test loading config from YAML and CLI arguments."""
     with tempfile.TemporaryDirectory() as folder:
-        config = TestConfig(
+        config = _TestConfig(
             str_value="base",
             int_value=1,
             float_value=1.0,
@@ -300,7 +300,7 @@ def test_config_from_yaml_and_arg_list():
             none_value=None,
             bytes_value=b"base",
             path_value=Path("base/path"),
-            enum_value=TestEnum.VALUE1,
+            enum_value=_TestEnum.VALUE1,
             list_value=["base"],
             dict_value={"key": "base"},
             func_value=lambda x: x,
@@ -309,7 +309,7 @@ def test_config_from_yaml_and_arg_list():
         filename = os.path.join(folder, "test_config.yaml")
         config.to_yaml(filename)
 
-        new_config = TestConfig.from_yaml_and_arg_list(
+        new_config = _TestConfig.from_yaml_and_arg_list(
             filename,
             [
                 "str_value=override",

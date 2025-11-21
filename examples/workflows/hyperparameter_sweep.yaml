@@ -1,0 +1,91 @@
+# Hyperparameter sweep workflow
+# Run multiple training jobs in parallel with different hyperparameters
+
+name: "hyperparameter-sweep"
+description: "Train models with different learning rates in parallel"
+
+resources:
+  gpus: [0, 1, 2, 3, 4, 5, 6, 7]  # Use 8 GPUs
+  max_parallel: 8
+  allocation: "dynamic"
+
+env:
+  # Global environment variables for all jobs
+  WANDB_PROJECT: "hyperparameter-sweep"
+
+output_dir: "./outputs/hp-sweep"
+
+jobs:
+  # Learning rate sweep
+  - name: "train-lr-1e-3"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    args:
+      - "training.learning_rate=1e-3"
+      - "training.run_name=lr-1e-3"
+    resources:
+      gpu: auto
+
+  - name: "train-lr-5e-4"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    args:
+      - "training.learning_rate=5e-4"
+      - "training.run_name=lr-5e-4"
+    resources:
+      gpu: auto
+
+  - name: "train-lr-1e-4"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    args:
+      - "training.learning_rate=1e-4"
+      - "training.run_name=lr-1e-4"
+    resources:
+      gpu: auto
+
+  - name: "train-lr-5e-5"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    args:
+      - "training.learning_rate=5e-5"
+      - "training.run_name=lr-5e-5"
+    resources:
+      gpu: auto
+
+  # Batch size sweep
+  - name: "train-bs-16"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    args:
+      - "training.per_device_train_batch_size=16"
+      - "training.run_name=bs-16"
+    resources:
+      gpu: auto
+
+  - name: "train-bs-32"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    args:
+      - "training.per_device_train_batch_size=32"
+      - "training.run_name=bs-32"
+    resources:
+      gpu: auto
+
+  - name: "train-bs-64"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    args:
+      - "training.per_device_train_batch_size=64"
+      - "training.run_name=bs-64"
+    resources:
+      gpu: auto
+
+  - name: "train-bs-128"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    args:
+      - "training.per_device_train_batch_size=128"
+      - "training.run_name=bs-128"
+    resources:
+      gpu: auto

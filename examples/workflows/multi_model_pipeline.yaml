@@ -1,0 +1,55 @@
+# Multi-model pipeline workflow
+# Train and evaluate multiple models in parallel
+
+name: "multi-model-pipeline"
+description: "Train and evaluate Llama and Mistral models in parallel"
+
+resources:
+  gpus: [0, 1, 2, 3]
+  max_parallel: 4
+  allocation: "dynamic"
+
+output_dir: "./outputs/multi-model"
+
+jobs:
+  # Llama pipeline
+  - name: "train-llama"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    resources:
+      gpu: 0
+
+  - name: "eval-llama-mmlu"
+    verb: "evaluate"
+    config: "configs/eval/mmlu.yaml"
+    depends_on: ["train-llama"]
+    resources:
+      gpu: 0
+
+  - name: "eval-llama-gsm8k"
+    verb: "evaluate"
+    config: "configs/eval/gsm8k.yaml"
+    depends_on: ["train-llama"]
+    resources:
+      gpu: 1
+
+  # Mistral pipeline (runs in parallel with Llama)
+  - name: "train-mistral"
+    verb: "train"
+    config: "configs/recipes/mistral/sft.yaml"
+    resources:
+      gpu: 2
+
+  - name: "eval-mistral-mmlu"
+    verb: "evaluate"
+    config: "configs/eval/mmlu.yaml"
+    depends_on: ["train-mistral"]
+    resources:
+      gpu: 2
+
+  - name: "eval-mistral-gsm8k"
+    verb: "evaluate"
+    config: "configs/eval/gsm8k.yaml"
+    depends_on: ["train-mistral"]
+    resources:
+      gpu: 3

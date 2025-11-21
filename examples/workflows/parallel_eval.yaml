@@ -1,0 +1,50 @@
+# Parallel evaluation workflow
+# Train once, then evaluate on multiple benchmarks in parallel
+
+name: "parallel-eval"
+description: "Train a model and evaluate on multiple benchmarks in parallel"
+
+resources:
+  gpus: [0, 1, 2, 3]  # Use 4 GPUs
+  max_parallel: 4
+  allocation: "dynamic"
+
+jobs:
+  # Train the model
+  - name: "train-model"
+    verb: "train"
+    config: "configs/recipes/llama/sft.yaml"
+    resources:
+      gpu: 0
+
+  # Evaluate on MMLU
+  - name: "eval-mmlu"
+    verb: "evaluate"
+    config: "configs/eval/mmlu.yaml"
+    depends_on: ["train-model"]
+    resources:
+      gpu: auto  # Auto-assign to any available GPU
+
+  # Evaluate on GSM8K
+  - name: "eval-gsm8k"
+    verb: "evaluate"
+    config: "configs/eval/gsm8k.yaml"
+    depends_on: ["train-model"]
+    resources:
+      gpu: auto
+
+  # Evaluate on HumanEval
+  - name: "eval-humaneval"
+    verb: "evaluate"
+    config: "configs/eval/humaneval.yaml"
+    depends_on: ["train-model"]
+    resources:
+      gpu: auto
+
+  # Evaluate on TruthfulQA
+  - name: "eval-truthfulqa"
+    verb: "evaluate"
+    config: "configs/eval/truthfulqa.yaml"
+    depends_on: ["train-model"]
+    resources:
+      gpu: auto
