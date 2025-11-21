@@ -52,6 +52,13 @@ from oumi.core.trainers.megatron.loss_functions import (
     compute_advantages,
     gather_log_probs,
 )
+from oumi.core.trainers.megatron.sequence_packing import (
+    PackedBatch,
+    compute_packing_efficiency,
+    pack_sequences,
+    unpack_logprobs,
+    unpack_rewards,
+)
 from oumi.utils.logging import logger
 
 
@@ -244,6 +251,14 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
         # Training state
         self._global_step = 0
         self._current_epoch = 0
+
+        # Sequence packing configuration
+        self._use_sequence_packing = config.megatron.enable_sequence_packing
+        if self._use_sequence_packing:
+            logger.info("Sequence packing enabled for efficient batch processing")
+
+        # Track packing efficiency metrics
+        self._packing_efficiency_log_interval = 100  # Log every N steps
 
         logger.info("Megatron GRPO trainer initialized successfully!")
 
@@ -516,6 +531,23 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
 
         self._model.train()
 
+        # Use packed or unpacked processing based on configuration
+        if self._use_sequence_packing:
+            return self._training_step_packed(batch, batch_idx)
+        else:
+            return self._training_step_unpacked(batch, batch_idx)
+
+    def _training_step_unpacked(self, batch: dict, batch_idx: int) -> dict:
+        """Execute a single GRPO training step with unpacked sequences (original implementation).
+
+        Args:
+            batch: Training batch with input_ids, attention_mask, and labels
+            batch_idx: Batch index
+
+        Returns:
+            Dictionary of training metrics
+        """
+
         # 1. Generate completions using current policy
         # Returns completions (text), generated_ids (full sequences), and old_logprobs (from generation)
         completions, generated_ids, old_logprobs = self._generate_completions(batch)
@@ -652,6 +684,197 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
             "rewards_mean": rewards.mean().item(),
             "rewards_std": rewards.std().item(),
             "step": self._global_step,
+        }
+
+        if grad_norm is not None:
+            metrics["grad_norm"] = grad_norm
+
+        return metrics
+
+    def _training_step_packed(self, batch: dict, batch_idx: int) -> dict:
+        """Execute a single GRPO training step with packed sequences.
+
+        This packs variable-length sequences into bins for efficient processing.
+
+        Args:
+            batch: Training batch with input_ids, attention_mask, and labels
+            batch_idx: Batch index
+
+        Returns:
+            Dictionary of aggregated training metrics across all bins
+        """
+        # Get max sequence length from config
+        grpo_cfg = self._config.megatron.grpo_config
+        max_seq_length = grpo_cfg.max_prompt_length + grpo_cfg.max_completion_length
+
+        # Pack sequences into bins
+        packed_batches = pack_sequences(
+            batch,
+            max_bin_size=max_seq_length,
+            pad_token_id=self._processing_class.pad_token_id or 0,
+        )
+
+        # Log packing efficiency periodically
+        if self._global_step % self._packing_efficiency_log_interval == 0:
+            efficiency = compute_packing_efficiency(packed_batches, max_seq_length)
+            logger.info(
+                f"Sequence packing efficiency at step {self._global_step}: "
+                f"{efficiency['utilization']:.1%} utilization, "
+                f"{efficiency['avg_sequences_per_bin']:.1f} sequences/bin, "
+                f"{efficiency['num_bins']} bins"
+            )
+
+        # Process each packed bin
+        aggregated_metrics = {
+            "loss": 0.0,
+            "kl": 0.0,
+            "entropy": 0.0,
+            "ratio_mean": 0.0,
+            "ratio_clipped_above": 0.0,
+            "ratio_clipped_below": 0.0,
+            "advantages_mean": 0.0,
+            "advantages_std": 0.0,
+            "rewards_mean": 0.0,
+            "rewards_std": 0.0,
+        }
+        total_bins = len(packed_batches)
+
+        for bin_idx, packed_batch in enumerate(packed_batches):
+            bin_metrics = self._training_step_packed_bin(packed_batch, bin_idx)
+
+            # Aggregate metrics
+            for key in aggregated_metrics:
+                if key in bin_metrics:
+                    aggregated_metrics[key] += bin_metrics[key] / total_bins
+
+        aggregated_metrics["step"] = self._global_step
+        aggregated_metrics["num_bins"] = total_bins
+
+        return aggregated_metrics
+
+    def _training_step_packed_bin(self, packed_batch: PackedBatch, bin_idx: int) -> dict:
+        """Process a single packed bin in GRPO training.
+
+        Args:
+            packed_batch: Packed batch with metadata
+            bin_idx: Index of this bin
+
+        Returns:
+            Dictionary of training metrics for this bin
+        """
+        # Prepare batch dict for generation
+        batch_dict = {
+            "input_ids": packed_batch.input_ids,
+            "attention_mask": packed_batch.attention_mask,
+        }
+
+        # 1. Generate completions (Note: vLLM doesn't support packed sequences well,
+        #    so we may need to unpack for generation and repack after)
+        # For now, use Megatron generation for packed sequences
+        if self._config.megatron.inference_backend == "vllm":
+            logger.warning(
+                "vLLM backend doesn't support packed sequences efficiently. "
+                "Using Megatron generation for this bin."
+            )
+
+        completions, generated_ids, old_logprobs = self._generate_with_megatron(batch_dict)
+
+        # 2. Compute rewards for each sequence in the bin
+        # Unpack completions by sequence boundaries
+        unpacked_completions = []
+        for start, length in zip(packed_batch.seq_starts, packed_batch.seq_lengths):
+            # Decode only this sequence's completion
+            seq_tokens = generated_ids[0, start:start + length]
+            completion = self._processing_class.decode(seq_tokens, skip_special_tokens=True)
+            unpacked_completions.append(completion)
+
+        # Compute rewards per sequence
+        # Create a temporary batch for reward computation
+        reward_batch = {
+            "input_ids": torch.stack([
+                packed_batch.input_ids[0, start:start + length]
+                for start, length in zip(packed_batch.seq_starts, packed_batch.seq_lengths)
+            ])
+        }
+        rewards = self._compute_rewards(reward_batch, unpacked_completions)
+
+        # 3. Compute advantages
+        advantages = compute_advantages(
+            rewards, normalize=self._config.megatron.grpo_config.normalize_advantages
+        )
+
+        # 4. Forward pass with current policy
+        outputs = self._model(
+            input_ids=generated_ids,
+            attention_mask=packed_batch.attention_mask,
+        )
+        logits = outputs.logits if hasattr(outputs, "logits") else outputs
+
+        # Create labels (shift left by 1)
+        labels = generated_ids.clone()
+        shifted_labels = labels[:, 1:].contiguous()
+
+        # Gather logprobs
+        current_logprobs, mask = gather_log_probs(
+            logits[:, :-1, :],
+            shifted_labels,
+            return_mask=True,
+        )
+
+        # 5. Forward pass with reference model
+        with torch.no_grad():
+            ref_outputs = self._ref_model(
+                input_ids=generated_ids,
+                attention_mask=packed_batch.attention_mask,
+            )
+            ref_logits = ref_outputs.logits if hasattr(ref_outputs, "logits") else ref_outputs
+
+            ref_logprobs = gather_log_probs(
+                ref_logits[:, :-1, :],
+                shifted_labels,
+                return_mask=False,
+            )
+
+        # 6. Calculate GRPO loss with packed sequence support
+        grpo_cfg = self._config.megatron.grpo_config
+        loss, kl_term, ratios, entropy_term, trunc_above, trunc_below = calculate_grpo_loss(
+            current_logprobs=current_logprobs,
+            old_logprobs=old_logprobs,
+            ref_logprobs=ref_logprobs,
+            advantages=advantages,
+            clamp_eps_lower=grpo_cfg.clamp_eps_lower,
+            clamp_eps_upper=grpo_cfg.clamp_eps_upper,
+            kl_beta=grpo_cfg.kl_beta,
+            entropy_weight=grpo_cfg.entropy_weight,
+            mask=mask,
+            seq_starts=packed_batch.seq_starts,
+            seq_lengths=packed_batch.seq_lengths,
+        )
+
+        # Average loss over valid tokens
+        total_loss = (loss.sum() / mask.sum()) if mask.sum() > 0 else loss.mean()
+
+        # 7. Backward pass
+        self._optimizer.zero_grad()
+        total_loss.backward()
+
+        # 8. Optimizer step
+        grad_norm = self._optimizer.step()
+        self._scheduler.step(1)
+
+        # Compute metrics
+        num_valid_tokens = mask.sum()
+        metrics = {
+            "loss": total_loss.item(),
+            "kl": (kl_term.sum() / num_valid_tokens).item() if num_valid_tokens > 0 else 0.0,
+            "entropy": (entropy_term.sum() / num_valid_tokens).item() if num_valid_tokens > 0 else 0.0,
+            "ratio_mean": (ratios.sum() / num_valid_tokens).item() if num_valid_tokens > 0 else 0.0,
+            "ratio_clipped_above": trunc_above.float().mean().item(),
+            "ratio_clipped_below": trunc_below.float().mean().item(),
+            "advantages_mean": advantages.mean().item(),
+            "advantages_std": advantages.std().item(),
+            "rewards_mean": rewards.mean().item(),
+            "rewards_std": rewards.std().item(),
         }
 
         if grad_norm is not None:
@@ -1029,15 +1252,94 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
         """
         logger.info(f"Running evaluation at step {self._global_step}...")
 
-        # TODO: Implement full evaluation loop
-        # For now, just log that we're evaluating
+        if self._eval_dataset is None:
+            logger.warning("No evaluation dataset provided. Skipping evaluation.")
+            return {}
 
-        eval_metrics = {
-            "eval_loss": 0.0,
-            "eval_reward": 0.0,
-        }
+        self._model.eval()
 
-        logger.info(f"Evaluation metrics: {eval_metrics}")
+        # Evaluation metrics aggregation
+        all_rewards = []
+        all_completion_lengths = []
+        all_advantages = []
+        total_samples = 0
+
+        eval_steps = min(
+            len(self._eval_dataset),
+            self._config.training.eval_steps or 100
+        )
+
+        logger.info(f"Running evaluation for {eval_steps} steps...")
+
+        with torch.no_grad():
+            for eval_idx, batch in enumerate(self._eval_dataset):
+                if eval_idx >= eval_steps:
+                    break
+
+                try:
+                    # Generate completions
+                    completions, generated_ids, _ = self._generate_completions(batch)
+
+                    # Compute rewards
+                    rewards = self._compute_rewards(batch, completions)
+
+                    # Compute advantages for analysis
+                    grpo_cfg = self._config.megatron.grpo_config
+                    advantages = compute_advantages(
+                        rewards, normalize=grpo_cfg.normalize_advantages
+                    )
+
+                    # Track completion lengths
+                    prompt_len = batch["input_ids"].shape[1]
+                    completion_lengths = (generated_ids != self._processing_class.pad_token_id).sum(dim=1) - prompt_len
+
+                    # Aggregate metrics
+                    all_rewards.extend(rewards.cpu().tolist())
+                    all_completion_lengths.extend(completion_lengths.cpu().tolist())
+                    all_advantages.extend(advantages.cpu().tolist())
+                    total_samples += len(completions)
+
+                except Exception as e:
+                    logger.warning(f"Error during evaluation step {eval_idx}: {e}")
+                    continue
+
+        # Compute aggregate metrics
+        eval_metrics = {}
+
+        if all_rewards:
+            rewards_tensor = torch.tensor(all_rewards)
+            eval_metrics.update({
+                "eval/reward_mean": rewards_tensor.mean().item(),
+                "eval/reward_std": rewards_tensor.std().item(),
+                "eval/reward_min": rewards_tensor.min().item(),
+                "eval/reward_max": rewards_tensor.max().item(),
+                "eval/reward_median": rewards_tensor.median().item(),
+            })
+
+        if all_completion_lengths:
+            lengths_tensor = torch.tensor(all_completion_lengths)
+            eval_metrics.update({
+                "eval/completion_length_mean": lengths_tensor.float().mean().item(),
+                "eval/completion_length_std": lengths_tensor.float().std().item(),
+                "eval/completion_length_min": lengths_tensor.min().item(),
+                "eval/completion_length_max": lengths_tensor.max().item(),
+            })
+
+        if all_advantages:
+            advantages_tensor = torch.tensor(all_advantages)
+            eval_metrics.update({
+                "eval/advantage_mean": advantages_tensor.mean().item(),
+                "eval/advantage_std": advantages_tensor.std().item(),
+            })
+
+        eval_metrics["eval/total_samples"] = total_samples
+        eval_metrics["eval/step"] = self._global_step
+
+        logger.info(f"Evaluation complete. Metrics: {eval_metrics}")
+
+        # Return to train mode
+        self._model.train()
+
         return eval_metrics
 
     def save_state(self) -> None:
