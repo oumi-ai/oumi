@@ -29,7 +29,7 @@ from oumi.utils.torch_utils import get_torch_dtype
 def _is_flash_attn_3_available() -> bool:
     """Check if Flash Attention 3 is available from source installation."""
     try:
-        import flash_attn_interface
+        import flash_attn_interface  # pyright: ignore[reportMissingImports]
 
         # Test that the main function is accessible
         flash_attn_interface.flash_attn_func
@@ -41,7 +41,9 @@ def _is_flash_attn_3_available() -> bool:
 def _is_kernels_fa3_available() -> bool:
     """Check if Flash Attention 3 is available via kernels package."""
     try:
-        from oumi.core.kernels.detection import is_flash_attn3_kernel_available
+        from oumi.core.kernels.detection import (  # pyright: ignore[reportMissingImports]
+            is_flash_attn3_kernel_available,
+        )
 
         return is_flash_attn3_kernel_available()
     except ImportError:

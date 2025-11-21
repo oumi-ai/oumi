@@ -17,8 +17,8 @@
 from unittest.mock import MagicMock
 
 import pytest
+from oumi_chat.commands.config_utils import create_config_preserving_ui_settings
 
-from oumi.core.commands.config_utils import create_config_preserving_ui_settings
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,

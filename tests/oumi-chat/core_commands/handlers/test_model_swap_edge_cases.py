@@ -17,9 +17,9 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from oumi_chat.commands.command_parser import ParsedCommand
+from oumi_chat.commands.handlers.model_management_handler import ModelManagementHandler
 
-from oumi.core.commands.command_parser import ParsedCommand
-from oumi.core.commands.handlers.model_management_handler import ModelManagementHandler
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,

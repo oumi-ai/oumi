@@ -19,10 +19,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from oumi_chat.commands import CommandResult
 
-from oumi.core.commands import CommandResult
 from oumi.core.types.conversation import Role
-from tests.utils.chat_test_utils import (
+from tests.oumi_chat.utils._test_utils import (
     ChatTestSession,
     create_test_inference_config,
     temporary_test_files,

@@ -21,8 +21,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Optional
 
+from oumi_chat.commands import CommandResult
+
 from oumi.builders.inference_engines import build_inference_engine
-from oumi.core.commands import CommandResult
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -37,7 +38,7 @@ from tests.integration.infer.test_inference_test_utils import (
     validate_response_performance,
     validate_response_properties,
 )
-from tests.utils.chat_test_utils import ChatTestSession
+from tests.oumi_chat.utils._test_utils import ChatTestSession
 
 
 class RealModelChatSession(ChatTestSession):

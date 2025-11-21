@@ -50,7 +50,6 @@ except ImportError:
         raise SystemExit(1)
 
 
-from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize

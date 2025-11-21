@@ -22,13 +22,36 @@ from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
 
 try:
-    from oumi_chat.style_params import StyleParams
+    from oumi_chat.style_params import (  # pyright: ignore[reportMissingImports]
+        StyleParams,
+    )
 except ImportError:
     # If oumi-chat is not installed, provide a minimal StyleParams class
     @dataclass
     class StyleParams:
         """Minimal StyleParams for when oumi-chat is not installed."""
+
         theme: Optional[str] = None
+        force_terminal: Optional[bool] = None
+        force_jupyter: Optional[bool] = None
+        width: Optional[int] = None
+        height: Optional[int] = None
+        no_color: bool = False
+        legacy_windows: bool = False
+        use_emoji: bool = False
+        welcome_style: str = "bold green"
+        welcome_border_style: str = "green"
+        expand_panels: bool = False
+        custom_theme: Optional[dict] = None
+        user_prompt_style: str = "bold blue"
+        status_style: str = "cyan"
+        error_style: str = "red"
+        error_title_style: str = "bold red"
+        error_border_style: str = "red"
+        assistant_title_style: str = "bold green"
+        assistant_border_style: str = "green"
+        assistant_text_style: str = "white"
+        assistant_padding: tuple = (0, 1)
 
 
 @dataclass

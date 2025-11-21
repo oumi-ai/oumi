@@ -166,7 +166,7 @@ def infer(
         return
     # Handle server mode
     if server_mode:
-        from oumi.server import run_server
+        from oumi.server import run_server  # pyright: ignore[reportMissingImports]
 
         logger.info(f"Starting Oumi inference server on {host}:{port}")
         return run_server(

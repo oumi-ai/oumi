@@ -17,6 +17,24 @@ import time
 from contextlib import contextmanager
 from typing import Optional
 
+from oumi_chat.commands import CommandParser  # pyright: ignore[reportMissingImports]
+from oumi_chat.commands.command_context import (  # pyright: ignore[reportMissingImports]
+    CommandContext,
+)
+from oumi_chat.commands.command_router import (  # pyright: ignore[reportMissingImports]
+    CommandRouter,
+)
+from oumi_chat.commands.utilities import (  # pyright: ignore[reportMissingImports]
+    make_safe,
+)
+from oumi_chat.input import (  # pyright: ignore[reportMissingImports]
+    EnhancedInput,
+    InputAction,
+)
+from oumi_chat.monitoring import SystemMonitor  # pyright: ignore[reportMissingImports]
+from oumi_chat.thinking import (  # pyright: ignore[reportMissingImports]
+    ThinkingProcessor,
+)
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -33,13 +51,6 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.utils.logging import logger
-from oumi_chat.commands import CommandParser
-from oumi_chat.commands.command_context import CommandContext
-from oumi_chat.commands.command_router import CommandRouter
-from oumi_chat.commands.utilities import make_safe
-from oumi_chat.input import EnhancedInput, InputAction
-from oumi_chat.monitoring import SystemMonitor
-from oumi_chat.thinking import ThinkingProcessor
 
 
 def _get_chars_per_token_ratio(model_name: str) -> float:
@@ -535,7 +546,7 @@ def _format_conversation_response(
                         content += item.content
                     elif isinstance(item.content, list):
                         # If content is a list, join it as strings
-                        content += " ".join(str(c) for c in item.content)
+                        content += " ".join(str(c) for c in item.content)  # pyright: ignore[reportGeneralTypeIssues]
                     else:
                         content += str(item.content)
         else:
@@ -553,8 +564,6 @@ def _format_conversation_response(
         # Additional safety cleanup: remove any remaining harmony tags from
         # display content
         if "<|" in content and "|>" in content:
-            from oumi.core.thinking.thinking_processor import ThinkingProcessor
-
             processor = ThinkingProcessor()
             content = processor.clean_harmony_tags(content)
 
@@ -755,7 +764,9 @@ def _validate_context_usage(
         Tuple of (is_valid, error_message).
     """
     try:
-        from oumi.core.attachments.context_manager import ContextWindowManager
+        from oumi_chat.attachments.context_manager import (  # pyright: ignore[reportMissingImports]
+            ContextWindowManager,
+        )
 
         # Get context window size
         max_context = getattr(config.model, "model_max_length", None) or 4096
@@ -1436,7 +1447,7 @@ def infer(
             content_items = []
             for image_bytes in input_image_bytes:
                 content_items.append(
-                    ContentItem(type=Type.IMAGE_URL, content=image_bytes)
+                    ContentItem(type=Type.IMAGE_URL, binary=image_bytes)
                 )
             content_items.append(ContentItem(type=Type.TEXT, content=input_text))
             messages.append(Message(role=Role.USER, content=content_items))

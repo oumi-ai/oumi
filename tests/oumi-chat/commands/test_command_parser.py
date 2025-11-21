@@ -14,7 +14,7 @@
 
 """Unit tests for command parsing functionality."""
 
-from oumi.core.commands import CommandParser
+from oumi_chat.commands import CommandParser
 
 
 class TestCommandParser:

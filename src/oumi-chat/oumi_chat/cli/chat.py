@@ -19,7 +19,6 @@ from typing import Annotated, Optional
 import typer
 
 import oumi.cli.cli_utils as cli_utils
-from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 
 
 def chat(

@@ -116,14 +116,15 @@ def evaluate(
     # Run AlpacaEval evaluation, i.e. annotate the model's responses.
     logger.info("Running AlpacaEval annotation.")
     logger.info(f"\tAlpacaEval `task_params`:\n{pformat(task_params)}")
+    # pyright: ignore[reportCallIssue]
     result = alpaca_eval.evaluate(
-        model_outputs=responses_df,
-        annotators_config=annotators_config,
-        fn_metric=fn_metric,
-        is_return_instead_of_print=True,
-        is_overwrite_leaderboard=True,
-        max_instances=task_params.num_samples,
-        sort_by=sort_by_metric,
+        model_outputs=responses_df,  # pyright: ignore[reportCallIssue]
+        annotators_config=annotators_config,  # pyright: ignore[reportCallIssue]
+        fn_metric=fn_metric,  # pyright: ignore[reportCallIssue]
+        is_return_instead_of_print=True,  # pyright: ignore[reportCallIssue]
+        is_overwrite_leaderboard=True,  # pyright: ignore[reportCallIssue]
+        max_instances=task_params.num_samples,  # pyright: ignore[reportCallIssue]
+        sort_by=sort_by_metric,  # pyright: ignore[reportCallIssue]
         **task_params.eval_kwargs,
     )
     if isinstance(result, tuple):

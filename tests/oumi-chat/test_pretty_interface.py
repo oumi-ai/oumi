@@ -82,8 +82,9 @@ class TestPrettyInterfaceRegression:
 
     def test_infer_interactive_has_thinking_animation(self, mock_config):
         """Test that thinking animation is present in pretty interface."""
+        from oumi_chat.input import InputAction, InputResult
+
         from oumi import infer_interactive
-        from oumi.core.input import InputAction, InputResult
 
         with patch("oumi.infer.Live") as mock_live_class:
             with patch("oumi.infer.Console"):

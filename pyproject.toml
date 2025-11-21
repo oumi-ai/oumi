@@ -249,6 +249,7 @@ include = ["src/oumi/**", "tests/**"]
 exclude = [
     "src/oumi/core/types/proto/**",
     "src/oumi/utils/verl_model_merger.py",
+    "tests/oumi-chat/**",  # oumi-chat tests require oumi-chat package
 ]
 typeCheckingMode = "basic"
 pythonVersion = "3.9"

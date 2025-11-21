@@ -18,6 +18,8 @@ from oumi.utils.hf_utils import (
 
 
 def test_is_saved_to_disk_hf_dataset():
+    if Dataset is None:
+        pytest.skip("datasets not available")
     with tempfile.TemporaryDirectory() as output_temp_dir:
         ds = Dataset.from_dict(
             {"pokemon": ["bulbasaur", "squirtle"], "type": ["grass", "water"]}

@@ -19,11 +19,11 @@ from typing import TYPE_CHECKING, Optional
 from rich.console import Console
 
 if TYPE_CHECKING:
+    from oumi.core.configs import InferenceConfig
+    from oumi.core.inference import BaseInferenceEngine
     from oumi_chat.attachments import ContextWindowManager, FileHandler
     from oumi_chat.commands.compaction_engine import CompactionEngine
     from oumi_chat.commands.conversation_branches import ConversationBranchManager
-    from oumi.core.configs import InferenceConfig
-    from oumi.core.inference import BaseInferenceEngine
     from oumi_chat.thinking import ThinkingProcessor
 
 
