@@ -690,7 +690,7 @@ def run_demo():
     }
 
     if provider_code != "local":
-        deploy_config["setup"] = "pip install uv && uv pip install oumi[gpu]"
+        deploy_config["setup"] = "pip install uv && uv pip install --system oumi[gpu]"
     create_config_file(deploy_config, "job_config.yaml")
     console.print("\nCreated deployment configuration:")
     display_yaml_config(deploy_config, "Deployment Configuration")

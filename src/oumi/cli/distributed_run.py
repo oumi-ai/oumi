@@ -16,6 +16,7 @@ import copy
 import enum
 import os
 import shutil
+import subprocess
 import sys
 import time
 from subprocess import Popen
@@ -298,6 +299,8 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
     # Will raise an exception if the detected process run info is not consistent.
     _verify_process_run_info(process_run_info, env)
 
+    logger.debug(f"Process run info: {process_run_info}")
+
     return process_run_info
 
 
@@ -395,8 +398,8 @@ def _detect_polaris_process_run_info(env: dict[str, str]) -> Optional[_ProcessRu
 def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunInfo]:
     import torch  # Importing torch takes time so only load it in this scenario.
 
-    nodes_str = env.get("SLURM_NODELIST", None)
-    if nodes_str is None:
+    slurm_nodes_str = env.get("SLURM_NODELIST", None)
+    if slurm_nodes_str is None:
         return None
     logger.debug("Running in Slurm environment!")
     for env_var_name in _SLURM_ENV_VARS:
@@ -404,21 +407,37 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunI
             raise ValueError(
                 f"Slurm environment variable '{env_var_name}' is not defined!"
             )
-    if not nodes_str:
+    if not slurm_nodes_str:
         raise ValueError("Empty value in the 'SLURM_NODELIST' environment variable!")
+    # Parse slurm nodelist string (ex. "nid[001240-001241]") into a newline-separated
+    # list of node IPs.
+    nodes_str = subprocess.run(
+        ["scontrol", "show", "hostnames", slurm_nodes_str],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=5,
+    ).stdout
     node_ips = _parse_nodes_str(nodes_str)
     if len(node_ips) == 0:
-        raise RuntimeError("Empty list of nodes in 'PBS_NODEFILE'!")
+        raise RuntimeError("Empty list of nodes in 'SLURM_NODELIST'!")
     gpus_per_node = torch.cuda.device_count()
-    node_rank = _get_optional_int_env_var("PMI_RANK", env)
-    if node_rank is None:
+
+    node_rank = _get_optional_int_env_var("SLURM_NODEID", env)
+    # If running on a single node, default to 0.
+    if node_rank is None and len(node_ips) == 1:
         node_rank = 0
+    if node_rank is None:
+        raise ValueError(
+            "Unable to determine node rank on a multi-node setup. "
+            "'SLURM_NODEID' is not set."
+        )
 
     return _ProcessRunInfo(
         node_rank=node_rank,
         world_info=_WorldInfo(num_nodes=len(node_ips), gpus_per_node=gpus_per_node),
         master_address=node_ips[0],
-        master_port=_DEFAULT_MASTER_PORT,
+        master_port=int(env.get(_MASTER_PORT_ENV, _DEFAULT_MASTER_PORT)),
         node_ips=node_ips,
     )
 
@@ -443,7 +462,7 @@ def _detect_skypilot_process_run_info(env: dict[str, str]) -> Optional[_ProcessR
         node_rank=node_rank,
         world_info=_WorldInfo(num_nodes=len(node_ips), gpus_per_node=gpus_per_node),
         master_address=node_ips[0],
-        master_port=_DEFAULT_MASTER_PORT,
+        master_port=int(env.get(_MASTER_PORT_ENV, _DEFAULT_MASTER_PORT)),
         node_ips=node_ips,
     )
 

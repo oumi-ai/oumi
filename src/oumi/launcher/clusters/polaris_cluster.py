@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import re
 import uuid
 from datetime import datetime
@@ -297,3 +298,14 @@ class PolarisCluster(BaseCluster):
     def down(self) -> None:
         """This is a no-op for Polaris clusters."""
         pass
+
+    def get_logs_stream(
+        self, cluster_name: str, job_id: Optional[str] = None
+    ) -> io.TextIOBase:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
+        """
+        raise NotImplementedError

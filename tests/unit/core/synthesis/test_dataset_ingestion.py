@@ -65,6 +65,29 @@ def test_huggingface_path():
     assert path.get_storage_type() == DatasetStorageType.HF
 
 
+def test_oumi_path():
+    """Test get_path_str for Oumi path."""
+    path = DatasetPath("oumi:123")
+    assert path.get_path_str() == "123"
+    assert path.get_storage_type() == DatasetStorageType.OUMI
+
+
+def test_get_file_extension_non_local():
+    """Test that get_file_extension raises error for non-local storage types."""
+    hf_path = DatasetPath("hf:repo/dataset")
+    with pytest.raises(
+        NotImplementedError, match="No extension for DatasetStorageType.HF storage type"
+    ):
+        hf_path.get_file_extension()
+
+    oumi_path = DatasetPath("oumi:123")
+    with pytest.raises(
+        NotImplementedError,
+        match="No extension for DatasetStorageType.OUMI storage type",
+    ):
+        oumi_path.get_file_extension()
+
+
 @pytest.fixture
 def reader():
     """Create a DatasetReader instance."""
@@ -117,6 +140,22 @@ def test_read_from_hf_with_parameters(reader, sample_data):
             revision="v1.0",
         )
         assert result == sample_data
+
+
+def test_read_from_oumi_dataset(reader, sample_data):
+    """Test reading from Oumi dataset."""
+    data_source = DatasetSource(path="oumi:123")
+
+    with patch("oumi.core.synthesis.dataset_ingestion.load_dataset") as mock_load:
+        mock_dataset = MagicMock()
+        mock_dataset.__iter__ = MagicMock(return_value=iter(sample_data))
+        mock_load.return_value = mock_dataset
+
+        with pytest.raises(
+            NotImplementedError,
+            match="Oumi storage type is not supported in open source.",
+        ):
+            _ = reader.read(data_source)
 
 
 def test_read_from_local_jsonl(reader, sample_data, sample_dataframe):

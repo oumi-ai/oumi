@@ -307,6 +307,7 @@ def test_eval_text_4gpu_40gb(test_config: EvalTestConfig, tmp_path: Path):
             ),
             num_samples=4,
             num_fewshot=2,
+            use_simple_oumi_evaluate_command=True,
         ),
     ],
     ids=get_eval_test_id_fn,

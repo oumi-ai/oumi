@@ -145,7 +145,6 @@ Notes:
   - For `vision_language_sft`: Can override `allow_multi_image_inputs`, `truncation_side`, etc.
   - Config-provided kwargs take precedence over automatically determined values
 
-
 ### Training Configuration
 
 Configure the training process using the {py:obj}`~oumi.core.configs.params.training_params.TrainingParams` class:

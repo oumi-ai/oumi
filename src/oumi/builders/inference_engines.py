@@ -24,6 +24,7 @@ from oumi.core.configs import (
 from oumi.core.inference import BaseInferenceEngine
 from oumi.inference import (
     AnthropicInferenceEngine,
+    BedrockInferenceEngine,
     DeepSeekInferenceEngine,
     GoogleGeminiInferenceEngine,
     GoogleVertexInferenceEngine,
@@ -44,6 +45,7 @@ ENGINE_MAP: MappingProxyType[InferenceEngineType, type[BaseInferenceEngine]] = (
     MappingProxyType(
         {
             InferenceEngineType.ANTHROPIC: AnthropicInferenceEngine,
+            InferenceEngineType.BEDROCK: BedrockInferenceEngine,
             InferenceEngineType.DEEPSEEK: DeepSeekInferenceEngine,
             InferenceEngineType.GOOGLE_GEMINI: GoogleGeminiInferenceEngine,
             InferenceEngineType.GOOGLE_VERTEX: GoogleVertexInferenceEngine,

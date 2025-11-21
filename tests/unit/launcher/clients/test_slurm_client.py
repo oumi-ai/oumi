@@ -1,5 +1,6 @@
 import subprocess
 import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 
@@ -11,7 +12,7 @@ from oumi.launcher.clients.slurm_client import SlurmClient
 _CTRL_PATH: str = "-S ~/.ssh/control-%h-%p-%r"
 _SACCT_CMD = (
     "sacct --user=user --format='JobId%-30,JobName%30,User%30,State%30,Reason%30' "
-    "-X --starttime 2025-01-01"
+    f"-X --starttime {(datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')}"
 )
 
 
@@ -87,7 +88,8 @@ def test_slurm_client_submit_job(mock_subprocess):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "sbatch --nodes=2 --parsable ./job.sh",
+                        "sbatch --nodes=2 --output=$HOME/oumi_slurm_logs/%j.out "
+                        "--parsable ./job.sh",
                     ]
                 ),
                 shell=True,
@@ -125,7 +127,9 @@ def test_slurm_client_submit_job_name(mock_subprocess):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "sbatch --nodes=2 --job-name=somename --parsable ./job.sh",
+                        "sbatch --nodes=2 --job-name=somename "
+                        "--output=$HOME/oumi_slurm_logs/%j.out --parsable "
+                        "./job.sh",
                     ]
                 ),
                 shell=True,
@@ -155,8 +159,11 @@ def test_slurm_client_submit_job_with_all_args(mock_subprocess):
         threads_per_core=1,
         distribution="block:cyclic",
         partition="extended",
+        qos="debug",
         stdout_file="~/stdout.txt",
-        stderr_file="~/stderr.txt",
+        stderr_file="$HOME/stderr.txt",
+        # kwargs
+        foo="bar",
     )
     mock_subprocess.run.assert_has_calls(
         [
@@ -187,8 +194,10 @@ def test_slurm_client_submit_job_with_all_args(mock_subprocess):
                                 "--threads-per-core=1",
                                 "--distribution=block:cyclic",
                                 "--partition=extended",
+                                "--qos=debug",
                                 "--output=~/stdout.txt",
-                                "--error=~/stderr.txt",
+                                "--error=$HOME/stderr.txt",
+                                "--foo=bar",
                                 "--parsable",
                                 "./job.sh",
                             ]
@@ -239,7 +248,8 @@ def test_slurm_client_submit_job_error(mock_subprocess):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "sbatch --nodes=2 --parsable ./job.sh",
+                        "sbatch --nodes=2 --output=$HOME/oumi_slurm_logs/%j.out "
+                        "--parsable ./job.sh",
                     ]
                 ),
                 shell=True,
@@ -276,7 +286,8 @@ def test_slurm_client_submit_job_retry_auth(mock_subprocess):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "sbatch --nodes=2 --parsable ./job.sh",
+                        "sbatch --nodes=2 --output=$HOME/oumi_slurm_logs/%j.out "
+                        "--parsable ./job.sh",
                     ]
                 ),
                 shell=True,

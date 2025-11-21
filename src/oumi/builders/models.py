@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
 from typing import Optional, Union, cast
 
 import torch
@@ -68,17 +67,6 @@ def build_model(
     """
     if is_custom_model(model_params.model_name):
         model = build_oumi_model(
-            model_params=model_params,
-            peft_params=peft_params,
-            *kwargs,
-        )
-    elif model_params.model_name in (
-        "nyu-visionx/cambrian-phi3-3b",
-        "nyu-visionx/cambrian-8b",
-        "nyu-visionx/cambrian-13b",
-        "nyu-visionx/cambrian-34b",
-    ):
-        model = build_cambrian_model(
             model_params=model_params,
             peft_params=peft_params,
             *kwargs,
@@ -352,78 +340,6 @@ def is_image_text_llm(model_params: ModelParams) -> bool:
     return is_image_text_llm_using_model_name(
         model_params.model_name, model_params.trust_remote_code
     )
-
-
-def build_cambrian_model(
-    model_params: ModelParams,
-    peft_params: Optional[PeftParams] = None,
-    **kwargs,
-) -> nn.Module:
-    """Downloads and builds the model from the HuggingFace Hub."""
-    from importlib.util import find_spec
-
-    for dependency_name in ("diffusers", "einops", "open_clip", "timm"):
-        if not find_spec(dependency_name):
-            raise RuntimeError(
-                f"Failed to find the required dependency package:'{dependency_name}' "
-                f"for the Cambrian model: '{model_params.model_name}'. "
-                "Run `pip install oumi[cambrian]`, and try again."
-            )
-
-    try:
-        from oumi.models.experimental.cambrian.mm_utils import (
-            get_model_name_from_path as get_cambrian_model_name_from_path,
-        )
-        from oumi.models.experimental.cambrian.model.builder import (
-            load_pretrained_model as load_cambrian_pretrained_model,
-        )
-    except ImportError as e:
-        raise RuntimeError(
-            "Failed to load a required dependency "
-            f"for the Cambrian model: '{model_params.model_name}'. "
-            "Run `pip install oumi[cambrian]`, and try again."
-        ) from e
-
-    device_map = model_params.device_map
-    device_rank_info = get_device_rank_info()
-
-    # If we're using FSDP via HF Accelerate, we should not specify the device map
-    # so that HF properly initializes the model for FSDP.
-    # If we set device_map to "auto", it seems HF will try to shard the model when
-    # loading it, which conflicts with FSDP's sharding.
-    # If we set device_map to f"cuda:{device_rank_info.local_rank}", it will try to
-    # load the model only on rank 0, which will OOM for large models.
-    # See https://github.com/huggingface/transformers/pull/25107.
-    if is_using_accelerate_fsdp():
-        logger.info("Accelerate FSDP run detected! Setting device_map to None.")
-        device_map = None
-    elif device_map == "auto" and device_rank_info.world_size > 1:
-        # "auto" is not compatible with DDP.
-        logger.info(
-            f"Building model for distributed training "
-            f"(world_size: {device_rank_info.world_size})..."
-        )
-        device_map = f"cuda:{device_rank_info.local_rank}"
-    logger.info(
-        f"Building model using device_map: {device_map} ({device_rank_info})..."
-    )
-
-    model_path = str(Path(model_params.model_name).expanduser())
-    model_name = get_cambrian_model_name_from_path(model_path)
-    tokenizer, model, processor, _ = load_cambrian_pretrained_model(
-        model_path, None, model_name, device_map=(device_map or "auto")
-    )
-
-    _disable_cache_in_model_config(model)
-
-    # TODO Find a better way to handle it
-
-    # Load pretrained PEFT adapters
-    if model_params.adapter_model:
-        logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
-        model = PeftModel.from_pretrained(model, model_params.adapter_model)
-
-    return model
 
 
 def build_tokenizer(

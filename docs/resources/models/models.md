@@ -145,6 +145,7 @@ Available templates include:
 - `llava` - For LLaVA multimodal models
 - `phi3-instruct` - For Phi-3 instruction models
 - `qwen2-vl-instruct` - For Qwen2-VL instruction models
+- `qwen3-vl-instruct` - For Qwen3-VL instruction models
 - `zephyr` - For Zephyr models
 
 All the templates expect a `messages` list, where each message is a dictionary with `role` and `content` keys in {doc}`oumi format </resources/datasets/data_formats>`.

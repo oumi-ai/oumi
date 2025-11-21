@@ -94,12 +94,14 @@ class AnalyzeConfig(BaseConfig):
     """Tokenizer configuration for building a tokenizer.
     If None, no tokenizer will be used.
 
-    Expected format:
-    {
-        "model_name": "gpt2",  # Required: model name for tokenizer
-        "tokenizer_kwargs": {},  # Optional: additional tokenizer parameters
-        "trust_remote_code": False  # Optional: whether to trust remote code
-    }
+    Expected format::
+
+        {
+            "model_name": "gpt2",  # Required: model name for tokenizer
+            "tokenizer_kwargs": {},  # Optional: additional tokenizer parameters
+            "trust_remote_code": False  # Optional: whether to trust remote code
+        }
+
     """
 
     # Add processor parameters for vision-language datasets

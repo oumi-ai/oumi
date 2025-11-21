@@ -829,3 +829,7 @@ class Trainer(BaseTrainer):
                 action(args=self.params, state=None, control=None, logs=logs)
 
         return logs
+
+    def get_last_eval_metrics(self) -> dict[str, Any]:
+        """TODO: This should be implemented in the future to enavle Oumi Trainer in the hyper parameters tuning."""  # noqa: E501
+        raise NotImplementedError

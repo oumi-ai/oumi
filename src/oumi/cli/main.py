@@ -36,22 +36,27 @@ from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 
 # Import chat from oumi_chat package
 try:
-    from oumi_chat.cli import chat
+    from oumi_chat.cli import chat  # pyright: ignore[reportMissingImports]
 except ImportError:
     # If oumi-chat is not installed, provide a helpful error message
     def chat(*args, **kwargs):
         """Chat command requires oumi-chat package."""
         from oumi.cli.cli_utils import CONSOLE
+
         CONSOLE.print(
             "[red]Error:[/red] The chat command requires the oumi-chat package. "
             "Install it with: pip install oumi-chat or pip install oumi[interactive]"
         )
         raise SystemExit(1)
+
+
 from oumi.cli.launch import cancel, down, status, stop, up, which
+from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
+from oumi.cli.tune import tune
 from oumi.utils.logging import should_use_rich_logging
 
 _ASCII_LOGO = r"""
@@ -120,6 +125,10 @@ def get_app() -> typer.Typer:
     )(train)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Tune the parameters for a model.",
+    )(tune)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Quantize a model.",
     )(quantize)
     judge_app = typer.Typer(pretty_exceptions_enable=False)
@@ -143,6 +152,7 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Launches a job."
     )(up)
     launch_app.command(help="Prints the available clouds.")(which)
+    launch_app.command(help="Gets the logs of a job.")(logs)
     app.add_typer(launch_app, name="launch", help="Launch jobs remotely.")
 
     distributed_app = typer.Typer(pretty_exceptions_enable=False)

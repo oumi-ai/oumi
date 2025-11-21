@@ -70,7 +70,7 @@ def app():
 
 @pytest.fixture
 def mock_train():
-    with patch.object(oumi, "train", autospec=True) as m_train:
+    with patch.object(oumi, "train") as m_train:
         yield m_train
 
 

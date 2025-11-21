@@ -280,3 +280,9 @@ class TestModelParamsAttentionResolution:
         params = ModelParams(model_name=str(tmp_path), enable_hf_kernels=True)
 
         assert params.enable_hf_kernels is True
+
+
+def test_chat_template_kwargs_custom_assignment():
+    model_params = ModelParams(chat_template_kwargs={"enable_thinking": False})
+    assert model_params.chat_template_kwargs is not None
+    assert model_params.chat_template_kwargs["enable_thinking"] is False

@@ -28,6 +28,9 @@ class DatasetStorageType(Enum):
     HF = "hf"
     """HuggingFace"""
 
+    OUMI = "oumi"
+    """Oumi"""
+
     LOCAL = "local"
     """Local files"""
 
@@ -44,6 +47,8 @@ class DatasetPath:
         Possible path formats:
         HuggingFace:
         - "hf:repo_id/dataset_name"
+        Oumi:
+        - "oumi:dataset_id"
         Local:
         - "path/to/data/file.jsonl"
         - "path/to/data/file.csv"
@@ -69,16 +74,26 @@ class DatasetPath:
         prefix = path.split(":")[0]
         if prefix == "hf":
             return DatasetStorageType.HF
+        elif prefix == "oumi":
+            return DatasetStorageType.OUMI
         else:
             return DatasetStorageType.LOCAL
 
     def _get_file_extension(self, path: str) -> str:
         """Get the file extension from the path."""
-        return Path(path).suffix.lower()[1:]
+        if self._storage_type == DatasetStorageType.LOCAL:
+            return Path(path).suffix.lower()[1:]
+        else:
+            raise NotImplementedError(
+                f"No extension for {self._storage_type} storage type"
+            )
 
     def get_path_str(self) -> str:
         """Get the path."""
-        if self._storage_type == DatasetStorageType.HF:
+        if (
+            self._storage_type == DatasetStorageType.HF
+            or self._storage_type == DatasetStorageType.OUMI
+        ):
             return self._path.split(":")[1]
         else:
             return self._path
@@ -89,7 +104,12 @@ class DatasetPath:
 
     def get_file_extension(self) -> str:
         """Get the file extension."""
-        return self._file_extension
+        if self._storage_type == DatasetStorageType.LOCAL:
+            return self._file_extension
+        else:
+            raise NotImplementedError(
+                f"No extension for {self._storage_type} storage type"
+            )
 
 
 class DatasetReader:
@@ -105,7 +125,6 @@ class DatasetReader:
         """Read the data from the data path."""
         data_path = DatasetPath(data_source.path)
         storage_type = data_path.get_storage_type()
-        file_extension = data_path.get_file_extension()
         if storage_type == DatasetStorageType.HF:
             samples = self._read_from_hf(
                 data_path.get_path_str(),
@@ -113,6 +132,7 @@ class DatasetReader:
                 data_source.hf_revision,
             )
         elif storage_type == DatasetStorageType.LOCAL:
+            file_extension = data_path.get_file_extension()
             if "*" in data_path.get_path_str():
                 samples = self._read_from_glob(data_path.get_path_str(), file_extension)
             else:
@@ -120,6 +140,10 @@ class DatasetReader:
                     data_path.get_path_str(),
                     file_extension,
                 )
+        elif storage_type == DatasetStorageType.OUMI:
+            raise NotImplementedError(
+                "Oumi storage type is not supported in open source."
+            )
         else:
             raise ValueError(f"Unsupported storage type: {storage_type}")
 

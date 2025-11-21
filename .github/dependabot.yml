@@ -1,0 +1,43 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+
+    # Group all non-breaking updates together to reduce PR noise
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+    # Keep major updates separate as they may need more attention
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "python"
+    assignees:
+      - "oelachqar"
+      - "wizeng23"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      all-actions:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
+    assignees:
+      - "oelachqar"
+      - "wizeng23"

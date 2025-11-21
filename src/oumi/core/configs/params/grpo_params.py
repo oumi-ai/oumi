@@ -104,6 +104,11 @@ class GrpoParams(BaseParams):
     log_completions: bool = False
     """Whether to log prompt and completion pairs every `logging_steps` steps."""
 
+    rollout_function: Optional[str] = None
+    """The name of the rollout function in the Oumi registry to use for generation in
+    trl's GRPO trainer. This field is ignored if not using trl' GRPO trainer. If not
+    specified, the default rollout function will be used."""
+
     def __post_init__(self):
         """Verifies params."""
         if self.max_prompt_length is not None and self.max_prompt_length <= 0:
@@ -149,6 +154,7 @@ class GrpoParams(BaseParams):
                 "max_prompt_length",
                 "max_completion_length",
                 "num_generations",
+                "rollout_function",  # Will be passed into GRPO trainer.
             }
         )
 

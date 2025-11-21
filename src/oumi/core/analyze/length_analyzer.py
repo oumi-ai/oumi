@@ -15,17 +15,14 @@
 """Length analyzer for text content."""
 
 import re
-from typing import Any, Optional, Union, cast
+from typing import Optional, Union
 
+import pandas as pd
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-from oumi.core.analyze.dataset_analyzer import (
-    ConversationAnalysisResult,
-    MessageAnalysisResult,
-)
+from oumi.core.analyze.column_types import ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
-from oumi.core.types.conversation import Conversation
 
 
 @register_sample_analyzer("length")
@@ -42,7 +39,7 @@ class LengthAnalyzer(SampleAnalyzer):
         tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
         include_special_tokens: bool = True,
     ):
-        """Initialize the length analyzer.
+        """Initialize the LengthAnalyzer.
 
         Args:
             char_count: Whether to compute character count
@@ -70,177 +67,73 @@ class LengthAnalyzer(SampleAnalyzer):
 
     def analyze_sample(
         self,
-        conversation: Conversation,
-        tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
-    ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
-        """Analyze a conversation sample and return comprehensive length metrics.
-
-        1. Analyzes each message individually for message-level metrics
-        2. Computes conversation-level metrics by:
-           - Aggregating message-level char, word, and sentence counts
-           - Using dataset tokenization for conversation-level token count
+        df: pd.DataFrame,
+        schema: Optional[dict] = None,
+    ) -> pd.DataFrame:
+        """Analyze text fields and return metrics.
 
         Args:
-            conversation: The conversation object to analyze
-            tokenizer: Optional tokenizer to use for token counting
+            df: Input DataFrame with text fields
+            schema: Column schema dict to identify text fields
 
         Returns:
-            Tuple containing:
-            - List of MessageAnalysisResult objects for each message
-            - ConversationAnalysisResult for the conversation as a whole
+            DataFrame with added field-level analysis columns
         """
-        # Step 1: Compute message-level metrics
-        message_results = self.compute_message_metrics(conversation)
+        result_df = df.copy()
 
-        # Step 2: Compute conversation-level metrics using message results
-        conversation_result = self.compute_conversation_metrics(
-            conversation, message_results
-        )
-
-        # Return individual components
-        return message_results, conversation_result
-
-    def compute_message_metrics(
-        self, conversation: Conversation
-    ) -> list[MessageAnalysisResult]:
-        """Compute message-level length metrics for each message in the conversation.
-
-        Args:
-            conversation: The conversation object to analyze
-            tokenizer: Optional tokenizer to use for token counting
-
-        Returns:
-            List of MessageAnalysisResult objects, one for each message
-        """
-        message_results = []
-        for msg_idx, message in enumerate(conversation.messages):
-            # Get text content for this message
-            if isinstance(message.content, str):
-                text_content = message.content
-            else:
-                # For multimodal content, extract text only
-                text_content = message.compute_flattened_text_content()
-
-            # Compute metrics for this message
-            message_metrics = self.compute_length_metrics(text_content)
-
-            # Create MessageAnalysisResult
-            message_result = MessageAnalysisResult(
-                message_index=msg_idx,
-                role=message.role.value,
-                message_id=message.id or f"msg_{msg_idx}",
-                text_content=text_content,
-                analyzer_metrics=message_metrics,
+        if not schema:
+            raise ValueError(
+                "schema is required to identify text fields for length analysis. "
+                "Please provide a column schema dict that specifies which "
+                "columns contain text content."
             )
-            message_results.append(message_result)
 
-        return message_results
+        text_columns = [
+            col
+            for col, config in schema.items()
+            if config.get("content_type") == ContentType.TEXT and col in df.columns
+        ]
 
-    def compute_conversation_metrics(
-        self,
-        conversation: Conversation,
-        message_results: Optional[list[MessageAnalysisResult]] = None,
-    ) -> ConversationAnalysisResult:
-        """Compute conversation-level length metrics for the entire conversation.
+        if not text_columns:
+            raise ValueError(
+                "No text fields found in the DataFrame for length analysis. "
+                "Please ensure your schema specifies columns with"
+                "content_type='text'and that those columns exist in the DataFrame."
+            )
 
-        Args:
-            conversation: The conversation object to analyze
-            tokenizer: Optional tokenizer to use for token counting
-            message_results: Optional pre-computed message results for aggregation
+        # Analyze each text field and add field-level metrics
+        for column in text_columns:
+            if self.char_count:
+                result_df[f"{column}_char_count"] = df[column].astype(str).str.len()
 
-        Returns:
-            ConversationAnalysisResult containing conversation-level metrics
-        """
-        # For char, word, and sentence counts, aggregate message-level metrics
-        conversation_metrics = {}
-
-        # Aggregate message-level metrics for non-token metrics
-        if self.char_count:
-            if message_results is not None:
-                # Use pre-computed message results
-                total_chars = sum(
-                    msg.analyzer_metrics.get("char_count", 0) for msg in message_results
+            if self.word_count:
+                result_df[f"{column}_word_count"] = (
+                    df[column].astype(str).str.split().str.len()
                 )
-                conversation_metrics["char_count"] = total_chars
 
-        if self.word_count:
-            if message_results is not None:
-                # Use pre-computed message results
-                total_words = sum(
-                    msg.analyzer_metrics.get("word_count", 0) for msg in message_results
+            if self.sentence_count:
+                result_df[f"{column}_sentence_count"] = (
+                    df[column]
+                    .astype(str)
+                    .apply(
+                        lambda text: len(
+                            [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
+                        )
+                    )
                 )
-                conversation_metrics["word_count"] = total_words
 
-        if self.sentence_count:
-            if message_results is not None:
-                # Use pre-computed message results
-                total_sentences = sum(
-                    msg.analyzer_metrics.get("sentence_count", 0)
-                    for msg in message_results
+            if self.token_count and self.tokenizer is not None:
+                tokenizer = self.tokenizer  # Type assertion for pyright
+                result_df[f"{column}_token_count"] = (
+                    df[column]
+                    .astype(str)
+                    .apply(
+                        lambda text: len(
+                            tokenizer.encode(
+                                text, add_special_tokens=self.include_special_tokens
+                            )
+                        )
+                    )
                 )
-                conversation_metrics["sentence_count"] = total_sentences
 
-        # For token count, tokenize the full rendered conversation using the tokenizer's
-        # chat template for full control (independent of dataset internals).
-        if self.token_count:
-            tokenizer_to_use = self.tokenizer
-            if tokenizer_to_use is not None:
-                # First render the conversation to a prompt string via chat template
-                prompt_text = tokenizer_to_use.apply_chat_template(
-                    conversation,  # type: ignore
-                    tokenize=False,
-                    add_generation_prompt=False,
-                )
-                prompt_text = cast(str, prompt_text)
-                # Then encode with explicit controls
-                conv_tokens = tokenizer_to_use.encode(
-                    prompt_text,
-                    add_special_tokens=self.include_special_tokens,
-                )
-                conversation_metrics["token_count"] = len(conv_tokens)
-
-        # Create ConversationAnalysisResult
-        return ConversationAnalysisResult(
-            analyzer_metrics=conversation_metrics,
-        )
-
-    def compute_length_metrics(self, text_content: str) -> dict[str, Any]:
-        """Compute length metrics for a single text content.
-
-        This is a helper function that can be used by both message-level and
-        conversation-level analysis.
-
-        Args:
-            text_content: The text content to analyze
-            tokenizer: Optional tokenizer to use for token counting
-
-        Returns:
-            Dictionary containing requested length metrics
-        """
-        metrics = {}
-
-        if self.char_count:
-            metrics["char_count"] = len(text_content)
-
-        if self.word_count:
-            # Simple word count - split on whitespace
-            metrics["word_count"] = len(text_content.split())
-
-        if self.sentence_count:
-            # Simple sentence count - split on common sentence endings
-            sentences = re.split(r"[.!?]+", text_content)
-            # Filter out empty strings
-            sentences = [s.strip() for s in sentences if s.strip()]
-            metrics["sentence_count"] = len(sentences)
-
-        if self.token_count:
-            # Use instance tokenizer only
-            tokenizer_to_use = self.tokenizer
-            if tokenizer_to_use is not None:
-                # Use tokenizer for accurate token count
-                tokens = tokenizer_to_use.encode(
-                    text_content, add_special_tokens=self.include_special_tokens
-                )
-                metrics["token_count"] = len(tokens)
-
-        return metrics
+        return result_df

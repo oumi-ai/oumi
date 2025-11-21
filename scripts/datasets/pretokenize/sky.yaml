@@ -27,7 +27,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi
+  pip install uv && uv pip install --system oumi
 
 run: |
   set -e  # Exit if any command failed.

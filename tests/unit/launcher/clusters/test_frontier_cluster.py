@@ -4,7 +4,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from oumi.core.configs import JobConfig, JobResources, StorageMount
+from oumi.core.configs import JobConfig, JobResources
 from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher.clients.slurm_client import SlurmClient
 from oumi.launcher.clusters.frontier_cluster import FrontierCluster
@@ -25,37 +25,20 @@ def mock_datetime():
         yield mock_dt
 
 
-def _get_default_job(cloud: str) -> JobConfig:
-    resources = JobResources(
-        cloud=cloud,
-        region="us-central1",
-        zone=None,
-        accelerators="A100-80GB",
-        cpus="4",
-        memory="64",
-        instance_type=None,
-        use_spot=True,
-        disk_size=512,
-        disk_tier="low",
-    )
+def _get_default_job() -> JobConfig:
     return JobConfig(
         name="myjob",
         user="user",
         working_dir="./",
         num_nodes=2,
-        resources=resources,
+        resources=JobResources(cloud="frontier"),
         envs={"var1": "val1"},
         file_mounts={
             "~/home/remote/path.bar": "~/local/path.bar",
             "~/home/remote/path2.txt": "~/local/path2.txt",
         },
-        storage_mounts={
-            "~/home/remote/path/gcs/": StorageMount(
-                source="gs://mybucket/", store="gcs"
-            )
-        },
         setup=(
-            "#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n"
+            "#SBATCH -o some/log \n#SBATCH -l wow\n#SBATCH -e run/log\n"
             "pip install -r requirements.txt"
         ),
         run="./hello_world.sh",
@@ -357,7 +340,7 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
         done=False,
         state=JobState.PENDING,
     )
-    job_status = cluster.run_job(_get_default_job("frontier"))
+    job_status = cluster.run_job(_get_default_job())
     mock_slurm_client.put_recursive.assert_has_calls(
         [
             call(
@@ -389,7 +372,7 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
         ]
     )
     job_script = (
-        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBATCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
@@ -408,8 +391,6 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
         threads_per_core=1,
         distribution="block:cyclic",
         partition="batch",
-        stdout_file="some/log",
-        stderr_file="run/log",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -448,7 +429,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         done=False,
         state=JobState.PENDING,
     )
-    job_status = cluster.run_job(_get_default_job("frontier"))
+    job_status = cluster.run_job(_get_default_job())
     mock_slurm_client.put_recursive.assert_has_calls(
         [
             call(
@@ -478,7 +459,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         ]
     )
     job_script = (
-        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBATCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
@@ -497,8 +478,6 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         threads_per_core=1,
         distribution="block:cyclic",
         partition="batch",
-        stdout_file="some/log",
-        stderr_file="run/log",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -530,7 +509,7 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         done=False,
         state=JobState.PENDING,
     )
-    job = _get_default_job("frontier")
+    job = _get_default_job()
     job.name = None
     with patch("oumi.launcher.clusters.frontier_cluster.uuid") as mock_uuid:
         mock_hex = Mock()
@@ -571,7 +550,7 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         ]
     )
     job_script = (
-        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBATCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
@@ -590,8 +569,6 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         threads_per_core=1,
         distribution="block:cyclic",
         partition="batch",
-        stdout_file="some/log",
-        stderr_file="run/log",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -623,7 +600,7 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         done=False,
         state=JobState.PENDING,
     )
-    job = _get_default_job("frontier")
+    job = _get_default_job()
     job.file_mounts = {}
     job_status = cluster.run_job(job)
     mock_slurm_client.put_recursive.assert_has_calls(
@@ -652,7 +629,7 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         ]
     )
     job_script = (
-        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBATCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
@@ -671,8 +648,6 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         threads_per_core=1,
         distribution="block:cyclic",
         partition="batch",
-        stdout_file="some/log",
-        stderr_file="run/log",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -704,7 +679,7 @@ def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
         done=False,
         state=JobState.PENDING,
     )
-    job = _get_default_job("frontier")
+    job = _get_default_job()
     job.file_mounts = {}
     job.setup = "small setup"
     job.run = "./hello_world.sh"
@@ -744,8 +719,6 @@ def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
         threads_per_core=1,
         distribution="block:cyclic",
         partition="batch",
-        stdout_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU",
-        stderr_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -777,7 +750,7 @@ def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         done=False,
         state=JobState.PENDING,
     )
-    job = _get_default_job("frontier")
+    job = _get_default_job()
     job.file_mounts = {}
     job.setup = None
     job.run = "./hello_world.sh"
@@ -817,8 +790,6 @@ def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         threads_per_core=1,
         distribution="block:cyclic",
         partition="batch",
-        stdout_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU",
-        stderr_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -839,7 +810,7 @@ def test_frontier_cluster_run_job_fails(mock_datetime, mock_slurm_client):
         )
     ]
     with pytest.raises(RuntimeError):
-        _ = cluster.run_job(_get_default_job("frontier"))
+        _ = cluster.run_job(_get_default_job())
 
 
 def test_frontier_cluster_down(mock_datetime, mock_slurm_client):

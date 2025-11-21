@@ -20,10 +20,28 @@ import pytest
 
 from oumi.core.analyze.length_analyzer import LengthAnalyzer
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.utils.analysis_utils import conversation_to_dataframes
 
 
 def _single_message_conversation(text):
     return Conversation(messages=[Message(role=Role.USER, content=text)])
+
+
+def _count_analysis_columns(df):
+    """Count the number of analysis columns in a DataFrame."""
+    analysis_suffixes = [
+        "_char_count",
+        "_word_count",
+        "_sentence_count",
+        "_token_count",
+    ]
+    return len(
+        [
+            col
+            for col in df.columns
+            if any(col.endswith(suffix) for suffix in analysis_suffixes)
+        ]
+    )
 
 
 def test_char_count():
@@ -32,10 +50,13 @@ def test_char_count():
         char_count=True, word_count=False, sentence_count=False, token_count=False
     )
     conv = _single_message_conversation("Hello, world!")
-    message_results, conversation_result = analyzer.analyze_sample(conv)
-    assert message_results[0].analyzer_metrics["char_count"] == 13
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
+    assert result_df.iloc[0]["text_content_char_count"] == 13
     # Only char_count should be present
-    assert len(message_results[0].analyzer_metrics) == 1
+    assert _count_analysis_columns(result_df) == 1
 
 
 def test_word_count():
@@ -44,10 +65,13 @@ def test_word_count():
         char_count=False, word_count=True, sentence_count=False, token_count=False
     )
     conv = _single_message_conversation("Hello world! This is a test.")
-    message_results, conversation_result = analyzer.analyze_sample(conv)
-    assert message_results[0].analyzer_metrics["word_count"] == 6
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
+    assert result_df.iloc[0]["text_content_word_count"] == 6
     # Only word_count should be present
-    assert len(message_results[0].analyzer_metrics) == 1
+    assert _count_analysis_columns(result_df) == 1
 
 
 def test_sentence_count():
@@ -56,10 +80,14 @@ def test_sentence_count():
         char_count=False, word_count=False, sentence_count=True, token_count=False
     )
     conv = _single_message_conversation("Hello world! This is a test. How are you?")
-    message_results, conversation_result = analyzer.analyze_sample(conv)
-    assert message_results[0].analyzer_metrics["sentence_count"] == 3
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
+    assert result_df.iloc[0]["text_content_sentence_count"] == 3
     # Only sentence_count should be present
-    assert len(message_results[0].analyzer_metrics) == 1
+    assert _count_analysis_columns(result_df) == 1
 
 
 def test_analyzer_instantiation():
@@ -67,31 +95,43 @@ def test_analyzer_instantiation():
     # Test with defaults
     analyzer = LengthAnalyzer()
     conv = _single_message_conversation("Hello, world!")
-    message_results, conversation_result = analyzer.analyze_sample(conv)
-    assert message_results[0].analyzer_metrics["char_count"] == 13
-    assert message_results[0].analyzer_metrics["word_count"] == 2
-    assert message_results[0].analyzer_metrics["sentence_count"] == 1
-    assert "token_count" not in message_results[0].analyzer_metrics
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
+    assert result_df.iloc[0]["text_content_char_count"] == 13
+    assert result_df.iloc[0]["text_content_word_count"] == 2
+    assert result_df.iloc[0]["text_content_sentence_count"] == 1
+    assert "token_count" not in result_df.columns
 
     # Test with custom parameters
     analyzer = LengthAnalyzer(
         char_count=True, word_count=False, sentence_count=True, token_count=False
     )
     conv = _single_message_conversation("Hello, world!")
-    message_results, conversation_result = analyzer.analyze_sample(conv)
-    assert message_results[0].analyzer_metrics["char_count"] == 13
-    assert "word_count" not in message_results[0].analyzer_metrics
-    assert message_results[0].analyzer_metrics["sentence_count"] == 1
-    assert "token_count" not in message_results[0].analyzer_metrics
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
+    assert result_df.iloc[0]["text_content_char_count"] == 13
+    assert "word_count" not in result_df.columns
+    assert result_df.iloc[0]["text_content_sentence_count"] == 1
+    assert "token_count" not in result_df.columns
 
     # Test with partial parameters (some defaults, some overridden)
     analyzer = LengthAnalyzer(char_count=False, word_count=True)
     conv = _single_message_conversation("Hello, world!")
-    message_results, conversation_result = analyzer.analyze_sample(conv)
-    assert "char_count" not in message_results[0].analyzer_metrics
-    assert message_results[0].analyzer_metrics["word_count"] == 2
-    assert message_results[0].analyzer_metrics["sentence_count"] == 1  # Default True
-    assert "token_count" not in message_results[0].analyzer_metrics  # Default False
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
+    assert "char_count" not in result_df.columns
+    assert result_df.iloc[0]["text_content_word_count"] == 2
+    assert result_df.iloc[0]["text_content_sentence_count"] == 1  # Default True
+    assert "token_count" not in result_df.columns  # Default False
 
 
 def test_token_count():
@@ -109,19 +149,16 @@ def test_token_count():
         tokenizer=mock_tokenizer,
     )
     conv = _single_message_conversation("Hello, world!")
-    message_results, conversation_result = analyzer.analyze_sample(conv)
-    assert message_results[0].analyzer_metrics["token_count"] == 7
-    # analyze_sample calls tokenizer once for message and once for conversation
-    assert mock_tokenizer.encode.call_count == 2
-    assert mock_tokenizer.apply_chat_template.call_count == 1
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
+    assert result_df.iloc[0]["text_content_token_count"] == 7
+    # analyze calls tokenizer once per field
+    assert mock_tokenizer.encode.call_count == 1
     # Check that it was called with the message text
     mock_tokenizer.encode.assert_any_call("Hello, world!", add_special_tokens=True)
-    # Check that apply_chat_template was called with the conversation
-    mock_tokenizer.apply_chat_template.assert_called_with(
-        conv,
-        tokenize=False,
-        add_generation_prompt=False,
-    )
 
     # Test without special tokens (explicitly set to False)
     mock_tokenizer_no_special = Mock()
@@ -136,8 +173,11 @@ def test_token_count():
         include_special_tokens=False,
     )
     conv = _single_message_conversation("Hello, world!")
-    message_results, conversation_result = analyzer_no_special.analyze_sample(conv)
-    assert message_results[0].analyzer_metrics["token_count"] == 5
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+    result_df = analyzer_no_special.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
+    assert result_df.iloc[0]["text_content_token_count"] == 5
     # Check that it was called without special tokens
     mock_tokenizer_no_special.encode.assert_any_call(
         "Hello, world!", add_special_tokens=False
@@ -152,7 +192,10 @@ def test_token_count():
             token_count=True,
             # No tokenizer
         )
-        analyzer_no_tokenizer.analyze_sample(conv)
+        _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+        analyzer_no_tokenizer.analyze_sample(
+            test_df, schema={"text_content": {"content_type": "text"}}
+        )
 
     # Test with tokenizer but token_count=False (should not call tokenizer)
     mock_tokenizer_unused = Mock()
@@ -164,11 +207,14 @@ def test_token_count():
         tokenizer=mock_tokenizer_unused,
     )
     conv = _single_message_conversation("Hello, world!")
-    message_results, conversation_result = analyzer_unused.analyze_sample(conv)
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+    result_df = analyzer_unused.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
     # Should not call tokenizer since token_count=False
     mock_tokenizer_unused.encode.assert_not_called()
     # Should still compute char_count
-    assert message_results[0].analyzer_metrics["char_count"] == 13
+    assert result_df.iloc[0]["text_content_char_count"] == 13
 
 
 def test_conversation_level_token_count():
@@ -200,17 +246,20 @@ def test_conversation_level_token_count():
     )
 
     # Analyze the conversation
-    message_results, conversation_result = analyzer.analyze_sample(conv)
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
 
-    # Check that conversation-level token count is computed
-    assert "token_count" in conversation_result.analyzer_metrics
-    assert conversation_result.analyzer_metrics["token_count"] == 10
+    # Check that field-level token count is computed for each message
+    assert "text_content_token_count" in result_df.columns
+    # Each message should have 6 tokens
+    assert result_df.iloc[0]["text_content_token_count"] == 6
+    assert result_df.iloc[1]["text_content_token_count"] == 6
 
-    # Verify that apply_chat_template + encode was used for
-    # conversation-level token count
-    assert mock_tokenizer.apply_chat_template.call_count == 1
-    # Two message encodes plus one conversation encode
-    assert mock_tokenizer.encode.call_count == 3
+    # Verify that encode was used for field-level token count
+    # Two message encodes (one per row)
+    assert mock_tokenizer.encode.call_count == 2
 
 
 def test_conversation_level_token_count_without_dataset():
@@ -243,12 +292,16 @@ def test_conversation_level_token_count_without_dataset():
     )
 
     # Analyze the conversation
-    message_results, conversation_result = analyzer.analyze_sample(conv)
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
 
-    # Check that conversation-level token count IS computed
-    assert conversation_result.analyzer_metrics["token_count"] == 8
-    assert mock_tokenizer.apply_chat_template.call_count == 1
-    assert mock_tokenizer.encode.call_count == 3
+    # Check that field-level token count is computed for each message
+    assert result_df.iloc[0]["text_content_token_count"] == 6
+    assert result_df.iloc[1]["text_content_token_count"] == 6
+    # Two message encodes (one per row)
+    assert mock_tokenizer.encode.call_count == 2
 
 
 def test_conversation_level_metrics_aggregation():
@@ -286,12 +339,23 @@ def test_conversation_level_metrics_aggregation():
     )
 
     # Analyze the conversation
-    message_results, conversation_result = analyzer.analyze_sample(conv)
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
 
-    # Check conversation-level metrics are aggregated correctly
-    assert conversation_result.analyzer_metrics["char_count"] == 46  # 19 + 27
-    assert conversation_result.analyzer_metrics["word_count"] == 10  # 4 + 6
-    assert conversation_result.analyzer_metrics["sentence_count"] == 2  # 1 + 1
-    assert conversation_result.analyzer_metrics["token_count"] == 10
-    assert mock_tokenizer.apply_chat_template.call_count == 1
-    assert mock_tokenizer.encode.call_count == 3
+    # Check field-level metrics for each message
+    # First message: "Hello, how are you?" - 19 chars, 4 words, 1 sentence
+    assert result_df.iloc[0]["text_content_char_count"] == 19
+    assert result_df.iloc[0]["text_content_word_count"] == 4
+    assert result_df.iloc[0]["text_content_sentence_count"] == 1
+    assert result_df.iloc[0]["text_content_token_count"] == 6
+
+    # Second message: "I am doing well, thank you!" - 27 chars, 6 words, 1 sentence
+    assert result_df.iloc[1]["text_content_char_count"] == 27
+    assert result_df.iloc[1]["text_content_word_count"] == 6
+    assert result_df.iloc[1]["text_content_sentence_count"] == 1
+    assert result_df.iloc[1]["text_content_token_count"] == 6
+
+    # Two message encodes (one per row)
+    assert mock_tokenizer.encode.call_count == 2

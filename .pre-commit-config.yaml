@@ -39,7 +39,7 @@ repos:
         exclude: src/oumi/core/types/proto
       - id: ruff-format
         types_or: [python, pyi, jupyter]
-        exclude: src/oumi/(models/experimental/cambrian|core/types/proto)"
+        exclude: src/oumi/core/types/proto
   - repo: local
     hooks:
       - id: pyright
@@ -54,7 +54,6 @@ repos:
     hooks:
       - id: pyupgrade
         args: [--py39-plus]
-        exclude: src/oumi/models/experimental/cambrian
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.24.3
     hooks:
