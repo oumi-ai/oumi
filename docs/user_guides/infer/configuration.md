@@ -55,7 +55,7 @@ model:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"    # Model ID or path (REQUIRED)
 
   # Model loading
-  adapter_model: null                               # Path to adapter model (auto-detected if model_name is adapter)
+  adapter_model: null                                # Path to adapter model (auto-detected if model_name is adapter)
   tokenizer_name: null                               # Custom tokenizer name/path (defaults to model_name)
   tokenizer_pad_token: null                          # Override pad token
   tokenizer_kwargs: {}                               # Additional tokenizer args
