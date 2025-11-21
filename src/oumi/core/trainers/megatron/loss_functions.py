@@ -31,6 +31,7 @@ def calculate_grpo_loss(
     clamp_eps_upper: float = 0.2,
     kl_beta: float = 0.001,
     entropy_weight: float = 0.0,
+    mask: Optional[torch.Tensor] = None,
     inference_logprobs: Optional[torch.Tensor] = None,
     is_truncation_coef: Optional[float] = None,
     seq_starts: Optional[list] = None,
@@ -62,6 +63,8 @@ def calculate_grpo_loss(
         kl_beta: Weight for KL penalty term measuring distance between π and π_ref
             (default: 0.001).
         entropy_weight: Weight for entropy regularization term (default: 0.0).
+        mask: Optional binary mask for valid tokens (1 = valid, 0 = padding).
+            Shape should match logprobs shape. If None, all tokens are considered valid.
         inference_logprobs: Optional π_old logprobs from inference engine. If provided,
             importance sampling correction will be applied.
         is_truncation_coef: Importance sampling truncation coefficient. Applied only
@@ -146,7 +149,7 @@ def calculate_grpo_loss(
 
     # Calculate entropy regularization: H = -E[π log π]
     # Entropy encourages exploration by penalizing overconfident predictions
-    entropy_term = current_logprobs.exp() * current_logprobs
+    entropy_term = -(current_logprobs.exp() * current_logprobs)
 
     # Importance sampling correction (optional)
     is_weights = torch.tensor(1.0, dtype=old_logprobs.dtype, device=old_logprobs.device)
@@ -175,6 +178,13 @@ def calculate_grpo_loss(
         + kl_beta * kl_term
         + entropy_weight * entropy_term
     )
+
+    # Apply mask to exclude padding tokens from gradient computation
+    if mask is not None:
+        loss = loss * mask
+        kl_term = kl_term * mask
+        ratios = ratios * mask
+        entropy_term = entropy_term * mask
 
     return loss, kl_term, ratios, entropy_term, truncated_from_above, truncated_from_below
 
@@ -207,8 +217,8 @@ def compute_advantages(
     # Optionally normalize by standard deviation
     if normalize:
         std = rewards.std()
-        if std > eps:
-            advantages = advantages / (std + eps)
+        # Always normalize to avoid inconsistent behavior
+        advantages = advantages / (std + eps)
 
     return advantages
 
@@ -217,20 +227,23 @@ def gather_log_probs(
     logits: torch.Tensor,
     labels: torch.Tensor,
     ignore_index: int = -100,
-) -> torch.Tensor:
+    return_mask: bool = False,
+) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
     """Gather log probabilities for the given labels from logits.
 
     Args:
         logits: Model output logits, shape [batch, seq, vocab_size]
         labels: Target token IDs, shape [batch, seq]
         ignore_index: Label value to ignore when computing log probs (default: -100)
+        return_mask: If True, also return the mask used for valid tokens (default: False)
 
     Returns:
-        Log probabilities for each token, shape [batch, seq]
+        If return_mask=False: Log probabilities for each token, shape [batch, seq]
+        If return_mask=True: Tuple of (log_probabilities, mask)
 
     Example:
         >>> logits = model(input_ids).logits
-        >>> logprobs = gather_log_probs(logits, labels)
+        >>> logprobs, mask = gather_log_probs(logits, labels, return_mask=True)
     """
     # Convert logits to log probabilities
     log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
@@ -249,4 +262,6 @@ def gather_log_probs(
     mask = (labels != ignore_index).float()
     gathered_log_probs = gathered_log_probs * mask
 
+    if return_mask:
+        return gathered_log_probs, mask
     return gathered_log_probs

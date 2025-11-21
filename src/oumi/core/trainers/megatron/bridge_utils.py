@@ -341,25 +341,89 @@ def export_megatron_to_hf(
 ) -> None:
     """Export trained Megatron model back to HuggingFace format.
 
+    This saves a complete HF model including:
+    - Model weights (using safetensors for efficiency)
+    - Model configuration (config.json)
+    - Tokenizer files
+    - Generation config
+
     Args:
         megatron_model: Trained Megatron model
         bridge: AutoBridge instance used for conversion
         output_path: Path to save HF checkpoint
-        model_name: Name for the HF model config
+        model_name: Name/path of the original HF model (for loading config/tokenizer)
     """
     check_megatron_bridge_available()
 
     logger.info(f"Exporting Megatron model to HuggingFace format at {output_path}...")
 
     # Create output directory
-    Path(output_path).mkdir(parents=True, exist_ok=True)
+    output_dir = Path(output_path)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Export model weights using safetensors for efficiency and safety
+    try:
+        from safetensors.torch import save_file as safe_save_file
+        use_safetensors = True
+        logger.info("Using safetensors format for model weights")
+    except ImportError:
+        logger.warning("safetensors not available, falling back to pytorch format")
+        use_safetensors = False
 
     # Stream weights back to HF format
+    logger.info("Converting Megatron weights to HuggingFace format...")
     hf_state_dict = {}
     for name, weight in bridge.export_hf_weights(megatron_model, cpu=True):
         hf_state_dict[name] = weight
 
-    # Save HF checkpoint
-    torch.save(hf_state_dict, Path(output_path) / "pytorch_model.bin")
+    # Save weights
+    if use_safetensors:
+        safe_save_file(hf_state_dict, output_dir / "model.safetensors")
+        logger.info(f"Saved model weights to {output_dir / 'model.safetensors'}")
+    else:
+        torch.save(hf_state_dict, output_dir / "pytorch_model.bin")
+        logger.info(f"Saved model weights to {output_dir / 'pytorch_model.bin'}")
 
-    logger.info(f"Megatron → HF export complete! Saved to {output_path}")
+    # 2. Copy model configuration
+    try:
+        from transformers import AutoConfig, AutoTokenizer
+
+        logger.info(f"Loading configuration from {model_name}...")
+        config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+
+        # Update config to reflect safetensors usage
+        if use_safetensors:
+            # Add model index for safetensors
+            import json
+            model_index = {
+                "metadata": {"total_size": sum(w.numel() * w.element_size() for w in hf_state_dict.values())},
+                "weight_map": {name: "model.safetensors" for name in hf_state_dict.keys()}
+            }
+            with open(output_dir / "model.safetensors.index.json", "w") as f:
+                json.dump(model_index, f, indent=2)
+
+        # Save config
+        config.save_pretrained(output_dir)
+        logger.info(f"Saved config.json to {output_dir}")
+
+        # 3. Copy tokenizer files
+        logger.info(f"Loading tokenizer from {model_name}...")
+        tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+        tokenizer.save_pretrained(output_dir)
+        logger.info(f"Saved tokenizer files to {output_dir}")
+
+        # 4. Save generation config if it exists
+        try:
+            from transformers import GenerationConfig
+            gen_config = GenerationConfig.from_pretrained(model_name, trust_remote_code=True)
+            gen_config.save_pretrained(output_dir)
+            logger.info(f"Saved generation_config.json to {output_dir}")
+        except Exception as e:
+            logger.debug(f"No generation config found or error saving it: {e}")
+
+    except Exception as e:
+        logger.error(f"Error exporting config/tokenizer: {e}")
+        logger.warning("Model weights saved, but config/tokenizer export failed. "
+                      "You may need to manually copy these files.")
+
+    logger.info(f"Megatron → HF export complete! Model saved to {output_path}")

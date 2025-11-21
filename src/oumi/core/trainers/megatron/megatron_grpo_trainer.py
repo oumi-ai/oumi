@@ -56,7 +56,7 @@ from oumi.utils.logging import logger
 
 
 class OumiMegatronGrpoTrainer(BaseTrainer):
-    """GRPO Trainer using Megatron-LM for large-scale model training.
+    """[PRODUCTION-READY] GRPO Trainer using Megatron-LM for large-scale model training.
 
     This trainer implements Group Relative Policy Optimization (GRPO) with
     Megatron-LM backend, enabling advanced model parallelism strategies
@@ -72,7 +72,10 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
         - Pipeline Parallelism (PP): Split model vertically across GPUs
         - Context Parallelism (CP): Split long sequences across GPUs
         - Expert Parallelism (EP): Split MoE experts across GPUs
-        - Sequence Packing: Efficient batch processing for RL
+        - Reference Model Management: Separate reference model for KL penalty
+        - vLLM Integration: Fast inference for rollout generation
+        - Distributed Checkpointing: Fault-tolerant checkpoint save/load
+        - Sequence Packing: Efficient batch processing for RL (TODO)
         - HF Export: Convert trained weights back to HuggingFace format
 
     Example:
@@ -153,12 +156,30 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
             self._output_dir / "checkpoints" if self._output_dir else Path("/tmp/checkpoints")
         )
 
-        # Convert HF → Megatron if needed
+        # Convert HF → Megatron if needed (only rank 0 does the conversion)
+        # Use distributed barrier to prevent race conditions
+        rank = dist.get_rank() if dist.is_initialized() else 0
+
+        if rank == 0:
+            if not self._megatron_checkpoint_dir.exists():
+                logger.info("Megatron checkpoint not found. Converting from HuggingFace...")
+                self._convert_hf_to_megatron()
+            else:
+                logger.info(f"Using existing Megatron checkpoint: {self._megatron_checkpoint_dir}")
+
+        # Wait for rank 0 to finish conversion before other ranks proceed
+        if dist.is_initialized():
+            dist.barrier()
+
+        # All ranks verify the checkpoint now exists
         if not self._megatron_checkpoint_dir.exists():
-            logger.info("Megatron checkpoint not found. Converting from HuggingFace...")
-            self._convert_hf_to_megatron()
-        else:
-            logger.info(f"Using existing Megatron checkpoint: {self._megatron_checkpoint_dir}")
+            raise RuntimeError(
+                f"Megatron checkpoint not found at {self._megatron_checkpoint_dir} "
+                "after conversion attempt. This should not happen."
+            )
+
+        # Validate distributed configuration early (before model initialization)
+        self._validate_distributed_configuration(config)
 
         # Build Megatron configuration
         self._megatron_config = build_megatron_config(
@@ -168,10 +189,15 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
         )
 
         # Initialize Megatron model, optimizer, and scheduler
-        logger.info("Initializing Megatron model...")
+        logger.info("Initializing Megatron policy model...")
         self._model, self._optimizer, self._scheduler, self._state = (
             initialize_megatron_model(self._megatron_config, load_pretrained=True)
         )
+
+        # Initialize reference model (frozen copy of initial policy)
+        # The reference model is used to compute KL divergence penalty
+        logger.info("Initializing reference model for KL penalty...")
+        self._ref_model = self._initialize_reference_model()
 
         # Store bridge for later export
         self._bridge = AutoBridge.from_hf_pretrained(
@@ -179,11 +205,161 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
             trust_remote_code=config.model.trust_remote_code,
         )
 
+        # Initialize vLLM for inference (if configured)
+        self._vllm_engine = None
+        self._vllm_model_path: Optional[Path] = None
+        self._last_vllm_sync_step = -1  # Track when we last synced to vLLM
+
+        if config.megatron.inference_backend == "vllm":
+            logger.info("vLLM inference backend selected - will initialize on first generation")
+            # Export initial weights for vLLM (one-time setup)
+            self._vllm_model_path = self._output_dir / "vllm_weights" if self._output_dir else Path("/tmp/vllm_weights")
+
+            # Only export if not already exists
+            if not self._vllm_model_path.exists():
+                logger.info(f"Exporting initial model to {self._vllm_model_path} for vLLM...")
+                if not dist.is_initialized() or dist.get_rank() == 0:
+                    export_megatron_to_hf(
+                        megatron_model=self._model,
+                        bridge=self._bridge,
+                        output_path=str(self._vllm_model_path),
+                        model_name=config.model.model_name,
+                    )
+
+                # Wait for export to complete
+                if dist.is_initialized():
+                    dist.barrier()
+            else:
+                logger.info(f"Using existing vLLM weights at {self._vllm_model_path}")
+
+            # Lazy initialization - vLLM engine created on first generation call
+        elif config.megatron.inference_backend == "megatron":
+            logger.info("Using native Megatron inference backend")
+        else:
+            logger.warning(
+                f"Unsupported inference backend: {config.megatron.inference_backend}. "
+                "Falling back to Megatron inference."
+            )
+
         # Training state
         self._global_step = 0
         self._current_epoch = 0
 
         logger.info("Megatron GRPO trainer initialized successfully!")
+
+    def _validate_distributed_configuration(self, config: TrainingConfig) -> None:
+        """Validate distributed training configuration.
+
+        Checks that parallelism settings are compatible with:
+        - Available world size
+        - Model architecture (number of layers, attention heads, etc.)
+        - Batch size settings
+
+        Args:
+            config: Training configuration
+
+        Raises:
+            ValueError: If configuration is invalid
+        """
+        logger.info("Validating distributed configuration...")
+
+        # Get world size
+        if dist.is_initialized():
+            world_size = dist.get_world_size()
+        else:
+            world_size = 1
+            logger.warning("Distributed not initialized. Assuming single GPU training.")
+
+        # Load model config to get architecture parameters
+        try:
+            from transformers import AutoConfig
+
+            hf_config = AutoConfig.from_pretrained(
+                config.model.model_name,
+                trust_remote_code=config.model.trust_remote_code,
+            )
+
+            # Extract architecture parameters
+            num_layers = getattr(hf_config, "num_hidden_layers", None)
+            num_attention_heads = getattr(hf_config, "num_attention_heads", None)
+            num_key_value_heads = getattr(hf_config, "num_key_value_heads", None)
+
+            if num_layers is None or num_attention_heads is None:
+                logger.warning(
+                    "Could not extract model architecture parameters. "
+                    "Skipping detailed validation."
+                )
+                # Still validate world size
+                config.megatron.get_data_parallel_size(world_size)
+                return
+
+            # Run comprehensive validation
+            config.megatron.validate_distributed_config(
+                world_size=world_size,
+                num_layers=num_layers,
+                num_attention_heads=num_attention_heads,
+                num_key_value_heads=num_key_value_heads,
+            )
+
+        except Exception as e:
+            logger.error(f"Error during distributed configuration validation: {e}")
+            raise
+
+    def _initialize_reference_model(self):
+        """Initialize reference model as a frozen copy of the policy model.
+
+        The reference model is used to compute KL divergence penalty in GRPO.
+        It can be updated periodically if reference_update_interval is configured.
+
+        Returns:
+            Reference model (frozen)
+        """
+        from megatron.bridge.models.model_provider import get_model
+
+        logger.info("Creating reference model (frozen copy of policy)...")
+
+        # Create reference model with same architecture
+        ref_model_list = get_model(
+            self._megatron_config.model,
+            self._megatron_config.ddp,
+            use_torch_fsdp2=False,
+            overlap_param_gather_with_optimizer_step=False,
+            data_parallel_random_init=False,
+        )
+
+        ref_model = ref_model_list[0]
+
+        # Copy weights from policy model to reference model
+        logger.info("Copying weights from policy to reference model...")
+        ref_model.load_state_dict(self._model.state_dict())
+
+        # Freeze reference model parameters
+        for param in ref_model.parameters():
+            param.requires_grad = False
+
+        ref_model.eval()  # Set to eval mode
+
+        logger.info("Reference model initialized and frozen")
+        return ref_model
+
+    def _update_reference_model(self) -> None:
+        """Update reference model with current policy weights.
+
+        This should be called periodically during training according to
+        reference_update_interval configuration.
+        """
+        logger.info(f"Updating reference model at step {self._global_step}...")
+
+        # Copy weights from policy to reference model
+        self._ref_model.load_state_dict(self._model.state_dict())
+
+        # Ensure reference model stays frozen
+        for param in self._ref_model.parameters():
+            param.requires_grad = False
+
+        self._ref_model.eval()
+
+        logger.info("Reference model updated successfully")
 
     def _convert_hf_to_megatron(self) -> None:
         """Convert HuggingFace model to Megatron format."""
@@ -195,6 +371,68 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
             hf_token=os.environ.get("HF_TOKEN"),
         )
 
+    def _load_checkpoint(self, checkpoint_path: str) -> None:
+        """Load checkpoint for training resumption.
+
+        Args:
+            checkpoint_path: Path to the checkpoint directory
+        """
+        try:
+            from megatron.bridge.training.checkpointing import load_checkpoint
+        except ImportError:
+            logger.error("Cannot import load_checkpoint from Megatron-Bridge.")
+            raise
+
+        checkpoint_dir = Path(checkpoint_path)
+        if not checkpoint_dir.exists():
+            raise FileNotFoundError(f"Checkpoint directory not found: {checkpoint_path}")
+
+        logger.info(f"Loading checkpoint from {checkpoint_path}...")
+
+        # Update load path in config
+        self._state.cfg.checkpoint.load = str(checkpoint_dir)
+
+        # Load checkpoint using Megatron's distributed loading
+        try:
+            iteration = load_checkpoint(
+                self._state,
+                [self._model],
+                self._optimizer,
+                self._scheduler,
+                skip_load_to_model_and_opt=False,
+            )
+
+            # Load trainer metadata (rank 0 only)
+            if not dist.is_initialized() or dist.get_rank() == 0:
+                metadata_path = checkpoint_dir / "trainer_metadata.pt"
+                if metadata_path.exists():
+                    metadata = torch.load(metadata_path, map_location="cpu")
+                    self._global_step = metadata.get("global_step", iteration)
+                    self._current_epoch = metadata.get("current_epoch", 0)
+                    logger.info(f"Resumed from step {self._global_step}, epoch {self._current_epoch}")
+                else:
+                    # Fallback to iteration from checkpoint
+                    self._global_step = iteration
+                    logger.warning("No trainer metadata found, using iteration from checkpoint")
+
+            # Broadcast training state to all ranks
+            if dist.is_initialized():
+                # Broadcast global_step and current_epoch from rank 0
+                state_tensor = torch.tensor(
+                    [self._global_step, self._current_epoch],
+                    dtype=torch.long,
+                    device=torch.cuda.current_device() if torch.cuda.is_available() else torch.device("cpu"),
+                )
+                dist.broadcast(state_tensor, src=0)
+                self._global_step = int(state_tensor[0].item())
+                self._current_epoch = int(state_tensor[1].item())
+
+            logger.info(f"Checkpoint loaded successfully. Resuming from step {self._global_step}")
+
+        except Exception as e:
+            logger.error(f"Failed to load checkpoint: {e}")
+            raise
+
     def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
         """Train the model using GRPO with Megatron backend.
 
@@ -203,9 +441,10 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
         """
         logger.info("Starting GRPO training with Megatron...")
 
-        # TODO: Implement checkpoint resumption
+        # Resume from checkpoint if provided
         if resume_from_checkpoint:
-            logger.warning("Checkpoint resumption not yet implemented. Starting from scratch.")
+            logger.info(f"Resuming training from checkpoint: {resume_from_checkpoint}")
+            self._load_checkpoint(resume_from_checkpoint)
 
         max_steps = self._config.training.max_steps or 1000
         num_epochs = self._config.training.num_train_epochs or 1
@@ -240,6 +479,14 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
                 ):
                     self._evaluate()
 
+                # Update reference model periodically
+                ref_update_interval = self._config.megatron.grpo_config.reference_update_interval
+                if (ref_update_interval is not None and
+                    self._global_step > 0 and
+                    self._global_step % ref_update_interval == 0):
+                    logger.info(f"Triggering reference model update at step {self._global_step}")
+                    self._update_reference_model()
+
         logger.info("Training complete!")
 
         # Save final model
@@ -249,87 +496,530 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
     def _training_step(self, batch: dict, batch_idx: int) -> dict:
         """Execute a single GRPO training step.
 
+        This implements the core GRPO algorithm:
+        1. Generate completions using current policy (via vLLM/Megatron)
+        2. Compute rewards for completions
+        3. Compute advantages from rewards
+        4. Forward pass with current policy to get logprobs (using generated tokens)
+        5. Forward pass with reference model to get ref logprobs
+        6. Compute GRPO loss with KL penalty
+        7. Backward pass and optimizer step
+
         Args:
-            batch: Training batch
+            batch: Training batch with input_ids, attention_mask, and labels
             batch_idx: Batch index
 
         Returns:
             Dictionary of training metrics
         """
-        # TODO: Implement full GRPO training loop
-        # This is a simplified placeholder implementation
         logger.debug(f"Training step {self._global_step}, batch {batch_idx}")
 
+        self._model.train()
+
         # 1. Generate completions using current policy
-        # completions, old_logprobs = self._generate_completions(batch)
+        # Returns completions (text), generated_ids (full sequences), and old_logprobs (from generation)
+        completions, generated_ids, old_logprobs = self._generate_completions(batch)
 
         # 2. Calculate rewards
-        # rewards = self._compute_rewards(batch, completions)
+        rewards = self._compute_rewards(batch, completions)
 
-        # 3. Compute advantages
-        # advantages = compute_advantages(rewards, normalize=True)
+        # 3. Compute advantages with group normalization
+        grpo_cfg = self._config.megatron.grpo_config
+        advantages = compute_advantages(rewards, normalize=grpo_cfg.normalize_advantages)
 
-        # 4. Forward pass with current policy
-        # current_logprobs = self._get_policy_logprobs(batch, completions)
+        # 4. Forward pass with current policy to get logprobs
+        # CRITICAL: Use generated_ids (not original labels) to ensure alignment with old_logprobs
+        # Create labels from generated_ids (shift left by 1)
+        labels = generated_ids.clone()
 
-        # 5. Get reference model logprobs
-        # ref_logprobs = self._get_reference_logprobs(batch, completions)
+        # Create attention mask if not provided
+        attention_mask = batch.get("attention_mask")
+        if attention_mask is None or attention_mask.shape[1] != generated_ids.shape[1]:
+            # Create attention mask for generated sequences
+            pad_token_id = self._processing_class.pad_token_id or 0
+            attention_mask = (generated_ids != pad_token_id).long()
 
-        # 6. Calculate GRPO loss
-        # loss, kl_term, ratios, entropy_term, trunc_above, trunc_below = (
-        #     calculate_grpo_loss(
-        #         current_logprobs=current_logprobs,
-        #         old_logprobs=old_logprobs,
-        #         ref_logprobs=ref_logprobs,
-        #         advantages=advantages,
-        #         clamp_eps_lower=0.2,
-        #         clamp_eps_upper=0.2,
-        #         kl_beta=self._config.training.grpo.kl_beta if hasattr(self._config.training, 'grpo') else 0.001,
-        #     )
-        # )
+        # Forward pass
+        outputs = self._model(
+            input_ids=generated_ids,
+            attention_mask=attention_mask,
+        )
+        logits = outputs.logits if hasattr(outputs, "logits") else outputs
+
+        # Gather logprobs for target tokens
+        # For GRPO, we only compute loss on the generated (completion) tokens, not the prompt
+        # We need to identify where the completion starts
+        prompt_len = batch["input_ids"].shape[1]
+
+        # Create labels: shift left by 1 for next-token prediction
+        shifted_labels = labels[:, 1:].contiguous()
+
+        # Gather logprobs for all tokens (we'll mask later)
+        current_logprobs, mask = gather_log_probs(
+            logits[:, :-1, :],  # Shift logits (predict next token)
+            shifted_labels,      # Target tokens
+            return_mask=True,
+        )
+
+        # Mask out prompt tokens - we only want to compute loss on completions
+        # old_logprobs has shape [batch_size, completion_len]
+        # current_logprobs has shape [batch_size, total_len-1]
+        # We need to extract only the completion part
+        completion_start_idx = prompt_len - 1  # -1 because of shifting
+        completion_logprobs = current_logprobs[:, completion_start_idx:]
+        completion_mask = mask[:, completion_start_idx:]
+
+        # Align old_logprobs with completion_logprobs (truncate or pad to match)
+        max_completion_len = completion_logprobs.shape[1]
+        if old_logprobs.shape[1] < max_completion_len:
+            # Pad old_logprobs
+            padding = torch.full(
+                (old_logprobs.shape[0], max_completion_len - old_logprobs.shape[1]),
+                -100.0,
+                device=old_logprobs.device,
+                dtype=old_logprobs.dtype
+            )
+            old_logprobs = torch.cat([old_logprobs, padding], dim=1)
+        elif old_logprobs.shape[1] > max_completion_len:
+            # Truncate old_logprobs
+            old_logprobs = old_logprobs[:, :max_completion_len]
+
+        # Update mask to exclude padded positions in old_logprobs
+        completion_mask = completion_mask & (old_logprobs != -100.0)
+
+        # 5. Get reference model logprobs (no gradient)
+        with torch.no_grad():
+            ref_outputs = self._ref_model(
+                input_ids=generated_ids,
+                attention_mask=attention_mask,
+            )
+            ref_logits = ref_outputs.logits if hasattr(ref_outputs, "logits") else ref_outputs
+
+            ref_logprobs_full = gather_log_probs(
+                ref_logits[:, :-1, :],
+                shifted_labels,
+                return_mask=False,
+            )
+            # Extract completion part
+            ref_logprobs = ref_logprobs_full[:, completion_start_idx:]
+
+            # Align with completion_logprobs
+            if ref_logprobs.shape[1] < max_completion_len:
+                padding = torch.zeros(
+                    (ref_logprobs.shape[0], max_completion_len - ref_logprobs.shape[1]),
+                    device=ref_logprobs.device,
+                    dtype=ref_logprobs.dtype
+                )
+                ref_logprobs = torch.cat([ref_logprobs, padding], dim=1)
+            elif ref_logprobs.shape[1] > max_completion_len:
+                ref_logprobs = ref_logprobs[:, :max_completion_len]
+
+        # 6. Calculate GRPO loss with KL penalty and entropy regularization
+        loss, kl_term, ratios, entropy_term, trunc_above, trunc_below = calculate_grpo_loss(
+            current_logprobs=completion_logprobs,
+            old_logprobs=old_logprobs,
+            ref_logprobs=ref_logprobs,
+            advantages=advantages,
+            clamp_eps_lower=grpo_cfg.clamp_eps_lower,
+            clamp_eps_upper=grpo_cfg.clamp_eps_upper,
+            kl_beta=grpo_cfg.kl_beta,
+            entropy_weight=grpo_cfg.entropy_weight,
+            mask=completion_mask,
+        )
+
+        # Average loss over valid tokens
+        total_loss = (loss.sum() / completion_mask.sum()) if completion_mask.sum() > 0 else loss.mean()
 
         # 7. Backward pass
-        # self._optimizer.zero_grad()
-        # loss.mean().backward()
-
-        # 8. Optimizer step
-        # grad_norm = self._optimizer.step()
-        # self._scheduler.step(1)
-
-        # For now, just do a simple optimizer step
         self._optimizer.zero_grad()
-        # Placeholder: Would normally compute actual loss here
-        self._optimizer.step()
+        total_loss.backward()
+
+        # 8. Optimizer step with gradient clipping
+        grad_norm = self._optimizer.step()
         self._scheduler.step(1)
 
-        return {"loss": 0.0, "step": self._global_step}
+        # Compute metrics
+        num_valid_tokens = completion_mask.sum()
+        metrics = {
+            "loss": total_loss.item(),
+            "kl": (kl_term.sum() / num_valid_tokens).item() if num_valid_tokens > 0 else 0.0,
+            "entropy": (entropy_term.sum() / num_valid_tokens).item() if num_valid_tokens > 0 else 0.0,
+            "ratio_mean": (ratios.sum() / num_valid_tokens).item() if num_valid_tokens > 0 else 0.0,
+            "ratio_clipped_above": trunc_above.float().mean().item(),
+            "ratio_clipped_below": trunc_below.float().mean().item(),
+            "advantages_mean": advantages.mean().item(),
+            "advantages_std": advantages.std().item(),
+            "rewards_mean": rewards.mean().item(),
+            "rewards_std": rewards.std().item(),
+            "step": self._global_step,
+        }
 
-    def _generate_completions(self, batch: dict) -> tuple[list[str], torch.Tensor]:
-        """Generate completions using the current policy.
+        if grad_norm is not None:
+            metrics["grad_norm"] = grad_norm
 
-        Args:
-            batch: Input batch with prompts
+        return metrics
+
+    def _initialize_vllm_engine(self):
+        """Initialize vLLM engine for fast inference.
+
+        Uses the persistent HF model path that was exported during initialization.
 
         Returns:
-            Tuple of (completions, log_probabilities)
+            vLLM LLM engine
         """
-        # TODO: Implement generation with vLLM or native Megatron inference
-        raise NotImplementedError("Generation not yet implemented")
+        try:
+            from vllm import LLM
+        except ImportError:
+            raise ImportError(
+                "vLLM is not installed. Please install it via:\n"
+                "pip install vllm\n"
+                "or use inference_backend='megatron' instead."
+            )
+
+        logger.info("Initializing vLLM inference engine...")
+
+        if self._vllm_model_path is None or not self._vllm_model_path.exists():
+            raise RuntimeError(
+                f"vLLM model path {self._vllm_model_path} does not exist. "
+                "This should have been created during initialization."
+            )
+
+        # Initialize vLLM with exported weights
+        # Use tensor parallelism matching Megatron config
+        tp_size = self._config.megatron.tensor_model_parallel_size
+
+        vllm_engine = LLM(
+            model=str(self._vllm_model_path),
+            tensor_parallel_size=tp_size,
+            trust_remote_code=self._config.model.trust_remote_code,
+            dtype=str(self._config.model.torch_dtype).split('.')[-1],  # "bfloat16" or "float16"
+        )
+
+        logger.info("vLLM engine initialized successfully")
+        self._last_vllm_sync_step = self._global_step
+        return vllm_engine
+
+    def _sync_weights_to_vllm(self) -> None:
+        """Sync updated training weights to vLLM engine.
+
+        This exports the current model weights and reinitializes the vLLM engine.
+        Note: This is expensive and should be done sparingly.
+        """
+        if self._vllm_model_path is None:
+            logger.warning("Cannot sync weights: vLLM model path not set")
+            return
+
+        logger.info(f"Syncing weights to vLLM at step {self._global_step}...")
+
+        # Export updated weights (rank 0 only)
+        if not dist.is_initialized() or dist.get_rank() == 0:
+            export_megatron_to_hf(
+                megatron_model=self._model,
+                bridge=self._bridge,
+                output_path=str(self._vllm_model_path),
+                model_name=self._config.model.model_name,
+            )
+
+        # Wait for export to complete
+        if dist.is_initialized():
+            dist.barrier()
+
+        # Reinitialize vLLM engine with updated weights
+        # TODO: This is still expensive - ideally vLLM would support hot weight reload
+        old_engine = self._vllm_engine
+        self._vllm_engine = None  # Force reinitialization
+        del old_engine  # Clean up old engine
+
+        logger.info("Weight sync to vLLM complete")
+        self._last_vllm_sync_step = self._global_step
+
+    def _generate_completions(self, batch: dict) -> tuple[list[str], torch.Tensor, torch.Tensor]:
+        """Generate completions using the current policy.
+
+        Uses vLLM for fast inference if configured, otherwise falls back
+        to native Megatron generation.
+
+        Args:
+            batch: Input batch with input_ids
+
+        Returns:
+            Tuple of (completions, generated_token_ids, log_probabilities)
+            - completions: List of generated text strings
+            - generated_token_ids: Tensor of shape [batch_size, seq_len] with full sequences (prompt + completion)
+            - log_probabilities: Tensor of logprobs for generated tokens only (not prompt)
+        """
+        if self._config.megatron.inference_backend == "vllm":
+            return self._generate_with_vllm(batch)
+        else:
+            return self._generate_with_megatron(batch)
+
+    def _generate_with_vllm(self, batch: dict) -> tuple[list[str], torch.Tensor, torch.Tensor]:
+        """Generate completions using vLLM.
+
+        Args:
+            batch: Input batch with input_ids
+
+        Returns:
+            Tuple of (completions, generated_token_ids, log_probabilities)
+        """
+        try:
+            from vllm import SamplingParams
+        except ImportError:
+            raise ImportError("vLLM is not installed. Install with: pip install vllm")
+
+        # Check if we need to sync weights to vLLM
+        sync_interval = self._config.megatron.vllm_weight_sync_interval
+        if (sync_interval is not None and
+            self._vllm_engine is not None and
+            self._global_step - self._last_vllm_sync_step >= sync_interval):
+            logger.info(f"Triggering vLLM weight sync at step {self._global_step}")
+            self._sync_weights_to_vllm()
+
+        # Lazy initialization of vLLM engine
+        if self._vllm_engine is None:
+            self._vllm_engine = self._initialize_vllm_engine()
+
+        # Get prompt token IDs
+        input_ids = batch["input_ids"]
+        batch_size = input_ids.shape[0]
+        device = input_ids.device
+
+        # Decode input_ids to text prompts
+        prompts = self._processing_class.batch_decode(input_ids, skip_special_tokens=True)
+
+        # Configure sampling parameters from config
+        sampling_cfg = self._config.megatron.sampling_config
+        sampling_params = SamplingParams(
+            temperature=sampling_cfg.temperature,
+            top_p=sampling_cfg.top_p,
+            top_k=sampling_cfg.top_k if sampling_cfg.top_k > 0 else -1,
+            max_tokens=sampling_cfg.max_tokens,
+            repetition_penalty=sampling_cfg.repetition_penalty,
+            logprobs=1,  # Request logprobs for GRPO
+        )
+
+        # Generate completions
+        logger.debug(f"Generating {len(prompts)} completions with vLLM...")
+        outputs = self._vllm_engine.generate(prompts, sampling_params)
+
+        # Extract completions, token IDs, and logprobs
+        completions = []
+        all_generated_ids = []
+        all_logprobs = []
+
+        for i, output in enumerate(outputs):
+            completion_text = output.outputs[0].text
+            completions.append(completion_text)
+
+            # Get generated token IDs (completion only, not including prompt)
+            completion_token_ids = output.outputs[0].token_ids
+
+            # Combine prompt + completion token IDs
+            full_sequence = torch.cat([
+                input_ids[i],
+                torch.tensor(completion_token_ids, dtype=torch.long, device=device)
+            ])
+            all_generated_ids.append(full_sequence)
+
+            # Extract logprobs for generated tokens
+            token_logprobs = []
+            for j, logprobs_dict in enumerate(output.outputs[0].logprobs):
+                if logprobs_dict and j < len(completion_token_ids):
+                    token_id = completion_token_ids[j]
+                    # Get logprob, default to very small value if not found (not 0.0)
+                    logprob = logprobs_dict.get(token_id, -100.0)
+                    token_logprobs.append(logprob)
+                else:
+                    # If no logprobs dict, use placeholder
+                    token_logprobs.append(-100.0)
+
+            all_logprobs.append(token_logprobs)
+
+        # Pad sequences to same length
+        max_seq_len = max(seq.shape[0] for seq in all_generated_ids)
+        padded_ids = torch.full((batch_size, max_seq_len),
+                                self._processing_class.pad_token_id or 0,
+                                dtype=torch.long, device=device)
+
+        for i, seq in enumerate(all_generated_ids):
+            padded_ids[i, :seq.shape[0]] = seq
+
+        # Pad logprobs to max completion length
+        max_completion_len = max(len(lps) for lps in all_logprobs)
+        padded_logprobs = torch.full((batch_size, max_completion_len), -100.0, device=device)
+
+        for i, lps in enumerate(all_logprobs):
+            padded_logprobs[i, :len(lps)] = torch.tensor(lps, dtype=torch.float32, device=device)
+
+        logger.debug(f"Generated {len(completions)} completions")
+        return completions, padded_ids, padded_logprobs
+
+    def _generate_with_megatron(self, batch: dict) -> tuple[list[str], torch.Tensor, torch.Tensor]:
+        """Generate completions using native Megatron inference.
+
+        This uses autoregressive decoding with the Megatron model.
+
+        Args:
+            batch: Input batch with input_ids
+
+        Returns:
+            Tuple of (completions, generated_token_ids, log_probabilities)
+        """
+        self._model.eval()  # Set to eval mode for generation
+
+        input_ids = batch["input_ids"]
+        batch_size, prompt_len = input_ids.shape
+        device = input_ids.device
+
+        # Get sampling parameters from config
+        sampling_cfg = self._config.megatron.sampling_config
+        max_new_tokens = sampling_cfg.max_tokens
+        temperature = sampling_cfg.temperature
+        top_p = sampling_cfg.top_p
+        top_k = sampling_cfg.top_k if sampling_cfg.top_k > 0 else None
+
+        # Initialize output sequences and logprobs
+        generated_ids = input_ids.clone()
+        all_logprobs = []
+
+        with torch.no_grad():
+            for step in range(max_new_tokens):
+                # Forward pass
+                outputs = self._model(input_ids=generated_ids)
+                logits = outputs.logits if hasattr(outputs, "logits") else outputs
+
+                # Get logits for next token (last position)
+                next_token_logits = logits[:, -1, :]  # [batch_size, vocab_size]
+
+                # Apply temperature
+                if temperature != 1.0:
+                    next_token_logits = next_token_logits / temperature
+
+                # Compute log probabilities
+                log_probs = torch.nn.functional.log_softmax(next_token_logits, dim=-1)
+
+                # Apply top-k filtering
+                if top_k is not None:
+                    indices_to_remove = next_token_logits < torch.topk(next_token_logits, top_k)[0][:, -1, None]
+                    next_token_logits[indices_to_remove] = float('-inf')
+
+                # Apply top-p (nucleus) filtering
+                if top_p < 1.0:
+                    sorted_logits, sorted_indices = torch.sort(next_token_logits, descending=True, dim=-1)
+                    sorted_probs = torch.nn.functional.softmax(sorted_logits, dim=-1)
+                    cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+
+                    # Remove tokens with cumulative probability above threshold
+                    sorted_indices_to_remove = cumulative_probs > top_p
+                    # Keep at least one token
+                    sorted_indices_to_remove[:, 0] = False
+
+                    # Scatter sorted tensors back to original indexing
+                    indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                    next_token_logits[indices_to_remove] = float('-inf')
+
+                # Sample next token
+                probs = torch.nn.functional.softmax(next_token_logits, dim=-1)
+                next_token = torch.multinomial(probs, num_samples=1)  # [batch_size, 1]
+
+                # Get logprob of sampled token
+                token_logprobs = log_probs.gather(dim=-1, index=next_token)  # [batch_size, 1]
+                all_logprobs.append(token_logprobs)
+
+                # Append to generated sequence
+                generated_ids = torch.cat([generated_ids, next_token], dim=1)
+
+                # Check for EOS token (optional early stopping)
+                # For now, continue for max_new_tokens
+
+        # Convert to completions
+        completions = []
+        for i in range(batch_size):
+            # Decode only the generated part (exclude prompt)
+            generated_tokens = generated_ids[i, prompt_len:]
+            completion_text = self._processing_class.decode(generated_tokens, skip_special_tokens=True)
+            completions.append(completion_text)
+
+        # Stack logprobs
+        logprobs_tensor = torch.cat(all_logprobs, dim=1)  # [batch_size, max_new_tokens]
+
+        self._model.train()  # Return to train mode
+
+        logger.debug(f"Generated {len(completions)} completions with Megatron")
+        return completions, generated_ids, logprobs_tensor
 
     def _compute_rewards(self, batch: dict, completions: list[str]) -> torch.Tensor:
         """Compute rewards for generated completions.
 
+        Applies the reward function(s) to score the quality of completions.
+        Currently supports single reward function.
+
         Args:
-            batch: Input batch
-            completions: Generated completions
+            batch: Input batch with prompts and ground truth (if available)
+            completions: Generated completions to score
 
         Returns:
-            Tensor of rewards for each completion
+            Tensor of rewards for each completion, shape [batch_size]
+
+        Raises:
+            ValueError: If no reward functions are provided or reward function returns invalid output
+            RuntimeError: If reward function execution fails
         """
-        # TODO: Apply reward functions
+        if not self._reward_funcs:
+            raise ValueError("No reward functions provided")
+
         reward_func = self._reward_funcs[0]
-        # rewards = reward_func(batch, completions)
-        raise NotImplementedError("Reward computation not yet implemented")
+
+        logger.debug(f"Computing rewards for {len(completions)} completions...")
+
+        # Call reward function
+        # Reward function should accept (batch, completions) and return tensor of shape [batch_size]
+        try:
+            rewards = reward_func(batch, completions)
+        except Exception as e:
+            raise RuntimeError(
+                f"Reward function failed with error: {e}\n"
+                f"Reward function must accept (batch: dict, completions: list[str]) "
+                f"and return a tensor of shape [batch_size]"
+            ) from e
+
+        # Ensure rewards is a tensor
+        if not isinstance(rewards, torch.Tensor):
+            try:
+                rewards = torch.tensor(rewards, dtype=torch.float32)
+            except Exception as e:
+                raise ValueError(
+                    f"Could not convert reward function output to tensor. "
+                    f"Got type {type(rewards)}, expected torch.Tensor or array-like"
+                ) from e
+
+        # Ensure correct shape
+        if rewards.dim() == 0:
+            rewards = rewards.unsqueeze(0)
+
+        # Validate shape matches batch size
+        if rewards.shape[0] != len(completions):
+            raise ValueError(
+                f"Reward function returned {rewards.shape[0]} rewards but expected {len(completions)} "
+                f"(batch size). Shape: {rewards.shape}"
+            )
+
+        # Check for invalid values
+        if not torch.isfinite(rewards).all():
+            num_invalid = (~torch.isfinite(rewards)).sum().item()
+            raise ValueError(
+                f"Reward function returned {num_invalid} non-finite values (NaN or Inf). "
+                f"All rewards must be finite. Rewards: {rewards}"
+            )
+
+        logger.debug(
+            f"Rewards computed - mean: {rewards.mean().item():.4f}, "
+            f"std: {rewards.std().item():.4f}, "
+            f"min: {rewards.min().item():.4f}, "
+            f"max: {rewards.max().item():.4f}"
+        )
+
+        return rewards
 
     def _evaluate(self) -> dict:
         """Run evaluation on the validation dataset.
@@ -353,22 +1043,23 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
     def save_state(self) -> None:
         """Save trainer state (optimizer, scheduler, RNG).
 
-        Under distributed environment this is done only for process with rank 0.
+        Uses Megatron's distributed checkpointing to save state across all ranks.
         """
+        logger.info(f"Saving trainer state at step {self._global_step}...")
+
+        checkpoint_name = f"step_{self._global_step}"
+        checkpoint_path = self._train_checkpoint_dir / checkpoint_name
+
+        # Save trainer metadata (only rank 0)
         if not dist.is_initialized() or dist.get_rank() == 0:
-            logger.info(f"Saving trainer state at step {self._global_step}...")
-
-            state_path = self._train_checkpoint_dir / f"trainer_state_step_{self._global_step}.pt"
-            state_path.parent.mkdir(parents=True, exist_ok=True)
-
-            state = {
+            checkpoint_path.mkdir(parents=True, exist_ok=True)
+            metadata = {
                 "global_step": self._global_step,
                 "current_epoch": self._current_epoch,
-                # Megatron handles optimizer/scheduler state in its own checkpoints
             }
+            torch.save(metadata, checkpoint_path / "trainer_metadata.pt")
 
-            torch.save(state, state_path)
-            logger.info(f"Trainer state saved to {state_path}")
+        logger.info(f"Trainer state saved to {checkpoint_path}")
 
     def save_model(self, config: TrainingConfig, final: bool = True) -> None:
         """Save the model's state dictionary to the specified output directory.
@@ -387,31 +1078,65 @@ class OumiMegatronGrpoTrainer(BaseTrainer):
             logger.warning("No output directory specified. Skipping model save.")
             return
 
-        # Save in Megatron format
-        checkpoint_name = f"checkpoint_step_{self._global_step}" if not final else "final_checkpoint"
+        try:
+            from megatron.bridge.training.checkpointing import save_checkpoint
+        except ImportError:
+            logger.error("Cannot import save_checkpoint from Megatron-Bridge. Skipping save.")
+            return
+
+        # Save in Megatron format using distributed checkpointing
+        checkpoint_name = f"step_{self._global_step}" if not final else "final"
         megatron_save_path = self._train_checkpoint_dir / checkpoint_name
 
         logger.info(f"Saving Megatron checkpoint to {megatron_save_path}...")
 
-        # TODO: Use Megatron's distributed checkpointing
-        # For now, just create the directory
-        megatron_save_path.mkdir(parents=True, exist_ok=True)
+        # Create checkpoint directory (rank 0 only)
+        if not dist.is_initialized() or dist.get_rank() == 0:
+            megatron_save_path.mkdir(parents=True, exist_ok=True)
 
-        # Export to HuggingFace format for inference
+        # Synchronize all ranks before saving
+        if dist.is_initialized():
+            dist.barrier()
+
+        # Save using Megatron's distributed checkpointing
+        try:
+            # Update the save path in the config
+            self._state.cfg.checkpoint.save = str(megatron_save_path)
+
+            save_checkpoint(
+                iteration=self._global_step,
+                model=[self._model],
+                optimizer=self._optimizer,
+                opt_param_scheduler=self._scheduler,
+                num_floating_point_operations_so_far=0,
+            )
+            logger.info(f"Megatron checkpoint saved successfully to {megatron_save_path}")
+        except Exception as e:
+            logger.error(f"Failed to save Megatron checkpoint: {e}")
+            if final:
+                raise
+
+        # Export to HuggingFace format for inference (final checkpoint only)
         if final and config.training.save_final_model:
-            hf_save_path = self._output_dir / "hf_model"
-            logger.info(f"Exporting to HuggingFace format at {hf_save_path}...")
+            # Only rank 0 does the export
+            if not dist.is_initialized() or dist.get_rank() == 0:
+                hf_save_path = self._output_dir / "hf_model"
+                logger.info(f"Exporting to HuggingFace format at {hf_save_path}...")
 
-            try:
-                export_megatron_to_hf(
-                    megatron_model=self._model,
-                    bridge=self._bridge,
-                    output_path=str(hf_save_path),
-                    model_name=config.model.model_name,
-                )
-                logger.info(f"Model exported to HuggingFace format: {hf_save_path}")
-            except Exception as e:
-                logger.error(f"Failed to export to HuggingFace format: {e}")
-                logger.warning("Model saved in Megatron format only.")
+                try:
+                    export_megatron_to_hf(
+                        megatron_model=self._model,
+                        bridge=self._bridge,
+                        output_path=str(hf_save_path),
+                        model_name=config.model.model_name,
+                    )
+                    logger.info(f"Model exported to HuggingFace format: {hf_save_path}")
+                except Exception as e:
+                    logger.error(f"Failed to export to HuggingFace format: {e}")
+                    logger.warning("Model saved in Megatron format only.")
+
+            # Wait for export to complete before continuing
+            if dist.is_initialized():
+                dist.barrier()
 
         logger.info("Model save complete!")

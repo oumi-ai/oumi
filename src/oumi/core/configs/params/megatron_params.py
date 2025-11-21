@@ -96,6 +96,49 @@ class MegatronCheckpointConfig(BaseParams):
 
 
 @dataclass
+class MegatronSamplingConfig(BaseParams):
+    """Configuration for inference sampling parameters."""
+
+    temperature: float = 0.7
+    """Sampling temperature for generation. Higher values (e.g., 1.0) make output more random."""
+
+    top_p: float = 0.9
+    """Nucleus sampling parameter. Only tokens with cumulative probability <= top_p are considered."""
+
+    top_k: int = -1
+    """Top-k sampling parameter. Only top k tokens are considered. -1 means disabled."""
+
+    max_tokens: int = 512
+    """Maximum number of tokens to generate per completion."""
+
+    repetition_penalty: float = 1.0
+    """Penalty for repeating tokens. Values > 1.0 discourage repetition."""
+
+
+@dataclass
+class MegatronGRPOConfig(BaseParams):
+    """Configuration for GRPO algorithm hyperparameters."""
+
+    kl_beta: float = 0.001
+    """Weight for KL divergence penalty term. Controls how much policy can deviate from reference."""
+
+    entropy_weight: float = 0.0
+    """Weight for entropy regularization term. Encourages exploration. Typically 0.0-0.01."""
+
+    clamp_eps_lower: float = 0.2
+    """Lower bound for importance sampling ratio clipping (1 - eps)."""
+
+    clamp_eps_upper: float = 0.2
+    """Upper bound for importance sampling ratio clipping (1 + eps)."""
+
+    normalize_advantages: bool = True
+    """Whether to normalize advantages by standard deviation."""
+
+    reference_update_interval: Optional[int] = None
+    """Number of steps between reference model updates. None means never update (default GRPO behavior)."""
+
+
+@dataclass
 class MegatronParams(BaseParams):
     """Parameters for Megatron-based distributed training.
 
@@ -185,6 +228,14 @@ class MegatronParams(BaseParams):
     )
     """Checkpointing strategy configuration."""
 
+    sampling_config: MegatronSamplingConfig = field(
+        default_factory=MegatronSamplingConfig
+    )
+    """Sampling parameters for inference generation."""
+
+    grpo_config: MegatronGRPOConfig = field(default_factory=MegatronGRPOConfig)
+    """GRPO algorithm hyperparameters."""
+
     # Model configuration overrides
     model_config_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional kwargs to pass to the HuggingFace model config."""
@@ -212,6 +263,14 @@ class MegatronParams(BaseParams):
     - 'vllm': Recommended for most use cases (requires refit from Megatron weights)
     - 'sglang': Alternative high-performance backend
     - 'megatron': Native Megatron inference (no conversion needed)
+    """
+
+    vllm_weight_sync_interval: Optional[int] = None
+    """Number of training steps between vLLM weight syncs.
+
+    If None, weights are never synced during training (uses initial weights only).
+    If set (e.g., 10), exports updated weights to vLLM every N steps.
+    Note: Each sync requires a full model export and can be expensive.
     """
 
     def __post_init__(self):
@@ -315,6 +374,91 @@ class MegatronParams(BaseParams):
             )
 
         return world_size // model_parallel_size
+
+    def validate_distributed_config(
+        self,
+        world_size: int,
+        num_layers: int,
+        num_attention_heads: int,
+        num_key_value_heads: int | None = None,
+    ) -> None:
+        """Validate that distributed configuration is compatible with model architecture.
+
+        Args:
+            world_size: Total number of GPUs available
+            num_layers: Number of transformer layers in the model
+            num_attention_heads: Number of attention heads
+            num_key_value_heads: Number of key-value heads (for GQA). If None, assumes MHA.
+
+        Raises:
+            ValueError: If configuration is invalid
+        """
+        # 1. Validate world size
+        model_parallel_size = (
+            self.tensor_model_parallel_size
+            * self.pipeline_model_parallel_size
+            * self.context_parallel_size
+            * self.expert_model_parallel_size
+        )
+
+        if world_size % model_parallel_size != 0:
+            raise ValueError(
+                f"world_size ({world_size}) must be divisible by total model parallel size "
+                f"({model_parallel_size} = TP:{self.tensor_model_parallel_size} × "
+                f"PP:{self.pipeline_model_parallel_size} × CP:{self.context_parallel_size} × "
+                f"EP:{self.expert_model_parallel_size})"
+            )
+
+        # 2. Validate tensor parallelism vs attention heads
+        if num_attention_heads % self.tensor_model_parallel_size != 0:
+            raise ValueError(
+                f"num_attention_heads ({num_attention_heads}) must be divisible by "
+                f"tensor_model_parallel_size ({self.tensor_model_parallel_size})"
+            )
+
+        # 3. Validate KV heads for GQA (Grouped Query Attention)
+        if num_key_value_heads is not None:
+            if num_key_value_heads % self.tensor_model_parallel_size != 0:
+                raise ValueError(
+                    f"num_key_value_heads ({num_key_value_heads}) must be divisible by "
+                    f"tensor_model_parallel_size ({self.tensor_model_parallel_size})"
+                )
+
+        # 4. Validate pipeline parallelism vs layers
+        if num_layers % self.pipeline_model_parallel_size != 0:
+            raise ValueError(
+                f"num_layers ({num_layers}) must be divisible by "
+                f"pipeline_model_parallel_size ({self.pipeline_model_parallel_size})"
+            )
+
+        # 5. Validate virtual pipeline parallelism
+        if self.virtual_pipeline_model_parallel_size is not None:
+            if num_layers % self.virtual_pipeline_model_parallel_size != 0:
+                raise ValueError(
+                    f"num_layers ({num_layers}) must be divisible by "
+                    f"virtual_pipeline_model_parallel_size ({self.virtual_pipeline_model_parallel_size})"
+                )
+
+        # 6. Validate batch sizes
+        dp_size = self.get_data_parallel_size(world_size)
+        if self.global_batch_size is not None:
+            if self.global_batch_size % dp_size != 0:
+                raise ValueError(
+                    f"global_batch_size ({self.global_batch_size}) must be divisible by "
+                    f"data parallel size ({dp_size})"
+                )
+
+        # Log successful validation
+        from oumi.utils.logging import logger
+
+        logger.info("✓ Distributed configuration validation passed")
+        logger.info(f"  World size: {world_size} GPUs")
+        logger.info(f"  Model parallelism: TP={self.tensor_model_parallel_size}, "
+                    f"PP={self.pipeline_model_parallel_size}, "
+                    f"CP={self.context_parallel_size}, "
+                    f"EP={self.expert_model_parallel_size}")
+        logger.info(f"  Data parallelism: DP={dp_size}")
+        logger.info(f"  Total: {world_size} = {model_parallel_size} (model) × {dp_size} (data)")
 
     def to_megatron_config_dict(self) -> dict[str, Any]:
         """Convert to a dictionary compatible with Megatron configuration.
