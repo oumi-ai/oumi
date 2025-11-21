@@ -31,8 +31,22 @@ from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
-from oumi.cli.infer import chat, infer
+from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
+
+# Import chat from oumi_chat package
+try:
+    from oumi_chat.cli import chat
+except ImportError:
+    # If oumi-chat is not installed, provide a helpful error message
+    def chat(*args, **kwargs):
+        """Chat command requires oumi-chat package."""
+        from oumi.cli.cli_utils import CONSOLE
+        CONSOLE.print(
+            "[red]Error:[/red] The chat command requires the oumi-chat package. "
+            "Install it with: pip install oumi-chat or pip install oumi[interactive]"
+        )
+        raise SystemExit(1)
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize

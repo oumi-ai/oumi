@@ -23,15 +23,8 @@ from rich.panel import Panel
 from rich.text import Text
 
 from oumi.builders.inference_engines import build_inference_engine
-from oumi.core.commands import CommandParser
-from oumi.core.commands.command_context import CommandContext
-from oumi.core.commands.command_router import CommandRouter
-from oumi.core.commands.utilities import make_safe
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.input import EnhancedInput, InputAction
-from oumi.core.monitoring import SystemMonitor
-from oumi.core.thinking import ThinkingProcessor
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -40,6 +33,13 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.utils.logging import logger
+from oumi_chat.commands import CommandParser
+from oumi_chat.commands.command_context import CommandContext
+from oumi_chat.commands.command_router import CommandRouter
+from oumi_chat.commands.utilities import make_safe
+from oumi_chat.input import EnhancedInput, InputAction
+from oumi_chat.monitoring import SystemMonitor
+from oumi_chat.thinking import ThinkingProcessor
 
 
 def _get_chars_per_token_ratio(model_name: str) -> float:
