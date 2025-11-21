@@ -143,9 +143,40 @@ model_params = ModelParams(
 )
 ```
 
+**Serving LoRA Adapters**
+
+vLLM supports serving LoRA (Low-Rank Adaptation) adapters, allowing you to use fine-tuned models without loading the full model weights. This is particularly useful when you've fine-tuned a base model and want to serve the adapted version.
+
+To serve a LoRA adapter, specify the `adapter_model` parameter pointing to your LoRA checkpoint:
+
+```python
+engine = VLLMInferenceEngine(
+    ModelParams(
+        model_name="meta-llama/Llama-3.1-8B-Instruct",  # Base model
+        adapter_model="path/to/lora/adapter",           # LoRA adapter path
+    )
+)
+```
+
+The LoRA adapter can be:
+- A local directory containing the adapter weights
+- A HuggingFace Hub model ID (e.g., `username/model-lora-adapter`)
+
+vLLM will automatically:
+- Load the base model
+- Apply the LoRA adapter weights
+- Configure the appropriate LoRA rank from the adapter checkpoint
+
+**Important Notes:**
+
+- Not all model architectures support LoRA adapters in vLLM. Check the [vLLM supported models documentation](https://docs.vllm.ai/en/latest/models/supported_models.html) for compatibility.
+- The base model specified in `model_name` must match the base model used during LoRA fine-tuning.
+- LoRA serving works with both single-GPU and multi-GPU (tensor parallel) setups.
+
 **Resources**
 
 - [vLLM Documentation](https://vllm.readthedocs.io/en/latest/)
+- [vLLM LoRA Support](https://docs.vllm.ai/en/latest/models/lora.html)
 
 ### LlamaCPP Engine
 
@@ -255,6 +286,59 @@ engine = RemoteVLLMInferenceEngine(
     )
 )
 ```
+
+#### Serving LoRA Adapters
+
+Remote vLLM servers can serve LoRA adapters just like local vLLM engines. There are two ways to configure this:
+
+**Option 1: Start Server with LoRA Adapter**
+
+Start the vLLM server with the `--enable-lora` flag and specify the adapter:
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Llama-3.1-8B-Instruct \
+    --port 6864 \
+    --enable-lora \
+    --lora-modules my-adapter=path/to/lora/adapter
+```
+
+Then connect using the adapter name:
+
+```python
+engine = RemoteVLLMInferenceEngine(
+    model_params=ModelParams(
+        model_name="my-adapter"  # Use the adapter name from --lora-modules
+    ),
+    remote_params=RemoteParams(
+        api_url="http://localhost:6864"
+    )
+)
+```
+
+**Option 2: Specify Adapter in Client**
+
+Alternatively, you can specify the `adapter_model` in the client configuration:
+
+```python
+engine = RemoteVLLMInferenceEngine(
+    model_params=ModelParams(
+        model_name="meta-llama/Llama-3.1-8B-Instruct",  # Base model
+        adapter_model="path/to/lora/adapter"             # LoRA adapter
+    ),
+    remote_params=RemoteParams(
+        api_url="http://localhost:6864"
+    )
+)
+```
+
+When using `adapter_model` in the client, the adapter path/name will be used as the model identifier in API requests.
+
+**Important Notes:**
+
+- The vLLM server must be started with `--enable-lora` flag to support LoRA adapters
+- Multiple LoRA adapters can be served simultaneously from a single server using `--lora-modules`
+- Check [vLLM LoRA documentation](https://docs.vllm.ai/en/latest/models/lora.html) for advanced configurations
 
 ### Remote SGLang
 

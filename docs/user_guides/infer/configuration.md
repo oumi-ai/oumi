@@ -55,7 +55,7 @@ model:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"    # Model ID or path (REQUIRED)
 
   # Model loading
-  adapter_model: null                                # Path to adapter model (auto-detected if model_name is adapter)
+  adapter_model: null                                # Path to LoRA adapter (e.g., "path/to/adapter" or "user/adapter-name")
   tokenizer_name: null                               # Custom tokenizer name/path (defaults to model_name)
   tokenizer_pad_token: null                          # Override pad token
   tokenizer_kwargs: {}                               # Additional tokenizer args
@@ -79,6 +79,35 @@ model:
   # Additional settings
   model_kwargs: {}                                   # Additional model constructor args
 ```
+
+#### Using LoRA Adapters
+
+The `adapter_model` parameter allows you to load LoRA (Low-Rank Adaptation) adapters on top of a base model. This is useful when you've fine-tuned a model using LoRA and want to serve the adapted version.
+
+**Configuration Example:**
+
+```yaml
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"  # Base model
+  adapter_model: "path/to/lora/adapter"           # LoRA adapter path
+```
+
+**Supported Adapter Locations:**
+
+- **Local path**: `"./my-lora-adapter"` or `"/absolute/path/to/adapter"`
+- **HuggingFace Hub**: `"username/model-lora-adapter"`
+
+**Engine Support:**
+
+Not all inference engines support LoRA adapters. Here's the current support status:
+
+- ✅ **VLLM**: Full support for LoRA adapters (recommended)
+- ✅ **REMOTE_VLLM**: Full support when server is started with `--enable-lora`
+- ✅ **NATIVE**: Supported via PEFT library
+- ❌ **LLAMACPP**: Not supported
+- ❌ **Cloud APIs**: Not applicable (these use provider's hosted models)
+
+For detailed examples of serving LoRA models with VLLM, see the {doc}`inference_engines` guide.
 
 ### Generation Configuration
 
