@@ -24,10 +24,22 @@ from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi_chat.commands.command_parser import ParsedCommand
 from oumi_chat.commands.utilities.export_utilities import ExportUtilities
 from oumi_chat.commands.utilities.import_utilities import ImportUtilities
+from oumi_chat.utils.file_validation import validate_and_sanitize_file_path
 
 
 class FileOperationsHandler(BaseCommandHandler):
-    """Handles file-related commands: attach, save, import, load."""
+    """Handles file-related commands.
+
+    Commands handled:
+    - File attachment: attach
+    - Conversation export/import: save, load, import
+    - History management: save_history, import_history
+    - External content: fetch (web), shell (command execution)
+
+    Note: This handler is large (1300+ lines) and could benefit from being
+    split into specialized handlers: AttachmentHandler, ImportExportHandler,
+    and WebShellHandler.
+    """
 
     def __init__(self, *args, **kwargs):
         """Initialize the file operations handler."""
@@ -40,79 +52,15 @@ class FileOperationsHandler(BaseCommandHandler):
         self._setup_chat_cache()
 
     def _validate_and_sanitize_file_path(self, file_path: str) -> tuple[bool, str, str]:
-        """Validate and sanitize a file path for security and safety using pathvalidate.
+        """Validate and sanitize a file path (delegates to shared utility).
 
         Args:
-            file_path: The file path to validate
+            file_path: The file path to validate.
 
         Returns:
-            Tuple of (is_valid, sanitized_path, error_message)
+            Tuple of (is_valid, sanitized_path, error_message).
         """
-        try:
-            from pathvalidate import (
-                ValidationError,
-                is_valid_filepath,
-                sanitize_filepath,
-            )
-        except ImportError:
-            return (
-                False,
-                "",
-                "pathvalidate library is required for file path validation",
-            )
-
-        if not file_path:
-            return False, "", "File path cannot be empty"
-
-        # Check for unmatched quotes before sanitizing
-        # (pathvalidate doesn't handle this)
-        stripped = file_path.strip()
-        quote_chars = ["'", '"']
-        for quote in quote_chars:
-            if stripped.startswith(quote) and not stripped.endswith(quote):
-                return False, "", f"Unmatched quote in file path: {quote}"
-            if stripped.endswith(quote) and not stripped.startswith(quote):
-                return False, "", f"Unmatched quote in file path: {quote}"
-
-        # Strip whitespace and quotes
-        cleaned_path = file_path.strip().strip("\"'")
-
-        # Check if the cleaned path is effectively empty
-        if not cleaned_path or cleaned_path.isspace():
-            return False, "", "File path is empty or contains only whitespace"
-
-        # Use pathvalidate to sanitize the file path
-        # Detect platform to use appropriate validation
-        import os
-
-        platform_type = "windows" if os.name == "nt" else "posix"
-
-        try:
-            sanitized = sanitize_filepath(
-                cleaned_path,
-                platform=platform_type,  # Use appropriate platform
-                max_len=255,  # Standard filesystem limit
-            )
-        except ValidationError as e:
-            return False, "", f"Invalid file path: {str(e)}"
-
-        # Verify the sanitized path is valid
-        if not is_valid_filepath(sanitized, platform=platform_type):
-            return False, "", "File path contains invalid characters or format"
-
-        # Additional security check - prevent path traversal
-        if ".." in sanitized:
-            return (
-                False,
-                "",
-                "File path contains potential security risks (path traversal)",
-            )
-
-        # Check if the path would create a file with quotes in the name
-        if any(quote in Path(sanitized).name for quote in ["'", '"']):
-            return False, "", "File name cannot contain quote characters"
-
-        return True, sanitized, ""
+        return validate_and_sanitize_file_path(file_path)
 
     def get_supported_commands(self) -> list[str]:
         """Get list of commands this handler supports."""

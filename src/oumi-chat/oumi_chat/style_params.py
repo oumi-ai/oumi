@@ -20,271 +20,178 @@ from oumi.core.configs.params.base_params import BaseParams
 
 @dataclass
 class StyleParams(BaseParams):
-    """Parameters for customizing Rich console styling in interactive inference.
+    """Simplified styling parameters for Rich console in interactive inference.
 
-    Rich supports a wide variety of text styling options:
-    - Colors: 'red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'white', 'black'
+    This uses a theme-based approach with sensible defaults. Most users should
+    just set theme_name to one of the predefined themes.
+
+    Rich style format examples:
+    - Colors: 'red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'white'
     - Bright variants: 'bright_red', 'bright_green', etc.
-    - RGB colors: 'rgb(175,0,255)' or '#af00ff'
-    - Background colors: 'on white', 'on black', etc.
-    - Text attributes: 'bold', 'italic', 'underline', 'strike', 'dim', 'reverse'
-    - Combinations: 'bold red underline on white'
+    - RGB: '#af00ff' or 'rgb(175,0,255)'
+    - Attributes: 'bold', 'italic', 'underline', 'dim'
+    - Combined: 'bold red', 'dim cyan', etc.
 
     Examples:
-        # Minimal styling
+        # Use a predefined theme
+        style:
+          theme_name: "dark"
+
+        # Disable colors
         style:
           no_color: true
 
-        # Dark theme with green accent
+        # Customize key elements
         style:
-          user_prompt_style: "bold green"
-          assistant_title_style: "bold bright_green"
-          assistant_border_style: "green"
-
-        # Custom theme
-        style:
-          custom_theme:
-            info: "dim cyan"
-            warning: "yellow"
-            error: "bold red"
-            success: "bold green"
+          user_style: "bold green"
+          assistant_style: "cyan"
+          error_style: "red"
     """
 
-    # Theme configuration
+    # Theme selection
     theme_name: Optional[str] = None
-    """Name of the predefined theme to use.
-
-    Available themes:
-    - 'dark': Dark background optimized theme
-    - 'light': Light background optimized theme
-    - 'monokai': Monokai-inspired colorful theme
-    - 'minimal': Minimal styling with few colors
-    - 'neon': Bright neon colors on dark background
-    """
+    """Predefined theme: 'dark', 'light', 'monokai', 'minimal', or 'neon'."""
 
     custom_theme: Optional[dict[str, str]] = None
-    """Custom theme mapping style names to Rich style strings.
+    """Custom theme dictionary mapping semantic names to Rich styles."""
 
-    This allows defining a complete custom color scheme that can be
-    referenced throughout the application.
-    """
+    # Core UI styles (override theme defaults)
+    user_style: str = "bold blue"
+    """Style for user prompts and input."""
 
-    # Welcome and UI styles
-    welcome_style: str = "bold magenta"
-    """Style for welcome message and title."""
-
-    welcome_border_style: str = "magenta"
-    """Style for welcome message border."""
-
-    status_style: str = "bold green"
-    """Style for status messages (e.g., 'Thinking...')."""
-
-    status_title_style: Optional[str] = None
-    """Style for status panel titles (defaults to status_style)."""
-
-    status_border_style: Optional[str] = None
-    """Style for status panel borders (defaults to status_style without bold)."""
-
-    # System monitor color scheme
-    monitor_low_usage_color: str = "green"
-    """Color for low usage percentages (0-49%)."""
-
-    monitor_medium_usage_color: str = "cyan"
-    """Color for medium usage percentages (50-69%)."""
-
-    monitor_high_usage_color: str = "yellow"
-    """Color for high usage percentages (70-89%)."""
-
-    monitor_critical_usage_color: str = "red"
-    """Color for critical usage percentages (90-100%)."""
-
-    monitor_label_style: str = "bold cyan"
-    """Style for system monitor labels (CPU:, RAM:, etc.)."""
-
-    monitor_value_style: str = "white"
-    """Style for system monitor values when not colored by usage."""
-
-    # User interaction styles
-    user_prompt_style: str = "bold blue"
-    """Style for user input prompts."""
-
-    user_input_style: Optional[str] = None
-    """Style for user input text (if different from prompt)."""
-
-    # Assistant response styles
-    assistant_title_style: str = "bold cyan"
-    """Style for assistant response titles."""
-
-    assistant_border_style: str = "cyan"
-    """Style for assistant response borders."""
+    assistant_style: str = "cyan"
+    """Style for assistant responses (titles and borders)."""
 
     assistant_text_style: str = "white"
-    """Style for assistant response text."""
+    """Style for assistant response text content."""
+
+    error_style: str = "red"
+    """Style for errors (titles and borders)."""
+
+    info_style: str = "green"
+    """Style for info messages and status indicators."""
+
+    # Code highlighting
+    code_theme: str = "monokai"
+    """Syntax highlighting theme: 'monokai', 'github-dark', 'dracula', 'nord'."""
+
+    # Panel configuration
+    panel_box_style: str = "rounded"
+    """Panel border style: 'rounded', 'square', 'double', 'heavy', 'ascii'."""
+
+    expand_panels: bool = False
+    """Whether panels should expand to full terminal width."""
 
     assistant_padding: tuple[int, int] = (1, 2)
-    """Padding (vertical, horizontal) for assistant response panels."""
+    """Panel padding as (vertical, horizontal) tuple."""
 
-    # Error styles
-    error_style: str = "red"
-    """Style for error message text."""
-
-    error_title_style: str = "bold red"
-    """Style for error message titles."""
-
-    error_border_style: str = "red"
-    """Style for error message borders."""
-
-    # GPT-OSS reasoning tag styles
-    analysis_text_style: str = "dim cyan"
-    """Style for GPT-OSS analysis/reasoning sections."""
-
-    analysis_title_style: str = "bold yellow"
-    """Style for GPT-OSS analysis section titles."""
-
-    analysis_border_style: str = "yellow"
-    """Style for GPT-OSS analysis borders."""
-
-    response_text_style: str = "bright_white"
-    """Style for GPT-OSS final response sections."""
-
-    response_title_style: str = "bold green"
-    """Style for GPT-OSS response section titles."""
-
-    response_border_style: str = "green"
-    """Style for GPT-OSS response borders."""
-
-    # Special content styles
-    code_theme: str = "monokai"
-    """Syntax highlighting theme for code blocks.
-
-    Available themes: 'monokai', 'github-dark', 'dracula', 'nord',
-    'solarized-dark', 'solarized-light', 'material', 'native'
-    """
-
-    markdown_code_theme: Optional[str] = None
-    """Override theme for markdown code blocks (defaults to code_theme)."""
-
-    # Console configuration
-    force_terminal: Optional[bool] = None
-    """Force terminal mode even if not in a terminal."""
-
-    force_jupyter: Optional[bool] = None
-    """Force Jupyter notebook mode."""
-
+    # Display options
     no_color: bool = False
     """Disable all colors and styling."""
+
+    use_emoji: bool = True
+    """Enable emoji in output."""
 
     width: Optional[int] = None
     """Console width override (default: auto-detect)."""
 
-    height: Optional[int] = None
-    """Console height override (default: auto-detect)."""
+    def get_style(self, element: str) -> str:
+        """Get the resolved style for a UI element.
 
-    legacy_windows: bool = False
-    """Use legacy Windows mode for older terminals."""
+        This method resolves styles in priority order:
+        1. Custom theme (if provided)
+        2. Predefined theme (if theme_name is set)
+        3. Explicit style parameters
+        4. Built-in defaults
 
-    # Emoji configuration
-    use_emoji: bool = True
-    """Whether to use emoji in output (🤖, 🧠, 💬, etc.)."""
+        Args:
+            element: Style element name (e.g., 'user', 'assistant', 'error').
 
-    emoji_variant: Optional[str] = None
-    """Emoji variant ('emoji' or 'text')."""
+        Returns:
+            Rich style string for the element.
+        """
+        # Check custom theme first
+        if self.custom_theme and element in self.custom_theme:
+            return self.custom_theme[element]
 
-    # Panel configuration
-    expand_panels: bool = False
-    """Whether panels should expand to full terminal width."""
+        # Check predefined theme
+        theme = self.get_predefined_theme()
+        if theme and element in theme:
+            return theme[element]
 
-    panel_box_style: str = "rounded"
-    """Box drawing style for panels.
+        # Fall back to explicit parameters based on element name
+        style_map = {
+            "user": self.user_style,
+            "user_title": f"bold {self.user_style}",
+            "assistant": self.assistant_style,
+            "assistant_title": f"bold {self.assistant_style}",
+            "assistant_text": self.assistant_text_style,
+            "error": self.error_style,
+            "error_title": f"bold {self.error_style}",
+            "info": self.info_style,
+            "info_title": f"bold {self.info_style}",
+            "warning": "yellow",
+            "warning_title": "bold yellow",
+            "success": self.info_style,
+            # Derived styles for compatibility
+            "status": self.info_style,
+            "welcome": "magenta",
+            "monitor": self.info_style,
+            # Thinking/reasoning styles
+            "analysis": "dim cyan",
+            "analysis_title": "bold yellow",
+            "response_title": f"bold {self.info_style}",
+        }
 
-    Options: 'rounded', 'square', 'double', 'heavy', 'minimal', 'ascii'
-    """
+        return style_map.get(element, "white")
 
     def get_predefined_theme(self) -> Optional[dict[str, str]]:
         """Get a predefined theme by name.
 
         Returns:
-            Dictionary mapping style names to Rich style strings, or None.
+            Dictionary mapping element names to Rich style strings, or None.
         """
-        themes = {
-            "dark": {
-                "user_prompt": "bold bright_blue",
-                "assistant_title": "bold bright_cyan",
-                "assistant_text": "bright_white",
-                "error": "bright_red",
-                "warning": "bright_yellow",
-                "success": "bright_green",
-                "info": "bright_blue",
-                "monitor_low": "bright_green",
-                "monitor_medium": "bright_cyan",
-                "monitor_high": "bright_yellow",
-                "monitor_critical": "bright_red",
-                "monitor_labels": "bold bright_cyan",
-                "monitor_values": "bright_white",
-            },
-            "light": {
-                "user_prompt": "bold blue",
-                "assistant_title": "bold dark_cyan",
-                "assistant_text": "black",
-                "error": "red",
-                "warning": "dark_orange",
-                "success": "green",
-                "info": "blue",
-                "monitor_low": "green",
-                "monitor_medium": "blue",
-                "monitor_high": "dark_orange",
-                "monitor_critical": "red",
-                "monitor_labels": "bold blue",
-                "monitor_values": "black",
-            },
-            "monokai": {
-                "user_prompt": "bold #66d9ef",  # Monokai blue
-                "assistant_title": "bold #a6e22e",  # Monokai green
-                "assistant_text": "#f8f8f2",  # Monokai foreground
-                "error": "#f92672",  # Monokai red
-                "warning": "#fd971f",  # Monokai orange
-                "success": "#a6e22e",  # Monokai green
-                "info": "#ae81ff",  # Monokai purple
-                "monitor_low": "#a6e22e",  # Monokai green
-                "monitor_medium": "#66d9ef",  # Monokai blue
-                "monitor_high": "#fd971f",  # Monokai orange
-                "monitor_critical": "#f92672",  # Monokai red
-                "monitor_labels": "bold #ae81ff",  # Monokai purple
-                "monitor_values": "#f8f8f2",  # Monokai foreground
-            },
-            "minimal": {
-                "user_prompt": "bold",
-                "assistant_title": "bold",
-                "assistant_text": "white",
-                "error": "red",
-                "warning": "yellow",
-                "success": "green",
-                "info": "blue",
-                "monitor_low": "green",
-                "monitor_medium": "blue",
-                "monitor_high": "yellow",
-                "monitor_critical": "red",
-                "monitor_labels": "bold",
-                "monitor_values": "white",
-            },
-            "neon": {
-                "user_prompt": "bold #00ffff",  # Cyan neon
-                "assistant_title": "bold #ff00ff",  # Magenta neon
-                "assistant_text": "#ffffff",
-                "error": "#ff0066",  # Hot pink
-                "warning": "#ffff00",  # Yellow neon
-                "success": "#00ff00",  # Green neon
-                "info": "#0099ff",  # Blue neon
-                "monitor_low": "#00ff00",  # Green neon
-                "monitor_medium": "#00ffff",  # Cyan neon
-                "monitor_high": "#ffff00",  # Yellow neon
-                "monitor_critical": "#ff0066",  # Hot pink
-                "monitor_labels": "bold #ff00ff",  # Magenta neon
-                "monitor_values": "#ffffff",
-            },
-        }
         if self.theme_name is None:
             return None
+
+        themes = {
+            "dark": {
+                "user": "bold bright_blue",
+                "assistant": "bright_cyan",
+                "assistant_text": "bright_white",
+                "error": "bright_red",
+                "info": "bright_green",
+            },
+            "light": {
+                "user": "bold blue",
+                "assistant": "dark_cyan",
+                "assistant_text": "black",
+                "error": "red",
+                "info": "green",
+            },
+            "monokai": {
+                "user": "bold #66d9ef",
+                "assistant": "#a6e22e",
+                "assistant_text": "#f8f8f2",
+                "error": "#f92672",
+                "info": "#a6e22e",
+            },
+            "minimal": {
+                "user": "bold",
+                "assistant": "white",
+                "assistant_text": "white",
+                "error": "red",
+                "info": "green",
+            },
+            "neon": {
+                "user": "bold #00ffff",
+                "assistant": "#ff00ff",
+                "assistant_text": "#ffffff",
+                "error": "#ff0066",
+                "info": "#00ff00",
+            },
+        }
+
         return themes.get(self.theme_name)
 
     def __post_init__(self):
@@ -297,7 +204,7 @@ class StyleParams(BaseParams):
                 f"Must be one of: {', '.join(valid_box_styles)}"
             )
 
-        # Validate code themes
+        # Validate code theme
         valid_code_themes = {
             "monokai",
             "github-dark",
@@ -314,16 +221,7 @@ class StyleParams(BaseParams):
                 f"Must be one of: {', '.join(valid_code_themes)}"
             )
 
-        if (
-            self.markdown_code_theme
-            and self.markdown_code_theme not in valid_code_themes
-        ):
-            raise ValueError(
-                f"Invalid markdown_code_theme '{self.markdown_code_theme}'. "
-                f"Must be one of: {', '.join(valid_code_themes)}"
-            )
-
-        # Validate predefined theme name
+        # Validate theme name
         if self.theme_name:
             valid_themes = {"dark", "light", "monokai", "minimal", "neon"}
             if self.theme_name not in valid_themes:
@@ -337,7 +235,3 @@ class StyleParams(BaseParams):
             raise ValueError(
                 "assistant_padding must be a tuple of (vertical, horizontal)"
             )
-
-        # Validate emoji variant
-        if self.emoji_variant and self.emoji_variant not in {"emoji", "text"}:
-            raise ValueError("emoji_variant must be 'emoji' or 'text'")

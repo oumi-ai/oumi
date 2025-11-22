@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Optional
 
 from rich.console import Console
 
+from oumi_chat.utils.model_info import get_context_length_for_engine
+
 if TYPE_CHECKING:
     from oumi.core.configs import InferenceConfig
     from oumi.core.inference import BaseInferenceEngine
@@ -32,6 +34,21 @@ class CommandContext:
 
     This class provides a centralized way to access common dependencies
     and state that all command handlers need.
+
+    Core attributes (always available):
+        console: Rich console for output
+        config: Inference configuration
+        conversation_history: List of conversation messages
+        inference_engine: The inference engine being used
+        system_monitor: Optional system monitor for displaying stats
+
+    Lazy-loaded components (created on first access):
+        context_window_manager: Manages token counting and context limits
+        file_handler: Handles file attachment and processing
+        compaction_engine: Compacts conversation history when needed
+        branch_manager: Manages conversation branches (tmux-like)
+        thinking_processor: Processes thinking/reasoning displays
+        macro_manager: Handles Jinja2 macro templates
     """
 
     def __init__(
@@ -73,27 +90,12 @@ class CommandContext:
         if self._context_window_manager is None:
             from oumi_chat.attachments import ContextWindowManager
 
-            # Try multiple possible attribute names for max context length
-            max_context = None
-            possible_context_attrs = [
-                "model_max_length",  # Standard transformers
-                "max_model_len",  # VLLM
-                "max_tokens",  # Some configs
-                "context_length",  # Alternative name
-            ]
+            # Use shared utility to get context length
+            max_context = get_context_length_for_engine(self.config)
+            if max_context is None:
+                max_context = 4096  # Fallback
 
             model_config = getattr(self.config, "model", None)
-            if model_config:
-                for attr in possible_context_attrs:
-                    if hasattr(model_config, attr):
-                        max_context = getattr(model_config, attr, None)
-                        if max_context:
-                            break
-
-            # Fallback to a reasonable default
-            if not max_context:
-                max_context = 4096
-
             self._context_window_manager = ContextWindowManager(
                 model_name=getattr(model_config, "model_name", "default"),
                 max_context_length=max_context,

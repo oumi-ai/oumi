@@ -19,6 +19,8 @@ from typing import Optional
 
 from oumi_chat.commands.command_context import CommandContext
 from oumi_chat.commands.command_parser import ParsedCommand
+from oumi_chat.utils.model_info import get_context_length_for_engine
+from oumi_chat.utils.token_counter import count_conversation_tokens
 
 
 class CommandResult:
@@ -118,39 +120,18 @@ class BaseCommandHandler(ABC):
             self.console.print(f"Success: {message}", style=success_style)
 
     def _get_conversation_tokens(self) -> int:
-        """Get accurate token count for current conversation using context manager.
+        """Get accurate token count for current conversation (delegates to utility).
 
         Returns:
             Accurate token count using tiktoken-based estimation.
         """
+        context_window_manager = None
         if hasattr(self.context, "context_window_manager"):
-            conversation_text = ""
-            for msg in self.conversation_history:
-                if isinstance(msg, dict):
-                    # Handle regular messages
-                    if "content" in msg:
-                        conversation_text += str(msg["content"]) + "\n"
-                    # Handle attachment messages
-                    elif msg.get("role") == "attachment" and "text_content" in msg:
-                        conversation_text += str(msg["text_content"]) + "\n"
-                    elif msg.get("role") == "attachment" and "content" in msg:
-                        conversation_text += str(msg["content"]) + "\n"
+            context_window_manager = self.context.context_window_manager
 
-            return self.context.context_window_manager.estimate_tokens(
-                conversation_text
-            )
-
-        # Fallback to character-based estimation if context manager not available
-        total_chars = 0
-        for msg in self.conversation_history:
-            if msg.get("role") == "attachment":
-                content = msg.get("text_content", "") or msg.get("content", "")
-            else:
-                content = msg.get("content", "")
-            total_chars += len(str(content))
-
-        # Rough estimation: ~4 chars per token
-        return total_chars // 4
+        return count_conversation_tokens(
+            self.conversation_history, context_window_manager
+        )
 
     def _update_context_in_monitor(self):
         """Update context usage and conversation turns in system monitor."""
@@ -227,66 +208,9 @@ class BaseCommandHandler(ABC):
             config: The inference configuration.
 
         Returns:
-            Context length in tokens.
+            Context length in tokens, or None if it cannot be determined.
         """
-        engine_type = str(config.engine) if config.engine else "NATIVE"
-        # For local engines, check model_max_length
-        if (
-            "NATIVE" in engine_type
-            or "VLLM" in engine_type
-            or "LLAMACPP" in engine_type
-        ):
-            max_length = getattr(config.model, "model_max_length", None)
-            if max_length is not None and max_length > 0:
-                return max_length
-
-        # For API engines, use hardcoded context limits based on model patterns
-        model_name = getattr(config.model, "model_name", "").lower()
-
-        # Anthropic context limits
-        if "ANTHROPIC" in engine_type or "claude" in model_name:
-            if "opus" in model_name:
-                return 200000  # Claude Opus
-            elif "sonnet" in model_name:
-                return 200000  # Claude 3.5 Sonnet / 3.7 Sonnet
-            elif "haiku" in model_name:
-                return 200000  # Claude Haiku
-            else:
-                return 200000  # Default for Claude models
-
-        # OpenAI context limits
-        elif "OPENAI" in engine_type or "gpt" in model_name:
-            if "gpt-4o" in model_name:
-                return 128000  # GPT-4o
-            elif "gpt-4" in model_name:
-                return 128000  # GPT-4
-            elif "gpt-3.5" in model_name:
-                return 16385  # GPT-3.5-turbo
-            else:
-                return 128000  # Default for OpenAI models
-
-        # Together AI context limits (varies by model)
-        elif "TOGETHER" in engine_type:
-            if "llama" in model_name:
-                if "405b" in model_name:
-                    return 131072  # Llama 3.1 405B
-                elif any(x in model_name for x in ["70b", "8b"]):
-                    return 131072  # Llama 3.1 70B/8B
-                else:
-                    return 32768  # Default Llama
-            elif "deepseek" in model_name:
-                return 32768  # DeepSeek models
-            elif "qwen" in model_name:
-                return 32768  # Qwen models
-            else:
-                return 32768  # Default for Together models
-
-        # Other API engines - return reasonable defaults
-        elif any(x in engine_type for x in ["DEEPSEEK", "GOOGLE", "GEMINI"]):
-            return 128000  # Default for other API models
-
-        # If we can't determine, return None to continue fallback chain
-        return None
+        return get_context_length_for_engine(config)
 
     def _auto_save_if_enabled(self):
         """Auto-save chat if enabled and available."""

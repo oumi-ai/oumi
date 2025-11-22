@@ -22,6 +22,7 @@ from rich.text import Text
 
 from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi_chat.commands.command_parser import ParsedCommand
+from oumi_chat.utils.conversation_renderer import clear_and_render_branch
 
 
 class BranchOperationsHandler(BaseCommandHandler):
@@ -563,179 +564,19 @@ class BranchOperationsHandler(BaseCommandHandler):
             timestamp = datetime.now().strftime("%H%M%S")
             return f"branch_{timestamp}"
 
-    def _get_context_length_for_engine(self, config) -> int:
-        """Get the appropriate context length for the given engine configuration.
-
-        Args:
-            config: The inference configuration.
-
-        Returns:
-            Context length in tokens.
-        """
-        engine_type = str(config.engine) if config.engine else "NATIVE"
-
-        # For local engines, check model_max_length
-        if (
-            "NATIVE" in engine_type
-            or "VLLM" in engine_type
-            or "LLAMACPP" in engine_type
-        ):
-            max_length = getattr(config.model, "model_max_length", None)
-            if max_length is not None and max_length > 0:
-                return max_length
-
-        # FIXME: For API engines, we use hardcoded context limits which is hacky.
-        # We should use the provider packages (anthropic, openai, etc.) to get
-        # accurate context limits for the specific model passed, rather than
-        # hardcoding based on model name patterns.
-        model_name = getattr(config.model, "model_name", "").lower()
-
-        # Anthropic context limits
-        if "ANTHROPIC" in engine_type or "claude" in model_name:
-            if "opus" in model_name:
-                return 200000  # Claude Opus
-            elif "sonnet" in model_name:
-                return 200000  # Claude 3.5 Sonnet / 3.7 Sonnet
-            elif "haiku" in model_name:
-                return 200000  # Claude Haiku
-            else:
-                return 200000  # Default for Claude models
-
-        # OpenAI context limits
-        elif "OPENAI" in engine_type or "gpt" in model_name:
-            if "gpt-4o" in model_name:
-                return 128000  # GPT-4o
-            elif "gpt-4" in model_name:
-                return 128000  # GPT-4
-            elif "gpt-3.5" in model_name:
-                return 16385  # GPT-3.5-turbo
-            else:
-                return 128000  # Default for OpenAI models
-
-        # Together AI context limits (varies by model)
-        elif "TOGETHER" in engine_type:
-            if "llama" in model_name and "405b" in model_name:
-                return 128000
-            elif "llama" in model_name:
-                return 128000  # Most Llama models
-            else:
-                return 32768  # Conservative default
-
-        # DeepSeek context limits
-        elif "DEEPSEEK" in engine_type or "deepseek" in model_name:
-            return 32768  # DeepSeek models
-
-        # Default fallback
-        else:
-            return 4096
-
     def _clear_and_refresh_conversation_display(self, branch):
-        """Clear terminal and refresh conversation display for tmux-like experience.
+        """Clear terminal and refresh conversation display (delegates to utility).
 
         Args:
             branch: The branch that was switched to.
         """
-        try:
-            # Clear the terminal for a clean transition
-            self.console.clear()
-
-            # Show branch switch header
-            from rich.panel import Panel
-            from rich.text import Text
-
-            branch_name = getattr(branch, "name", "Unknown Branch")
-            header_text = f"🌿 Switched to branch: {branch_name}"
-            if not getattr(self._style, "use_emoji", True):
-                header_text = f"Switched to branch: {branch_name}"
-
-            header = Panel(
-                Text(header_text, style="bold cyan", justify="center"),
-                border_style="cyan",
-                padding=(0, 1),
-            )
-            self.console.print(header)
-            self.console.print()
-
-            # Redisplay conversation history if it exists
-            if self.conversation_history and len(self.conversation_history) > 0:
-                self._render_conversation_history()
-            else:
-                # Show message for empty branch
-                from rich.text import Text
-
-                self.console.print(
-                    Text(
-                        "No conversation history on this branch yet.",
-                        style="dim",
-                        justify="center",
-                    )
-                )
-                self.console.print()
-
-        except Exception as e:
-            # Don't fail the branch switch if display fails
-            from oumi.utils.logging import logger
-
-            logger.warning(f"Failed to refresh conversation display: {e}")
-
-    def _render_conversation_history(self):
-        """Render the conversation history for the current branch."""
-        try:
-            from unittest.mock import MagicMock
-
-            from oumi.core.types.conversation import Conversation, Message, Role
-            from oumi.infer import _display_user_message, _format_conversation_response
-
-            # Group consecutive messages by role and display them
-            for i, msg in enumerate(self.conversation_history):
-                role = msg.get("role", "user")
-                content = msg.get("content", "")
-
-                if role == "user":
-                    # Display user message using our existing function
-                    is_command = content.strip().startswith("/")
-                    _display_user_message(
-                        console=self.console,
-                        user_text=content,
-                        style_params=getattr(self.context, "config", MagicMock()).style
-                        if hasattr(self.context, "config")
-                        else None,
-                        is_command=is_command,
-                    )
-                elif role == "assistant":
-                    # Display assistant message using existing formatter
-                    # Convert dict message to Conversation format
-                    message_obj = Message(role=Role.ASSISTANT, content=content)
-                    conversation = Conversation(messages=[message_obj])
-
-                    # Get current model name if available
-                    model_name = "Assistant"
-                    if hasattr(self.context, "config") and hasattr(
-                        self.context.config, "model"
-                    ):
-                        model_name = getattr(
-                            self.context.config.model, "model_name", "Assistant"
-                        )
-                        # Make model name more user-friendly
-                        if "/" in model_name:
-                            model_name = model_name.split("/")[-1]
-
-                    _format_conversation_response(
-                        conversation=conversation,
-                        console=self.console,
-                        model_name=model_name,
-                        style_params=self._style,
-                        command_context=self.context,
-                    )
-
-        except Exception as e:
-            # Don't fail if history rendering fails
-            from oumi.utils.logging import logger
-
-            logger.warning(f"Failed to render conversation history: {e}")
-            self.console.print(
-                Text("Could not display conversation history.", style="dim yellow")
-            )
+        clear_and_render_branch(
+            console=self.console,
+            branch=branch,
+            conversation_history=self.conversation_history,
+            config=self.config,
+            command_context=self.context,
+        )
 
     def _save_current_model_state_to_branch(self):
         """Save current model configuration to the current branch."""
