@@ -49,7 +49,7 @@ def test_save_and_load_pretrained_mlp():
         assert (save_dir / "config.json").exists()
 
         # Verify config content
-        with open(save_dir / "config.json", "r") as f:
+        with open(save_dir / "config.json") as f:
             config = json.load(f)
         assert config["model_type"] == "MLPEncoder"
         assert config["init_kwargs"]["input_dim"] == input_dim
@@ -65,9 +65,9 @@ def test_save_and_load_pretrained_mlp():
         assert set(original_state_dict.keys()) == set(loaded_state_dict.keys())
 
         for key in original_state_dict.keys():
-            assert torch.allclose(
-                original_state_dict[key], loaded_state_dict[key]
-            ), f"Mismatch in parameter: {key}"
+            assert torch.allclose(original_state_dict[key], loaded_state_dict[key]), (
+                f"Mismatch in parameter: {key}"
+            )
 
 
 def test_save_and_load_pretrained_via_build_model():
@@ -87,7 +87,9 @@ def test_save_and_load_pretrained_via_build_model():
         },
     )
 
-    original_model = build_model(original_params)
+    model = build_model(original_params)
+    assert isinstance(model, BaseModel)
+    original_model = model
     original_state_dict = original_model.state_dict()
 
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -108,9 +110,9 @@ def test_save_and_load_pretrained_via_build_model():
         assert set(original_state_dict.keys()) == set(loaded_state_dict.keys())
 
         for key in original_state_dict.keys():
-            assert torch.allclose(
-                original_state_dict[key], loaded_state_dict[key]
-            ), f"Mismatch in parameter: {key}"
+            assert torch.allclose(original_state_dict[key], loaded_state_dict[key]), (
+                f"Mismatch in parameter: {key}"
+            )
 
 
 def test_load_pretrained_with_override_kwargs():
@@ -203,7 +205,9 @@ def test_from_pretrained_missing_weights_file():
         save_dir = Path(temp_dir) / "empty_dir"
         save_dir.mkdir()
 
-        with pytest.raises(FileNotFoundError, match="Pretrained weights file not found"):
+        with pytest.raises(
+            FileNotFoundError, match="Pretrained weights file not found"
+        ):
             MLPEncoder.from_pretrained(save_dir)
 
 
@@ -214,7 +218,9 @@ def test_from_pretrained_without_config():
     output_dim = 5
 
     # Creating and saving model
-    model = MLPEncoder(input_dim=input_dim, hidden_dim=hidden_dim, output_dim=output_dim)
+    model = MLPEncoder(
+        input_dim=input_dim, hidden_dim=hidden_dim, output_dim=output_dim
+    )
 
     with tempfile.TemporaryDirectory() as temp_dir:
         save_dir = Path(temp_dir) / "mlp_checkpoint"
@@ -242,7 +248,9 @@ def test_from_pretrained_strict_mode():
     output_dim = 10
 
     # Creating and saving a model
-    model = MLPEncoder(input_dim=input_dim, hidden_dim=hidden_dim, output_dim=output_dim)
+    model = MLPEncoder(
+        input_dim=input_dim, hidden_dim=hidden_dim, output_dim=output_dim
+    )
 
     with tempfile.TemporaryDirectory() as temp_dir:
         save_dir = Path(temp_dir) / "mlp_checkpoint"
@@ -254,7 +262,7 @@ def test_from_pretrained_strict_mode():
 
 
 def test_build_model_load_pretrained_missing_custom_pretrained_dir():
-    """Test that build_model raises error when load_pretrained_weights=True but no directory."""
+    """Test build_model raises error when load_pretrained_weights=True."""
     params = ModelParams(
         model_name="MLPEncoder",
         load_pretrained_weights=True,

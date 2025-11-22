@@ -150,8 +150,9 @@ def build_oumi_model(
     # Determine if we should load from pretrained weights
     if model_params.load_pretrained_weights:
         # Get pretrained directory from custom_pretrained_dir or model_kwargs
-        custom_pretrained_dir = model_params.custom_pretrained_dir or model_params.model_kwargs.get(
-            "pretrained_dir", None
+        custom_pretrained_dir = (
+            model_params.custom_pretrained_dir
+            or model_params.model_kwargs.get("pretrained_dir", None)
         )
 
         if not custom_pretrained_dir:
