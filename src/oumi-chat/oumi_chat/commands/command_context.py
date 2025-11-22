@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Optional
 
 from rich.console import Console
 
-from oumi_chat.utils.model_info import get_context_length_for_engine
+from oumi_chat.utils import get_context_length_for_engine
 
 if TYPE_CHECKING:
     from oumi.core.configs import InferenceConfig

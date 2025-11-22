@@ -22,7 +22,7 @@ from rich.text import Text
 
 from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi_chat.commands.command_parser import ParsedCommand
-from oumi_chat.utils.conversation_renderer import clear_and_render_branch
+from oumi_chat.utils import clear_and_render_branch
 
 
 class BranchOperationsHandler(BaseCommandHandler):

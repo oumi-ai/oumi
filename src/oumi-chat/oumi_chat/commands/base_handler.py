@@ -19,8 +19,7 @@ from typing import Optional
 
 from oumi_chat.commands.command_context import CommandContext
 from oumi_chat.commands.command_parser import ParsedCommand
-from oumi_chat.utils.model_info import get_context_length_for_engine
-from oumi_chat.utils.token_counter import count_conversation_tokens
+from oumi_chat.utils import count_conversation_tokens, get_context_length_for_engine
 
 
 class CommandResult:

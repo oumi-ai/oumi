@@ -14,13 +14,10 @@
 
 """Command router that coordinates all command handlers."""
 
-from typing import Callable, Optional
-
 from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi_chat.commands.command_context import CommandContext
 from oumi_chat.commands.command_parser import ParsedCommand
 from oumi_chat.commands.command_registry import COMMAND_REGISTRY
-from oumi_chat.commands.decorators import CommandFunction, get_command_function
 from oumi_chat.commands.handlers.attachment_handler import AttachmentHandler
 from oumi_chat.commands.handlers.branch_operations_handler import (
     BranchOperationsHandler,
@@ -41,8 +38,7 @@ class CommandRouter:
     """Central router for all command handling.
 
     This class maintains a registry of command handlers and routes
-    parsed commands to the appropriate handler. Supports both class-based
-    handlers (legacy) and decorator-based function handlers (new style).
+    parsed commands to the appropriate handler.
     """
 
     def __init__(self, context: CommandContext):
@@ -54,7 +50,6 @@ class CommandRouter:
         self.context = context
         self._handlers: dict[str, BaseCommandHandler] = {}
         self._command_to_handler: dict[str, str] = {}
-        self._function_handlers: dict[str, CommandFunction] = {}
 
         # Initialize all handlers
         self._initialize_handlers()
@@ -88,28 +83,8 @@ class CommandRouter:
             for command in handler.get_supported_commands():
                 self._command_to_handler[command] = handler_name
 
-    def register_function_handler(self, command_func: CommandFunction):
-        """Register a decorator-based command function.
-
-        Args:
-            command_func: CommandFunction to register.
-        """
-        self._function_handlers[command_func.name] = command_func
-
-    def register_function_by_name(self, command_name: str):
-        """Register a command function by looking it up in the global registry.
-
-        Args:
-            command_name: Name of the command to register.
-        """
-        cmd_func = get_command_function(command_name)
-        if cmd_func:
-            self._function_handlers[command_name] = cmd_func
-
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Route a command to the appropriate handler.
-
-        Checks decorator-based handlers first, then falls back to class-based handlers.
 
         Args:
             command: The parsed command to handle.
@@ -117,11 +92,6 @@ class CommandRouter:
         Returns:
             CommandResult from the appropriate handler.
         """
-        # Check for function handler first (new style)
-        if command.command in self._function_handlers:
-            func_handler = self._function_handlers[command.command]
-            return func_handler(self.context, command)
-
         # Special handling for help command
         if command.command == "help":
             return self._handle_help(command)
@@ -130,7 +100,7 @@ class CommandRouter:
         if command.command == "exit":
             return self._handle_exit(command)
 
-        # Route to appropriate class-based handler (legacy)
+        # Route to appropriate handler
         handler_name = self._command_to_handler.get(command.command)
         if handler_name:
             handler = self._handlers[handler_name]

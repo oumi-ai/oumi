@@ -8,7 +8,7 @@ from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi_chat.commands.command_parser import ParsedCommand
 from oumi_chat.commands.utilities.export_utilities import ExportUtilities
 from oumi_chat.commands.utilities.import_utilities import ImportUtilities
-from oumi_chat.utils.file_validation import validate_and_sanitize_file_path
+from oumi_chat.utils import validate_and_sanitize_file_path
 
 
 class ImportExportHandler(BaseCommandHandler):
