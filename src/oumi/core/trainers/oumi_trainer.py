@@ -49,6 +49,7 @@ from oumi.core.distributed import (
     is_world_process_zero,
     prepare_model_for_distributed,
 )
+from oumi.core.models.base_model import BaseModel
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
@@ -473,7 +474,11 @@ class Trainer(BaseTrainer):
     # Checkpointing
     #
     def save_model(self, config: TrainingConfig, final: bool = True) -> None:
-        """Saves the model."""
+        """Saves the model.
+
+        For custom models (BaseModel instances), also saves in pretrained format
+        for easy reloading with from_pretrained().
+        """
         self._cuda_sync_and_empty_cache()
         if is_world_process_zero():
             output_dir = Path(config.training.output_dir)
@@ -481,6 +486,19 @@ class Trainer(BaseTrainer):
             model_path = output_dir / "model.safetensors"
             safetensors.torch.save_model(model=self.model, filename=str(model_path))
             self.log(f"Model saved to {model_path}.")
+
+            # For custom models, also saving in pretrained format for easy reloading
+            if isinstance(self.model, BaseModel):
+                pretrained_dir = output_dir / "pretrained"
+                self.log(
+                    f"Saving custom model in pretrained format to {pretrained_dir}..."
+                )
+                self.model.save_pretrained(pretrained_dir)
+                self.log(
+                    f"Custom model saved in pretrained format. "
+                    f"Reload with: model_params.load_pretrained_weights=True, "
+                    f"model_params.custom_pretrained_dir='{pretrained_dir}'"
+                )
 
             if self._processor is not None:
                 self._processor.save_config(output_dir)
