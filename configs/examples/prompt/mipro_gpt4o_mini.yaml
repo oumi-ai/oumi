@@ -1,0 +1,89 @@
+# MIPRO Configuration using OpenAI GPT-4o-mini
+# GPT-4o-mini is OpenAI's latest small model - fast, cost-effective, and intelligent
+#
+# Requirements:
+#   - Set your OpenAI API key in the environment variable OPENAI_API_KEY
+#   - example: `export OPENAI_API_KEY=your_api_key`
+#   - Alternatively, you can set api_key directly in remote_params below (not recommended for production)
+#
+# Usage:
+#   oumi prompt -c configs/examples/prompt/mipro_gpt4o_mini.yaml
+#
+# Cost Estimate:
+#   - GPT-4o-mini: ~$0.15 per 1M input tokens, ~$0.60 per 1M output tokens
+#   - For 50 trials with ~100 examples: Estimated cost $1-5 USD
+#
+# Documentation:
+#   - Prompt Optimization: https://oumi.ai/docs/en/latest/user_guides/prompt_optimization.html
+#   - OpenAI Models: https://platform.openai.com/docs/models/gpt-4o-mini
+
+model:
+  model_name: "gpt-4o-mini"
+
+generation:
+  max_new_tokens: 512
+  temperature: 0.7
+  top_p: 0.9
+
+optimization:
+  optimizer: "mipro"
+  num_trials: 50
+  max_bootstrapped_demos: 4
+  max_labeled_demos: 16
+  optimize_instructions: true
+  optimize_demos: true
+  optimize_hyperparameters: false
+  skip_final_eval: false
+  save_intermediate_results: true
+  verbose: true
+  seed: 42
+  # Allow some failures for robustness with API calls
+  max_errors: 5
+
+# Dataset paths (use the provided example datasets or replace with your own)
+train_dataset_path: "configs/examples/prompt/datasets/qa_train.jsonl"
+val_dataset_path: "configs/examples/prompt/datasets/qa_val.jsonl"
+
+# Initial prompt to start optimization from
+# IMPORTANT: Always provide an initial_prompt for best results!
+# Without it, DSPy uses a generic default: "Given the fields `question`, produce the fields `answer`."
+# With MIPRO, your initial prompt will be refined and improved based on your data.
+initial_prompt: "You are a helpful assistant that answers questions accurately and concisely."
+
+# Output directory for optimized prompts and results
+output_dir: "./prompt_optimization_results/mipro_gpt4o_mini"
+
+# Evaluation metric
+# Options: accuracy, f1, bleu, rouge, embedding_similarity, bertscore, llm_judge
+metric: "accuracy"
+
+# Use OpenAI inference engine
+engine: OPENAI
+
+# Remote API configuration for OpenAI
+remote_params:
+  # API key will be read from OPENAI_API_KEY environment variable by default
+  # Uncomment and set api_key directly only for testing (not recommended for production)
+  # api_key: "your-api-key-here"
+
+  # Or specify a custom environment variable name
+  # api_key_env_varname: "OPENAI_API_KEY"
+
+  # Number of concurrent workers (adjust based on your OpenAI rate limits)
+  # GPT-4o-mini tier 1: 500 RPM, tier 2: 5000 RPM
+  num_workers: 50
+
+  # Politeness policy: wait time between requests (in seconds)
+  # Set to 60 for per-minute rate limiting with adaptive concurrency
+  politeness_policy: 60
+
+  # Enable adaptive concurrency control to handle rate limits gracefully
+  use_adaptive_concurrency: true
+
+  # Connection timeout (seconds)
+  connection_timeout: 300.0
+
+  # Retry configuration for API failures
+  max_retries: 3
+  retry_backoff_base: 1.0
+  retry_backoff_max: 30.0

@@ -1,0 +1,66 @@
+# BootstrapFewShot Configuration using OpenAI GPT-4o-mini
+# Best for small datasets (~10-50 examples) to select optimal few-shot demonstrations
+# Faster and cheaper than MIPRO as it only optimizes demonstrations, not instructions
+#
+# Requirements:
+#   - Set your OpenAI API key in the environment variable OPENAI_API_KEY
+#   - example: `export OPENAI_API_KEY=your_api_key`
+#
+# Usage:
+#   oumi prompt -c configs/examples/prompt/bootstrap_gpt4o_mini.yaml
+#
+# Cost Estimate:
+#   - GPT-4o-mini: ~$0.15 per 1M input tokens, ~$0.60 per 1M output tokens
+#   - For 20 trials with ~50 examples: Estimated cost $0.50-2 USD
+#
+# Documentation:
+#   - Prompt Optimization: https://oumi.ai/docs/en/latest/user_guides/prompt_optimization.html
+
+model:
+  model_name: "gpt-4o-mini"
+
+generation:
+  max_new_tokens: 512
+  temperature: 0.7
+  top_p: 0.9
+
+optimization:
+  optimizer: "bootstrap"
+  num_trials: 20
+  max_bootstrapped_demos: 4
+  max_labeled_demos: 10
+  optimize_instructions: false
+  optimize_demos: true
+  optimize_hyperparameters: false
+  skip_final_eval: false
+  save_intermediate_results: true
+  verbose: true
+  seed: 42
+  max_errors: 5
+
+# Dataset paths
+train_dataset_path: "configs/examples/prompt/datasets/qa_train.jsonl"
+val_dataset_path: "configs/examples/prompt/datasets/qa_val.jsonl"
+
+# Initial prompt (optional for Bootstrap since it only optimizes demos, not instructions)
+# But providing one helps set the context for the model during demo selection
+initial_prompt: "Answer questions accurately based on the given information."
+
+# Output directory
+output_dir: "./prompt_optimization_results/bootstrap_gpt4o_mini"
+
+# Evaluation metric
+metric: "accuracy"
+
+# Use OpenAI inference engine
+engine: OPENAI
+
+# Remote API configuration
+remote_params:
+  num_workers: 50
+  politeness_policy: 60
+  use_adaptive_concurrency: true
+  connection_timeout: 300.0
+  max_retries: 3
+  retry_backoff_base: 1.0
+  retry_backoff_max: 30.0

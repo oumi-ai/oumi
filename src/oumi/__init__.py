@@ -93,6 +93,7 @@ if TYPE_CHECKING:
         EvaluationConfig,
         InferenceConfig,
         JudgeConfig,
+        PromptOptimizationConfig,
         QuantizationConfig,
         SynthesisConfig,
         TrainingConfig,
@@ -291,11 +292,44 @@ def tune(config: TuningConfig) -> None:
     return oumi.tune.tune(config)
 
 
+def optimize_prompt(config: PromptOptimizationConfig) -> dict[str, Any]:
+    """Optimizes prompts using state-of-the-art algorithms.
+
+    This function uses advanced prompt optimization techniques like MIPRO, GEPA,
+    and BootstrapFewShot to automatically improve prompts, few-shot examples,
+    and generation hyperparameters.
+
+    Args:
+        config: Configuration for prompt optimization including model parameters,
+            optimization strategy, datasets, and evaluation metrics.
+
+    Returns:
+        Dictionary containing:
+        - final_score: The final validation score achieved
+        - num_trials: Number of optimization trials performed
+        - output_dir: Path where optimization results are saved
+
+    Example:
+        >>> from oumi import optimize_prompt
+        >>> from oumi.core.configs import PromptOptimizationConfig
+        >>> config = PromptOptimizationConfig(
+        ...     train_dataset_path="data/train.jsonl",
+        ...     metric="accuracy",
+        ...     optimization={"optimizer": "mipro", "num_trials": 50}
+        ... )
+        >>> results = optimize_prompt(config)
+    """
+    import oumi.prompt
+
+    return oumi.prompt.optimize_prompt(config)
+
+
 __all__ = [
     "evaluate_async",
     "evaluate",
     "infer_interactive",
     "infer",
+    "optimize_prompt",
     "quantize",
     "synthesize",
     "train",

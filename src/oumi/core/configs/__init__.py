@@ -154,6 +154,7 @@ from oumi.core.configs.params.tuning_params import (
     TunerType,
     TuningParams,
 )
+from oumi.core.configs.prompt_config import PromptOptimizationConfig
 from oumi.core.configs.quantization_config import QuantizationConfig
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.configs.training_config import TrainingConfig
@@ -196,6 +197,7 @@ __all__ = [
     "PeftParams",
     "PeftSaveMode",
     "ProfilerParams",
+    "PromptOptimizationConfig",
     "QuantizationConfig",
     "RemoteParams",
     "SchedulerType",

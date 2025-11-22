@@ -1,0 +1,104 @@
+{"input": "Classify the sentiment: 'This movie was absolutely fantastic! I loved every minute of it.'", "output": "Positive"}
+{"input": "Classify the sentiment: 'The service was terrible and the food was cold.'", "output": "Negative"}
+{"input": "Classify the sentiment: 'It was okay, nothing special but not bad either.'", "output": "Neutral"}
+{"input": "What is the capital of France?", "output": "Paris"}
+{"input": "What is the capital of Japan?", "output": "Tokyo"}
+{"input": "What is the capital of Brazil?", "output": "Brasília"}
+{"input": "Solve: If x + 5 = 12, what is x?", "output": "7"}
+{"input": "Solve: If 2y = 18, what is y?", "output": "9"}
+{"input": "Solve: If 3z - 6 = 15, what is z?", "output": "7"}
+{"input": "What is 15% of 200?", "output": "30"}
+{"input": "What is 25% of 80?", "output": "20"}
+{"input": "What is 10% of 350?", "output": "35"}
+{"input": "Extract the person's name: 'John Smith visited the museum yesterday.'", "output": "John Smith"}
+{"input": "Extract the person's name: 'Dr. Sarah Johnson published a paper on AI.'", "output": "Dr. Sarah Johnson"}
+{"input": "Extract the person's name: 'The CEO, Michael Chen, announced new policies.'", "output": "Michael Chen"}
+{"input": "Extract the location: 'The conference will be held in San Francisco.'", "output": "San Francisco"}
+{"input": "Extract the location: 'She traveled to Barcelona for vacation.'", "output": "Barcelona"}
+{"input": "Extract the location: 'The company has offices in New York and London.'", "output": "New York and London"}
+{"input": "Summarize in one sentence: 'Climate change is causing rising sea levels, more frequent extreme weather events, and shifts in wildlife populations. Scientists warn that immediate action is needed to prevent catastrophic consequences.'", "output": "Climate change is causing environmental damage and scientists urge immediate action."}
+{"input": "Summarize in one sentence: 'The new smartphone features a 6.5-inch display, 128GB storage, 5G connectivity, and a 48MP camera. It will be available in three colors starting next month.'", "output": "A new smartphone with advanced features and 5G will launch next month in three colors."}
+{"input": "What comes next in the sequence: 2, 4, 6, 8, ?", "output": "10"}
+{"input": "What comes next in the sequence: 1, 4, 9, 16, ?", "output": "25"}
+{"input": "What comes next in the sequence: 5, 10, 20, 40, ?", "output": "80"}
+{"input": "Is this statement a fact or opinion: 'Water boils at 100 degrees Celsius at sea level.'", "output": "Fact"}
+{"input": "Is this statement a fact or opinion: 'Chocolate ice cream is the best flavor.'", "output": "Opinion"}
+{"input": "Is this statement a fact or opinion: 'The Earth orbits around the Sun.'", "output": "Fact"}
+{"input": "Translate to Spanish: 'Hello, how are you?'", "output": "Hola, ¿cómo estás?"}
+{"input": "Translate to Spanish: 'Thank you very much.'", "output": "Muchas gracias."}
+{"input": "Translate to Spanish: 'Good morning.'", "output": "Buenos días."}
+{"input": "Who wrote 'Romeo and Juliet'?", "output": "William Shakespeare"}
+{"input": "Who painted the Mona Lisa?", "output": "Leonardo da Vinci"}
+{"input": "Who discovered penicillin?", "output": "Alexander Fleming"}
+{"input": "What is the chemical symbol for gold?", "output": "Au"}
+{"input": "What is the chemical symbol for silver?", "output": "Ag"}
+{"input": "What is the chemical symbol for iron?", "output": "Fe"}
+{"input": "Classify the animal: 'A lion is a large carnivorous feline.'", "output": "Mammal"}
+{"input": "Classify the animal: 'An eagle is a large bird of prey with sharp talons.'", "output": "Bird"}
+{"input": "Classify the animal: 'A salmon is a fish that swims upstream to spawn.'", "output": "Fish"}
+{"input": "What year did World War II end?", "output": "1945"}
+{"input": "What year did World War I begin?", "output": "1914"}
+{"input": "What year did the Berlin Wall fall?", "output": "1989"}
+{"input": "Is 17 a prime number?", "output": "Yes"}
+{"input": "Is 21 a prime number?", "output": "No"}
+{"input": "Is 29 a prime number?", "output": "Yes"}
+{"input": "What is the largest planet in our solar system?", "output": "Jupiter"}
+{"input": "What is the smallest planet in our solar system?", "output": "Mercury"}
+{"input": "What is the hottest planet in our solar system?", "output": "Venus"}
+{"input": "Identify the main verb: 'The cat quickly jumped over the fence.'", "output": "jumped"}
+{"input": "Identify the main verb: 'Students are studying for their exams.'", "output": "studying"}
+{"input": "Identify the main verb: 'The company announced record profits.'", "output": "announced"}
+{"input": "Convert to past tense: 'I walk to school every day.'", "output": "I walked to school every day."}
+{"input": "Convert to past tense: 'She writes in her journal.'", "output": "She wrote in her journal."}
+{"input": "Convert to past tense: 'They swim in the pool.'", "output": "They swam in the pool."}
+{"input": "What is the opposite of 'hot'?", "output": "cold"}
+{"input": "What is the opposite of 'fast'?", "output": "slow"}
+{"input": "What is the opposite of 'happy'?", "output": "sad"}
+{"input": "Complete the analogy: Cat is to meow as dog is to ___", "output": "bark"}
+{"input": "Complete the analogy: Hand is to glove as foot is to ___", "output": "sock"}
+{"input": "Complete the analogy: Day is to night as hot is to ___", "output": "cold"}
+{"input": "What is the square root of 144?", "output": "12"}
+{"input": "What is the square root of 169?", "output": "13"}
+{"input": "What is the square root of 225?", "output": "15"}
+{"input": "How many continents are there?", "output": "7"}
+{"input": "How many days are in a leap year?", "output": "366"}
+{"input": "How many sides does a hexagon have?", "output": "6"}
+{"input": "What is the freezing point of water in Celsius?", "output": "0 degrees Celsius"}
+{"input": "What is the boiling point of water in Celsius?", "output": "100 degrees Celsius"}
+{"input": "What is normal human body temperature in Celsius?", "output": "37 degrees Celsius"}
+{"input": "Identify the genre: 'A story about a detective solving a murder mystery.'", "output": "Mystery"}
+{"input": "Identify the genre: 'A story set in the future with advanced technology and space travel.'", "output": "Science Fiction"}
+{"input": "Identify the genre: 'A story about two people falling in love.'", "output": "Romance"}
+{"input": "What is the longest river in the world?", "output": "Nile River"}
+{"input": "What is the largest ocean on Earth?", "output": "Pacific Ocean"}
+{"input": "What is the tallest mountain in the world?", "output": "Mount Everest"}
+{"input": "Who was the first president of the United States?", "output": "George Washington"}
+{"input": "Who invented the telephone?", "output": "Alexander Graham Bell"}
+{"input": "Who invented the light bulb?", "output": "Thomas Edison"}
+{"input": "What is the atomic number of carbon?", "output": "6"}
+{"input": "What is the atomic number of oxygen?", "output": "8"}
+{"input": "What is the atomic number of hydrogen?", "output": "1"}
+{"input": "Classify the shape: 'A figure with four equal sides and four right angles.'", "output": "Square"}
+{"input": "Classify the shape: 'A three-sided polygon.'", "output": "Triangle"}
+{"input": "Classify the shape: 'A round figure with all points equidistant from the center.'", "output": "Circle"}
+{"input": "What is the currency of Japan?", "output": "Yen"}
+{"input": "What is the currency of the United Kingdom?", "output": "Pound Sterling"}
+{"input": "What is the currency of the European Union?", "output": "Euro"}
+{"input": "Identify the part of speech: 'The word quickly in: She ran quickly.'", "output": "Adverb"}
+{"input": "Identify the part of speech: 'The word beautiful in: She is beautiful.'", "output": "Adjective"}
+{"input": "Identify the part of speech: 'The word happiness in: Happiness is important.'", "output": "Noun"}
+{"input": "Order from smallest to largest: 0.5, 0.25, 0.75", "output": "0.25, 0.5, 0.75"}
+{"input": "Order from smallest to largest: -5, 0, 3", "output": "-5, 0, 3"}
+{"input": "Order from smallest to largest: 100, 10, 1000", "output": "10, 100, 1000"}
+{"input": "What is the main theme: 'A story about a person overcoming obstacles to achieve their dreams.'", "output": "Perseverance"}
+{"input": "What is the main theme: 'A story about the importance of family bonds.'", "output": "Family"}
+{"input": "What is the main theme: 'A story about fighting for justice and equality.'", "output": "Justice"}
+{"input": "Convert 1 kilometer to meters", "output": "1000 meters"}
+{"input": "Convert 60 seconds to minutes", "output": "1 minute"}
+{"input": "Convert 24 hours to days", "output": "1 day"}
+{"input": "What season comes after summer?", "output": "Autumn"}
+{"input": "What season comes after winter?", "output": "Spring"}
+{"input": "What season comes after spring?", "output": "Summer"}
+{"input": "Classify the food group: 'Apples, bananas, and oranges'", "output": "Fruits"}
+{"input": "Classify the food group: 'Milk, cheese, and yogurt'", "output": "Dairy"}
+{"input": "Classify the food group: 'Chicken, beef, and fish'", "output": "Protein"}

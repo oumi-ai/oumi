@@ -1,3 +1,6 @@
+proposals/
+prompt_optimization_results/
+
 # Local experiments
 tmp/
 wandb/

@@ -1,0 +1,30 @@
+{"input": "Classify the sentiment: 'I had high expectations but was disappointed with the results.'", "output": "Negative"}
+{"input": "Classify the sentiment: 'The product works as advertised and I'm satisfied.'", "output": "Positive"}
+{"input": "What is the capital of Germany?", "output": "Berlin"}
+{"input": "What is the capital of Australia?", "output": "Canberra"}
+{"input": "Solve: If 4a + 3 = 19, what is a?", "output": "4"}
+{"input": "What is 30% of 150?", "output": "45"}
+{"input": "Extract the person's name: 'Professor Maria Rodriguez gave an interesting lecture.'", "output": "Professor Maria Rodriguez"}
+{"input": "Extract the location: 'The package was shipped to Seattle last week.'", "output": "Seattle"}
+{"input": "Summarize in one sentence: 'Artificial intelligence is transforming industries from healthcare to transportation. Machine learning algorithms can now perform tasks that previously required human intelligence, leading to both opportunities and challenges for society.'", "output": "AI is transforming industries by enabling machines to perform human-like tasks, creating opportunities and challenges."}
+{"input": "What comes next in the sequence: 3, 6, 12, 24, ?", "output": "48"}
+{"input": "Is this statement a fact or opinion: 'Summer is the best season of the year.'", "output": "Opinion"}
+{"input": "Translate to Spanish: 'Where is the bathroom?'", "output": "¿Dónde está el baño?"}
+{"input": "Who composed the Four Seasons?", "output": "Antonio Vivaldi"}
+{"input": "What is the chemical symbol for sodium?", "output": "Na"}
+{"input": "Classify the animal: 'A frog is an amphibian that lives both in water and on land.'", "output": "Amphibian"}
+{"input": "What year did the first iPhone release?", "output": "2007"}
+{"input": "Is 31 a prime number?", "output": "Yes"}
+{"input": "What is the closest star to Earth?", "output": "The Sun"}
+{"input": "Identify the main verb: 'The teacher explained the concept clearly.'", "output": "explained"}
+{"input": "Convert to past tense: 'They build a new house.'", "output": "They built a new house."}
+{"input": "What is the opposite of 'strong'?", "output": "weak"}
+{"input": "Complete the analogy: Bird is to nest as bee is to ___", "output": "hive"}
+{"input": "What is the square root of 196?", "output": "14"}
+{"input": "How many sides does an octagon have?", "output": "8"}
+{"input": "What is the speed of light in vacuum (approximately)?", "output": "300,000 kilometers per second"}
+{"input": "Identify the genre: 'A story involving dragons, magic, and mythical creatures.'", "output": "Fantasy"}
+{"input": "What is the deepest ocean trench on Earth?", "output": "Mariana Trench"}
+{"input": "Who wrote '1984'?", "output": "George Orwell"}
+{"input": "What is the atomic number of helium?", "output": "2"}
+{"input": "What is the currency of China?", "output": "Yuan"}

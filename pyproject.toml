@@ -147,6 +147,13 @@ synthesis = [
     "pdftext>=0.6.3", # Document ingestion for synthesis
 ]
 
+prompt-optimization = [
+    "dspy-ai>=2.7,<3.0", # DSPy for prompt optimization (MIPRO, GEPA, BootstrapFewShot)
+    "tiktoken>=0.5.0", # Token counting for OpenAI models (GPT-4, GPT-4o-mini, etc.)
+    "sacrebleu>=2.5,<2.6", # For BLEU metric
+    "rouge-score>=0.1,<0.2", # For ROUGE metric
+]
+
 # Flash Attention - separate group due to special installation requirements
 flash_attn = [
     # Note: May require manual installation with: pip install flash-attn --no-build-isolation

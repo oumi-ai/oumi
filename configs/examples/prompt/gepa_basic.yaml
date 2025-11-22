@@ -1,0 +1,38 @@
+# Basic GEPA (Genetic-Pareto) optimizer configuration
+# GEPA uses reflective prompt evolution to outperform RL-based approaches
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 128
+  temperature: 0.7
+  use_sampling: true
+
+optimization:
+  optimizer: "gepa"
+  num_trials: 30
+  optimize_instructions: true
+  optimize_demos: true
+  optimize_hyperparameters: false
+  save_intermediate_results: true
+  verbose: true
+  seed: 42
+
+# Dataset paths (example datasets provided)
+train_dataset_path: "configs/examples/prompt/datasets/qa_train.jsonl"
+val_dataset_path: "configs/examples/prompt/datasets/qa_val.jsonl"
+
+# Initial prompt (optional)
+initial_prompt: "Answer the following question."
+
+# Output directory
+output_dir: "./prompt_optimization_results/gepa"
+
+# Evaluation metric
+metric: "accuracy"
+
+# Inference engine
+engine: NATIVE
