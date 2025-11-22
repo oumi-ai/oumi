@@ -13,11 +13,14 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
 from oumi.core.configs.params.base_params import BaseParams
+
+if TYPE_CHECKING:
+    from oumi.core.configs.params.anthropic_params import AnthropicParams
 
 
 @dataclass
@@ -81,6 +84,9 @@ class RemoteParams(BaseParams):
     it is recommended to increase the `politeness_policy` to allow more time between
     requests.
     """
+
+    anthropic_params: Optional["AnthropicParams"] = None
+    """Anthropic-specific parameters (beta headers, prompt caching, etc.)."""
 
     def __post_init__(self):
         """Validate the remote parameters."""

@@ -13,10 +13,31 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from enum import Enum
+from typing import Any, Optional, Union
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
+
+
+class ReasoningEffort(str, Enum):
+    """Reasoning effort level for reasoning models (o1, o3, o4 series)."""
+
+    MINIMAL = "minimal"
+    """Minimal reasoning effort (~10% of max_tokens for reasoning)."""
+
+    LOW = "low"
+    """Low reasoning effort (~20% of max_tokens for reasoning)."""
+
+    MEDIUM = "medium"
+    """Medium reasoning effort (~50% of max_tokens for reasoning)."""
+
+    HIGH = "high"
+    """High reasoning effort (~80% of max_tokens for reasoning)."""
+
+    def __str__(self) -> str:
+        """Return the string representation of the ReasoningEffort enum."""
+        return self.value
 
 
 @dataclass
@@ -129,6 +150,55 @@ class GenerationParams(BaseParams):
     format (e.g., reasoning tokens, tool call markers).
     """
 
+    # Streaming parameters
+    stream: bool = False
+    """Whether to stream the response incrementally.
+
+    When True, the model will return partial responses as they are generated,
+    allowing for lower latency user experiences. Default is False.
+    """
+
+    stream_options: Optional[dict[str, Any]] = None
+    """Options for streaming responses.
+
+    For OpenAI: Use {"include_usage": true} to include usage statistics in the
+    final streaming chunk.
+    """
+
+    # Tool calling parameters
+    tools: Optional[list[Any]] = None
+    """List of tools available to the model.
+
+    Should be a list of ToolDefinition objects (from oumi.core.types.tool_call).
+    The model may choose to call one or more of these tools.
+    """
+
+    tool_choice: Optional[Union[str, dict[str, Any]]] = None
+    """Controls which (if any) tool is called by the model.
+
+    Can be:
+    - "auto": Let the model decide (default)
+    - "none": Don't call any tools
+    - "required": Must call at least one tool
+    - {"type": "function", "function": {"name": "my_function"}}: Call specific function
+    """
+
+    parallel_tool_calls: bool = True
+    """Whether to enable parallel function calling.
+
+    When True, the model can call multiple tools in a single response.
+    Default is True. Only supported by some models (e.g., OpenAI gpt-4-turbo and later).
+    """
+
+    # Reasoning model parameters (OpenAI o1, o3, o4 series)
+    reasoning_effort: Optional[Union[ReasoningEffort, str]] = None
+    """The effort level for reasoning models.
+
+    Controls how much reasoning the model does before generating a response.
+    Only supported by OpenAI reasoning models (o1, o3, o4 series).
+    Options: "minimal", "low", "medium" (default), "high"
+    """
+
     def __post_init__(self):
         """Validates generation-specific parameters."""
         if self.batch_size is not None and self.batch_size < 1:
@@ -156,3 +226,13 @@ class GenerationParams(BaseParams):
 
         if not 0 <= self.min_p <= 1:
             raise ValueError("min_p must be between 0 and 1.")
+
+        # Validate reasoning_effort
+        if self.reasoning_effort is not None:
+            if isinstance(self.reasoning_effort, str):
+                valid_efforts = {e.value for e in ReasoningEffort}
+                if self.reasoning_effort not in valid_efforts:
+                    raise ValueError(
+                        f"reasoning_effort must be one of {valid_efforts}, "
+                        f"got '{self.reasoning_effort}'"
+                    )

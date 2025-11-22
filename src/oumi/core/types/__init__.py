@@ -42,14 +42,38 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.core.types.exceptions import HardwareException
+from oumi.core.types.tool_call import (
+    FunctionCall,
+    FunctionDefinition,
+    ToolCall,
+    ToolChoice,
+    ToolChoiceType,
+    ToolDefinition,
+    ToolType,
+)
+from oumi.core.types.usage_info import (
+    CostEstimate,
+    TokenUsage,
+    UsageInfo,
+)
 
 __all__ = [
-    "HardwareException",
     "ContentItem",
     "ContentItemCounts",
     "Conversation",
+    "CostEstimate",
+    "FunctionCall",
+    "FunctionDefinition",
+    "HardwareException",
     "Message",
     "Role",
-    "Type",
     "TemplatedMessage",
+    "TokenUsage",
+    "ToolCall",
+    "ToolChoice",
+    "ToolChoiceType",
+    "ToolDefinition",
+    "ToolType",
+    "Type",
+    "UsageInfo",
 ]

@@ -292,16 +292,31 @@ class Message(pydantic.BaseModel):
         Optional[str]: The unique identifier of the message, if set; otherwise None.
     """
 
-    content: Union[str, list[ContentItem]]
+    content: Union[str, list[ContentItem], None]
     """Content of the message.
 
     For text messages, `content` can be set to a string value.
     For multimodal messages, `content` should be a list of content items of
     potentially different types e.g., text and image.
+    For tool call messages (assistant calling a tool), content may be None.
     """
 
     role: Role
     """The role of the entity sending the message (e.g., user, assistant, system)."""
+
+    tool_calls: Optional[list[Any]] = None
+    """Tool calls made by the assistant.
+
+    This is a list of ToolCall objects (from oumi.core.types.tool_call) that the
+    assistant wants to invoke. Only valid for ASSISTANT role messages.
+    """
+
+    tool_call_id: Optional[str] = None
+    """The ID of the tool call this message is responding to.
+
+    Only valid for TOOL role messages. This links a tool response back to the
+    tool call that requested it.
+    """
 
     def model_post_init(self, __context) -> None:
         """Post-initialization method for the Message model.
@@ -313,10 +328,16 @@ class Message(pydantic.BaseModel):
         Raises:
             ValueError: If both content and binary are None.
         """
-        if not isinstance(self.content, (str, list)):
+        # Allow None content for assistant messages with tool calls
+        if self.content is None:
+            if self.role != Role.ASSISTANT or not self.tool_calls:
+                raise ValueError(
+                    "Content can only be None for assistant messages with tool calls."
+                )
+        elif not isinstance(self.content, (str, list)):
             raise ValueError(
                 f"Unexpected content type: {type(self.content)}. "
-                f"Must by a Python string or a list."
+                f"Must by a Python string, a list, or None (for tool calls)."
             )
 
     def _iter_content_items(
