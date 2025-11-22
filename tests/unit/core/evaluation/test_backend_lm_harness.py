@@ -64,7 +64,8 @@ def mock_patches_for_evaluate():
 
 @pytest.mark.parametrize(
     "lm_harness_model, is_multimodal, device, model_params, generation_params, "
-    "inference_engine_type, inference_remote_params, expected_model_args",
+    "inference_engine_type, inference_remote_params, "
+    "is_distributed, expected_model_args",
     [
         (
             "hf",
@@ -74,6 +75,7 @@ def mock_patches_for_evaluate():
             GenerationParams(batch_size=None),
             InferenceEngineType.NATIVE,
             None,
+            False,
             {
                 "trust_remote_code": False,
                 "pretrained": "text_model",
@@ -94,6 +96,7 @@ def mock_patches_for_evaluate():
             GenerationParams(),
             InferenceEngineType.NATIVE,
             None,
+            False,
             {
                 "trust_remote_code": False,
                 "pretrained": "vision_model",
@@ -119,6 +122,7 @@ def mock_patches_for_evaluate():
             GenerationParams(batch_size=1),
             InferenceEngineType.VLLM,
             None,
+            False,
             {
                 "trust_remote_code": False,
                 "pretrained": "text_model",
@@ -127,6 +131,7 @@ def mock_patches_for_evaluate():
                 "batch_size": 1,
                 "max_batch_size": None,
                 "device": "cuda:0",
+                "tensor_parallel_size": 1,
             },
         ),
         (
@@ -139,6 +144,7 @@ def mock_patches_for_evaluate():
             GenerationParams(batch_size=8),
             InferenceEngineType.VLLM,
             None,
+            False,
             {
                 "trust_remote_code": True,
                 "pretrained": "vision_model",
@@ -149,6 +155,7 @@ def mock_patches_for_evaluate():
                 "device": "cuda:0",
                 "max_images": 1,
                 "interleave": True,
+                "tensor_parallel_size": 1,
             },
         ),
         (
@@ -164,6 +171,7 @@ def mock_patches_for_evaluate():
                 max_retries=3,
                 connection_timeout=120,
             ),
+            False,
             {
                 "trust_remote_code": False,
                 "pretrained": "some_model",
@@ -189,7 +197,9 @@ def mock_patches_for_evaluate():
 )
 @patch("oumi.core.evaluation.backends.lm_harness.build_tokenizer")
 @patch("oumi.core.evaluation.backends.lm_harness.build_processor")
+@patch("oumi.core.evaluation.backends.lm_harness.torch.cuda.device_count")
 def test_generate_lm_harness_model_args(
+    mock_device_count,
     mock_build_processor,
     mock_build_tokenizer,
     lm_harness_model,
@@ -199,8 +209,10 @@ def test_generate_lm_harness_model_args(
     generation_params,
     inference_engine_type,
     inference_remote_params,
+    is_distributed,
     expected_model_args,
 ):
+    mock_device_count.return_value = 1  # Mock single GPU for tests
     mock_build_tokenizer.return_value = MagicMock()
     mock_build_processor.return_value = MagicMock(
         image_token="my_image_token", image_token_id=1111
@@ -214,6 +226,7 @@ def test_generate_lm_harness_model_args(
         generation_params,
         inference_engine_type,
         inference_remote_params,
+        is_distributed,
     )
 
     if is_multimodal and inference_engine_type == InferenceEngineType.NATIVE:
@@ -312,6 +325,7 @@ def test_evaluate(mock_patches_for_evaluate):
         generation_params=evaluation_config.generation,
         inference_engine_type=evaluation_config.inference_engine,
         inference_remote_params=evaluation_config.inference_remote_params,
+        is_distributed=False,
     )
     mock_lm_harness_get_model_class.assert_called_once_with("hf")
 
@@ -429,3 +443,122 @@ def test_evaluate_failure_non_supported_engine(
                 inference_engine=unsupported_inference_engine_type,
             ),
         )
+
+
+@patch("torch.cuda.device_count")
+@patch("torch.cuda.is_available")
+def test_vllm_tensor_parallel_auto_detect(mock_is_available, mock_device_count):
+    """Test that VLLM automatically detects GPU count for tensor parallelism."""
+    mock_is_available.return_value = True
+    mock_device_count.return_value = 4
+
+    model_params = ModelParams(
+        model_name="test_model",
+        model_kwargs={"tensor_parallel_size": -1},  # Auto-detect via model_kwargs
+    )
+
+    model_args = _generate_lm_harness_model_args(
+        lm_harness_model="vllm",
+        is_multimodal=False,
+        device="cuda:0",
+        model_params=model_params,
+        generation_params=GenerationParams(),
+        inference_engine_type=InferenceEngineType.VLLM,
+        inference_remote_params=None,
+        is_distributed=False,
+    )
+
+    assert model_args["tensor_parallel_size"] == 4
+
+
+def test_vllm_tensor_parallel_explicit():
+    """Test that VLLM uses explicit tensor_parallel_size when provided."""
+    model_params = ModelParams(
+        model_name="test_model",
+        model_kwargs={"tensor_parallel_size": 2},  # Explicit via model_kwargs
+    )
+
+    model_args = _generate_lm_harness_model_args(
+        lm_harness_model="vllm",
+        is_multimodal=False,
+        device="cuda:0",
+        model_params=model_params,
+        generation_params=GenerationParams(),
+        inference_engine_type=InferenceEngineType.VLLM,
+        inference_remote_params=None,
+        is_distributed=False,
+    )
+
+    # Should use the explicit value, not auto-detect
+    assert model_args["tensor_parallel_size"] == 2
+
+
+def test_vllm_data_parallel():
+    """Test that VLLM data_parallel_size is passed correctly."""
+    model_params = ModelParams(
+        model_name="test_model",
+        model_kwargs={
+            "tensor_parallel_size": 1,
+            "data_parallel_size": 4,
+        },
+    )
+
+    model_args = _generate_lm_harness_model_args(
+        lm_harness_model="vllm",
+        is_multimodal=False,
+        device="cuda:0",
+        model_params=model_params,
+        generation_params=GenerationParams(),
+        inference_engine_type=InferenceEngineType.VLLM,
+        inference_remote_params=None,
+        is_distributed=False,
+    )
+
+    assert model_args["tensor_parallel_size"] == 1
+    assert model_args["data_parallel_size"] == 4
+
+
+def test_native_distributed_disables_parallelize():
+    """Test that shard_for_eval is disabled in distributed mode for NATIVE engine."""
+    model_params = ModelParams(
+        model_name="test_model",
+        shard_for_eval=True,  # Should be overridden
+    )
+
+    model_args = _generate_lm_harness_model_args(
+        lm_harness_model="hf",
+        is_multimodal=False,
+        device="cuda:1",
+        model_params=model_params,
+        generation_params=GenerationParams(),
+        inference_engine_type=InferenceEngineType.NATIVE,
+        inference_remote_params=None,
+        is_distributed=True,  # Distributed mode
+    )
+
+    # In distributed mode, parallelize should be False
+    assert model_args["parallelize"] is False
+    assert model_args["device_map"] is None
+
+
+def test_native_single_process_enables_parallelize():
+    """Test that shard_for_eval works in single-process mode for NATIVE engine."""
+    model_params = ModelParams(
+        model_name="test_model",
+        shard_for_eval=True,
+    )
+
+    model_args = _generate_lm_harness_model_args(
+        lm_harness_model="hf",
+        is_multimodal=False,
+        device="cuda:0",
+        model_params=model_params,
+        generation_params=GenerationParams(),
+        inference_engine_type=InferenceEngineType.NATIVE,
+        inference_remote_params=None,
+        is_distributed=False,  # Single-process mode
+    )
+
+    # In single-process mode, parallelize should be True
+    assert model_args["parallelize"] is True
+    assert model_args["device_map"] == "auto"

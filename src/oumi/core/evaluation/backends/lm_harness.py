@@ -108,6 +108,7 @@ def _generate_lm_harness_model_args(
     generation_params: GenerationParams,
     inference_engine_type: InferenceEngineType,
     inference_remote_params: Optional[RemoteParams],
+    is_distributed: bool = False,
 ) -> dict[str, Any]:
     """Converts Oumi's ModelParams to LM Harness model arguments."""
     # List of all LM Harness model arguments:
@@ -118,8 +119,7 @@ def _generate_lm_harness_model_args(
     # https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/interface.md
     batch_size = generation_params.batch_size or "auto"
 
-    # Arguments used across all engines and modalities.
-    model_args_dict = {
+    model_args = {
         "trust_remote_code": model_params.trust_remote_code,
         "pretrained": model_params.model_name,
         "dtype": model_params.torch_dtype or model_params.torch_dtype_str,
@@ -128,66 +128,29 @@ def _generate_lm_harness_model_args(
         "max_batch_size": None,
         "device": device,
     }
+
     if model_params.tokenizer_name:
-        model_args_dict["tokenizer"] = model_params.tokenizer_name
+        model_args["tokenizer"] = model_params.tokenizer_name
 
-    # Add NATIVE inference engine's additional parameters.
+    # Add engine-specific arguments
     if inference_engine_type == InferenceEngineType.NATIVE:
-        if model_args_dict["batch_size"] == "auto":
-            # NATIVE (hf) inference engine can NOT accept auto batch size.
-            model_args_dict["batch_size"] = 1
-        model_args_dict["parallelize"] = model_params.shard_for_eval
-        model_args_dict["device_map"] = model_params.device_map
-        if model_params.adapter_model:
-            model_args_dict["peft"] = model_params.adapter_model
-        if model_params.attn_implementation:
-            model_args_dict["attn_implementation"] = model_params.attn_implementation
+        _add_native_engine_args(model_args, model_params, is_distributed)
+    elif inference_engine_type == InferenceEngineType.VLLM:
+        _add_vllm_engine_args(model_args, model_params)
+    elif inference_engine_type == InferenceEngineType.REMOTE:
+        _add_remote_engine_args(model_args, inference_remote_params)
 
-    # Add REMOTE inference engine's additional parameters.
-    if inference_engine_type == InferenceEngineType.REMOTE:
-        if not inference_remote_params:
-            raise ValueError(
-                "The `REMOTE` inference engine requires `inference_remote_params`."
-            )
-        model_args_dict["base_url"] = inference_remote_params.api_url
-        if inference_remote_params.num_workers > 0:
-            model_args_dict["num_concurrent"] = inference_remote_params.num_workers
-        if inference_remote_params.max_retries > 0:
-            model_args_dict["max_retries"] = inference_remote_params.max_retries
-        if inference_remote_params.connection_timeout > 0:
-            model_args_dict["timeout"] = int(inference_remote_params.connection_timeout)
-
-    # Add multi-modal related parameters.
-    # details at https://github.com/EleutherAI/lm-evaluation-harness/releases/tag/v0.4.5
+    # Add multimodal arguments if needed
     if is_multimodal:
-        # FIXME OPE-355 To remove `max_images=1` limit
-        model_args_dict |= {"max_images": 1, "interleave": True}
+        _add_multimodal_args(model_args, lm_harness_model, model_params)
 
-        # Only applicable to hf-multimodal (NOT vllm-vlm).
-        if lm_harness_model == "hf-multimodal":
-            model_args_dict["convert_img_format"] = True
-
-            tokenizer = build_tokenizer(model_params)
-            processor = build_processor(
-                model_params.model_name,
-                tokenizer,
-                trust_remote_code=model_params.trust_remote_code,
-                processor_kwargs=model_params.processor_kwargs,
-            )
-            if image_token := processor.image_token:
-                model_args_dict["image_string"] = image_token
-            if image_token_id := processor.image_token_id:
-                model_args_dict["image_token_id"] = image_token_id
-
-    # Handle extra model_kwargs (construction arguments).
-    # Towards OPE-564.
+    # Pass through additional model_kwargs for quantization, etc.
     if model_params.model_kwargs:
         for key in ["load_in_4bit", "load_in_8bit", "max_memory_per_gpu"]:
             if key in model_params.model_kwargs:
-                model_args_dict[key] = model_params.model_kwargs[key]
-        # TODO: load_in_8bit, load_in_4bit are deprecated and will be removed in
-        # future versions of HF. Integrate via PeftConfig.
-    return model_args_dict
+                model_args[key] = model_params.model_kwargs[key]
+
+    return model_args
 
 
 def _apply_to_all_tasks(
@@ -291,10 +254,23 @@ def evaluate(
         torch_random_seed=torch_random_seed,
     )
 
+    # Detect if running in distributed mode (e.g., via accelerate launch)
+    is_distributed = (
+        torch.distributed.is_available() and torch.distributed.is_initialized()
+    )
+
     if torch.cuda.is_available():
-        # CUDA device may be overwritten if `accelerate launch`,
-        # or `parallelize=True` are used.
-        device = "cuda:0"
+        if is_distributed:
+            # In distributed mode, each process gets its own device
+            local_rank = torch.distributed.get_rank()
+            device = f"cuda:{local_rank}"
+            logger.info(
+                f"Running in distributed mode: Rank {local_rank} assigned to {device}"
+            )
+        else:
+            # Single process mode: use first GPU
+            # Note: This may be overwritten by `parallelize=True` (model sharding)
+            device = "cuda:0"
     elif torch.backends.mps.is_available():
         device = "mps"
     else:
@@ -343,6 +319,7 @@ def evaluate(
         generation_params=config.generation,
         inference_engine_type=config.inference_engine,
         inference_remote_params=config.inference_remote_params,
+        is_distributed=is_distributed,
     )
     logger.info(f"\tLM Harness `model_params`:\n{pformat(lm_harness_model_params)}")
     lm_class = lm_harness_get_model_class(lm_harness_model)
@@ -420,3 +397,118 @@ def evaluate(
         task_result=backend_results,
         backend_config=backend_task_config,
     )
+
+
+def _add_native_engine_args(
+    model_args: dict[str, Any],
+    model_params: ModelParams,
+    is_distributed: bool,
+) -> None:
+    """Add NATIVE (HuggingFace) engine-specific arguments.
+
+    Handles two mutually exclusive parallelism strategies:
+    - Data parallelism: Used with `accelerate launch` (is_distributed=True)
+    - Model parallelism: Used with `shard_for_eval=True` (is_distributed=False)
+    """
+    # NATIVE doesn't support "auto" batch size
+    if model_args["batch_size"] == "auto":
+        model_args["batch_size"] = 1
+
+    if is_distributed:
+        # DATA PARALLELISM: Each process loads full model on its own GPU
+        # Used with: accelerate launch -m oumi evaluate
+        if model_params.shard_for_eval:
+            logger.warning(
+                "Disabling 'shard_for_eval' because running in distributed mode. "
+                "Data parallelism and model parallelism are mutually exclusive. "
+                "To use model parallelism, run without 'accelerate launch'."
+            )
+        model_args["parallelize"] = False
+        model_args["device_map"] = None  # Let accelerate handle placement
+    else:
+        # MODEL PARALLELISM: Single process splits model across multiple GPUs
+        # Used with: oumi evaluate (no accelerate)
+        model_args["parallelize"] = model_params.shard_for_eval
+        model_args["device_map"] = model_params.device_map
+
+    # Optional NATIVE-specific parameters
+    if model_params.adapter_model:
+        model_args["peft"] = model_params.adapter_model
+    if model_params.attn_implementation:
+        model_args["attn_implementation"] = model_params.attn_implementation
+
+
+def _add_vllm_engine_args(
+    model_args: dict[str, Any],
+    model_params: ModelParams,
+) -> None:
+    """Add VLLM engine-specific arguments.
+
+    Supports two types of parallelism:
+    - Tensor parallelism: Splits model across GPUs (for large models)
+    - Data parallelism: Multiple workers evaluate different data (for speed)
+    """
+    # Tensor parallelism: from model_kwargs or auto-detect
+    tensor_parallel_size = model_params.model_kwargs.get("tensor_parallel_size", -1)
+    if tensor_parallel_size <= 0:
+        # Auto-detect: use all available GPUs
+        tensor_parallel_size = (
+            torch.cuda.device_count() if torch.cuda.is_available() else 1
+        )
+    model_args["tensor_parallel_size"] = tensor_parallel_size
+
+    # Data parallelism: from model_kwargs (optional)
+    data_parallel_size = model_params.model_kwargs.get("data_parallel_size", 1)
+    if data_parallel_size > 1:
+        model_args["data_parallel_size"] = data_parallel_size
+
+    logger.info(
+        f"VLLM parallelism: tensor_parallel_size={tensor_parallel_size}, "
+        f"data_parallel_size={data_parallel_size}"
+    )
+
+
+def _add_remote_engine_args(
+    model_args: dict[str, Any],
+    inference_remote_params: Optional[RemoteParams],
+) -> None:
+    """Add REMOTE engine-specific arguments."""
+    if not inference_remote_params:
+        raise ValueError(
+            "The `REMOTE` inference engine requires `inference_remote_params`."
+        )
+
+    model_args["base_url"] = inference_remote_params.api_url
+    if inference_remote_params.num_workers > 0:
+        model_args["num_concurrent"] = inference_remote_params.num_workers
+    if inference_remote_params.max_retries > 0:
+        model_args["max_retries"] = inference_remote_params.max_retries
+    if inference_remote_params.connection_timeout > 0:
+        model_args["timeout"] = int(inference_remote_params.connection_timeout)
+
+
+def _add_multimodal_args(
+    model_args: dict[str, Any],
+    lm_harness_model: str,
+    model_params: ModelParams,
+) -> None:
+    """Add multimodal (vision) model arguments."""
+    # FIXME OPE-355 To remove `max_images=1` limit
+    model_args["max_images"] = 1
+    model_args["interleave"] = True
+
+    # HuggingFace multimodal needs additional processor setup
+    if lm_harness_model == "hf-multimodal":
+        model_args["convert_img_format"] = True
+
+        tokenizer = build_tokenizer(model_params)
+        processor = build_processor(
+            model_params.model_name,
+            tokenizer,
+            trust_remote_code=model_params.trust_remote_code,
+            processor_kwargs=model_params.processor_kwargs,
+        )
+        if image_token := processor.image_token:
+            model_args["image_string"] = image_token
+        if image_token_id := processor.image_token_id:
+            model_args["image_token_id"] = image_token_id

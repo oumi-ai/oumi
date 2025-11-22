@@ -17,6 +17,7 @@ custom_evals
 Oumi offers a flexible and unified framework designed to assess and benchmark **Large Language Models (LLMs)** and **Vision Language Models (VLMs)**. The framework allows researchers, developers, and organizations to easily evaluate the performance of their models across a variety of benchmarks, compare results, and track progress in a standardized and reproducible way.
 
 Key features include:
+
 - **Seamless Setup**: Single-step installation for all packages and dependencies, ensuring quick and conflict-free setup.
 - **Consistency**: Platform ensures deterministic execution and [reproducible results](/user_guides/evaluate/evaluate.md#results-and-logging). Reproducibility is achieved by automatically logging and versioning all environmental parameters and experimental configurations.
 - **Diversity**: Offering a [wide range of benchmarks](/user_guides/evaluate/evaluate.md#benchmark-types) across domains. Oumi enables a comprehensive evaluation of LLMs on tasks ranging from natural language understanding to creative text generation, providing holistic assessment across various real-world applications.
@@ -88,35 +89,116 @@ output_dir: "my_evaluation_results"
 ```
 
 (multi-gpu-evaluation)=
+
 #### Multi-GPU Evaluation
 
-Multiple GPUs can be used to make evaluation faster and to allow evaluation of larger models that do not fit on a single GPU.
-The parallelization can be enabled using the `shard_for_eval: True` configuration parameter.
+Oumi supports multiple strategies for multi-GPU evaluation. **Choose the right strategy based on your model size and inference engine.**
+
+```{warning}
+**Do NOT mix strategies!** Using `shard_for_eval: True` with `accelerate launch` will cause incorrect evaluation results due to conflicting parallelism strategies.
+```
+
+##### Strategy 1: VLLM with Tensor Parallelism (Recommended)
+
+**Best for:** Any model size with VLLM support
+**Speed:** Fastest option for multi-GPU evaluation
+**Use case:** Models that benefit from GPU acceleration
 
 ```{code-block} yaml
-:emphasize-lines: 4
+:emphasize-lines: 3-5,11
 model:
-  model_name: "microsoft/Phi-3-mini-4k-instruct"
-  trust_remote_code: True
-  shard_for_eval: True
+  model_name: "Qwen/Qwen3-32B"
+  model_kwargs:
+    tensor_parallel_size: 4  # Split model across 4 GPUs
+    # tensor_parallel_size: -1  # Or use -1 to auto-detect all GPUs
+
+tasks:
+  - evaluation_backend: lm_harness
+    task_name: mmlu_pro
+
+inference_engine: VLLM  # Must use VLLM
+
+output_dir: "eval_results"
+```
+
+**Run:**
+
+```shell
+oumi evaluate -c config.yaml
+```
+
+The model will be automatically split across all specified GPUs using tensor parallelism.
+
+##### Strategy 2: NATIVE with Data Parallelism (via Accelerate)
+
+**Best for:** Models that fit on a single GPU
+**Speed:** K× speedup with K GPUs (e.g., 4× faster with 4 GPUs)
+**Use case:** Want faster evaluation of smaller models
+
+```{code-block} yaml
+:emphasize-lines: 3,8
+model:
+  model_name: "Qwen/Qwen2.5-7B-Instruct"
+  # shard_for_eval: False  # Must be False (or omitted)
+
+tasks:
+  - evaluation_backend: lm_harness
+    task_name: mmlu_pro
+
+inference_engine: NATIVE
+
+output_dir: "eval_results"
+```
+
+**Run:**
+
+```shell
+CUDA_VISIBLE_DEVICES=0,1,2,3 oumi distributed accelerate launch -m oumi evaluate -c config.yaml
+```
+
+Each GPU evaluates different data in parallel. Results are automatically aggregated.
+
+##### Strategy 3: NATIVE with Model Parallelism
+
+**Best for:** Large models that don't fit on a single GPU
+**Speed:** Enables evaluation of models that otherwise can't run
+**Use case:** 70B+ models without VLLM support
+
+```{code-block} yaml
+:emphasize-lines: 3,8
+model:
+  model_name: "meta-llama/Llama-3.3-70B-Instruct"
+  shard_for_eval: True  # Split model across available GPUs
 
 tasks:
   - evaluation_backend: lm_harness
     task_name: mmlu
 
-output_dir: "my_evaluation_results"
+inference_engine: NATIVE
+
+output_dir: "eval_results"
 ```
 
-With `shard_for_eval: True` it's recommended to use `accelerate`:
+**Run:**
 
 ```shell
-oumi distributed accelerate launch -m oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
+oumi evaluate -c config.yaml  # Do NOT use accelerate launch
 ```
+
+The model weights will be automatically distributed across all available GPUs.
+
+##### Choosing the Right Strategy
+
+| Model Fits on 1 GPU? | Preferred Inference Engine | Strategy | Command |
+|----------------------|---------------------------|----------|---------|
+| ✅ Yes | VLLM | Tensor Parallelism | `oumi evaluate` |
+| ✅ Yes | NATIVE | Data Parallelism | `accelerate launch -m oumi evaluate` |
+| ❌ No (too large) | VLLM | Tensor Parallelism | `oumi evaluate` |
+| ❌ No (too large) | NATIVE | Model Parallelism (`shard_for_eval`) | `oumi evaluate` |
 
 ```{note}
-Only single node, multiple GPU machine configurations are currently allowed i.e., multi-node evaluation isn't supported.
+Only single node, multiple GPU configurations are currently supported. Multi-node evaluation is not yet available.
 ```
-
 
 ## Results and Logging
 
@@ -129,6 +211,7 @@ The evaluation outputs are saved under the specified `output_dir`, in a folder n
 | `task_result.json` | A dictionary that contains all evaluation metrics relevant to the benchmark, together with the execution duration, and date/time of execution.
 
 **Schema**
+
 ```yaml
 {
   "results": {
@@ -147,7 +230,6 @@ The evaluation outputs are saved under the specified `output_dir`, in a folder n
 
 To ensure that evaluations are fully reproducible, Oumi automatically logs all input configurations and environmental parameters, as shown below. These files provide a complete and traceable record of each evaluation, enabling users to reliably replicate results, ensuring consistency and transparency throughout the evaluation lifecycle.
 
-
 | File | Description | Reference |
 |------|-------------|-----------|
 | `task_params.json` | Evaluation task parameters | {py:class}`~oumi.core.configs.params.evaluation_params.EvaluationTaskParams` |
@@ -163,10 +245,13 @@ To enhance experiment tracking and result visualization, Oumi integrates with [W
 To ensure Wandb results are logged:
 
 - Enable Wandb in the {doc}`configuration file </user_guides/evaluate/evaluation_config>`
+
 ```yaml
 enable_wandb: true
 ```
+
 - Ensure the environmental variable `WANDB_PROJECT` points to your project name
+
 ```python
 os.environ["WANDB_PROJECT"] = "my-evaluation-project"
 ```
