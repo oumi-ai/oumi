@@ -1,8 +1,9 @@
-ARG CUDA_VERSION=12.8.1
+ARG PYTORCH_VERSION=2.8.0
+ARG CUDA_VERSION=12.8
 ARG PYTHON_VERSION=3.11
 
-# Use CUDA base images for AMD64, minimal Python for ARM64
-FROM --platform=linux/amd64 nvidia/cuda:${CUDA_VERSION}-cudnn-devel-ubuntu22.04 AS base-amd64
+# Use PyTorch base images for AMD64, minimal Python for ARM64
+FROM --platform=linux/amd64 pytorch/pytorch:${PYTORCH_VERSION}-cuda${CUDA_VERSION}-cudnn9-runtime AS base-amd64
 FROM --platform=linux/arm64 python:${PYTHON_VERSION}-slim-bookworm AS base-arm64
 
 # Select base image based on build architecture
@@ -46,7 +47,7 @@ RUN pip install --no-cache-dir uv && \
         PYTORCH_INDEX=""; \
     else \
         OUMI_EXTRAS="[gpu]"; \
-        # Extract CUDA version (e.g., 12.8.1 -> 128 for PyTorch index)
+        # Extract CUDA version (e.g., 12.4 -> 124 for PyTorch index)
         CUDA_VERSION_SHORT=$(echo ${CUDA_VERSION} | cut -d. -f1,2 | tr -d .); \
         PYTORCH_INDEX="--extra-index-url https://download.pytorch.org/whl/cu${CUDA_VERSION_SHORT}"; \
     fi && \
