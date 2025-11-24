@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import io
+import threading
+import time
 from collections import defaultdict
-from multiprocessing.pool import Pool
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Callable, Optional, TypeVar
-
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Optional, TypeVar
 
 import typer
 from rich.columns import Columns
@@ -26,21 +25,16 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-
 import oumi.cli.cli_utils as cli_utils
 from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.utils.git_utils import get_git_root_dir
 from oumi.utils.logging import logger
 from oumi.utils.version_utils import is_dev_build
 
-
 if TYPE_CHECKING:
     from oumi.core.launcher import BaseCluster, JobStatus
 
-
 T = TypeVar("T")
-
-
 
 
 def _get_working_dir(current: Optional[str]) -> Optional[str]:
@@ -59,34 +53,44 @@ def _get_working_dir(current: Optional[str]) -> Optional[str]:
     return str(oumi_root) if use_root else current
 
 
-
-
 def _print_and_wait(
-    message: str, task: Callable[..., T], asynchronous=True, **kwargs
+    message: str, task: Callable[..., T], asynchronous: bool = True, **kwargs
 ) -> T:
     """Prints a message with a loading spinner until the provided task is done."""
     with cli_utils.CONSOLE.status(message):
         if asynchronous:
-            with Pool(processes=1) as worker_pool:
-                worker_result = worker_pool.apply_async(task, kwds=kwargs)
-                worker_result.wait()
-                # Call get() to reraise any exceptions that occurred in the worker.
-                result = worker_result.get()
+            result_container: dict[str, Any] = {}
+            exception_container: dict[str, Exception] = {}
+
+            def _worker():
+                try:
+                    result_container["value"] = task(**kwargs)
+                except Exception as e:
+                    exception_container["error"] = e
+
+            worker_thread = threading.Thread(target=_worker)
+            worker_thread.start()
+
+            while worker_thread.is_alive():
+                time.sleep(0.1)
+
+            worker_thread.join()
+
+            if "error" in exception_container:
+                raise exception_container["error"]
+            return result_container.get("value")  # type: ignore
         else:
             # Synchronous tasks should be atomic and not block for a significant amount
             # of time. If a task is blocking, it should be run asynchronously.
-            result = task(**kwargs)
-
-
-        return result
-
-
+            while not task(**kwargs):
+                sleep_duration = 0.1
+                time.sleep(sleep_duration)
+            return None  # type: ignore
 
 
 def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
     """Returns true IFF a job is no longer running."""
     from oumi import launcher
-
 
     running_cloud = launcher.get_cloud(cloud)
     running_cluster = running_cloud.get_cluster(cluster)
@@ -96,17 +100,13 @@ def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
     return status.done
 
 
-
-
 def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
     """Cancels a job.
-
 
     All workers must return a boolean to indicate whether the task is done.
     Cancel has no intermediate states, so it always returns True.
     """
     from oumi import launcher
-
 
     if not cluster:
         return True
@@ -118,17 +118,13 @@ def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-
-
 def _tail_logs(
     log_stream: io.TextIOBase, output_filepath: Optional[str] = None
 ) -> None:
     """Tails logs with pretty CLI output.
 
-
     This function reads from a log stream and displays the output with rich formatting
     for CLI users. Optionally saves the output to a file.
-
 
     Args:
         log_stream: A LogStream object that can be read from.
@@ -142,7 +138,6 @@ def _tail_logs(
     file_handle = None
     if output_filepath:
         file_handle = open(output_filepath, "w", encoding="utf-8")
-
 
     try:
         if file_handle:
@@ -171,17 +166,13 @@ def _tail_logs(
         log_stream.close()
 
 
-
-
 def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
     """Turns down a cluster.
-
 
     All workers must return a boolean to indicate whether the task is done.
     Down has no intermediate states, so it always returns True.
     """
     from oumi import launcher
-
 
     if cloud:
         target_cloud = launcher.get_cloud(cloud)
@@ -218,12 +209,10 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
 def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]:
     """Finds the cluster matching the given name and cloud.
 
-
     Returns:
         Optional[BaseCluster]: The matching cluster, or None if not found.
     """
     from oumi import launcher
-
 
     if cloud:
         target_cloud = launcher.get_cloud(cloud)
@@ -244,7 +233,6 @@ def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]
         if target_cluster:
             clusters.append(target_cluster)
 
-
     if len(clusters) == 0:
         cli_utils.CONSOLE.print(f"Cluster [yellow]{cluster}[/yellow] not found.")
         return None
@@ -255,21 +243,16 @@ def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]
         f"Specify a cloud to stop with `--cloud`."
     )
 
-
     return None
-
-
 
 
 def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
     """Stops a cluster.
 
-
     All workers must return a boolean to indicate whether the task is done.
     Stop has no intermediate states, so it always returns True.
     """
     cluster_instance = _find_cluster(cluster, cloud)
-
 
     if not cluster_instance:
         cli_utils.CONSOLE.print(
@@ -293,7 +276,6 @@ def _poll_job(
 ) -> None:
     """Polls a job until it is complete.
 
-
     If the job is running in detached mode and the job is not on the local cloud,
     the function returns immediately.
     """
@@ -312,9 +294,7 @@ def _poll_job(
         running_cloud = launcher.get_cloud(cloud)
         running_cluster = running_cloud.get_cluster(job_status.cluster)
 
-
     assert running_cluster
-
 
     try:
         log_stream = running_cluster.get_logs_stream(job_status.cluster, job_status.id)
@@ -333,7 +313,6 @@ def _poll_job(
             cluster=job_status.cluster,
         )
 
-
     final_status = running_cluster.get_job(job_status.id)
     if final_status:
         cli_utils.CONSOLE.print(
@@ -344,11 +323,9 @@ def _poll_job(
         cli_utils.CONSOLE.print(f"[yellow]{final_status.metadata}[/yellow]")
 
 
-
 # ----------------------------
 # Launch CLI subcommands
 # ----------------------------
-
 
 
 def cancel(
@@ -363,7 +340,6 @@ def cancel(
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
     """Cancels a job.
-
 
     Args:
         cloud: Filter results by this cloud.
@@ -391,7 +367,6 @@ def down(
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
     """Turns down a cluster.
-
 
     Args:
         cluster: The cluster to turn down.
@@ -434,7 +409,6 @@ def run(
 ) -> None:
     """Runs a job on the target cluster.
 
-
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for the job.
@@ -447,16 +421,15 @@ def run(
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
-
     config = str(
         cli_utils.resolve_and_fetch_config(
             try_get_config_name_for_alias(config, AliasType.JOB),
         )
     )
-   
+
     # Delayed imports
     from oumi import launcher
-   
+
     # End imports
     parsed_config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
@@ -466,13 +439,11 @@ def run(
     if not cluster:
         raise ValueError("No cluster specified for the `run` action.")
 
-
     job_status = launcher.run(parsed_config, cluster)
     cli_utils.CONSOLE.print(
         f"Job [yellow]{job_status.id}[/yellow] queued on cluster "
         f"[yellow]{cluster}[/yellow]."
     )
-
 
     _poll_job(
         job_status=job_status,
@@ -480,8 +451,6 @@ def run(
         cloud=parsed_config.resources.cloud,
         output_filepath=output_filepath,
     )
-
-
 
 
 def status(
@@ -499,10 +468,8 @@ def status(
 ) -> None:
     """Prints the status of jobs launched from Oumi.
 
-
     Optionally, the caller may specify a job id, cluster, or cloud to further filter
     results.
-
 
     Args:
         cloud: Filter results by this cloud.
@@ -557,8 +524,6 @@ def status(
             cli_utils.CONSOLE.print(Panel(body, title=title, border_style="blue"))
 
 
-
-
 def stop(
     cluster: Annotated[str, typer.Option(help="The cluster to stop.")],
     cloud: Annotated[
@@ -570,7 +535,6 @@ def stop(
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
     """Stops a cluster.
-
 
     Args:
         cluster: The cluster to stop.
@@ -587,8 +551,6 @@ def stop(
         f"Cluster [yellow]{cluster}[/yellow] stopped!\n"
         "Use [green]oumi launch down[/green] to turn it down."
     )
-
-
 
 
 def up(
@@ -618,7 +580,6 @@ def up(
 ):
     """Launches a job.
 
-
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for the job.
@@ -635,13 +596,11 @@ def up(
     # End imports
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
-
     config = str(
         cli_utils.resolve_and_fetch_config(
             try_get_config_name_for_alias(config, AliasType.JOB),
         )
     )
-
 
     parsed_config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
@@ -664,7 +623,6 @@ def up(
         f"[yellow]{running_cluster.name()}[/yellow]."
     )
 
-
     _poll_job(
         job_status=job_status,
         detach=detach,
@@ -672,8 +630,6 @@ def up(
         running_cluster=running_cluster,
         output_filepath=output_filepath,
     )
-
-
 
 
 def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
@@ -691,8 +647,6 @@ def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
             border_style="blue",
         )
     )
-
-
 
 
 def logs(
@@ -718,7 +672,6 @@ def logs(
 ) -> None:
     """Gets the logs of a job.
 
-
     Args:
         cluster: The cluster to get the logs of.
         cloud: If specified, only clusters on this cloud will be affected.
@@ -729,21 +682,16 @@ def logs(
     _tail_logs(log_stream, output_filepath)
 
 
-
-
 def _log_worker(
     cluster: str, cloud: Optional[str], job_id: Optional[str]
 ) -> io.TextIOBase:
     """Gets logs from a cluster.
 
-
     Returns a text stream containing the cluster logs.
     """
     cluster_instance = _find_cluster(cluster, cloud)
 
-
     if not cluster_instance:
         raise RuntimeError(f"Cluster [yellow]{cluster}[/yellow] not found.")
-
 
     return cluster_instance.get_logs_stream(cluster, job_id)
