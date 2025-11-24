@@ -35,7 +35,7 @@ jobs:
           sudo docker builder prune -a
       - run: df -h
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # For releases, checkout the release tag; for workflow_dispatch, checkout the latest commit
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
