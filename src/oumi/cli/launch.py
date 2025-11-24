@@ -59,6 +59,8 @@ def _print_and_wait(
     """Prints a message with a loading spinner until the provided task is done."""
     with cli_utils.CONSOLE.status(message):
         if asynchronous:
+            # We need to return the result of the task, but it's running in a separate
+            # thread. We use a container to store the result/exception.
             result_container: dict[str, Any] = {}
             exception_container: dict[str, Exception] = {}
 
@@ -68,9 +70,11 @@ def _print_and_wait(
                 except Exception as e:
                     exception_container["error"] = e
 
+            # Use threading instead of multiprocessing to avoid PicklingError
             worker_thread = threading.Thread(target=_worker)
             worker_thread.start()
 
+            # Wait for the thread to finish while keeping the spinner active
             while worker_thread.is_alive():
                 time.sleep(0.1)
 
@@ -78,14 +82,14 @@ def _print_and_wait(
 
             if "error" in exception_container:
                 raise exception_container["error"]
-            return result_container.get("value")  # type: ignore
+            return result_container.get("value")
         else:
             # Synchronous tasks should be atomic and not block for a significant amount
             # of time. If a task is blocking, it should be run asynchronously.
             while not task(**kwargs):
                 sleep_duration = 0.1
                 time.sleep(sleep_duration)
-            return None  # type: ignore
+            return None
 
 
 def _is_job_done(id: str, cloud: str, cluster: str) -> bool:

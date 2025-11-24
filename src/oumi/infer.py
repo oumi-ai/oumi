@@ -60,12 +60,10 @@ def infer_interactive(
         def _task_to_run():
             return infer(
                 config=config,
-                inputs=[
-                    input_text,
-                ],
-                system_prompt=system_prompt,
-                input_image_bytes=input_image_bytes,
+                inputs=[input_text],
                 inference_engine=inference_engine,
+                input_image_bytes=input_image_bytes,
+                system_prompt=system_prompt,
             )
 
         model_response = _print_and_wait(
