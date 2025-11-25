@@ -34,7 +34,6 @@ def _get_default_config(
 ) -> TrainingConfig:
     dataset_split_params = DatasetSplitParams(
         datasets=datasets,
-        target_col="question",
         stream=stream,
         pack=pack,
     )

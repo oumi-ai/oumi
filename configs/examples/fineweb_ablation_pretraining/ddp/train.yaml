@@ -35,7 +35,6 @@ data:
       #   split: "train"
     stream: True
     pack: True
-    target_col: "text"
 
 training:
   trainer_type: "TRL_SFT" # or OUMI
