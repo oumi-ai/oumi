@@ -24,7 +24,7 @@ model:
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   trust_remote_code: true
-  chat_template: "auto"  # Use model's built-in chat template
+  chat_template: "auto" # Use model's built-in chat template
   attn_implementation: "eager"
 
   # Enable MXFP4 dequantization for training with pre-quantized models
@@ -41,7 +41,6 @@ data:
       # GPT-OSS Harmony format templates
       instruction_template: "<|start|>user<|message|>"
       response_template: "<|start|>assistant<|channel|>final<|message|>"
-    target_col: "messages"
 
 training:
   trainer_type: "TRL_SFT"
@@ -57,13 +56,13 @@ training:
   gradient_checkpointing_kwargs:
     use_reentrant: false
   optimizer: "adamw_torch_fused"
-  learning_rate: 2.0e-04  # HF recipe LoRA learning rate
+  learning_rate: 2.0e-04 # HF recipe LoRA learning rate
   warmup_ratio: 0.03
   lr_scheduler_type: "cosine"
   lr_scheduler_kwargs:
     num_cycles: 0.5
   max_grad_norm: 1.0
-  logging_steps: 5  # More frequent logging for single GPU
+  logging_steps: 5 # More frequent logging for single GPU
   output_dir: "./outputs/gpt_oss_20b_lora_single_gpu"
   seed: 42
   # Reduce workers for single GPU to avoid CPU bottleneck
@@ -73,10 +72,10 @@ training:
   include_performance_metrics: true
 
 peft:
-  q_lora: false  # Regular LoRA for best compatibility
-  lora_r: 8        # HF recipe efficient rank
-  lora_alpha: 16   # HF recipe alpha
-  lora_dropout: 0  # No dropout for stability
+  q_lora: false # Regular LoRA for best compatibility
+  lora_r: 8 # HF recipe efficient rank
+  lora_alpha: 16 # HF recipe alpha
+  lora_dropout: 0 # No dropout for stability
   lora_target_modules:
     - "all-linear"
   lora_target_parameters:
