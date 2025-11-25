@@ -264,8 +264,8 @@ class BaseModel(nn.Module, ABC):
     def _get_oumi_version() -> str:
         """Gets the current Oumi version string."""
         try:
-            import oumi
+            from importlib.metadata import version
 
-            return getattr(oumi, "__version__", "unknown")
+            return version("oumi")
         except Exception:
             return "unknown"

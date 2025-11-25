@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+from pathlib import Path
 from typing import Optional, Union, cast
 
 import torch
@@ -145,8 +147,6 @@ def build_oumi_model(
 
     Supports loading pretrained weights saved with BaseModel.save_pretrained().
     """
-    model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
-
     # Determine if we should load from pretrained weights
     if model_params.load_pretrained_weights:
         # Get pretrained directory from custom_pretrained_dir or model_kwargs
@@ -170,13 +170,39 @@ def build_oumi_model(
                 "BaseModel.save_pretrained()."
             )
 
+        # Load model class from saved config
+        config_path = Path(custom_pretrained_dir) / "config.json"
+        if config_path.exists():
+            with open(config_path, encoding="utf-8") as f:
+                config_data = json.load(f)
+
+            model_type = config_data.get("model_type")
+            if model_type:
+                # Use model type from config
+                model_class = REGISTRY[model_type, RegistryType.MODEL]
+                logger.info(
+                    f"Loading model class '{model_type}' from saved config at "
+                    f"{custom_pretrained_dir}"
+                )
+            else:
+                # Fall back to model_params.model_name if model_type not in config
+                model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
+                logger.warning(
+                    f"Config at {config_path} does not contain 'model_type'. "
+                    f"Using model_name '{model_params.model_name}' instead."
+                )
+        else:
+            # Fall back to model_params.model_name if config doesn't exist
+            model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
+            logger.warning(
+                f"Config file not found at {config_path}. "
+                f"Using model_name '{model_params.model_name}' instead."
+            )
+
         # Extract override kwargs from kwargs if provided
         override_kwargs = kwargs.get("override_init_kwargs", None)
 
-        logger.info(
-            f"Loading pretrained custom model '{model_params.model_name}' "
-            f"from {custom_pretrained_dir}"
-        )
+        logger.info(f"Loading pretrained custom model from {custom_pretrained_dir}")
 
         # Load model using from_pretrained classmethod
         model = model_class.from_pretrained(
@@ -187,6 +213,7 @@ def build_oumi_model(
         )
     else:
         # Initialize model from scratch
+        model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
         model = model_class(**model_params.model_kwargs)
 
     if peft_params and peft_params.q_lora:
