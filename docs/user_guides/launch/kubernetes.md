@@ -49,16 +49,17 @@ spec:
         # Get latest images from: https://github.com/oumi-ai/oumi/pkgs/container/oumi
         image: ghcr.io/oumi-ai/oumi:latest
         command: ["sleep", "infinity"]
-        # Adjust number of GPUs per pod. Below is configuration for single GPU per pod.
+        # Adjust resources based on the model you want to run.
+        # Below is configuration for single GPU per pod.
         resources:
           requests:
             nvidia.com/gpu: 1
             memory: "16Gi"
-            ephemeral-storage: "20Gi"
+            ephemeral-storage: "100Gi"
           limits:
             nvidia.com/gpu: 1
             memory: "32Gi"
-            ephemeral-storage: "50Gi"
+            ephemeral-storage: "1Ti"
       # Configure for GPU nodes
       tolerations:
       - key: nvidia.com/gpu
