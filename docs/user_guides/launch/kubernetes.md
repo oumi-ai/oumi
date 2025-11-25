@@ -49,7 +49,7 @@ spec:
         # Get latest images from: https://github.com/oumi-ai/oumi/pkgs/container/oumi
         image: ghcr.io/oumi-ai/oumi:latest
         command: ["sleep", "infinity"]
-        # Adjust resources based on the model you want to run.
+        # Adjust gpu, memory, and storage based on the model you want to run.
         # Below is configuration for single GPU per pod.
         resources:
           requests:
