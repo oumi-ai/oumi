@@ -30,10 +30,10 @@ def _single_message_conversation(text):
 def _count_analysis_columns(df):
     """Count the number of analysis columns in a DataFrame."""
     analysis_suffixes = [
-        "_char_count",
-        "_word_count",
-        "_sentence_count",
-        "_token_count",
+        "_length_char_count",
+        "_length_word_count",
+        "_length_sentence_count",
+        "_length_token_count",
     ]
     return len(
         [
@@ -54,7 +54,7 @@ def test_char_count():
     result_df = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
-    assert result_df.iloc[0]["text_content_char_count"] == 13
+    assert result_df.iloc[0]["text_content_length_char_count"] == 13
     # Only char_count should be present
     assert _count_analysis_columns(result_df) == 1
 
@@ -69,7 +69,7 @@ def test_word_count():
     result_df = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
-    assert result_df.iloc[0]["text_content_word_count"] == 6
+    assert result_df.iloc[0]["text_content_length_word_count"] == 6
     # Only word_count should be present
     assert _count_analysis_columns(result_df) == 1
 
@@ -85,7 +85,7 @@ def test_sentence_count():
     result_df = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
-    assert result_df.iloc[0]["text_content_sentence_count"] == 3
+    assert result_df.iloc[0]["text_content_length_sentence_count"] == 3
     # Only sentence_count should be present
     assert _count_analysis_columns(result_df) == 1
 
@@ -100,10 +100,10 @@ def test_analyzer_instantiation():
     result_df = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
-    assert result_df.iloc[0]["text_content_char_count"] == 13
-    assert result_df.iloc[0]["text_content_word_count"] == 2
-    assert result_df.iloc[0]["text_content_sentence_count"] == 1
-    assert "token_count" not in result_df.columns
+    assert result_df.iloc[0]["text_content_length_char_count"] == 13
+    assert result_df.iloc[0]["text_content_length_word_count"] == 2
+    assert result_df.iloc[0]["text_content_length_sentence_count"] == 1
+    assert "text_content_length_token_count" not in result_df.columns
 
     # Test with custom parameters
     analyzer = LengthAnalyzer(
@@ -115,10 +115,10 @@ def test_analyzer_instantiation():
     result_df = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
-    assert result_df.iloc[0]["text_content_char_count"] == 13
-    assert "word_count" not in result_df.columns
-    assert result_df.iloc[0]["text_content_sentence_count"] == 1
-    assert "token_count" not in result_df.columns
+    assert result_df.iloc[0]["text_content_length_char_count"] == 13
+    assert "text_content_length_word_count" not in result_df.columns
+    assert result_df.iloc[0]["text_content_length_sentence_count"] == 1
+    assert "text_content_length_token_count" not in result_df.columns
 
     # Test with partial parameters (some defaults, some overridden)
     analyzer = LengthAnalyzer(char_count=False, word_count=True)
@@ -128,10 +128,10 @@ def test_analyzer_instantiation():
     result_df = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
-    assert "char_count" not in result_df.columns
-    assert result_df.iloc[0]["text_content_word_count"] == 2
-    assert result_df.iloc[0]["text_content_sentence_count"] == 1  # Default True
-    assert "token_count" not in result_df.columns  # Default False
+    assert "text_content_length_char_count" not in result_df.columns
+    assert result_df.iloc[0]["text_content_length_word_count"] == 2
+    assert result_df.iloc[0]["text_content_length_sentence_count"] == 1  # Default True
+    assert "text_content_length_token_count" not in result_df.columns  # Default False
 
 
 def test_token_count():
@@ -154,7 +154,7 @@ def test_token_count():
     result_df = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
-    assert result_df.iloc[0]["text_content_token_count"] == 7
+    assert result_df.iloc[0]["text_content_length_token_count"] == 7
     # analyze calls tokenizer once per field
     assert mock_tokenizer.encode.call_count == 1
     # Check that it was called with the message text
@@ -177,7 +177,7 @@ def test_token_count():
     result_df = analyzer_no_special.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
-    assert result_df.iloc[0]["text_content_token_count"] == 5
+    assert result_df.iloc[0]["text_content_length_token_count"] == 5
     # Check that it was called without special tokens
     mock_tokenizer_no_special.encode.assert_any_call(
         "Hello, world!", add_special_tokens=False
@@ -214,7 +214,7 @@ def test_token_count():
     # Should not call tokenizer since token_count=False
     mock_tokenizer_unused.encode.assert_not_called()
     # Should still compute char_count
-    assert result_df.iloc[0]["text_content_char_count"] == 13
+    assert result_df.iloc[0]["text_content_length_char_count"] == 13
 
 
 def test_conversation_level_token_count():
@@ -252,10 +252,10 @@ def test_conversation_level_token_count():
     )
 
     # Check that field-level token count is computed for each message
-    assert "text_content_token_count" in result_df.columns
+    assert "text_content_length_token_count" in result_df.columns
     # Each message should have 6 tokens
-    assert result_df.iloc[0]["text_content_token_count"] == 6
-    assert result_df.iloc[1]["text_content_token_count"] == 6
+    assert result_df.iloc[0]["text_content_length_token_count"] == 6
+    assert result_df.iloc[1]["text_content_length_token_count"] == 6
 
     # Verify that encode was used for field-level token count
     # Two message encodes (one per row)
@@ -298,8 +298,8 @@ def test_conversation_level_token_count_without_dataset():
     )
 
     # Check that field-level token count is computed for each message
-    assert result_df.iloc[0]["text_content_token_count"] == 6
-    assert result_df.iloc[1]["text_content_token_count"] == 6
+    assert result_df.iloc[0]["text_content_length_token_count"] == 6
+    assert result_df.iloc[1]["text_content_length_token_count"] == 6
     # Two message encodes (one per row)
     assert mock_tokenizer.encode.call_count == 2
 
@@ -346,16 +346,16 @@ def test_conversation_level_metrics_aggregation():
 
     # Check field-level metrics for each message
     # First message: "Hello, how are you?" - 19 chars, 4 words, 1 sentence
-    assert result_df.iloc[0]["text_content_char_count"] == 19
-    assert result_df.iloc[0]["text_content_word_count"] == 4
-    assert result_df.iloc[0]["text_content_sentence_count"] == 1
-    assert result_df.iloc[0]["text_content_token_count"] == 6
+    assert result_df.iloc[0]["text_content_length_char_count"] == 19
+    assert result_df.iloc[0]["text_content_length_word_count"] == 4
+    assert result_df.iloc[0]["text_content_length_sentence_count"] == 1
+    assert result_df.iloc[0]["text_content_length_token_count"] == 6
 
     # Second message: "I am doing well, thank you!" - 27 chars, 6 words, 1 sentence
-    assert result_df.iloc[1]["text_content_char_count"] == 27
-    assert result_df.iloc[1]["text_content_word_count"] == 6
-    assert result_df.iloc[1]["text_content_sentence_count"] == 1
-    assert result_df.iloc[1]["text_content_token_count"] == 6
+    assert result_df.iloc[1]["text_content_length_char_count"] == 27
+    assert result_df.iloc[1]["text_content_length_word_count"] == 6
+    assert result_df.iloc[1]["text_content_length_sentence_count"] == 1
+    assert result_df.iloc[1]["text_content_length_token_count"] == 6
 
     # Two message encodes (one per row)
     assert mock_tokenizer.encode.call_count == 2

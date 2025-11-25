@@ -929,3 +929,146 @@ def test_analyzer_with_tokenizer(test_data_path):
     analysis_df = analyzer.analysis_df
     assert analysis_df is not None
     assert len(analysis_df) > 0
+
+
+def test_message_level_summary_structure_and_statistics(test_data_path):
+    """Test that message level summary has correct structure and statistics."""
+    # Create config with length analyzer using default "length" analyzer_id
+    config = AnalyzeConfig(
+        dataset_source=DatasetSource.CONFIG,
+        dataset_name="text_sft",
+        split="train",
+        sample_count=5,  # Analyze all conversations
+        analyzers=[
+            SampleAnalyzerParams(
+                id="length",  # Produces columns like text_content_length_char_count
+                params={
+                    "char_count": True,
+                    "word_count": True,
+                    "sentence_count": True,
+                },
+            ),
+        ],
+    )
+
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
+    analyzer.analyze_dataset()
+
+    # Get the summary
+    summary = analyzer.analysis_summary
+    assert summary is not None
+    assert "message_level_summary" in summary
+
+    message_summary = summary["message_level_summary"]
+    assert isinstance(message_summary, dict)
+    assert len(message_summary) > 0
+
+    # Verify that "length" analyzer is in the summary (parsed from column names)
+    assert "length" in message_summary, (
+        f"Expected 'length' analyzer in message summary, "
+        f"but found: {list(message_summary.keys())}"
+    )
+
+    length_metrics = message_summary["length"]
+    assert isinstance(length_metrics, dict)
+    assert len(length_metrics) > 0
+
+    # Verify expected metrics exist
+    available_metrics = list(length_metrics.keys())
+    assert len(available_metrics) > 0, "Should have at least one metric in summary"
+
+    # Verify that char_count and word_count are present
+    # (these should always be generated)
+    assert "text_content_char_count" in length_metrics, (
+        f"Expected 'text_content_char_count' in summary, found: {available_metrics}"
+    )
+    assert "text_content_word_count" in length_metrics, (
+        f"Expected 'text_content_word_count' in summary, found: {available_metrics}"
+    )
+
+    # Verify all available metrics have proper structure
+    for metric_name in available_metrics:
+        assert metric_name in length_metrics, (
+            f"Expected metric '{metric_name}' in length analyzer summary, "
+            f"but found: {list(length_metrics.keys())}"
+        )
+
+        # Verify statistics structure
+        stats = length_metrics[metric_name]
+        assert isinstance(stats, dict), (
+            f"Expected statistics to be a dict for {metric_name}, got {type(stats)}"
+        )
+
+        # Verify all required statistics are present
+        required_stats = ["count", "mean", "std", "min", "max", "median"]
+        for stat_name in required_stats:
+            assert stat_name in stats, (
+                f"Expected '{stat_name}' in statistics for {metric_name}, "
+                f"but found: {list(stats.keys())}"
+            )
+            # Check if it's numeric (including numpy types)
+            stat_value = stats[stat_name]
+            assert isinstance(stat_value, (int, float)) or (
+                hasattr(stat_value, "dtype")
+                and pd.api.types.is_numeric_dtype(stat_value)
+            ), f"Expected '{stat_name}' to be numeric, got {type(stat_value)}"
+
+        # Verify statistics are non-negative where appropriate
+        assert stats["count"] >= 0, (
+            f"Count should be non-negative, got {stats['count']}"
+        )
+        assert stats["min"] >= 0, f"Min should be non-negative, got {stats['min']}"
+        assert stats["max"] >= 0, f"Max should be non-negative, got {stats['max']}"
+        assert stats["mean"] >= 0, f"Mean should be non-negative, got {stats['mean']}"
+        assert stats["std"] >= 0, f"Std should be non-negative, got {stats['std']}"
+        assert stats["median"] >= 0, (
+            f"Median should be non-negative, got {stats['median']}"
+        )
+
+        # Verify min <= mean <= max
+        assert stats["min"] <= stats["max"], (
+            f"Min ({stats['min']}) should be <= max ({stats['max']}) for {metric_name}"
+        )
+        assert stats["min"] <= stats["mean"] <= stats["max"], (
+            f"Mean ({stats['mean']}) should be between min ({stats['min']}) "
+            f"and max ({stats['max']}) for {metric_name}"
+        )
+        assert stats["min"] <= stats["median"] <= stats["max"], (
+            f"Median ({stats['median']}) should be between min ({stats['min']}) "
+            f"and max ({stats['max']}) for {metric_name}"
+        )
+
+    char_stats = length_metrics["text_content_char_count"]
+    assert char_stats["count"] > 0, "Should have analyzed at least one message"
+    assert char_stats["min"] > 0, "Minimum character count should be positive"
+    assert char_stats["max"] > 0, "Maximum character count should be positive"
+
+    # Verify word_count statistics
+    word_stats = length_metrics["text_content_word_count"]
+    assert word_stats["count"] > 0, "Should have analyzed at least one message"
+    assert word_stats["min"] > 0, "Minimum word count should be positive"
+    assert word_stats["max"] > 0, "Maximum word count should be positive"
+
+    # Verify sentence_count statistics if present
+    if "text_content_sentence_count" in length_metrics:
+        sentence_stats = length_metrics["text_content_sentence_count"]
+        assert sentence_stats["count"] > 0, "Should have analyzed at least one message"
+        assert sentence_stats["min"] > 0, "Minimum sentence count should be positive"
+        assert sentence_stats["max"] > 0, "Maximum sentence count should be positive"
+
+    # Verify that the analysis DataFrame has the correct column names with new format
+    analysis_df = analyzer.analysis_df
+    assert analysis_df is not None, "Analysis DataFrame should not be None"
+    assert "text_content_length_char_count" in analysis_df.columns, (
+        "Analysis DataFrame should contain text_content_length_char_count column"
+    )
+    assert "text_content_length_word_count" in analysis_df.columns, (
+        "Analysis DataFrame should contain text_content_length_word_count column"
+    )
+    # sentence_count may or may not be present depending on configuration
+    if "text_content_length_sentence_count" in analysis_df.columns:
+        # If present, verify it has values
+        sentence_col = analysis_df["text_content_length_sentence_count"]
+        assert bool(sentence_col.notna().any()), (
+            "sentence_count column should have at least one non-null value"
+        )
