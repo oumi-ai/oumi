@@ -444,8 +444,8 @@ class DatasetAnalyzer:
         """Get the merged analysis DataFrame with both message and conversation metrics.
 
         Returns:
-            DataFrame with columns prefixed by message_ and conversation_ for each
-            analyzer
+            DataFrame with columns prefixed by ``message_`` and ``conversation_`` for
+            each analyzer
 
         Raises:
             RuntimeError: If analysis has not been run yet.
@@ -462,7 +462,7 @@ class DatasetAnalyzer:
         """Get the message-level analysis DataFrame.
 
         Returns:
-            DataFrame with message-level metrics prefixed by message_
+            DataFrame with message-level metrics prefixed by ``message_``
 
         Raises:
             RuntimeError: If analysis has not been run yet.
@@ -479,7 +479,7 @@ class DatasetAnalyzer:
         """Get the conversation-level analysis DataFrame.
 
         Returns:
-            DataFrame with conversation-level metrics prefixed by conversation_
+            DataFrame with conversation-level metrics prefixed by ``conversation_``
 
         Raises:
             RuntimeError: If analysis has not been run yet.
@@ -507,7 +507,8 @@ class DatasetAnalyzer:
         Raises:
             RuntimeError: If analysis has not been run yet.
 
-        Examples:
+        Examples::
+
             # Filter for short conversations
             long_conversations = analyzer.query_conversations(
                 "length_token_count > 1000"
@@ -548,7 +549,8 @@ class DatasetAnalyzer:
         Raises:
             RuntimeError: If analysis has not been run yet.
 
-        Examples:
+        Examples::
+
             # Filter for conversations with short messages
             short_dataset = analyzer.filter("length_word_count < 10")
 

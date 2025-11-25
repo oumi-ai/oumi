@@ -190,6 +190,7 @@ class SlurmLogStream(io.TextIOBase):
     for reading job logs.
 
     Expected Order of Events:
+
     1. Initialization: Starts a tail process to monitor the job's stdout file and
        launches a background thread to check job status.
     2. Active Reading: While the job is running, reads lines directly from the
@@ -199,6 +200,7 @@ class SlurmLogStream(io.TextIOBase):
     4. Cleanup: When the stream is closed, resources are cleaned up.
 
     State Transitions:
+
     - _proc: None → subprocess.Popen → None (after termination)
     """
 

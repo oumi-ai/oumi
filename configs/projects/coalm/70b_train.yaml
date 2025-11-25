@@ -18,14 +18,12 @@ data:
         shuffle: True
         seed: 42
     collator_name: "text_completions_only_with_padding"
-    target_col: "messages"
     seed: 42
   validation:
     datasets:
       - dataset_name: "text_sft_jsonl"
         dataset_path: "/path/to/validation/dataset.jsonl"
     collator_name: "text_completions_only_with_padding"
-    target_col: "messages"
     seed: 42
 
 training:

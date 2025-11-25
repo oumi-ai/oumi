@@ -2,62 +2,57 @@ name: "CPU Tests"
 
 on:
   schedule:
-    - cron: '0 */8 * * *' # Every 8 hours
+    - cron: "0 */8 * * *" # Every 8 hours
   workflow_dispatch:
   pull_request:
     paths-ignore:
-      - 'docs/**'
-      - 'notebooks/**'
-      - 'scripts/**'
-      - 'README.md'
+      - "docs/**"
+      - "notebooks/**"
+      - "scripts/**"
+      - "README.md"
   merge_group:
-    paths-ignore:
-      - 'docs/**'
-      - 'notebooks/**'
-      - 'scripts/**'
-      - 'README.md'
 
 jobs:
   static-checks:
     permissions:
-      contents: 'read'
+      contents: "read"
     runs-on: ubuntu-24.04
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        # Checkout using commit hash to make "no-commit-to-branch" test pass.
-        ref: ${{ github.sha }}
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # Checkout using commit hash to make "no-commit-to-branch" test pass.
+          ref: ${{ github.sha }}
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v2
-      with:
-        enable-cache: true
-        cache-dependency-glob: "pyproject.toml"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
 
-    - name: "Set up Python"
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: "Set up Python"
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
 
-    - name: Install Dependencies
-      run: |
-        # Install in system python as we're in a sandbox env
-        # Install in verbose mode to see what's going on
-        uv pip install --system -e '.[ci_cpu]'
+      - name: Install Dependencies
+        run: |
+          # Install in system python as we're in a sandbox env
+          # Install in verbose mode to see what's going on
+          uv pip install --system -e '.[ci_cpu]'
 
-    - name: Cache pre-commit
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pre-commit
-        key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: Cache pre-commit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
-    - name: Run pre-commit checks
-      run: |
-        pre-commit run --all-files --show-diff-on-failure
+      - name: Run pre-commit checks
+        run: |
+          pre-commit run --all-files --show-diff-on-failure
 
-    - name: Run tests
-      run: |
-        cd ./tests/unit/
-        pytest -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300
+      - name: Run tests
+        run: |
+          cd ./tests/unit/
+          pytest -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300

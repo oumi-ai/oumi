@@ -275,8 +275,9 @@ def train(
     config: TrainingConfig,
     additional_model_kwargs: Optional[dict[str, Any]] = None,
     additional_trainer_kwargs: Optional[dict[str, Any]] = None,
+    additional_tuning_kwargs: Optional[dict[str, Any]] = None,
     verbose: bool = False,
-) -> None:
+) -> Union[None, dict[str, Any]]:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
@@ -582,4 +583,9 @@ def train(
 
     if is_distributed():
         cleanup_distributed()
+
+    if additional_tuning_kwargs:
+        logger.info("Retrieving last evaluation metrics for tuning...")
+        return {**trainer.get_last_eval_metrics()}
+
     _log_feedback_request()

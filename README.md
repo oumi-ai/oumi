@@ -22,6 +22,9 @@
 </p>
 
 ## 🔥 News
+- [2025/11] [Oumi v0.5.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.5) with advanced data synthesis, hyperparameter tuning automation, support for OpenEnv, and more
+- [2025/11] [Example notebook to perform RLVF fine-tuning with OpenEnv](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20OpenEnv%20GRPO%20with%20trl.ipynb), an open source library from the Meta PyTorch team for creating, deploying, and distributing agentic RL environments
+- [2025/10] [Oumi v0.4.1](https://github.com/oumi-ai/oumi/releases/tag/v0.4.1) and [v0.4.2](https://github.com/oumi-ai/oumi/releases/tag/v0.4.2) released] with support for Qwen3-VL and Transformers v4.56, data synthesis documentation and examples, and many bug fixes
 - [2025/09] [Oumi v0.4.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.4.0) with DeepSpeed support, a Hugging Face Hub cache management tool, KTO/Vision DPO trainer support
 - [2025/08] Training and inference support for OpenAI's `gpt-oss-20b` and `gpt-oss-120b`: [recipes here](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/gpt_oss)
 - [2025/08] Aug 14 Webinar - [OpenAI's gpt-oss: Separating the Substance from the Hype](https://youtu.be/g1PkAV7fXn0).
