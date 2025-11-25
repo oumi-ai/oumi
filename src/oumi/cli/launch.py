@@ -619,8 +619,8 @@ def up(
             run(ctx, config, cluster, detach, output_filepath)
             return
     parsed_config.working_dir = _get_working_dir(parsed_config.working_dir)
-    running_cluster, job_status = launcher.up(parsed_config, cluster)
-    
+    # Start the job
+    running_cluster, job_status = launcher.up(parsed_config, cluster)   
     cli_utils.CONSOLE.print(
         f"Job [yellow]{job_status.id}[/yellow] queued on cluster "
         f"[yellow]{running_cluster.name()}[/yellow]."
@@ -696,5 +696,4 @@ def _log_worker(
 
     if not cluster_instance:
         raise RuntimeError(f"Cluster [yellow]{cluster}[/yellow] not found.")
-
     return cluster_instance.get_logs_stream(cluster, job_id)
