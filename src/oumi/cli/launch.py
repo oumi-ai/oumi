@@ -422,7 +422,6 @@ def run(
         )
     )
 
-
     # Delayed imports
     from oumi import launcher
 
@@ -695,5 +694,5 @@ def _log_worker(
 
     if not cluster_instance:
         raise RuntimeError(f"Cluster [yellow]{cluster}[/yellow] not found.")
-    
+
     return cluster_instance.get_logs_stream(cluster, job_id)

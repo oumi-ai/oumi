@@ -100,6 +100,7 @@ def infer(
     """
     if not inference_engine:
         inference_engine = get_engine(config)
+        
     # Pass None if no conversations are provided.
     conversations = None
     if inputs is not None and len(inputs) > 0:
