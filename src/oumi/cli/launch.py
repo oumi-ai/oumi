@@ -77,16 +77,17 @@ def _print_and_wait(
 
             worker_thread.join()
 
+            # Reraise any exceptions that occurred in the worker.
             if "error" in exception_container:
                 raise exception_container["error"]
-            return result_container.get("value")  # type: ignore
+            return result_container.get("value")
         else:
             # Synchronous tasks should be atomic and not block for a significant amount
             # of time. If a task is blocking, it should be run asynchronously.
             while not task(**kwargs):
                 sleep_duration = 0.1
                 time.sleep(sleep_duration)
-            return None  # type: ignore
+            return None
 
 
 def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
@@ -436,11 +437,18 @@ def run(
         config, extra_args, logger=logger
     )
     parsed_config.finalize_and_validate()
+    if cluster:
+        target_cloud = launcher.get_cloud(parsed_config.resources.cloud)
+        target_cluster = target_cloud.get_cluster(cluster)
+        if target_cluster:
+            cli_utils.CONSOLE.print(
+                f"Found an existing cluster: [yellow]{target_cluster.name()}[/yellow]."
+            )
+            run(ctx, config, cluster, detach, output_filepath)
+            return
     parsed_config.working_dir = _get_working_dir(parsed_config.working_dir)
-    if not cluster:
-        raise ValueError("No cluster specified for the `run` action.")
-
-    job_status = launcher.run(parsed_config, cluster)
+    # Start the job
+    running_cluster, job_status = launcher.up(parsed_config, cluster)
     cli_utils.CONSOLE.print(
         f"Job [yellow]{job_status.id}[/yellow] queued on cluster "
         f"[yellow]{cluster}[/yellow]."
