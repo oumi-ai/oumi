@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 
 T = TypeVar("T")
 
-
 def _get_working_dir(current: Optional[str]) -> Optional[str]:
     """Prompts the user to select the working directory, if relevant."""
     if not is_dev_build():
@@ -62,21 +61,16 @@ def _print_and_wait(
         if asynchronous:
             result_container: dict[str, Any] = {}
             exception_container: dict[str, Exception] = {}
-
             def _worker():
                 try:
                     result_container["value"] = task(**kwargs)
                 except Exception as e:
                     exception_container["error"] = e
-
             worker_thread = threading.Thread(target=_worker)
             worker_thread.start()
-
             while worker_thread.is_alive():
                 time.sleep(0.1)
-
             worker_thread.join()
-
             # Reraise any exceptions that occurred in the worker.
             if "error" in exception_container:
                 raise exception_container["error"]
@@ -625,8 +619,8 @@ def up(
             run(ctx, config, cluster, detach, output_filepath)
             return
     parsed_config.working_dir = _get_working_dir(parsed_config.working_dir)
-    # Start the job
     running_cluster, job_status = launcher.up(parsed_config, cluster)
+    
     cli_utils.CONSOLE.print(
         f"Job [yellow]{job_status.id}[/yellow] queued on cluster "
         f"[yellow]{running_cluster.name()}[/yellow]."
