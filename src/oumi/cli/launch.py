@@ -17,7 +17,15 @@ import threading
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Callable, Optional, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Callable,
+    Optional,
+    TypeVar,
+    cast,
+)
 
 import typer
 from rich.columns import Columns
@@ -34,8 +42,9 @@ from oumi.utils.version_utils import is_dev_build
 if TYPE_CHECKING:
     from oumi.core.launcher import BaseCluster, JobStatus
 
-
 T = TypeVar("T")
+
+
 def _get_working_dir(current: Optional[str]) -> Optional[str]:
     """Prompts the user to select the working directory, if relevant."""
     if not is_dev_build():
@@ -60,27 +69,32 @@ def _print_and_wait(
         if asynchronous:
             result_container: dict[str, Any] = {}
             exception_container: dict[str, Exception] = {}
+
             def _worker():
                 try:
                     result_container["value"] = task(**kwargs)
                 except Exception as e:
                     exception_container["error"] = e
+
             worker_thread = threading.Thread(target=_worker)
             worker_thread.start()
+
             while worker_thread.is_alive():
                 time.sleep(0.1)
+
             worker_thread.join()
-            # Reraise any exceptions that occurred in the worker.
+
+            # Call get() to reraise any exceptions that occurred in the worker.
             if "error" in exception_container:
                 raise exception_container["error"]
-            return result_container.get("value")
+            return cast(T, result_container.get("value"))
         else:
             # Synchronous tasks should be atomic and not block for a significant amount
             # of time. If a task is blocking, it should be run asynchronously.
             while not task(**kwargs):
                 sleep_duration = 0.1
                 time.sleep(sleep_duration)
-            return None
+            return cast(T, None)
 
 
 def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
@@ -430,17 +444,11 @@ def run(
         config, extra_args, logger=logger
     )
     parsed_config.finalize_and_validate()
-    if cluster:
-        target_cloud = launcher.get_cloud(parsed_config.resources.cloud)
-        target_cluster = target_cloud.get_cluster(cluster)
-        if target_cluster:
-            cli_utils.CONSOLE.print(
-                f"Found an existing cluster: [yellow]{target_cluster.name()}[/yellow]."
-            )
-            run(ctx, config, cluster, detach, output_filepath)
-            return
     parsed_config.working_dir = _get_working_dir(parsed_config.working_dir)
-    running_cluster, job_status = launcher.up(parsed_config, cluster)
+    if not cluster:
+        raise ValueError("No cluster specified for the `run` action.")
+
+    job_status = launcher.run(parsed_config, cluster)
     cli_utils.CONSOLE.print(
         f"Job [yellow]{job_status.id}[/yellow] queued on cluster "
         f"[yellow]{cluster}[/yellow]."

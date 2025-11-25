@@ -56,6 +56,7 @@ def infer_interactive(
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
             print("\nExiting...")
             return
+
         def _task_to_run():
             return infer(
                 config=config,
@@ -64,11 +65,13 @@ def infer_interactive(
                 input_image_bytes=input_image_bytes,
                 system_prompt=system_prompt,
             )
+
         model_response = _print_and_wait(
             "Running inference...",
             _task_to_run,
             asynchronous=True,
         )
+
         for g in model_response:
             print("------------")
             print(repr(g))
@@ -100,7 +103,7 @@ def infer(
     """
     if not inference_engine:
         inference_engine = get_engine(config)
-        
+
     # Pass None if no conversations are provided.
     conversations = None
     if inputs is not None and len(inputs) > 0:
