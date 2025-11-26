@@ -4,11 +4,7 @@ Oumi provides pre-built Docker images that include all necessary dependencies fo
 
 ## Available Images
 
-Oumi Docker images are published to the GitHub Container Registry at:
-
-```bash
-ghcr.io/oumi-ai/oumi
-```
+Oumi Docker images are published to the GitHub Container Registry at: [ghcr.io/oumi-ai/oumi](https://ghcr.io/oumi-ai/oumi)
 
 ### Image Tags
 
