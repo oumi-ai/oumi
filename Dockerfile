@@ -44,17 +44,20 @@ RUN apt-get update && \
 RUN pip install --no-cache-dir uv && \
     if [ "$TARGETARCH" = "arm64" ]; then \
         OUMI_EXTRAS=""; \
-        PYTORCH_INDEX=""; \
     else \
         OUMI_EXTRAS="[gpu]"; \
         # Extract CUDA version (e.g., 12.4 -> 124 for PyTorch index)
         CUDA_VERSION_SHORT=$(echo ${CUDA_VERSION} | cut -d. -f1,2 | tr -d .); \
-        PYTORCH_INDEX="--extra-index-url https://download.pytorch.org/whl/cu${CUDA_VERSION_SHORT}"; \
+        # Install torch and torchvision from PyTorch index first
+        uv pip install --system --no-cache-dir \
+            --index-url https://download.pytorch.org/whl/cu${CUDA_VERSION_SHORT} \
+            torch torchvision; \
     fi && \
+    # Install oumi using regular pip (without PyTorch index)
     if [ -z "$OUMI_VERSION" ]; then \
-        uv pip install --system --no-cache-dir --prerelease=allow ${PYTORCH_INDEX} "oumi${OUMI_EXTRAS}"; \
+        uv pip install --system --no-cache-dir --prerelease=allow "oumi${OUMI_EXTRAS}"; \
     else \
-        uv pip install --system --no-cache-dir --prerelease=allow ${PYTORCH_INDEX} "oumi${OUMI_EXTRAS}==$OUMI_VERSION"; \
+        uv pip install --system --no-cache-dir --prerelease=allow "oumi${OUMI_EXTRAS}==$OUMI_VERSION"; \
     fi
 
 # Switch to oumi user
