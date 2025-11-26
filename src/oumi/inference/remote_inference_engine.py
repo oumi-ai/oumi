@@ -267,16 +267,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     def _get_connection_limit(self) -> int:
         """Get the connection limit for TCPConnector.
-
+        
         Caps the connection limit to prevent file descriptor exhaustion.
         HTTP connections are reused, so we don't need one connection per
         concurrent request. The semaphore controls concurrency.
-
+        
         Returns:
             Maximum number of connections to allow in the connection pool.
         """
-        # Cap at 200 connections to prevent "too many files open" errors
-        return min(self._remote_params.num_workers, 200)
+        # Hardcoded to 200 connections to prevent "too many files open" errors
+        return 200
 
     async def _try_record_success(self):
         """Try to record a success."""
