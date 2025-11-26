@@ -25,13 +25,22 @@ Oumi Docker images support multiple architectures:
 | Platform | Architecture | GPU Support | PyTorch Version | Image Size |
 |----------|--------------|-------------|-----------------|------------|
 | **AMD64** | x86_64/Intel/AMD | ✅ CUDA 12.8 | PyTorch 2.8.0 with CUDA | ~14GB |
-| **ARM64** | Apple Silicon, ARM servers | ✅ CPU only | PyTorch 2.8.0 CPU | ~1GB |
+<!-- | **ARM64** | Apple Silicon, ARM servers | ✅ CPU only | PyTorch 2.8.0 CPU | ~3GB | -->
 
 **Supported Operating Systems**:
 
 - ✅ **Linux** (AMD64/ARM64) - Native containers
 - ✅ **macOS** (Intel/Apple Silicon) - via Docker Desktop
 - ✅ **Windows** (Intel/AMD) - via Docker Desktop + WSL2
+
+```{note}
+**Mac Silicon Users**: If you need GPU-compatible images for development or testing, use the `--platform linux/amd64` flag when pulling or running images:
+
+\`\`\`bash
+docker pull --platform linux/amd64 ghcr.io/oumi-ai/oumi:latest
+docker run --platform linux/amd64 -it --rm ghcr.io/oumi-ai/oumi:latest bash
+\`\`\`
+```
 
 ## Quick Start
 
