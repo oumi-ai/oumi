@@ -7,9 +7,12 @@
 
 deploy
 custom_cluster
+kubernetes
 ```
 
 In addition to running Oumi locally, you can use the `oumi launch` command in the Oumi CLI to run jobs on remote clusters. It provides a unified interface for running your code, allowing you to seamlessly switch between popular cloud providers and your own custom clusters!
+
+If you have an existing Kubernetes cluster and want to deploy Oumi to it, see our {doc}`kubernetes` guide.
 
 ## Overview
 

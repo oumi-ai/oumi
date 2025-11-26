@@ -136,7 +136,6 @@ Notes:
     - `all_exhausted`: Continues until all datasets are exhausted (may oversample)
 - When `pack` is enabled:
   - `stream` must also be enabled
-  - `target_col` must be specified
 - All splits must use the same collator type if specified
 - If a collator is specified for validation/test, it must also be specified for train
 - `collator_kwargs` allows customizing collator behavior with additional parameters:

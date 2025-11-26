@@ -397,7 +397,6 @@ def run_demo():
         "data": {
             "train": {
                 "datasets": [{"dataset_name": dataset_name}],
-                "target_col": "prompt",
             }
         },
         "training": {
