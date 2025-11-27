@@ -33,7 +33,7 @@ def _get_default_image_model_params() -> ModelParams:
         model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         model_max_length=1024,
         trust_remote_code=True,
-        chat_template="qwen2-vl-instruct",
+        chat_template="auto",
         device_map=get_default_device_map_for_inference(),
     )
 
