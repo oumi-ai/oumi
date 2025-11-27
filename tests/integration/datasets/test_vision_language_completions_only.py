@@ -12,7 +12,7 @@ from oumi.core.types.conversation import Type
 def phi3_tokenizer():
     """Create Phi-3 tokenizer for testing."""
     model_params = ModelParams(
-        model_name="microsoft/Phi-3-vision-128k-instruct",
+        model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         device_map="cpu",
         trust_remote_code=True,
         chat_template="phi3-instruct",
@@ -110,7 +110,7 @@ def test_vision_language_completions_only(phi3_tokenizer, sample_conversation):
     collator = build_data_collator(
         collator_name="vision_language_sft",
         tokenizer=phi3_tokenizer,
-        processor_name="microsoft/Phi-3-vision-128k-instruct",
+        processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         train_on_completions_only=True,
         response_template="<|assistant|>",
         instruction_template="<|user|>",
@@ -180,7 +180,7 @@ def test_vision_language_without_completions_only(phi3_tokenizer, sample_convers
     collator = build_data_collator(
         collator_name="vision_language_sft",
         tokenizer=phi3_tokenizer,
-        processor_name="microsoft/Phi-3-vision-128k-instruct",
+        processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         train_on_completions_only=False,
         trust_remote_code=True,
         max_length=512,
@@ -218,7 +218,7 @@ def test_vision_language_completions_only_wrong_template(
     collator = build_data_collator(
         collator_name="vision_language_sft",
         tokenizer=phi3_tokenizer,
-        processor_name="microsoft/Phi-3-vision-128k-instruct",
+        processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         train_on_completions_only=True,
         response_template="<|nonexistent|>",  # This template won't be found
         trust_remote_code=True,

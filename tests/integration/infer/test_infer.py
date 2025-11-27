@@ -84,7 +84,7 @@ def test_infer_basic_interactive_with_images(
 ):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
-            model_name="Qwen/Qwen2-VL-2B-Instruct",
+            model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
             model_max_length=1024,
             trust_remote_code=True,
             chat_template="qwen2-vl-instruct",
@@ -165,7 +165,7 @@ def test_infer_basic_non_interactive_with_images(
     test_spec: InferTestSpec, root_testdata_dir: Path
 ):
     model_params = ModelParams(
-        model_name="Qwen/Qwen2-VL-2B-Instruct",
+        model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         model_max_length=1024,
         trust_remote_code=True,
         chat_template="qwen2-vl-instruct",

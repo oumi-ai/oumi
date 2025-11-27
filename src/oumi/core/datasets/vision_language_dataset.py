@@ -53,7 +53,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         ... )
         >>> dataset = MyVisionLanguageSftDataset( # doctest: +SKIP
         ...     tokenizer=tokenizer,
-        ...     processor_name="openai/clip-vit-base-patch32",
+        ...     processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         ...     dataset_name="coco_captions",
         ...     split="train"
         ... )

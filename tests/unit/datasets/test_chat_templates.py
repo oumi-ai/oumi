@@ -137,7 +137,9 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[list[ChatTemplateTestSpec]] = [
     ChatTemplateTestSpec(
         chat_template_name="default", model_name="openai-community/gpt2"
     ),
-    ChatTemplateTestSpec(chat_template_name="gpt2", model_name="openai-community/gpt2"),
+    ChatTemplateTestSpec(
+        chat_template_name="openai-community/gpt2", model_name="openai-community/gpt2"
+    ),
     ChatTemplateTestSpec(
         chat_template_name="llama3-instruct",
         model_name="openai-community/gpt2",

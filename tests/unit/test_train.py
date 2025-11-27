@@ -35,7 +35,9 @@ def base_training_config():
             )
         ),
         model=ModelParams(
-            model_name="gpt2", tokenizer_name="gpt2", model_max_length=1024
+            model_name="openai-community/gpt2",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=1024,
         ),
         training=TrainingParams(
             log_examples=False,  # Default value
