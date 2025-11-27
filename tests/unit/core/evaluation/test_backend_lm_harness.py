@@ -204,12 +204,10 @@ def test_generate_lm_harness_model_args(
     mock_build_tokenizer,
     lm_harness_model,
     is_multimodal,
-    device,
     model_params,
     generation_params,
     inference_engine_type,
     inference_remote_params,
-    is_distributed,
     expected_model_args,
 ):
     mock_device_count.return_value = 1  # Mock single GPU for tests
@@ -221,12 +219,10 @@ def test_generate_lm_harness_model_args(
     model_args = _generate_lm_harness_model_args(
         lm_harness_model,
         is_multimodal,
-        device,
         model_params,
         generation_params,
         inference_engine_type,
         inference_remote_params,
-        is_distributed,
     )
 
     if is_multimodal and inference_engine_type == InferenceEngineType.NATIVE:
@@ -460,12 +456,10 @@ def test_vllm_tensor_parallel_auto_detect(mock_is_available, mock_device_count):
     model_args = _generate_lm_harness_model_args(
         lm_harness_model="vllm",
         is_multimodal=False,
-        device="cuda:0",
         model_params=model_params,
         generation_params=GenerationParams(),
         inference_engine_type=InferenceEngineType.VLLM,
         inference_remote_params=None,
-        is_distributed=False,
     )
 
     assert model_args["tensor_parallel_size"] == 4
@@ -481,12 +475,10 @@ def test_vllm_tensor_parallel_explicit():
     model_args = _generate_lm_harness_model_args(
         lm_harness_model="vllm",
         is_multimodal=False,
-        device="cuda:0",
         model_params=model_params,
         generation_params=GenerationParams(),
         inference_engine_type=InferenceEngineType.VLLM,
         inference_remote_params=None,
-        is_distributed=False,
     )
 
     # Should use the explicit value, not auto-detect
@@ -506,12 +498,10 @@ def test_vllm_data_parallel():
     model_args = _generate_lm_harness_model_args(
         lm_harness_model="vllm",
         is_multimodal=False,
-        device="cuda:0",
         model_params=model_params,
         generation_params=GenerationParams(),
         inference_engine_type=InferenceEngineType.VLLM,
         inference_remote_params=None,
-        is_distributed=False,
     )
 
     assert model_args["tensor_parallel_size"] == 1
@@ -528,12 +518,10 @@ def test_native_distributed_disables_parallelize():
     model_args = _generate_lm_harness_model_args(
         lm_harness_model="hf",
         is_multimodal=False,
-        device="cuda:1",
         model_params=model_params,
         generation_params=GenerationParams(),
         inference_engine_type=InferenceEngineType.NATIVE,
         inference_remote_params=None,
-        is_distributed=True,  # Distributed mode
     )
 
     # In distributed mode, parallelize should be False
@@ -551,12 +539,10 @@ def test_native_single_process_enables_parallelize():
     model_args = _generate_lm_harness_model_args(
         lm_harness_model="hf",
         is_multimodal=False,
-        device="cuda:0",
         model_params=model_params,
         generation_params=GenerationParams(),
         inference_engine_type=InferenceEngineType.NATIVE,
         inference_remote_params=None,
-        is_distributed=False,  # Single-process mode
     )
 
     # In single-process mode, parallelize should be True

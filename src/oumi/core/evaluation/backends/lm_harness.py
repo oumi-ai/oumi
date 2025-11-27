@@ -37,7 +37,7 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
-from oumi.core.distributed import is_world_process_zero
+from oumi.core.distributed import get_device_rank_info, is_world_process_zero
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.utils.logging import logger
 
@@ -103,12 +103,10 @@ FEW_SHOT_SEED = 1234
 def _generate_lm_harness_model_args(
     lm_harness_model: str,
     is_multimodal: bool,
-    device: str,
     model_params: ModelParams,
     generation_params: GenerationParams,
     inference_engine_type: InferenceEngineType,
     inference_remote_params: Optional[RemoteParams],
-    is_distributed: bool = False,
 ) -> dict[str, Any]:
     """Converts Oumi's ModelParams to LM Harness model arguments."""
     # List of all LM Harness model arguments:
@@ -125,8 +123,6 @@ def _generate_lm_harness_model_args(
         "dtype": model_params.torch_dtype or model_params.torch_dtype_str,
         "max_length": model_params.model_max_length,
         "batch_size": batch_size,
-        "max_batch_size": None,
-        "device": device,
     }
 
     if model_params.tokenizer_name:
@@ -134,7 +130,7 @@ def _generate_lm_harness_model_args(
 
     # Add engine-specific arguments
     if inference_engine_type == InferenceEngineType.NATIVE:
-        _add_native_engine_args(model_args, model_params, is_distributed)
+        _add_native_engine_args(model_args, model_params)
     elif inference_engine_type == InferenceEngineType.VLLM:
         _add_vllm_engine_args(model_args, model_params)
     elif inference_engine_type == InferenceEngineType.REMOTE:
@@ -255,27 +251,6 @@ def evaluate(
     )
 
     # Detect if running in distributed mode (e.g., via accelerate launch)
-    is_distributed = (
-        torch.distributed.is_available() and torch.distributed.is_initialized()
-    )
-
-    if torch.cuda.is_available():
-        if is_distributed:
-            # In distributed mode, each process gets its own device
-            local_rank = torch.distributed.get_rank()
-            device = f"cuda:{local_rank}"
-            logger.info(
-                f"Running in distributed mode: Rank {local_rank} assigned to {device}"
-            )
-        else:
-            # Single process mode: use first GPU
-            # Note: This may be overwritten by `parallelize=True` (model sharding)
-            device = "cuda:0"
-    elif torch.backends.mps.is_available():
-        device = "mps"
-    else:
-        device = "cpu"
-        logger.warning("No GPU available.")
 
     # Identify whether the model is multi-modal.
     is_multimodal = is_image_text_llm_using_model_name(
@@ -286,16 +261,8 @@ def evaluate(
     # Identify the proper LM Harness model (`lm_harness_model`) to use.
     if config.inference_engine == InferenceEngineType.NATIVE:
         lm_harness_model = "hf-multimodal" if is_multimodal else "hf"
-        if device.startswith("cuda"):
-            logger.warning(
-                "Since you have GPU support, it is highly recommended that you set "
-                "the `inference_engine` to `VLLM`, instead of the `NATIVE`, for faster "
-                "evaluation."
-            )
     elif config.inference_engine == InferenceEngineType.VLLM:
         lm_harness_model = "vllm-vlm" if is_multimodal else "vllm"
-        if not device.startswith("cuda"):
-            raise ValueError("The `VLLM` inference_engine requires a CUDA-enabled GPU.")
     elif config.inference_engine == InferenceEngineType.REMOTE:
         lm_harness_model = "local-completions"
     else:
@@ -314,12 +281,10 @@ def evaluate(
     lm_harness_model_params = _generate_lm_harness_model_args(
         lm_harness_model=lm_harness_model,
         is_multimodal=is_multimodal,
-        device=device,
         model_params=config.model,
         generation_params=config.generation,
         inference_engine_type=config.inference_engine,
         inference_remote_params=config.inference_remote_params,
-        is_distributed=is_distributed,
     )
     logger.info(f"\tLM Harness `model_params`:\n{pformat(lm_harness_model_params)}")
     lm_class = lm_harness_get_model_class(lm_harness_model)
@@ -402,7 +367,6 @@ def evaluate(
 def _add_native_engine_args(
     model_args: dict[str, Any],
     model_params: ModelParams,
-    is_distributed: bool,
 ) -> None:
     """Add NATIVE (HuggingFace) engine-specific arguments.
 
@@ -410,26 +374,21 @@ def _add_native_engine_args(
     - Data parallelism: Used with `accelerate launch` (is_distributed=True)
     - Model parallelism: Used with `shard_for_eval=True` (is_distributed=False)
     """
-    # NATIVE doesn't support "auto" batch size
-    if model_args["batch_size"] == "auto":
-        model_args["batch_size"] = 1
+    model_args["device_map"] = None  # Let accelerate handle placement
 
-    if is_distributed:
-        # DATA PARALLELISM: Each process loads full model on its own GPU
-        # Used with: accelerate launch -m oumi evaluate
-        if model_params.shard_for_eval:
-            logger.warning(
-                "Disabling 'shard_for_eval' because running in distributed mode. "
-                "Data parallelism and model parallelism are mutually exclusive. "
-                "To use model parallelism, run without 'accelerate launch'."
-            )
-        model_args["parallelize"] = False
-        model_args["device_map"] = None  # Let accelerate handle placement
+    if torch.cuda.is_available():
+        device_info = get_device_rank_info()
+        device = f"cuda:{device_info.local_rank}"
+        logger.info(f"Using {device_info.world_size} GPUs for evaluation.")
+    elif torch.backends.mps.is_available():
+        device = "mps"
+        logger.info("Using MPS for evaluation")
     else:
-        # MODEL PARALLELISM: Single process splits model across multiple GPUs
-        # Used with: oumi evaluate (no accelerate)
-        model_args["parallelize"] = model_params.shard_for_eval
-        model_args["device_map"] = model_params.device_map
+        device = "cpu"
+        logger.info("Using CPU for evaluation")
+
+    model_args["device"] = device
+    model_args["parallelize"] = model_params.shard_for_eval
 
     # Optional NATIVE-specific parameters
     if model_params.adapter_model:
@@ -449,7 +408,11 @@ def _add_vllm_engine_args(
     - Data parallelism: Multiple workers evaluate different data (for speed)
     """
     # Tensor parallelism: from model_kwargs or auto-detect
-    tensor_parallel_size = model_params.model_kwargs.get("tensor_parallel_size", -1)
+    tensor_parallel_size = (
+        model_params.model_kwargs.get("tensor_parallel_size", -1)
+        if torch.cuda.is_available()
+        else 1
+    )
     if tensor_parallel_size <= 0:
         # Auto-detect: use all available GPUs
         tensor_parallel_size = (
@@ -457,15 +420,17 @@ def _add_vllm_engine_args(
         )
     model_args["tensor_parallel_size"] = tensor_parallel_size
 
-    # Data parallelism: from model_kwargs (optional)
-    data_parallel_size = model_params.model_kwargs.get("data_parallel_size", 1)
-    if data_parallel_size > 1:
-        model_args["data_parallel_size"] = data_parallel_size
+    logger.info(f"VLLM parallelism: tensor_parallel_size={tensor_parallel_size}.")
 
-    logger.info(
-        f"VLLM parallelism: tensor_parallel_size={tensor_parallel_size}, "
-        f"data_parallel_size={data_parallel_size}"
-    )
+    if model_args.get("batch_size", "auto") != "auto":
+        logger.info(
+            "Setting batch_size to 'auto' for VLLM evaluation. "
+            "To set the maximum batch size, use the `max_batch_size` in model_kwargs."
+        )
+        model_args["batch_size"] = "auto"
+
+    if model_params.model_kwargs.get("max_batch_size") is not None:
+        model_args["max_batch_size"] = model_params.model_kwargs.get("max_batch_size")
 
 
 def _add_remote_engine_args(
@@ -512,3 +477,7 @@ def _add_multimodal_args(
             model_args["image_string"] = image_token
         if image_token_id := processor.image_token_id:
             model_args["image_token_id"] = image_token_id
+
+    if model_args.get("batch_size") == "auto":
+        logger.info("Setting batch_size to 1 for multimodal evaluation.")
+        model_args["batch_size"] = 1

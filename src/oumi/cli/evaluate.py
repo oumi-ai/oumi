@@ -54,6 +54,7 @@ def evaluate(
         # Delayed imports
         from oumi import evaluate as oumi_evaluate
         from oumi.core.configs import EvaluationConfig
+        from oumi.core.distributed import is_world_process_zero
         # End imports
 
     # Load configuration
@@ -71,6 +72,9 @@ def evaluate(
         "[green]Running evaluation...[/green]", spinner="dots"
     ):
         results = oumi_evaluate(parsed_config)
+
+    if not is_world_process_zero():
+        return
     # Make a best-effort attempt at parsing metrics.
     for task_result in results:
         table = Table(
