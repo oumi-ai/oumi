@@ -405,6 +405,7 @@ def test_load_custom_dataset_multi_modal(temp_vision_language_file):
     # Create a mock tokenizer with required attributes
     mock_tokenizer = Mock()
     mock_tokenizer.pad_token_id = 0  # Set a valid pad_token_id
+    mock_tokenizer.convert_tokens_to_ids.return_value = 0
 
     config = AnalyzeConfig(
         dataset_path=temp_vision_language_file,
