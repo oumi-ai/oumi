@@ -60,14 +60,20 @@ FEW_SHOT_SEED = 1234
 # tokenizer           | tokenizer_name | Υ  | Υ    | Υ             | Υ        | Y      #
 # peft                | adapter_model  | Υ  |      | Υ             |          |        #
 # parallelize         | shard_for_eval | Υ  |      | Υ             |          |        #
-# device_map          |                | ?? |      | ??            |          |        #
-# attn_implementation |                | ?? |      | ??            |          |        #
+# device_map          | (always None)  | Υ  |      | Υ             |          |        #
+# device              | (auto-detect)  | Υ  |      | Υ             |          |        #
+# attn_implementation |                | Υ  |      | Υ             |          |        #
 # ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
 # max_images          |                | NA | NA   | Υ             | Υ        | NA     #
 # interleave          |                | NA | NA   | Υ             | Υ        | NA     #
 # convert_img_format  |                | NA | NA   | Υ             |          | NA     #
 # image_token_id      |                | NA | NA   | Υ             |          | NA     #
 # image_string        |                | NA | NA   | Υ             |          | NA     #
+########################################################################################
+# GPU Requirements:                                                                     #
+# - VLLM engine: Requires CUDA-enabled GPU (raises ValueError if not available)       #
+# - NATIVE engine with accelerate: Requires CUDA-enabled GPU (raises ValueError)      #
+# - NATIVE engine without accelerate: Supports CUDA, MPS, or CPU                      #
 ########################################################################################
 # LM Harness          | Oumi `generat- | LM Harness `model`                            #
 # `model_args`        | ion_params`    | hf | vllm | hf-multimodal | vllm-vlm | remote #

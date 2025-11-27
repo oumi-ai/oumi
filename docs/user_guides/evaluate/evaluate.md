@@ -90,7 +90,7 @@ output_dir: "my_evaluation_results"
 
 (multi-gpu-evaluation)=
 
-#### Multi-GPU Evaluation
+### Multi-GPU Evaluation
 
 Oumi supports multiple strategies for multi-GPU evaluation. **Choose the right strategy based on your model size and inference engine.**
 
@@ -189,12 +189,12 @@ The model weights will be automatically distributed across all available GPUs.
 
 ##### Choosing the Right Strategy
 
-| Model Fits on 1 GPU? | Preferred Inference Engine | Strategy | Command |
-|----------------------|---------------------------|----------|---------|
-| ✅ Yes | VLLM | Tensor Parallelism | `oumi evaluate` |
-| ✅ Yes | NATIVE | Data Parallelism | `accelerate launch -m oumi evaluate` |
-| ❌ No (too large) | VLLM | Tensor Parallelism | `oumi evaluate` |
-| ❌ No (too large) | NATIVE | Model Parallelism (`shard_for_eval`) | `oumi evaluate` |
+| Model Fits on 1 GPU? | Preferred Inference Engine | Strategy | GPU Required? | Command |
+|----------------------|---------------------------|----------|---------------|---------|
+| ✅ Yes | VLLM | Tensor Parallelism | ✅ Yes | `oumi evaluate` |
+| ✅ Yes | NATIVE | Data Parallelism | ✅ Yes | `accelerate launch -m oumi evaluate` |
+| ❌ No (too large) | VLLM | Tensor Parallelism | ✅ Yes  | `oumi evaluate` |
+| ❌ No (too large) | NATIVE | Model Parallelism (`shard_for_eval`) | ❌ No (optional) | `oumi evaluate` |
 
 ```{note}
 Only single node, multiple GPU configurations are currently supported. Multi-node evaluation is not yet available.
