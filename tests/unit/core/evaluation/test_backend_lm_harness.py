@@ -63,50 +63,43 @@ def mock_patches_for_evaluate():
 
 
 @pytest.mark.parametrize(
-    "lm_harness_model, is_multimodal, device, model_params, generation_params, "
-    "inference_engine_type, inference_remote_params, "
-    "is_distributed, expected_model_args",
+    "lm_harness_model, is_multimodal, model_params, generation_params, "
+    "inference_engine_type, inference_remote_params, expected_model_args",
     [
         (
             "hf",
             False,
-            "mps",
             ModelParams(model_name="text_model"),
             GenerationParams(batch_size=None),
             InferenceEngineType.NATIVE,
             None,
-            False,
             {
                 "trust_remote_code": False,
                 "pretrained": "text_model",
                 "dtype": "auto",
                 "max_length": None,
-                "batch_size": 1,
-                "max_batch_size": None,
-                "device": "mps",
+                "batch_size": "auto",
+                "device": "cuda:0",
                 "parallelize": False,
-                "device_map": "auto",
+                "device_map": None,
             },
         ),
         (
             "hf-multimodal",
             True,
-            "cuda:0",
             ModelParams(model_name="vision_model", model_max_length=128),
             GenerationParams(),
             InferenceEngineType.NATIVE,
             None,
-            False,
             {
                 "trust_remote_code": False,
                 "pretrained": "vision_model",
                 "dtype": "auto",
                 "max_length": 128,
                 "batch_size": 1,
-                "max_batch_size": None,
                 "device": "cuda:0",
                 "parallelize": False,
-                "device_map": "auto",
+                "device_map": None,
                 "max_images": 1,
                 "interleave": True,
                 "convert_img_format": True,
@@ -117,42 +110,34 @@ def mock_patches_for_evaluate():
         (
             "vllm",
             False,
-            "cuda:0",
             ModelParams(model_name="text_model", model_max_length=128),
             GenerationParams(batch_size=1),
             InferenceEngineType.VLLM,
             None,
-            False,
             {
                 "trust_remote_code": False,
                 "pretrained": "text_model",
                 "dtype": "auto",
                 "max_length": 128,
-                "batch_size": 1,
-                "max_batch_size": None,
-                "device": "cuda:0",
+                "batch_size": "auto",
                 "tensor_parallel_size": 1,
             },
         ),
         (
             "vllm-vlm",
             True,
-            "cuda:0",
             ModelParams(
                 model_name="vision_model", model_max_length=128, trust_remote_code=True
             ),
             GenerationParams(batch_size=8),
             InferenceEngineType.VLLM,
             None,
-            False,
             {
                 "trust_remote_code": True,
                 "pretrained": "vision_model",
                 "dtype": "auto",
                 "max_length": 128,
-                "batch_size": 8,
-                "max_batch_size": None,
-                "device": "cuda:0",
+                "batch_size": 1,
                 "max_images": 1,
                 "interleave": True,
                 "tensor_parallel_size": 1,
@@ -161,7 +146,6 @@ def mock_patches_for_evaluate():
         (
             "local-completions",
             False,
-            "cpu",
             ModelParams(model_name="some_model"),
             GenerationParams(),
             InferenceEngineType.REMOTE,
@@ -171,15 +155,12 @@ def mock_patches_for_evaluate():
                 max_retries=3,
                 connection_timeout=120,
             ),
-            False,
             {
                 "trust_remote_code": False,
                 "pretrained": "some_model",
                 "dtype": "auto",
                 "max_length": None,
                 "batch_size": 1,
-                "max_batch_size": None,
-                "device": "cpu",
                 "base_url": "http://localhost:6864/v1/completions",
                 "num_concurrent": 16,
                 "max_retries": 3,
@@ -198,7 +179,13 @@ def mock_patches_for_evaluate():
 @patch("oumi.core.evaluation.backends.lm_harness.build_tokenizer")
 @patch("oumi.core.evaluation.backends.lm_harness.build_processor")
 @patch("oumi.core.evaluation.backends.lm_harness.torch.cuda.device_count")
+@patch("oumi.core.evaluation.backends.lm_harness.torch.cuda.is_available")
+@patch("oumi.core.evaluation.backends.lm_harness.torch.backends.mps.is_available")
+@patch("oumi.core.evaluation.backends.lm_harness.get_device_rank_info")
 def test_generate_lm_harness_model_args(
+    mock_get_device_rank_info,
+    mock_mps_available,
+    mock_cuda_available,
     mock_device_count,
     mock_build_processor,
     mock_build_tokenizer,
@@ -210,7 +197,16 @@ def test_generate_lm_harness_model_args(
     inference_remote_params,
     expected_model_args,
 ):
+    # Mock device info for CUDA
+    mock_device_info = MagicMock()
+    mock_device_info.local_rank = 0
+    mock_device_info.world_size = 1
+    mock_get_device_rank_info.return_value = mock_device_info
+
     mock_device_count.return_value = 1  # Mock single GPU for tests
+    mock_cuda_available.return_value = True  # Mock CUDA availability
+    mock_mps_available.return_value = False  # Mock MPS not available
+
     mock_build_tokenizer.return_value = MagicMock()
     mock_build_processor.return_value = MagicMock(
         image_token="my_image_token", image_token_id=1111
@@ -316,12 +312,10 @@ def test_evaluate(mock_patches_for_evaluate):
     mock_generate_lm_harness_model_args.assert_called_once_with(
         lm_harness_model="hf",
         is_multimodal=False,
-        device="cuda:0",
         model_params=evaluation_config.model,
         generation_params=evaluation_config.generation,
         inference_engine_type=evaluation_config.inference_engine,
         inference_remote_params=evaluation_config.inference_remote_params,
-        is_distributed=False,
     )
     mock_lm_harness_get_model_class.assert_called_once_with("hf")
 
@@ -358,6 +352,53 @@ def test_evaluate_failure_vLLM_without_CUDA(mock_patches_for_evaluate):
 
     with pytest.raises(
         ValueError, match="The `VLLM` inference_engine requires a CUDA-enabled GPU."
+    ):
+        evaluate_lm_harness(
+            task_params=LMHarnessTaskParams(
+                evaluation_backend="lm_harness",
+                task_name="mmlu",
+            ),
+            config=EvaluationConfig(
+                tasks=[],
+                inference_engine=inference_engine_type,
+            ),
+        )
+
+
+@patch("oumi.core.evaluation.backends.lm_harness.is_using_accelerate")
+def test_evaluate_failure_native_distributed_without_CUDA(
+    mock_is_using_accelerate, mock_patches_for_evaluate
+):
+    # Access the relevant mocks through the fixture.
+    mock_cuda_is_available = mock_patches_for_evaluate["mock_cuda_is_available"]
+    mock_is_image_text_llm = mock_patches_for_evaluate["mock_is_image_text_llm"]
+    mock_get_task_dict = mock_patches_for_evaluate["mock_get_task_dict"]
+    mock_generate_lm_harness_model_args = mock_patches_for_evaluate[
+        "mock_generate_lm_harness_model_args"
+    ]
+    mock_lm_harness_get_model_class = mock_patches_for_evaluate[
+        "mock_lm_harness_get_model_class"
+    ]
+    mock_is_world_process_zero = mock_patches_for_evaluate["mock_is_world_process_zero"]
+
+    # This combination should throw (we cannot use NATIVE with accelerate without CUDA).
+    inference_engine_type = InferenceEngineType.NATIVE
+    mock_cuda_is_available.return_value = False
+
+    # Mock running via accelerate
+    mock_is_using_accelerate.return_value = True
+
+    # Mock functions that evaluate() calls.
+    mock_is_image_text_llm.return_value = False
+    mock_is_world_process_zero.return_value = True
+    mock_get_task_dict.return_value = MagicMock()
+    mock_generate_lm_harness_model_args.return_value = MagicMock()
+    mock_lm_harness_get_model_class.return_value = MagicMock()
+
+    with pytest.raises(
+        ValueError,
+        match="The `NATIVE` inference_engine with distributed execution "
+        "\\(e.g., via `accelerate launch`\\) requires a CUDA-enabled GPU.",
     ):
         evaluate_lm_harness(
             task_params=LMHarnessTaskParams(
@@ -483,68 +524,3 @@ def test_vllm_tensor_parallel_explicit():
 
     # Should use the explicit value, not auto-detect
     assert model_args["tensor_parallel_size"] == 2
-
-
-def test_vllm_data_parallel():
-    """Test that VLLM data_parallel_size is passed correctly."""
-    model_params = ModelParams(
-        model_name="test_model",
-        model_kwargs={
-            "tensor_parallel_size": 1,
-            "data_parallel_size": 4,
-        },
-    )
-
-    model_args = _generate_lm_harness_model_args(
-        lm_harness_model="vllm",
-        is_multimodal=False,
-        model_params=model_params,
-        generation_params=GenerationParams(),
-        inference_engine_type=InferenceEngineType.VLLM,
-        inference_remote_params=None,
-    )
-
-    assert model_args["tensor_parallel_size"] == 1
-    assert model_args["data_parallel_size"] == 4
-
-
-def test_native_distributed_disables_parallelize():
-    """Test that shard_for_eval is disabled in distributed mode for NATIVE engine."""
-    model_params = ModelParams(
-        model_name="test_model",
-        shard_for_eval=True,  # Should be overridden
-    )
-
-    model_args = _generate_lm_harness_model_args(
-        lm_harness_model="hf",
-        is_multimodal=False,
-        model_params=model_params,
-        generation_params=GenerationParams(),
-        inference_engine_type=InferenceEngineType.NATIVE,
-        inference_remote_params=None,
-    )
-
-    # In distributed mode, parallelize should be False
-    assert model_args["parallelize"] is False
-    assert model_args["device_map"] is None
-
-
-def test_native_single_process_enables_parallelize():
-    """Test that shard_for_eval works in single-process mode for NATIVE engine."""
-    model_params = ModelParams(
-        model_name="test_model",
-        shard_for_eval=True,
-    )
-
-    model_args = _generate_lm_harness_model_args(
-        lm_harness_model="hf",
-        is_multimodal=False,
-        model_params=model_params,
-        generation_params=GenerationParams(),
-        inference_engine_type=InferenceEngineType.NATIVE,
-        inference_remote_params=None,
-    )
-
-    # In single-process mode, parallelize should be True
-    assert model_args["parallelize"] is True
-    assert model_args["device_map"] == "auto"

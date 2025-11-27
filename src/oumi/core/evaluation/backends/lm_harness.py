@@ -39,6 +39,7 @@ from oumi.core.configs import (
 )
 from oumi.core.distributed import get_device_rank_info, is_world_process_zero
 from oumi.core.evaluation.evaluation_result import EvaluationResult
+from oumi.utils.distributed_utils import is_using_accelerate
 from oumi.utils.logging import logger
 
 # Used to set the few-shot seed for lm_eval.api.task.Task. The value is consistent with
@@ -250,7 +251,23 @@ def evaluate(
         torch_random_seed=torch_random_seed,
     )
 
-    # Detect if running in distributed mode (e.g., via accelerate launch)
+    # Check GPU availability for engines that require it
+    has_gpu = torch.cuda.is_available()
+
+    # VLLM requires GPU
+    if config.inference_engine == InferenceEngineType.VLLM and not has_gpu:
+        raise ValueError("The `VLLM` inference_engine requires a CUDA-enabled GPU.")
+
+    # NATIVE engine with accelerate requires GPU
+    if (
+        config.inference_engine == InferenceEngineType.NATIVE
+        and is_using_accelerate()
+        and not has_gpu
+    ):
+        raise ValueError(
+            "The `NATIVE` inference_engine with distributed execution "
+            "(e.g., via `accelerate launch`) requires a CUDA-enabled GPU."
+        )
 
     # Identify whether the model is multi-modal.
     is_multimodal = is_image_text_llm_using_model_name(
@@ -368,13 +385,8 @@ def _add_native_engine_args(
     model_args: dict[str, Any],
     model_params: ModelParams,
 ) -> None:
-    """Add NATIVE (HuggingFace) engine-specific arguments.
-
-    Handles two mutually exclusive parallelism strategies:
-    - Data parallelism: Used with `accelerate launch` (is_distributed=True)
-    - Model parallelism: Used with `shard_for_eval=True` (is_distributed=False)
-    """
-    model_args["device_map"] = None  # Let accelerate handle placement
+    """Add NATIVE (HuggingFace) engine-specific arguments."""
+    model_args["device_map"] = None
 
     if torch.cuda.is_available():
         device_info = get_device_rank_info()
@@ -403,9 +415,7 @@ def _add_vllm_engine_args(
 ) -> None:
     """Add VLLM engine-specific arguments.
 
-    Supports two types of parallelism:
-    - Tensor parallelism: Splits model across GPUs (for large models)
-    - Data parallelism: Multiple workers evaluate different data (for speed)
+    Supports tensor parallelism: Splits model across GPUs (for large models).
     """
     # Tensor parallelism: from model_kwargs or auto-detect
     tensor_parallel_size = (
