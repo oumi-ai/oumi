@@ -19,6 +19,7 @@ import json
 import time
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Optional
 
@@ -32,6 +33,7 @@ from oumi.core.configs import (
     ModelParams,
 )
 from oumi.core.types.conversation import Conversation
+from oumi.core.types.streaming import StreamingChunk
 from oumi.utils.logging import logger
 from oumi.utils.math_utils import is_power_of_two
 
@@ -440,6 +442,74 @@ class BaseInferenceEngine(ABC):
             List[Conversation]: Inference output.
         """
         raise NotImplementedError
+
+    def supports_streaming(self) -> bool:
+        """Returns whether this engine supports streaming inference.
+
+        Override in subclasses that support streaming.
+
+        Returns:
+            bool: True if streaming is supported, False otherwise.
+        """
+        return False
+
+    async def infer_stream(
+        self,
+        conversation: Conversation,
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> AsyncIterator[StreamingChunk]:
+        """Runs streaming inference on a single conversation.
+
+        This method yields incremental chunks as they are generated,
+        enabling real-time token-by-token output.
+
+        Args:
+            conversation: The conversation to run inference on.
+            inference_config: Parameters for inference.
+
+        Yields:
+            StreamingChunk: Incremental chunks of the generated response.
+
+        Raises:
+            NotImplementedError: If the engine does not support streaming.
+
+        Example:
+            >>> async for chunk in engine.infer_stream(conversation):
+            ...     if chunk.delta:
+            ...         print(chunk.delta, end="", flush=True)
+            ...     if chunk.is_final:
+            ...         print(f"\\nDone: {chunk.finish_reason}")
+        """
+        if not self.supports_streaming():
+            raise NotImplementedError(
+                f"{self.__class__.__name__} does not support streaming inference. "
+                "Use infer() for non-streaming inference."
+            )
+
+        async for chunk in self._infer_stream(conversation, inference_config):
+            yield chunk
+
+    async def _infer_stream(
+        self,
+        conversation: Conversation,
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> AsyncIterator[StreamingChunk]:
+        """Internal streaming implementation.
+
+        Subclasses should override this method to implement streaming.
+
+        Args:
+            conversation: The conversation to run inference on.
+            inference_config: Parameters for inference.
+
+        Yields:
+            StreamingChunk: Incremental chunks of the generated response.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} has not implemented _infer_stream"
+        )
+        # This yield is needed to make this an async generator
+        yield  # type: ignore[misc]
 
     def apply_chat_template(
         self, conversation: Conversation, **tokenizer_kwargs

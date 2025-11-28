@@ -42,6 +42,7 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.core.types.exceptions import HardwareException
+from oumi.core.types.streaming import StreamingChunk, StreamingChunkType
 
 __all__ = [
     "HardwareException",
@@ -52,4 +53,6 @@ __all__ = [
     "Role",
     "Type",
     "TemplatedMessage",
+    "StreamingChunk",
+    "StreamingChunkType",
 ]

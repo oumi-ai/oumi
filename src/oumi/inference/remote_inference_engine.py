@@ -19,6 +19,7 @@ import os
 import tempfile
 import urllib.parse
 import warnings
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -46,6 +47,7 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
+from oumi.core.types.streaming import StreamingChunk, StreamingChunkType
 from oumi.inference.adaptive_concurrency_controller import AdaptiveConcurrencyController
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.utils.conversation_utils import (
@@ -671,6 +673,162 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "temperature",
             "top_p",
         }
+
+    @override
+    def supports_streaming(self) -> bool:
+        """Returns True as remote engines support streaming via SSE."""
+        return True
+
+    def _parse_sse_line(self, line: str) -> Optional[dict[str, Any]]:
+        """Parses a Server-Sent Events line.
+
+        Args:
+            line: Raw SSE line from the response.
+
+        Returns:
+            Parsed JSON data, a special marker dict, or None if line should be skipped.
+        """
+        line = line.strip()
+        if not line or line.startswith(":"):
+            # Empty lines or comments should be skipped
+            return None
+        if line == "data: [DONE]":
+            # OpenAI-style stream termination marker
+            return {"_done": True}
+        if line.startswith("data: "):
+            try:
+                return json.loads(line[6:])
+            except json.JSONDecodeError:
+                return None
+        return None
+
+    @override
+    async def _infer_stream(
+        self,
+        conversation: Conversation,
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> AsyncIterator[StreamingChunk]:
+        """Streaming inference implementation using SSE.
+
+        Args:
+            conversation: The conversation to run inference on.
+            inference_config: Parameters for inference.
+
+        Yields:
+            StreamingChunk: Incremental chunks from the streaming response.
+        """
+        if inference_config is None:
+            remote_params = self._remote_params
+            generation_params = self._generation_params
+            model_params = self._model_params
+        else:
+            remote_params = inference_config.remote_params or self._remote_params
+            generation_params = inference_config.generation or self._generation_params
+            model_params = inference_config.model or self._model_params
+
+        self._set_required_fields_for_inference(remote_params)
+        if not remote_params.api_url:
+            yield StreamingChunk(
+                chunk_type=StreamingChunkType.ERROR,
+                error_message="API URL is required for remote inference.",
+                conversation_id=conversation.conversation_id,
+            )
+            return
+
+        if not self._get_api_key(remote_params):
+            if remote_params.api_key_env_varname:
+                yield StreamingChunk(
+                    chunk_type=StreamingChunkType.ERROR,
+                    error_message=(
+                        f"API key required. Set environment variable "
+                        f"`{remote_params.api_key_env_varname}`."
+                    ),
+                    conversation_id=conversation.conversation_id,
+                )
+                return
+
+        # Build request with streaming enabled
+        api_input = self._convert_conversation_to_api_input(
+            conversation, generation_params, model_params
+        )
+        api_input["stream"] = True
+        headers = self._get_request_headers(remote_params)
+        accumulated_content = ""
+
+        connector = aiohttp.TCPConnector(limit=1)
+        try:
+            async with aiohttp.ClientSession(connector=connector) as session:
+                async with session.post(
+                    remote_params.api_url,
+                    json=api_input,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(
+                        total=None,  # No total timeout for streaming
+                        connect=remote_params.connection_timeout,
+                    ),
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        yield StreamingChunk(
+                            chunk_type=StreamingChunkType.ERROR,
+                            error_message=f"API error {response.status}: {error_text}",
+                            conversation_id=conversation.conversation_id,
+                        )
+                        return
+
+                    # Process SSE stream
+                    async for line_bytes in response.content:
+                        line_str = line_bytes.decode("utf-8")
+                        # SSE can have multiple events in one chunk
+                        for sse_line in line_str.split("\n"):
+                            parsed = self._parse_sse_line(sse_line)
+                            if parsed is None:
+                                continue
+
+                            # Check for stream completion marker
+                            if parsed.get("_done"):
+                                yield StreamingChunk(
+                                    chunk_type=StreamingChunkType.FINISH,
+                                    finish_reason="stop",
+                                    accumulated_content=accumulated_content,
+                                    conversation_id=conversation.conversation_id,
+                                )
+                                return
+
+                            # Extract delta from OpenAI-style response
+                            choices = parsed.get("choices", [])
+                            if not choices:
+                                continue
+
+                            choice = choices[0]
+                            delta = choice.get("delta", {})
+                            content = delta.get("content", "")
+                            finish_reason = choice.get("finish_reason")
+
+                            if content:
+                                accumulated_content += content
+                                yield StreamingChunk(
+                                    chunk_type=StreamingChunkType.CONTENT_DELTA,
+                                    delta=content,
+                                    accumulated_content=accumulated_content,
+                                    conversation_id=conversation.conversation_id,
+                                )
+
+                            if finish_reason:
+                                yield StreamingChunk(
+                                    chunk_type=StreamingChunkType.FINISH,
+                                    finish_reason=finish_reason,
+                                    accumulated_content=accumulated_content,
+                                    conversation_id=conversation.conversation_id,
+                                )
+                                return
+
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            yield StreamingChunk(
+                chunk_type=StreamingChunkType.ERROR,
+                error_message=f"Connection error: {str(e)}",
+                conversation_id=conversation.conversation_id,
+            )
 
     def infer_online(
         self,
