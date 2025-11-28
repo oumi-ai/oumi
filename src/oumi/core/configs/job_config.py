@@ -59,6 +59,7 @@ class JobResources:
         - gcp: Google Cloud Platform
         - lambda: Lambda Cloud
         - runpod: RunPod
+        - modal: Modal.com (serverless GPU infrastructure)
         Research clusters (not intended for general use):
         - polaris: The Polaris cluster at Argonne National Laboratory
         - frontier: The Frontier cluster at Oak Ridge National Laboratory

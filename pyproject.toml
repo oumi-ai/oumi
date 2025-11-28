@@ -141,6 +141,7 @@ gcp = [
     "skypilot[gcp]",
 ]
 lambda = ["skypilot[lambda]"]
+modal = ["modal"]
 runpod = ["skypilot[runpod]"]
 
 synthesis = [
