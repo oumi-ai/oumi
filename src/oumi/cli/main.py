@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import signal
 import sys
 import traceback
 
@@ -165,8 +166,95 @@ def get_app() -> typer.Typer:
     return app
 
 
+# Store original signal handlers to restore if needed
+# signal.signal() returns Callable | int | None (int for SIG_DFL=0, SIG_IGN=1)
+_original_sigterm_handler = None
+_original_sigint_handler = None
+
+
+def _create_signal_handler(sig_name: str):
+    """Create a signal handler that logs helpful OOM-related messages.
+
+    Note: SIGKILL (signal 9) cannot be caught - this is a fundamental OS limitation.
+    When the Linux OOM killer terminates a process, it sends SIGKILL which immediately
+    kills the process without any chance to run cleanup code.
+
+    However, when running distributed training with torchrun:
+    - If one worker is killed by the OOM killer (SIGKILL), torchrun detects this
+    - torchrun then sends SIGTERM to the remaining workers to shut them down
+    - We can catch SIGTERM and provide helpful guidance to the user
+    """
+
+    def _signal_handler(signum: int, frame) -> None:
+        """Handle termination signals with helpful OOM-related messages."""
+        # Use print instead of logger since logging may not be safe in signal handlers
+        print(f"\n{'=' * 70}")
+        print(f"OUMI: Received {sig_name} (signal {signum})")
+        print("=" * 70)
+        print(
+            "\nIf you see 'Signal 9 (SIGKILL)' in the error output, your process was "
+            "likely terminated by the Linux OOM (Out-Of-Memory) killer."
+        )
+        print("\nCommon causes and solutions:")
+        print("  1. GPU memory exhaustion:")
+        print("     - Reduce batch size (training.per_device_train_batch_size)")
+        print("     - Enable gradient checkpointing")
+        print("       (model.enable_gradient_checkpointing)")
+        print("     - Use a smaller model or enable model sharding (FSDP/DeepSpeed)")
+        print("     - Reduce sequence length (data.max_length)")
+        print("  2. CPU/System memory exhaustion:")
+        print("     - Reduce dataloader workers")
+        print("       (training.dataloader_num_workers)")
+        print("     - Enable CPU offloading for FSDP (fsdp.cpu_offload)")
+        print("     - Use memory-mapped datasets")
+        print("  3. Check memory usage: nvidia-smi (GPU) or htop (CPU)")
+        print("=" * 70 + "\n")
+        sys.stdout.flush()
+
+        # Re-raise the signal to allow normal termination
+        # First restore the original handler to avoid infinite loop
+        if sig_name == "SIGTERM" and _original_sigterm_handler is not None:
+            signal.signal(signal.SIGTERM, _original_sigterm_handler)
+        elif sig_name == "SIGINT" and _original_sigint_handler is not None:
+            signal.signal(signal.SIGINT, _original_sigint_handler)
+
+        # Re-send the signal to trigger default behavior
+        os.kill(os.getpid(), signum)
+
+    return _signal_handler
+
+
+def _setup_signal_handlers() -> None:
+    """Set up signal handlers to provide helpful messages on termination.
+
+    This catches SIGTERM and SIGINT to provide guidance about potential OOM issues.
+    SIGKILL cannot be caught (OS limitation), but we explain this in the message.
+    """
+    global _original_sigterm_handler, _original_sigint_handler
+
+    # Only set up handlers for the main process in distributed training
+    # to avoid duplicate messages from all workers
+    rank = int(os.environ.get("RANK", 0))
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+
+    # Only set up signal handlers for rank 0 or non-distributed runs
+    if rank == 0 or local_rank == 0:
+        try:
+            _original_sigterm_handler = signal.signal(
+                signal.SIGTERM, _create_signal_handler("SIGTERM")
+            )
+            _original_sigint_handler = signal.signal(
+                signal.SIGINT, _create_signal_handler("SIGINT")
+            )
+        except (ValueError, OSError):
+            # signal.signal can fail if not called from the main thread
+            # or on some platforms - silently ignore
+            pass
+
+
 def run():
     """The entrypoint for the CLI."""
+    _setup_signal_handlers()
     app = get_app()
     try:
         return app()
