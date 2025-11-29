@@ -168,7 +168,7 @@ def test_infer_basic_non_interactive_with_images(
         model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         model_max_length=1024,
         trust_remote_code=True,
-        chat_template="auto",
+        chat_template="llava",
         torch_dtype_str="bfloat16",
         device_map=get_default_device_map_for_inference(),
     )
@@ -195,7 +195,7 @@ def test_infer_basic_non_interactive_with_images(
         "A traditional Japanese ukiyo-e painting depicting a",
         "A detailed Japanese woodblock print depicting a large wave",
         "A Japanese woodblock print depicting a large wave crashing",
-        # " A Japanese woodblock print shows a large wave crashing",
+        " A Japanese woodblock print shows a large wave crashing",
     ]
 
     def _create_conversation(response: str) -> Conversation:
