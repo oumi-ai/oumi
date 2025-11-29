@@ -55,7 +55,6 @@ def test_tune():
                     "enable_wandb": False,
                     "enable_tensorboard": False,
                     "enable_mlflow": False,
-                    "save_strategy": "no",
                 },
                 tunable_peft_params={
                     "lora_r": {
@@ -114,7 +113,6 @@ def test_tune_multi_objective():
                     "enable_wandb": False,
                     "enable_tensorboard": False,
                     "enable_mlflow": False,
-                    "save_strategy": "no",
                 },
                 output_dir=output_temp_dir,
                 evaluation_metrics=["eval_loss", "eval_mean_token_accuracy"],
