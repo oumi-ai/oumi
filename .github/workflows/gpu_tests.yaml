@@ -74,12 +74,6 @@ jobs:
             echo "nvidia-smi not found, but that's OK in container"
           fi
 
-          # Set CUDA_HOME if not set
-          if [ -z "$CUDA_HOME" ]; then
-            export CUDA_HOME=/usr/local/cuda
-            echo "Set CUDA_HOME=$CUDA_HOME"
-          fi
-
       - name: Run GPU tests
         run: |
           cd ./tests/integration/
