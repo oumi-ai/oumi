@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
@@ -127,6 +127,30 @@ class GenerationParams(BaseParams):
     the output text. When False, these tokens are included in the decoded text.
     This can be useful for models that use special tokens as part of their output
     format (e.g., reasoning tokens, tool call markers).
+    """
+
+    tools: Optional[list[Any]] = None
+    """List of tools available to the model.
+
+    Should be a list of ToolDefinition objects (from oumi.core.types.tool_call).
+    The model may choose to call one or more of these tools.
+    """
+
+    tool_choice: Optional[Union[str, dict[str, Any]]] = None
+    """Controls which (if any) tool is called by the model.
+
+    Can be:
+    - "auto": Let the model decide (default)
+    - "none": Don't call any tools
+    - "required": Must call at least one tool
+    - {"type": "function", "function": {"name": "my_function"}}: Call specific function
+    """
+
+    parallel_tool_calls: bool = True
+    """Whether to enable parallel function calling.
+
+    When True, the model can call multiple tools in a single response.
+    Default is True. Only supported by some models (e.g., OpenAI gpt-4-turbo and later).
     """
 
     def __post_init__(self):

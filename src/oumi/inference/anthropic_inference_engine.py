@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from typing import Any, Optional
 
 from typing_extensions import override
@@ -95,17 +96,70 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         else:
             system_message = None
 
+        # Filter out system messages and build message list
         messages = [
             message for message in conversation.messages if message.role != Role.SYSTEM
         ]
 
+        # Convert messages to Anthropic format
+        from oumi.utils.conversation_utils import convert_message_to_json_content_list
+
+        anthropic_messages = []
+        for message in messages:
+            msg_dict: dict[str, Any] = {
+                "role": message.role.value,
+            }
+
+            # Handle content
+            if message.content is not None:
+                content_list = convert_message_to_json_content_list(message)
+
+                # Convert to list format if it's a string
+                if isinstance(content_list, str):
+                    content_list = [{"type": "text", "text": content_list}]
+
+                msg_dict["content"] = content_list
+
+            # Handle tool calls (assistant calling tools)
+            if message.tool_calls:
+                if "content" not in msg_dict:
+                    msg_dict["content"] = []
+                elif isinstance(msg_dict["content"], str):
+                    msg_dict["content"] = [
+                        {"type": "text", "text": msg_dict["content"]}
+                    ]
+                elif not isinstance(msg_dict["content"], list):
+                    msg_dict["content"] = []
+
+                # Anthropic format for tool calls
+                for tc in message.tool_calls:
+                    msg_dict["content"].append(
+                        {
+                            "type": "tool_use",
+                            "id": tc.id,
+                            "name": tc.function.name,
+                            "input": json.loads(tc.function.arguments),
+                        }
+                    )
+
+            # Handle tool responses (tool role messages)
+            if message.tool_call_id:
+                msg_dict["content"] = [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": message.tool_call_id,
+                        "content": message.content or "",
+                    }
+                ]
+                msg_dict["role"] = "user"  # Anthropic expects tool results as user role
+
+            anthropic_messages.append(msg_dict)
+
         # Build request body
         # See https://docs.anthropic.com/claude/reference/messages_post
-        body = {
+        body: dict[str, Any] = {
             "model": model_params.model_name,
-            "messages": self._get_list_of_message_json_dicts(
-                messages, group_adjacent_same_role_turns=True
-            ),
+            "messages": anthropic_messages,
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
             "top_p": generation_params.top_p,
@@ -117,6 +171,35 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings is not None:
             body["stop_sequences"] = generation_params.stop_strings
 
+        # Add tool calling parameters
+        if generation_params.tools:
+            body["tools"] = [
+                {
+                    "name": tool.function.name,
+                    "description": tool.function.description,
+                    "input_schema": tool.function.parameters or {"type": "object"},
+                }
+                for tool in generation_params.tools
+            ]
+
+            if generation_params.tool_choice:
+                # Convert from OpenAI format to Anthropic format
+                if isinstance(generation_params.tool_choice, str):
+                    if generation_params.tool_choice == "auto":
+                        body["tool_choice"] = {"type": "auto"}
+                    elif generation_params.tool_choice == "required":
+                        body["tool_choice"] = {"type": "any"}
+                    elif generation_params.tool_choice == "none":
+                        # Anthropic doesn't have a direct "none" - just don't pass tools
+                        body.pop("tools", None)
+                elif isinstance(generation_params.tool_choice, dict):
+                    # Specific function choice
+                    func_name = generation_params.tool_choice.get("function", {}).get(
+                        "name"
+                    )
+                    if func_name:
+                        body["tool_choice"] = {"type": "tool", "name": func_name}
+
         return body
 
     @override
@@ -124,10 +207,50 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an Anthropic API response to a conversation."""
+        # Handle error responses
+        if "error" in response:
+            raise RuntimeError(
+                f"API error: {response['error'].get('message', response['error'])}"
+            )
+
+        # Parse content - Anthropic returns a list of content blocks
+        content_blocks = response.get(_CONTENT_KEY, [])
+
+        # Extract text and tool use
+        text_content = ""
+        tool_calls = []
+
+        for block in content_blocks:
+            if block.get("type") == "text":
+                text_content += block.get("text", "")
+            elif block.get("type") == "tool_use":
+                try:
+                    from oumi.core.types.tool_call import (
+                        FunctionCall,
+                        ToolCall,
+                        ToolType,
+                    )
+
+                    tool_calls.append(
+                        ToolCall(
+                            id=block["id"],
+                            type=ToolType.FUNCTION,
+                            function=FunctionCall(
+                                name=block["name"],
+                                arguments=json.dumps(block["input"]),
+                            ),
+                        )
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to parse tool call: {e}")
+
+        # Create message
         new_message = Message(
-            content=response[_CONTENT_KEY][0]["text"],
+            content=text_content or "",
             role=Role.ASSISTANT,
+            tool_calls=tool_calls if tool_calls else None,
         )
+
         return Conversation(
             messages=[*original_conversation.messages, new_message],
             metadata=original_conversation.metadata,
@@ -149,6 +272,8 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "max_new_tokens",
             "stop_strings",
             "temperature",
+            "tool_choice",
+            "tools",
             "top_p",
         }
 
