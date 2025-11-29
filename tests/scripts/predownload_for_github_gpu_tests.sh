@@ -50,6 +50,12 @@ sleep 1
 # Core text models used extensively in tests
 download_with_retry openai-community/gpt2 --exclude "onnx/*" "runs/*"
 
+# Add delay between downloads to avoid rate limiting
+sleep 1
+
+# Qwen3-0.6B model used in vLLM inference tests
+download_with_retry "Qwen/Qwen3-0.6B" --exclude "onnx/*" "runs/*"
+
 # ========================================
 # DATASETS USED IN ACTIVE TESTS
 # ========================================
