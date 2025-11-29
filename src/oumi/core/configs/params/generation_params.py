@@ -13,10 +13,31 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from enum import Enum
+from typing import Any, Optional, Union
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
+
+
+class ReasoningEffort(str, Enum):
+    """Reasoning effort level for reasoning models (o1, o3, o4 series)."""
+
+    MINIMAL = "minimal"
+    """Minimal reasoning effort (~10% of max_tokens for reasoning)."""
+
+    LOW = "low"
+    """Low reasoning effort (~20% of max_tokens for reasoning)."""
+
+    MEDIUM = "medium"
+    """Medium reasoning effort (~50% of max_tokens for reasoning)."""
+
+    HIGH = "high"
+    """High reasoning effort (~80% of max_tokens for reasoning)."""
+
+    def __str__(self) -> str:
+        """Return the string representation of the ReasoningEffort enum."""
+        return self.value
 
 
 @dataclass
@@ -129,6 +150,15 @@ class GenerationParams(BaseParams):
     format (e.g., reasoning tokens, tool call markers).
     """
 
+    # Reasoning model parameters (OpenAI o1, o3, o4 series)
+    reasoning_effort: Optional[Union[ReasoningEffort, str]] = None
+    """The effort level for reasoning models.
+
+    Controls how much reasoning the model does before generating a response.
+    Only supported by OpenAI reasoning models (o1, o3, o4 series).
+    Options: "minimal", "low", "medium" (default), "high"
+    """
+
     def __post_init__(self):
         """Validates generation-specific parameters."""
         if self.batch_size is not None and self.batch_size < 1:
@@ -156,3 +186,13 @@ class GenerationParams(BaseParams):
 
         if not 0 <= self.min_p <= 1:
             raise ValueError("min_p must be between 0 and 1.")
+
+        # Validate reasoning_effort
+        if self.reasoning_effort is not None:
+            if isinstance(self.reasoning_effort, str):
+                valid_efforts = {e.value for e in ReasoningEffort}
+                if self.reasoning_effort not in valid_efforts:
+                    raise ValueError(
+                        f"reasoning_effort must be one of {valid_efforts}, "
+                        f"got '{self.reasoning_effort}'"
+                    )
