@@ -87,7 +87,7 @@ def test_infer_basic_interactive_with_images(
             model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
             model_max_length=1024,
             trust_remote_code=True,
-            chat_template="qwen2-vl-instruct",
+            chat_template="llava",
         ),
         generation=GenerationParams(max_new_tokens=16, temperature=0.0, seed=42),
     )
