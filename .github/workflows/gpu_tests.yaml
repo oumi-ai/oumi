@@ -32,7 +32,20 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcurl4
+          sudo apt-get install -y libcurl4 wget software-properties-common
+
+      - name: Install CUDA Toolkit
+        run: |
+          # Install CUDA toolkit from NVIDIA
+          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
+          sudo apt-get update
+          sudo apt-get install -y cuda-toolkit-12-4
+
+          # Set CUDA_HOME
+          echo "CUDA_HOME=/usr/local/cuda-12.4" >> $GITHUB_ENV
+          echo "PATH=/usr/local/cuda-12.4/bin:$PATH" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=/usr/local/cuda-12.4/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
       - name: "Set up Python"
         uses: actions/setup-python@v6
@@ -67,67 +80,9 @@ jobs:
       - name: Verify CUDA environment
         run: |
           echo "=== CUDA Environment Check ==="
-          # Check if nvidia-smi is available
-          if command -v nvidia-smi &> /dev/null; then
-            nvidia-smi
-          else
-            echo "nvidia-smi not found, but that's OK in container"
-          fi
-
-          # Find CUDA installation
-          echo "=== Checking CUDA installation ==="
-
-          # Check common CUDA locations
-          CUDA_LOCATIONS=(
-            "/usr/local/cuda"
-            "/usr/local/cuda-12.8"
-            "/usr/local/cuda-12.6"
-            "/usr/local/cuda-12.4"
-            "/usr/local/cuda-12.2"
-            "/usr/local/cuda-12.1"
-            "/usr/local/cuda-12.0"
-            "/usr/local/cuda-11.8"
-            "/opt/cuda"
-          )
-
-          CUDA_HOME=""
-          for cuda_path in "${CUDA_LOCATIONS[@]}"; do
-            if [ -d "$cuda_path" ] && [ -f "$cuda_path/bin/nvcc" ]; then
-              CUDA_HOME="$cuda_path"
-              echo "Found CUDA at: $CUDA_HOME"
-              break
-            fi
-          done
-
-          # If not found, try to find any versioned CUDA directory
-          if [ -z "$CUDA_HOME" ]; then
-            CUDA_HOME=$(find /usr/local -maxdepth 1 -name "cuda-*" -type d 2>/dev/null | sort -V | tail -1)
-            if [ -n "$CUDA_HOME" ]; then
-              echo "Found CUDA at: $CUDA_HOME"
-            fi
-          fi
-
-          if [ -n "$CUDA_HOME" ]; then
-            echo "CUDA_HOME=$CUDA_HOME" >> $GITHUB_ENV
-            echo "CUDA version: $(cat $CUDA_HOME/version.txt 2>/dev/null || cat $CUDA_HOME/version.json 2>/dev/null || echo 'version file not found')"
-          else
-            echo "ERROR: CUDA installation not found!"
-            echo "Searched locations:"
-            for loc in "${CUDA_LOCATIONS[@]}"; do
-              echo "  - $loc"
-            done
-            echo "Contents of /usr/local/:"
-            ls -la /usr/local/ | grep -i cuda || echo "No CUDA directories found"
-            exit 1
-          fi
-
-          # Verify nvcc is available
-          if [ -n "$CUDA_HOME" ] && [ -x "$CUDA_HOME/bin/nvcc" ]; then
-            echo "nvcc version:"
-            $CUDA_HOME/bin/nvcc --version
-          else
-            echo "WARNING: nvcc not found"
-          fi
+          nvidia-smi
+          echo "CUDA_HOME: $CUDA_HOME"
+          nvcc --version
 
       - name: Run GPU tests
         run: |
