@@ -51,6 +51,15 @@ jobs:
           # Install in verbose mode to see what's going on
           uv pip install --system -e '.[ci_gpu]' hf_transfer
 
+      - name: Cache HuggingFace Models
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+          key: hf-models-${{ runner.os }}-${{ hashFiles('tests/scripts/predownload_for_github_gpu_tests.sh') }}
+          restore-keys: |
+            hf-models-${{ runner.os }}-
+
       - name: Download Test Data
         run: |
           ./tests/scripts/predownload_for_github_gpu_tests.sh
