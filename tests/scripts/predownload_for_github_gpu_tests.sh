@@ -60,7 +60,7 @@ download_with_retry "Qwen/Qwen3-0.6B" \
 
 # MMLU dataset used in unit tests (test_data_mixtures.py)
 download_with_retry "tasksource/mmlu" --repo-type dataset \
-    --include "college_computer_science/*" "abstract_algebra/*" 
+    --include "college_computer_science/*" "abstract_algebra/*"
 
 # Alpaca dataset used in integration tests (test_train.py)
 download_with_retry "yahma/alpaca-cleaned" --repo-type dataset \
