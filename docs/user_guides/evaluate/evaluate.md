@@ -132,7 +132,7 @@ The model will be automatically split across all specified GPUs using tensor par
 **Use case:** Want faster evaluation of smaller models
 
 ```{code-block} yaml
-:emphasize-lines: 3,8
+:emphasize-lines: 8
 model:
   model_name: "Qwen/Qwen2.5-7B-Instruct"
 
@@ -160,7 +160,7 @@ Each GPU evaluates different data in parallel. Results are automatically aggrega
 **Use case:** 70B+ models without VLLM support
 
 ```{code-block} yaml
-:emphasize-lines: 3,8
+:emphasize-lines: 3,9
 model:
   model_name: "meta-llama/Llama-3.3-70B-Instruct"
   shard_for_eval: True  # Split model across available GPUs
@@ -184,12 +184,14 @@ The model weights will be automatically distributed across all available GPUs.
 
 ##### Choosing the Right Strategy
 
-| Model Fits on 1 GPU? | Preferred Inference Engine | Strategy | GPU Required? | Command |
-|----------------------|---------------------------|----------|---------------|---------|
-| ✅ Yes | VLLM | Tensor Parallelism | ✅ Yes | `oumi evaluate` |
-| ✅ Yes | NATIVE | Data Parallelism | ✅ Yes | `accelerate launch -m oumi evaluate` |
-| ❌ No (too large) | VLLM | Tensor Parallelism | ✅ Yes  | `oumi evaluate` |
-| ❌ No (too large) | NATIVE | Model Parallelism (`shard_for_eval`) | ❌ No (optional) | `oumi evaluate` |
+| Inference Engine | Strategy | GPU Required? | Command |
+|---------------------------|----------|---------------|---------|
+| VLLM | - | Yes | `oumi evaluate` |
+| VLLM | Tensor Parallelism | Yes (multi-gpu) | `oumi evaluate` |
+| NATIVE | - | No | `oumi evaluate` |
+| NATIVE | Data Parallelism | Yes | `accelerate launch -m oumi evaluate` |
+| NATIVE | Tensor Parallelism (`shard_for_eval=True`) | No | `oumi evaluate` |
+| NATIVE | Tensor + Data Parallelism (`shard_for_eval=True`) | Yes (multi-gpu) | `accelerate launch -m oumi evaluate` |
 
 ```{note}
 Only single node, multiple GPU configurations are currently supported. Multi-node evaluation is not yet available.
