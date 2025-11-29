@@ -21,6 +21,7 @@ import aiohttp
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
+from oumi.core.configs.params.generation_params import ReasoningEffort
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
@@ -168,7 +169,7 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
         ):
             effort_value = (
                 generation_params.reasoning_effort.value
-                if hasattr(generation_params.reasoning_effort, "value")
+                if isinstance(generation_params.reasoning_effort, ReasoningEffort)
                 else generation_params.reasoning_effort
             )
             api_input["reasoning_effort"] = effort_value

@@ -537,7 +537,9 @@ def test_transform_conversation_with_url(
     conversation = dataset.transform_conversation(sample_dataset_example_with_url)
 
     # Check image content item
-    image_item = conversation.messages[0].content[0]
+    content = conversation.messages[0].content
+    assert content is not None
+    image_item = content[0]
     assert isinstance(image_item, ContentItem)
     assert image_item.type == Type.IMAGE_URL
     assert image_item.content == "https://example.com/image.jpg"

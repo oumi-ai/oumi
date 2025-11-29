@@ -16,30 +16,20 @@ from typing import Optional
 
 from typing_extensions import override
 
-from oumi.inference.openai_inference_engine import OpenAIInferenceEngine
+from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
 
-class TogetherInferenceEngine(OpenAIInferenceEngine):
-    """Engine for running inference against the Together AI API.
-
-    Together.ai uses an OpenAI-compatible API, so we inherit from OpenAIInferenceEngine
-    and only override the base URL and API key environment variable.
-
-    Supports (inherited from OpenAIInferenceEngine):
-    - Standard text generation
-    - Streaming responses with usage tracking
-    - Tool/function calling
-    - Vision/multimodal inputs
-    """
+class TogetherInferenceEngine(RemoteInferenceEngine):
+    """Engine for running inference against the Together AI API."""
 
     @property
     @override
     def base_url(self) -> Optional[str]:
-        """Return the default base URL for the Together AI API."""
+        """Return the default base URL for the Together API."""
         return "https://api.together.xyz/v1/chat/completions"
 
     @property
     @override
     def api_key_env_varname(self) -> Optional[str]:
-        """Return the default environment variable name for the Together AI API key."""
+        """Return the default environment variable name for the Together API key."""
         return "TOGETHER_API_KEY"
