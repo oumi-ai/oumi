@@ -53,6 +53,37 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         """Return the default environment variable name for the Anthropic API key."""
         return "ANTHROPIC_API_KEY"
 
+    def _add_cache_control(self, content: Any, cache_type: str = "ephemeral") -> Any:
+        """Add cache_control to content for prompt caching.
+
+        Args:
+            content: Content to add cache control to.
+            cache_type: Type of cache ("ephemeral" for 5min, "persistent" for 1hr).
+
+        Returns:
+            Content with cache_control added.
+        """
+        if isinstance(content, str):
+            return {
+                "type": "text",
+                "text": content,
+                "cache_control": {"type": cache_type},
+            }
+        elif isinstance(content, list):
+            # Add cache control to the last text block
+            result = list(content)
+            for i in range(len(result) - 1, -1, -1):
+                if result[i].get("type") == "text":
+                    result[i] = dict(result[i])
+                    result[i]["cache_control"] = {"type": cache_type}
+                    break
+            return result
+        elif isinstance(content, dict):
+            result = dict(content)
+            result["cache_control"] = {"type": cache_type}
+            return result
+        return content
+
     @override
     def _convert_conversation_to_api_input(
         self,
@@ -99,13 +130,44 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             message for message in conversation.messages if message.role != Role.SYSTEM
         ]
 
+        # Convert messages to Anthropic format
+        anthropic_messages = self._get_list_of_message_json_dicts(
+            messages, group_adjacent_same_role_turns=True
+        )
+
+        # Apply prompt caching if enabled
+        anthropic_params = (
+            self._remote_params.anthropic_params
+            if hasattr(self._remote_params, "anthropic_params")
+            and self._remote_params.anthropic_params
+            else None
+        )
+
+        if anthropic_params and anthropic_params.enable_prompt_caching:
+            cache_type = anthropic_params.cache_duration.value
+            breakpoints = anthropic_params.cache_breakpoints
+
+            if breakpoints is None:
+                # Default: cache before the last user message
+                for i in range(len(anthropic_messages) - 1, -1, -1):
+                    if anthropic_messages[i]["role"] == "user":
+                        anthropic_messages[i]["content"] = self._add_cache_control(
+                            anthropic_messages[i]["content"], cache_type
+                        )
+                        break
+            else:
+                # Apply caching at specified breakpoints
+                for idx in breakpoints:
+                    if 0 <= idx < len(anthropic_messages):
+                        anthropic_messages[idx]["content"] = self._add_cache_control(
+                            anthropic_messages[idx]["content"], cache_type
+                        )
+
         # Build request body
         # See https://docs.anthropic.com/claude/reference/messages_post
-        body = {
+        body: dict[str, Any] = {
             "model": model_params.model_name,
-            "messages": self._get_list_of_message_json_dicts(
-                messages, group_adjacent_same_role_turns=True
-            ),
+            "messages": anthropic_messages,
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
             "top_p": generation_params.top_p,
@@ -136,11 +198,26 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
     @override
     def _get_request_headers(self, remote_params: RemoteParams) -> dict[str, str]:
-        return {
+        headers = {
             "Content-Type": "application/json",
             "anthropic-version": self.anthropic_version,
             "X-API-Key": self._get_api_key(remote_params) or "",
         }
+
+        # Add beta features header if configured
+        anthropic_params = (
+            remote_params.anthropic_params
+            if hasattr(remote_params, "anthropic_params")
+            and remote_params.anthropic_params
+            else None
+        )
+
+        if anthropic_params:
+            beta_header = anthropic_params.get_beta_header_value()
+            if beta_header:
+                headers["anthropic-beta"] = beta_header
+
+        return headers
 
     @override
     def get_supported_params(self) -> set[str]:
