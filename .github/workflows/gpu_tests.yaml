@@ -74,11 +74,6 @@ jobs:
             echo "nvidia-smi not found, but that's OK in container"
           fi
 
-          # Check NVCC
-          nvcc --version
-          echo "CUDA_HOME: ${CUDA_HOME:-/usr/local/cuda}"
-          which nvcc
-
           # Set CUDA_HOME if not set
           if [ -z "$CUDA_HOME" ]; then
             export CUDA_HOME=/usr/local/cuda
