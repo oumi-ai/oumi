@@ -129,6 +129,21 @@ class GenerationParams(BaseParams):
     format (e.g., reasoning tokens, tool call markers).
     """
 
+    # Streaming parameters
+    stream: bool = False
+    """Whether to stream the response incrementally.
+
+    When True, the model will return partial responses as they are generated,
+    allowing for lower latency user experiences. Default is False.
+    """
+
+    stream_options: Optional[dict[str, Any]] = None
+    """Options for streaming responses.
+
+    For OpenAI: Use {"include_usage": true} to include usage statistics in the
+    final streaming chunk.
+    """
+
     def __post_init__(self):
         """Validates generation-specific parameters."""
         if self.batch_size is not None and self.batch_size < 1:

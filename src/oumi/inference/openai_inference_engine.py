@@ -13,13 +13,17 @@
 # limitations under the License.
 
 import copy
+import json
+from collections.abc import AsyncGenerator
 from typing import Any, Optional
 
+import aiohttp
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
+from oumi.utils.logging import logger
 
 
 class OpenAIInferenceEngine(RemoteInferenceEngine):
@@ -65,13 +69,71 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
             # o1-preview only supports temperature = 1.
             generation_params.temperature = 1.0
 
-        return super()._convert_conversation_to_api_input(
+        api_input = super()._convert_conversation_to_api_input(
             conversation=conversation,
             generation_params=generation_params,
             model_params=model_params,
         )
 
+        # Add streaming parameters
+        if generation_params.stream:
+            api_input["stream"] = True
+            if generation_params.stream_options:
+                api_input["stream_options"] = generation_params.stream_options
+            else:
+                # Enable usage tracking for streaming by default
+                api_input["stream_options"] = {"include_usage": True}
+
+        return api_input
+
+    async def _stream_api_response(
+        self,
+        response: aiohttp.ClientResponse,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Stream SSE chunks from the API response.
+
+        Args:
+            response: The aiohttp response object.
+
+        Yields:
+            Parsed JSON chunks from the stream.
+        """
+        async for line in response.content:
+            line = line.decode("utf-8").strip()
+
+            if not line or line == "data: [DONE]":
+                continue
+
+            if line.startswith("data: "):
+                line = line[6:]  # Remove "data: " prefix
+
+                try:
+                    chunk = json.loads(line)
+                    yield chunk
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse streaming chunk: {line[:100]}")
+                    continue
+
     @override
     def _default_remote_params(self) -> RemoteParams:
         """Returns the default remote parameters."""
         return RemoteParams(num_workers=50, politeness_policy=60.0)
+
+    @override
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "frequency_penalty",
+            "guided_decoding",
+            "logit_bias",
+            "max_new_tokens",
+            "min_p",
+            "presence_penalty",
+            "seed",
+            "stop_strings",
+            "stop_token_ids",
+            "stream",
+            "stream_options",
+            "temperature",
+            "top_p",
+        }

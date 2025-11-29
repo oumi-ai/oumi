@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+from collections.abc import AsyncGenerator
 from typing import Any, Optional
 
+import aiohttp
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
@@ -117,6 +120,10 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings is not None:
             body["stop_sequences"] = generation_params.stop_strings
 
+        # Add streaming
+        if generation_params.stream:
+            body["stream"] = True
+
         return body
 
     @override
@@ -142,12 +149,41 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "X-API-Key": self._get_api_key(remote_params) or "",
         }
 
+    async def _stream_api_response(
+        self,
+        response: aiohttp.ClientResponse,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Stream SSE events from the Anthropic API response.
+
+        Args:
+            response: The aiohttp response object.
+
+        Yields:
+            Parsed event dictionaries from the stream.
+        """
+        async for line in response.content:
+            line = line.decode("utf-8").strip()
+
+            if not line:
+                continue
+
+            # Anthropic uses SSE format: "event: <type>" followed by "data: <json>"
+            if line.startswith("data: "):
+                data_str = line[6:]
+                try:
+                    chunk = json.loads(data_str)
+                    yield chunk
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse streaming chunk: {data_str[:100]}")
+                    continue
+
     @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
             "max_new_tokens",
             "stop_strings",
+            "stream",
             "temperature",
             "top_p",
         }
