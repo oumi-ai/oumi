@@ -32,9 +32,14 @@ def test_convert_conversation_to_api_input(anthropic_engine):
     assert result["model"] == "claude-3"
     assert result["system"] == "System message"
     assert len(result["messages"]) == 2
-    assert result["messages"][0]["content"] == "User message"
+    # Content is now in Anthropic's content block format
+    assert result["messages"][0]["content"] == [
+        {"type": "text", "text": "User message"}
+    ]
     assert result["messages"][0]["role"] == "user"
-    assert result["messages"][1]["content"] == "Assistant message"
+    assert result["messages"][1]["content"] == [
+        {"type": "text", "text": "Assistant message"}
+    ]
     assert result["messages"][1]["role"] == "assistant"
     assert result["max_tokens"] == 100
 
@@ -47,7 +52,8 @@ def test_convert_api_output_to_conversation(anthropic_engine):
         metadata={"key": "value"},
         conversation_id="test_id",
     )
-    api_response = {"content": [{"text": "Assistant response"}]}
+    # Anthropic API response includes type field in content blocks
+    api_response = {"content": [{"type": "text", "text": "Assistant response"}]}
 
     result = anthropic_engine._convert_api_output_to_conversation(
         api_response, original_conversation
