@@ -445,7 +445,7 @@ class DatasetAnalyzer:
 
         Returns:
             DataFrame with columns prefixed by ``message_`` and ``conversation_`` for
-            each analyzer
+            each analyzer.
 
         Raises:
             RuntimeError: If analysis has not been run yet.

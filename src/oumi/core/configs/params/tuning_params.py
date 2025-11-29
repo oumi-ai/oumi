@@ -122,11 +122,11 @@ class TuningParams(BaseParams):
 
     Supported types from ParamType enum:
 
-    - CATEGORICAL: List of discrete choices
-    - INT: Integer range
-    - FLOAT: Float range (uniform sampling)
-    - LOGUNIFORM: Float range with log-scale sampling
-    - UNIFORM: Float range with uniform sampling
+    - ``CATEGORICAL``: List of discrete choices
+    - ``INT``: Integer range
+    - ``FLOAT``: Float range (uniform sampling)
+    - ``LOGUNIFORM``: Float range with log-scale sampling
+    - ``UNIFORM``: Float range with uniform sampling
     """
 
     fixed_training_params: dict = field(default_factory=dict)
@@ -248,7 +248,8 @@ class TuningParams(BaseParams):
     """The type of tuner to use for hyperparameter optimization.
 
     Possible values are:
-        - OPTUNA: Optuna tuner.
+
+    - ``OPTUNA``: Optuna tuner.
     """
 
     trainer_type: TrainerType = TrainerType.TRL_SFT
@@ -256,7 +257,7 @@ class TuningParams(BaseParams):
 
     Possible values are:
 
-    - TRL_SFT: TRL's SFT Trainer
+    - ``TRL_SFT``: TRL's SFT Trainer
 
     TODO: Add more options in the future.
     """
