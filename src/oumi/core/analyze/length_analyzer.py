@@ -101,18 +101,20 @@ class LengthAnalyzer(SampleAnalyzer):
                 "content_type='text'and that those columns exist in the DataFrame."
             )
 
-        # Analyze each text field and add field-level metrics
+        # Get analyzer ID for column naming (defaults to "length")
+        analyzer_id = getattr(self, "analyzer_id", "length")
         for column in text_columns:
             if self.char_count:
-                result_df[f"{column}_char_count"] = df[column].astype(str).str.len()
+                col_name = f"{column}_{analyzer_id}_char_count"
+                result_df[col_name] = df[column].astype(str).str.len()
 
             if self.word_count:
-                result_df[f"{column}_word_count"] = (
-                    df[column].astype(str).str.split().str.len()
-                )
+                col_name = f"{column}_{analyzer_id}_word_count"
+                result_df[col_name] = df[column].astype(str).str.split().str.len()
 
             if self.sentence_count:
-                result_df[f"{column}_sentence_count"] = (
+                col_name = f"{column}_{analyzer_id}_sentence_count"
+                result_df[col_name] = (
                     df[column]
                     .astype(str)
                     .apply(
@@ -124,7 +126,8 @@ class LengthAnalyzer(SampleAnalyzer):
 
             if self.token_count and self.tokenizer is not None:
                 tokenizer = self.tokenizer  # Type assertion for pyright
-                result_df[f"{column}_token_count"] = (
+                col_name = f"{column}_{analyzer_id}_token_count"
+                result_df[col_name] = (
                     df[column]
                     .astype(str)
                     .apply(

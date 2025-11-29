@@ -21,13 +21,11 @@ data:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned"
         split: "train[90%:]"
-    target_col: "prompt"
 
   validation:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned"
         split: "train[:10%]" # Use last 10% as validation
-    target_col: "prompt"
 
 tuning:
   n_trials: 2
