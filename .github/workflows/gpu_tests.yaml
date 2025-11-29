@@ -74,6 +74,61 @@ jobs:
             echo "nvidia-smi not found, but that's OK in container"
           fi
 
+          # Find CUDA installation
+          echo "=== Checking CUDA installation ==="
+
+          # Check common CUDA locations
+          CUDA_LOCATIONS=(
+            "/usr/local/cuda"
+            "/usr/local/cuda-12.8"
+            "/usr/local/cuda-12.6"
+            "/usr/local/cuda-12.4"
+            "/usr/local/cuda-12.2"
+            "/usr/local/cuda-12.1"
+            "/usr/local/cuda-12.0"
+            "/usr/local/cuda-11.8"
+            "/opt/cuda"
+          )
+
+          CUDA_HOME=""
+          for cuda_path in "${CUDA_LOCATIONS[@]}"; do
+            if [ -d "$cuda_path" ] && [ -f "$cuda_path/bin/nvcc" ]; then
+              CUDA_HOME="$cuda_path"
+              echo "Found CUDA at: $CUDA_HOME"
+              break
+            fi
+          done
+
+          # If not found, try to find any versioned CUDA directory
+          if [ -z "$CUDA_HOME" ]; then
+            CUDA_HOME=$(find /usr/local -maxdepth 1 -name "cuda-*" -type d 2>/dev/null | sort -V | tail -1)
+            if [ -n "$CUDA_HOME" ]; then
+              echo "Found CUDA at: $CUDA_HOME"
+            fi
+          fi
+
+          if [ -n "$CUDA_HOME" ]; then
+            echo "CUDA_HOME=$CUDA_HOME" >> $GITHUB_ENV
+            echo "CUDA version: $(cat $CUDA_HOME/version.txt 2>/dev/null || cat $CUDA_HOME/version.json 2>/dev/null || echo 'version file not found')"
+          else
+            echo "ERROR: CUDA installation not found!"
+            echo "Searched locations:"
+            for loc in "${CUDA_LOCATIONS[@]}"; do
+              echo "  - $loc"
+            done
+            echo "Contents of /usr/local/:"
+            ls -la /usr/local/ | grep -i cuda || echo "No CUDA directories found"
+            exit 1
+          fi
+
+          # Verify nvcc is available
+          if [ -n "$CUDA_HOME" ] && [ -x "$CUDA_HOME/bin/nvcc" ]; then
+            echo "nvcc version:"
+            $CUDA_HOME/bin/nvcc --version
+          else
+            echo "WARNING: nvcc not found"
+          fi
+
       - name: Run GPU tests
         run: |
           cd ./tests/integration/
