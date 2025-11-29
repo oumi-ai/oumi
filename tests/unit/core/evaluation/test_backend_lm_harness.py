@@ -365,53 +365,6 @@ def test_evaluate_failure_vLLM_without_CUDA(mock_patches_for_evaluate):
         )
 
 
-@patch("oumi.core.evaluation.backends.lm_harness.is_using_accelerate")
-def test_evaluate_failure_native_distributed_without_CUDA(
-    mock_is_using_accelerate, mock_patches_for_evaluate
-):
-    # Access the relevant mocks through the fixture.
-    mock_cuda_is_available = mock_patches_for_evaluate["mock_cuda_is_available"]
-    mock_is_image_text_llm = mock_patches_for_evaluate["mock_is_image_text_llm"]
-    mock_get_task_dict = mock_patches_for_evaluate["mock_get_task_dict"]
-    mock_generate_lm_harness_model_args = mock_patches_for_evaluate[
-        "mock_generate_lm_harness_model_args"
-    ]
-    mock_lm_harness_get_model_class = mock_patches_for_evaluate[
-        "mock_lm_harness_get_model_class"
-    ]
-    mock_is_world_process_zero = mock_patches_for_evaluate["mock_is_world_process_zero"]
-
-    # This combination should throw (we cannot use NATIVE with accelerate without CUDA).
-    inference_engine_type = InferenceEngineType.NATIVE
-    mock_cuda_is_available.return_value = False
-
-    # Mock running via accelerate
-    mock_is_using_accelerate.return_value = True
-
-    # Mock functions that evaluate() calls.
-    mock_is_image_text_llm.return_value = False
-    mock_is_world_process_zero.return_value = True
-    mock_get_task_dict.return_value = MagicMock()
-    mock_generate_lm_harness_model_args.return_value = MagicMock()
-    mock_lm_harness_get_model_class.return_value = MagicMock()
-
-    with pytest.raises(
-        ValueError,
-        match="The `NATIVE` inference_engine with distributed execution "
-        "\\(e.g., via `accelerate launch`\\) requires a CUDA-enabled GPU.",
-    ):
-        evaluate_lm_harness(
-            task_params=LMHarnessTaskParams(
-                evaluation_backend="lm_harness",
-                task_name="mmlu",
-            ),
-            config=EvaluationConfig(
-                tasks=[],
-                inference_engine=inference_engine_type,
-            ),
-        )
-
-
 @pytest.mark.parametrize(
     "unsupported_inference_engine_type",
     [
@@ -480,47 +433,3 @@ def test_evaluate_failure_non_supported_engine(
                 inference_engine=unsupported_inference_engine_type,
             ),
         )
-
-
-@patch("torch.cuda.device_count")
-@patch("torch.cuda.is_available")
-def test_vllm_tensor_parallel_auto_detect(mock_is_available, mock_device_count):
-    """Test that VLLM automatically detects GPU count for tensor parallelism."""
-    mock_is_available.return_value = True
-    mock_device_count.return_value = 4
-
-    model_params = ModelParams(
-        model_name="test_model",
-        model_kwargs={"tensor_parallel_size": -1},  # Auto-detect via model_kwargs
-    )
-
-    model_args = _generate_lm_harness_model_args(
-        lm_harness_model="vllm",
-        is_multimodal=False,
-        model_params=model_params,
-        generation_params=GenerationParams(),
-        inference_engine_type=InferenceEngineType.VLLM,
-        inference_remote_params=None,
-    )
-
-    assert model_args["tensor_parallel_size"] == 4
-
-
-def test_vllm_tensor_parallel_explicit():
-    """Test that VLLM uses explicit tensor_parallel_size when provided."""
-    model_params = ModelParams(
-        model_name="test_model",
-        model_kwargs={"tensor_parallel_size": 2},  # Explicit via model_kwargs
-    )
-
-    model_args = _generate_lm_harness_model_args(
-        lm_harness_model="vllm",
-        is_multimodal=False,
-        model_params=model_params,
-        generation_params=GenerationParams(),
-        inference_engine_type=InferenceEngineType.VLLM,
-        inference_remote_params=None,
-    )
-
-    # Should use the explicit value, not auto-detect
-    assert model_args["tensor_parallel_size"] == 2

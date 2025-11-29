@@ -94,10 +94,6 @@ output_dir: "my_evaluation_results"
 
 Oumi supports multiple strategies for multi-GPU evaluation. **Choose the right strategy based on your model size and inference engine.**
 
-```{warning}
-**Do NOT mix strategies!** Using `shard_for_eval: True` with `accelerate launch` will cause incorrect evaluation results due to conflicting parallelism strategies.
-```
-
 ##### Strategy 1: VLLM with Tensor Parallelism (Recommended)
 
 **Best for:** Any model size with VLLM support
@@ -110,13 +106,13 @@ model:
   model_name: "Qwen/Qwen3-32B"
   model_kwargs:
     tensor_parallel_size: 4  # Split model across 4 GPUs
-    # tensor_parallel_size: -1  # Or use -1 to auto-detect all GPUs
+    # tensor_parallel_size: -1  # Or use -1 to auto-detect all GPUs (default)
 
 tasks:
   - evaluation_backend: lm_harness
     task_name: mmlu_pro
 
-inference_engine: VLLM  # Must use VLLM
+inference_engine: VLLM
 
 output_dir: "eval_results"
 ```
@@ -139,7 +135,6 @@ The model will be automatically split across all specified GPUs using tensor par
 :emphasize-lines: 3,8
 model:
   model_name: "Qwen/Qwen2.5-7B-Instruct"
-  # shard_for_eval: False  # Must be False (or omitted)
 
 tasks:
   - evaluation_backend: lm_harness

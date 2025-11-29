@@ -70,11 +70,6 @@ FEW_SHOT_SEED = 1234
 # image_token_id      |                | NA | NA   | Υ             |          | NA     #
 # image_string        |                | NA | NA   | Υ             |          | NA     #
 ########################################################################################
-# GPU Requirements:                                                                     #
-# - VLLM engine: Requires CUDA-enabled GPU (raises ValueError if not available)       #
-# - NATIVE engine with accelerate: Requires CUDA-enabled GPU (raises ValueError)      #
-# - NATIVE engine without accelerate: Supports CUDA, MPS, or CPU                      #
-########################################################################################
 # LM Harness          | Oumi `generat- | LM Harness `model`                            #
 # `model_args`        | ion_params`    | hf | vllm | hf-multimodal | vllm-vlm | remote #
 # ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
