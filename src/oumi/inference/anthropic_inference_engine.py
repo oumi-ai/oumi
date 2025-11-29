@@ -32,6 +32,10 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     for interacting with Anthropic's language models via their API. It handles
     the conversion of Oumi's Conversation objects to Anthropic's expected input
     format, as well as parsing the API responses back into Conversation objects.
+
+    Supports:
+    - Standard text generation
+    - Usage tracking with token counts (including cache tokens)
     """
 
     anthropic_version = "2023-06-01"
@@ -119,18 +123,69 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
         return body
 
+    def _parse_usage_from_response(self, usage_dict: dict[str, Any]) -> dict[str, Any]:
+        """Parse token usage from Anthropic API response.
+
+        Args:
+            usage_dict: The 'usage' dictionary from the API response.
+
+        Returns:
+            Dictionary with parsed usage information.
+        """
+        usage = {
+            "prompt_tokens": usage_dict.get("input_tokens", 0),
+            "completion_tokens": usage_dict.get("output_tokens", 0),
+            "total_tokens": usage_dict.get("input_tokens", 0)
+            + usage_dict.get("output_tokens", 0),
+        }
+
+        # Parse cache-specific tokens
+        if "cache_creation_input_tokens" in usage_dict:
+            usage["cache_creation_input_tokens"] = usage_dict[
+                "cache_creation_input_tokens"
+            ]
+        if "cache_read_input_tokens" in usage_dict:
+            usage["cache_read_input_tokens"] = usage_dict["cache_read_input_tokens"]
+
+        return usage
+
     @override
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an Anthropic API response to a conversation."""
+        # Handle error responses
+        if "error" in response:
+            raise RuntimeError(
+                f"API error: {response['error'].get('message', response['error'])}"
+            )
+
+        # Parse content - Anthropic returns a list of content blocks
+        content_blocks = response.get(_CONTENT_KEY, [])
+
+        # Extract text content
+        text_content = ""
+        for block in content_blocks:
+            if block.get("type") == "text":
+                text_content += block.get("text", "")
+
+        # Create message
         new_message = Message(
-            content=response[_CONTENT_KEY][0]["text"],
+            content=text_content or "",
             role=Role.ASSISTANT,
         )
+
+        # Store usage information in metadata
+        metadata = dict(original_conversation.metadata)
+        if "usage" in response:
+            usage_info = self._parse_usage_from_response(response["usage"])
+            metadata["usage"] = usage_info
+            if "model" in response:
+                metadata["model"] = response["model"]
+
         return Conversation(
             messages=[*original_conversation.messages, new_message],
-            metadata=original_conversation.metadata,
+            metadata=metadata,
             conversation_id=original_conversation.conversation_id,
         )
 

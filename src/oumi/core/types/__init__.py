@@ -42,14 +42,18 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.core.types.exceptions import HardwareException
+from oumi.core.types.usage_info import CostEstimate, TokenUsage, UsageInfo
 
 __all__ = [
     "HardwareException",
     "ContentItem",
     "ContentItemCounts",
     "Conversation",
+    "CostEstimate",
     "Message",
     "Role",
-    "Type",
     "TemplatedMessage",
+    "TokenUsage",
+    "Type",
+    "UsageInfo",
 ]
