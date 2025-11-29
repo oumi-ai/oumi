@@ -40,12 +40,12 @@ jobs:
           wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
           sudo dpkg -i cuda-keyring_1.1-1_all.deb
           sudo apt-get update
-          sudo apt-get install -y cuda-toolkit-12-4
+          sudo apt-get install -y cuda-toolkit-12-6
 
           # Set CUDA_HOME
-          echo "CUDA_HOME=/usr/local/cuda-12.4" >> $GITHUB_ENV
-          echo "PATH=/usr/local/cuda-12.4/bin:$PATH" >> $GITHUB_ENV
-          echo "LD_LIBRARY_PATH=/usr/local/cuda-12.4/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "CUDA_HOME=/usr/local/cuda-12.6" >> $GITHUB_ENV
+          echo "PATH=/usr/local/cuda-12.6/bin:$PATH" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
       - name: "Set up Python"
         uses: actions/setup-python@v6
