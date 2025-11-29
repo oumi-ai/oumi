@@ -15,17 +15,14 @@
 import os
 import random
 from pprint import pformat
-from typing import Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
-import lm_eval.loggers.utils as lm_harness_log_utils
 import numpy as np
 import torch
-from lm_eval import evaluate as lm_harness_evaluate
-from lm_eval.api.group import ConfigurableGroup
-from lm_eval.api.registry import get_model as lm_harness_get_model_class
-from lm_eval.api.task import Task
-from lm_eval.loggers import WandbLogger
-from lm_eval.tasks import get_task_dict as lm_harness_get_task_dict
+
+if TYPE_CHECKING:
+    from lm_eval.api.group import ConfigurableGroup
+    from lm_eval.api.task import Task
 
 from oumi.builders import build_processor, build_tokenizer
 from oumi.builders.models import is_image_text_llm_using_model_name
@@ -157,6 +154,8 @@ def _apply_to_all_tasks(
     fn_kwargs: Optional[dict[str, Any]] = None,
 ) -> None:
     """Apply the provided function `fn` to all tasks in the `task_dict`."""
+    from lm_eval.api.task import Task
+
     fn_kwargs = fn_kwargs or {}
     for task_obj in task_dict.values():
         if isinstance(task_obj, dict):
@@ -171,6 +170,9 @@ def _get_task_dict(
     task_params: LMHarnessTaskParams,
 ) -> dict[Union[str, ConfigurableGroup], Union[Task, dict]]:
     """Get a dictionary of LM Harness tasks, given Oumi's `task_params`."""
+    from lm_eval.api.group import ConfigurableGroup
+    from lm_eval.tasks import get_task_dict as lm_harness_get_task_dict
+
     if not task_params.task_name:
         raise ValueError("The `task_name` must be specified for LM Harness evaluation.")
     task_dict: dict = lm_harness_get_task_dict(task_params.task_name)
@@ -246,6 +248,11 @@ def evaluate(
     Returns:
         The evaluation results (dict of metric names and their corresponding values).
     """
+    import lm_eval.loggers.utils as lm_harness_log_utils
+    from lm_eval import evaluate as lm_harness_evaluate
+    from lm_eval.api.registry import get_model as lm_harness_get_model_class
+    from lm_eval.loggers import WandbLogger
+
     _set_random_seeds(
         random_seed=random_seed,
         numpy_random_seed=numpy_random_seed,
