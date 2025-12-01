@@ -5,6 +5,9 @@ on:
     - cron: "0 */8 * * *" # Every 8 hours
   workflow_dispatch:
   merge_group:
+  pull_request:
+    paths:
+      - "tests/integration/**"
 
 env:
   SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI: v0.0.1

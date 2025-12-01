@@ -7,7 +7,6 @@ on:
   pull_request:
     paths:
       - "pyproject.toml"
-      - ".github/workflows/**"
   workflow_dispatch:
 
 jobs:
