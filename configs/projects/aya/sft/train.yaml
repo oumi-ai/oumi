@@ -28,14 +28,12 @@ data:
         split: "train"
     stream: True
     pack: True
-    target_col: "text"
   validation:
     datasets:
       - dataset_name: "CohereForAI/aya_dataset"
         split: "test"
     stream: False
     pack: False
-    target_col: ${data.train.target_col}
 
 training:
   optimizer: "adafactor"
@@ -68,7 +66,7 @@ training:
   save_steps: 36
   # resume_from_checkpoint: "your-checkpoint-directory" # Optional
   trainer_kwargs:
-    dataset_text_field: ${data.train.target_col}
+    dataset_text_field: "text"
     max_seq_length: ${model.model_max_length}
     packing: True
   # Use for debugging purposes

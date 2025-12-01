@@ -91,7 +91,7 @@ def test_get_hf_chat_template_empty():
     "tokenizer_name,trust_remote_code",
     [
         ("HuggingFaceTB/SmolLM2-135M-Instruct", False),
-        ("Qwen/Qwen2-VL-2B-Instruct", False),
+        ("HuggingFaceTB/SmolVLM-256M-Instruct", False),
     ],
 )
 def test_get_hf_chat_template(tokenizer_name: str, trust_remote_code: bool):

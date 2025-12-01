@@ -215,7 +215,7 @@ def parse_cli() -> tuple[ParsedArgs, list[str]]:
     parser.add_argument(
         "--target_col",
         type=str,
-        default="",
+        default="text",
         help="Target text column to tokenize.",
     )
     parser.add_argument(
@@ -328,25 +328,10 @@ def main() -> None:
     logger.info(f"Parsed arguments: {parsed_args}")
     logger.info(f"Unknown arguments: {arg_list}")
 
-    config: TrainingConfig = None
-    target_col: str = ""
     tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None
     if not parsed_args.skip_tokenize:
         config = TrainingConfig.from_yaml_and_arg_list(
             parsed_args.config_path, arg_list, logger=logger
-        )
-
-        # Find first non-empty value as target column name.
-        target_col = next(
-            s
-            for s in [
-                parsed_args.target_col,
-                config.data.train.target_col,
-                config.data.validation.target_col,
-                config.data.test.target_col,
-                "text",
-            ]
-            if s
         )
         logger.info("Initializing the tokenizer...")
         tokenizer = build_tokenizer(config.model)
@@ -364,7 +349,7 @@ def main() -> None:
         logger.info(f"Processing the dataset {parsed_args.input_dataset}...")
         _process_dataset(
             tokenizer=tokenizer,
-            target_col=target_col,
+            target_col=parsed_args.target_col,
             input_dataset=parsed_args.input_dataset,
             dataset_subset=parsed_args.dataset_subset,
             dataset_split=parsed_args.dataset_split,
@@ -392,7 +377,7 @@ def main() -> None:
                 continue
             _process_file(
                 tokenizer,
-                target_col,
+                parsed_args.target_col,
                 input_file,
                 parsed_args.input_format,
                 output_file,

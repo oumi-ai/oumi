@@ -259,7 +259,7 @@ def test_evaluate(mock_patches_for_evaluate):
     )
     evaluation_config = EvaluationConfig(
         tasks=[task_params],
-        model=ModelParams(model_name="gpt2"),
+        model=ModelParams(model_name="openai-community/gpt2"),
         generation=GenerationParams(),
         inference_engine=InferenceEngineType.NATIVE,
         inference_remote_params=None,
@@ -275,7 +275,7 @@ def test_evaluate(mock_patches_for_evaluate):
 
     # Mock the outputs of functions that evaluate() calls.
     mock_task_dict = {"mmlu": MagicMock(spec=ConfigurableTask)}
-    mock_lm_harness_model_args = {"pretrained": "gpt2"}
+    mock_lm_harness_model_args = {"pretrained": "openai-community/gpt2"}
     mock_results = {
         "results": {"mmlu": {"acc": 0.77}},
         "configs": {"my_config": "some_config"},

@@ -42,7 +42,7 @@ def _create_synthesis_config() -> SynthesisConfig:
             model=ModelParams(
                 model_name="MlpEncoder",
                 trust_remote_code=True,
-                tokenizer_name="gpt2",
+                tokenizer_name="openai-community/gpt2",
             ),
         ),
         num_samples=5,

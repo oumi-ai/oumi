@@ -72,7 +72,7 @@ class VLJsonlinesDataset(VisionLanguageSftDataset):
                 >>> dataset = VLJsonlinesDataset(
                 ...     data=data_samples,
                 ...     tokenizer=tokenizer,
-                ...     processor_name="openai/clip-vit-base-patch32",
+                ...     processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",
                 ... )
     """
 

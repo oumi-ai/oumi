@@ -55,7 +55,7 @@ def model_params():
     return ModelParams(
         model_name="openai-community/gpt2",
         tokenizer_pad_token="<|endoftext|>",
-        tokenizer_name="gpt2",
+        tokenizer_name="openai-community/gpt2",
         load_pretrained_weights=False,
     )
 

@@ -5,6 +5,9 @@ on:
     - cron: "0 */8 * * *" # Every 8 hours
   workflow_dispatch:
   merge_group:
+  pull_request:
+    paths:
+      - "tests/integration/**"
 
 env:
   SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI: v0.0.1
@@ -15,13 +18,10 @@ jobs:
     permissions:
       contents: "read"
     runs-on: linux-gpu-runner
-    container:
-      image: nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
-      options: --gpus all
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # Checkout using commit hash to make "no-commit-to-branch" test pass.
           ref: ${{ github.sha }}
@@ -30,8 +30,21 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          apt-get update
-          apt-get install -y libcurl4
+          sudo apt-get update
+          sudo apt-get install -y libcurl4 wget software-properties-common
+
+      - name: Install CUDA Toolkit
+        run: |
+          # Install CUDA toolkit from NVIDIA (Ubuntu 24.04)
+          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
+          sudo apt-get update
+          sudo apt-get install -y cuda-toolkit-12-6
+
+          # Set CUDA_HOME
+          echo "CUDA_HOME=/usr/local/cuda-12.6" >> $GITHUB_ENV
+          echo "PATH=/usr/local/cuda-12.6/bin:$PATH" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
       - name: "Set up Python"
         uses: actions/setup-python@v6
@@ -50,6 +63,15 @@ jobs:
           # Install in verbose mode to see what's going on
           uv pip install --system -e '.[ci_gpu]' hf_transfer
 
+      - name: Cache HuggingFace Models
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+          key: hf-models-${{ runner.os }}-${{ hashFiles('tests/scripts/predownload_for_github_gpu_tests.sh') }}
+          restore-keys: |
+            hf-models-${{ runner.os }}-
+
       - name: Download Test Data
         run: |
           ./tests/scripts/predownload_for_github_gpu_tests.sh
@@ -57,23 +79,9 @@ jobs:
       - name: Verify CUDA environment
         run: |
           echo "=== CUDA Environment Check ==="
-          # Check if nvidia-smi is available
-          if command -v nvidia-smi &> /dev/null; then
-            nvidia-smi
-          else
-            echo "nvidia-smi not found, but that's OK in container"
-          fi
-
-          # Check NVCC
+          nvidia-smi
+          echo "CUDA_HOME: $CUDA_HOME"
           nvcc --version
-          echo "CUDA_HOME: ${CUDA_HOME:-/usr/local/cuda}"
-          which nvcc
-
-          # Set CUDA_HOME if not set
-          if [ -z "$CUDA_HOME" ]; then
-            export CUDA_HOME=/usr/local/cuda
-            echo "Set CUDA_HOME=$CUDA_HOME"
-          fi
 
       - name: Run GPU tests
         run: |

@@ -282,7 +282,7 @@ def test_load_dataset_from_config_with_processor_parameters(
 def test_build_tokenizer_from_config_success():
     """Test successful tokenizer building from config."""
     tokenizer_config = {
-        "model_name": "gpt2",
+        "model_name": "openai-community/gpt2",
         "tokenizer_kwargs": {"padding_side": "left"},
         "trust_remote_code": False,
     }
@@ -405,11 +405,12 @@ def test_load_custom_dataset_multi_modal(temp_vision_language_file):
     # Create a mock tokenizer with required attributes
     mock_tokenizer = Mock()
     mock_tokenizer.pad_token_id = 0  # Set a valid pad_token_id
+    mock_tokenizer.convert_tokens_to_ids.return_value = 0
 
     config = AnalyzeConfig(
         dataset_path=temp_vision_language_file,
         dataset_format="oumi",
-        processor_name="openai/clip-vit-base-patch32",  # Processor provided
+        processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",  # Processor provided
         is_multimodal=True,  # Explicitly mark as multimodal
     )
 
