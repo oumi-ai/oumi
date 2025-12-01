@@ -155,13 +155,18 @@ def check_package_prerequisites(
 
 @lru_cache(maxsize=1)
 def is_torchdata_available() -> bool:
-    """Checks if torchdata is available.
+    """Checks if torchdata with datapipes support is available.
+
+    Note: torchdata 0.10+ dropped datapipes support, so we check for
+    torchdata.datapipes specifically.
 
     Returns:
-        True if torchdata is installed and can be imported, False otherwise.
+        True if torchdata with datapipes is installed and can be imported,
+        False otherwise.
     """
     try:
-        importlib.import_module("torchdata")
+        importlib.import_module("torchdata.datapipes")
+        importlib.import_module("torchdata.stateful_dataloader")
         return True
     except ImportError:
         return False
