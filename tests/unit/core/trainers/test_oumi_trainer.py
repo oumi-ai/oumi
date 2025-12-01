@@ -51,6 +51,8 @@ def mock_stateful_dataloader():
     mock_loader = MagicMock(spec=StatefulDataLoader)
     mock_loader.__iter__.return_value = iter([sample_batch] * 10)
     mock_loader.__len__.return_value = 10
+    mock_loader.state_dict = MagicMock(return_value={})
+    mock_loader.load_state_dict = MagicMock()
 
     return mock_loader
 
