@@ -542,9 +542,8 @@ class Trainer(BaseTrainer):
         dcp.save(optimizer_state_dict, checkpoint_id=optimizer_path)
 
         if is_world_process_zero():
-            # Only save dataloader state if using StatefulDataLoader (torchdata)
-            if _TORCHDATA_AVAILABLE and hasattr(self.train_dataloader, "state_dict"):
-                # state_dict() only exists on StatefulDataLoader, not regular DataLoader
+            # Only save dataloader state if dataloader supports it (StatefulDataLoader)
+            if hasattr(self.train_dataloader, "state_dict"):
                 torch.save(
                     self.train_dataloader.state_dict(),  # type: ignore[union-attr]
                     dataloader_state_path,
@@ -602,18 +601,15 @@ class Trainer(BaseTrainer):
         dcp.load(optimizer_state_dict, checkpoint_id=optimizer_path)
 
         if dataloader_state_path.exists():
-            # Only load dataloader state if using StatefulDataLoader (torchdata)
-            if _TORCHDATA_AVAILABLE and hasattr(
-                self.train_dataloader, "load_state_dict"
-            ):
-                # load_state_dict() only exists on StatefulDataLoader, not DataLoader
+            # Only load dataloader state if dataloader supports it (StatefulDataLoader)
+            if hasattr(self.train_dataloader, "load_state_dict"):
                 self.train_dataloader.load_state_dict(  # type: ignore[union-attr]
                     torch.load(dataloader_state_path)
                 )
             else:
                 logger.warning(
-                    "Dataloader state checkpoint found but torchdata is not installed. "
-                    "Skipping dataloader state restoration."
+                    "Dataloader state checkpoint found but current dataloader does not "
+                    "support load_state_dict. Skipping dataloader state restoration."
                 )
         if trainer_state_path.exists():
             self.state = TrainingState.model_validate(
