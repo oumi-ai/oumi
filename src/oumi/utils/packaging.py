@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 import importlib.metadata
 from collections import namedtuple
+from functools import lru_cache
 from typing import Optional, Union
 
 from packaging import version
@@ -149,3 +151,34 @@ def check_package_prerequisites(
         )
     else:
         return
+
+
+@lru_cache(maxsize=1)
+def is_torchdata_available() -> bool:
+    """Checks if torchdata is available.
+
+    Returns:
+        True if torchdata is installed and can be imported, False otherwise.
+    """
+    try:
+        importlib.import_module("torchdata")
+        return True
+    except ImportError:
+        return False
+
+
+def require_torchdata(feature_name: str = "This feature") -> None:
+    """Raises an ImportError if torchdata is not available.
+
+    Args:
+        feature_name: Name of the feature requiring torchdata, for error message.
+
+    Raises:
+        ImportError: If torchdata is not installed.
+    """
+    if not is_torchdata_available():
+        raise ImportError(
+            f"{feature_name} requires torchdata. "
+            "Please install it with: pip install 'oumi[torchdata]' "
+            "or pip install torchdata"
+        )

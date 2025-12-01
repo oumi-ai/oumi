@@ -67,10 +67,6 @@ dependencies = [
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "torch>=2.6,<2.9.0",       # vllm only supports up to torch==2.7
     "torchao>=0.12,<0.13",     # Used by transformers
-    # torchdata 0.10 drops support for datapipes which we currently use
-    # also, torchdata does not provide a py13 wheel for version 0.9.0.
-    # if python > 3.13, install from source for now.
-    "torchdata>=0.9,<0.10.0",  # Used by data pipes loader
     "torchvision>=0.21,<0.24", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
@@ -174,17 +170,25 @@ file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
 
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
+# torchdata provides StatefulDataLoader and DataPipes for advanced data loading
+# torchdata 0.10 drops support for datapipes which we currently use
+# also, torchdata does not provide a py13 wheel for version 0.9.0.
+torchdata = ["torchdata>=0.9,<0.10.0"]
+
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,synthesis,tune]",
-    "vllm>=0.10,<0.11",                  # For VLLMInferenceEngine
+    "oumi[dev,docs,gcp,synthesis,tune,torchdata]",
+    "vllm>=0.10,<0.11",                            # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3,<0.4", # For LlamaCppInferenceEngine
 ]
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
-ci_gpu = ["oumi[dev,docs,gcp,gpu,synthesis,tune]", "alpaca-eval>=0.6,<0.7"]
+ci_gpu = [
+    "oumi[dev,docs,gcp,gpu,synthesis,tune,torchdata]",
+    "alpaca-eval>=0.6,<0.7",
+]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
