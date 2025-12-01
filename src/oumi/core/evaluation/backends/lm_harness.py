@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 import random
 from pprint import pformat
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 import torch
