@@ -30,10 +30,10 @@ def _get_default_text_model_params() -> ModelParams:
 
 def _get_default_image_model_params() -> ModelParams:
     return ModelParams(
-        model_name="Qwen/Qwen2-VL-2B-Instruct",
+        model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         model_max_length=1024,
         trust_remote_code=True,
-        chat_template="qwen2-vl-instruct",
+        chat_template="llava",
         device_map=get_default_device_map_for_inference(),
     )
 
@@ -393,7 +393,7 @@ def test_infer_from_file_to_file_with_images(root_testdata_dir: Path):
 def test_unsupported_model_raises_error():
     model_params = ModelParams(
         model_name="MlpEncoder",
-        tokenizer_name="gpt2",
+        tokenizer_name="openai-community/gpt2",
         tokenizer_pad_token="<|endoftext|>",
         load_pretrained_weights=False,
     )

@@ -910,7 +910,7 @@ def test_analyzer_with_tokenizer(test_data_path):
         split="train",
         sample_count=2,
         tokenizer_config={
-            "model_name": "gpt2"
+            "model_name": "openai-community/gpt2"
         },  # This will be used to build a real tokenizer
         analyzers=[
             SampleAnalyzerParams(

@@ -193,7 +193,7 @@ def test_analyze_config_validation_multimodal_wrong_format():
             dataset_path="/path/to/dataset.json",
             dataset_format="alpaca",
             is_multimodal=True,
-            processor_name="openai/clip-vit-base-patch32",
+            processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         )
 
 
@@ -238,7 +238,7 @@ def test_analyze_config_validation_is_multimodal_required():
         dataset_path="/path/to/dataset.json",
         dataset_format="oumi",
         is_multimodal=True,
-        processor_name="openai/clip-vit-base-patch32",
+        processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",
     )
     assert config.is_multimodal is True
 

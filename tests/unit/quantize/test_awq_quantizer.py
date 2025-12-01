@@ -29,7 +29,7 @@ class TestAwqQuantization:
         """Set up test fixtures."""
         self.awq_quantizer = AwqQuantization()
         self.valid_config = QuantizationConfig(
-            model=ModelParams(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"),
+            model=ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct"),
             method="awq_q4_0",
             output_path="test_model",
         )

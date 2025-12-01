@@ -19,7 +19,7 @@ from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import REGISTRY, RegistryType
 
 _DEFALT_DATASET_SPLIT: Final[str] = "test"
-_DEFAULT_MODEL_NAME: Final[str] = "Qwen/Qwen2-VL-2B-Instruct"
+_DEFAULT_MODEL_NAME: Final[str] = "HuggingFaceTB/SmolVLM-256M-Instruct"
 _DEFAULT_CHAT_TEMPLATE: Final[str] = "qwen2-vl-instruct"
 
 
