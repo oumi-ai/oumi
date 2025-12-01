@@ -81,11 +81,11 @@ jobs:
           context: .
           file: Dockerfile
           platforms: linux/amd64
+          # platforms: linux/amd64,linux/arm64  # Skip ARM64 until OPE-1782 is resolved
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            TARGETPLATFORM=linux/amd64
             OUMI_VERSION=${{ github.event.release.tag_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
