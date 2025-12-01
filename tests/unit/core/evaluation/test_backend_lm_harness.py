@@ -1,4 +1,5 @@
 import copy
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,22 +19,29 @@ from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_har
 
 @pytest.fixture
 def mock_patches_for_evaluate():
+    """Mock lm_eval dependencies that are imported inside evaluate().
+
+    The lm_eval imports are deferred (local imports inside evaluate()) because
+    lm_eval has heavy dependencies (vllm, etc.) that may not always be installed.
+    We use sys.modules patching to intercept these imports during testing.
+    """
+    mock_lm_harness_log_utils = MagicMock()
+    mock_evaluator = MagicMock()
+    mock_registry = MagicMock()
+    mock_loggers = MagicMock()
+
+    modules_to_patch = {
+        "lm_eval.loggers.utils": mock_lm_harness_log_utils,
+        "lm_eval.loggers": mock_loggers,
+        "lm_eval.evaluator": mock_evaluator,
+        "lm_eval.api.registry": mock_registry,
+    }
+
     with (
-        patch(
-            "oumi.core.evaluation.backends.lm_harness.lm_harness_log_utils"
-        ) as mock_lm_harness_log_utils,
-        patch(
-            "oumi.core.evaluation.backends.lm_harness.WandbLogger"
-        ) as mock_WandbLogger,
+        patch.dict(sys.modules, modules_to_patch),
         patch(
             "oumi.core.evaluation.backends.lm_harness.is_world_process_zero"
         ) as mock_is_world_process_zero,
-        patch(
-            "oumi.core.evaluation.backends.lm_harness.lm_harness_evaluate"
-        ) as mock_lm_harness_evaluate,
-        patch(
-            "oumi.core.evaluation.backends.lm_harness.lm_harness_get_model_class"
-        ) as mock_lm_harness_get_model_class,
         patch(
             "oumi.core.evaluation.backends.lm_harness._generate_lm_harness_model_args"
         ) as mock_generate_lm_harness_model_args,
@@ -54,10 +62,10 @@ def mock_patches_for_evaluate():
             "mock_is_image_text_llm": mock_is_image_text_llm,
             "mock_get_task_dict": mock_get_task_dict,
             "mock_generate_lm_harness_model_args": mock_generate_lm_harness_model_args,
-            "mock_lm_harness_get_model_class": mock_lm_harness_get_model_class,
-            "mock_lm_harness_evaluate": mock_lm_harness_evaluate,
+            "mock_lm_harness_get_model_class": mock_registry.get_model,
+            "mock_lm_harness_evaluate": mock_evaluator.evaluate,
             "mock_is_world_process_zero": mock_is_world_process_zero,
-            "mock_WandbLogger": mock_WandbLogger,
+            "mock_WandbLogger": mock_loggers.WandbLogger,
             "mock_lm_harness_log_utils": mock_lm_harness_log_utils,
         }
 
