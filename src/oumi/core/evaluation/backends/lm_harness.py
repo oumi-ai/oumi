@@ -107,7 +107,7 @@ def _generate_lm_harness_model_args(
     model_params: ModelParams,
     generation_params: GenerationParams,
     inference_engine_type: InferenceEngineType,
-    inference_remote_params: Optional[RemoteParams],
+    inference_remote_params: RemoteParams | None,
 ) -> dict[str, Any]:
     """Converts Oumi's ModelParams to LM Harness model arguments."""
     # List of all LM Harness model arguments:
@@ -151,9 +151,9 @@ def _generate_lm_harness_model_args(
 
 
 def _apply_to_all_tasks(
-    task_dict: dict[Union[str, ConfigurableGroup], Union[Task, dict]],
+    task_dict: dict[str | ConfigurableGroup, Task | dict],
     fn: Callable,
-    fn_kwargs: Optional[dict[str, Any]] = None,
+    fn_kwargs: dict[str, Any] | None = None,
 ) -> None:
     """Apply the provided function `fn` to all tasks in the `task_dict`."""
     from lm_eval.api.task import Task
@@ -170,7 +170,7 @@ def _apply_to_all_tasks(
 
 def _get_task_dict(
     task_params: LMHarnessTaskParams,
-) -> dict[Union[str, ConfigurableGroup], Union[Task, dict]]:
+) -> dict[str | ConfigurableGroup, Task | dict]:
     """Get a dictionary of LM Harness tasks, given Oumi's `task_params`."""
     from lm_eval.api.group import ConfigurableGroup
     from lm_eval.tasks import get_task_dict as lm_harness_get_task_dict
@@ -227,9 +227,9 @@ def _set_random_seeds(random_seed, numpy_random_seed, torch_random_seed) -> None
 def evaluate(
     task_params: LMHarnessTaskParams,
     config: EvaluationConfig,
-    random_seed: Optional[int] = 0,
-    numpy_random_seed: Optional[int] = 1234,
-    torch_random_seed: Optional[int] = 1234,
+    random_seed: int | None = 0,
+    numpy_random_seed: int | None = 1234,
+    torch_random_seed: int | None = 1234,
 ) -> EvaluationResult:
     """Evaluates a model using the LM Evaluation Harness framework (EleutherAI).
 
@@ -455,7 +455,7 @@ def _add_vllm_engine_args(
 
 def _add_remote_engine_args(
     model_args: dict[str, Any],
-    inference_remote_params: Optional[RemoteParams],
+    inference_remote_params: RemoteParams | None,
 ) -> None:
     """Add REMOTE engine-specific arguments."""
     if not inference_remote_params:
