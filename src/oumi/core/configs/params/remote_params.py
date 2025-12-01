@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -80,6 +80,13 @@ class RemoteParams(BaseParams):
     In the event that even 1 concurrency causes the error rate to exceed the threshold,
     it is recommended to increase the `politeness_policy` to allow more time between
     requests.
+    """
+
+    api_kwargs: Optional[dict[str, Any]] = None
+    """Additional keyword arguments to pass to the API.
+
+    This allows for passing any API-specific parameters that are not
+    covered by other fields in ModelParams.
     """
 
     def __post_init__(self):
