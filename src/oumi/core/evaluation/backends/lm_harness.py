@@ -478,7 +478,7 @@ def _add_multimodal_args(
     model_params: ModelParams,
 ) -> None:
     """Add multimodal (vision) model arguments."""
-    # FIXME OPE-355 To remove `max_images=1` limit
+    # TODO: OPE-355 - To remove `max_images=1` limit
     model_args["max_images"] = 1
     model_args["interleave"] = True
 
