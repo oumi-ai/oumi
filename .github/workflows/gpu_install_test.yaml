@@ -4,10 +4,9 @@ permissions:
   contents: "read"
 
 on:
-  # pull_request:
-  #   paths:
-  #     - "pyproject.toml"
-  #     - ".github/workflows/**"
+  pull_request:
+    paths:
+      - "pyproject.toml"
   workflow_dispatch:
 
 env:
