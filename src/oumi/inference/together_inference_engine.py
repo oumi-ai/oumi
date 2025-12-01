@@ -75,7 +75,6 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
         # do not add it again
         # Case 4: if reasoning not in message and </think> is not in the content,
         # the content is non-reasoning
-
         if "reasoning" in message and "</think>" not in message["content"]:
             logger.debug(
                 f"Concatenating `reasoning` to `content` for message: {message}"
