@@ -3,13 +3,20 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 from torch.utils.data import DataLoader
-from torchdata.stateful_dataloader import StatefulDataLoader
 
 from oumi.core.configs import TelemetryParams, TrainingParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.models import MLPEncoder
+from oumi.utils.packaging import is_torchdata_available
 from tests.markers import requires_gpus
+
+# Conditional import for StatefulDataLoader
+_TORCHDATA_AVAILABLE = is_torchdata_available()
+if _TORCHDATA_AVAILABLE:
+    from torchdata.stateful_dataloader import StatefulDataLoader
+else:
+    StatefulDataLoader = DataLoader  # type: ignore[misc, assignment]
 
 
 #
@@ -127,7 +134,11 @@ def test_trainer_initialization(
     assert trainer.train_dataset == mock_dataset
     assert trainer.eval_dataset == mock_dataset
     assert isinstance(trainer.optimizer, torch.optim.AdamW)
-    assert isinstance(trainer.train_dataloader, StatefulDataLoader)
+    # train_dataloader is StatefulDataLoader when torchdata available, else DataLoader
+    if _TORCHDATA_AVAILABLE:
+        assert isinstance(trainer.train_dataloader, StatefulDataLoader)
+    else:
+        assert isinstance(trainer.train_dataloader, DataLoader)
     assert isinstance(trainer.eval_dataloader, DataLoader)
     assert trainer.state.epoch == 0
     assert trainer.state.global_step == 0
@@ -286,7 +297,11 @@ def test_save_and_load_model(
 
 def test_get_train_dataloader(trainer):
     dataloader = trainer._get_train_dataloader()
-    assert isinstance(dataloader, StatefulDataLoader)
+    # DataLoader type depends on whether torchdata is available
+    if _TORCHDATA_AVAILABLE:
+        assert isinstance(dataloader, StatefulDataLoader)
+    else:
+        assert isinstance(dataloader, DataLoader)
     assert dataloader.batch_size == trainer.params.per_device_train_batch_size
 
 

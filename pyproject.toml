@@ -172,7 +172,8 @@ llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
 # torchdata provides StatefulDataLoader and DataPipes for advanced data loading
 # torchdata 0.10 drops support for datapipes which we currently use
-# also, torchdata does not provide a py13 wheel for version 0.9.0.
+# also, torchdata does not provide a py3.13 wheel for version 0.9.0.
+# if python >= 3.13, install from source for now.
 torchdata = ["torchdata>=0.9,<0.10.0"]
 
 # CI targets
