@@ -21,7 +21,6 @@ from oumi.core.registry import register_dataset
 from oumi.core.tokenizers import BaseTokenizer
 from tests.markers import requires_torchdata
 
-# Mark entire module as requiring torchdata since oumi_data uses torchdata
 pytestmark = requires_torchdata()
 
 
@@ -195,7 +194,6 @@ def test_load_custom_proxy_iterable_dataset_using_name_override(tokenizer):
 
 
 def test_load_dataset_huggingface(tokenizer, monkeypatch):
-    # Patch _get_torchdata_imports to return our mock HuggingFaceHubReader
     def mock_get_torchdata_imports():
         from torchdata.datapipes.iter import MultiplexerLongest, SampleMultiplexer
         from torchdata.datapipes.map.util.converter import (

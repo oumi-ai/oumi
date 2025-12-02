@@ -542,7 +542,6 @@ class Trainer(BaseTrainer):
         dcp.save(optimizer_state_dict, checkpoint_id=optimizer_path)
 
         if is_world_process_zero():
-            # Only save dataloader state if dataloader supports it (StatefulDataLoader)
             if hasattr(self.train_dataloader, "state_dict"):
                 torch.save(
                     self.train_dataloader.state_dict(),  # type: ignore[union-attr]
@@ -601,7 +600,6 @@ class Trainer(BaseTrainer):
         dcp.load(optimizer_state_dict, checkpoint_id=optimizer_path)
 
         if dataloader_state_path.exists():
-            # Only load dataloader state if dataloader supports it (StatefulDataLoader)
             if hasattr(self.train_dataloader, "load_state_dict"):
                 self.train_dataloader.load_state_dict(  # type: ignore[union-attr]
                     torch.load(dataloader_state_path)
@@ -766,7 +764,6 @@ class Trainer(BaseTrainer):
         # Keeping track of the sampler so we can update after each epoch
         self._sampler = sampler
 
-        # Common dataloader arguments
         dataloader_kwargs = {
             "batch_size": self.params.per_device_train_batch_size,
             "shuffle": shuffle,
@@ -779,15 +776,12 @@ class Trainer(BaseTrainer):
         }
 
         if _TORCHDATA_AVAILABLE:
-            # Use StatefulDataLoader with snapshotting support
-            # snapshot_every_n_steps is a StatefulDataLoader-specific parameter
             return StatefulDataLoader(  # type: ignore[call-arg]
                 self.train_dataset,
                 snapshot_every_n_steps=self.params.save_steps,
                 **dataloader_kwargs,
             )
         else:
-            # Fall back to regular DataLoader when torchdata is not available
             logger.warning(
                 "torchdata is not installed. Using standard DataLoader. "
                 "Dataloader state checkpointing will not be available. "

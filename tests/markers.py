@@ -73,12 +73,6 @@ def requires_pdf_support():
 
 
 def requires_torchdata() -> pytest.MarkDecorator:
-    """Decorator to skip a test if torchdata is not available.
-
-    Returns:
-        pytest.MarkDecorator: A decorator that skips the test if torchdata is not
-            installed.
-    """
     return pytest.mark.skipif(
         not is_torchdata_available(),
         reason="torchdata is not installed. Install with: pip install oumi[torchdata]",

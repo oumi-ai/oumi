@@ -136,7 +136,6 @@ def test_trainer_initialization(
     assert trainer.train_dataset == mock_dataset
     assert trainer.eval_dataset == mock_dataset
     assert isinstance(trainer.optimizer, torch.optim.AdamW)
-    # train_dataloader is StatefulDataLoader when torchdata available, else DataLoader
     if _TORCHDATA_AVAILABLE:
         assert isinstance(trainer.train_dataloader, StatefulDataLoader)
     else:
@@ -299,7 +298,6 @@ def test_save_and_load_model(
 
 def test_get_train_dataloader(trainer):
     dataloader = trainer._get_train_dataloader()
-    # DataLoader type depends on whether torchdata is available
     if _TORCHDATA_AVAILABLE:
         assert isinstance(dataloader, StatefulDataLoader)
     else:

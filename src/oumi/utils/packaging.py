@@ -159,10 +159,6 @@ def is_torchdata_available() -> bool:
 
     Note: torchdata 0.10+ dropped datapipes support, so we check for
     torchdata.datapipes specifically.
-
-    Returns:
-        True if torchdata with datapipes is installed and can be imported,
-        False otherwise.
     """
     try:
         importlib.import_module("torchdata.datapipes")
@@ -173,14 +169,7 @@ def is_torchdata_available() -> bool:
 
 
 def require_torchdata(feature_name: str = "This feature") -> None:
-    """Raises an ImportError if torchdata is not available.
-
-    Args:
-        feature_name: Name of the feature requiring torchdata, for error message.
-
-    Raises:
-        ImportError: If torchdata is not installed.
-    """
+    """Raises an ImportError if torchdata is not available."""
     if not is_torchdata_available():
         raise ImportError(
             f"{feature_name} requires torchdata. "
