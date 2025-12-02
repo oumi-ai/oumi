@@ -8,119 +8,22 @@
 analyze_config
 ```
 
-## Overview
+Oumi's dataset analysis framework helps you understand training data before and after fine-tuning. Compute metrics, identify outliers, compare datasets, and create filtered subsets.
 
-Oumi provides a powerful dataset analysis framework that helps you understand your training data before and after fine-tuning. The analysis tools compute various metrics about your datasets, enabling you to:
+**Key capabilities:**
 
-- **Profile datasets**: Understand text length distributions, token counts, and other statistics
-- **Quality control**: Identify outliers, empty samples, or problematic data points
+- **Profile datasets**: Understand text length distributions, token counts, and statistics
+- **Quality control**: Identify outliers, empty samples, or problematic data
 - **Compare datasets**: Analyze multiple datasets with consistent metrics
 - **Filter data**: Create filtered subsets based on analysis results
 
-Key features include:
-
-- **Plugin architecture**: Extensible analyzer system with built-in and custom analyzers
-- **Multi-format support**: Works with conversation, DPO, KTO, pretraining, and custom datasets
-- **HuggingFace integration**: Analyze any dataset from HuggingFace Hub directly
-- **Export options**: Save results to CSV, JSON, or Parquet formats
-- **CLI and Python API**: Use from command line or programmatically
-
 ## Quick Start
 
-### Using the CLI
-
-Analyze the included example dataset:
-
-```bash
+::::{tab-set-code}
+:::{code-block} bash
 oumi analyze --config configs/examples/analyze/basic_analyze.yaml
-```
-
-This analyzes `data/dataset_examples/oumi_format.jsonl` and outputs results to `./analysis_output/basic/`.
-
-To include token counts (requires downloading a tokenizer):
-
-```bash
-oumi analyze --config configs/examples/analyze/analyze_with_tokens.yaml
-```
-
-Export results to a different format:
-
-```bash
-oumi analyze --config configs/examples/analyze/basic_analyze.yaml --output ./my_results --format parquet
-```
-
-### Using the Python API
-
-```python
-from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
-
-# Analyze the included example dataset
-config = AnalyzeConfig(
-    dataset_source=DatasetSource.CONFIG,
-    dataset_path="data/dataset_examples/oumi_format.jsonl",
-    dataset_format="oumi",
-    is_multimodal=False,
-    analyzers=[
-        SampleAnalyzerParams(
-            id="length",
-            params={
-                "char_count": True,
-                "word_count": True,
-                "sentence_count": True,
-            }
-        )
-    ],
-)
-
-# Create analyzer and run
-analyzer = DatasetAnalyzer(config)
-analyzer.analyze_dataset()
-
-# Access results
-print(analyzer.analysis_summary)
-df = analyzer.message_df  # Pandas DataFrame with results
-```
-
-## Configuration
-
-### Minimal Configuration
-
-A minimal analysis configuration for a local file:
-
-```yaml
-dataset_source: CONFIG
-dataset_path: data/dataset_examples/oumi_format.jsonl
-dataset_format: oumi
-is_multimodal: false
-analyzers:
-  - id: length
-```
-
-For all configuration options including dataset sources, output settings, tokenizer configuration, and validation rules, see the {doc}`analyze_config`.
-
-## Available Analyzers
-
-### Length Analyzer
-
-The built-in `length` analyzer computes text length metrics:
-
-| Metric | Description |
-|--------|-------------|
-| `char_count` | Number of characters in text |
-| `word_count` | Number of words (space-separated tokens) |
-| `sentence_count` | Number of sentences (split on `.!?`) |
-| `token_count` | Number of tokens (requires tokenizer) |
-
-See {doc}`analyze_config` for full parameter details and tokenizer setup.
-
-## Working with Results
-
-### Analysis Summary
-
-After running analysis, access the summary statistics:
-
-```python
+:::
+:::{code-block} python
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
 
@@ -134,12 +37,56 @@ config = AnalyzeConfig(
 
 analyzer = DatasetAnalyzer(config)
 analyzer.analyze_dataset()
+print(analyzer.analysis_summary)
+:::
+::::
 
+Oumi outputs results to `./analysis_output/basic/` including per-message metrics, conversation aggregates, and statistical summaries.
+
+## Configuration
+
+A minimal configuration for a local file:
+
+```yaml
+dataset_source: CONFIG
+dataset_path: data/dataset_examples/oumi_format.jsonl
+dataset_format: oumi
+is_multimodal: false
+analyzers:
+  - id: length
+```
+
+For complete configuration options including dataset sources, output settings, tokenizer configuration, and validation rules, see {doc}`analyze_config`.
+
+## Available Analyzers
+
+### Length Analyzer
+
+The built-in `length` analyzer computes text length metrics:
+
+| Metric | Description |
+|--------|-------------|
+| `char_count` | Number of characters |
+| `word_count` | Number of words (space-separated) |
+| `sentence_count` | Number of sentences (split on `.!?`) |
+| `token_count` | Number of tokens (requires tokenizer) |
+
+:::{tip}
+Enable token counting by adding `tokenizer_config` to your configuration. See {doc}`analyze_config` for setup details.
+:::
+
+## Working with Results
+
+### Analysis Summary
+
+Access summary statistics after running analysis:
+
+```python
 summary = analyzer.analysis_summary
 
 # Dataset overview
 print(f"Dataset: {summary['dataset_overview']['dataset_name']}")
-print(f"Samples analyzed: {summary['dataset_overview']['conversations_analyzed']}")
+print(f"Samples: {summary['dataset_overview']['conversations_analyzed']}")
 
 # Message-level statistics
 for analyzer_name, metrics in summary['message_level_summary'].items():
@@ -152,17 +99,12 @@ for analyzer_name, metrics in summary['message_level_summary'].items():
 Access raw analysis data as pandas DataFrames:
 
 ```python
-# Message-level metrics (one row per message)
-message_df = analyzer.message_df
-
-# Conversation-level metrics (one row per conversation)
-conversation_df = analyzer.conversation_df
-
-# Merged view
-full_df = analyzer.analysis_df
+message_df = analyzer.message_df        # One row per message
+conversation_df = analyzer.conversation_df  # One row per conversation
+full_df = analyzer.analysis_df          # Merged view
 ```
 
-### Querying Results
+### Querying and Filtering
 
 Filter results using pandas query syntax:
 
@@ -172,76 +114,44 @@ long_messages = analyzer.query("text_content_length_word_count > 10")
 
 # Find short conversations
 short_convos = analyzer.query_conversations("text_content_length_char_count < 100")
-```
 
-### Filtering Datasets
-
-Create filtered datasets based on analysis:
-
-```python
-# Get dataset with only short messages
+# Create filtered dataset
 filtered_dataset = analyzer.filter("text_content_length_word_count < 100")
-
-# Use filtered dataset for training
-print(f"Filtered from {len(analyzer.dataset)} to {len(filtered_dataset)} samples")
 ```
 
-```{note}
-Filtering is only supported for map-style datasets. Streaming/iterable datasets cannot be filtered by index.
-```
+:::{note}
+Filtering requires map-style datasets. Streaming/iterable datasets cannot be filtered by index.
+:::
 
-## Supported Dataset Types
-
-The analyze feature works with multiple dataset formats:
+## Supported Dataset Formats
 
 | Format | Description | Example |
 |--------|-------------|---------|
-| **Conversation (oumi)** | Multi-turn conversations with roles | SFT, instruction-following datasets |
-| **Alpaca** | Instruction/input/output format | Stanford Alpaca, many instruction datasets |
-| **DPO** | Preference pairs (chosen/rejected) | Preference learning datasets |
-| **KTO** | Binary feedback format | Human feedback datasets |
-| **Pretraining** | Raw text | C4, The Pile, etc. |
-| **HuggingFace Hub** | Any HF dataset | Loaded directly via `datasets` library |
-
-### Analyzing Local Files
-
-Analyze the included example datasets:
-
-**Oumi format (multi-turn conversations):**
-
-```bash
-oumi analyze --config configs/examples/analyze/basic_analyze.yaml
-```
-
-**Alpaca format (instruction/input/output):**
-
-```bash
-oumi analyze --config configs/examples/analyze/analyze_local_dataset.yaml
-```
+| **oumi** | Multi-turn conversations with roles | SFT, instruction-following |
+| **alpaca** | Instruction/input/output format | Stanford Alpaca |
+| **DPO** | Preference pairs (chosen/rejected) | Preference learning |
+| **KTO** | Binary feedback format | Human feedback |
+| **Pretraining** | Raw text | C4, The Pile |
 
 ### Analyzing HuggingFace Datasets
 
-You can analyze any HuggingFace Hub dataset directly. Create a config file `hf_analyze.yaml`:
+Analyze any HuggingFace Hub dataset directly:
 
-```yaml
+::::{tab-set-code}
+:::{code-block} yaml
+
+# hf_analyze.yaml
+
 dataset_source: CONFIG
 dataset_name: databricks/dolly-15k
 split: train
 sample_count: 100
 output_path: ./analysis_output/dolly
 analyzers:
-  - id: length
-```
 
-Then run:
-
-```bash
-oumi analyze --config hf_analyze.yaml
-```
-
-Or use the Python API:
-
-```python
+- id: length
+:::
+:::{code-block} python
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
 
@@ -254,30 +164,40 @@ config = AnalyzeConfig(
 )
 analyzer = DatasetAnalyzer(config)
 analyzer.analyze_dataset()
-print(analyzer.analysis_summary)
-```
+:::
+::::
 
 ## Exporting Results
 
-### CLI Export
+::::{tab-set-code}
+:::{code-block} bash
 
-The CLI automatically exports results when `output_path` is set:
-
-```bash
 # Export to CSV (default)
+
 oumi analyze --config configs/examples/analyze/basic_analyze.yaml
 
 # Export to Parquet
+
 oumi analyze --config configs/examples/analyze/basic_analyze.yaml --format parquet
 
-# Export to JSON
-oumi analyze --config configs/examples/analyze/basic_analyze.yaml --format json
-
 # Override output directory
-oumi analyze --config configs/examples/analyze/basic_analyze.yaml --output ./my_results
-```
 
-See {doc}`analyze_config` for all CLI options.
+oumi analyze --config configs/examples/analyze/basic_analyze.yaml --output ./my_results
+:::
+:::{code-block} python
+import json
+
+# Export DataFrames
+
+analyzer.message_df.to_csv("message_analysis.csv", index=False)
+analyzer.conversation_df.to_parquet("conversation_analysis.parquet")
+
+# Export summary
+
+with open("summary.json", "w") as f:
+    json.dump(analyzer.analysis_summary, f, indent=2)
+:::
+::::
 
 **Output files:**
 
@@ -287,102 +207,16 @@ See {doc}`analyze_config` for all CLI options.
 | `conversation_analysis.{format}` | Per-conversation aggregated metrics |
 | `analysis_summary.json` | Statistical summary |
 
-### Python API Export
-
-```python
-import json
-
-# Export DataFrames
-analyzer.message_df.to_csv("message_analysis.csv", index=False)
-analyzer.conversation_df.to_parquet("conversation_analysis.parquet")
-
-# Export summary
-with open("summary.json", "w") as f:
-    json.dump(analyzer.analysis_summary, f, indent=2)
-```
-
-## Example Workflows
-
-### Analyze with Token Counting
-
-```bash
-oumi analyze --config configs/examples/analyze/analyze_with_tokens.yaml
-```
-
-This uses GPT-2 tokenizer to count tokens in addition to characters, words, and sentences.
-
-### Custom Analysis Script
-
-```python
-from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
-
-# Analyze local dataset with token counting
-config = AnalyzeConfig(
-    dataset_source=DatasetSource.CONFIG,
-    dataset_path="data/dataset_examples/oumi_format.jsonl",
-    dataset_format="oumi",
-    is_multimodal=False,
-    output_path="./my_analysis",
-    tokenizer_config={"model_name": "openai-community/gpt2"},
-    analyzers=[
-        SampleAnalyzerParams(
-            id="length",
-            params={
-                "char_count": True,
-                "word_count": True,
-                "sentence_count": True,
-                "token_count": True,
-            }
-        )
-    ],
-)
-
-analyzer = DatasetAnalyzer(config)
-analyzer.analyze_dataset()
-
-# Print summary
-summary = analyzer.analysis_summary
-print(f"Analyzed {summary['dataset_overview']['conversations_analyzed']} conversations")
-print(f"Total messages: {summary['dataset_overview']['total_messages']}")
-
-# Export to CSV
-analyzer.message_df.to_csv("my_analysis/messages.csv", index=False)
-```
-
-### Filter Dataset by Length
-
-```python
-from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
-
-config = AnalyzeConfig(
-    dataset_source=DatasetSource.CONFIG,
-    dataset_path="data/dataset_examples/oumi_format.jsonl",
-    dataset_format="oumi",
-    is_multimodal=False,
-    analyzers=[SampleAnalyzerParams(id="length")],
-)
-
-analyzer = DatasetAnalyzer(config)
-analyzer.analyze_dataset()
-
-# Filter out very short responses (< 50 characters)
-quality_dataset = analyzer.filter("text_content_length_char_count >= 50")
-print(f"Kept {len(quality_dataset)} of {len(analyzer.dataset)} samples")
-```
-
 ## Troubleshooting
 
-### Common Issues
-
+````{dropdown} Common Issues
 **"Dataset not found in registry"**
 
-If you're using a HuggingFace dataset that's not registered in Oumi, it will be loaded directly from the Hub. Make sure you have internet access and the dataset name is correct.
+HuggingFace datasets not registered in Oumi load directly from the Hub. Verify internet access and dataset name.
 
 **"Tokenizer required for token_count"**
 
-To compute token counts, you must provide a `tokenizer_config`:
+Provide a `tokenizer_config` to compute token counts:
 
 ```yaml
 tokenizer_config:
@@ -396,18 +230,13 @@ analyzers:
 
 **"Filtering not supported for iterable datasets"**
 
-Streaming datasets cannot be filtered by index. Use the `query()` method to get filtered indices, then process manually:
+Streaming datasets cannot be filtered by index. Use `query()` to get filtered indices:
 
 ```python
-# Get indices that match criteria
 filtered_df = analyzer.query("text_content_length_word_count > 100")
 valid_indices = filtered_df.conversation_index.unique().tolist()
-
-# Process manually
-for idx in valid_indices:
-    # Your processing logic
-    pass
 ```
+````
 
 ## API Reference
 
