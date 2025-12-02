@@ -97,40 +97,7 @@ analyzers:
   - id: length
 ```
 
-### Full Configuration Options
-
-```yaml
-# Required: How to load the dataset (CONFIG or DIRECT)
-dataset_source: CONFIG
-
-# Dataset specification - local file
-dataset_path: data/dataset_examples/oumi_format.jsonl
-dataset_format: oumi  # Required with dataset_path: "oumi" or "alpaca"
-is_multimodal: false  # Required with dataset_path
-
-# OR - HuggingFace dataset (instead of dataset_path)
-# dataset_name: "tatsu-lab/alpaca"
-# split: train
-# sample_count: 1000  # Limit samples to analyze (null = all)
-
-# Output settings
-output_path: "./analysis_results"  # Where to save results
-
-# Analyzers to run
-analyzers:
-  - id: length
-    params:
-      char_count: true
-      word_count: true
-      sentence_count: true
-      token_count: false  # Requires tokenizer_config
-
-# Optional: Tokenizer for token counting
-tokenizer_config:
-  model_name: openai-community/gpt2
-```
-
-For detailed configuration options, see {doc}`analyze_config`.
+For all configuration options including dataset sources, output settings, tokenizer configuration, and validation rules, see the {doc}`analyze_config`.
 
 ## Available Analyzers
 
@@ -145,30 +112,7 @@ The built-in `length` analyzer computes text length metrics:
 | `sentence_count` | Number of sentences (split on `.!?`) |
 | `token_count` | Number of tokens (requires tokenizer) |
 
-**Configuration:**
-
-```yaml
-analyzers:
-  - id: length
-    params:
-      char_count: true
-      word_count: true
-      sentence_count: true
-      token_count: true  # Requires tokenizer_config
-      include_special_tokens: true  # Include special tokens in count
-```
-
-**With tokenizer for token counting:**
-
-```yaml
-tokenizer_config:
-  model_name: openai-community/gpt2
-
-analyzers:
-  - id: length
-    params:
-      token_count: true
-```
+See {doc}`analyze_config` for full parameter details and tokenizer setup.
 
 ## Working with Results
 
@@ -332,6 +276,8 @@ oumi analyze --config configs/examples/analyze/basic_analyze.yaml --format json
 # Override output directory
 oumi analyze --config configs/examples/analyze/basic_analyze.yaml --output ./my_results
 ```
+
+See {doc}`analyze_config` for all CLI options.
 
 **Output files:**
 
