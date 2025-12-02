@@ -1,0 +1,26 @@
+# Local Dataset Analysis - Alpaca Format
+# Analyzes a local JSONL file in Alpaca instruction format
+#
+# Usage:
+#   oumi analyze --config configs/examples/analyze/analyze_local_dataset.yaml
+#
+# Alpaca format expects:
+#   {"instruction": "...", "input": "...", "output": "..."}
+
+dataset_source: CONFIG
+
+# Local alpaca-format dataset
+dataset_path: data/dataset_examples/alpaca_format.jsonl
+dataset_format: alpaca
+is_multimodal: false
+
+# Output directory
+output_path: ./analysis_output/alpaca
+
+# Analyzers
+analyzers:
+  - id: length
+    params:
+      char_count: true
+      word_count: true
+      sentence_count: true

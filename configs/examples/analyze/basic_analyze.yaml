@@ -1,0 +1,30 @@
+# Basic Dataset Analysis Configuration
+# Analyzes text length metrics for a local Oumi-format dataset
+#
+# Usage:
+#   oumi analyze --config configs/examples/analyze/basic_analyze.yaml
+#
+# Output:
+#   - message_analysis.csv: Per-message metrics
+#   - conversation_analysis.csv: Per-conversation aggregated metrics
+#   - analysis_summary.json: Statistical summary
+
+# Dataset source: load from config settings
+dataset_source: CONFIG
+
+# Use local example dataset (Oumi conversation format)
+dataset_path: data/dataset_examples/oumi_format.jsonl
+dataset_format: oumi
+is_multimodal: false
+
+# Where to save results
+output_path: ./analysis_output/basic
+
+# Analyzers to run
+analyzers:
+  - id: length
+    params:
+      char_count: true
+      word_count: true
+      sentence_count: true
+      token_count: false
