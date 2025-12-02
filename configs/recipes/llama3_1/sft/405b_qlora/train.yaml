@@ -30,7 +30,6 @@ data:
   train:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned" # 51,760 examples
-    target_col: "prompt"
 
 training:
   trainer_type: "TRL_SFT"

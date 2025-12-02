@@ -1,13 +1,12 @@
 name: "GPU Installation Test"
 
 permissions:
-    contents: 'read'
+  contents: "read"
 
 on:
-  merge_group:
+  pull_request:
     paths:
-      - 'pyproject.toml'
-      - '.github/workflows/**'
+      - "pyproject.toml"
   workflow_dispatch:
 
 env:
@@ -17,7 +16,7 @@ env:
 jobs:
   gpu-install-test:
     permissions:
-      contents: 'read'
+      contents: "read"
     runs-on: linux-gpu-runner
     container:
       image: ${{ matrix.cuda-image }}
@@ -40,41 +39,41 @@ jobs:
             python-version: "3.11"
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.sha }}
-        fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
 
-    - name: Install system dependencies
-      run: |
-        apt-get update
-        apt-get install -y libcurl4
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y libcurl4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v2
-      with:
-        enable-cache: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
 
-    - name: Install oumi with GPU dependencies
-      run: |
-        uv pip install --system -e '.[gpu,dev,synthesis]'
+      - name: Install oumi with GPU dependencies
+        run: |
+          uv pip install --system -e '.[gpu,dev,synthesis]'
 
-    - name: Verify GPU installation
-      run: |
-        python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
-        python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
-        python -c "import torch; print(f'CUDA version: {torch.version.cuda}')"
+      - name: Verify GPU installation
+        run: |
+          python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+          python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+          python -c "import torch; print(f'CUDA version: {torch.version.cuda}')"
 
-        # Test GPU tensor operations
-        oumi env
+          # Test GPU tensor operations
+          oumi env
 
-    - name: Run tests
-      run: |
-        cd ./tests/unit/
-        pytest -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300
+      - name: Run tests
+        run: |
+          cd ./tests/unit/
+          pytest -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300

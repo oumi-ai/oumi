@@ -34,7 +34,6 @@ def _get_default_config(
 ) -> TrainingConfig:
     dataset_split_params = DatasetSplitParams(
         datasets=datasets,
-        target_col="question",
         stream=stream,
         pack=pack,
     )
@@ -42,7 +41,7 @@ def _get_default_config(
         data=DataParams(),
         model=ModelParams(
             model_name="MlpEncoder",
-            tokenizer_name="gpt2",
+            tokenizer_name="openai-community/gpt2",
             load_pretrained_weights=False,
             model_max_length=1024,
             tokenizer_pad_token="<|endoftext|>",
@@ -440,7 +439,7 @@ def test_packing_without_streaming_with_sft_dataset(stream: bool):
                 stream=stream,
             )
         ),
-        model=ModelParams(model_name="gpt2", model_max_length=128),
+        model=ModelParams(model_name="openai-community/gpt2", model_max_length=128),
     )
 
     tokenizer = build_tokenizer(config.model)
@@ -484,7 +483,7 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
                 stream=stream,
             )
         ),
-        model=ModelParams(model_name="gpt2", model_max_length=128),
+        model=ModelParams(model_name="openai-community/gpt2", model_max_length=128),
     )
 
     tokenizer = build_tokenizer(config.model)
@@ -534,7 +533,7 @@ def test_mixed_dataset_packing(stream: bool):
                 seed=1,
             )
         ),
-        model=ModelParams(model_name="gpt2", model_max_length=128),
+        model=ModelParams(model_name="openai-community/gpt2", model_max_length=128),
     )
 
     tokenizer = build_tokenizer(config.model)

@@ -29,7 +29,6 @@ data:
     datasets:
       - dataset_name: "nvidia/ChatQA-Training-Data"
         subset: "sft"
-    target_col: "text"
     pack: False
     stream: False
 

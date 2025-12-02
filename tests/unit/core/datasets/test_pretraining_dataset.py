@@ -13,7 +13,7 @@ from oumi.core.datasets import BasePretrainingDataset
 #
 @pytest.fixture
 def tokenizer():
-    return AutoTokenizer.from_pretrained("gpt2")
+    return AutoTokenizer.from_pretrained("openai-community/gpt2")
 
 
 class TestDataset(BasePretrainingDataset):

@@ -111,6 +111,7 @@ class ModelParams(BaseParams):
     """The data type to use for the model's parameters, as a string.
 
     Valid options are:
+
     - "auto": Use the default dtype of the model, which is usually specified in the
       config.json file for HF models.
     - "float32" or "f32" or "float" for 32-bit floating point
@@ -141,6 +142,12 @@ class ModelParams(BaseParams):
     Note:
         Different models may require specific chat templates. Consult the model's
         documentation for the appropriate template to use.
+    """
+
+    chat_template_kwargs: Optional[dict[str, Any]] = None
+    """Additional keyword args to pass to the chat template renderer.
+    Currently, it is only used by the vLLM inference engine to pass additional kwargs
+    for generation of assistant messages.
     """
 
     attn_implementation: Optional[str] = None

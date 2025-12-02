@@ -75,7 +75,7 @@ def _get_default_model_params() -> ModelParams:
     return ModelParams(
         model_name="MlpEncoder",
         trust_remote_code=True,
-        tokenizer_name="gpt2",
+        tokenizer_name="openai-community/gpt2",
     )
 
 

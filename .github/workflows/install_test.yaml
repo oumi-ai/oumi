@@ -1,13 +1,12 @@
 name: "Installation Test"
 
 permissions:
-    contents: 'read'
+  contents: "read"
 
 on:
-  merge_group:
+  pull_request:
     paths:
-      - 'pyproject.toml'
-      - '.github/workflows/**'
+      - "pyproject.toml"
   workflow_dispatch:
 
 jobs:
@@ -21,48 +20,48 @@ jobs:
         torch-version: ["2.6.0", "2.7.1", "2.8.0"]
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.sha }}
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v2
-      with:
-        enable-cache: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
 
-    - name: Install oumi
-      run: |
-        uv pip install --system -e .
+      - name: Install oumi
+        run: |
+          uv pip install --system -e .
 
-    - name: Override PyTorch ${{ matrix.torch-version }}
-      run: |
-        uv pip install --system torch==${{ matrix.torch-version }} torchvision torchaudio
+      - name: Override PyTorch ${{ matrix.torch-version }}
+        run: |
+          uv pip install --system torch==${{ matrix.torch-version }} torchvision torchaudio
 
-    - name: Verify installation
-      run: |
-        python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
-        oumi env
+      - name: Verify installation
+        run: |
+          python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+          oumi env
 
-    - name: Install pytest
-      run: |
-        uv pip install --system pytest-asyncio>=1.1.0 pytest-cov pytest-timeout pytest responses
-        uv pip install --system pdftext  # temporary fix to unblock the tests
+      - name: Install pytest
+        run: |
+          uv pip install --system pytest-asyncio>=1.1.0 pytest-cov pytest-timeout pytest responses
+          uv pip install --system pdftext  # temporary fix to unblock the tests
 
-    - name: Run tests
-      run: |
-        cd ./tests/unit/
-        if [ "${{ matrix.python-version }}" = "3.9" ]; then
-          # There are some asyncio tests that fail on 3.9.
-          # We ignore them for now.
-          pytest -q -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300 --ignore=inference/
-          cd inference/
-          pytest -q -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300
-        else
-          pytest -q -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300
-        fi
+      - name: Run tests
+        run: |
+          cd ./tests/unit/
+          if [ "${{ matrix.python-version }}" = "3.9" ]; then
+            # There are some asyncio tests that fail on 3.9.
+            # We ignore them for now.
+            pytest -q -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300 --ignore=inference/
+            cd inference/
+            pytest -q -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300
+          else
+            pytest -q -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300
+          fi

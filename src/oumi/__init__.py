@@ -70,6 +70,13 @@ Examples:
         >>> config = JudgeConfig(...)
         >>> judge_dataset(config, dataset)
 
+    Tune a model::
+
+        >>> from oumi import tune
+        >>> from oumi.core.configs import TuningConfig
+        >>> config = TuningConfig(...)
+        >>> tune(config)
+
 See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi
 """
@@ -89,6 +96,7 @@ if TYPE_CHECKING:
         QuantizationConfig,
         SynthesisConfig,
         TrainingConfig,
+        TuningConfig,
     )
     from oumi.core.inference import BaseInferenceEngine
     from oumi.core.types.conversation import Conversation
@@ -240,7 +248,7 @@ def train(
     additional_model_kwargs: dict[str, Any] | None = None,
     additional_trainer_kwargs: dict[str, Any] | None = None,
     verbose: bool = False,
-) -> None:
+) -> dict[str, Any] | None:
     """Trains a model using the provided configuration."""
     import oumi.train
 
@@ -276,6 +284,13 @@ def quantize(config: QuantizationConfig) -> QuantizationResult:
     return oumi.quantize.quantize(config)
 
 
+def tune(config: TuningConfig) -> None:
+    """Tunes hyperparameters for a model using the provided configuration."""
+    import oumi.tune
+
+    return oumi.tune.tune(config)
+
+
 __all__ = [
     "evaluate_async",
     "evaluate",
@@ -284,4 +299,5 @@ __all__ = [
     "quantize",
     "synthesize",
     "train",
+    "tune",
 ]

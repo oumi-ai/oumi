@@ -32,7 +32,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install -U ".[ci_gpu]" hf_transfer --system
+  pip install uv && uv pip install --system -U ".[ci_gpu]" hf_transfer --system
   pip install -U flash-attn --no-build-isolation
 
 run: |

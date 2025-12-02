@@ -328,3 +328,71 @@ def test_with_generation_prompt():
     assert "input_ids" in result
     assert "attention_mask" in result
     assert "labels" in result
+
+
+def test_return_conversations_json_format(gpt2_tokenizer):
+    """Test that return_conversations with 'json' format returns conversation_json."""
+    dataset = TestBaseSftDataset(
+        tokenizer=gpt2_tokenizer,
+        return_conversations=True,
+        return_conversations_format="json",
+    )
+
+    result = dataset[0]
+
+    assert "conversation_json" in result
+    assert isinstance(result["conversation_json"], str)
+    assert "input_ids" not in result
+    assert "attention_mask" not in result
+    assert "labels" not in result
+
+
+def test_return_conversations_dict_format(gpt2_tokenizer):
+    """Test that return_conversations with 'dict' format returns conversation dict."""
+    dataset = TestBaseSftDataset(
+        tokenizer=gpt2_tokenizer,
+        return_conversations=True,
+        return_conversations_format="dict",
+    )
+
+    result = dataset[0]
+
+    # Should return the conversation as a dict
+    assert "messages" in result
+    assert isinstance(result["messages"], list)
+    assert "conversation_json" not in result
+    assert "input_ids" not in result
+    assert "attention_mask" not in result
+    assert "labels" not in result
+
+
+def test_return_conversations_invalid_format(gpt2_tokenizer):
+    """Test that invalid return_conversations_format raises ValueError."""
+    dataset = TestBaseSftDataset(
+        tokenizer=gpt2_tokenizer,
+        return_conversations=True,
+        return_conversations_format="invalid_format",  # type: ignore
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        dataset[0]
+
+    assert "Invalid return_conversations_format" in str(excinfo.value)
+    assert "invalid_format" in str(excinfo.value)
+    assert "json" in str(excinfo.value)
+    assert "dict" in str(excinfo.value)
+
+
+def test_return_conversations_default_format(gpt2_tokenizer):
+    """Test that return_conversations defaults to 'json' format."""
+    dataset = TestBaseSftDataset(
+        tokenizer=gpt2_tokenizer,
+        return_conversations=True,
+        # Not specifying return_conversations_format, should default to "json"
+    )
+
+    result = dataset[0]
+
+    # Default should be JSON format
+    assert "conversation_json" in result
+    assert isinstance(result["conversation_json"], str)

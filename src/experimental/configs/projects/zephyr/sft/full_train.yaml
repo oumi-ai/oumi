@@ -32,7 +32,6 @@ data:
         split: "train_sft"
         shuffle: True
         seed: 42
-    target_col: "text"
 
 training:
   optimizer: "adamw_torch_fused"
@@ -54,6 +53,5 @@ training:
   mixed_precision_dtype: "BF16"
   # resume_from_checkpoint: "your-checkpoint-directory" # Optional
   trainer_kwargs:
-    dataset_text_field: ${data.train.target_col}
     max_seq_length: ${model.model_max_length}
     packing: True # Enabled for faster training

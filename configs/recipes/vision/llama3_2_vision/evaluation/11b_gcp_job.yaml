@@ -39,7 +39,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] hf_transfer
+  pip install uv && uv pip install --system oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
   HF_HUB_ENABLE_HF_TRANSFER=1 hf download meta-llama/Llama-3.2-11B-Vision-Instruct --exclude original/*

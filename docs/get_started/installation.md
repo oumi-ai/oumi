@@ -11,6 +11,7 @@ Before installing Oumi, ensure you have the following:
 - Python 3.9 or later
 - pip (Python package installer)
 - Git (if cloning the repository; required for steps 1 and 2)
+- 10-20GB of disk space
 
 We recommend using a virtual environment to install Oumi. You can find instructions for setting up a Conda environment in the {doc}`/development/dev_setup` guide.
 
@@ -144,6 +145,20 @@ oumi --help
 ```
 
 This should print the help message for Oumi.
+
+### Using Docker
+
+You can also use the oumi docker images:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/oumi-ai/oumi:latest
+
+# Run oumi
+docker run --gpus all -it --rm ghcr.io/oumi-ai/oumi:latest oumi --help
+```
+
+For comprehensive Docker usage, including volume mounting, training, evaluation, and inference examples, see the {doc}`Docker guide </user_guides/train/environments/docker>`.
 
 ## Troubleshooting
 

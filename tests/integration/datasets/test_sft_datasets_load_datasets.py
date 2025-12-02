@@ -22,7 +22,7 @@ def _get_all_sft_datasets_private_key() -> list[str]:
 )
 def test_sft_datasets(dataset_key: str):
     dataset_cls = REGISTRY._registry[(dataset_key, RegistryType.DATASET)]
-    tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3-mini-4k-instruct")
+    tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM2-135M-Instruct")
     idx = 0
 
     # Dataset can successfully be loaded

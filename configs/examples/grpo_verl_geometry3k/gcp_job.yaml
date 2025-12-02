@@ -35,7 +35,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] huggingface_hub[hf_xet] mathruler
+  pip install uv && uv pip install --system oumi[gpu] huggingface_hub[hf_xet] mathruler
   # TODO: OPE-1331 - Fix bug that lets us upgrade to verl 0.4.0.
   # Note that qwen_vl_utils needs to manually installed.
   # In the meantime, we need to use this specific commit to support vLLM 0.8.3:

@@ -37,7 +37,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu]
+  pip install uv && uv pip install --system oumi[gpu]
 
 run: |
   set -e  # Exit if any command failed.

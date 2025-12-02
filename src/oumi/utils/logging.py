@@ -214,6 +214,25 @@ def configure_dependency_warnings(level: Union[str, int] = "info") -> None:
         warnings.filterwarnings(
             action="ignore", category=UserWarning, module="transformers"
         )
+        # Suppress TorchAO Triton warning on macOS (Triton not available on macOS)
+        warnings.filterwarnings(
+            action="ignore",
+            message=".*Detected no triton.*",
+            module="torchao.kernel.intmm",
+        )
+        # Suppress torch.distributed.elastic redirects warning
+        # (not supported on macOS/Windows)
+        warnings.filterwarnings(
+            action="ignore",
+            message=".*Redirects are currently not supported.*",
+            module="torch.distributed.elastic.multiprocessing.redirects",
+        )
+
+        # Also suppress these as logging messages
+        logging.getLogger("torchao.kernel.intmm").setLevel(logging.ERROR)
+        logging.getLogger(
+            "torch.distributed.elastic.multiprocessing.redirects"
+        ).setLevel(logging.ERROR)
 
 
 # Default logger for the package

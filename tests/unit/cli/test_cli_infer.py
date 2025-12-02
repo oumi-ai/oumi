@@ -41,7 +41,7 @@ def _create_inference_config() -> InferenceConfig:
         model=ModelParams(
             model_name="MlpEncoder",
             trust_remote_code=True,
-            tokenizer_name="gpt2",
+            tokenizer_name="openai-community/gpt2",
         ),
         generation=GenerationParams(
             max_new_tokens=5,

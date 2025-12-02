@@ -43,8 +43,8 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] hf_transfer[hf_xet]
-  uv pip install transformers>=4.51.0  # Required for llama4
+  pip install uv && uv pip install --system oumi[gpu] hf_transfer[hf_xet]
+  uv pip install --system transformers>=4.51.0  # Required for llama4
 
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
