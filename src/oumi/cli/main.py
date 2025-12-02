@@ -33,6 +33,23 @@ from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
+
+# Import chat from oumi_chat package
+try:
+    from oumi_chat.cli import chat  # pyright: ignore[reportMissingImports]
+except ImportError:
+    # If oumi-chat is not installed, provide a helpful error message
+    def chat(*args, **kwargs):
+        """Chat command requires oumi-chat package."""
+        from oumi.cli.cli_utils import CONSOLE
+
+        CONSOLE.print(
+            "[red]Error:[/red] The chat command requires the oumi-chat package. "
+            "Install it with: pip install oumi-chat or pip install oumi[interactive]"
+        )
+        raise SystemExit(1)
+
+
 from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
@@ -87,6 +104,10 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Run inference on a model.",
     )(infer)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Start interactive chat. Use /help() once in chat for available commands.",
+    )(chat)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Synthesize a dataset.",
