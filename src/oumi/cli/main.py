@@ -18,6 +18,7 @@ import traceback
 
 import typer
 
+from oumi.cli.bootstrap import bootstrap
 from oumi.cli.cache import card as cache_card
 from oumi.cli.cache import get as cache_get
 from oumi.cli.cache import ls as cache_ls
@@ -148,6 +149,10 @@ def get_app() -> typer.Typer:
     app.command(
         help="Fetch configuration files from the oumi GitHub repository.",
     )(fetch)
+
+    app.command(
+        help="Bootstrap configs for new open source models from HuggingFace.",
+    )(bootstrap)
 
     cache_app = typer.Typer(pretty_exceptions_enable=False)
     cache_app.command(name="ls", help="List locally cached items.")(cache_ls)
