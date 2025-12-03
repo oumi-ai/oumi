@@ -1,0 +1,28 @@
+# Dataset Analysis Configuration
+# Usage: oumi analyze --config configs/examples/analyze/analyze.yaml
+
+# Option 1: Local file
+dataset_path: data/dataset_examples/oumi_format.jsonl
+is_multimodal: false # Set true for vision-language datasets
+
+# Option 2: HuggingFace dataset (uncomment to use instead)
+# dataset_name: databricks/dolly-15k
+# split: train
+
+# sample_count: 1000  # Limit samples (null = all)
+output_path: ./analysis_output
+
+# Tokenizer for token_count metric
+# tokenizer_config:
+#   model_name: openai-community/gpt2
+
+# For multimodal datasets (when is_multimodal: true)
+# processor_name: llava-hf/llava-1.5-7b-hf
+
+analyzers:
+  - id: length
+    params:
+      char_count: true
+      word_count: true
+      sentence_count: true
+      token_count: false # Requires tokenizer_config

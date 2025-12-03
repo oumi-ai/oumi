@@ -21,14 +21,13 @@ Oumi's dataset analysis framework helps you understand training data before and 
 
 ::::{tab-set-code}
 :::{code-block} bash
-oumi analyze --config configs/examples/analyze/basic_analyze.yaml
+oumi analyze --config configs/examples/analyze/analyze.yaml
 :::
 :::{code-block} python
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
+from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 
 config = AnalyzeConfig(
-    dataset_source=DatasetSource.CONFIG,
     dataset_path="data/dataset_examples/oumi_format.jsonl",
     dataset_format="oumi",
     is_multimodal=False,
@@ -48,7 +47,6 @@ Oumi outputs results to `./analysis_output/basic/` including per-message metrics
 A minimal configuration for a local file:
 
 ```yaml
-dataset_source: CONFIG
 dataset_path: data/dataset_examples/oumi_format.jsonl
 dataset_format: oumi
 is_multimodal: false
@@ -142,7 +140,6 @@ Analyze any HuggingFace Hub dataset directly:
 
 # hf_analyze.yaml
 
-dataset_source: CONFIG
 dataset_name: databricks/dolly-15k
 split: train
 sample_count: 100
@@ -153,10 +150,9 @@ analyzers:
 :::
 :::{code-block} python
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
+from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 
 config = AnalyzeConfig(
-    dataset_source=DatasetSource.CONFIG,
     dataset_name="databricks/dolly-15k",
     split="train",
     sample_count=100,
@@ -174,15 +170,15 @@ analyzer.analyze_dataset()
 
 # Export to CSV (default)
 
-oumi analyze --config configs/examples/analyze/basic_analyze.yaml
+oumi analyze --config configs/examples/analyze/analyze.yaml
 
 # Export to Parquet
 
-oumi analyze --config configs/examples/analyze/basic_analyze.yaml --format parquet
+oumi analyze --config configs/examples/analyze/analyze.yaml --format parquet
 
 # Override output directory
 
-oumi analyze --config configs/examples/analyze/basic_analyze.yaml --output ./my_results
+oumi analyze --config configs/examples/analyze/analyze.yaml --output ./my_results
 :::
 :::{code-block} python
 import json
@@ -206,6 +202,169 @@ with open("summary.json", "w") as f:
 | `message_analysis.{format}` | Per-message metrics |
 | `conversation_analysis.{format}` | Per-conversation aggregated metrics |
 | `analysis_summary.json` | Statistical summary |
+
+## Creating Custom Analyzers
+
+You can create custom analyzers to compute domain-specific metrics for your datasets. Custom analyzers extend the `SampleAnalyzer` base class and are registered using the `@register_sample_analyzer` decorator.
+
+### Basic Structure
+
+```python
+from typing import Optional
+import pandas as pd
+
+from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.registry import register_sample_analyzer
+
+
+@register_sample_analyzer("my_analyzer")  # Register with unique ID
+class MyAnalyzer(SampleAnalyzer):
+    """Custom analyzer that computes domain-specific metrics."""
+
+    def __init__(self, *, my_option: bool = True):
+        """Initialize with configuration options.
+
+        Args:
+            my_option: Example parameter passed from config
+        """
+        self.my_option = my_option
+
+    def analyze_sample(
+        self,
+        df: pd.DataFrame,
+        schema: Optional[dict] = None,
+    ) -> pd.DataFrame:
+        """Analyze text fields and return metrics.
+
+        Args:
+            df: Input DataFrame with text fields
+            schema: Column schema dict identifying column types
+
+        Returns:
+            DataFrame with added analysis columns
+        """
+        result_df = df.copy()
+
+        # Find text columns using the schema
+        text_columns = [
+            col
+            for col, config in schema.items()
+            if config.get("content_type") == ContentType.TEXT
+            and col in df.columns
+        ]
+
+        # Compute metrics for each text column
+        for column in text_columns:
+            if self.my_option:
+                # Add your custom metric computation here
+                result_df[f"{column}_my_metric"] = (
+                    df[column].astype(str).apply(self._compute_metric)
+                )
+
+        return result_df
+
+    def _compute_metric(self, text: str) -> float:
+        """Compute your custom metric."""
+        # Your metric logic here
+        return len(text.split()) / max(len(text), 1)
+```
+
+### Using Your Custom Analyzer
+
+Once registered, use your analyzer in configs by its ID:
+
+```yaml
+# my_config.yaml
+dataset_path: data/my_dataset.jsonl
+dataset_format: oumi
+is_multimodal: false
+
+analyzers:
+  - id: my_analyzer  # Your registered ID
+    params:
+      my_option: true  # Passed to __init__
+```
+
+Or in Python:
+
+```python
+from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
+from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
+
+# Import your analyzer module to trigger registration
+import my_analyzers  # noqa: F401
+
+config = AnalyzeConfig(
+    dataset_path="data/my_dataset.jsonl",
+    dataset_format="oumi",
+    is_multimodal=False,
+    analyzers=[
+        SampleAnalyzerParams(id="my_analyzer", params={"my_option": True})
+    ],
+)
+
+analyzer = DatasetAnalyzer(config)
+analyzer.analyze_dataset()
+```
+
+### Example: Question Detector
+
+Here's a practical example that detects questions in text:
+
+```python
+import re
+from typing import Optional
+import pandas as pd
+
+from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.registry import register_sample_analyzer
+
+
+@register_sample_analyzer("questions")
+class QuestionAnalyzer(SampleAnalyzer):
+    """Analyzer that detects and counts questions in text."""
+
+    def __init__(self, *, count_questions: bool = True, has_question: bool = True):
+        self.count_questions = count_questions
+        self.has_question = has_question
+
+    def analyze_sample(
+        self,
+        df: pd.DataFrame,
+        schema: Optional[dict] = None,
+    ) -> pd.DataFrame:
+        result_df = df.copy()
+
+        text_columns = [
+            col for col, config in schema.items()
+            if config.get("content_type") == ContentType.TEXT and col in df.columns
+        ]
+
+        for column in text_columns:
+            if self.count_questions:
+                result_df[f"{column}_question_count"] = (
+                    df[column].astype(str).apply(
+                        lambda t: len(re.findall(r'\?', t))
+                    )
+                )
+
+            if self.has_question:
+                result_df[f"{column}_has_question"] = (
+                    df[column].astype(str).str.contains(r'\?', regex=True)
+                )
+
+        return result_df
+```
+
+### Key Points
+
+- **Registration**: Use `@register_sample_analyzer("id")` with a unique ID
+- **Schema**: Use the `schema` parameter to identify text columns via `ContentType.TEXT`
+- **Column naming**: Prefix output columns with the source column name for clarity
+- **Parameters**: Constructor parameters are passed from `params` in the config
+- **Import**: Ensure your analyzer module is imported before creating the config
 
 ## Troubleshooting
 
