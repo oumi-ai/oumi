@@ -18,6 +18,7 @@ import traceback
 
 import typer
 
+from oumi.cli.analyze import analyze
 from oumi.cli.cache import card as cache_card
 from oumi.cli.cache import get as cache_get
 from oumi.cli.cache import ls as cache_ls
@@ -72,6 +73,10 @@ def get_app() -> typer.Typer:
     app.callback(context_settings={"help_option_names": ["-h", "--help"]})(
         _oumi_welcome
     )
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Analyze a dataset to compute metrics and statistics.",
+    )(analyze)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Evaluate a model.",

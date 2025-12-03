@@ -319,6 +319,7 @@ def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_
     assert "analyzer_2" in analyzer.sample_analyzers
 
 
+@patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry())
 def test_dataset_source_direct_with_dataset_success():
     """Test that DatasetSource.DIRECT works when dataset is provided."""
 
