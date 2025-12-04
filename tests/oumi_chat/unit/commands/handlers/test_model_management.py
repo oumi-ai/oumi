@@ -23,7 +23,7 @@ from oumi_chat.commands import ParsedCommand
 from oumi_chat.commands.command_context import CommandContext
 from oumi_chat.commands.handlers.model_management_handler import ModelManagementHandler
 from tests.oumi_chat.utils.chat_test_utils import (
-    create_test_inference_config,
+    create_test_chat_config,
     validate_command_result,
 )
 
@@ -35,7 +35,7 @@ class TestSwapCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -369,7 +369,7 @@ class TestListEnginesCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -506,7 +506,7 @@ class TestModelManagementHandler:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -547,7 +547,7 @@ class TestHelperMethods:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -693,8 +693,8 @@ class TestHelperMethods:
         """Test saving model state to branch (should not raise exceptions)."""
         # Test that the method doesn't raise exceptions even without branch manager
         # This tests the defensive programming aspect
-        self.handler._save_current_model_state_to_branch("test_branch")
-        self.handler._save_current_model_state_to_branch("nonexistent_branch")
+        self.handler._save_current_model_state_to_branch()
+        self.handler._save_current_model_state_to_branch()
 
     def test_restore_model_state_from_branch(self):
         """Test restoring model state from branch (should not raise exceptions)."""
@@ -715,7 +715,7 @@ class TestConfigPathResolution:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -772,7 +772,7 @@ class TestModelSwapEdgeCases:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -816,6 +816,7 @@ class TestModelSwapEdgeCases:
             result = self.handler.handle_command(command)
 
             assert not result.success, f"Should fail for HF model ID: {model_id}"
+            assert result.message is not None
             assert (
                 "Config file not found" in result.message
                 or "Invalid swap target" in result.message
@@ -849,6 +850,7 @@ class TestModelSwapEdgeCases:
             result = self.handler.handle_command(command)
 
             assert result.success
+            assert result.message is not None
             assert "Swapped to meta-llama/Llama-3.1-8B-Instruct" in result.message
             assert "VLLM engine" in result.message
 
@@ -857,8 +859,8 @@ class TestModelSwapEdgeCases:
     def test_swap_saves_current_model_state(self, mock_get_engine, mock_from_yaml):
         """Test that swapping saves the current model state to the active branch."""
         # Set initial model state
-        self.handler.context.config.model.model_name = "initial-model"
-        self.handler.context.config.engine = InferenceEngineType.NATIVE
+        self.handler.context.config.inference.model.model_name = "initial-model"
+        self.handler.context.config.inference.engine = InferenceEngineType.NATIVE
 
         mock_new_config = InferenceConfig(
             model=ModelParams(model_name="new-model"),
@@ -912,6 +914,7 @@ class TestModelSwapEdgeCases:
             mock_get_engine.return_value = mock_engine
 
             # Reset monitor mock
+            assert self.command_context.system_monitor is not None
             self.command_context.system_monitor.update_max_context_tokens.reset_mock()
             self.command_context.system_monitor._last_update_time = 1000
 
@@ -927,6 +930,7 @@ class TestModelSwapEdgeCases:
                 assert result.success
 
                 # Verify system monitor was updated with correct context length
+                assert self.command_context.system_monitor is not None
                 self.command_context.system_monitor.update_max_context_tokens.assert_called_once_with(
                     expected_context
                 )
@@ -955,6 +959,7 @@ class TestModelSwapEdgeCases:
                 result = self.handler.handle_command(command)
 
                 assert not result.success
+                assert result.message is not None
                 assert expected_msg_part in result.message
 
     @patch("oumi.core.configs.InferenceConfig.from_yaml")
@@ -982,6 +987,7 @@ class TestModelSwapEdgeCases:
             result = self.handler.handle_command(command)
 
             assert not result.success
+            assert result.message is not None
             assert (
                 "Error creating inference engine: Engine creation failed"
                 in result.message
@@ -1003,4 +1009,5 @@ class TestModelSwapEdgeCases:
             result = self.handler.handle_command(command)
 
             assert not result.success
+            assert result.message is not None
             assert expected_msg in result.message

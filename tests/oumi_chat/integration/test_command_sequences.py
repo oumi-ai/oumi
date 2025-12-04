@@ -23,7 +23,7 @@ import pytest
 from oumi_chat.commands import CommandResult
 from tests.oumi_chat.utils.chat_test_utils import (
     ChatTestSession,
-    create_test_inference_config,
+    create_test_chat_config,
     temporary_test_files,
 )
 
@@ -34,7 +34,7 @@ class TestSequentialCommandExecution:
     @pytest.fixture
     def chat_session(self):
         """Create a test chat session."""
-        config = create_test_inference_config()
+        config = create_test_chat_config()
         return ChatTestSession(config)
 
     def test_parameter_adjustment_sequence(self, chat_session):
@@ -202,7 +202,7 @@ class TestConditionalCommandFlows:
     @pytest.fixture
     def chat_session(self):
         """Create a test chat session."""
-        config = create_test_inference_config()
+        config = create_test_chat_config()
         return ChatTestSession(config)
 
     def test_error_recovery_flow(self, chat_session):
@@ -318,7 +318,7 @@ class TestComplexWorkflowComposition:
     @pytest.fixture
     def chat_session(self):
         """Create a test chat session."""
-        config = create_test_inference_config()
+        config = create_test_chat_config()
         return ChatTestSession(config)
 
     def test_data_analysis_workflow_composition(self, chat_session):
@@ -588,7 +588,7 @@ class TestErrorHandlingInSequences:
     @pytest.fixture
     def chat_session(self):
         """Create a test chat session."""
-        config = create_test_inference_config()
+        config = create_test_chat_config()
         return ChatTestSession(config)
 
     def test_graceful_degradation_sequence(self, chat_session):

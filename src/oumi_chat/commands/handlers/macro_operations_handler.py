@@ -131,7 +131,9 @@ class MacroOperationsHandler(BaseCommandHandler):
                     estimated_tokens = (
                         len(rendered_content) // 4
                     )  # Rough estimation fallback
-                max_context = getattr(self.config.model, "model_max_length", 4096)
+                max_context = getattr(
+                    self.config.inference.model, "model_max_length", 4096
+                )
                 current_tokens = self._get_conversation_tokens()
 
                 if (

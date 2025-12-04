@@ -25,7 +25,7 @@ import pytest
 from oumi_chat.commands import CommandResult
 from tests.oumi_chat.utils.chat_test_utils import (
     ChatTestSession,
-    create_test_inference_config,
+    create_test_chat_config,
     temporary_test_files,
 )
 
@@ -36,7 +36,7 @@ class TestConversationLimits:
     @pytest.fixture
     def chat_session(self):
         """Create a test chat session."""
-        config = create_test_inference_config()
+        config = create_test_chat_config()
         return ChatTestSession(config)
 
     def test_very_long_conversation(self, chat_session):
@@ -143,7 +143,7 @@ class TestEdgeCaseInputs:
     @pytest.fixture
     def chat_session(self):
         """Create a test chat session."""
-        config = create_test_inference_config()
+        config = create_test_chat_config()
         return ChatTestSession(config)
 
     def test_empty_and_whitespace_inputs(self, chat_session):
@@ -314,7 +314,7 @@ class TestResourceExhaustion:
     @pytest.fixture
     def chat_session(self):
         """Create a test chat session."""
-        config = create_test_inference_config()
+        config = create_test_chat_config()
         return ChatTestSession(config)
 
     def test_memory_intensive_operations(self, chat_session):
@@ -411,7 +411,7 @@ class TestErrorRecoveryAndResilience:
     @pytest.fixture
     def chat_session(self):
         """Create a test chat session."""
-        config = create_test_inference_config()
+        config = create_test_chat_config()
         return ChatTestSession(config)
 
     def test_cascading_error_recovery(self, chat_session):

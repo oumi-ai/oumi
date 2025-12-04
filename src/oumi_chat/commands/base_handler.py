@@ -79,7 +79,7 @@ class BaseCommandHandler(ABC):
         self.conversation_history = context.conversation_history
         self.inference_engine = context.inference_engine
         self.system_monitor = context.system_monitor
-        self._style = context._style
+        self._style = context.style
 
     @abstractmethod
     def get_supported_commands(self) -> list[str]:
@@ -161,7 +161,9 @@ class BaseCommandHandler(ABC):
             # (which gets updated during model swaps)
             # Use context.config to ensure we get the most up-to-date config
             current_config = getattr(self.context, "config", self.config)
-            max_context = getattr(current_config.model, "model_max_length", None)
+            max_context = getattr(
+                current_config.inference.model, "model_max_length", None
+            )
 
             # If no max_context found in config, try to get it using the
             # engine-specific logic

@@ -33,7 +33,7 @@ class ExportUtilities:
         """
         self.context = context
         self.console = context.console
-        self._style = context._style
+        self._style = context.style
 
     def export_conversation(
         self, file_path: str, format_type: str, conversation_history: list

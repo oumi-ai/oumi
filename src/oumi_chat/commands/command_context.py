@@ -19,12 +19,11 @@ from typing import TYPE_CHECKING, Optional
 from rich.console import Console
 
 if TYPE_CHECKING:
-    from oumi.core.configs import InferenceConfig
     from oumi.core.inference import BaseInferenceEngine
     from oumi_chat.attachments import ContextWindowManager, FileHandler
     from oumi_chat.commands.compaction_engine import CompactionEngine
     from oumi_chat.commands.conversation_branches import ConversationBranchManager
-    from oumi_chat.configs import StyleParams
+    from oumi_chat.configs import ChatConfig
     from oumi_chat.thinking import ThinkingProcessor
 
 
@@ -38,35 +37,25 @@ class CommandContext:
     def __init__(
         self,
         console: Console,
-        config: "InferenceConfig",
+        config: "ChatConfig",
         conversation_history: list,
         inference_engine: "BaseInferenceEngine",
         system_monitor=None,
-        style_params: Optional["StyleParams"] = None,
     ):
         """Initialize the command context.
 
         Args:
             console: Rich console for output.
-            config: Inference configuration.
+            config: Chat configuration containing inference and style settings.
             conversation_history: List of conversation messages.
             inference_engine: The inference engine being used.
             system_monitor: Optional system monitor for displaying stats.
-            style_params: Optional style parameters for Rich console styling.
         """
         self.console = console
         self.config = config
         self.conversation_history = conversation_history
         self.inference_engine = inference_engine
         self.system_monitor = system_monitor
-
-        # Use provided style_params or create default
-        if style_params is not None:
-            self._style = style_params
-        else:
-            from oumi_chat.configs import StyleParams
-
-            self._style = StyleParams()
 
         # Lazy-initialized components
         self._context_window_manager: Optional[ContextWindowManager] = None
@@ -76,6 +65,11 @@ class CommandContext:
         self._thinking_processor: Optional[ThinkingProcessor] = None
         self._macro_manager = None
         self._command_router = None
+
+    @property
+    def style(self):
+        """Get the style parameters from the config."""
+        return self.config.style
 
     @property
     def context_window_manager(self) -> "ContextWindowManager":
@@ -92,7 +86,7 @@ class CommandContext:
                 "context_length",  # Alternative name
             ]
 
-            model_config = getattr(self.config, "model", None)
+            model_config = getattr(self.config.inference, "model", None)
             if model_config:
                 for attr in possible_context_attrs:
                     if hasattr(model_config, attr):
@@ -129,7 +123,7 @@ class CommandContext:
 
             self._compaction_engine = CompactionEngine(
                 inference_engine=self.inference_engine,
-                model_config=self.config.model,
+                model_config=self.config.inference.model,
             )
         return self._compaction_engine
 

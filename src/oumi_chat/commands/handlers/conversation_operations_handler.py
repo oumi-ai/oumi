@@ -457,7 +457,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 display_content = assistant_content
 
             # Get model name for assistant title
-            model_name = getattr(self.config.model, "model_name", "Assistant")
+            model_name = getattr(self.config.inference.model, "model_name", "Assistant")
 
             # Clean up model name for display
             if "/" in model_name:

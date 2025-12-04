@@ -278,7 +278,7 @@ class CommandRouter:
 
 {
             "🎨 **Tip**: Customize appearance with style themes!"
-            if getattr(self.context._style, "use_emoji", True)
+            if getattr(self.context.style, "use_emoji", True)
             else "Tip: Customize appearance with style themes!"
         }
         """
@@ -297,13 +297,13 @@ class CommandRouter:
 
     def display_command_error(self, error_message: str):
         """Display a command error message with styling."""
-        error_style = getattr(self.context._style, "error_style", "red")
+        error_style = getattr(self.context.style, "error_style", "red")
         self.context.console.print(f"❌ {error_message}", style=error_style)
 
     def display_command_success(self, message: str):
         """Display a command success message with styling."""
-        success_style = getattr(self.context._style, "success_style", "green")
-        use_emoji = getattr(self.context._style, "use_emoji", True)
+        success_style = getattr(self.context.style, "success_style", "green")
+        use_emoji = getattr(self.context.style, "use_emoji", True)
 
         if use_emoji:
             self.context.console.print(f"✅ {message}", style=success_style)

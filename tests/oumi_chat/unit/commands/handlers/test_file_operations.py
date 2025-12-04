@@ -25,7 +25,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi_chat.commands import CommandResult, ParsedCommand
 from oumi_chat.commands.command_context import CommandContext
 from tests.oumi_chat.utils.chat_test_utils import (
-    create_test_inference_config,
+    create_test_chat_config,
     get_file_attachment_data,
     get_web_content_mocks,
     mock_web_content,
@@ -41,7 +41,7 @@ class TestAttachCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -223,7 +223,7 @@ class TestFetchCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -352,7 +352,7 @@ class TestSaveCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Create mock conversation
         self.mock_conversation = Conversation(
@@ -505,7 +505,7 @@ class TestShellCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -614,7 +614,7 @@ class TestFileOperationsHandler:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -673,7 +673,7 @@ class TestSaveCommandReal:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Create test conversation history
         self.conversation_history = [
@@ -826,7 +826,7 @@ class TestFetchCommandReal:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -933,7 +933,7 @@ class TestShellCommandReal:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -1055,7 +1055,7 @@ class TestImportExportCommands:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -1159,7 +1159,7 @@ class TestAttachCommandReal:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,

@@ -166,14 +166,14 @@ class ModelManagementHandler(BaseCommandHandler):
             from oumi.infer import get_engine
 
             try:
-                new_engine = get_engine(new_config)
+                new_engine = get_engine(new_config.inference)
 
                 # Test the engine with a simple call to ensure it's working
                 if hasattr(new_engine, "model_name") or hasattr(
-                    new_config.model, "model_name"
+                    new_config.inference.model, "model_name"
                 ):
                     model_name = getattr(new_engine, "model_name", None) or getattr(
-                        new_config.model, "model_name", "Unknown"
+                        new_config.inference.model, "model_name", "Unknown"
                     )
 
                 # Model swaps only change current context - state is saved during
@@ -208,7 +208,9 @@ class ModelManagementHandler(BaseCommandHandler):
                     # Force comprehensive system monitor refresh after model swap
                     self._force_complete_monitor_refresh()
 
-                model_name = getattr(new_config.model, "model_name", "Unknown model")
+                model_name = getattr(
+                    new_config.inference.model, "model_name", "Unknown model"
+                )
                 engine_type = getattr(new_config, "engine", "Unknown engine")
 
                 return CommandResult(
@@ -459,21 +461,21 @@ class ModelManagementHandler(BaseCommandHandler):
                 if current_branch:
                     # Save model name and engine type
                     current_branch.model_name = getattr(
-                        self.context.config.model, "model_name", None
+                        self.context.config.inference.model, "model_name", None
                     )
                     current_branch.engine_type = (
-                        self.context.config.engine.value
-                        if self.context.config.engine
+                        self.context.config.inference.engine.value
+                        if self.context.config.inference.engine
                         else None
                     )
 
                     # Save serialized model and generation configs
                     current_branch.model_config = self._serialize_model_config(
-                        self.context.config.model
+                        self.context.config.inference.model
                     )
                     current_branch.generation_config = (
                         self._serialize_generation_config(
-                            self.context.config.generation
+                            self.context.config.inference.generation
                         )
                     )
         except Exception:

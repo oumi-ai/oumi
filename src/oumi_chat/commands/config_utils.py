@@ -15,41 +15,47 @@
 """Utility functions for configuration management in commands."""
 
 from oumi.core.configs import InferenceConfig
+from oumi_chat.configs import ChatConfig
 
 
 def create_config_preserving_ui_settings(
-    base_config: InferenceConfig, current_config: InferenceConfig
-) -> InferenceConfig:
-    """Create a new config preserving UI and remote settings from current context.
+    base_config: InferenceConfig, current_config: ChatConfig
+) -> ChatConfig:
+    """Create a new ChatConfig preserving UI settings from current context.
 
     Args:
-        base_config: The base configuration (from YAML, branch state, etc.)
-        current_config: The current context configuration to preserve settings from
+        base_config: The base inference configuration (from YAML, branch state, etc.)
+        current_config: The current ChatConfig to preserve style settings from.
 
     Returns:
-        New InferenceConfig with model/generation/engine from base_config but
-        style and remote_params preserved from current_config.
+        New ChatConfig with inference settings from base_config and
+        style preserved from current_config.
     """
-    return InferenceConfig(
+    # Create new inference config with remote_params from current
+    new_inference = InferenceConfig(
         model=base_config.model,
         generation=base_config.generation,
         engine=base_config.engine,
-        style=current_config.style,  # Preserve UI settings
-        remote_params=current_config.remote_params,  # Preserve remote settings
+        remote_params=current_config.inference.remote_params,
+    )
+
+    return ChatConfig(
+        inference=new_inference,
+        style=current_config.style,
     )
 
 
 def load_config_from_yaml_preserving_settings(
-    yaml_path: str, current_config: InferenceConfig
-) -> InferenceConfig:
-    """Load config from YAML while preserving UI and remote settings.
+    yaml_path: str, current_config: ChatConfig
+) -> ChatConfig:
+    """Load config from YAML while preserving UI settings.
 
     Args:
         yaml_path: Path to the YAML configuration file
-        current_config: Current context configuration to preserve settings from
+        current_config: Current ChatConfig to preserve style settings from
 
     Returns:
-        New InferenceConfig with settings from YAML but UI/remote settings preserved.
+        New ChatConfig with inference settings from YAML but style preserved.
 
     Raises:
         Exception: If YAML loading fails

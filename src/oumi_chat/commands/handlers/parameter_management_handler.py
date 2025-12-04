@@ -145,7 +145,7 @@ class ParameterManagementHandler(BaseCommandHandler):
 
         # Update the parameter in generation config
         try:
-            if hasattr(self.config, "generation") and self.config.generation:
+            if hasattr(self.config, "generation") and self.config.inference.generation:
                 # Map parameter names to actual attribute names
                 param_mapping = {
                     "sampling": "use_sampling",
@@ -153,7 +153,7 @@ class ParameterManagementHandler(BaseCommandHandler):
                 }
                 actual_param = param_mapping.get(param, param)
 
-                setattr(self.config.generation, actual_param, parsed_value)
+                setattr(self.config.inference.generation, actual_param, parsed_value)
                 return True, ""
             else:
                 return False, "Generation config not available"

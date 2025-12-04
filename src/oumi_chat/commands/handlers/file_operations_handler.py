@@ -432,7 +432,7 @@ class FileOperationsHandler(BaseCommandHandler):
         self.chat_cache_dir = cache_dir
 
         # Generate chat ID for this session
-        model_name = getattr(self.config.model, "model_name", "default")
+        model_name = getattr(self.config.inference.model, "model_name", "default")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.chat_id = f"{model_name}_{timestamp}"
         self.chat_file = self.chat_cache_dir / f"{self.chat_id}.json"
@@ -457,11 +457,15 @@ class FileOperationsHandler(BaseCommandHandler):
                 # Use basic format for simple conversations
                 chat_data = {
                     "chat_id": self.chat_id,
-                    "model_name": getattr(self.config.model, "model_name", "default"),
+                    "model_name": getattr(
+                        self.config.inference.model, "model_name", "default"
+                    ),
                     "created_at": datetime.now().isoformat(),
                     "last_updated": datetime.now().isoformat(),
                     "conversation_history": self.conversation_history,
-                    "model_config": self._serialize_model_config(self.config.model),
+                    "model_config": self._serialize_model_config(
+                        self.config.inference.model
+                    ),
                     "generation_config": self._serialize_generation_config(
                         getattr(self.config, "generation", None)
                     ),
@@ -680,9 +684,13 @@ class FileOperationsHandler(BaseCommandHandler):
                 "parent_branch_id": None,
                 "branch_point_index": 0,
                 "conversation_history": self.conversation_history,
-                "model_name": getattr(self.config.model, "model_name", "default"),
+                "model_name": getattr(
+                    self.config.inference.model, "model_name", "default"
+                ),
                 "engine_type": getattr(self.config, "engine", "unknown"),
-                "model_config": self._serialize_model_config(self.config.model),
+                "model_config": self._serialize_model_config(
+                    self.config.inference.model
+                ),
                 "generation_config": self._serialize_generation_config(
                     getattr(self.config, "generation", None)
                 ),
@@ -709,7 +717,7 @@ class FileOperationsHandler(BaseCommandHandler):
             },
             # Model and configuration
             "configuration": {
-                "model": self._serialize_model_config(self.config.model),
+                "model": self._serialize_model_config(self.config.inference.model),
                 "generation": self._serialize_generation_config(
                     getattr(self.config, "generation", None)
                 ),
@@ -787,16 +795,20 @@ class FileOperationsHandler(BaseCommandHandler):
         """Get current inference parameters."""
         # This would ideally get from the inference engine's current state
         return {
-            "temperature": getattr(self.config.generation, "temperature", None)
+            "temperature": getattr(
+                self.config.inference.generation, "temperature", None
+            )
             if hasattr(self.config, "generation")
             else None,
-            "top_p": getattr(self.config.generation, "top_p", None)
+            "top_p": getattr(self.config.inference.generation, "top_p", None)
             if hasattr(self.config, "generation")
             else None,
-            "max_tokens": getattr(self.config.generation, "max_new_tokens", None)
+            "max_tokens": getattr(
+                self.config.inference.generation, "max_new_tokens", None
+            )
             if hasattr(self.config, "generation")
             else None,
-            "sampling": getattr(self.config.generation, "sampling", None)
+            "sampling": getattr(self.config.inference.generation, "sampling", None)
             if hasattr(self.config, "generation")
             else None,
         }

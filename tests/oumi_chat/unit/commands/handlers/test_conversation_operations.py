@@ -22,7 +22,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi_chat.commands import CommandResult, ParsedCommand
 from oumi_chat.commands.command_context import CommandContext
 from tests.oumi_chat.utils.chat_test_utils import (
-    create_test_inference_config,
+    create_test_chat_config,
     validate_command_result,
 )
 
@@ -34,7 +34,7 @@ class TestDeleteCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Create mock conversation with multiple messages
         self.mock_conversation = Conversation(
@@ -145,7 +145,7 @@ class TestRegenCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.mock_conversation = Conversation(
             conversation_id="test_conversation",
@@ -244,7 +244,7 @@ class TestClearCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.mock_conversation = Conversation(
             conversation_id="test_conversation",
@@ -319,7 +319,7 @@ class TestShowCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.mock_conversation = Conversation(
             conversation_id="test_conversation",
@@ -435,7 +435,7 @@ class TestCompactCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Create a longer conversation for compacting
         messages = []
@@ -551,7 +551,7 @@ class TestRenderCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.mock_conversation = Conversation(
             conversation_id="test_conversation",
@@ -648,7 +648,7 @@ class TestThinkingCommands:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Create conversation with thinking content
         self.mock_conversation = Conversation(
@@ -754,7 +754,7 @@ class TestConversationOperationsHandlerReal:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Create conversation history with thinking content for testing
         self.conversation_history = [
@@ -839,7 +839,7 @@ class TestFullThoughtsCommandReal:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Create minimal conversation history
         self.conversation_history = [
@@ -935,7 +935,7 @@ class TestClearThoughtsCommandReal:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Create conversation history with thinking content
         self.conversation_history = [
@@ -1124,7 +1124,7 @@ class TestRenderCommandReal:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Create conversation history for rendering
         self.conversation_history = [
@@ -1338,7 +1338,7 @@ class TestConversationOperationsIntegration:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Create rich conversation with thinking content
         self.conversation_history = [

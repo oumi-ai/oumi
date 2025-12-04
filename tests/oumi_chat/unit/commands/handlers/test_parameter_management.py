@@ -23,7 +23,7 @@ from oumi_chat.commands.handlers.parameter_management_handler import (
     ParameterManagementHandler,
 )
 from tests.oumi_chat.utils.chat_test_utils import (
-    create_test_inference_config,
+    create_test_chat_config,
     validate_command_result,
 )
 
@@ -35,10 +35,10 @@ class TestSetCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Ensure generation config exists with default values
-        self.test_config.generation = GenerationParams(
+        self.test_config.inference.generation = GenerationParams(
             temperature=0.7,
             top_p=0.9,
             max_new_tokens=100,
@@ -70,7 +70,7 @@ class TestSetCommand:
             expect_success=True,
             expected_message_parts=["Updated parameters", "temperature=0.8"],
         )
-        assert self.test_config.generation.temperature == 0.8
+        assert self.test_config.inference.generation.temperature == 0.8
 
     def test_set_single_integer_parameter(self):
         """Test setting a single integer parameter."""
@@ -88,7 +88,7 @@ class TestSetCommand:
             expect_success=True,
             expected_message_parts=["Updated parameters", "max_new_tokens=200"],
         )
-        assert self.test_config.generation.max_new_tokens == 200
+        assert self.test_config.inference.generation.max_new_tokens == 200
 
     def test_set_single_boolean_parameter(self):
         """Test setting a single boolean parameter."""
@@ -106,7 +106,7 @@ class TestSetCommand:
             expect_success=True,
             expected_message_parts=["Updated parameters", "sampling=true"],
         )
-        assert self.test_config.generation.use_sampling is True
+        assert self.test_config.inference.generation.use_sampling is True
 
     def test_set_multiple_parameters(self):
         """Test setting multiple parameters at once."""
@@ -124,9 +124,9 @@ class TestSetCommand:
             expect_success=True,
             expected_message_parts=["Updated parameters", "temperature=0.5"],
         )
-        assert self.test_config.generation.temperature == 0.5
-        assert self.test_config.generation.top_p == 0.8
-        assert self.test_config.generation.max_new_tokens == 150
+        assert self.test_config.inference.generation.temperature == 0.5
+        assert self.test_config.inference.generation.top_p == 0.8
+        assert self.test_config.inference.generation.max_new_tokens == 150
 
     def test_set_parameters_via_positional_args(self):
         """Test setting parameters using positional arguments with = format."""
@@ -144,8 +144,8 @@ class TestSetCommand:
             expect_success=True,
             expected_message_parts=["Updated parameters"],
         )
-        assert self.test_config.generation.temperature == 0.6
-        assert self.test_config.generation.min_p == 0.1
+        assert self.test_config.inference.generation.temperature == 0.6
+        assert self.test_config.inference.generation.min_p == 0.1
 
     def test_set_mixed_kwargs_and_args(self):
         """Test setting parameters using both kwargs and positional args."""
@@ -163,8 +163,8 @@ class TestSetCommand:
             expect_success=True,
             expected_message_parts=["Updated parameters"],
         )
-        assert self.test_config.generation.temperature == 0.3
-        assert self.test_config.generation.top_p == 0.7
+        assert self.test_config.inference.generation.temperature == 0.3
+        assert self.test_config.inference.generation.top_p == 0.7
 
     def test_set_invalid_parameter_name(self):
         """Test setting an invalid parameter name."""
@@ -294,7 +294,7 @@ class TestSetCommand:
             result = self.handler.handle_command(command)
 
             validate_command_result(result, expect_success=True)
-            assert self.test_config.generation.use_sampling == expected_bool
+            assert self.test_config.inference.generation.use_sampling == expected_bool
 
     def test_set_negative_seed_invalid(self):
         """Test that negative seed values are rejected."""
@@ -329,7 +329,7 @@ class TestSetCommand:
             expect_success=True,
             expected_message_parts=["Updated parameters"],
         )
-        assert self.test_config.generation.seed == 0
+        assert self.test_config.inference.generation.seed == 0
 
     def test_set_max_tokens_too_large(self):
         """Test that excessively large max_tokens is rejected."""
@@ -434,8 +434,8 @@ class TestSetCommand:
             expect_success=True,
             expected_message_parts=["Updated parameters", "Errors"],
         )
-        assert self.test_config.generation.temperature == 0.8
-        assert self.test_config.generation.max_new_tokens == 200
+        assert self.test_config.inference.generation.temperature == 0.8
+        assert self.test_config.inference.generation.max_new_tokens == 200
 
     def test_set_whitespace_handling(self):
         """Test that whitespace in parameter names and values is handled correctly."""
@@ -449,8 +449,8 @@ class TestSetCommand:
         result = self.handler.handle_command(command)
 
         validate_command_result(result, expect_success=True)
-        assert self.test_config.generation.temperature == 0.9
-        assert self.test_config.generation.top_p == 0.8
+        assert self.test_config.inference.generation.temperature == 0.9
+        assert self.test_config.inference.generation.top_p == 0.8
 
     def test_set_case_insensitive_parameters(self):
         """Test that parameter names are case-insensitive."""
@@ -464,8 +464,8 @@ class TestSetCommand:
         result = self.handler.handle_command(command)
 
         validate_command_result(result, expect_success=True)
-        assert self.test_config.generation.temperature == 0.6
-        assert self.test_config.generation.top_p == 0.7
+        assert self.test_config.inference.generation.temperature == 0.6
+        assert self.test_config.inference.generation.top_p == 0.7
 
     def test_set_all_supported_parameters(self):
         """Test setting all supported parameters with valid values."""
@@ -488,7 +488,7 @@ class TestSetCommand:
 
         validate_command_result(result, expect_success=True)
         # Verify all parameters were set
-        gen_config = self.test_config.generation
+        gen_config = self.test_config.inference.generation
         assert gen_config.temperature == 0.8
         assert gen_config.top_p == 0.9
         assert gen_config.max_new_tokens == 300
@@ -505,8 +505,8 @@ class TestParameterManagementHandler:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
-        self.test_config.generation = GenerationParams()
+        self.test_config = create_test_chat_config()
+        self.test_config.inference.generation = GenerationParams()
 
         self.command_context = CommandContext(
             console=self.mock_console,
@@ -547,8 +547,8 @@ class TestParameterValidation:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
-        self.test_config.generation = GenerationParams()
+        self.test_config = create_test_chat_config()
+        self.test_config.inference.generation = GenerationParams()
 
         self.command_context = CommandContext(
             console=self.mock_console,

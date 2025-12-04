@@ -70,7 +70,6 @@ def create_mock_config(
     config = InferenceConfig(
         model=model_config, generation=generation_config, engine=engine_type
     )
-    config.style = MagicMock()
 
     return config
 
@@ -190,7 +189,7 @@ class TestBranchModelStateConservation:
         handler._update_context_in_monitor = MagicMock()
 
         branch_manager, main_branch, branch_1 = mock_branch_manager
-        handler.context.branch_manager = branch_manager
+        handler.context._branch_manager = branch_manager
 
         return handler, main_branch, branch_1
 
@@ -209,7 +208,7 @@ class TestBranchModelStateConservation:
         handler._update_context_in_monitor = MagicMock()
 
         branch_manager, main_branch, branch_1 = mock_branch_manager
-        handler.context.branch_manager = branch_manager
+        handler.context._branch_manager = branch_manager
 
         return handler
 

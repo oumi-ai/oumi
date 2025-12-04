@@ -410,10 +410,12 @@ class BranchOperationsHandler(BaseCommandHandler):
                 and branch.engine_type
             ):
                 # Get current model info for comparison
-                current_model = getattr(self.context.config.model, "model_name", None)
+                current_model = getattr(
+                    self.context.config.inference.model, "model_name", None
+                )
                 current_engine = (
-                    self.context.config.engine.value
-                    if self.context.config.engine
+                    self.context.config.inference.engine.value
+                    if self.context.config.inference.engine
                     else None
                 )
 
@@ -504,7 +506,7 @@ class BranchOperationsHandler(BaseCommandHandler):
             )
 
             # Create new inference engine
-            new_engine = get_engine(new_config)
+            new_engine = get_engine(new_config.inference)
 
             # Update context
             self.context.inference_engine = new_engine
@@ -681,8 +683,6 @@ class BranchOperationsHandler(BaseCommandHandler):
     def _render_conversation_history(self):
         """Render the conversation history for the current branch."""
         try:
-            from unittest.mock import MagicMock
-
             from oumi.core.types.conversation import Conversation, Message, Role
             from oumi.infer import _display_user_message, _format_conversation_response
 
@@ -697,9 +697,7 @@ class BranchOperationsHandler(BaseCommandHandler):
                     _display_user_message(
                         console=self.console,
                         user_text=content,
-                        style_params=getattr(self.context, "config", MagicMock()).style
-                        if hasattr(self.context, "config")
-                        else None,
+                        style_params=self.context.style,
                         is_command=is_command,
                     )
                 elif role == "assistant":
@@ -714,7 +712,9 @@ class BranchOperationsHandler(BaseCommandHandler):
                         self.context.config, "model"
                     ):
                         model_name = getattr(
-                            self.context.config.model, "model_name", "Assistant"
+                            self.context.config.inference.model,
+                            "model_name",
+                            "Assistant",
                         )
                         # Make model name more user-friendly
                         if "/" in model_name:
@@ -745,21 +745,21 @@ class BranchOperationsHandler(BaseCommandHandler):
                 if current_branch:
                     # Save model name and engine type
                     current_branch.model_name = getattr(
-                        self.context.config.model, "model_name", None
+                        self.context.config.inference.model, "model_name", None
                     )
                     current_branch.engine_type = (
-                        self.context.config.engine.value
-                        if self.context.config.engine
+                        self.context.config.inference.engine.value
+                        if self.context.config.inference.engine
                         else None
                     )
 
                     # Save serialized model and generation configs
                     current_branch.model_config = self._serialize_model_config(
-                        self.context.config.model
+                        self.context.config.inference.model
                     )
                     current_branch.generation_config = (
                         self._serialize_generation_config(
-                            self.context.config.generation
+                            self.context.config.inference.generation
                         )
                     )
         except Exception:

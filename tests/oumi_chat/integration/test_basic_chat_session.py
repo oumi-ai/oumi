@@ -24,7 +24,7 @@ from oumi.core.types.conversation import Role
 from oumi_chat.commands import CommandResult
 from tests.oumi_chat.utils.chat_test_utils import (
     ChatTestSession,
-    create_test_inference_config,
+    create_test_chat_config,
     temporary_test_files,
 )
 
@@ -35,7 +35,7 @@ class TestBasicChatSession:
     @pytest.fixture
     def chat_session(self):
         """Create a test chat session."""
-        config = create_test_inference_config()
+        config = create_test_chat_config()
         return ChatTestSession(config)
 
     def test_start_chat_session(self, chat_session):
@@ -177,7 +177,7 @@ class TestBasicChatSession:
         assert result1.success
 
         # Create second session
-        config2 = create_test_inference_config()
+        config2 = create_test_chat_config()
         chat_session2 = ChatTestSession(config2)
         chat_session2.start_session()
 
@@ -214,7 +214,7 @@ class TestChatSessionWithCommands:
     @pytest.fixture
     def chat_session(self):
         """Create a test chat session."""
-        config = create_test_inference_config()
+        config = create_test_chat_config()
         return ChatTestSession(config)
 
     def test_help_command_in_session(self, chat_session):
@@ -396,13 +396,13 @@ class TestChatSessionConfigurationHandling:
     def test_session_with_different_models(self):
         """Test sessions with different model configurations."""
         # Test with SmolLM
-        config1 = create_test_inference_config()
-        config1.model.model_name = "SmolLM-135M-Instruct"
+        config1 = create_test_chat_config()
+        config1.inference.model.model_name = "SmolLM-135M-Instruct"
         session1 = ChatTestSession(config1)
 
         # Test with different model
-        config2 = create_test_inference_config()
-        config2.model.model_name = "SmolVLM-256M-Instruct"
+        config2 = create_test_chat_config()
+        config2.inference.model.model_name = "SmolVLM-256M-Instruct"
         session2 = ChatTestSession(config2)
 
         session1.start_session()
@@ -418,14 +418,14 @@ class TestChatSessionConfigurationHandling:
     def test_session_with_different_generation_params(self):
         """Test sessions with different generation parameters."""
         # High temperature config
-        config_creative = create_test_inference_config()
-        config_creative.generation.temperature = 1.0
-        config_creative.generation.top_p = 0.95
+        config_creative = create_test_chat_config()
+        config_creative.inference.generation.temperature = 1.0
+        config_creative.inference.generation.top_p = 0.95
 
         # Low temperature config
-        config_focused = create_test_inference_config()
-        config_focused.generation.temperature = 0.1
-        config_focused.generation.top_p = 0.8
+        config_focused = create_test_chat_config()
+        config_focused.inference.generation.temperature = 0.1
+        config_focused.inference.generation.top_p = 0.8
 
         session_creative = ChatTestSession(config_creative)
         session_focused = ChatTestSession(config_focused)
@@ -443,8 +443,8 @@ class TestChatSessionConfigurationHandling:
     def test_session_config_validation(self):
         """Test session behavior with invalid configurations."""
         # Test with missing model name
-        config = create_test_inference_config()
-        config.model.model_name = ""  # Empty string instead of None
+        config = create_test_chat_config()
+        config.inference.model.model_name = ""  # Empty string instead of None
 
         session = ChatTestSession(config)
         result = session.start_session()
@@ -453,8 +453,8 @@ class TestChatSessionConfigurationHandling:
         assert isinstance(result, CommandResult)
 
         # Test with invalid parameters
-        config2 = create_test_inference_config()
-        config2.generation.temperature = -1.0  # Invalid temperature
+        config2 = create_test_chat_config()
+        config2.inference.generation.temperature = -1.0  # Invalid temperature
 
         session2 = ChatTestSession(config2)
         result2 = session2.start_session()

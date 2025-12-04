@@ -19,7 +19,7 @@ from unittest.mock import Mock, patch
 from oumi.core.inference import BaseInferenceEngine
 from oumi_chat.commands import CommandResult, CommandRouter, ParsedCommand
 from oumi_chat.commands.command_context import CommandContext
-from tests.oumi_chat.utils.chat_test_utils import create_test_inference_config
+from tests.oumi_chat.utils.chat_test_utils import create_test_chat_config
 
 
 class TestCommandRouter:
@@ -30,7 +30,7 @@ class TestCommandRouter:
         # Create mock command context first
         self.mock_engine = Mock(spec=BaseInferenceEngine)
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         self.command_context = CommandContext(
             console=self.mock_console,

@@ -20,7 +20,7 @@ from oumi_chat.commands import ParsedCommand
 from oumi_chat.commands.command_context import CommandContext
 from oumi_chat.commands.handlers.macro_operations_handler import MacroOperationsHandler
 from tests.oumi_chat.utils.chat_test_utils import (
-    create_test_inference_config,
+    create_test_chat_config,
     validate_command_result,
 )
 
@@ -60,7 +60,7 @@ class TestMacroCommand:
         """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
-        self.test_config = create_test_inference_config()
+        self.test_config = create_test_chat_config()
 
         # Mock macro manager
         self.mock_macro_manager = Mock()

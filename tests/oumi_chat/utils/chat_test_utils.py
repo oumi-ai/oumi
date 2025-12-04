@@ -33,6 +33,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.io_utils import get_oumi_root_directory, load_json
 from oumi_chat.commands import CommandParser, CommandResult, CommandRouter
 from oumi_chat.commands.command_context import CommandContext
+from oumi_chat.configs import ChatConfig
 
 
 def get_generated_test_files_dir() -> Path:
@@ -118,14 +119,14 @@ class ChatTestSession:
 
     def __init__(
         self,
-        config: InferenceConfig,
+        config: ChatConfig,
         mock_inputs: Optional[list[str]] = None,
         capture_output: bool = True,
     ):
         """Initialize chat test session.
 
         Args:
-            config: Inference configuration for the session.
+            config: Chat configuration for the session.
             mock_inputs: Predefined inputs for testing.
             capture_output: Whether to capture output for validation.
         """
@@ -166,7 +167,7 @@ class ChatTestSession:
                 input_patch.start()
 
             # Mock console output
-            if self.capture_output:
+            if self.capture_output and self.output_capture is not None:
                 console_patch = patch("rich.console.Console")
                 patches.append(console_patch)
                 mock_console = console_patch.start()
@@ -537,6 +538,22 @@ def create_test_inference_config(
     # Merge with provided overrides
     defaults.update(kwargs)
     return InferenceConfig(**defaults)
+
+
+def create_test_chat_config(
+    model_name: str = "HuggingFaceTB/SmolLM-135M-Instruct", **kwargs
+) -> ChatConfig:
+    """Create optimized chat config for testing.
+
+    Args:
+        model_name: Model to use for testing.
+        **kwargs: Additional config overrides.
+
+    Returns:
+        Chat configuration optimized for testing.
+    """
+    inference_config = create_test_inference_config(model_name, **kwargs)
+    return ChatConfig.from_inference_config(inference_config)
 
 
 def create_vision_test_config(**kwargs) -> InferenceConfig:
