@@ -198,14 +198,6 @@ class AnalyzeConfig(BaseConfig):
                 stacklevel=2,
             )
 
-        # Auto-detect multimodality from processor_name for custom datasets
-        # processor_name presence indicates multimodal dataset
-        if self.dataset_path is not None:
-            if self.processor_name:
-                # Multimodal: processor_name is provided
-                pass  # No additional validation needed
-            # If no processor_name, treat as text-only (no validation error needed)
-
         # Validate sample_count
         if self.sample_count is not None and self.sample_count <= 0:
             raise ValueError("`sample_count` must be greater than 0.")

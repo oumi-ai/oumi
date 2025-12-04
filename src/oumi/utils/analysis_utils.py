@@ -198,12 +198,9 @@ def _load_custom_dataset_from_path(
             f"Dataset path must be a file, not a directory: {dataset_path}"
         )
 
-    # Auto-detect multimodality based on processor_name presence
-    # If processor_name is provided, treat as multimodal (vision-language)
     is_multimodal = config.processor_name is not None
 
     if is_multimodal:
-        # Multimodal: processor_name is provided
         dataset_kwargs = {
             "dataset_path": str(path),
             "tokenizer": tokenizer,
@@ -216,7 +213,6 @@ def _load_custom_dataset_from_path(
         logger.info(f"Loaded vision-language dataset from: {dataset_path}")
         return dataset
     else:
-        # Text-only: no processor_name provided
         dataset_kwargs_text: dict[str, Any] = {
             "dataset_path": str(path),
         }

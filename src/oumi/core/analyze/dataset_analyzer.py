@@ -164,7 +164,6 @@ class DatasetAnalyzer:
         Returns:
             Built tokenizer or None if no tokenizer is configured.
         """
-        # No tokenizer configured
         if not config.tokenizer_name:
             return None
 
