@@ -29,7 +29,6 @@ from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 
 config = AnalyzeConfig(
     dataset_path="data/dataset_examples/oumi_format.jsonl",
-    dataset_format="oumi",
     is_multimodal=False,
     analyzers=[SampleAnalyzerParams(id="length")],
 )
@@ -48,7 +47,6 @@ A minimal configuration for a local file:
 
 ```yaml
 dataset_path: data/dataset_examples/oumi_format.jsonl
-dataset_format: oumi
 is_multimodal: false
 analyzers:
   - id: length
@@ -277,7 +275,6 @@ Once registered, use your analyzer in configs by its ID:
 ```yaml
 # my_config.yaml
 dataset_path: data/my_dataset.jsonl
-dataset_format: oumi
 is_multimodal: false
 
 analyzers:
@@ -297,7 +294,6 @@ import my_analyzers  # noqa: F401
 
 config = AnalyzeConfig(
     dataset_path="data/my_dataset.jsonl",
-    dataset_format="oumi",
     is_multimodal=False,
     analyzers=[
         SampleAnalyzerParams(id="my_analyzer", params={"my_option": True})

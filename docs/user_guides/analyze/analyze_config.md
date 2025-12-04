@@ -30,7 +30,6 @@ subset: null  # Optional
 
 ```yaml
 dataset_path: data/dataset_examples/oumi_format.jsonl
-dataset_format: oumi  # Required: "oumi" or "alpaca"
 is_multimodal: false  # Required
 ```
 
@@ -120,13 +119,12 @@ For vision-language datasets:
 
 ```yaml
 dataset_path: "/path/to/vl_data.jsonl"
-dataset_format: oumi
 is_multimodal: true
 processor_name: "llava-hf/llava-1.5-7b-hf"
 ```
 
 :::{note}
-Multimodal datasets require `dataset_format: oumi` and a valid `processor_name`.
+Multimodal datasets require a valid `processor_name`.
 :::
 
 ## Example Configuration
@@ -154,7 +152,6 @@ analyzers:
 ````{dropdown} With Token Counting
 ```yaml
 dataset_path: data/dataset_examples/oumi_format.jsonl
-dataset_format: oumi
 is_multimodal: false
 output_path: ./analysis_output
 
@@ -175,8 +172,8 @@ Oumi validates configuration at initialization:
 
 | Rule | Requirement |
 |------|-------------|
-| Local file (`dataset_path`) | Requires `dataset_format` and `is_multimodal` |
-| Multimodal | Requires `dataset_format: oumi` and `processor_name` |
+| Local file (`dataset_path`) | Requires `is_multimodal` |
+| Multimodal | Requires `processor_name` |
 | `sample_count` | Must be > 0 if specified |
 | Analyzer IDs | Must be unique |
 | Token counting | Requires `tokenizer_config.model_name` |
@@ -204,7 +201,6 @@ from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 # Create configuration
 config = AnalyzeConfig(
     dataset_path="data/dataset_examples/oumi_format.jsonl",
-    dataset_format="oumi",
     is_multimodal=False,
     analyzers=[
         SampleAnalyzerParams(id="length", params={"char_count": True})
