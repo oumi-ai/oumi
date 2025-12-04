@@ -12,18 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.util
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional, Union
 
 from oumi.core.configs.params.base_params import BaseParams
-
-
-def is_deepspeed_available() -> bool:
-    """Check if DeepSpeed is installed and available."""
-    return importlib.util.find_spec("deepspeed") is not None
 
 
 class ZeRORuntimeStage(str, Enum):
@@ -288,13 +282,6 @@ class DeepSpeedParams(BaseParams):
 
     def __post_init__(self) -> None:
         """Validate DeepSpeed configuration parameters."""
-        # Check that DeepSpeed is installed when enabled
-        if self.enable_deepspeed and not is_deepspeed_available():
-            raise ImportError(
-                "DeepSpeed is not installed but enable_deepspeed is True. "
-                "Please install DeepSpeed with: pip install oumi[deepspeed]"
-            )
-
         # Validate offloading configurations
         if (
             self.offload_param is not None

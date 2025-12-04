@@ -448,6 +448,13 @@ def prepare_model_for_distributed(
 #
 # DeepSpeed utilities
 #
+def is_deepspeed_available() -> bool:
+    """Check if DeepSpeed is installed and available."""
+    import importlib.util
+
+    return importlib.util.find_spec("deepspeed") is not None
+
+
 def is_deepspeed_zero3_enabled(config: TrainingConfig) -> bool:
     """Check if DeepSpeed ZeRO-3 is enabled in the configuration.
 
