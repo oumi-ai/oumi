@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from oumi_chat.attachments import ContextWindowManager, FileHandler
     from oumi_chat.commands.compaction_engine import CompactionEngine
     from oumi_chat.commands.conversation_branches import ConversationBranchManager
+    from oumi_chat.configs import StyleParams
     from oumi_chat.thinking import ThinkingProcessor
 
 
@@ -41,6 +42,7 @@ class CommandContext:
         conversation_history: list,
         inference_engine: "BaseInferenceEngine",
         system_monitor=None,
+        style_params: Optional["StyleParams"] = None,
     ):
         """Initialize the command context.
 
@@ -50,13 +52,21 @@ class CommandContext:
             conversation_history: List of conversation messages.
             inference_engine: The inference engine being used.
             system_monitor: Optional system monitor for displaying stats.
+            style_params: Optional style parameters for Rich console styling.
         """
         self.console = console
         self.config = config
         self.conversation_history = conversation_history
         self.inference_engine = inference_engine
         self.system_monitor = system_monitor
-        self._style = config.style
+
+        # Use provided style_params or create default
+        if style_params is not None:
+            self._style = style_params
+        else:
+            from oumi_chat.configs import StyleParams
+
+            self._style = StyleParams()
 
         # Lazy-initialized components
         self._context_window_manager: Optional[ContextWindowManager] = None

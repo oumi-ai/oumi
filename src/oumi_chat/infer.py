@@ -15,7 +15,7 @@
 import re
 import time
 from contextlib import contextmanager
-from typing import Optional
+from typing import Optional, Union
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -34,6 +34,7 @@ from oumi_chat.commands import CommandParser
 from oumi_chat.commands.command_context import CommandContext
 from oumi_chat.commands.command_router import CommandRouter
 from oumi_chat.commands.utilities import make_safe
+from oumi_chat.configs import ChatConfig
 from oumi_chat.input import EnhancedInput, InputAction
 from oumi_chat.monitoring import SystemMonitor
 from oumi_chat.thinking import ThinkingProcessor
@@ -799,48 +800,65 @@ def _validate_context_usage(
 
 
 def infer_interactive(
-    config: InferenceConfig,
+    config: Union[ChatConfig, InferenceConfig],
     *,
     input_image_bytes: Optional[list[bytes]] = None,
     system_prompt: Optional[str] = None,
 ) -> None:
-    """Interactively provide the model response for a user-provided input."""
+    """Interactively provide the model response for a user-provided input.
+
+    Args:
+        config: Either a ChatConfig (preferred) or an InferenceConfig.
+            If InferenceConfig is provided, it will be wrapped with default styling.
+        input_image_bytes: Optional list of input image bytes for VLMs.
+        system_prompt: Optional system prompt for task-specific instructions.
+    """
+    # Convert InferenceConfig to ChatConfig if needed
+    if isinstance(config, InferenceConfig):
+        chat_config = ChatConfig.from_inference_config(config)
+    else:
+        chat_config = config
+
+    # Use chat_config for styling and chat_config.inference for model config
+    style = chat_config.style
+    inference_config = chat_config.inference
+
     # Create console with custom configuration
     console_kwargs = {}
-    if config.style.force_terminal is not None:
-        console_kwargs["force_terminal"] = config.style.force_terminal
-    if config.style.force_jupyter is not None:
-        console_kwargs["force_jupyter"] = config.style.force_jupyter
-    if config.style.width is not None:
-        console_kwargs["width"] = config.style.width
-    if config.style.height is not None:
-        console_kwargs["height"] = config.style.height
-    if config.style.no_color:
+    if style.force_terminal is not None:
+        console_kwargs["force_terminal"] = style.force_terminal
+    if style.force_jupyter is not None:
+        console_kwargs["force_jupyter"] = style.force_jupyter
+    if style.width is not None:
+        console_kwargs["width"] = style.width
+    if style.height is not None:
+        console_kwargs["height"] = style.height
+    if style.no_color:
         console_kwargs["no_color"] = True
-    if config.style.legacy_windows:
+    if style.legacy_windows:
         console_kwargs["legacy_windows"] = True
 
     console = Console(**console_kwargs)
 
     # Display welcome message
-    emoji = "🤖 " if config.style.use_emoji else ""
+    emoji = "🤖 " if style.use_emoji else ""
     welcome_text = f"{emoji}Oumi Interactive Chat"
     console.print(
         Panel(
-            Text(welcome_text, style=config.style.welcome_style),
+            Text(welcome_text, style=style.welcome_style),
             subtitle="[dim]Press Ctrl+C or Ctrl+D to exit[/dim]",
-            border_style=config.style.welcome_border_style,
-            expand=config.style.expand_panels,
+            border_style=style.welcome_border_style,
+            expand=style.expand_panels,
         )
     )
 
     # Display model info
-    model_name = getattr(config.model, "model_name", "Unknown Model")
-    engine_type = config.engine.value if config.engine else "native"
+    model_name = getattr(inference_config.model, "model_name", "Unknown Model")
+    engine_type = inference_config.engine.value if inference_config.engine else "native"
 
     info_style = (
-        config.style.custom_theme.get("info", "bold green")
-        if config.style.custom_theme
+        style.custom_theme.get("info", "bold green")
+        if style.custom_theme
         else "bold green"
     )
     console.print(f"[{info_style}]Model:[/{info_style}] {model_name}")
@@ -850,18 +868,25 @@ def infer_interactive(
     console.print()
 
     # Create engine up front to avoid reinitializing it for each input.
-    inference_engine = get_engine(config)
+    inference_engine = get_engine(inference_config)
 
     conversation_history = []
 
     # Initialize system monitor for HUD
-    max_context_tokens = getattr(config.model, "model_max_length", None) or 4096
+    max_context_tokens = (
+        getattr(inference_config.model, "model_max_length", None) or 4096
+    )
     system_monitor = SystemMonitor(max_context_tokens=max_context_tokens)
 
     # Initialize command system and enhanced input handler
     command_parser = CommandParser()
     command_context = CommandContext(
-        console, config, conversation_history, inference_engine, system_monitor
+        console,
+        inference_config,
+        conversation_history,
+        inference_engine,
+        system_monitor,
+        style_params=style,
     )
     command_router = CommandRouter(command_context)
     command_context.set_command_router(command_router)
@@ -872,11 +897,11 @@ def infer_interactive(
     # Note: After this point, use command_context.inference_engine and
     # command_context.config
     # instead of local variables to ensure model swapping works properly
-    input_handler = EnhancedInput(console, config.style.user_prompt_style)
+    input_handler = EnhancedInput(console, style.user_prompt_style)
 
     while True:
         # Display HUD if interval has passed
-        system_monitor.display_hud(console, config.style)
+        system_monitor.display_hud(console, style)
 
         # Track if input came from command override (like /regen)
         is_from_override = False
@@ -908,7 +933,7 @@ def infer_interactive(
             _display_user_message(
                 console=console,
                 user_text=input_text,
-                style_params=config.style,
+                style_params=style,
                 is_command=input_text.strip().startswith("/"),
             )
 
@@ -965,10 +990,10 @@ def infer_interactive(
                 pass
 
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
-            emoji = "👋 " if config.style.use_emoji else ""
+            emoji = "👋 " if style.use_emoji else ""
             goodbye_style = (
-                config.style.custom_theme.get("warning", "yellow")
-                if config.style.custom_theme
+                style.custom_theme.get("warning", "yellow")
+                if style.custom_theme
                 else "yellow"
             )
             console.print(f"\n[{goodbye_style}]{emoji}Goodbye![/{goodbye_style}]")
@@ -976,7 +1001,7 @@ def infer_interactive(
 
         # Validate context usage before inference
         is_valid, validation_error = _validate_context_usage(
-            input_text, conversation_history, config, system_monitor
+            input_text, conversation_history, inference_config, system_monitor
         )
         if not is_valid:
             command_router.display_command_error(validation_error)
@@ -992,9 +1017,9 @@ def infer_interactive(
                 console=console,
                 system_monitor=system_monitor,
                 status_message="Thinking...",
-                style=config.style.status_style,
+                style=style.status_style,
                 update_interval=2.0,
-                style_params=config.style,
+                style_params=style,
             ):
                 # Check if this is a NATIVE engine that supports conversation history
                 from oumi.core.configs import InferenceEngineType
@@ -1003,7 +1028,7 @@ def infer_interactive(
                 current_user_message = None
                 current_user_content = []
 
-                if config.engine == InferenceEngineType.NATIVE:
+                if inference_config.engine == InferenceEngineType.NATIVE:
                     # Build the full conversation including history for NATIVE engine
                     system_messages = (
                         [Message(role=Role.SYSTEM, content=system_prompt)]
@@ -1012,7 +1037,7 @@ def infer_interactive(
                     )
 
                     # Check if this is a GPT-OSS model
-                    model_name = getattr(config.model, "model_name", "")
+                    model_name = getattr(inference_config.model, "model_name", "")
                     is_gpt_oss = _is_gpt_oss_model(model_name)
 
                     # Convert conversation history to Message objects
@@ -1108,7 +1133,7 @@ def infer_interactive(
                     )
 
                     # Check if this is a GPT-OSS model
-                    model_name = getattr(config.model, "model_name", "")
+                    model_name = getattr(inference_config.model, "model_name", "")
                     is_gpt_oss = _is_gpt_oss_model(model_name)
 
                     # Convert conversation history to Message objects (same as NATIVE)
@@ -1253,7 +1278,7 @@ def infer_interactive(
                     conversation,
                     console,
                     current_model_name,
-                    config.style,
+                    style,
                     timing_info,
                     command_context,
                 )
@@ -1285,7 +1310,9 @@ def infer_interactive(
             # Store assistant response in history
             # Check if this is a GPT-OSS model for response cleaning (use
             # current model name)
-            current_model_name_for_cleaning = getattr(config.model, "model_name", "")
+            current_model_name_for_cleaning = getattr(
+                inference_config.model, "model_name", ""
+            )
             is_gpt_oss = _is_gpt_oss_model(current_model_name_for_cleaning)
 
             # Store only the latest assistant response to avoid duplicates
@@ -1362,12 +1389,12 @@ def infer_interactive(
             console.print(
                 Panel(
                     (
-                        f"[{config.style.error_style}]Error: {str(e)}"
-                        f"[/{config.style.error_style}]"
+                        f"[{style.error_style}]Error: {str(e)}"
+                        f"[/{style.error_style}]"
                     ),
-                    title=f"[{config.style.error_title_style}]Error[/{config.style.error_title_style}]",
-                    border_style=config.style.error_border_style,
-                    expand=config.style.expand_panels,
+                    title=f"[{style.error_title_style}]Error[/{style.error_title_style}]",
+                    border_style=style.error_border_style,
+                    expand=style.expand_panels,
                 )
             )
 

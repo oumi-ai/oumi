@@ -18,9 +18,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from oumi_chat.configs.chat_config import ChatConfig
     from oumi_chat.configs.style_params import StyleParams
 
-__all__ = ["StyleParams", "get_configs_dir", "get_macros_dir"]
+__all__ = ["ChatConfig", "StyleParams", "get_configs_dir", "get_macros_dir"]
 
 
 def get_configs_dir() -> Path:
@@ -35,6 +36,10 @@ def get_macros_dir() -> Path:
 
 def __getattr__(name: str):
     """Lazy import to avoid circular import issues."""
+    if name == "ChatConfig":
+        from oumi_chat.configs.chat_config import ChatConfig
+
+        return ChatConfig
     if name == "StyleParams":
         from oumi_chat.configs.style_params import StyleParams
 
