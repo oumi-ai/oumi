@@ -78,6 +78,7 @@ Note:
 
 from oumi.core.configs.analyze_config import (
     AnalyzeConfig,
+    DatasetSource,
     SampleAnalyzerParams,
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
@@ -169,6 +170,7 @@ __all__ = [
     "DatasetSplit",
     "DatasetSplitParams",
     "AnalyzeConfig",
+    "DatasetSource",
     "SampleAnalyzerParams",
     "EvaluationTaskParams",
     "EvaluationConfig",

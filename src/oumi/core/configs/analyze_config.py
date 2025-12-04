@@ -12,13 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Optional
 
 from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.base_params import BaseParams
+
+
+class DatasetSource(Enum):
+    """Source of the dataset for analysis.
+
+    .. deprecated::
+        This enum is deprecated and will be removed in a future release.
+        The dataset source is now automatically determined based on whether
+        a dataset is passed directly to DatasetAnalyzer.__init__().
+    """
+
+    CONFIG = "config"
+    """Load dataset from config parameters (dataset_name, dataset_path, etc.)"""
+    DIRECT = "direct"
+    """Pass dataset directly to DatasetAnalyzer.__init__()"""
 
 
 @dataclass
@@ -35,6 +52,23 @@ class SampleAnalyzerParams(BaseParams):
 @dataclass
 class AnalyzeConfig(BaseConfig):
     """Configuration for dataset analysis and aggregation."""
+
+    dataset_source: Optional[DatasetSource] = None
+    """Source of the dataset for analysis.
+
+    .. deprecated::
+        This field is deprecated and will be removed in a future release.
+        The dataset source is now automatically determined based on whether
+        a dataset is passed directly to DatasetAnalyzer.__init__().
+    """
+
+    dataset_format: Optional[str] = None
+    """Format of the custom dataset.
+
+    .. deprecated::
+        This field is deprecated and will be removed in a future release.
+        The dataset format is now automatically detected from the file contents.
+    """
 
     dataset_name: Optional[str] = None
     """Dataset name."""
@@ -97,6 +131,26 @@ class AnalyzeConfig(BaseConfig):
 
     def __post_init__(self):
         """Validates the configuration parameters."""
+        # Emit deprecation warnings for deprecated fields
+        if self.dataset_source is not None:
+            warnings.warn(
+                "The 'dataset_source' field is deprecated and will be removed in a "
+                "future release. The dataset source is now automatically determined "
+                "based on whether a dataset is passed directly to "
+                "DatasetAnalyzer.__init__(). This field is ignored.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if self.dataset_format is not None:
+            warnings.warn(
+                "The 'dataset_format' field is deprecated and will be removed in a "
+                "future release. The dataset format is now automatically detected "
+                "from the file contents. This field is ignored.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         # Validate is_multimodal requirements for custom datasets
         if self.dataset_path is not None:
             # Require explicit is_multimodal setting for custom datasets
