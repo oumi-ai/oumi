@@ -174,5 +174,4 @@ def require_torchdata(feature_name: str = "This feature") -> None:
         raise ImportError(
             f"{feature_name} requires torchdata. "
             "Please install it with: pip install 'oumi[torchdata]' "
-            "or pip install torchdata"
         )
