@@ -64,22 +64,62 @@ class AdaptiveConcurrencyController:
         """
         self._config = config
         self._current_concurrency = self._get_initial_concurrency()
+        self._initial_concurrency = self._current_concurrency
+        self._initial_politeness_policy = politeness_policy
         self._semaphore = PoliteAdaptiveSemaphore(
             self._current_concurrency, politeness_policy
         )
 
-        # Track request outcomes in a sliding window
+        # Track dynamic min_update_time with a floor of 1.0 second
+        self._min_update_time_floor = 1.0
+        self._current_min_update_time = config.min_update_time
+
+        # Track request outcomes in a sliding window for error rate calculation
         self._outcomes: deque[bool] = deque(maxlen=_MAX_OUTCOMES_WINDOW_SIZE)
         self._outcome_lock = asyncio.Lock()
 
+        # Rate limit window tracking (60s windows)
+        self._rate_limit_window_start = time.time()
+        self._early_window_errors = 0  # Errors in first 45s of window
+        self._last_window_reset_time = time.time()
+
+        # Best known operating point for "focusing in" (concurrency + politeness)
+        # Track both since they together determine throughput
+        self._best_concurrency = self._current_concurrency
+        self._best_politeness = 15.0  # Will be updated from semaphore
+        self._overshoot_count = 0  # Number of times we've hit errors and backed off
+
+        # Stack of known good concurrency levels for smarter backoff
+        # When we backoff, pop from this stack to return to last known good state
+        self._good_concurrency_stack: list[int] = []
+
+        # Slow-start exploration: when exploring past best, use +1, +2, +4, +8...
+        # Reset to 1 after each backoff for conservative restart
+        self._cautious_step_size = 1
+
+        # Burst detection: track recent errors for immediate backoff
+        # When rate limits hit, we get bursts of errors (10-15 within milliseconds)
+        # Detect and react immediately rather than waiting for adjustment cycle
+        self._recent_errors: deque[float] = deque()  # Timestamps of recent errors
+        self._burst_window_seconds = 2.0  # Window for detecting error bursts
+        self._burst_threshold = 7  # Number of errors in window to trigger backoff
+        self._last_burst_backoff_time = 0.0  # Rate limit burst backoffs to avoid spam
+        self._burst_backoff_in_progress = False  # Prevent concurrent burst backoffs
+
+        # Dynamic scaling factors that reduce with each overshoot
+        self._current_warmup_factor = config.exponential_scaling_factor
+        self._current_backoff_factor = config.backoff_factor
+
         # State tracking
-        self._last_adjustment_time = 0
+        self._last_adjustment_time = 0  # Set to current time on first permit
         self._last_warmup_time = 0
         self._in_backoff = False
+        self._first_permit_granted = False
         self._consecutive_good_windows_since_last_update = 0
         self._consecutive_error_windows_since_last_update = 0
         self._consecutive_good_windows_required_for_recovery = 2
         self._consecutive_error_windows_for_additional_backoff = 2
+        self._adjustment_in_progress = False  # Prevent concurrent adjustments
 
         self._logged_backoff_warning = False
         self._logged_warmup_warning = False
@@ -87,16 +127,107 @@ class AdaptiveConcurrencyController:
     async def record_success(self):
         """Record a successful outcome."""
         async with self._outcome_lock:
+            now = time.time()
             self._outcomes.append(True)
+
+            # Check if we've entered a new window
+            self._check_and_reset_window(now)
 
     async def record_error(self):
         """Record a failed outcome."""
         async with self._outcome_lock:
+            now = time.time()
             self._outcomes.append(False)
+
+            # Track window position of errors
+            self._check_and_reset_window(now)
+            position = self._get_window_position(now)
+
+            # Errors in first 36s (60%) of window are strong signals we're over limit
+            if position < 0.60:
+                self._early_window_errors += 1
+
+            # Burst detection: track recent errors for immediate backoff
+            self._recent_errors.append(now)
+            # Clean old errors outside burst window
+            while (
+                self._recent_errors
+                and self._recent_errors[0] < now - self._burst_window_seconds
+            ):
+                self._recent_errors.popleft()
+
+            # If we detect a burst, trigger immediate backoff
+            if len(self._recent_errors) >= self._burst_threshold:
+                # Rate limit: don't backoff more than once per 10 seconds
+                # Also check if burst backoff is in progress to prevent cascades
+                if (
+                    now - self._last_burst_backoff_time > 10.0
+                    and not self._burst_backoff_in_progress
+                ):
+                    logger.warning(
+                        "🔥 ERROR BURST DETECTED: %d errors in %.1fs - "
+                        "triggering immediate backoff!",
+                        len(self._recent_errors),
+                        self._burst_window_seconds,
+                    )
+                    self._last_burst_backoff_time = now
+                    self._burst_backoff_in_progress = True
+                    # Trigger immediate backoff (outside the lock to avoid deadlock)
+                    # We'll schedule it to run after releasing the lock
+                    asyncio.create_task(self._immediate_burst_backoff())
+
+    def _check_and_reset_window(self, now: float):
+        """Reset window tracking if we've entered a new 60s window."""
+        try:
+            now_float = float(now)
+            start_float = float(self._rate_limit_window_start)
+        except (TypeError, ValueError):
+            # Handle mocked time in tests
+            return
+
+        elapsed_since_start = now_float - start_float
+
+        # If more than 60s has passed, we're in a new window
+        if elapsed_since_start >= 60.0:
+            # Reset for new window
+            self._rate_limit_window_start = now_float - (elapsed_since_start % 60.0)
+            self._early_window_errors = 0
+            self._last_window_reset_time = now_float
+
+    def _get_window_position(self, now: float) -> float:
+        """Get position in current 60s rate limit window (0.0 to 1.0).
+
+        Returns:
+            Position in window: 0.0 = start of window, 1.0 = end of window
+        """
+        try:
+            now_float = float(now)
+            start_float = float(self._rate_limit_window_start)
+        except (TypeError, ValueError):
+            # Handle mocked time in tests - return middle of window
+            return 0.5
+
+        elapsed = now_float - start_float
+        position = (elapsed % 60.0) / 60.0
+        return position
+
+    def _has_early_window_errors(self) -> bool:
+        """Check if we have errors early in the current window.
+
+        Returns:
+            True if we have errors in the first 75% of the current window.
+        """
+        return self._early_window_errors > 0
 
     async def acquire(self):
         """Acquire a permit, then try to adjust concurrency before returning."""
         await self._semaphore.acquire()
+
+        # Initialize adjustment timer on first permit to ignore startup delay
+        if not self._first_permit_granted:
+            self._first_permit_granted = True
+            self._last_adjustment_time = time.time()
+
         await self._try_adjust_concurrency()
 
     def release(self):
@@ -126,6 +257,58 @@ class AdaptiveConcurrencyController:
             min(potential_concurrency, self._config.max_concurrency),
         )
 
+    def _calculate_target_qpm(self, concurrency: int) -> float:
+        """Calculate target QPM based on current concurrency.
+
+        Scales linearly from initial_qpm to max_qpm as concurrency increases from
+        initial to max.
+
+        Args:
+            concurrency: Current concurrency level.
+
+        Returns:
+            Target QPM for the given concurrency.
+        """
+        if not self._config.scale_politeness_with_concurrency:
+            # If not scaling, use initial QPM
+            return self._config.initial_qpm
+
+        # Calculate progress from initial to max concurrency (0.0 to 1.0)
+        concurrency_range = self._config.max_concurrency - self._initial_concurrency
+        if concurrency_range <= 0:
+            return self._config.initial_qpm
+
+        progress = (concurrency - self._initial_concurrency) / concurrency_range
+        progress = max(0.0, min(1.0, progress))  # Clamp to [0, 1]
+
+        # Scale QPM linearly from initial to max
+        qpm_range = self._config.max_qpm - self._config.initial_qpm
+        target_qpm = self._config.initial_qpm + (progress * qpm_range)
+
+        return target_qpm
+
+    def _calculate_politeness_policy(self, concurrency: int) -> float:
+        """Calculate politeness policy for the given concurrency.
+
+        Args:
+            concurrency: Current concurrency level.
+
+        Returns:
+            Politeness policy in seconds.
+        """
+        if not self._config.scale_politeness_with_concurrency:
+            return self._initial_politeness_policy
+
+        target_qpm = self._calculate_target_qpm(concurrency)
+        # politeness = (concurrency * 60) / target_qpm
+        # Ensure we don't divide by zero and have a reasonable minimum
+        if target_qpm <= 0:
+            return self._initial_politeness_policy
+
+        politeness = (concurrency * 60.0) / target_qpm
+        # Ensure politeness is at least 0.1s to avoid too aggressive polling
+        return max(0.1, politeness)
+
     async def _get_error_rate(self) -> float:
         """Calculate current error rate based on recent outcomes."""
         async with self._outcome_lock:
@@ -142,12 +325,32 @@ class AdaptiveConcurrencyController:
 
         # If we haven't reached the update time, do nothing
         time_since_last_adjustment = time.time() - self._last_adjustment_time
-        if time_since_last_adjustment < self._config.min_update_time:
+        if time_since_last_adjustment < self._current_min_update_time:
             return
 
         # Check if we need to backoff due to high error rate
         error_rate = await self._get_error_rate()
         if error_rate >= self._config.error_threshold and not self._in_backoff:
+            async with self._outcome_lock:
+                total_outcomes = len(self._outcomes)
+                error_count = sum(1 for outcome in self._outcomes if not outcome)
+            # Skip periodic backoff if burst backoff is in progress (drain/cooldown)
+            if self._burst_backoff_in_progress:
+                logger.debug(
+                    "Skipping periodic backoff (error_rate=%.1f%%) - "
+                    "burst backoff in progress",
+                    error_rate * 100,
+                )
+                return
+
+            logger.warning(
+                "Periodic backoff triggered: error_rate=%.1f%% (%d/%d), "
+                "threshold=%.1f%%",
+                error_rate * 100,
+                error_count,
+                total_outcomes,
+                self._config.error_threshold * 100,
+            )
             await self._try_backoff()
             return
 
@@ -174,7 +377,13 @@ class AdaptiveConcurrencyController:
                     self._consecutive_error_windows_since_last_update
                     >= self._consecutive_error_windows_for_additional_backoff
                 ):
-                    await self._try_backoff()
+                    # Skip additional backoff if burst backoff is in progress
+                    if not self._burst_backoff_in_progress:
+                        await self._try_backoff()
+                    else:
+                        logger.debug(
+                            "Skipping additional backoff - burst backoff in progress"
+                        )
                 return
 
         await self._try_warmup()
@@ -185,20 +394,197 @@ class AdaptiveConcurrencyController:
         self._consecutive_good_windows_since_last_update = 0
         self._consecutive_error_windows_since_last_update = 0
 
-    async def _try_backoff(self):
-        """Try to reduce concurrency due to high error rate."""
-        new_concurrency = max(
-            self._config.min_concurrency,
-            # Round down to nearest integer
-            math.floor(self._current_concurrency * self._config.backoff_factor),
+    async def _wait_for_worker_drain(self, target_capacity: int):
+        """Wait for active workers to drain to target capacity.
+
+        After a backoff, the semaphore capacity is reduced but existing workers
+        are still finishing their requests. This method waits for the active
+        worker count to drop to the new target capacity before resuming normal
+        operation, preventing cascading backoffs.
+
+        Args:
+            target_capacity: The new capacity we backed off to.
+        """
+        start_time = time.time()
+        initial_active = self._semaphore._active_workers
+
+        # Only wait if we have excess workers
+        if initial_active <= target_capacity:
+            logger.info(
+                "No worker drain needed: active=%d, target=%d",
+                initial_active,
+                target_capacity,
+            )
+            return
+
+        logger.info(
+            "Waiting for workers to drain: %d → %d (excess: %d)",
+            initial_active,
+            target_capacity,
+            initial_active - target_capacity,
         )
 
-        if new_concurrency != self._current_concurrency:
+        while self._semaphore._active_workers > target_capacity:
+            elapsed = time.time() - start_time
+            if elapsed > 60:  # Safety timeout
+                logger.warning(
+                    "Worker drain timeout after %.1fs, active=%d, target=%d",
+                    elapsed,
+                    self._semaphore._active_workers,
+                    target_capacity,
+                )
+                break
+            await asyncio.sleep(0.5)
+
+        drain_time = time.time() - start_time
+        final_active = self._semaphore._active_workers
+        logger.info(
+            "Workers drained: %d → %d (target: %d) in %.1fs",
+            initial_active,
+            final_active,
+            target_capacity,
+            drain_time,
+        )
+
+        # Add cooldown period after drain to let token bucket refill
+        # During drain, requests were still hitting the server keeping bucket depleted
+        # Use a fixed 60s cooldown to ensure token bucket fully recovers
+        cooldown_seconds = 60
+
+        logger.info(
+            "Entering cooldown period: %.1fs (to allow token bucket recovery)",
+            cooldown_seconds,
+        )
+        # Enter cooldown mode to block new acquisitions during cooldown
+        await self._semaphore.enter_cooldown_mode()
+        await asyncio.sleep(cooldown_seconds)
+        # Exit cooldown mode to resume normal operations
+        await self._semaphore.exit_cooldown_mode()
+
+        # Reset outcomes after cooldown to have clean slate for next phase
+        await self._reset_outcomes()
+        logger.info("Cooldown complete, resuming normal operations")
+
+    async def _immediate_burst_backoff(self):
+        """Handle immediate backoff when error burst is detected.
+
+        This is triggered when we detect multiple errors in a very short window
+        (e.g., 5+ errors in 2 seconds), indicating we've hit a rate limit.
+        Rather than waiting for the regular adjustment cycle, we backoff immediately.
+        """
+        try:
+            logger.info("Executing immediate burst backoff...")
+            await self._try_backoff()
+
+            # Wait for excess workers to finish before resuming
+            # This prevents cascading backoffs when token bucket is depleted
+            await self._wait_for_worker_drain(self._current_concurrency)
+        finally:
+            # Always clear the flag, even if backoff fails
+            self._burst_backoff_in_progress = False
+
+    async def _try_backoff(self):
+        """Try to reduce concurrency due to high error rate."""
+        # Use current overshoot count to apply backoff, then increment for next
+        # time. This way first backoff uses original factors, subsequent ones
+        # use reduced factors
+        decay_factor = 0.9  # 10% reduction per overshoot
+
+        # Calculate what factors WILL BE after this backoff (for logging)
+        next_overshoot_count = self._overshoot_count + 1
+        next_warmup_factor = max(
+            1.1,
+            self._config.exponential_scaling_factor
+            * (decay_factor**next_overshoot_count),
+        )
+        next_backoff_factor = max(
+            0.5,
+            self._config.backoff_factor * (decay_factor**next_overshoot_count),
+        )
+
+        # Apply current backoff (using current overshoot count)
+        self._current_backoff_factor = max(
+            0.5,
+            self._config.backoff_factor * (decay_factor**self._overshoot_count),
+        )
+
+        # NOW increment and update for next time
+        self._overshoot_count += 1
+        self._current_warmup_factor = next_warmup_factor
+
+        # Reset slow-start step size to 1 for conservative restart
+        self._cautious_step_size = 1
+
+        # Determine target concurrency using the good concurrency stack
+        # Pop from stack to get last known good value
+        if self._good_concurrency_stack:
+            # Pop the top value from stack (last known good that's below current)
+            # Keep popping until we find one that's actually below current
+            backoff_target = None
+            while self._good_concurrency_stack:
+                candidate = self._good_concurrency_stack.pop()
+                if candidate < self._current_concurrency:
+                    backoff_target = candidate
+                    break
+                # If candidate >= current, discard it and try next
+
+            if backoff_target is not None:
+                new_concurrency = max(self._config.min_concurrency, backoff_target)
+                logger.info(
+                    "Backoff #%d: %d → %d (from stack, depth now: %d). "
+                    "Factors: warmup %.2fx→%.2fx, backoff %.2fx→%.2fx",
+                    self._overshoot_count,
+                    self._current_concurrency,
+                    new_concurrency,
+                    len(self._good_concurrency_stack),
+                    self._config.exponential_scaling_factor
+                    * (decay_factor ** (self._overshoot_count - 1)),
+                    next_warmup_factor,
+                    self._config.backoff_factor
+                    * (decay_factor ** (self._overshoot_count - 1)),
+                    next_backoff_factor,
+                )
+            else:
+                # Stack empty or all values >= current, fall back to best
+                new_concurrency = max(
+                    self._config.min_concurrency, self._best_concurrency
+                )
+                logger.info(
+                    "Backoff #%d: %d → %d (to best=%d, stack exhausted). "
+                    "Factors: warmup %.2fx→%.2fx, backoff %.2fx→%.2fx",
+                    self._overshoot_count,
+                    self._current_concurrency,
+                    new_concurrency,
+                    self._best_concurrency,
+                    self._config.exponential_scaling_factor
+                    * (decay_factor ** (self._overshoot_count - 1)),
+                    next_warmup_factor,
+                    self._config.backoff_factor
+                    * (decay_factor ** (self._overshoot_count - 1)),
+                    next_backoff_factor,
+                )
+        else:
+            # No stack available, fall back to multiplicative backoff
+            new_concurrency = max(
+                self._config.min_concurrency,
+                math.floor(self._current_concurrency * self._current_backoff_factor),
+            )
             logger.info(
-                "Lowering concurrency from %d to %d due to high error rate.",
+                "Backoff #%d: %d → %d (%.2fx, no stack). "
+                "Factors: warmup %.2fx→%.2fx, backoff %.2fx→%.2fx",
+                self._overshoot_count,
                 self._current_concurrency,
                 new_concurrency,
+                self._current_backoff_factor,
+                self._config.exponential_scaling_factor
+                * (decay_factor ** (self._overshoot_count - 1)),
+                next_warmup_factor,
+                self._config.backoff_factor
+                * (decay_factor ** (self._overshoot_count - 1)),
+                next_backoff_factor,
             )
+
+        if new_concurrency != self._current_concurrency:
             await self._update_concurrency(new_concurrency)
         else:
             if not self._logged_backoff_warning:
@@ -225,14 +611,86 @@ class AdaptiveConcurrencyController:
 
     async def _try_warmup(self):
         """Try to increase concurrency during warmup."""
-        if self._config.use_exponential_scaling:
-            # Exponential scaling: multiply by the configured factor
-            new_concurrency = min(
-                self._config.max_concurrency,
-                int(
-                    self._current_concurrency * self._config.exponential_scaling_factor
-                ),
+        # Skip if adjustment is in progress to prevent concurrent decisions
+        if self._adjustment_in_progress:
+            logger.info("Skipping warmup: adjustment already in progress")
+            return
+
+        # Update best operating point if currently operating successfully
+        # (we reached this warmup attempt with low error rate)
+        if self._current_concurrency > self._best_concurrency:
+            self._best_concurrency = self._current_concurrency
+            try:
+                self._best_politeness = float(self._semaphore._politeness_policy)
+            except (TypeError, AttributeError):
+                pass  # Keep existing politeness if semaphore is mocked
+
+            # Push current concurrency to good stack
+            # Avoid duplicates - only push if different from last
+            if (
+                not self._good_concurrency_stack
+                or self._good_concurrency_stack[-1] != self._current_concurrency
+            ):
+                self._good_concurrency_stack.append(self._current_concurrency)
+
+            logger.info(
+                "New best operating point: concurrency=%d, politeness=%.1fs "
+                "(stack depth: %d)",
+                self._best_concurrency,
+                self._best_politeness,
+                len(self._good_concurrency_stack),
             )
+
+        # Check rate limit window position - early errors are strong signal to stop
+        # Only use this for linear scaling mode (60s politeness)
+        # For exponential scaling (15s politeness), bursts happen every 15s
+        # so this check doesn't apply - rely on regular error rate threshold
+        if not self._config.use_exponential_scaling and self._has_early_window_errors():
+            now = time.time()
+            position = self._get_window_position(now)
+            logger.info(
+                "Skipping warmup: detected %d errors early in rate limit "
+                "window (position: %.1f%%, concurrency=%d). Over limit.",
+                self._early_window_errors,
+                position * 100,
+                self._current_concurrency,
+            )
+            await self._clear_adjustment_state()
+            return
+
+        # Determine scaling step size based on position relative to best point
+        using_slow_start = False  # Track if using slow-start exploration
+        if self._config.use_exponential_scaling:
+            # Use slow-start (+1, +2, +4, +8...) if we've had ANY overshoots
+            # This applies to all warmups after first backoff, not just above best
+            using_slow_start = self._overshoot_count > 0
+
+            if using_slow_start:
+                # Slow-start exploration: +1, +2, +4, +8...
+                # Conservative exploration with exponential growth in step size
+                new_concurrency = min(
+                    self._config.max_concurrency,
+                    self._current_concurrency + self._cautious_step_size,
+                )
+                logger.info(
+                    "Warmup (slow-start +%d): %d → %d (best: %d)",
+                    self._cautious_step_size,
+                    self._current_concurrency,
+                    new_concurrency,
+                    self._best_concurrency,
+                )
+                # Double step size for next time (slow-start exponential growth)
+                # This happens after the warmup succeeds
+                self._cautious_step_size = min(
+                    self._cautious_step_size * 2,
+                    self._config.max_concurrency,  # Cap at max to avoid overflow
+                )
+            else:
+                # Use current (possibly reduced) warmup factor
+                new_concurrency = min(
+                    self._config.max_concurrency,
+                    int(self._current_concurrency * self._current_warmup_factor),
+                )
         else:
             # Linear scaling: add the fixed step size
             new_concurrency = min(
@@ -241,16 +699,29 @@ class AdaptiveConcurrencyController:
             )
 
         if new_concurrency != self._current_concurrency:
-            logger.info(
-                "Scaling up concurrency from %d to %d (%s mode, factor=%.2f).",
-                self._current_concurrency,
-                new_concurrency,
-                "exponential" if self._config.use_exponential_scaling else "linear",
-                self._config.exponential_scaling_factor
-                if self._config.use_exponential_scaling
-                else self._config.concurrency_step,
-            )
-            await self._update_concurrency(new_concurrency)
+            # Only log if not already logged by slow-start above
+            if not using_slow_start:
+                mode = "exp" if self._config.use_exponential_scaling else "linear"
+                factor = (
+                    self._current_warmup_factor
+                    if self._config.use_exponential_scaling
+                    else self._config.concurrency_step
+                )
+                logger.info(
+                    "Warmup (%s): %d → %d (%.2fx, best: %d)",
+                    mode,
+                    self._current_concurrency,
+                    new_concurrency,
+                    factor,
+                    self._best_concurrency,
+                )
+            # Set flag to prevent concurrent warmup decisions
+            self._adjustment_in_progress = True
+            try:
+                await self._update_concurrency(new_concurrency)
+            finally:
+                # Always clear flag, even if adjustment fails
+                self._adjustment_in_progress = False
         else:
             if not self._logged_warmup_warning:
                 logger.warning(
@@ -263,5 +734,65 @@ class AdaptiveConcurrencyController:
         """Update the concurrency limit, preserving existing waiters."""
         self._current_concurrency = new_concurrency
         await self._semaphore.adjust_capacity(new_concurrency)
+
+        # Log current politeness for debugging (handle mocked semaphores)
+        try:
+            current_politeness = float(self._semaphore._politeness_policy)
+            max_qpm = (
+                (new_concurrency * 60.0 / current_politeness)
+                if current_politeness > 0
+                else 9999
+            )
+            logger.info(
+                "Updated concurrency to %d "
+                "(politeness: %.1fs, theoretical max QPM: %.1f)",
+                new_concurrency,
+                current_politeness,
+                max_qpm,
+            )
+        except (TypeError, AttributeError):
+            # Mocked semaphore in tests
+            pass
+
+        # Update politeness policy ONLY if at max concurrency and scaling enabled
+        # This ensures we scale up workers first, then adjust timing between reqs
+        if (
+            self._config.scale_politeness_with_concurrency
+            and new_concurrency == self._config.max_concurrency
+        ):
+            new_politeness = self._calculate_politeness_policy(new_concurrency)
+
+            # Cap politeness at max_politeness_policy threshold
+            # If we need more throttling beyond this cap, reduce workers instead
+            if new_politeness > self._config.max_politeness_policy:
+                logger.warning(
+                    "Calculated politeness (%.2fs) exceeds max threshold "
+                    "(%.2fs). Consider reducing concurrency if errors persist.",
+                    new_politeness,
+                    self._config.max_politeness_policy,
+                )
+                new_politeness = self._config.max_politeness_policy
+
+            # Ensure politeness never drops below 1.0 second
+            new_politeness = max(1.0, new_politeness)
+
+            self._semaphore.adjust_politeness_policy(new_politeness)
+            target_qpm = self._calculate_target_qpm(new_concurrency)
+
+            # Scale min_update_time with politeness, but keep a floor
+            # This makes the system more responsive at high QPM
+            self._current_min_update_time = max(
+                1.0, self._min_update_time_floor, new_politeness
+            )
+
+            logger.info(
+                "Adjusted politeness policy to %.2fs (target QPM: %.1f, "
+                "min_update_time: %.2fs) for concurrency %d",
+                new_politeness,
+                target_qpm,
+                self._current_min_update_time,
+                new_concurrency,
+            )
+
         await self._reset_outcomes()
         await self._clear_adjustment_state()

@@ -15,8 +15,10 @@
 import asyncio
 import copy
 import json
+import logging
 import os
 import tempfile
+import time
 import urllib.parse
 import warnings
 from dataclasses import dataclass
@@ -56,6 +58,8 @@ from oumi.utils.http import (
     get_failure_reason_from_response,
     is_non_retriable_status_code,
 )
+
+logger = logging.getLogger(__name__)
 
 _AUTHORIZATION_KEY: str = "Authorization"
 _BATCH_PURPOSE = "batch"
@@ -248,12 +252,28 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 # in 2 minutes
                 max_concurrency = 10000  # Very high upper bound, no real maximum
                 min_concurrency = 10  # Start at ~10 requests per minute
-                initial_concurrency_factor = 0.0  # Start at minimum (10)
+
+                # Calculate factor from initial_concurrency if provided
+                if self._remote_params.initial_concurrency is not None:
+                    target_initial = max(
+                        min_concurrency,
+                        min(self._remote_params.initial_concurrency, max_concurrency),
+                    )
+                    # Calculate factor: initial = min + (max - min) * factor
+                    # factor = (initial - min) / (max - min)
+                    initial_concurrency_factor = (target_initial - min_concurrency) / (
+                        max_concurrency - min_concurrency
+                    )
+                else:
+                    initial_concurrency_factor = 0.0  # Start at minimum (10)
+
                 # For exponential growth, we'll use a multiplier approach
                 # The step will be calculated as current_concurrency in the controller
                 concurrency_step = 1  # This will be overridden for exponential growth
-                # Use 15s updates for exponential scaling every 15 seconds
-                min_update_time = 15.0
+                # Set politeness policy to 60s for per-minute rate limiting if not set
+                if self._remote_params.politeness_policy == 0.0:
+                    self._remote_params.politeness_policy = 60.0
+                min_update_time = self._remote_params.politeness_policy - 1
                 # More aggressive retry strategy
                 self._remote_params.max_retries = max(
                     5, self._remote_params.max_retries
@@ -261,9 +281,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 self._remote_params.retry_backoff_max = max(
                     60.0, self._remote_params.retry_backoff_max
                 )
-                # Set politeness policy to 60s for per-minute rate limiting
-                if self._remote_params.politeness_policy == 0.0:
-                    self._remote_params.politeness_policy = 60.0
             else:
                 max_concurrency = self._remote_params.num_workers
                 # Lowest concurrency is 1.
@@ -571,6 +588,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             failure_reason = await get_failure_reason_from_response(
                                 response
                             )
+                            logger.error(
+                                "Request error at %s: status=%d, reason=%s",
+                                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                                response.status,
+                                failure_reason,
+                            )
 
                             # Check for non-retriable status codes to fail fast.
                             if is_non_retriable_status_code(response.status):
@@ -617,6 +640,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                 f"Failed to process successful response: {str(e)}"
                             )
                             await self._try_record_error()
+                            logger.error(
+                                "Processing error at %s: %s",
+                                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                                failure_reason,
+                            )
                             if attempt >= remote_params.max_retries:
                                 raise RuntimeError(failure_reason) from e
                             continue
@@ -625,6 +653,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     # Connection or timeout errors are retriable.
                     failure_reason = f"Connection error: {str(e)}"
                     await self._try_record_error()
+                    logger.error(
+                        "Connection error at %s: %s",
+                        time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                        failure_reason,
+                    )
                     if attempt >= remote_params.max_retries:
                         raise RuntimeError(
                             f"Failed to query API after {attempt + 1} attempts due to "
@@ -638,6 +671,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     # If we get here, we've hit an unexpected error.
                     failure_reason = f"Unexpected error: {str(e)}"
                     await self._try_record_error()
+                    logger.error(
+                        "Unexpected error at %s: %s",
+                        time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                        failure_reason,
+                    )
                     if attempt >= remote_params.max_retries:
                         raise RuntimeError(
                             f"Failed to query API after {attempt + 1} attempts due to "
