@@ -6,6 +6,9 @@
 #   - conversation_analysis.csv: Per-conversation aggregated metrics
 #   - analysis_summary.json: Statistical summary (mean, std, min, max, median)
 
+# Dataset source
+dataset_source: CONFIG
+
 # Local file in Oumi or Alpaca format
 dataset_path: data/dataset_examples/oumi_format.jsonl
 # Or, use a HuggingFace dataset
@@ -17,7 +20,6 @@ is_multimodal: false # Set true for vision-language datasets
 
 # Tokenizer for token_count metric (use same tokenizer as your target model)
 # tokenizer_config:
-#   model_name: openai-community/gpt2
 
 # For multimodal datasets
 # processor_name: llava-hf/llava-1.5-7b-hf
