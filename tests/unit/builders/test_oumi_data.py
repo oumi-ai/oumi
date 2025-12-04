@@ -19,6 +19,9 @@ from oumi.core.configs import (
 from oumi.core.datasets import BaseIterableDataset, BaseMapDataset
 from oumi.core.registry import register_dataset
 from oumi.core.tokenizers import BaseTokenizer
+from tests.markers import requires_torchdata
+
+pytestmark = requires_torchdata()
 
 
 #
@@ -191,10 +194,23 @@ def test_load_custom_proxy_iterable_dataset_using_name_override(tokenizer):
 
 
 def test_load_dataset_huggingface(tokenizer, monkeypatch):
+    def mock_get_torchdata_imports():
+        from torchdata.datapipes.iter import MultiplexerLongest, SampleMultiplexer
+        from torchdata.datapipes.map.util.converter import (
+            MapToIterConverterIterDataPipe,
+        )
+
+        return (
+            mock_hf_hub_reader,  # HuggingFaceHubReader
+            MultiplexerLongest,
+            SampleMultiplexer,
+            MapToIterConverterIterDataPipe,
+        )
+
     monkeypatch.setattr(
         oumi.builders.oumi_data,
-        "HuggingFaceHubReader",
-        mock_hf_hub_reader,
+        "_get_torchdata_imports",
+        mock_get_torchdata_imports,
     )
 
     dataset_params = create_dataset_params("huggingface_dataset")
