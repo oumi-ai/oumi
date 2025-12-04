@@ -15,8 +15,11 @@ updates:
           - "minor"
           - "patch"
 
+    ignore:
+      - dependency-name: "torchdata" # compatibility issues
+
     # Keep major updates separate as they may need more attention
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "python"
@@ -34,7 +37,7 @@ updates:
       all-actions:
         patterns:
           - "*"
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "github-actions"
