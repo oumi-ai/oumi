@@ -931,7 +931,7 @@ def load_chat_test_data(filename: str) -> dict[str, Any]:
     """
     # Get the project root directory (go up from src/oumi to the project root)
     project_root = get_oumi_root_directory().parent.parent
-    data_path = project_root / "tests" / "testdata" / "chat" / filename
+    data_path = project_root / "tests" / "oumi_chat" / "testdata" / "chat" / filename
     return load_json(data_path)
 
 
@@ -975,6 +975,7 @@ def get_test_macro_template() -> str:
     template_path = (
         get_oumi_root_directory().parent.parent
         / "tests"
+        / "oumi_chat"
         / "testdata"
         / "chat"
         / "test_macro.jinja"
