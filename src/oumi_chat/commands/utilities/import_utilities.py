@@ -20,7 +20,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from oumi.core.commands.command_context import CommandContext
+from oumi_chat.commands.command_context import CommandContext
 
 
 class ImportUtilities:

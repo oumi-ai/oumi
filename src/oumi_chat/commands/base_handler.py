@@ -17,8 +17,8 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from oumi.core.commands.command_context import CommandContext
-from oumi.core.commands.command_parser import ParsedCommand
+from oumi_chat.commands.command_context import CommandContext
+from oumi_chat.commands.command_parser import ParsedCommand
 
 
 class CommandResult:

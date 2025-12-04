@@ -19,12 +19,12 @@ from typing import TYPE_CHECKING, Optional
 from rich.console import Console
 
 if TYPE_CHECKING:
-    from oumi.core.attachments import ContextWindowManager, FileHandler
-    from oumi.core.commands.compaction_engine import CompactionEngine
-    from oumi.core.commands.conversation_branches import ConversationBranchManager
     from oumi.core.configs import InferenceConfig
     from oumi.core.inference import BaseInferenceEngine
-    from oumi.core.thinking import ThinkingProcessor
+    from oumi_chat.attachments import ContextWindowManager, FileHandler
+    from oumi_chat.commands.compaction_engine import CompactionEngine
+    from oumi_chat.commands.conversation_branches import ConversationBranchManager
+    from oumi_chat.thinking import ThinkingProcessor
 
 
 class CommandContext:
@@ -71,7 +71,7 @@ class CommandContext:
     def context_window_manager(self) -> "ContextWindowManager":
         """Get or create the context window manager."""
         if self._context_window_manager is None:
-            from oumi.core.attachments import ContextWindowManager
+            from oumi_chat.attachments import ContextWindowManager
 
             # Try multiple possible attribute names for max context length
             max_context = None
@@ -104,7 +104,7 @@ class CommandContext:
     def file_handler(self) -> "FileHandler":
         """Get or create the file handler."""
         if self._file_handler is None:
-            from oumi.core.attachments import FileHandler
+            from oumi_chat.attachments import FileHandler
 
             self._file_handler = FileHandler(
                 context_manager=self.context_window_manager,
@@ -115,7 +115,7 @@ class CommandContext:
     def compaction_engine(self) -> "CompactionEngine":
         """Get or create the compaction engine."""
         if self._compaction_engine is None:
-            from oumi.core.commands.compaction_engine import CompactionEngine
+            from oumi_chat.commands.compaction_engine import CompactionEngine
 
             self._compaction_engine = CompactionEngine(
                 inference_engine=self.inference_engine,
@@ -127,7 +127,7 @@ class CommandContext:
     def branch_manager(self) -> "ConversationBranchManager":
         """Get or create the conversation branch manager."""
         if self._branch_manager is None:
-            from oumi.core.commands.conversation_branches import (
+            from oumi_chat.commands.conversation_branches import (
                 ConversationBranchManager,
             )
 
@@ -140,7 +140,7 @@ class CommandContext:
     def thinking_processor(self) -> "ThinkingProcessor":
         """Get or create the thinking processor."""
         if self._thinking_processor is None:
-            from oumi.core.thinking import ThinkingProcessor
+            from oumi_chat.thinking import ThinkingProcessor
 
             self._thinking_processor = ThinkingProcessor()
         return self._thinking_processor
@@ -150,7 +150,7 @@ class CommandContext:
         """Get or create the macro manager."""
         if self._macro_manager is None:
             try:
-                from oumi.core.commands.macro_manager import MacroManager
+                from oumi_chat.commands.macro_manager import MacroManager
 
                 self._macro_manager = MacroManager()
             except ImportError:

@@ -19,8 +19,8 @@ from typing import Any
 
 from rich.panel import Panel
 
-from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
-from oumi.core.commands.command_parser import ParsedCommand
+from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
+from oumi_chat.commands.command_parser import ParsedCommand
 
 
 class ModelManagementHandler(BaseCommandHandler):
@@ -147,7 +147,7 @@ class ModelManagementHandler(BaseCommandHandler):
                 )
 
             # Load and parse the new config, preserving UI and remote settings
-            from oumi.core.commands.config_utils import (
+            from oumi_chat.commands.config_utils import (
                 load_config_from_yaml_preserving_settings,
             )
 

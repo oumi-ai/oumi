@@ -17,11 +17,11 @@
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from oumi.core.commands import ParsedCommand
-from oumi.core.commands.command_context import CommandContext
-from oumi.core.commands.handlers.model_management_handler import ModelManagementHandler
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi_chat.commands import ParsedCommand
+from oumi_chat.commands.command_context import CommandContext
+from oumi_chat.commands.handlers.model_management_handler import ModelManagementHandler
 from tests.utils.chat_test_utils import (
     create_test_inference_config,
     validate_command_result,

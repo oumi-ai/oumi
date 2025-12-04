@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Thinking processing utilities for oumi inference."""
+"""Enhanced input system for Oumi interactive inference."""
 
-from oumi.core.thinking.thinking_processor import ThinkingProcessor
+from oumi_chat.input.enhanced_input import EnhancedInput
+from oumi_chat.input.multiline_input import InputAction, InputResult, MultiLineInput
 
-__all__ = ["ThinkingProcessor"]
+__all__ = ["MultiLineInput", "EnhancedInput", "InputResult", "InputAction"]

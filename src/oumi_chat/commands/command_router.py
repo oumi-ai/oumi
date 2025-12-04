@@ -14,20 +14,20 @@
 
 """Command router that coordinates all command handlers."""
 
-from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
-from oumi.core.commands.command_context import CommandContext
-from oumi.core.commands.command_parser import ParsedCommand
-from oumi.core.commands.command_registry import COMMAND_REGISTRY
-from oumi.core.commands.handlers.branch_operations_handler import (
+from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
+from oumi_chat.commands.command_context import CommandContext
+from oumi_chat.commands.command_parser import ParsedCommand
+from oumi_chat.commands.command_registry import COMMAND_REGISTRY
+from oumi_chat.commands.handlers.branch_operations_handler import (
     BranchOperationsHandler,
 )
-from oumi.core.commands.handlers.conversation_operations_handler import (
+from oumi_chat.commands.handlers.conversation_operations_handler import (
     ConversationOperationsHandler,
 )
-from oumi.core.commands.handlers.file_operations_handler import FileOperationsHandler
-from oumi.core.commands.handlers.macro_operations_handler import MacroOperationsHandler
-from oumi.core.commands.handlers.model_management_handler import ModelManagementHandler
-from oumi.core.commands.handlers.parameter_management_handler import (
+from oumi_chat.commands.handlers.file_operations_handler import FileOperationsHandler
+from oumi_chat.commands.handlers.macro_operations_handler import MacroOperationsHandler
+from oumi_chat.commands.handlers.model_management_handler import ModelManagementHandler
+from oumi_chat.commands.handlers.parameter_management_handler import (
     ParameterManagementHandler,
 )
 

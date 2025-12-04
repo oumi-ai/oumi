@@ -20,8 +20,8 @@ from datetime import datetime
 from rich.table import Table
 from rich.text import Text
 
-from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
-from oumi.core.commands.command_parser import ParsedCommand
+from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
+from oumi_chat.commands.command_parser import ParsedCommand
 
 
 class BranchOperationsHandler(BaseCommandHandler):
@@ -489,7 +489,7 @@ class BranchOperationsHandler(BaseCommandHandler):
                                 break
 
             # Create new config preserving UI settings
-            from oumi.core.commands.config_utils import (
+            from oumi_chat.commands.config_utils import (
                 create_config_preserving_ui_settings,
             )
 

@@ -16,12 +16,12 @@
 
 from unittest.mock import Mock
 
-from oumi.core.commands import ParsedCommand
-from oumi.core.commands.command_context import CommandContext
-from oumi.core.commands.handlers.parameter_management_handler import (
+from oumi.core.configs import GenerationParams
+from oumi_chat.commands import ParsedCommand
+from oumi_chat.commands.command_context import CommandContext
+from oumi_chat.commands.handlers.parameter_management_handler import (
     ParameterManagementHandler,
 )
-from oumi.core.configs import GenerationParams
 from tests.utils.chat_test_utils import (
     create_test_inference_config,
     validate_command_result,

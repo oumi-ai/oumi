@@ -103,7 +103,6 @@ def infer(
 
     # Delayed imports
     from oumi import infer as oumi_infer
-    from oumi import infer_interactive as oumi_infer_interactive
     from oumi.core.configs import InferenceConfig
     from oumi.utils.image_utils import (
         create_png_bytes_from_image_list,
@@ -112,6 +111,7 @@ def infer(
         load_pdf_pages_from_path,
         load_pdf_pages_from_url,
     )
+    from oumi_chat import infer_interactive as oumi_infer_interactive
     # End imports
 
     parsed_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(

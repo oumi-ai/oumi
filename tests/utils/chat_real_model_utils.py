@@ -22,10 +22,10 @@ from pathlib import Path
 from typing import Any, Optional
 
 from oumi.builders.inference_engines import build_inference_engine
-from oumi.core.commands import CommandResult
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi_chat.commands import CommandResult
 from tests.integration.infer.test_inference_test_utils import (
     assert_performance_requirements,
     assert_response_properties,

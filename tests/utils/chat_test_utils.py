@@ -27,12 +27,12 @@ try:
 except ImportError:
     pytest = None
 
-from oumi.core.commands import CommandParser, CommandResult, CommandRouter
-from oumi.core.commands.command_context import CommandContext
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.io_utils import get_oumi_root_directory, load_json
+from oumi_chat.commands import CommandParser, CommandResult, CommandRouter
+from oumi_chat.commands.command_context import CommandContext
 
 
 def get_generated_test_files_dir() -> Path:

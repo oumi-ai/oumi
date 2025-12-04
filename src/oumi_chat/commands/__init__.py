@@ -12,9 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""File attachment system for Oumi interactive inference."""
+"""Interactive command system for Oumi inference."""
 
-from oumi.core.attachments.context_manager import ContextWindowManager
-from oumi.core.attachments.file_handler import AttachmentResult, FileHandler, FileInfo
+from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
+from oumi_chat.commands.command_context import CommandContext
+from oumi_chat.commands.command_parser import CommandParser, ParsedCommand
+from oumi_chat.commands.command_router import CommandRouter
 
-__all__ = ["FileHandler", "AttachmentResult", "FileInfo", "ContextWindowManager"]
+__all__ = [
+    "BaseCommandHandler",
+    "CommandResult",
+    "CommandParser",
+    "ParsedCommand",
+    "CommandRouter",
+    "CommandContext",
+]

@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""System monitoring utilities for Oumi inference."""
+"""Oumi Chat - Interactive chat functionality for Oumi."""
 
-from oumi.core.monitoring.system_monitor import SystemMonitor
+from oumi_chat.infer import infer_interactive
+from oumi_chat.style_params import StyleParams
 
-__all__ = ["SystemMonitor"]
+__all__ = [
+    "infer_interactive",
+    "StyleParams",
+]

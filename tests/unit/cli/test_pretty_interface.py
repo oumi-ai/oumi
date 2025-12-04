@@ -28,10 +28,10 @@ class TestPrettyInterfaceRegression:
         """Test that infer_interactive initializes Rich console components."""
         from oumi import infer_interactive
 
-        with patch("oumi.infer.Console") as mock_console_class:
-            with patch("oumi.infer.get_engine") as mock_get_engine:
-                with patch("oumi.infer.SystemMonitor") as mock_monitor_class:
-                    with patch("oumi.infer.EnhancedInput") as mock_enhanced_input:
+        with patch("oumi_chat.infer.Console") as mock_console_class:
+            with patch("oumi_chat.infer.get_engine") as mock_get_engine:
+                with patch("oumi_chat.infer.SystemMonitor") as mock_monitor_class:
+                    with patch("oumi_chat.infer.EnhancedInput") as mock_enhanced_input:
                         mock_console = MagicMock()
                         mock_console_class.return_value = mock_console
 
@@ -61,10 +61,10 @@ class TestPrettyInterfaceRegression:
         """Test that system monitoring is initialized in pretty interface."""
         from oumi import infer_interactive
 
-        with patch("oumi.infer.SystemMonitor") as mock_monitor_class:
-            with patch("oumi.infer.Console"):
-                with patch("oumi.infer.get_engine"):
-                    with patch("oumi.infer.EnhancedInput") as mock_enhanced_input:
+        with patch("oumi_chat.infer.SystemMonitor") as mock_monitor_class:
+            with patch("oumi_chat.infer.Console"):
+                with patch("oumi_chat.infer.get_engine"):
+                    with patch("oumi_chat.infer.EnhancedInput") as mock_enhanced_input:
                         mock_monitor = MagicMock()
                         mock_monitor_class.return_value = mock_monitor
 
@@ -83,12 +83,12 @@ class TestPrettyInterfaceRegression:
     def test_infer_interactive_has_thinking_animation(self, mock_config):
         """Test that thinking animation is present in pretty interface."""
         from oumi import infer_interactive
-        from oumi.core.input import InputAction, InputResult
+        from oumi_chat.input import InputAction, InputResult
 
-        with patch("oumi.infer.Live") as mock_live_class:
-            with patch("oumi.infer.Console"):
-                with patch("oumi.infer.get_engine") as mock_get_engine:
-                    with patch("oumi.infer.SystemMonitor"):
+        with patch("oumi_chat.infer.Live") as mock_live_class:
+            with patch("oumi_chat.infer.Console"):
+                with patch("oumi_chat.infer.get_engine") as mock_get_engine:
+                    with patch("oumi_chat.infer.SystemMonitor"):
                         mock_live = MagicMock()
                         mock_live_class.return_value = mock_live
 
@@ -113,7 +113,9 @@ class TestPrettyInterfaceRegression:
                         mock_engine.infer.return_value = mock_response
 
                         # Mock input to provide one message then exit
-                        with patch("oumi.infer.EnhancedInput") as mock_enhanced_input:
+                        with patch(
+                            "oumi_chat.infer.EnhancedInput"
+                        ) as mock_enhanced_input:
                             mock_enhanced_input_instance = MagicMock()
                             mock_enhanced_input.return_value = (
                                 mock_enhanced_input_instance
@@ -154,11 +156,13 @@ class TestPrettyInterfaceRegression:
         """Test that command parsing is present for /save, /load, etc."""
         from oumi import infer_interactive
 
-        with patch("oumi.infer.CommandRouter") as mock_router_class:
-            with patch("oumi.infer.Console"):
-                with patch("oumi.infer.get_engine"):
-                    with patch("oumi.infer.SystemMonitor"):
-                        with patch("oumi.infer.EnhancedInput") as mock_enhanced_input:
+        with patch("oumi_chat.infer.CommandRouter") as mock_router_class:
+            with patch("oumi_chat.infer.Console"):
+                with patch("oumi_chat.infer.get_engine"):
+                    with patch("oumi_chat.infer.SystemMonitor"):
+                        with patch(
+                            "oumi_chat.infer.EnhancedInput"
+                        ) as mock_enhanced_input:
                             mock_router = MagicMock()
                             mock_router_class.return_value = mock_router
 
@@ -181,13 +185,12 @@ class TestPrettyInterfaceRegression:
     def test_infer_interactive_imports_pretty_dependencies(self, mock_config):
         """Test that all pretty interface dependencies can be imported."""
         # This test ensures all the Rich/pretty interface imports are available
-        from oumi.infer import (
-            Console,  # Rich console
-            Live,  # Thinking animation
-            Panel,  # UI panels
-            Spinner,  # Spinner animation
-            Text,  # Text rendering
-        )
+        # These are imported in oumi_chat.infer from the rich library
+        from rich.console import Console
+        from rich.live import Live
+        from rich.panel import Panel
+        from rich.spinner import Spinner
+        from rich.text import Text
 
         # If we get here without ImportError, the pretty interface imports are available
         assert Console is not None
@@ -201,7 +204,7 @@ class TestPrettyInterfaceRegression:
         # Get the source code of infer_interactive
         import inspect
 
-        import oumi.infer as infer_module
+        import oumi_chat.infer as infer_module
 
         source = inspect.getsource(infer_module.infer_interactive)
 
@@ -262,7 +265,7 @@ class TestPrettyInterfaceRegression:
         """Test function signature to detect if infer_interactive was replaced."""
         import inspect
 
-        from oumi.infer import infer_interactive
+        from oumi_chat.infer import infer_interactive
 
         # Get the signature of infer_interactive
         sig = inspect.signature(infer_interactive)
@@ -285,7 +288,7 @@ class TestPrettyInterfaceRegression:
 
     def test_auto_save_functionality_present(self, mock_config):
         """Test that auto-save functionality is available."""
-        import oumi.infer as infer_module
+        import oumi_chat.infer as infer_module
 
         # Check that auto-save related code is present
         source = inspect.getsource(infer_module)

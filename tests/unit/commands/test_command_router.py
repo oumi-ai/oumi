@@ -16,9 +16,9 @@
 
 from unittest.mock import Mock, patch
 
-from oumi.core.commands import CommandResult, CommandRouter, ParsedCommand
-from oumi.core.commands.command_context import CommandContext
 from oumi.core.inference import BaseInferenceEngine
+from oumi_chat.commands import CommandResult, CommandRouter, ParsedCommand
+from oumi_chat.commands.command_context import CommandContext
 from tests.utils.chat_test_utils import create_test_inference_config
 
 

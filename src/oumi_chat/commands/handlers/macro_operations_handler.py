@@ -20,9 +20,9 @@ from typing import Any
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
-from oumi.core.commands.command_parser import ParsedCommand
-from oumi.core.input.multiline_input import InputAction
+from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
+from oumi_chat.commands.command_parser import ParsedCommand
+from oumi_chat.input.multiline_input import InputAction
 
 
 class MacroOperationsHandler(BaseCommandHandler):
@@ -236,7 +236,7 @@ class MacroOperationsHandler(BaseCommandHandler):
         conflicts.
         """
         # Use local import to avoid circular dependency
-        from oumi.core.input.enhanced_input import EnhancedInput
+        from oumi_chat.input.enhanced_input import EnhancedInput
 
         # Create enhanced input handler with consistent styling
         field_input = EnhancedInput(self.console, "bold cyan")

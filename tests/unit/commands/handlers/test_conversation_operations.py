@@ -18,9 +18,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from oumi.core.commands import CommandResult, ParsedCommand
-from oumi.core.commands.command_context import CommandContext
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi_chat.commands import CommandResult, ParsedCommand
+from oumi_chat.commands.command_context import CommandContext
 from tests.utils.chat_test_utils import (
     create_test_inference_config,
     validate_command_result,
@@ -793,7 +793,7 @@ class TestConversationOperationsHandlerReal:
         )
 
         # Import the actual handler
-        from oumi.core.commands.handlers.conversation_operations_handler import (
+        from oumi_chat.commands.handlers.conversation_operations_handler import (
             ConversationOperationsHandler,
         )
 
@@ -858,7 +858,7 @@ class TestFullThoughtsCommandReal:
         self.mock_thinking_processor = Mock()
         self.command_context._thinking_processor = self.mock_thinking_processor
 
-        from oumi.core.commands.handlers.conversation_operations_handler import (
+        from oumi_chat.commands.handlers.conversation_operations_handler import (
             ConversationOperationsHandler,
         )
 
@@ -972,7 +972,7 @@ class TestClearThoughtsCommandReal:
         self.mock_thinking_processor = Mock()
         self.command_context._thinking_processor = self.mock_thinking_processor
 
-        from oumi.core.commands.handlers.conversation_operations_handler import (
+        from oumi_chat.commands.handlers.conversation_operations_handler import (
             ConversationOperationsHandler,
         )
 
@@ -1150,7 +1150,7 @@ class TestRenderCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.conversation_operations_handler import (
+        from oumi_chat.commands.handlers.conversation_operations_handler import (
             ConversationOperationsHandler,
         )
 
@@ -1303,7 +1303,7 @@ class TestRenderCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.conversation_operations_handler import (
+        from oumi_chat.commands.handlers.conversation_operations_handler import (
             ConversationOperationsHandler,
         )
 
@@ -1375,7 +1375,7 @@ class TestConversationOperationsIntegration:
         self.mock_thinking_processor = Mock()
         self.command_context._thinking_processor = self.mock_thinking_processor
 
-        from oumi.core.commands.handlers.conversation_operations_handler import (
+        from oumi_chat.commands.handlers.conversation_operations_handler import (
             ConversationOperationsHandler,
         )
 

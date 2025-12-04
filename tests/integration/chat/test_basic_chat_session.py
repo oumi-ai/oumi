@@ -20,8 +20,8 @@ from unittest.mock import patch
 
 import pytest
 
-from oumi.core.commands import CommandResult
 from oumi.core.types.conversation import Role
+from oumi_chat.commands import CommandResult
 from tests.utils.chat_test_utils import (
     ChatTestSession,
     create_test_inference_config,

@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from oumi.core.commands.command_registry import COMMAND_REGISTRY
+from oumi_chat.commands.command_registry import COMMAND_REGISTRY
 
 
 @dataclass

@@ -21,9 +21,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from oumi.core.commands import CommandResult, ParsedCommand
-from oumi.core.commands.command_context import CommandContext
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi_chat.commands import CommandResult, ParsedCommand
+from oumi_chat.commands.command_context import CommandContext
 from tests.utils.chat_test_utils import (
     create_test_inference_config,
     get_file_attachment_data,
@@ -627,7 +627,7 @@ class TestFileOperationsHandler:
         )
 
         # Import the actual handler
-        from oumi.core.commands.handlers.file_operations_handler import (
+        from oumi_chat.commands.handlers.file_operations_handler import (
             FileOperationsHandler,
         )
 
@@ -693,7 +693,7 @@ class TestSaveCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.file_operations_handler import (
+        from oumi_chat.commands.handlers.file_operations_handler import (
             FileOperationsHandler,
         )
 
@@ -762,7 +762,7 @@ class TestSaveCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.file_operations_handler import (
+        from oumi_chat.commands.handlers.file_operations_handler import (
             FileOperationsHandler,
         )
 
@@ -835,7 +835,7 @@ class TestFetchCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.file_operations_handler import (
+        from oumi_chat.commands.handlers.file_operations_handler import (
             FileOperationsHandler,
         )
 
@@ -942,7 +942,7 @@ class TestShellCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.file_operations_handler import (
+        from oumi_chat.commands.handlers.file_operations_handler import (
             FileOperationsHandler,
         )
 
@@ -1067,7 +1067,7 @@ class TestImportExportCommands:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.file_operations_handler import (
+        from oumi_chat.commands.handlers.file_operations_handler import (
             FileOperationsHandler,
         )
 
@@ -1168,7 +1168,7 @@ class TestAttachCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.file_operations_handler import (
+        from oumi_chat.commands.handlers.file_operations_handler import (
             FileOperationsHandler,
         )
 

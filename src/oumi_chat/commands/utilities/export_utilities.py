@@ -19,7 +19,7 @@ import html
 import json
 from datetime import datetime
 
-from oumi.core.commands.command_context import CommandContext
+from oumi_chat.commands.command_context import CommandContext
 
 
 class ExportUtilities:

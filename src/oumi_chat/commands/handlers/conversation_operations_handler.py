@@ -16,9 +16,9 @@
 
 from typing import Optional
 
-from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
-from oumi.core.commands.command_parser import ParsedCommand
-from oumi.core.commands.conversation_renderer import ConversationRenderer
+from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
+from oumi_chat.commands.command_parser import ParsedCommand
+from oumi_chat.commands.conversation_renderer import ConversationRenderer
 
 
 class ConversationOperationsHandler(BaseCommandHandler):

@@ -21,7 +21,7 @@ from enum import Enum
 from pathlib import Path
 from typing import ClassVar, Optional
 
-from oumi.core.attachments.context_manager import ContextWindowManager
+from oumi_chat.attachments.context_manager import ContextWindowManager
 
 # Simplified attachment system uses plain text instead of ContentItems
 

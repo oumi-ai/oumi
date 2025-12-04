@@ -20,10 +20,10 @@ from pathlib import Path
 
 from rich.panel import Panel
 
-from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
-from oumi.core.commands.command_parser import ParsedCommand
-from oumi.core.commands.utilities.export_utilities import ExportUtilities
-from oumi.core.commands.utilities.import_utilities import ImportUtilities
+from oumi_chat.commands.base_handler import BaseCommandHandler, CommandResult
+from oumi_chat.commands.command_parser import ParsedCommand
+from oumi_chat.commands.utilities.export_utilities import ExportUtilities
+from oumi_chat.commands.utilities.import_utilities import ImportUtilities
 
 
 class FileOperationsHandler(BaseCommandHandler):
@@ -869,7 +869,7 @@ class FileOperationsHandler(BaseCommandHandler):
             # Get or create branch manager
             branch_manager = getattr(self.context, "branch_manager", None)
             if not branch_manager:
-                from oumi.core.commands.conversation_branches import (
+                from oumi_chat.commands.conversation_branches import (
                     ConversationBranchManager,
                 )
 
@@ -880,7 +880,7 @@ class FileOperationsHandler(BaseCommandHandler):
             branch_manager.branches.clear()
 
             # Restore branches
-            from oumi.core.commands.conversation_branches import ConversationBranch
+            from oumi_chat.commands.conversation_branches import ConversationBranch
 
             for branch_id, branch_data in branches.items():
                 branch = ConversationBranch(
