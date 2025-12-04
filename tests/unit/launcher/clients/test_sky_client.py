@@ -82,6 +82,11 @@ def test_sky_client_azure_name():
     assert client.SupportedClouds.AZURE.value == "azure"
 
 
+def test_sky_client_k8s_name():
+    client = SkyClient()
+    assert client.SupportedClouds.K8S.value == "k8s"
+
+
 def test_convert_job_to_task(
     mock_sky_data_storage,
 ):

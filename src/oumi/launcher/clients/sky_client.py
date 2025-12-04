@@ -44,6 +44,8 @@ def _get_sky_cloud_from_job(job: JobConfig) -> "sky.clouds.Cloud":
         return sky.clouds.AWS()
     elif job.resources.cloud == SkyClient.SupportedClouds.AZURE.value:
         return sky.clouds.Azure()
+    elif job.resources.cloud == SkyClient.SupportedClouds.K8S.value:
+        return sky.clouds.Kubernetes()
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
 
@@ -163,6 +165,7 @@ class SkyClient:
         GCP = "gcp"
         RUNPOD = "runpod"
         LAMBDA = "lambda"
+        K8S = "k8s"
 
     def __init__(self):
         """Initializes a new instance of the SkyClient class."""

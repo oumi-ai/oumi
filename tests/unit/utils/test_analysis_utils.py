@@ -21,10 +21,7 @@ import jsonlines
 import pandas as pd
 import pytest
 
-from oumi.core.configs.analyze_config import (
-    AnalyzeConfig,
-    DatasetSource,
-)
+from oumi.core.configs.analyze_config import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.datasets import TextSftJsonLinesDataset, VLJsonlinesDataset
 from oumi.utils.analysis_utils import (
@@ -184,19 +181,14 @@ def test_load_dataset_from_config_success(
     assert mock_registry.get_dataset.called
 
 
-def test_load_dataset_from_config_missing_dataset_name():
-    """Test error handling when dataset_name is not provided."""
+def test_load_dataset_from_config_missing_dataset_info():
+    """Test error handling when no dataset info is provided."""
+    config = AnalyzeConfig(split="train")
+
     with pytest.raises(
-        ValueError,
-        match="Either 'dataset_name' or 'dataset_path' must be provided when "
-        "dataset_source=DatasetSource.CONFIG",
+        ValueError, match="Either dataset_name or dataset_path must be provided"
     ):
-        AnalyzeConfig(
-            dataset_source=DatasetSource.CONFIG,  # Required field
-            dataset_name=None,
-            dataset_path=None,
-            split="train",
-        )
+        load_dataset_from_config(config)
 
 
 def test_load_dataset_from_config_dataset_not_registered(mock_registry):
@@ -359,10 +351,9 @@ def test_load_dataset_from_config_without_tokenizer(
 
 # Custom dataset loading tests
 def test_load_custom_dataset_conversation_format(temp_conversation_file):
-    """Test loading custom dataset in conversation format."""
+    """Test loading custom dataset in conversation format (auto-detected)."""
     config = AnalyzeConfig(
         dataset_path=temp_conversation_file,
-        dataset_format="oumi",
         is_multimodal=False,  # Explicitly set as text-only
     )
 
@@ -381,10 +372,9 @@ def test_load_custom_dataset_conversation_format(temp_conversation_file):
 
 
 def test_load_custom_dataset_alpaca_format(temp_alpaca_file):
-    """Test loading custom dataset in alpaca format."""
+    """Test loading custom dataset in alpaca format (auto-detected)."""
     config = AnalyzeConfig(
         dataset_path=temp_alpaca_file,
-        dataset_format="alpaca",
         is_multimodal=False,  # Explicitly set as text-only
     )
 
@@ -409,7 +399,6 @@ def test_load_custom_dataset_multi_modal(temp_vision_language_file):
 
     config = AnalyzeConfig(
         dataset_path=temp_vision_language_file,
-        dataset_format="oumi",
         processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",  # Processor provided
         is_multimodal=True,  # Explicitly mark as multimodal
     )
@@ -424,7 +413,6 @@ def test_load_custom_dataset_text(temp_conversation_file):
     TextSftJsonLinesDataset."""
     config = AnalyzeConfig(
         dataset_path=temp_conversation_file,
-        dataset_format="oumi",
         is_multimodal=False,  # Explicitly set as text-only
     )
 
@@ -439,7 +427,6 @@ def test_load_custom_dataset_file_not_found():
     """Test error handling when custom dataset file doesn't exist."""
     config = AnalyzeConfig(
         dataset_path="nonexistent_file.json",
-        dataset_format="oumi",  # Required for custom datasets
         is_multimodal=False,  # Required for custom datasets
     )
 
@@ -454,7 +441,6 @@ def test_load_custom_dataset_directory_path():
     with tempfile.TemporaryDirectory() as temp_dir:
         config = AnalyzeConfig(
             dataset_path=temp_dir,
-            dataset_format="oumi",  # Required for custom datasets
             is_multimodal=False,  # Required for custom datasets
         )
 

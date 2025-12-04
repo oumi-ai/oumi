@@ -85,6 +85,8 @@ class SkyCloud(BaseCloud):
             return self._get_clusters_by_class(sky.clouds.AWS)
         elif self._cloud_name == SkyClient.SupportedClouds.AZURE.value:
             return self._get_clusters_by_class(sky.clouds.Azure)
+        elif self._cloud_name == SkyClient.SupportedClouds.K8S.value:
+            return self._get_clusters_by_class(sky.clouds.Kubernetes)
         raise ValueError(f"Unsupported cloud: {self._cloud_name}")
 
 
@@ -116,3 +118,9 @@ def aws_cloud_builder() -> SkyCloud:
 def azure_cloud_builder() -> SkyCloud:
     """Builds a SkyCloud instance for Azure."""
     return SkyCloud(SkyClient.SupportedClouds.AZURE.value)
+
+
+@register_cloud_builder("k8s")
+def k8s_cloud_builder() -> SkyCloud:
+    """Builds a SkyCloud instance for Kubernetes."""
+    return SkyCloud(SkyClient.SupportedClouds.K8S.value)

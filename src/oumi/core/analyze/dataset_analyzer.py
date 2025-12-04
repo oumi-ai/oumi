@@ -19,7 +19,7 @@ from typing import Any, Optional, Union, cast
 import pandas as pd
 
 from oumi.core.analyze.dataframe_analyzer import DataFrameAnalyzer, DataFrameWithSchema
-from oumi.core.configs import AnalyzeConfig, DatasetSource
+from oumi.core.configs import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.registry import REGISTRY
@@ -120,17 +120,9 @@ class DatasetAnalyzer:
         # Build tokenizer from config if provided
         self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
 
-        # Use provided dataset or load from config based on dataset_source
-        if config.dataset_source == DatasetSource.DIRECT:
-            # Direct mode: must provide dataset
-            if dataset is None:
-                raise ValueError(
-                    "Config specifies dataset_source=DatasetSource.DIRECT but no "
-                    "dataset was provided. Either pass a dataset to "
-                    "DatasetAnalyzer.__init__() or "
-                    "set dataset_source=DatasetSource.CONFIG.value."
-                )
-
+        # Use provided dataset or load from config
+        if dataset is not None:
+            # Dataset provided directly
             self.dataset = dataset
             # Use the provided dataset name if config doesn't have one
             if not self.dataset_name:
@@ -143,22 +135,10 @@ class DatasetAnalyzer:
                     f"Using provided dataset '{self.dataset_name}' with "
                     f"{len(dataset)} conversations"
                 )
-        elif config.dataset_source == DatasetSource.CONFIG:
-            # Config mode: load dataset from config parameters
-            if dataset is not None:
-                raise ValueError(
-                    f"Dataset provided but config.dataset_source is "
-                    f"'{config.dataset_source.value}'. When using "
-                    f"DatasetSource.CONFIG, do not pass a dataset to the "
-                    f"constructor. Set dataset_source=DatasetSource.DIRECT "
-                    f"if you want to use the provided dataset."
-                )
-
-            # Load dataset with the tokenizer
+        else:
+            # Load dataset from config parameters
             self.dataset = load_dataset_from_config(config, self.tokenizer)
             logger.info(f"Loaded dataset from config: {self.dataset_name}")
-        else:
-            raise ValueError(f"Invalid dataset_source: {config.dataset_source}")
 
         self.sample_analyzers = self._initialize_sample_analyzers()
 
@@ -185,28 +165,26 @@ class DatasetAnalyzer:
 
         Returns:
             Dictionary mapping column names to their configuration.
+
+        Raises:
+            ValueError: If dataset type cannot be determined.
         """
-        # Detect dataset type based on the dataset class
         dataset_type = self._detect_dataset_type()
 
         try:
             return get_schema_for_format(dataset_type)
         except ValueError:
-            # Fallback to conversation schema for unknown types
-            logger.warning(
-                f"Unknown dataset type '{dataset_type}', using conversation schema"
-            )
-            return get_schema_for_format("oumi")
+            raise ValueError(f"Unknown dataset type '{dataset_type}'.")
 
     def _detect_dataset_type(self) -> str:
-        """Detect the dataset type based on the dataset class and configuration.
+        """Detect the dataset type based on the dataset class.
 
         Returns:
             String indicating the dataset type for schema selection.
         """
         if self.dataset is None:
-            # No dataset provided, use config format or default to conversation
-            return getattr(self.config, "dataset_format", None) or "oumi"
+            # No dataset provided, default to oumi format
+            return "oumi"
 
         # Check dataset class inheritance hierarchy for accurate detection
         dataset_class_bases = [base.__name__ for base in self.dataset.__class__.__mro__]
@@ -233,30 +211,23 @@ class DatasetAnalyzer:
         elif "BaseExperimentalKtoDataset" in dataset_class_bases:
             return "kto"
         else:
-            # Check if we have explicit format from config
-            config_format = getattr(self.config, "dataset_format", None)
-            if config_format in [
-                "alpaca",
-                "prompt_response",
-                "dpo",
-                "pretraining",
-                "kto",
-            ]:
-                return config_format
-            else:
-                # Default to conversation format for unknown SFT-like datasets
-                return "oumi"
+            # Default to conversation format for unknown SFT-like datasets
+            return "oumi"
 
     def _initialize_sample_analyzers(self) -> dict[str, Any]:
         """Initialize sample analyzer plugins from configuration.
 
         Returns:
             Dictionary mapping analyzer IDs to analyzer instances
+
+        Raises:
+            RuntimeError: If any analyzer fails to initialize.
         """
         sample_analyzers = {}
+        failed_analyzers: list[tuple[str, str]] = []
+
         for analyzer_params in self.config.analyzers:
             try:
-                # Get the analyzer class from the registry
                 analyzer_class = REGISTRY.get_sample_analyzer(analyzer_params.id)
                 if analyzer_class is None:
                     raise ValueError(
@@ -278,6 +249,17 @@ class DatasetAnalyzer:
                     f"Failed to initialize sample analyzer {analyzer_params.id}: {e}"
                 )
                 logger.error(f"Analyzer configuration: {analyzer_params}")
+                failed_analyzers.append((analyzer_params.id, str(e)))
+
+        if failed_analyzers:
+            error_details = "\n".join(
+                f"  - {name}: {error}" for name, error in failed_analyzers
+            )
+            raise RuntimeError(
+                f"Failed to initialize {len(failed_analyzers)} analyzer(s):\n"
+                f"{error_details}"
+            )
+
         return sample_analyzers
 
     def analyze_dataset(self) -> None:
@@ -445,7 +427,7 @@ class DatasetAnalyzer:
 
         Returns:
             DataFrame with columns prefixed by ``message_`` and ``conversation_`` for
-            each analyzer
+            each analyzer.
 
         Raises:
             RuntimeError: If analysis has not been run yet.
@@ -596,18 +578,19 @@ class DatasetAnalyzer:
 
         Returns:
             A new dataset object with the same format as the original
-        """
-        # Deep copy the original dataset to preserve all attributes and methods
-        filtered_dataset = copy.deepcopy(self.dataset)
 
-        # Filter the DataFrame to only include the specified conversations
-        # Note: This only works for map datasets, not iterable datasets
+        Raises:
+            NotImplementedError: If the dataset is an iterable/streaming dataset.
+        """
         from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 
         if isinstance(self.dataset, BaseIterableDataset):
-            # For iterable datasets, we can't filter by index
-            # Return the original dataset as filtering is not supported
-            return filtered_dataset
+            raise NotImplementedError(
+                "Filtering is not supported for iterable/streaming datasets."
+            )
+
+        # Deep copy the original dataset to preserve all attributes and methods
+        filtered_dataset = copy.deepcopy(self.dataset)
 
         original_df = self.dataset.data
         filtered_dataset._data = original_df.iloc[conversation_indices].copy()
