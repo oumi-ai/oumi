@@ -20,7 +20,7 @@
 model:
   model_name: "unsloth/gemma-3n-E4B-it-GGUF"
   tokenizer_name: "google/gemma-3n-E4B-it"
-  model_max_length: 32768
+  model_max_length: 16384
   torch_dtype_str: "float16"
   trust_remote_code: True
   model_kwargs:

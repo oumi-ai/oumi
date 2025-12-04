@@ -790,7 +790,7 @@ def test_truncate_text_in_content_items(
     max_tokens: int,
     truncation_side: str,
     expected_messages: Optional[list[Message]],
-    gpt2_tokenizer: "BaseTokenizer",
+    gpt2_tokenizer: BaseTokenizer,
 ):
     truncated_messages = truncate_text_in_content_items(
         messages,
