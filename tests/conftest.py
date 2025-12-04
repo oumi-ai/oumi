@@ -50,45 +50,10 @@ def cleanup_gpu_memory(request):
 
             import torch
 
-            if not torch.cuda.is_available():
-                return
-
-            # VLLM-specific cleanup
-            try:
-                import ray  # type: ignore[import-untyped]
-
-                if ray.is_initialized():
-                    # Shutdown any VLLM workers
-                    ray.shutdown()
-            except ImportError:
-                pass
-
-            # Clear VLLM engine cache if available
-            try:
-                from vllm.engine.llm_engine import (  # type: ignore[import-untyped]
-                    LLMEngine,
-                )
-
-                if hasattr(LLMEngine, "_clear_cache"):
-                    LLMEngine._clear_cache()  # type: ignore[attr-defined]
-            except (ImportError, AttributeError):
-                pass
-
-            # Aggressive PyTorch cleanup
-            torch.cuda.empty_cache()
-            torch.cuda.reset_peak_memory_stats()
-            torch.cuda.synchronize()
-
-            # Force garbage collection
-            gc.collect()
-
-            # Additional cache clearing after GC
-            torch.cuda.empty_cache()
-
-            # Try to clear any remaining allocated memory
-            if hasattr(torch.cuda, "reset_accumulated_memory_stats"):
-                torch.cuda.reset_accumulated_memory_stats()
-
+            if torch.cuda.is_available():
+                gc.collect()
+                torch.cuda.empty_cache()
+                torch.cuda.reset_peak_memory_stats()
         except Exception:
             # Silently ignore cleanup errors to avoid test failures
             pass

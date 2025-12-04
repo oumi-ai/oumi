@@ -15,7 +15,7 @@ echo ""
 echo "SLURM_NNODES         =" $SLURM_NNODES
 echo "SLURM_NTASKS         =" $SLURM_NTASKS
 echo "SLURM_TASKS_PER_NODE =" $SLURM_TASKS_PER_NODE
-echo "SLURM_CPUS_PER_TASK  =" $SLURM_CPUS_PER_TASK
+echo "SLURM_CPUS_ON_NODE   =" $SLURM_CPUS_ON_NODE
 echo "SLURM_NPROCS         =" $SLURM_NPROCS
 echo "SLURM_NODELIST       =" $SLURM_NODELIST
 echo "SLURM_JOB_NODELIST   =" $SLURM_JOB_NODELIST
@@ -55,9 +55,7 @@ echo "Loading Perlmutter modules..."
 module load conda
 
 # Activate the Oumi Conda environment.
-set +x
 conda activate oumi
 echo "Conda path: ${CONDA_PREFIX}"
-set -x
 
 echo "perlmutter_init.sh is done!"

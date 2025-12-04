@@ -19,7 +19,7 @@ from oumi.core.registry import REGISTRY
 
 
 def build_reward_functions(config: TrainingParams) -> list[Callable]:
-    """Builds the metrics function."""
+    """Builds the reward functions."""
     result: list[Callable] = []
     if config.reward_functions is not None:
         # Import to ensure GRPO reward functions are added to REGISTRY.

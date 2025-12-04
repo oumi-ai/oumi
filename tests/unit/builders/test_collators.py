@@ -133,7 +133,9 @@ def test_build_collator_from_config_with_collator(
             )
         ),
         model=ModelParams(
-            model_name="MlpEncoder", tokenizer_name="gpt2", model_max_length=64
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=64,
         ),
         training=TrainingParams(
             label_ignore_index=label_ignore_index,
@@ -154,7 +156,9 @@ def test_build_collator_from_config_no_collator(mock_tokenizer):
             )
         ),
         model=ModelParams(
-            model_name="MlpEncoder", tokenizer_name="gpt2", model_max_length=64
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=64,
         ),
     )
 
@@ -171,7 +175,9 @@ def test_build_collator_from_config_no_collator_no_tokenizer():
             )
         ),
         model=ModelParams(
-            model_name="MlpEncoder", tokenizer_name="gpt2", model_max_length=64
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=64,
         ),
     )
 
@@ -188,7 +194,9 @@ def test_build_collator_from_config_with_collator_no_tokenizer(mock_tokenizer):
             )
         ),
         model=ModelParams(
-            model_name="CnnClassifier", tokenizer_name="gpt2", model_max_length=64
+            model_name="CnnClassifier",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=64,
         ),
     )
 
@@ -208,7 +216,9 @@ def test_build_collator_from_config_with_collator_kwargs(mock_tokenizer):
             )
         ),
         model=ModelParams(
-            model_name="MlpEncoder", tokenizer_name="gpt2", model_max_length=64
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=64,
         ),
     )
 

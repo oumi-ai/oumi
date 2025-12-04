@@ -66,7 +66,6 @@ data:
         seed: 42
 
     collator_name: "text_completions_only_with_padding"
-    target_col: "messages"
     seed: 42
   validation:
     datasets:
@@ -79,7 +78,6 @@ data:
           }
 
     collator_name: "text_completions_only_with_padding"
-    target_col: "messages"
     seed: 42
 
 training:

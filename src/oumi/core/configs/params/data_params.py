@@ -285,6 +285,10 @@ class DatasetSplitParams(BaseParams):
                 f'["{MixtureStrategy.FIRST_EXHAUSTED.value}", '
                 f'"{MixtureStrategy.ALL_EXHAUSTED.value}"].'
             )
+        if self.target_col is not None:
+            raise DeprecationWarning(
+                "`target_col` is deprecated and will be removed in the future."
+            )
 
     def _is_sum_normalized(self, mix_sum) -> bool:
         # Note: the underlying interleave implementation requires

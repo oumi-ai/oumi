@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import time
 from collections import defaultdict
 from multiprocessing.pool import Pool
@@ -101,6 +102,54 @@ def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
+def _tail_logs(
+    log_stream: io.TextIOBase, output_filepath: Optional[str] = None
+) -> None:
+    """Tails logs with pretty CLI output.
+
+    This function reads from a log stream and displays the output with rich formatting
+    for CLI users. Optionally saves the output to a file.
+
+    Args:
+        log_stream: A LogStream object that can be read from.
+        output_filepath: Optional path to a file to save the logs to.
+    """
+    if output_filepath:
+        cli_utils.CONSOLE.print(f"Logs will be saved to: {output_filepath}")
+    else:
+        cli_utils.CONSOLE.print("Logging to console...")
+    # Open output file if specified
+    file_handle = None
+    if output_filepath:
+        file_handle = open(output_filepath, "w", encoding="utf-8")
+
+    try:
+        if file_handle:
+            with cli_utils.CONSOLE.status(f"Tailing logs to {output_filepath}..."):
+                for line in iter(log_stream.readline, ""):
+                    file_handle.write(line)
+                    file_handle.flush()
+        else:
+            for line in iter(log_stream.readline, ""):
+                # Because Rich is rendering markup/styled text and
+                # escapes control characters like \r, we need to handle it specially.
+                if "\r" in line:
+                    cli_utils.CONSOLE.file.write("\r")
+                    cli_utils.CONSOLE.print(line.strip(), end="", markup=False)
+                    cli_utils.CONSOLE.file.flush()
+                else:
+                    cli_utils.CONSOLE.print(line, end="", markup=False)
+    except KeyboardInterrupt:
+        logger.info("Stopped tailing logs.")
+    except Exception as e:
+        logger.exception(f"Failed while tailing logs: {e}")
+        raise
+    finally:
+        if file_handle:
+            file_handle.close()
+        log_stream.close()
+
+
 def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
     """Turns down a cluster.
 
@@ -141,11 +190,11 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
-    """Stops a cluster.
+def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]:
+    """Finds the cluster matching the given name and cloud.
 
-    All workers must return a boolean to indicate whether the task is done.
-    Stop has no intermediate states, so it always returns True.
+    Returns:
+        Optional[BaseCluster]: The matching cluster, or None if not found.
     """
     from oumi import launcher
 
@@ -153,31 +202,52 @@ def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
         target_cloud = launcher.get_cloud(cloud)
         target_cluster = target_cloud.get_cluster(cluster)
         if target_cluster:
-            target_cluster.stop()
-        else:
-            cli_utils.CONSOLE.print(
-                f"[red]Cluster [yellow]{cluster}[/yellow] not found.[/red]"
-            )
-        return True
-    # Make a best effort to find a single cluster to stop without a cloud.
+            return target_cluster
+        cli_utils.CONSOLE.print(
+            f"Cluster [yellow]{cluster}[/yellow] not found for cloud "
+            f"[yellow]{cloud}[/yellow]."
+        )
+        return None
+
+    # Search across all clouds
     clusters = []
     for name in launcher.which_clouds():
         target_cloud = launcher.get_cloud(name)
         target_cluster = target_cloud.get_cluster(cluster)
         if target_cluster:
             clusters.append(target_cluster)
+
     if len(clusters) == 0:
+        cli_utils.CONSOLE.print(f"Cluster [yellow]{cluster}[/yellow] not found.")
+        return None
+    if len(clusters) == 1:
+        return clusters[0]
+    cli_utils.CONSOLE.print(
+        f"Multiple clusters found with name [yellow]{cluster}[/yellow]. "
+        f"Specify a cloud to stop with `--cloud`."
+    )
+
+    return None
+
+
+def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
+    """Stops a cluster.
+
+    All workers must return a boolean to indicate whether the task is done.
+    Stop has no intermediate states, so it always returns True.
+    """
+    cluster_instance = _find_cluster(cluster, cloud)
+
+    if not cluster_instance:
         cli_utils.CONSOLE.print(
             f"[red]Cluster [yellow]{cluster}[/yellow] not found.[/red]"
         )
         return True
-    if len(clusters) == 1:
-        clusters[0].stop()
-    else:
-        cli_utils.CONSOLE.print(
-            f"[red]Multiple clusters found with name [yellow]{cluster}[/yellow]. "
-            "Specify a cloud to stop with `--cloud`.[/red]"
-        )
+
+    cluster_instance.stop()
+    cli_utils.CONSOLE.print(
+        f"Cluster [yellow]{cluster_instance.name()}[/yellow] stopped!"
+    )
     return True  # Always return true to indicate that the task is done.
 
 
@@ -186,13 +256,13 @@ def _poll_job(
     detach: bool,
     cloud: str,
     running_cluster: Optional["BaseCluster"] = None,
+    output_filepath: Optional[str] = None,
 ) -> None:
     """Polls a job until it is complete.
 
     If the job is running in detached mode and the job is not on the local cloud,
     the function returns immediately.
     """
-    import oumi.launcher.clients.sky_client as sky_client
     from oumi import launcher
 
     is_local = cloud == "local"
@@ -210,19 +280,14 @@ def _poll_job(
 
     assert running_cluster
 
-    # Check if this is a Skypilot job and tail logs automatically
-    if cloud in [cloud.value for cloud in sky_client.SkyClient.SupportedClouds]:
-        cli_utils.CONSOLE.print(
-            f"Tailing logs for job [yellow]{job_status.id}[/yellow]..."
-        )
-        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
-        import sky
-
-        sky.tail_logs(
-            cluster_name=job_status.cluster,
-            job_id=job_status.id,
-        )
-    else:
+    try:
+        log_stream = running_cluster.get_logs_stream(job_status.cluster, job_status.id)
+        _tail_logs(log_stream, output_filepath)
+    except NotImplementedError:
+        if output_filepath:
+            cli_utils.CONSOLE.print(
+                "Cluster does not have support for streaming to a file."
+            )
         _print_and_wait(
             f"Running job [yellow]{job_status.id}[/yellow]",
             _is_job_done,
@@ -321,6 +386,9 @@ def run(
     detach: Annotated[
         bool, typer.Option(help="Run the job in the background.")
     ] = False,
+    output_filepath: Annotated[
+        Optional[str], typer.Option(help="Path to save job logs to a file.")
+    ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
     """Runs a job on the target cluster.
@@ -332,6 +400,7 @@ def run(
             cluster will be created. If unspecified, a new cluster will be created with
             a unique name.
         detach: Run the job in the background.
+        output_filepath: Path to save job logs to a file.
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
@@ -360,7 +429,12 @@ def run(
         f"[yellow]{cluster}[/yellow]."
     )
 
-    _poll_job(job_status=job_status, detach=detach, cloud=parsed_config.resources.cloud)
+    _poll_job(
+        job_status=job_status,
+        detach=detach,
+        cloud=parsed_config.resources.cloud,
+        output_filepath=output_filepath,
+    )
 
 
 def status(
@@ -483,6 +557,9 @@ def up(
     detach: Annotated[
         bool, typer.Option(help="Run the job in the background.")
     ] = False,
+    output_filepath: Annotated[
+        Optional[str], typer.Option(help="Path to save job logs to a file.")
+    ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Launches a job.
@@ -494,6 +571,7 @@ def up(
             cluster will be created. If unspecified, a new cluster will be created with
             a unique name.
         detach: Run the job in the background.
+        output_filepath: Path to save job logs to a file.
         level: The logging level for the specified command.
     """
     # Delayed imports
@@ -519,7 +597,7 @@ def up(
             cli_utils.CONSOLE.print(
                 f"Found an existing cluster: [yellow]{target_cluster.name()}[/yellow]."
             )
-            run(ctx, config, cluster, detach)
+            run(ctx, config, cluster, detach, output_filepath)
             return
     parsed_config.working_dir = _get_working_dir(parsed_config.working_dir)
     # Start the job
@@ -534,6 +612,7 @@ def up(
         detach=detach,
         cloud=parsed_config.resources.cloud,
         running_cluster=running_cluster,
+        output_filepath=output_filepath,
     )
 
 
@@ -552,3 +631,51 @@ def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
             border_style="blue",
         )
     )
+
+
+def logs(
+    cluster: Annotated[str, typer.Option(help="The cluster to get the logs of.")],
+    cloud: Annotated[
+        Optional[str],
+        typer.Option(help="If specified, will filter for clusters on this cloud."),
+    ] = None,
+    job_id: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The job ID to get the logs of. If unspecified, the most recent "
+            "job will be used."
+        ),
+    ] = None,
+    output_filepath: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Path to save job logs to a file. If unspecified, the logs will "
+            "be printed to the console."
+        ),
+    ] = None,
+) -> None:
+    """Gets the logs of a job.
+
+    Args:
+        cluster: The cluster to get the logs of.
+        cloud: If specified, only clusters on this cloud will be affected.
+        job_id: The job ID to get the logs of.
+        output_filepath: Path to save job logs to a file.
+    """
+    log_stream = _log_worker(cluster, cloud, job_id)
+    _tail_logs(log_stream, output_filepath)
+
+
+def _log_worker(
+    cluster: str, cloud: Optional[str], job_id: Optional[str]
+) -> io.TextIOBase:
+    """Gets logs from a cluster.
+
+    Returns a text stream containing the cluster logs.
+    """
+    cluster_instance = _find_cluster(cluster, cloud)
+
+    if not cluster_instance:
+        raise RuntimeError(f"Cluster [yellow]{cluster}[/yellow] not found.")
+
+    return cluster_instance.get_logs_stream(cluster, job_id)

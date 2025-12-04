@@ -32,7 +32,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] hf_transfer
+  pip install uv && uv pip install --system oumi[gpu] hf_transfer
 
 run: |
   set -e  # Exit if any command failed.

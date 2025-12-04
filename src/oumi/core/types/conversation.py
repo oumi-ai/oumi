@@ -466,7 +466,7 @@ class Conversation(pydantic.BaseModel):
     messages: list[Message]
     """List of Message objects that make up the conversation."""
 
-    metadata: dict[str, Any] = {}
+    metadata: dict[str, Any] = pydantic.Field(default_factory=dict)
     """Optional metadata associated with the conversation.
 
     This attribute allows for storing additional information about the conversation

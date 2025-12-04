@@ -190,10 +190,15 @@ class BaseInferenceEngine(ABC):
             # Load all results from scratch to get all results.
             final_results = self._load_from_scratch(output_path)
             if len(final_results) != len(conversations_to_process):
+                scratch_filepath = self._get_scratch_filepath(output_path)
                 raise ValueError(
                     f"Number of final results ({len(final_results)}) does not match "
                     f"number of conversations to process "
-                    f"({len(conversations_to_process)})."
+                    f"({len(conversations_to_process)}). "
+                    f"This typically occurs when the inference configuration has been "
+                    f"changed after partial processing. Cached results are stored at: "
+                    f"{scratch_filepath}. With the updated caching logic, this should "
+                    f"automatically resolve in future runs."
                 )
 
         self._cleanup_scratch_file(output_path)
@@ -305,11 +310,14 @@ class BaseInferenceEngine(ABC):
     def _get_scratch_filepath(self, output_filepath: Optional[str]) -> str:
         """Returns a scratch filepath for the given output filepath.
 
-        For example, if the output filepath is "/foo/bar/output.json", the scratch
-        filepath will be "/foo/bar/scratch/output.json"
+        The scratch filepath always includes a hash of the model parameters, generation
+        parameters, and dataset to ensure cache consistency when configurations change.
 
-        If no output filepath is provided, a temporary file is used and placed in the
-        current working directory under the name "tmp/temp_inference_output.jsonl".
+        For example, if the output filepath is "/foo/bar/output.json", the scratch
+        filepath will be "/foo/bar/scratch/output_<hash>.json"
+
+        If no output filepath is provided, a temporary file is used and placed in
+        "~/.cache/oumi/tmp/temp_inference_output_<hash>.jsonl".
 
         Args:
             output_filepath: The output filepath.
@@ -317,10 +325,7 @@ class BaseInferenceEngine(ABC):
         Returns:
             str: The scratch filepath.
         """
-        if output_filepath is not None:
-            original_filepath = Path(output_filepath)
-            return str(original_filepath.parent / "scratch" / original_filepath.name)
-
+        # Always compute the inference hash to ensure cache consistency
         model_params = self._model_params
         model_params_str = json.dumps(dataclasses.asdict(model_params))
         generation_params = self._generation_params
@@ -328,6 +333,14 @@ class BaseInferenceEngine(ABC):
         inference_hash = hashlib.sha256(
             f"{model_params_str}_{generation_params_str}_{self._dataset_hash}".encode()
         ).hexdigest()
+
+        if output_filepath is not None:
+            original_filepath = Path(output_filepath)
+            # Include hash in filename to ensure cache consistency
+            stem = original_filepath.stem
+            suffix = original_filepath.suffix
+            hashed_filename = f"{stem}_{inference_hash}{suffix}"
+            return str(original_filepath.parent / "scratch" / hashed_filename)
 
         path_prefix = Path.home() / ".cache" / "oumi" / "tmp"
         return str(path_prefix / f"temp_inference_output_{inference_hash}.jsonl")

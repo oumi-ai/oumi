@@ -29,6 +29,7 @@ class RegistryType(Enum):
     DATASET = auto()
     METRICS_FUNCTION = auto()
     REWARD_FUNCTION = auto()
+    ROLLOUT_FUNCTION = auto()
     MODEL_CONFIG = auto()
     MODEL = auto()
     JUDGE_CONFIG = auto()
@@ -141,6 +142,7 @@ class Registry:
         if type in (
             RegistryType.METRICS_FUNCTION,
             RegistryType.REWARD_FUNCTION,
+            RegistryType.ROLLOUT_FUNCTION,
         ) and not callable(value):
             raise ValueError(f"Registry: `{name}` of `{type}` must be callable.")
 
@@ -183,6 +185,10 @@ class Registry:
     def get_reward_function(self, name: str) -> Optional[Callable]:
         """Gets a record that corresponds to a registered rewards function."""
         return self.get(name, RegistryType.REWARD_FUNCTION)
+
+    def get_rollout_function(self, name: str) -> Optional[Callable]:
+        """Gets a record that corresponds to a registered rollout function."""
+        return self.get(name, RegistryType.ROLLOUT_FUNCTION)
 
     def get_judge_config(self, name: str) -> Optional[Callable]:
         """Gets a record that corresponds to a registered judge config."""

@@ -92,10 +92,9 @@ def test_infer_basic_interactive_with_images(
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
             model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
-            model_max_length=512,  # Reduced for smaller model
+            model_max_length=1024,
             trust_remote_code=True,
-            torch_dtype_str="bfloat16",  # Use bfloat16 for efficiency
-            device_map="auto",
+            chat_template="llava",
         ),
         generation=GenerationParams(max_new_tokens=10, temperature=0.0, seed=42),
     )
@@ -182,8 +181,9 @@ def test_infer_basic_non_interactive_with_images(
 ):
     model_params = ModelParams(
         model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
-        model_max_length=512,  # Reduced for smaller model
+        model_max_length=1024,
         trust_remote_code=True,
+        chat_template="llava",
         torch_dtype_str="bfloat16",
         device_map=get_default_device_map_for_inference(),
     )
@@ -204,17 +204,13 @@ def test_infer_basic_non_interactive_with_images(
         input_image_bytes=[png_image_bytes],
     )
 
-    # Updated for SmolVLM-256M-Instruct - allow more flexible matching
-    valid_response_patterns = [
-        "wave",
-        "japanese",
-        "woodblock",
-        "print",
-        "art",
-        "ocean",
-        "image",
-        "hokusai",
-        "century",
+    valid_responses = [
+        "A detailed Japanese print depicting a large wave crashing with",
+        "A traditional Japanese painting of a large wave crashing with",
+        "A traditional Japanese ukiyo-e painting depicting a",
+        "A detailed Japanese woodblock print depicting a large wave",
+        "A Japanese woodblock print depicting a large wave crashing",
+        " A Japanese woodblock print shows a large wave crashing",
     ]
 
     def _create_conversation(response: str) -> Conversation:

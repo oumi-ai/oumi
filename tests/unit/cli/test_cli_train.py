@@ -42,7 +42,7 @@ def _create_training_config() -> TrainingConfig:
             model_name="MlpEncoder",
             model_max_length=1024,
             trust_remote_code=True,
-            tokenizer_name="gpt2",
+            tokenizer_name="openai-community/gpt2",
         ),
         training=TrainingParams(
             trainer_type=TrainerType.TRL_SFT,
@@ -70,7 +70,7 @@ def app():
 
 @pytest.fixture
 def mock_train():
-    with patch.object(oumi, "train", autospec=True) as m_train:
+    with patch.object(oumi, "train") as m_train:
         yield m_train
 
 

@@ -30,7 +30,6 @@ data:
           seq_length: 128
     stream: True
     pack: True
-    target_col: "text"
 
 training:
   trainer_type: "TRL_SFT"

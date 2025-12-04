@@ -5,13 +5,16 @@ from typing import Optional
 import pytest
 
 from oumi.core.configs import (
+    AnalyzeConfig,
     AsyncEvaluationConfig,
     EvaluationConfig,
     InferenceConfig,
     JobConfig,
     JudgeConfig,
     QuantizationConfig,
+    SynthesisConfig,
     TrainingConfig,
+    TuningConfig,
 )
 from oumi.core.types import HardwareException
 
@@ -52,13 +55,16 @@ def _get_all_config_paths(exclude_yaml_suffixes: Optional[set[str]]) -> list[str
 )
 def test_parse_configs(config_path: str):
     valid_config_classes = [
+        AnalyzeConfig,
         AsyncEvaluationConfig,
         EvaluationConfig,
         InferenceConfig,
         JobConfig,
         JudgeConfig,
-        TrainingConfig,
         QuantizationConfig,
+        SynthesisConfig,
+        TrainingConfig,
+        TuningConfig,
     ]
     error_messages = []
     for config_class in valid_config_classes:
@@ -83,13 +89,16 @@ def test_parse_configs(config_path: str):
 )
 def test_parse_configs_from_yaml_and_arg_list(config_path: str):
     valid_config_classes = [
+        AnalyzeConfig,
         AsyncEvaluationConfig,
         EvaluationConfig,
         InferenceConfig,
         JobConfig,
         JudgeConfig,
-        TrainingConfig,
         QuantizationConfig,
+        SynthesisConfig,
+        TrainingConfig,
+        TuningConfig,
     ]
     error_messages = []
     for config_class in valid_config_classes:
