@@ -1,0 +1,39 @@
+# Dataset Analysis Configuration
+# Usage: oumi analyze --config configs/examples/analyze/analyze.yaml
+#
+# Output files:
+#   - message_analysis.csv: Per-message metrics
+#   - conversation_analysis.csv: Per-conversation aggregated metrics
+#   - analysis_summary.json: Statistical summary (mean, std, min, max, median)
+
+# Dataset source
+dataset_source: CONFIG
+
+# Local file in Oumi or Alpaca format
+dataset_path: data/dataset_examples/oumi_format.jsonl
+dataset_format: oumi
+# Or, use a HuggingFace dataset
+# dataset_name: argilla/databricks-dolly-15k-curated-en
+# split: train
+
+# sample_count: 1000  # Limit samples (null = all)
+is_multimodal: false # Set true for vision-language datasets
+
+# Tokenizer for token_count metric (use same tokenizer as your target model)
+# tokenizer_config:
+#   model_name: openai-community/gpt2
+
+# For multimodal datasets
+# processor_name: llava-hf/llava-1.5-7b-hf
+
+output_path: ./analysis_output
+
+# Built-in: "length" (char, word, sentence, token counts)
+# See docs for creating custom analyzers.
+analyzers:
+  - id: length
+    params:
+      char_count: true # Character count per text field
+      word_count: true # Word count (whitespace-separated)
+      sentence_count: true # Sentence count (split on .!?)
+      token_count: false # Token count (requires tokenizer_config)

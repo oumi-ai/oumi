@@ -210,8 +210,8 @@ def test_analyze_with_oumi_prefix(app, mock_dataset_analyzer, mock_fetch):
     """Test that oumi:// prefix config paths are resolved correctly."""
     with tempfile.TemporaryDirectory() as output_temp_dir:
         output_dir = Path(output_temp_dir)
-        yaml_path = "oumi://configs/examples/analyze/basic_analyze.yaml"
-        expected_path = output_dir / "configs/examples/analyze/basic_analyze.yaml"
+        yaml_path = "oumi://configs/examples/analyze/analyze.yaml"
+        expected_path = output_dir / "configs/examples/analyze/analyze.yaml"
 
         config = _create_analyze_config()
         expected_path.parent.mkdir(parents=True, exist_ok=True)
