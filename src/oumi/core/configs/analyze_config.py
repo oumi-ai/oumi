@@ -92,8 +92,8 @@ class AnalyzeConfig(BaseConfig):
 
     tokenizer_config: Optional[dict[str, Any]] = None
     """Tokenizer configuration for building a tokenizer.
-    If None, no tokenizer will be used.
 
+    If None, no tokenizer will be used.
     Expected format::
 
         {
@@ -101,7 +101,6 @@ class AnalyzeConfig(BaseConfig):
             "tokenizer_kwargs": {},  # Optional: additional tokenizer parameters
             "trust_remote_code": False  # Optional: whether to trust remote code
         }
-
     """
 
     # Add processor parameters for vision-language datasets
