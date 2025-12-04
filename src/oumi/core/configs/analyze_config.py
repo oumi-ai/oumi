@@ -100,33 +100,45 @@ class AnalyzeConfig(BaseConfig):
     analyzers: list[SampleAnalyzerParams] = field(default_factory=list)
     """List of analyzer configurations (plugin-style)."""
 
-    tokenizer_config: Optional[dict[str, Any]] = None
-    """Tokenizer configuration for building a tokenizer.
-    If None, no tokenizer will be used.
+    # Tokenizer configuration
+    tokenizer_name: Optional[str] = None
+    """The name or path of the tokenizer to use for token counting metrics.
 
-    Expected format::
-
-        {
-            "model_name": "gpt2",  # Required: model name for tokenizer
-            "tokenizer_kwargs": {},  # Optional: additional tokenizer parameters
-            "trust_remote_code": False  # Optional: whether to trust remote code
-        }
-
+    If None, no tokenizer will be used. This is typically a model identifier
+    from HuggingFace Hub (e.g., "openai-community/gpt2").
     """
 
-    # Add processor parameters for vision-language datasets
+    tokenizer_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass to the tokenizer constructor."""
+
+    tokenizer_config: Optional[dict[str, Any]] = None
+    """Tokenizer configuration for building a tokenizer.
+
+    .. deprecated::
+        This field is deprecated and will be removed in a future release.
+        Use 'tokenizer_name' and 'tokenizer_kwargs' instead.
+    """
+
+    # Processor parameters for vision-language datasets
     processor_name: Optional[str] = None
-    """Processor name for vision-language datasets."""
+    """Processor name for vision-language datasets.
+
+    If provided, the dataset will be treated as multimodal (vision-language).
+    """
 
     processor_kwargs: dict[str, Any] = field(default_factory=dict)
     """Processor-specific parameters."""
 
     trust_remote_code: bool = False
-    """Whether to trust remote code for processor loading."""
+    """Whether to trust remote code for tokenizer/processor loading."""
 
     is_multimodal: Optional[bool] = None
-    """If True, treat the dataset as multimodal (vision-language) when using a
-    custom dataset_path. If False, treat as text-only.
+    """Whether to treat the dataset as multimodal (vision-language).
+
+    .. deprecated::
+        This field is deprecated and will be removed in a future release.
+        Multimodality is now automatically detected based on whether
+        'processor_name' is provided.
     """
 
     def __post_init__(self):
@@ -151,23 +163,48 @@ class AnalyzeConfig(BaseConfig):
                 stacklevel=2,
             )
 
-        # Validate is_multimodal requirements for custom datasets
-        if self.dataset_path is not None:
-            # Require explicit is_multimodal setting for custom datasets
-            if self.is_multimodal is None:
-                raise ValueError(
-                    "'is_multimodal' must be specified when using 'dataset_path'. "
-                    "Set to 'True' for vision-language datasets or 'False' for "
-                    "text-only datasets."
-                )
+        # Handle deprecated tokenizer_config field
+        if self.tokenizer_config is not None:
+            warnings.warn(
+                "The 'tokenizer_config' field is deprecated and will be removed in a "
+                "future release. Use 'tokenizer_name' and 'tokenizer_kwargs' instead. "
+                "Values from 'tokenizer_config' will be used for this run.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Migrate values from tokenizer_config to new fields if not already set
+            if self.tokenizer_name is None and "model_name" in self.tokenizer_config:
+                self.tokenizer_name = self.tokenizer_config["model_name"]
+            if (
+                not self.tokenizer_kwargs
+                and "tokenizer_kwargs" in self.tokenizer_config
+            ):
+                self.tokenizer_kwargs = self.tokenizer_config["tokenizer_kwargs"]
+            # trust_remote_code from tokenizer_config only applies if not explicitly set
+            if (
+                "trust_remote_code" in self.tokenizer_config
+                and self.tokenizer_config["trust_remote_code"]
+                and not self.trust_remote_code
+            ):
+                self.trust_remote_code = self.tokenizer_config["trust_remote_code"]
 
-            # Additional validation for multimodal
-            if self.is_multimodal is True:
-                if not self.processor_name:
-                    raise ValueError(
-                        "'processor_name' must be specified when 'is_multimodal' "
-                        "is True"
-                    )
+        # Handle deprecated is_multimodal field
+        if self.is_multimodal is not None:
+            warnings.warn(
+                "The 'is_multimodal' field is deprecated and will be removed in a "
+                "future release. Multimodality is now automatically detected based "
+                "on whether 'processor_name' is provided. This field is ignored.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        # Auto-detect multimodality from processor_name for custom datasets
+        # processor_name presence indicates multimodal dataset
+        if self.dataset_path is not None:
+            if self.processor_name:
+                # Multimodal: processor_name is provided
+                pass  # No additional validation needed
+            # If no processor_name, treat as text-only (no validation error needed)
 
         # Validate sample_count
         if self.sample_count is not None and self.sample_count <= 0:

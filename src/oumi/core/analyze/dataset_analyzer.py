@@ -18,13 +18,13 @@ from typing import Any, Optional, Union, cast
 
 import pandas as pd
 
+from oumi.builders.models import build_tokenizer
 from oumi.core.analyze.dataframe_analyzer import DataFrameAnalyzer, DataFrameWithSchema
-from oumi.core.configs import AnalyzeConfig
+from oumi.core.configs import AnalyzeConfig, ModelParams
 from oumi.core.datasets import BaseMapDataset
 from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.registry import REGISTRY
 from oumi.utils.analysis_utils import (
-    build_tokenizer_from_config,
     compute_statistics,
     convert_dataset_to_dataframes,
     get_schema_for_format,
@@ -118,7 +118,7 @@ class DatasetAnalyzer:
         self.split = config.split
 
         # Build tokenizer from config if provided
-        self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
+        self.tokenizer = self._build_tokenizer(config)
 
         # Use provided dataset or load from config
         if dataset is not None:
@@ -154,6 +154,28 @@ class DatasetAnalyzer:
 
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
+
+    def _build_tokenizer(self, config: AnalyzeConfig):
+        """Build a tokenizer from the analyze config.
+
+        Args:
+            config: AnalyzeConfig containing tokenizer settings.
+
+        Returns:
+            Built tokenizer or None if no tokenizer is configured.
+        """
+        # No tokenizer configured
+        if not config.tokenizer_name:
+            return None
+
+        model_params = ModelParams(
+            model_name=config.tokenizer_name,
+            tokenizer_kwargs=config.tokenizer_kwargs,
+            trust_remote_code=config.trust_remote_code,
+        )
+        tokenizer = build_tokenizer(model_params)
+        logger.info(f"Built tokenizer for model: {config.tokenizer_name}")
+        return tokenizer
 
     def _get_schema_for_dataset(self) -> dict:
         """Get column schema configuration based on dataset type.

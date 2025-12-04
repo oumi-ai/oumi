@@ -19,43 +19,13 @@ from typing import Any, Optional, Union
 import pandas as pd
 from tqdm import tqdm
 
-from oumi.builders.models import build_tokenizer
 from oumi.core.configs.analyze_config import AnalyzeConfig
-from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.registry.registry import REGISTRY
 from oumi.core.types.conversation import Conversation
 
 logger = logging.getLogger(__name__)
-
-
-def build_tokenizer_from_config(tokenizer_config: Optional[dict[str, Any]]):
-    """Build a tokenizer from configuration dictionary.
-
-    Args:
-        tokenizer_config: Dictionary containing tokenizer configuration
-
-    Returns:
-        Built tokenizer or None if config is None
-
-    Raises:
-        ValueError: If required fields are missing from tokenizer_config
-    """
-    if not tokenizer_config:
-        return None
-
-    if "model_name" not in tokenizer_config:
-        raise ValueError("tokenizer_config must contain 'model_name' field")
-
-    model_params = ModelParams(
-        model_name=tokenizer_config["model_name"],
-        tokenizer_kwargs=tokenizer_config.get("tokenizer_kwargs", {}),
-        trust_remote_code=tokenizer_config.get("trust_remote_code", False),
-    )
-    tokenizer = build_tokenizer(model_params)
-    logger.info(f"Built tokenizer for model: {model_params.model_name}")
-    return tokenizer
 
 
 def load_dataset_from_config(
@@ -228,9 +198,12 @@ def _load_custom_dataset_from_path(
             f"Dataset path must be a file, not a directory: {dataset_path}"
         )
 
-    # Multimodal handling is explicit via config.is_multimodal
-    if config.is_multimodal is True:
-        # Note: processor_name requirement is already validated in AnalyzeConfig
+    # Auto-detect multimodality based on processor_name presence
+    # If processor_name is provided, treat as multimodal (vision-language)
+    is_multimodal = config.processor_name is not None
+
+    if is_multimodal:
+        # Multimodal: processor_name is provided
         dataset_kwargs = {
             "dataset_path": str(path),
             "tokenizer": tokenizer,
@@ -242,20 +215,16 @@ def _load_custom_dataset_from_path(
         dataset = VLJsonlinesDataset(**dataset_kwargs)
         logger.info(f"Loaded vision-language dataset from: {dataset_path}")
         return dataset
-    elif config.is_multimodal is False:
-        # If explicitly forced to text, load as text-only (format auto-detected)
-        dataset_kwargs: dict[str, Any] = {
+    else:
+        # Text-only: no processor_name provided
+        dataset_kwargs_text: dict[str, Any] = {
             "dataset_path": str(path),
         }
         if tokenizer is not None:
-            dataset_kwargs["tokenizer"] = tokenizer
-        dataset = TextSftJsonLinesDataset(**dataset_kwargs)
+            dataset_kwargs_text["tokenizer"] = tokenizer
+        dataset = TextSftJsonLinesDataset(**dataset_kwargs_text)
         logger.info(f"Loaded text dataset from: {dataset_path}")
         return dataset
-    else:
-        # This should never happen due to config validation
-        # is_multimodal=None case is already caught by AnalyzeConfig.__post_init__
-        raise ValueError("Invalid vision-language configuration")
 
 
 def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[str, Any]:
