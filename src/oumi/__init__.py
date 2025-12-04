@@ -148,9 +148,9 @@ def infer_interactive(
     system_prompt: str | None = None,
 ) -> None:
     """Interactively provide the model response for a user-provided input."""
-    import oumi_chat
+    import oumi.infer
 
-    return oumi_chat.infer_interactive(
+    return oumi.infer.infer_interactive(
         config, input_image_bytes=input_image_bytes, system_prompt=system_prompt
     )
 

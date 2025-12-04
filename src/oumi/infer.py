@@ -40,6 +40,37 @@ def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
     )
 
 
+def infer_interactive(
+    config: InferenceConfig,
+    *,
+    input_image_bytes: Optional[list[bytes]] = None,
+    system_prompt: Optional[str] = None,
+) -> None:
+    """Interactively provide the model response for a user-provided input."""
+    # Create engine up front to avoid reinitializing it for each input.
+    inference_engine = get_engine(config)
+    while True:
+        try:
+            input_text = input("Enter your input prompt: ")
+        except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
+            print("\nExiting...")
+            return
+        model_response = infer(
+            config=config,
+            inputs=[
+                input_text,
+            ],
+            system_prompt=system_prompt,
+            input_image_bytes=input_image_bytes,
+            inference_engine=inference_engine,
+        )
+        for g in model_response:
+            print("------------")
+            print(repr(g))
+            print("------------")
+        print()
+
+
 def infer(
     config: InferenceConfig,
     inputs: Optional[list[str]] = None,
@@ -48,55 +79,64 @@ def infer(
     input_image_bytes: Optional[list[bytes]] = None,
     system_prompt: Optional[str] = None,
 ) -> list[Conversation]:
-    """Infer using the given configuration and inputs.
+    """Runs batch inference for a model using the provided configuration.
 
     Args:
-        config: The inference configuration.
-        inputs: The inputs to use for inference. If not provided, then the
-            input provided within the config will be used instead.
-        inference_engine: The inference engine to use for inference. If not
-            provided, then a new inference engine will be created based on the
-            config.
-        input_image_bytes: The image bytes to use for multimodal model
-            inference.
+        config: The configuration to use for inference.
+        inputs: A list of inputs for inference.
+        inference_engine: The engine to use for inference. If unspecified, the engine
+            will be inferred from `config`.
+        input_image_bytes: A list of input PNG image bytes to be used with `image+text`
+            VLMs. Only used in interactive mode.
         system_prompt: System prompt for task-specific instructions.
 
     Returns:
-        A list of conversations with assistant responses.
+        object: A list of model responses.
     """
-    if inference_engine is None:
+    if not inference_engine:
         inference_engine = get_engine(config)
 
-    if inputs is None:
-        # Use the input_filepath from the configuration
-        # For now, just return empty list
-        return []
-
-    conversations = []
-    for input_text in inputs:
-        # Create conversation with system message (if provided) and user message
-        messages = []
-        if system_prompt:
-            messages.append(Message(role=Role.SYSTEM, content=system_prompt))
-
-        # Handle multimodal input
-        if input_image_bytes:
-            content_items = []
-            for image_bytes in input_image_bytes:
-                content_items.append(
-                    ContentItem(type=Type.IMAGE_URL, content=image_bytes)
+    # Pass None if no conversations are provided.
+    conversations = None
+    if inputs is not None and len(inputs) > 0:
+        system_messages = (
+            [Message(role=Role.SYSTEM, content=system_prompt)] if system_prompt else []
+        )
+        if input_image_bytes is None or len(input_image_bytes) == 0:
+            conversations = [
+                Conversation(
+                    messages=(
+                        system_messages + [Message(role=Role.USER, content=content)]
+                    )
                 )
-            content_items.append(ContentItem(type=Type.TEXT, content=input_text))
-            messages.append(Message(role=Role.USER, content=content_items))
+                for content in inputs
+            ]
         else:
-            messages.append(Message(role=Role.USER, content=input_text))
+            conversations = [
+                Conversation(
+                    messages=(
+                        system_messages
+                        + [
+                            Message(
+                                role=Role.USER,
+                                content=(
+                                    [
+                                        ContentItem(
+                                            type=Type.IMAGE_BINARY, binary=image_bytes
+                                        )
+                                        for image_bytes in input_image_bytes
+                                    ]
+                                    + [ContentItem(type=Type.TEXT, content=content)]
+                                ),
+                            )
+                        ]
+                    )
+                )
+                for content in inputs
+            ]
 
-        conversation = Conversation(messages=messages)
-        conversations.append(conversation)
-
-    model_response = inference_engine.infer(
+    generations = inference_engine.infer(
         input=conversations,
         inference_config=config,
     )
-
-    return model_response
+    return generations
