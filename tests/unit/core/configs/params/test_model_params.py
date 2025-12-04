@@ -1,15 +1,10 @@
 import dataclasses
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import call, patch
 
 import pytest
 
-from oumi.core.configs.params.model_params import (
-    ModelParams,
-    _is_flash_attn_3_available,
-    _resolve_flash_attention_implementation,
-)
-from oumi.core.types.exceptions import HardwareException
+from oumi.core.configs.params.model_params import ModelParams
 
 
 def test_post_init_adapter_model_present():
