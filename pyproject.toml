@@ -276,5 +276,4 @@ markers = [
     "real_model_chat: Chat tests using actual model inference (slower than mocked tests)",
     "chat_fuzzing: Stress/fuzzing tests with extended runtime for chat functionality",
     "chat_journey: Complete end-to-end user workflow integration tests",
-    "chat_performance: Performance and resource usage tests for chat functionality",
 ]

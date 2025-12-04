@@ -763,3 +763,244 @@ class TestConfigPathResolution:
 
         # Should attempt config swap (will fail due to incomplete mocking)
         validate_command_result(result, expect_success=False)
+
+
+class TestModelSwapEdgeCases:
+    """Test suite for model swapping edge cases."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.mock_engine = Mock()
+        self.mock_console = Mock()
+        self.test_config = create_test_inference_config()
+
+        self.command_context = CommandContext(
+            console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
+            inference_engine=self.mock_engine,
+        )
+
+        # Set up branch manager mock
+        self.mock_branch_manager = Mock()
+        self.current_branch = Mock()
+        self.current_branch.id = "main"
+        self.current_branch.model_name = None
+        self.current_branch.engine_type = None
+        self.current_branch.model_config = None
+        self.current_branch.generation_config = None
+        self.mock_branch_manager.get_current_branch.return_value = self.current_branch
+        self.command_context._branch_manager = self.mock_branch_manager
+
+        self.handler = ModelManagementHandler(context=self.command_context)
+
+        # Set up system monitor mock
+        self.command_context.system_monitor = Mock()
+        self.command_context.system_monitor.update_max_context_tokens = Mock()
+        self.command_context.system_monitor._last_update_time = 1000
+
+    def test_swap_with_multiple_huggingface_model_ids_fails(self):
+        """Test that swapping with various HuggingFace model IDs fails gracefully."""
+        test_cases = [
+            "meta-llama/Llama-3.1-8B-Instruct",
+            "microsoft/Phi-3.5-mini-instruct",
+            "Qwen/Qwen2.5-7B-Instruct",
+            "google/gemma-2-9b-it",
+            "microsoft/DialoGPT-large",
+        ]
+
+        for model_id in test_cases:
+            command = ParsedCommand(
+                "swap", args=[model_id], kwargs={}, raw_input=f"/swap({model_id})"
+            )
+            result = self.handler.handle_command(command)
+
+            assert not result.success, f"Should fail for HF model ID: {model_id}"
+            assert (
+                "Config file not found" in result.message
+                or "Invalid swap target" in result.message
+            ), f"Got unexpected message: {result.message}"
+
+    @patch("oumi.core.configs.InferenceConfig.from_yaml")
+    @patch("oumi.infer.get_engine")
+    def test_swap_with_config_prefix_succeeds(self, mock_get_engine, mock_from_yaml):
+        """Test that swapping with config: prefix works correctly."""
+        mock_config = InferenceConfig(
+            model=ModelParams(
+                model_name="meta-llama/Llama-3.1-8B-Instruct",
+                model_max_length=8192,
+                torch_dtype_str="bfloat16",
+            ),
+            generation=GenerationParams(max_new_tokens=2048),
+            engine=InferenceEngineType.VLLM,
+        )
+        mock_from_yaml.return_value = mock_config
+
+        mock_engine = Mock()
+        mock_get_engine.return_value = mock_engine
+
+        with patch("pathlib.Path.exists", return_value=True):
+            command = ParsedCommand(
+                "swap",
+                args=["config:recipes/llama/8b_instruct.yaml"],
+                kwargs={},
+                raw_input="/swap(config:recipes/llama/8b_instruct.yaml)",
+            )
+            result = self.handler.handle_command(command)
+
+            assert result.success
+            assert "Swapped to meta-llama/Llama-3.1-8B-Instruct" in result.message
+            assert "VLLM engine" in result.message
+
+    @patch("oumi.core.configs.InferenceConfig.from_yaml")
+    @patch("oumi.infer.get_engine")
+    def test_swap_saves_current_model_state(self, mock_get_engine, mock_from_yaml):
+        """Test that swapping saves the current model state to the active branch."""
+        # Set initial model state
+        self.handler.context.config.model.model_name = "initial-model"
+        self.handler.context.config.engine = InferenceEngineType.NATIVE
+
+        mock_new_config = InferenceConfig(
+            model=ModelParams(model_name="new-model"),
+            generation=GenerationParams(),
+            engine=InferenceEngineType.VLLM,
+        )
+        mock_from_yaml.return_value = mock_new_config
+
+        mock_engine = Mock()
+        mock_get_engine.return_value = mock_engine
+
+        with patch("pathlib.Path.exists", return_value=True):
+            command = ParsedCommand(
+                "swap",
+                args=["test.yaml"],
+                kwargs={},
+                raw_input="/swap(test.yaml)",
+            )
+            result = self.handler.handle_command(command)
+
+            assert result.success
+
+            # Verify current branch was updated with previous model state
+            assert self.current_branch.model_name == "initial-model"
+            assert self.current_branch.engine_type == "NATIVE"
+
+    @patch("oumi.core.configs.InferenceConfig.from_yaml")
+    @patch("oumi.infer.get_engine")
+    def test_swap_updates_system_monitor_for_various_engines(
+        self, mock_get_engine, mock_from_yaml
+    ):
+        """Test that swapping updates system monitor with correct context length."""
+        test_cases = [
+            # (engine, model_name, model_max_length, expected_context)
+            (InferenceEngineType.NATIVE, "test-model", 8192, 8192),
+            (InferenceEngineType.VLLM, "large-model", 32768, 32768),
+            (InferenceEngineType.LLAMACPP, "gguf-model", 16384, 16384),
+            (InferenceEngineType.ANTHROPIC, "claude-3-5-sonnet-20241022", None, 200000),
+            (InferenceEngineType.OPENAI, "gpt-4o", None, 128000),
+        ]
+
+        for engine, model_name, max_length, expected_context in test_cases:
+            mock_config = InferenceConfig(
+                model=ModelParams(model_name=model_name, model_max_length=max_length),
+                generation=GenerationParams(),
+                engine=engine,
+            )
+            mock_from_yaml.return_value = mock_config
+
+            mock_engine = Mock()
+            mock_get_engine.return_value = mock_engine
+
+            # Reset monitor mock
+            self.command_context.system_monitor.update_max_context_tokens.reset_mock()
+            self.command_context.system_monitor._last_update_time = 1000
+
+            with patch("pathlib.Path.exists", return_value=True):
+                command = ParsedCommand(
+                    "swap",
+                    args=["test.yaml"],
+                    kwargs={},
+                    raw_input="/swap(test.yaml)",
+                )
+                result = self.handler.handle_command(command)
+
+                assert result.success
+
+                # Verify system monitor was updated with correct context length
+                self.command_context.system_monitor.update_max_context_tokens.assert_called_once_with(
+                    expected_context
+                )
+
+    def test_swap_handles_various_config_loading_errors(self):
+        """Test that config loading errors are handled gracefully."""
+        test_cases = [
+            (FileNotFoundError("Config not found"), "Error loading config:"),
+            (ValueError("Invalid YAML"), "Error loading config: Invalid YAML"),
+            (Exception("Generic error"), "Error loading config: Generic error"),
+        ]
+
+        for exception, expected_msg_part in test_cases:
+            with (
+                patch(
+                    "oumi.core.configs.InferenceConfig.from_yaml", side_effect=exception
+                ),
+                patch("pathlib.Path.exists", return_value=True),
+            ):
+                command = ParsedCommand(
+                    "swap",
+                    args=["test.yaml"],
+                    kwargs={},
+                    raw_input="/swap(test.yaml)",
+                )
+                result = self.handler.handle_command(command)
+
+                assert not result.success
+                assert expected_msg_part in result.message
+
+    @patch("oumi.core.configs.InferenceConfig.from_yaml")
+    def test_swap_handles_engine_creation_errors(self, mock_from_yaml):
+        """Test that engine creation errors are handled gracefully."""
+        mock_config = InferenceConfig(
+            model=ModelParams(model_name="problematic-model"),
+            generation=GenerationParams(),
+            engine=InferenceEngineType.VLLM,
+        )
+        mock_from_yaml.return_value = mock_config
+
+        with (
+            patch(
+                "oumi.infer.get_engine", side_effect=Exception("Engine creation failed")
+            ),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            command = ParsedCommand(
+                "swap",
+                args=["test.yaml"],
+                kwargs={},
+                raw_input="/swap(test.yaml)",
+            )
+            result = self.handler.handle_command(command)
+
+            assert not result.success
+            assert (
+                "Error creating inference engine: Engine creation failed"
+                in result.message
+            )
+
+    def test_swap_with_various_empty_targets_fails(self):
+        """Test that empty swap targets fail gracefully."""
+        test_cases = [
+            ("", "requires a model name or config path argument"),
+            ("   ", "requires a model name or config path argument"),
+            ("config:", "config: prefix requires a path to a configuration file"),
+            ("   config:   ", "config: prefix requires a path to a configuration file"),
+        ]
+
+        for target, expected_msg in test_cases:
+            command = ParsedCommand(
+                "swap", args=[target], kwargs={}, raw_input=f"/swap({target})"
+            )
+            result = self.handler.handle_command(command)
+
+            assert not result.success
+            assert expected_msg in result.message

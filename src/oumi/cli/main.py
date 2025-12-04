@@ -32,7 +32,7 @@ from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
-from oumi.cli.infer import chat, infer
+from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run

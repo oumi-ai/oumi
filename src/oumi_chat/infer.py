@@ -1388,10 +1388,7 @@ def infer_interactive(
         except Exception as e:
             console.print(
                 Panel(
-                    (
-                        f"[{style.error_style}]Error: {str(e)}"
-                        f"[/{style.error_style}]"
-                    ),
+                    (f"[{style.error_style}]Error: {str(e)}[/{style.error_style}]"),
                     title=f"[{style.error_title_style}]Error[/{style.error_title_style}]",
                     border_style=style.error_border_style,
                     expand=style.expand_panels,
