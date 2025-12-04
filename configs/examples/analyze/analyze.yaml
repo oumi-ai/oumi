@@ -6,21 +6,14 @@
 #   - conversation_analysis.csv: Per-conversation aggregated metrics
 #   - analysis_summary.json: Statistical summary (mean, std, min, max, median)
 
-# --- Dataset (choose one approach) ---
-
-# Option 1: Local file
+# Local file in Oumi or Alpaca format
 dataset_path: data/dataset_examples/oumi_format.jsonl
-is_multimodal: false # Set true for vision-language datasets
-# Supported formats (auto-detected):
-#   - oumi: Conversation format {"messages": [{"role": "user", "content": "..."}, ...]}
-#   - alpaca: Instruction format {"instruction": "...", "input": "...", "output": "..."}
-
-# Option 2: HuggingFace dataset (uncomment to use instead)
+# Or, use a HuggingFace dataset
 # dataset_name: databricks/dolly-15k
 # split: train
 
 # sample_count: 1000  # Limit samples (null = all)
-output_path: ./analysis_output
+is_multimodal: false # Set true for vision-language datasets
 
 # Tokenizer for token_count metric (use same tokenizer as your target model)
 # tokenizer_config:
@@ -29,10 +22,10 @@ output_path: ./analysis_output
 # For multimodal datasets
 # processor_name: llava-hf/llava-1.5-7b-hf
 
-# --- Analyzers ---
+output_path: ./analysis_output
+
 # Built-in: "length" (char, word, sentence, token counts)
 # See docs for creating custom analyzers.
-
 analyzers:
   - id: length
     params:
@@ -40,4 +33,3 @@ analyzers:
       word_count: true # Word count (whitespace-separated)
       sentence_count: true # Sentence count (split on .!?)
       token_count: false # Token count (requires tokenizer_config)
-      # include_special_tokens: true  # Include BOS/EOS in token count
