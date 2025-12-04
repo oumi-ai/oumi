@@ -73,54 +73,57 @@ def get_app() -> typer.Typer:
     app.callback(context_settings={"help_option_names": ["-h", "--help"]})(
         _oumi_welcome
     )
+
+    # Model
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Analyze a dataset to compute metrics and statistics.",
-        rich_help_panel="Data Operations",
-    )(analyze)
-    app.command(
-        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Evaluate a model.",
-        rich_help_panel="Model Operations",
+        help="Run benchmarks and evaluations on a model.",
+        rich_help_panel="Model",
     )(evaluate)
-    app.command(rich_help_panel="Utilities")(env)
     app.command(  # Alias for evaluate
         name="eval",
         hidden=True,
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Evaluate a model.",
+        help="Run benchmarks and evaluations on a model.",
     )(evaluate)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Run inference on a model.",
-        rich_help_panel="Model Operations",
+        help="Generate text or predictions using a model.",
+        rich_help_panel="Model",
     )(infer)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Synthesize a dataset.",
-        rich_help_panel="Data Operations",
+        help="Fine-tune or pre-train a model.",
+        rich_help_panel="Model",
+    )(train)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Search for optimal hyperparameters.",
+        rich_help_panel="Model",
+    )(tune)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Compress a model to reduce size and speed up inference.",
+        rich_help_panel="Model",
+    )(quantize)
+
+    # Data
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Compute statistics and metrics for a dataset.",
+        rich_help_panel="Data",
+    )(analyze)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Generate synthetic training & evaluation data.",
+        rich_help_panel="Data",
     )(synth)
     app.command(  # Alias for synth
         name="synthesize",
         hidden=True,
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Synthesize a dataset.",
+        help="Generate synthetic training data.",
     )(synth)
-    app.command(
-        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Train a model.",
-        rich_help_panel="Model Operations",
-    )(train)
-    app.command(
-        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Tune the parameters for a model.",
-        rich_help_panel="Model Operations",
-    )(tune)
-    app.command(
-        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Quantize a model.",
-        rich_help_panel="Model Operations",
-    )(quantize)
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(name="dataset", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
         judge_dataset_file
@@ -131,61 +134,61 @@ def get_app() -> typer.Typer:
     app.add_typer(
         judge_app,
         name="judge",
-        help="Judge datasets or conversations.",
-        rich_help_panel="Data Operations",
+        help="Score and evaluate outputs using an LLM judge.",
+        rich_help_panel="Data",
     )
 
+    # Compute
     launch_app = typer.Typer(pretty_exceptions_enable=False)
-    launch_app.command(help="Cancels a job.")(cancel)
-    launch_app.command(help="Turns down a cluster.")(down)
+    launch_app.command(help="Cancel a running job.")(cancel)
+    launch_app.command(help="Tear down a cluster and release resources.")(down)
     launch_app.command(
-        name="run", context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Runs a job."
+        name="run", context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Execute a job."
     )(launcher_run)
-    launch_app.command(help="Prints the status of jobs launched from Oumi.")(status)
-    launch_app.command(help="Stops a cluster.")(stop)
+    launch_app.command(help="Show status of jobs launched from Oumi.")(status)
+    launch_app.command(help="Stop a cluster without tearing it down.")(stop)
     launch_app.command(
-        context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Launches a job."
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Start a cluster and run a job."
     )(up)
-    launch_app.command(help="Prints the available clouds.")(which)
-    launch_app.command(help="Gets the logs of a job.")(logs)
+    launch_app.command(help="List available cloud providers.")(which)
+    launch_app.command(help="Fetch logs from a running or completed job.")(logs)
     app.add_typer(
         launch_app,
         name="launch",
-        help="Launch jobs remotely.",
-        rich_help_panel="Infrastructure",
+        help="Deploy and manage jobs on cloud infrastructure.",
+        rich_help_panel="Compute",
     )
-
     distributed_app = typer.Typer(pretty_exceptions_enable=False)
     distributed_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(accelerate)
     distributed_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(torchrun)
     app.add_typer(
         distributed_app,
         name="distributed",
-        help=("Launch commands locally on multiple GPUs using torchrun or accelerate "),
-        rich_help_panel="Infrastructure",
+        help="Run multi-GPU training locally.",
+        rich_help_panel="Compute",
     )
 
+    # Tools
     app.command(
-        help="Fetch configuration files from the oumi GitHub repository.",
-        rich_help_panel="Utilities",
+        help="Show Oumi environment and system information.",
+        rich_help_panel="Tools",
+    )(env)
+    app.command(
+        help="Download example configs from the Oumi repository.",
+        rich_help_panel="Tools",
     )(fetch)
-
     cache_app = typer.Typer(pretty_exceptions_enable=False)
-    cache_app.command(name="ls", help="List locally cached items.")(cache_ls)
-    cache_app.command(name="get", help="Download a repository from Hugging Face.")(
-        cache_get
-    )
-    cache_app.command(name="card", help="Show information for a repository.")(
-        cache_card
-    )
-    cache_app.command(name="rm", help="Remove a repository from the local cache.")(
-        cache_rm
-    )
+    cache_app.command(name="ls", help="List cached models and datasets.")(cache_ls)
+    cache_app.command(
+        name="get", help="Download a model or dataset from Hugging Face."
+    )(cache_get)
+    cache_app.command(name="card", help="Show details for a cached item.")(cache_card)
+    cache_app.command(name="rm", help="Remove items from the local cache.")(cache_rm)
     app.add_typer(
         cache_app,
         name="cache",
-        help="Manage local Hugging Face cache.",
-        rich_help_panel="Utilities",
+        help="Manage locally cached models and datasets.",
+        rich_help_panel="Tools",
     )
 
     return app
