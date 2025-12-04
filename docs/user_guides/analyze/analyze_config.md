@@ -20,7 +20,7 @@ Provide either a named dataset or local file path:
 :::{tab-item} Named Dataset
 
 ```yaml
-dataset_name: "databricks/dolly-15k"
+dataset_name: "argilla/databricks-dolly-15k-curated-en"
 split: train
 subset: null  # Optional
 ```
@@ -43,6 +43,7 @@ You can also pass a pre-loaded dataset directly to `DatasetAnalyzer`:
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 analyzer = DatasetAnalyzer(config, dataset=my_dataset)
 ```
+
 :::
 
 ## Output Settings
@@ -136,80 +137,6 @@ oumi analyze --config configs/examples/analyze/analyze.yaml
 ```
 
 The example config at `configs/examples/analyze/analyze.yaml` demonstrates all available options with detailed comments explaining each setting.
-
-````{dropdown} HuggingFace Hub Dataset
-```yaml
-dataset_name: databricks/dolly-15k
-split: train
-sample_count: 100
-output_path: ./analysis_output/dolly
-
-analyzers:
-  - id: length
-```
-````
-
-````{dropdown} With Token Counting
-```yaml
-dataset_path: data/dataset_examples/oumi_format.jsonl
-is_multimodal: false
-output_path: ./analysis_output
-
-tokenizer_config:
-  model_name: openai-community/gpt2
-
-analyzers:
-  - id: length
-    params:
-      token_count: true
-      include_special_tokens: true
-```
-````
-
-## Validation Rules
-
-Oumi validates configuration at initialization:
-
-| Rule | Requirement |
-|------|-------------|
-| Local file (`dataset_path`) | Requires `is_multimodal` |
-| Multimodal | Requires `processor_name` |
-| `sample_count` | Must be > 0 if specified |
-| Analyzer IDs | Must be unique |
-| Token counting | Requires `tokenizer_config.model_name` |
-
-## CLI Reference
-
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--config` | `-c` | Path to YAML config (required) |
-| `--output` | `-o` | Override output directory |
-| `--format` | `-f` | Output format: `csv`, `json`, `parquet` |
-| `--verbose` | `-v` | Enable verbose logging |
-| `--log-level` | `-log` | Log level: DEBUG, INFO, WARNING, ERROR |
-
-```bash
-oumi analyze -c configs/examples/analyze/analyze.yaml \
-  --output ./my_results --format parquet
-```
-
-## Python API
-
-```python
-from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
-
-# Create configuration
-config = AnalyzeConfig(
-    dataset_path="data/dataset_examples/oumi_format.jsonl",
-    is_multimodal=False,
-    analyzers=[
-        SampleAnalyzerParams(id="length", params={"char_count": True})
-    ],
-)
-
-# Or load from YAML
-config = AnalyzeConfig.from_yaml("configs/examples/analyze/analyze.yaml")
-```
 
 ## See Also
 

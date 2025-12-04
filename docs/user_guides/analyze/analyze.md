@@ -39,7 +39,7 @@ print(analyzer.analysis_summary)
 :::
 ::::
 
-Oumi outputs results to `./analysis_output/basic/` including per-message metrics, conversation aggregates, and statistical summaries.
+Oumi outputs results to `./analysis_output/` including per-message metrics, conversation aggregates, and statistical summaries.
 
 ## Configuration
 
@@ -115,10 +115,6 @@ short_convos = analyzer.query_conversations("text_content_length_char_count < 10
 filtered_dataset = analyzer.filter("text_content_length_word_count < 100")
 ```
 
-:::{note}
-Filtering requires map-style datasets. Streaming/iterable datasets cannot be filtered by index.
-:::
-
 ## Supported Dataset Formats
 
 | Format | Description | Example |
@@ -138,7 +134,7 @@ Analyze any HuggingFace Hub dataset directly:
 
 # hf_analyze.yaml
 
-dataset_name: databricks/dolly-15k
+dataset_name: argilla/databricks-dolly-15k-curated-en
 split: train
 sample_count: 100
 output_path: ./analysis_output/dolly
@@ -151,7 +147,7 @@ from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 
 config = AnalyzeConfig(
-    dataset_name="databricks/dolly-15k",
+    dataset_name="argilla/databricks-dolly-15k-curated-en",
     split="train",
     sample_count=100,
     analyzers=[SampleAnalyzerParams(id="length")],
@@ -177,19 +173,6 @@ oumi analyze --config configs/examples/analyze/analyze.yaml --format parquet
 # Override output directory
 
 oumi analyze --config configs/examples/analyze/analyze.yaml --output ./my_results
-:::
-:::{code-block} python
-import json
-
-# Export DataFrames
-
-analyzer.message_df.to_csv("message_analysis.csv", index=False)
-analyzer.conversation_df.to_parquet("conversation_analysis.parquet")
-
-# Export summary
-
-with open("summary.json", "w") as f:
-    json.dump(analyzer.analysis_summary, f, indent=2)
 :::
 ::::
 
@@ -322,10 +305,6 @@ from oumi.core.registry import register_sample_analyzer
 class QuestionAnalyzer(SampleAnalyzer):
     """Analyzer that detects and counts questions in text."""
 
-    def __init__(self, *, count_questions: bool = True, has_question: bool = True):
-        self.count_questions = count_questions
-        self.has_question = has_question
-
     def analyze_sample(
         self,
         df: pd.DataFrame,
@@ -346,11 +325,6 @@ class QuestionAnalyzer(SampleAnalyzer):
                     )
                 )
 
-            if self.has_question:
-                result_df[f"{column}_has_question"] = (
-                    df[column].astype(str).str.contains(r'\?', regex=True)
-                )
-
         return result_df
 ```
 
@@ -361,37 +335,6 @@ class QuestionAnalyzer(SampleAnalyzer):
 - **Column naming**: Prefix output columns with the source column name for clarity
 - **Parameters**: Constructor parameters are passed from `params` in the config
 - **Import**: Ensure your analyzer module is imported before creating the config
-
-## Troubleshooting
-
-````{dropdown} Common Issues
-**"Dataset not found in registry"**
-
-HuggingFace datasets not registered in Oumi load directly from the Hub. Verify internet access and dataset name.
-
-**"Tokenizer required for token_count"**
-
-Provide a `tokenizer_config` to compute token counts:
-
-```yaml
-tokenizer_config:
-  model_name: openai-community/gpt2
-
-analyzers:
-  - id: length
-    params:
-      token_count: true
-```
-
-**"Filtering not supported for iterable datasets"**
-
-Streaming datasets cannot be filtered by index. Use `query()` to get filtered indices:
-
-```python
-filtered_df = analyzer.query("text_content_length_word_count > 100")
-valid_indices = filtered_df.conversation_index.unique().tolist()
-```
-````
 
 ## API Reference
 
