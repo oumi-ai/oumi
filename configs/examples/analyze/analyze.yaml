@@ -6,8 +6,12 @@
 #   - conversation_analysis.csv: Per-conversation aggregated metrics
 #   - analysis_summary.json: Statistical summary (mean, std, min, max, median)
 
+# Dataset source
+dataset_source: CONFIG
+
 # Local file in Oumi or Alpaca format
 dataset_path: data/dataset_examples/oumi_format.jsonl
+dataset_format: oumi
 # Or, use a HuggingFace dataset
 # dataset_name: argilla/databricks-dolly-15k-curated-en
 # split: train
