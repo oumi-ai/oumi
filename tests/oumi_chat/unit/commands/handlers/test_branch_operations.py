@@ -21,7 +21,7 @@ import pytest
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi_chat.commands import CommandResult, ParsedCommand
 from oumi_chat.commands.command_context import CommandContext
-from tests.utils.chat_test_utils import (
+from tests.oumi_chat.utils.chat_test_utils import (
     create_test_inference_config,
     validate_command_result,
 )
@@ -59,7 +59,7 @@ class TestBranchCommand:
     def mock_handler(self):
         """Mock branch operations handler."""
         with patch(
-            "oumi.core.commands.handlers.branch_operations_handler.BranchOperationsHandler"
+            "oumi_chat.commands.handlers.branch_operations_handler.BranchOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -182,7 +182,7 @@ class TestBranchFromCommand:
     def mock_handler(self):
         """Mock branch operations handler."""
         with patch(
-            "oumi.core.commands.handlers.branch_operations_handler.BranchOperationsHandler"
+            "oumi_chat.commands.handlers.branch_operations_handler.BranchOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -304,7 +304,7 @@ class TestSwitchCommand:
     def mock_handler(self):
         """Mock branch operations handler."""
         with patch(
-            "oumi.core.commands.handlers.branch_operations_handler.BranchOperationsHandler"
+            "oumi_chat.commands.handlers.branch_operations_handler.BranchOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -390,7 +390,7 @@ class TestBranchesCommand:
     def mock_handler(self):
         """Mock branch operations handler."""
         with patch(
-            "oumi.core.commands.handlers.branch_operations_handler.BranchOperationsHandler"
+            "oumi_chat.commands.handlers.branch_operations_handler.BranchOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -475,7 +475,7 @@ class TestBranchDeleteCommand:
     def mock_handler(self):
         """Mock branch operations handler."""
         with patch(
-            "oumi.core.commands.handlers.branch_operations_handler.BranchOperationsHandler"
+            "oumi_chat.commands.handlers.branch_operations_handler.BranchOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -611,7 +611,7 @@ class TestBranchingWorkflows:
     def mock_handler(self):
         """Mock branch operations handler."""
         with patch(
-            "oumi.core.commands.handlers.branch_operations_handler.BranchOperationsHandler"
+            "oumi_chat.commands.handlers.branch_operations_handler.BranchOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler

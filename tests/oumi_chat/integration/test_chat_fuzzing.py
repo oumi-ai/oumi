@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from tests.markers import requires_cuda_initialized
-from tests.utils.chat_real_model_utils import (
+from tests.oumi_chat.utils.chat_real_model_utils import (
     ChatPerformanceMonitor,
     RealModelChatSession,
     create_fuzzing_conversation_prompts,

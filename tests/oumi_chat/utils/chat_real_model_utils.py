@@ -37,7 +37,7 @@ from tests.integration.infer.test_inference_test_utils import (
     validate_response_performance,
     validate_response_properties,
 )
-from tests.utils.chat_test_utils import ChatTestSession
+from tests.oumi_chat.utils.chat_test_utils import ChatTestSession
 
 
 class RealModelChatSession(ChatTestSession):

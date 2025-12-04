@@ -182,6 +182,3 @@ cython_debug/
 
 # VS Code Workspace
 oumi.code-workspace
-
-# Generated test files directory
-generated_test_files/

@@ -12,4 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Integration tests for Oumi chat functionality."""
+"""Pytest configuration and fixtures for oumi_chat tests."""
+
+# Import fixtures from chat_test_utils to make them available
+# pytest_plugins is the standard way to share fixtures across test modules
+pytest_plugins = ["tests.oumi_chat.utils.chat_test_utils"]

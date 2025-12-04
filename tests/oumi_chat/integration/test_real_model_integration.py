@@ -23,7 +23,7 @@ import pytest
 
 from oumi.core.configs import InferenceConfig
 from tests.markers import requires_cuda_initialized, requires_inference_backend
-from tests.utils.chat_real_model_utils import (
+from tests.oumi_chat.utils.chat_real_model_utils import (
     ChatPerformanceMonitor,
     RealModelChatSession,
     create_real_model_chat_conversations,

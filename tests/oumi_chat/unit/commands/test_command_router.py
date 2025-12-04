@@ -19,7 +19,7 @@ from unittest.mock import Mock, patch
 from oumi.core.inference import BaseInferenceEngine
 from oumi_chat.commands import CommandResult, CommandRouter, ParsedCommand
 from oumi_chat.commands.command_context import CommandContext
-from tests.utils.chat_test_utils import create_test_inference_config
+from tests.oumi_chat.utils.chat_test_utils import create_test_inference_config
 
 
 class TestCommandRouter:
@@ -66,7 +66,7 @@ class TestCommandRouter:
         )
 
         with patch(
-            "oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler"
+            "oumi_chat.commands.handlers.file_operations_handler.FileOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler.handle.return_value = CommandResult(
@@ -145,7 +145,7 @@ class TestCommandRouter:
         ]
 
         for parsed_cmd in test_cases:
-            with patch("oumi.core.commands.handlers"):
+            with patch("oumi_chat.commands.handlers"):
                 # Mock any handler that might be called
                 mock_handler = Mock()
                 mock_handler.handle.return_value = CommandResult(
@@ -209,7 +209,7 @@ class TestCommandRouter:
                 raw_input=f"/{command_name}(...)",
             )
 
-            with patch("oumi.core.commands.handlers"):
+            with patch("oumi_chat.commands.handlers"):
                 # Set up mock to track which handler type would be selected
                 mock_handler = Mock()
                 mock_handler.handle.return_value = CommandResult(

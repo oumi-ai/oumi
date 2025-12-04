@@ -227,7 +227,7 @@ class TestBranchModelStressTest:
                 with (
                     patch("pathlib.Path.exists", return_value=True),
                     patch(
-                        "oumi.core.commands.config_utils.load_config_from_yaml_preserving_settings"
+                        "oumi_chat.commands.config_utils.load_config_from_yaml_preserving_settings"
                     ) as mock_load,
                 ):
                     mock_load.return_value = mock_context.config
@@ -544,7 +544,7 @@ class TestBranchModelStressTest:
                     with (
                         patch("pathlib.Path.exists", return_value=True),
                         patch(
-                            "oumi.core.commands.config_utils.load_config_from_yaml_preserving_settings"
+                            "oumi_chat.commands.config_utils.load_config_from_yaml_preserving_settings"
                         ) as mock_load,
                         patch("oumi.infer.get_engine") as mock_get_engine,
                     ):

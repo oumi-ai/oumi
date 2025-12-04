@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.utils.chat_real_model_utils import (
+from tests.oumi_chat.utils.chat_real_model_utils import (
     ChatPerformanceMonitor,
     RealModelChatSession,
     create_real_model_inference_config,

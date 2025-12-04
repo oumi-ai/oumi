@@ -24,7 +24,7 @@ import pytest
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi_chat.commands import CommandResult, ParsedCommand
 from oumi_chat.commands.command_context import CommandContext
-from tests.utils.chat_test_utils import (
+from tests.oumi_chat.utils.chat_test_utils import (
     create_test_inference_config,
     get_file_attachment_data,
     get_web_content_mocks,
@@ -54,7 +54,7 @@ class TestAttachCommand:
     def mock_handler(self):
         """Mock file operations handler."""
         with patch(
-            "oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler"
+            "oumi_chat.commands.handlers.file_operations_handler.FileOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -236,7 +236,7 @@ class TestFetchCommand:
     def mock_handler(self):
         """Mock file operations handler."""
         with patch(
-            "oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler"
+            "oumi_chat.commands.handlers.file_operations_handler.FileOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -374,7 +374,7 @@ class TestSaveCommand:
     def mock_handler(self):
         """Mock file operations handler."""
         with patch(
-            "oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler"
+            "oumi_chat.commands.handlers.file_operations_handler.FileOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -518,7 +518,7 @@ class TestShellCommand:
     def mock_handler(self):
         """Mock file operations handler."""
         with patch(
-            "oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler"
+            "oumi_chat.commands.handlers.file_operations_handler.FileOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler

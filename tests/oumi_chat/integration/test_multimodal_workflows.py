@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from tests.utils.chat_test_utils import (
+from tests.oumi_chat.utils.chat_test_utils import (
     ChatTestSession,
     create_test_inference_config,
 )

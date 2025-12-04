@@ -21,7 +21,7 @@ import pytest
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi_chat.commands import CommandResult, ParsedCommand
 from oumi_chat.commands.command_context import CommandContext
-from tests.utils.chat_test_utils import (
+from tests.oumi_chat.utils.chat_test_utils import (
     create_test_inference_config,
     validate_command_result,
 )
@@ -58,7 +58,7 @@ class TestDeleteCommand:
     def mock_handler(self):
         """Mock conversation operations handler."""
         with patch(
-            "oumi.core.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
+            "oumi_chat.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -170,7 +170,7 @@ class TestRegenCommand:
     def mock_handler(self):
         """Mock conversation operations handler."""
         with patch(
-            "oumi.core.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
+            "oumi_chat.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -271,7 +271,7 @@ class TestClearCommand:
     def mock_handler(self):
         """Mock conversation operations handler."""
         with patch(
-            "oumi.core.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
+            "oumi_chat.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -346,7 +346,7 @@ class TestShowCommand:
     def mock_handler(self):
         """Mock conversation operations handler."""
         with patch(
-            "oumi.core.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
+            "oumi_chat.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -472,7 +472,7 @@ class TestCompactCommand:
     def mock_handler(self):
         """Mock conversation operations handler."""
         with patch(
-            "oumi.core.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
+            "oumi_chat.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -578,7 +578,7 @@ class TestRenderCommand:
     def mock_handler(self):
         """Mock conversation operations handler."""
         with patch(
-            "oumi.core.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
+            "oumi_chat.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -678,7 +678,7 @@ class TestThinkingCommands:
     def mock_handler(self):
         """Mock conversation operations handler."""
         with patch(
-            "oumi.core.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
+            "oumi_chat.commands.handlers.conversation_operations_handler.ConversationOperationsHandler"
         ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
@@ -1157,7 +1157,7 @@ class TestRenderCommandReal:
         self.handler = ConversationOperationsHandler(context=self.command_context)
 
     @patch(
-        "oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer"
+        "oumi_chat.commands.handlers.conversation_operations_handler.ConversationRenderer"
     )
     def test_render_conversation_real(self, mock_renderer_class):
         """Test rendering conversation to asciinema format."""
@@ -1234,7 +1234,7 @@ class TestRenderCommandReal:
         )
 
     @patch(
-        "oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer"
+        "oumi_chat.commands.handlers.conversation_operations_handler.ConversationRenderer"
     )
     def test_render_auto_extension_real(self, mock_renderer_class):
         """Test that render automatically adds .cast extension."""
@@ -1262,7 +1262,7 @@ class TestRenderCommandReal:
         assert call_args[0].endswith(".cast")
 
     @patch(
-        "oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer"
+        "oumi_chat.commands.handlers.conversation_operations_handler.ConversationRenderer"
     )
     def test_render_failure_handling_real(self, mock_renderer_class):
         """Test render command when rendering fails."""
@@ -1274,7 +1274,9 @@ class TestRenderCommandReal:
         )
 
         # Use generated_test_files directory for proper test file management
-        from tests.utils.chat_test_utils import ensure_test_file_in_generated_dir
+        from tests.oumi_chat.utils.chat_test_utils import (
+            ensure_test_file_in_generated_dir,
+        )
 
         output_path = ensure_test_file_in_generated_dir("conversation.cast")
 
@@ -1310,7 +1312,9 @@ class TestRenderCommandReal:
         handler = ConversationOperationsHandler(context=empty_context)
 
         # Use generated_test_files directory for proper test file management
-        from tests.utils.chat_test_utils import ensure_test_file_in_generated_dir
+        from tests.oumi_chat.utils.chat_test_utils import (
+            ensure_test_file_in_generated_dir,
+        )
 
         output_path = ensure_test_file_in_generated_dir("empty.cast")
 
@@ -1423,7 +1427,7 @@ class TestConversationOperationsIntegration:
         assert result1.success and result2.success
 
     @patch(
-        "oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer"
+        "oumi_chat.commands.handlers.conversation_operations_handler.ConversationRenderer"
     )
     def test_clear_thoughts_then_render_workflow(self, mock_renderer_class):
         """Test workflow: clear thoughts, then render conversation."""

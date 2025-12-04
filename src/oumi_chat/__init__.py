@@ -14,10 +14,26 @@
 
 """Oumi Chat - Interactive chat functionality for Oumi."""
 
-from oumi_chat.infer import infer_interactive
-from oumi_chat.style_params import StyleParams
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from oumi_chat.infer import infer_interactive
+    from oumi_chat.style_params import StyleParams
 
 __all__ = [
     "infer_interactive",
     "StyleParams",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy import to avoid circular import issues."""
+    if name == "infer_interactive":
+        from oumi_chat.infer import infer_interactive
+
+        return infer_interactive
+    if name == "StyleParams":
+        from oumi_chat.style_params import StyleParams
+
+        return StyleParams
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

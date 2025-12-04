@@ -22,7 +22,7 @@ from oumi_chat.commands.command_context import CommandContext
 from oumi_chat.commands.handlers.parameter_management_handler import (
     ParameterManagementHandler,
 )
-from tests.utils.chat_test_utils import (
+from tests.oumi_chat.utils.chat_test_utils import (
     create_test_inference_config,
     validate_command_result,
 )
