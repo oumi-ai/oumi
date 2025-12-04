@@ -285,7 +285,6 @@ def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_
     # Create a real dataset from test data
     dataset = TextSftJsonLinesDataset(dataset_path=test_data_path)
 
-    # Create a config for this test (dataset_name is for labeling, we pass dataset directly)
     direct_config = AnalyzeConfig(
         dataset_name="text_sft",
         sample_count=2,
