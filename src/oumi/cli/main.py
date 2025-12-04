@@ -76,12 +76,14 @@ def get_app() -> typer.Typer:
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Analyze a dataset to compute metrics and statistics.",
+        rich_help_panel="Data Operations",
     )(analyze)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Evaluate a model.",
+        rich_help_panel="Model Operations",
     )(evaluate)
-    app.command()(env)
+    app.command(rich_help_panel="Utilities")(env)
     app.command(  # Alias for evaluate
         name="eval",
         hidden=True,
@@ -91,28 +93,33 @@ def get_app() -> typer.Typer:
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Run inference on a model.",
+        rich_help_panel="Model Operations",
     )(infer)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Synthesize a dataset.",
+        rich_help_panel="Data Operations",
     )(synth)
     app.command(  # Alias for synth
         name="synthesize",
         hidden=True,
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="🚧 [Experimental] Synthesize a dataset.",
+        help="Synthesize a dataset.",
     )(synth)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
+        rich_help_panel="Model Operations",
     )(train)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Tune the parameters for a model.",
+        rich_help_panel="Model Operations",
     )(tune)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Quantize a model.",
+        rich_help_panel="Model Operations",
     )(quantize)
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(name="dataset", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
@@ -121,7 +128,12 @@ def get_app() -> typer.Typer:
     judge_app.command(name="conversations", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
         judge_conversations_file
     )
-    app.add_typer(judge_app, name="judge", help="Judge datasets or conversations.")
+    app.add_typer(
+        judge_app,
+        name="judge",
+        help="Judge datasets or conversations.",
+        rich_help_panel="Data Operations",
+    )
 
     launch_app = typer.Typer(pretty_exceptions_enable=False)
     launch_app.command(help="Cancels a job.")(cancel)
@@ -136,7 +148,12 @@ def get_app() -> typer.Typer:
     )(up)
     launch_app.command(help="Prints the available clouds.")(which)
     launch_app.command(help="Gets the logs of a job.")(logs)
-    app.add_typer(launch_app, name="launch", help="Launch jobs remotely.")
+    app.add_typer(
+        launch_app,
+        name="launch",
+        help="Launch jobs remotely.",
+        rich_help_panel="Infrastructure",
+    )
 
     distributed_app = typer.Typer(pretty_exceptions_enable=False)
     distributed_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(accelerate)
@@ -144,14 +161,13 @@ def get_app() -> typer.Typer:
     app.add_typer(
         distributed_app,
         name="distributed",
-        help=(
-            "A wrapper for torchrun/accelerate "
-            "with reasonable default values for distributed training."
-        ),
+        help=("Launch commands locally on multiple GPUs using torchrun or accelerate "),
+        rich_help_panel="Infrastructure",
     )
 
     app.command(
         help="Fetch configuration files from the oumi GitHub repository.",
+        rich_help_panel="Utilities",
     )(fetch)
 
     cache_app = typer.Typer(pretty_exceptions_enable=False)
@@ -165,7 +181,12 @@ def get_app() -> typer.Typer:
     cache_app.command(name="rm", help="Remove a repository from the local cache.")(
         cache_rm
     )
-    app.add_typer(cache_app, name="cache", help="Manage local Hugging Face cache.")
+    app.add_typer(
+        cache_app,
+        name="cache",
+        help="Manage local Hugging Face cache.",
+        rich_help_panel="Utilities",
+    )
 
     return app
 
