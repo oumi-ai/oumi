@@ -101,16 +101,15 @@ dev = [
     "torchfix",       # Tool for automatically fixing common PyTorch issues
 ]
 docs = [
-    "myst_parser",             # Allows us to write docs in markdown
-    "myst-nb",                 # Allows us to include ipython notebooks in the docs
-    "sphinx-book-theme",       # Alternative to sphinx-rtd-theme
-    "sphinx-copybutton",       # Add copy button to code blocks in Sphinx
-    "sphinx-design",           # Allows us to include tabs in the docs
-    "sphinx-rtd-theme>=3.0.1", # Readthedocs theme for Sphinx
-    "sphinx",                  # Used to build the docs
-    "sphinxcontrib-bibtex",    # Allows us to cite bibtex references in the docs
-    "sphinxcontrib-mermaid",   # Enable mermaid diagrams in the docs
-    "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
+    "myst_parser",           # Allows us to write docs in markdown
+    "myst-nb",               # Allows us to include ipython notebooks in the docs
+    "sphinx-book-theme",     # Theme for Sphinx docs
+    "sphinx-copybutton",     # Add copy button to code blocks in Sphinx
+    "sphinx-design",         # Allows us to include tabs in the docs
+    "sphinx",                # Used to build the docs
+    "sphinxcontrib-bibtex",  # Allows us to cite bibtex references in the docs
+    "sphinxcontrib-mermaid", # Enable mermaid diagrams in the docs
+    "sphinxcontrib-typer",   # Allows us to include typer CLI in the docs
 ]
 
 # Useful dependencies when running on GPU
@@ -120,8 +119,12 @@ gpu = [
     "bitsandbytes>=0.47,<0.49",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
-    "verl>=0.5,<0.6",            # Used for the VERL_GRPO trainer.
-    "vllm>=0.10,<0.11",          # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
+    "vllm>=0.10,<0.11",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+]
+
+deepspeed = [
+    # Note: May require nvcc (CUDA compiler) if no pre-built wheel is available.
     "deepspeed>=0.17.0,<0.18.0",
 ]
 
@@ -140,7 +143,7 @@ lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
 synthesis = [
-    "pdftext>=0.6.3", # Document ingestion for synthesis
+    "pdftext>=0.6.3; python_version >= '3.10'", # Document ingestion for synthesis
 ]
 
 # Flash Attention - separate group due to special installation requirements
@@ -151,12 +154,12 @@ flash_attn = [
 ]
 
 evaluation = [
-    "alpaca-eval>=0.6,<0.7",
-    "langdetect",                     # leaderboard_ifeval
-    "immutabledict",                  # leaderboard_ifeval
-    "nltk>=3.9",                      # leaderboard_ifeval
-    "antlr4-python3-runtime==4.13.2", # leaderboard_math_hard
-    "sympy>=1.14",                    # leaderboard_math_hard
+    "alpaca-eval>=0.6,<0.7; python_version >= '3.10'",
+    "langdetect",                                      # leaderboard_ifeval
+    "immutabledict",                                   # leaderboard_ifeval
+    "nltk>=3.9",                                       # leaderboard_ifeval
+    "antlr4-python3-runtime==4.13.2",                  # leaderboard_math_hard
+    "sympy>=1.14",                                     # leaderboard_math_hard
     "sentencepiece>=0.2.0",
 ]
 
@@ -187,8 +190,8 @@ ci_cpu = [
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
 ci_gpu = [
-    "oumi[dev,docs,gcp,gpu,synthesis,tune,torchdata]",
-    "alpaca-eval>=0.6,<0.7",
+    "oumi[dev,docs,gcp,gpu,deepspeed,synthesis,tune,torchdata]",
+    "alpaca-eval>=0.6,<0.7; python_version >= '3.10'",
 ]
 
 [project.scripts]

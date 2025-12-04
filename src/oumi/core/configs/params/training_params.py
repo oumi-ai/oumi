@@ -779,7 +779,16 @@ class TrainingParams(BaseParams):
         # dictionary structure, and (2) the deeply nested DeepSpeed parameters don't map
         # well to TrainingArguments' flat parameter model.
         if training_config is not None and training_config.deepspeed.enable_deepspeed:
-            from oumi.core.distributed import get_deepspeed_config_path_or_dict
+            from oumi.core.distributed import (
+                get_deepspeed_config_path_or_dict,
+                is_deepspeed_available,
+            )
+
+            if not is_deepspeed_available():
+                raise ImportError(
+                    "DeepSpeed is not installed but enable_deepspeed is True. "
+                    "Please install DeepSpeed with: pip install oumi[deepspeed]"
+                )
 
             deepspeed_config = get_deepspeed_config_path_or_dict(training_config)
             trainer_kwargs["deepspeed"] = deepspeed_config
