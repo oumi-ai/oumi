@@ -5,7 +5,6 @@
 #   - message_analysis.csv: Per-message metrics
 #   - conversation_analysis.csv: Per-conversation aggregated metrics
 #   - analysis_summary.json: Statistical summary (mean, std, min, max, median)
-
 # Local file in Oumi or Alpaca format
 dataset_path: data/dataset_examples/oumi_format.jsonl
 # Or, use a HuggingFace dataset
