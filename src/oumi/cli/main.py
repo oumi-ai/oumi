@@ -167,6 +167,10 @@ def get_app() -> typer.Typer:
         help="Run multi-GPU training locally.",
         rich_help_panel="Compute",
     )
+    app.command(
+        help="Show status of launched jobs and clusters.",
+        rich_help_panel="Compute",
+    )(status)
 
     # Tools
     app.command(
