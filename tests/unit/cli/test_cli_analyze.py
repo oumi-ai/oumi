@@ -24,7 +24,7 @@ from typer.testing import CliRunner
 import oumi.cli.alias
 from oumi.cli.analyze import analyze
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
+from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 from oumi.utils.logging import logger
 
 runner = CliRunner()
@@ -45,7 +45,6 @@ def mock_alias():
 def _create_analyze_config() -> AnalyzeConfig:
     """Create a minimal valid AnalyzeConfig for testing."""
     return AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,
         dataset_name="oumi-ai/oumi-synthetic-document-claims",
         split="train",
         sample_count=10,
