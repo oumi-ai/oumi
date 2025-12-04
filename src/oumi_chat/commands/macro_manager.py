@@ -77,24 +77,18 @@ class MacroManager:
 
     def _get_default_directories(self) -> list[Path]:
         """Get default macro directories."""
-        # Look for macros in project root and user home
+        # Look for macros in oumi_chat package, project root, and user home
         directories = []
 
-        # Project macros directory (4 levels up from macro_manager.py to project root)
-        project_macros = Path(__file__).parent.parent.parent.parent / "macros"
-        if project_macros.exists():
-            directories.append(project_macros)
+        # Package macros directory (in src/oumi_chat/configs/macros)
+        package_macros = Path(__file__).parent.parent / "configs" / "macros"
+        if package_macros.exists():
+            directories.append(package_macros)
 
         # Also try relative to current working directory
         cwd_macros = Path.cwd() / "macros"
         if cwd_macros.exists() and cwd_macros not in directories:
             directories.append(cwd_macros)
-
-        # Try relative to oumi subdirectory from current working directory
-        # This handles cases where user runs from parent directory
-        oumi_macros = Path.cwd() / "oumi" / "macros"
-        if oumi_macros.exists() and oumi_macros not in directories:
-            directories.append(oumi_macros)
 
         # User macros directory
         user_macros = Path.home() / ".oumi" / "macros"
@@ -103,7 +97,7 @@ class MacroManager:
 
         # If no directories found, add expected paths for better error messages
         if not directories:
-            directories.extend([project_macros, oumi_macros])
+            directories.append(package_macros)
 
         return directories
 

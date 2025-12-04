@@ -20,7 +20,7 @@ from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
-from oumi_chat.style_params import StyleParams
+from oumi_chat.configs.style_params import StyleParams
 
 
 @dataclass

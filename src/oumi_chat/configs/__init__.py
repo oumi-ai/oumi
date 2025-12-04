@@ -12,26 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Oumi Chat - Interactive chat functionality for Oumi."""
+"""Configuration files and parameters for oumi_chat."""
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from oumi_chat.configs.style_params import StyleParams
-    from oumi_chat.infer import infer_interactive
 
-__all__ = [
-    "infer_interactive",
-    "StyleParams",
-]
+__all__ = ["StyleParams", "get_configs_dir", "get_macros_dir"]
+
+
+def get_configs_dir() -> Path:
+    """Get the path to the oumi_chat configs directory."""
+    return Path(__file__).parent
+
+
+def get_macros_dir() -> Path:
+    """Get the path to the oumi_chat macros directory."""
+    return Path(__file__).parent / "macros"
 
 
 def __getattr__(name: str):
     """Lazy import to avoid circular import issues."""
-    if name == "infer_interactive":
-        from oumi_chat.infer import infer_interactive
-
-        return infer_interactive
     if name == "StyleParams":
         from oumi_chat.configs.style_params import StyleParams
 
