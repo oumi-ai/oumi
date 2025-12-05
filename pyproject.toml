@@ -125,7 +125,7 @@ gpu = [
 
 deepspeed = [
     # Note: May require nvcc (CUDA compiler) if no pre-built wheel is available.
-    "deepspeed>=0.17.0,<0.18.0",
+    "deepspeed>=0.17.0,<0.19.0",
 ]
 
 # Targets for supported cloud providers
