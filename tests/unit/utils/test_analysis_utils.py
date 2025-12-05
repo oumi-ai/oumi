@@ -25,7 +25,6 @@ from oumi.core.configs.analyze_config import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.datasets import TextSftJsonLinesDataset, VLJsonlinesDataset
 from oumi.utils.analysis_utils import (
-    build_tokenizer_from_config,
     compute_statistics,
     load_dataset_from_config,
 )
@@ -269,41 +268,6 @@ def test_load_dataset_from_config_with_processor_parameters(
     assert call_kwargs["processor_kwargs"] == {"image_size": 224}
     assert call_kwargs["trust_remote_code"] is True
     assert result == mock_dataset_instance
-
-
-def test_build_tokenizer_from_config_success():
-    """Test successful tokenizer building from config."""
-    tokenizer_config = {
-        "model_name": "openai-community/gpt2",
-        "tokenizer_kwargs": {"padding_side": "left"},
-        "trust_remote_code": False,
-    }
-
-    tokenizer = build_tokenizer_from_config(tokenizer_config)
-
-    assert tokenizer is not None
-    assert hasattr(tokenizer, "encode")
-    assert hasattr(tokenizer, "decode")
-
-
-def test_build_tokenizer_from_config_none():
-    """Test tokenizer building with None config."""
-    tokenizer = build_tokenizer_from_config(None)
-
-    assert tokenizer is None
-
-
-def test_build_tokenizer_from_config_missing_model_name():
-    """Test error handling when model_name is missing from config."""
-    tokenizer_config = {
-        "tokenizer_kwargs": {"padding_side": "left"},
-        "trust_remote_code": False,
-    }
-
-    with pytest.raises(
-        ValueError, match="tokenizer_config must contain 'model_name' field"
-    ):
-        build_tokenizer_from_config(tokenizer_config)
 
 
 def test_load_dataset_from_config_with_tokenizer(

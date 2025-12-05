@@ -15,6 +15,9 @@ from oumi.core.datasets import BaseMapDataset
 from oumi.core.registry import REGISTRY, RegistryType, register_dataset
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.utils.logging import logger
+from tests.markers import requires_torchdata
+
+pytestmark = requires_torchdata()
 
 
 @register_dataset("npz_file")

@@ -66,11 +66,7 @@ dependencies = [
     "skypilot>=0.10.2,<0.11",  # 0.10.2 and above is needed
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "torch>=2.6,<2.9.0",       # vllm only supports up to torch==2.7
-    "torchao>=0.12,<0.13",     # Used by transformers
-    # torchdata 0.10 drops support for datapipes which we currently use
-    # also, torchdata does not provide a py13 wheel for version 0.9.0.
-    # if python > 3.13, install from source for now.
-    "torchdata>=0.9,<0.10.0",  # Used by data pipes loader
+    "torchao>=0.12,<0.15",     # Used by transformers
     "torchvision>=0.21,<0.24", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
@@ -105,16 +101,15 @@ dev = [
     "torchfix",       # Tool for automatically fixing common PyTorch issues
 ]
 docs = [
-    "myst_parser",             # Allows us to write docs in markdown
-    "myst-nb",                 # Allows us to include ipython notebooks in the docs
-    "sphinx-book-theme",       # Alternative to sphinx-rtd-theme
-    "sphinx-copybutton",       # Add copy button to code blocks in Sphinx
-    "sphinx-design",           # Allows us to include tabs in the docs
-    "sphinx-rtd-theme>=3.0.1", # Readthedocs theme for Sphinx
-    "sphinx",                  # Used to build the docs
-    "sphinxcontrib-bibtex",    # Allows us to cite bibtex references in the docs
-    "sphinxcontrib-mermaid",   # Enable mermaid diagrams in the docs
-    "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
+    "myst_parser",           # Allows us to write docs in markdown
+    "myst-nb",               # Allows us to include ipython notebooks in the docs
+    "sphinx-book-theme",     # Theme for Sphinx docs
+    "sphinx-copybutton",     # Add copy button to code blocks in Sphinx
+    "sphinx-design",         # Allows us to include tabs in the docs
+    "sphinx",                # Used to build the docs
+    "sphinxcontrib-bibtex",  # Allows us to cite bibtex references in the docs
+    "sphinxcontrib-mermaid", # Enable mermaid diagrams in the docs
+    "sphinxcontrib-typer",   # Allows us to include typer CLI in the docs
 ]
 
 # Useful dependencies when running on GPU
@@ -124,9 +119,13 @@ gpu = [
     "bitsandbytes>=0.47,<0.49",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
-    "verl>=0.5,<0.6",            # Used for the VERL_GRPO trainer.
-    "vllm>=0.10,<0.11",          # For VLLMInferenceEngine, and vLLM-powered GRPO training.
-    "deepspeed>=0.17.0,<0.18.0",
+    "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
+    "vllm>=0.10,<0.11",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+]
+
+deepspeed = [
+    # Note: May require nvcc (CUDA compiler) if no pre-built wheel is available.
+    "deepspeed>=0.17.0,<0.19.0",
 ]
 
 # Targets for supported cloud providers
@@ -144,7 +143,7 @@ lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
 synthesis = [
-    "pdftext>=0.6.3", # Document ingestion for synthesis
+    "pdftext>=0.6.3; python_version >= '3.10'", # Document ingestion for synthesis
 ]
 
 # Flash Attention - separate group due to special installation requirements
@@ -155,12 +154,12 @@ flash_attn = [
 ]
 
 evaluation = [
-    "alpaca-eval>=0.6,<0.7",
-    "langdetect",                     # leaderboard_ifeval
-    "immutabledict",                  # leaderboard_ifeval
-    "nltk>=3.9",                      # leaderboard_ifeval
-    "antlr4-python3-runtime==4.13.2", # leaderboard_math_hard
-    "sympy>=1.14",                    # leaderboard_math_hard
+    "alpaca-eval>=0.6,<0.7; python_version >= '3.10'",
+    "langdetect",                                      # leaderboard_ifeval
+    "immutabledict",                                   # leaderboard_ifeval
+    "nltk>=3.9",                                       # leaderboard_ifeval
+    "antlr4-python3-runtime==4.13.2",                  # leaderboard_math_hard
+    "sympy>=1.14",                                     # leaderboard_math_hard
     "sentencepiece>=0.2.0",
 ]
 
@@ -174,17 +173,26 @@ file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
 
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
+# torchdata provides StatefulDataLoader and DataPipes for advanced data loading
+# torchdata 0.10 drops support for datapipes which we currently use
+# also, torchdata does not provide a py3.13 wheel for version 0.9.0.
+# if python >= 3.13, install from source for now.
+torchdata = ["torchdata>=0.9,<0.10.0"]
+
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,synthesis,tune]",
-    "vllm>=0.10,<0.11",                  # For VLLMInferenceEngine
+    "oumi[dev,docs,gcp,synthesis,tune,torchdata]",
+    "vllm>=0.10,<0.11",                            # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3,<0.4", # For LlamaCppInferenceEngine
 ]
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
-ci_gpu = ["oumi[dev,docs,gcp,gpu,synthesis,tune]", "alpaca-eval>=0.6,<0.7"]
+ci_gpu = [
+    "oumi[dev,docs,gcp,gpu,deepspeed,synthesis,tune,torchdata]",
+    "alpaca-eval>=0.6,<0.7; python_version >= '3.10'",
+]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
