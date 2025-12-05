@@ -37,6 +37,7 @@ from oumi.core.distributed import (
     is_local_process_zero,
     is_world_process_zero,
 )
+from oumi.telemetry import track_feature
 from oumi.train import _ensure_dir_exists, _log_feedback_request, train
 from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
@@ -88,6 +89,10 @@ def _log_tuning_info(config: TuningConfig) -> None:
             logger.info(f"Git tag: {get_git_tag()}")
 
 
+@track_feature(
+    "tune",
+    get_model_name=lambda config: getattr(config.model, "model_name", None),
+)
 def tune(
     config: TuningConfig,
     additional_model_kwargs: Optional[dict[str, Any]] = None,

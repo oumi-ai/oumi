@@ -23,11 +23,16 @@ from typing import TYPE_CHECKING
 from oumi.quantize.awq_quantizer import AwqQuantization
 from oumi.quantize.base import BaseQuantization, QuantizationResult
 from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+from oumi.telemetry import track_feature
 
 if TYPE_CHECKING:
     from oumi.core.configs import QuantizationConfig
 
 
+@track_feature(
+    "quantize",
+    get_model_name=lambda config: getattr(config.model, "model_name", None),
+)
 def quantize(config: "QuantizationConfig") -> QuantizationResult:
     """Main quantization function that routes to appropriate quantizer.
 

@@ -63,6 +63,7 @@ from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers import BaseTrainer
 from oumi.performance.torch_profiler_utils import torch_profile
+from oumi.telemetry import track_feature
 from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
 )
@@ -271,6 +272,15 @@ def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
     _log_feedback_request()
 
 
+@track_feature(
+    "train",
+    get_model_name=lambda config: getattr(config.model, "model_name", None),
+    get_trainer_type=lambda config: (
+        str(config.training.trainer_type.value)
+        if config.training.trainer_type
+        else None
+    ),
+)
 def train(
     config: TrainingConfig,
     additional_model_kwargs: Optional[dict[str, Any]] = None,

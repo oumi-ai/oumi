@@ -24,6 +24,7 @@ from oumi.core.types.conversation import (
     Role,
     Type,
 )
+from oumi.telemetry import track_feature
 from oumi.utils.logging import logger
 
 
@@ -40,6 +41,13 @@ def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
     )
 
 
+@track_feature(
+    "infer_interactive",
+    get_model_name=lambda config: getattr(config.model, "model_name", None),
+    get_inference_engine=lambda config: str(config.engine.value)
+    if config.engine
+    else None,
+)
 def infer_interactive(
     config: InferenceConfig,
     *,
@@ -71,6 +79,13 @@ def infer_interactive(
         print()
 
 
+@track_feature(
+    "infer",
+    get_model_name=lambda config: getattr(config.model, "model_name", None),
+    get_inference_engine=lambda config: str(config.engine.value)
+    if config.engine
+    else None,
+)
 def infer(
     config: InferenceConfig,
     inputs: Optional[list[str]] = None,

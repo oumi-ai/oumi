@@ -17,8 +17,13 @@ from typing import Any
 from oumi.core.configs import EvaluationConfig
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.evaluation.evaluator import Evaluator
+from oumi.telemetry import track_feature
 
 
+@track_feature(
+    "evaluate",
+    get_model_name=lambda config: getattr(config.model, "model_name", None),
+)
 def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
     """Evaluates a model using the provided configuration.
 

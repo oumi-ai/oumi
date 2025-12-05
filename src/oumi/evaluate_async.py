@@ -20,6 +20,7 @@ from pathlib import Path
 
 from oumi.core.configs import AsyncEvaluationConfig
 from oumi.evaluate import evaluate
+from oumi.telemetry import track_feature
 from oumi.utils.logging import logger
 
 _PREFIX_CHECKPOINT_DIR = "checkpoint"
@@ -67,6 +68,10 @@ def _get_checkpoints(checkpoint_dir: Path) -> list[Path]:
     ]
 
 
+@track_feature(
+    "evaluate_async",
+    get_model_name=lambda config: getattr(config.evaluation.model, "model_name", None),
+)
 def evaluate_async(config: AsyncEvaluationConfig) -> None:
     """Runs an async evaluation for a model using the provided configuration.
 

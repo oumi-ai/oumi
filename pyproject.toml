@@ -173,6 +173,12 @@ file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
 
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
+otel = [
+    "opentelemetry-api>=1.20.0,<2.0",
+    "opentelemetry-sdk>=1.20.0,<2.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.20.0,<2.0",
+]
+
 # torchdata provides StatefulDataLoader and DataPipes for advanced data loading
 # torchdata 0.10 drops support for datapipes which we currently use
 # also, torchdata does not provide a py3.13 wheel for version 0.9.0.

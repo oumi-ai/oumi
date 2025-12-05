@@ -16,8 +16,10 @@ from typing import Any
 
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.synthesis.synthesis_pipeline import SynthesisPipeline
+from oumi.telemetry import track_feature
 
 
+@track_feature("synthesize")
 def synthesize(config: SynthesisConfig) -> list[dict[str, Any]]:
     """Synthesize a dataset using the provided configuration.
 

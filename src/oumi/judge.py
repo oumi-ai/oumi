@@ -20,6 +20,7 @@ from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.types.conversation import Conversation, Role
 from oumi.judges.base_judge import JudgeOutput
 from oumi.judges.simple_judge import SimpleJudge
+from oumi.telemetry import track_feature
 from oumi.utils.io_utils import load_jsonlines
 
 # Note: The `request` and `response` keys are fixed for all generic judge configs.
@@ -28,6 +29,7 @@ DATASET_REQUEST_KEY = "request"
 DATASET_RESPONSE_KEY = "response"
 
 
+@track_feature("judge")
 def judge_dataset(
     judge_config: Union[JudgeConfig, str],
     dataset: list[dict[str, str]],
