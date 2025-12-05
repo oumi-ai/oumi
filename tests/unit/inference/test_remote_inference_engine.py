@@ -2829,7 +2829,7 @@ def test_adaptive_concurrency_special_mode_num_workers_zero():
         api_url=_TARGET_SERVER,
         use_adaptive_concurrency=True,
         num_workers=0,  # Special mode
-        politeness_policy=0.0,  # Will be set to 15.0 automatically
+        politeness_policy=0.0,  # Will be set to 60.0 automatically
     )
 
     engine = RemoteInferenceEngine(
@@ -2843,22 +2843,17 @@ def test_adaptive_concurrency_special_mode_num_workers_zero():
 
     # Verify special mode parameters
     assert controller._config.min_concurrency == 10
-    assert controller._config.max_concurrency == 200  # Capped to avoid fd exhaustion
+    assert controller._config.max_concurrency == 10000  # Very high upper bound
     assert controller._current_concurrency == 10  # Start at minimum
     assert controller._config.use_exponential_scaling is True
     assert controller._config.exponential_scaling_factor == 1.44
-    assert (
-        controller._config.min_update_time == 45.0
-    )  # Allow ~3 bursts before adjusting
-    assert controller._config.scale_politeness_with_concurrency is True
-    assert controller._config.initial_qpm == 10.0
-    assert controller._config.max_qpm == 10000.0
+    assert controller._config.min_update_time == 59.0  # politeness_policy - 1
 
     # Verify politeness policy was set
-    assert engine._remote_params.politeness_policy == 15.0
+    assert engine._remote_params.politeness_policy == 60.0
 
     # Verify retry parameters were increased
-    assert engine._remote_params.max_retries >= 10
+    assert engine._remote_params.max_retries >= 5
     assert engine._remote_params.retry_backoff_max >= 60.0
 
 
@@ -2908,18 +2903,12 @@ def test_adaptive_concurrency_special_mode_scaling_behavior():
     # Verify the parameters match the design intent
     assert controller._config.min_concurrency == 10  # Start at 10 concurrent requests
     assert (
-        controller._config.max_concurrency == 200
-    )  # Cap at 200 to avoid fd exhaustion
+        controller._config.max_concurrency == 10000
+    )  # Very high upper bound, no real maximum
     assert controller._config.exponential_scaling_factor == 1.44  # Exponential growth
-    assert (
-        controller._config.min_update_time == 45.0
-    )  # 45s to allow ~3 bursts before adjusting
-    assert controller._config.scale_politeness_with_concurrency  # Enable QPM scaling
-    assert controller._config.initial_qpm == 10.0  # Start at 10 QPM
-    assert controller._config.max_qpm == 10000.0  # Target 10k QPM at max concurrency
-    # Verify 20% faster scale-down: backoff_factor = (1/1.44)^1.2 ≈ 0.646
-    expected_backoff = (1.0 / 1.44) ** 1.2
-    assert abs(controller._config.backoff_factor - expected_backoff) < 0.001
+    assert controller._config.min_update_time == 59.0  # politeness_policy - 1
+    # Verify backoff_factor uses default
+    assert controller._config.backoff_factor == 0.8
 
 
 def test_effective_max_workers_calculation_special_mode():
@@ -2957,10 +2946,12 @@ def test_effective_max_workers_calculation_special_mode():
 
             # Verify connector was created with max_concurrency of 200
             # (capped to avoid file descriptor exhaustion)
-            mock_connector.assert_called_once_with(limit=200)  # Special mode max
+            mock_connector.assert_called_once_with(
+                limit=200
+            )  # Capped at _MAX_CONNECTION_LIMIT
             mock_semaphore.assert_called_once_with(
-                capacity=200,
-                politeness_policy=15.0,  # Updated default
+                capacity=200,  # Also capped at _MAX_CONNECTION_LIMIT
+                politeness_policy=60.0,  # Default for num_workers=0
             )
 
 

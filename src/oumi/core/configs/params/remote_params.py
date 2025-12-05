@@ -171,42 +171,6 @@ class AdaptiveConcurrencyParams(BaseParams):
     moderate growth (e.g., 10 -> 200 in 8 steps).
     """
 
-    scale_politeness_with_concurrency: bool = False
-    """Whether to scale politeness policy inversely with concurrency.
-
-    When True, as concurrency increases, politeness policy decreases to achieve higher
-    throughput. This allows reaching high QPM (queries per minute) limits even with
-    capped concurrency. The politeness policy is calculated as:
-    politeness = (concurrency * 60) / target_qpm
-
-    This is useful when file descriptor limits cap max concurrency (e.g., 200 workers)
-    but you want to reach high QPM targets (e.g., 10,000 QPM).
-    """
-
-    initial_qpm: float = 10.0
-    """Initial target queries per minute when scaling politeness.
-
-    Only used when scale_politeness_with_concurrency is True. This sets the starting
-    QPM target when concurrency is at minimum.
-    """
-
-    max_qpm: float = 10000.0
-    """Maximum target queries per minute when scaling politeness.
-
-    Only used when scale_politeness_with_concurrency is True. This sets the target
-    QPM when concurrency reaches maximum.
-    """
-
-    max_politeness_policy: float = 15.0
-    """Maximum politeness policy in seconds.
-
-    Only used when scale_politeness_with_concurrency is True. This caps the
-    maximum time workers will wait between requests. If calculated politeness
-    would exceed this value, it will be capped at this threshold. If the system
-    still needs more throttling beyond this cap, worker concurrency should be
-    reduced instead.
-    """
-
     min_update_time: float = 60.0
     """Minimum seconds between attempted updates.
 
@@ -269,7 +233,3 @@ class AdaptiveConcurrencyParams(BaseParams):
             raise ValueError("Min window size must be greater than or equal to 1.")
         if self.exponential_scaling_factor <= 1.0:
             raise ValueError("Exponential scaling factor must be greater than 1.0.")
-        if self.initial_qpm <= 0:
-            raise ValueError("Initial QPM must be greater than 0.")
-        if self.max_qpm < self.initial_qpm:
-            raise ValueError("Max QPM must be greater than or equal to initial QPM.")

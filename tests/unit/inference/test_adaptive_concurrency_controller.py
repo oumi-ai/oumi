@@ -45,10 +45,6 @@ def create_config(**kwargs):
         "min_window_size": 5,
         "use_exponential_scaling": False,
         "exponential_scaling_factor": 2.0,
-        "scale_politeness_with_concurrency": False,
-        "initial_qpm": 10.0,
-        "max_qpm": 10000.0,
-        "max_politeness_policy": 15.0,
     }
     defaults.update(kwargs)
     # Ensure recovery_threshold < error_threshold
@@ -782,9 +778,10 @@ async def test_multiple_adjustments_sequence(mock_time):
     assert controller._current_concurrency == phase_2_concurrency
 
     # Phase 3: High error rate, should backoff
-    # With "focus in" feature, backs off to exactly best known point (25)
-    # instead of blindly applying backoff_factor (30 * 0.7 = 21)
-    phase_3_concurrency = initial_concurrency + config.concurrency_step  # 25
+    # With RPM-based backoff, calculates concurrency from target RPM
+    # Best RPM was 20.0, target = 20.0 * 0.95 = 19.0
+    # With politeness=47.0s: concurrency = (19.0 * 47.0) / 60 = 14.88 ≈ 14
+    phase_3_concurrency = 14
     for _ in range(2):
         await controller.record_success()
     for _ in range(8):
@@ -1327,8 +1324,10 @@ async def test_exponential_scaling_asymmetric_behavior(mock_time):
 
     assert controller._current_concurrency == 100  # Doubled
 
-    # Test backoff: with "focus in" feature, backs off to best known point (50)
-    # instead of blindly applying backoff_factor (100 * 0.8 = 80)
+    # Test backoff: with RPM-based backoff, calculates from target RPM
+    # Best RPM was 10.0 (from 10 recorded successes)
+    # Target = 10.0 * 0.95 = 9.5
+    # With politeness=1.0s: concurrency = (9.5 * 1.0) / 60 = 0.158 ≈ 0, clamped to 1
     for _ in range(2):  # Create error rate above threshold
         await controller.record_error()
     for _ in range(8):
@@ -1337,8 +1336,8 @@ async def test_exponential_scaling_asymmetric_behavior(mock_time):
     controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
 
-    # Should use "focus in" logic: exactly best_concurrency (50) popped from stack
-    assert controller._current_concurrency == 50
+    # RPM-based calculation with low recorded RPM gives min_concurrency
+    assert controller._current_concurrency == config.min_concurrency
 
 
 @pytest.mark.asyncio
@@ -1398,97 +1397,3 @@ async def test_exponential_scaling_factor_144_design_intent(mock_time):
         assert abs(expected_values[i] - expected) <= 1, (
             f"Step {i + 1}: expected ~{expected}, got {expected_values[i]}"
         )
-
-
-@pytest.mark.asyncio
-async def test_dynamic_min_update_time_with_politeness_scaling(mock_time):
-    """Test that min_update_time scales dynamically with politeness policy.
-
-    Politeness is only adjusted when at max_concurrency, not at intermediate levels.
-    """
-    config = create_config(
-        min_concurrency=10,
-        max_concurrency=200,
-        initial_concurrency_factor=0.0,  # Start at min (10)
-        use_exponential_scaling=False,
-        scale_politeness_with_concurrency=True,
-        initial_qpm=10.0,
-        max_qpm=1000.0,
-        min_update_time=15.0,
-        max_politeness_policy=15.0,
-    )
-    controller = AdaptiveConcurrencyController(
-        config,
-        politeness_policy=15.0,  # Initial politeness matches min_update_time
-    )
-    controller._semaphore = AsyncMock()
-
-    # Initially, min_update_time should equal the configured value
-    assert controller._current_min_update_time == 15.0
-    # Floor should always be 1.0s
-    assert controller._min_update_time_floor == 1.0
-
-    # Update to low concurrency (10 workers) - politeness should NOT be adjusted
-    # because we're not at max_concurrency
-    await controller._update_concurrency(10)
-    assert controller._current_min_update_time == 15.0  # Unchanged
-
-    # Update to medium concurrency (50 workers) - politeness should NOT be adjusted
-    await controller._update_concurrency(50)
-    assert controller._current_min_update_time == 15.0  # Still unchanged
-
-    # Update to max concurrency (200 workers) - politeness SHOULD be adjusted
-    await controller._update_concurrency(200)
-    # At 200 workers with 1000 QPM: politeness = (200 * 60) / 1000 = 12s
-    # min_update_time should be 12s (higher than floor of 1.5s)
-    expected_politeness_200 = (200 * 60.0) / 1000.0
-    assert abs(controller._current_min_update_time - expected_politeness_200) < 0.1
-
-    # Update to very high concurrency with very high QPM to test floor
-    # Create a config that would result in politeness < floor
-    config_extreme = create_config(
-        min_concurrency=10,
-        max_concurrency=200,
-        scale_politeness_with_concurrency=True,
-        initial_qpm=10.0,
-        max_qpm=50000.0,  # Very high QPM
-        min_update_time=15.0,
-    )
-    controller_extreme = AdaptiveConcurrencyController(
-        config_extreme, politeness_policy=15.0
-    )
-    controller_extreme._semaphore = AsyncMock()
-
-    await controller_extreme._update_concurrency(200)
-    # At 200 workers with 50k QPM: politeness = (200 * 60) / 50000 = 0.24s
-    # But min_update_time should be capped at floor (1.0s)
-    assert controller_extreme._current_min_update_time == 1.0
-
-
-@pytest.mark.asyncio
-async def test_max_politeness_policy_capping(mock_time):
-    """Test that politeness policy is capped at max_politeness_policy.
-
-    When calculated politeness exceeds max_politeness_policy, it should be capped.
-    """
-    config = create_config(
-        min_concurrency=10,
-        max_concurrency=100,
-        initial_concurrency_factor=0.0,
-        scale_politeness_with_concurrency=True,
-        initial_qpm=10.0,
-        max_qpm=20.0,  # Low max QPM to force high politeness
-        max_politeness_policy=15.0,  # Cap at 15 seconds
-        min_update_time=10.0,
-    )
-    controller = AdaptiveConcurrencyController(config, politeness_policy=10.0)
-    controller._semaphore = AsyncMock()
-
-    # Update to max concurrency
-    await controller._update_concurrency(100)
-
-    # At 100 workers with 20 QPM: politeness = (100 * 60) / 20 = 300s
-    # But this exceeds max_politeness_policy (15s), so it should be capped
-    assert controller._semaphore.adjust_politeness_policy.called
-    actual_politeness = controller._semaphore.adjust_politeness_policy.call_args[0][0]
-    assert actual_politeness == 15.0  # Capped at max_politeness_policy

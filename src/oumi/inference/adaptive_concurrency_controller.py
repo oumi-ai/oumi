@@ -83,6 +83,13 @@ class AdaptiveConcurrencyController:
         self._early_window_errors = 0  # Errors in first 45s of window
         self._last_window_reset_time = time.time()
 
+        # RPM tracking for intelligent backoff
+        # Track successful requests with timestamps for last 60 seconds
+        self._successful_requests: deque[float] = deque()
+        # History of successful RPM values at each adjustment point
+        # Each entry is (rpm, concurrency, politeness_policy)
+        self._rpm_history: list[tuple[float, int, float]] = []
+
         # Best known operating point for "focusing in" (concurrency + politeness)
         # Track both since they together determine throughput
         self._best_concurrency = self._current_concurrency
@@ -132,6 +139,20 @@ class AdaptiveConcurrencyController:
             now = time.time()
             self._outcomes.append(True)
 
+            # Track successful request timestamp for RPM calculation
+            self._successful_requests.append(now)
+            # Clean old successes outside 60s window
+            try:
+                now_float = float(now)
+                while (
+                    self._successful_requests
+                    and float(self._successful_requests[0]) < now_float - 60.0
+                ):
+                    self._successful_requests.popleft()
+            except (TypeError, ValueError):
+                # Handle mocked time in tests
+                pass
+
             # Check if we've entered a new window
             self._check_and_reset_window(now)
 
@@ -152,20 +173,34 @@ class AdaptiveConcurrencyController:
             # Burst detection: track recent errors for immediate backoff
             self._recent_errors.append(now)
             # Clean old errors outside burst window
-            while (
-                self._recent_errors
-                and self._recent_errors[0] < now - self._burst_window_seconds
-            ):
-                self._recent_errors.popleft()
+            try:
+                now_float = float(now)
+                burst_threshold = now_float - self._burst_window_seconds
+                while (
+                    self._recent_errors
+                    and float(self._recent_errors[0]) < burst_threshold
+                ):
+                    self._recent_errors.popleft()
+            except (TypeError, ValueError):
+                # Handle mocked time in tests
+                pass
 
             # If we detect a burst, trigger immediate backoff
             if len(self._recent_errors) >= self._burst_threshold:
                 # Rate limit: don't backoff more than once per 10 seconds
                 # Also check if burst backoff is in progress to prevent cascades
-                if (
-                    now - self._last_burst_backoff_time > 10.0
-                    and not self._burst_backoff_in_progress
-                ):
+                try:
+                    now_float = float(now)
+                    last_backoff_float = float(self._last_burst_backoff_time)
+                    should_backoff = (
+                        now_float - last_backoff_float > 10.0
+                        and not self._burst_backoff_in_progress
+                    )
+                except (TypeError, ValueError):
+                    # Handle mocked time in tests - skip burst backoff
+                    should_backoff = False
+
+                if should_backoff:
                     logger.warning(
                         "🔥 ERROR BURST DETECTED: %d errors in %.1fs - "
                         "triggering immediate backoff!",
@@ -223,15 +258,7 @@ class AdaptiveConcurrencyController:
 
     async def acquire(self):
         """Acquire a permit, then try to adjust concurrency before returning."""
-        logger.info(
-            "PERMIT ACQUIRE: Attempting to acquire permit (current capacity: %d)",
-            self._current_concurrency,
-        )
         await self._semaphore.acquire()
-        logger.info(
-            "PERMIT ACQUIRED: Successfully acquired permit (current capacity: %d)",
-            self._current_concurrency,
-        )
 
         # Initialize adjustment timer on first permit to ignore startup delay
         if not self._first_permit_granted:
@@ -242,15 +269,7 @@ class AdaptiveConcurrencyController:
 
     def release(self):
         """Release a permit."""
-        logger.info(
-            "PERMIT RELEASE: Releasing permit (current capacity: %d)",
-            self._current_concurrency,
-        )
         self._semaphore.release()
-        logger.info(
-            "PERMIT RELEASED: Successfully released permit (current capacity: %d)",
-            self._current_concurrency,
-        )
 
     async def __aenter__(self):
         """Enter the context manager."""
@@ -275,57 +294,27 @@ class AdaptiveConcurrencyController:
             min(potential_concurrency, self._config.max_concurrency),
         )
 
-    def _calculate_target_qpm(self, concurrency: int) -> float:
-        """Calculate target QPM based on current concurrency.
-
-        Scales linearly from initial_qpm to max_qpm as concurrency increases from
-        initial to max.
-
-        Args:
-            concurrency: Current concurrency level.
+    def _get_current_rpm(self) -> float:
+        """Calculate current requests per minute based on recent successes.
 
         Returns:
-            Target QPM for the given concurrency.
+            Current successful requests per minute over the last 60 seconds.
         """
-        if not self._config.scale_politeness_with_concurrency:
-            # If not scaling, use initial QPM
-            return self._config.initial_qpm
+        now = time.time()
+        # Clean old successes
+        try:
+            now_float = float(now)
+            while (
+                self._successful_requests
+                and float(self._successful_requests[0]) < now_float - 60.0
+            ):
+                self._successful_requests.popleft()
+        except (TypeError, ValueError):
+            # Handle mocked time in tests
+            pass
 
-        # Calculate progress from initial to max concurrency (0.0 to 1.0)
-        concurrency_range = self._config.max_concurrency - self._initial_concurrency
-        if concurrency_range <= 0:
-            return self._config.initial_qpm
-
-        progress = (concurrency - self._initial_concurrency) / concurrency_range
-        progress = max(0.0, min(1.0, progress))  # Clamp to [0, 1]
-
-        # Scale QPM linearly from initial to max
-        qpm_range = self._config.max_qpm - self._config.initial_qpm
-        target_qpm = self._config.initial_qpm + (progress * qpm_range)
-
-        return target_qpm
-
-    def _calculate_politeness_policy(self, concurrency: int) -> float:
-        """Calculate politeness policy for the given concurrency.
-
-        Args:
-            concurrency: Current concurrency level.
-
-        Returns:
-            Politeness policy in seconds.
-        """
-        if not self._config.scale_politeness_with_concurrency:
-            return self._initial_politeness_policy
-
-        target_qpm = self._calculate_target_qpm(concurrency)
-        # politeness = (concurrency * 60) / target_qpm
-        # Ensure we don't divide by zero and have a reasonable minimum
-        if target_qpm <= 0:
-            return self._initial_politeness_policy
-
-        politeness = (concurrency * 60.0) / target_qpm
-        # Ensure politeness is at least 0.1s to avoid too aggressive polling
-        return max(0.1, politeness)
+        # Return count of successful requests in last 60 seconds
+        return float(len(self._successful_requests))
 
     async def _get_error_rate(self) -> float:
         """Calculate current error rate based on recent outcomes."""
@@ -422,23 +411,18 @@ class AdaptiveConcurrencyController:
     async def _apply_cooldown(self):
         """Apply a cooldown period to allow server-side token bucket recovery.
 
-        After backoff, temporarily set capacity to 0, sleep for 5 seconds
+        After backoff, temporarily set capacity to 0, sleep briefly
         to give the server's rate limiting token bucket time to refill,
         then restore the backoff capacity.
         """
-        cooldown_seconds = 5
+        cooldown_seconds = 3.0  # Reduced from 5s for faster recovery
 
         # Restore capacity to the backoff level
-        logger.info("ACC: Attempting to pause for cooldown (%.1fs)", cooldown_seconds)
         current_capacity = self._current_concurrency
-        logger.info("ACC: Current capacity: %d", current_capacity)
         await self._semaphore.adjust_capacity(0)
-        logger.info("ACC: Successfully adjusted capacity to 0")
         async with self._cooldown_lock:
             await self._semaphore.pause_for_cooldown(cooldown_seconds)
-        logger.info("ACC: Successfully paused for cooldown (%.1fs)", cooldown_seconds)
         await self._semaphore.adjust_capacity(current_capacity)
-        logger.info("ACC: Successfully adjusted capacity to %d", current_capacity)
 
     async def _immediate_burst_backoff(self):
         """Handle immediate backoff when error burst is detected.
@@ -456,6 +440,68 @@ class AdaptiveConcurrencyController:
 
     async def _try_backoff(self):
         """Try to reduce concurrency due to high error rate."""
+        # Find highest successful RPM from history
+        highest_rpm = 0.0
+        best_rpm_config = None
+        if self._rpm_history:
+            highest_rpm = max(rpm for rpm, _, _ in self._rpm_history)
+            # Get the config (concurrency, politeness) for that RPM
+            for rpm, concurrency, politeness in self._rpm_history:
+                if rpm == highest_rpm:
+                    best_rpm_config = (concurrency, politeness)
+                    break
+
+        # If we have history, best RPM
+        # Only use RPM-based backoff if politeness is meaningful (> 0.1s)
+        # Otherwise the formula breaks down (division by zero or near-zero)
+        if (
+            best_rpm_config is not None
+            and highest_rpm > 0
+            and best_rpm_config[1] > 0.1  # best_politeness > 0.1
+        ):
+            # Target 95% of the highest successful RPM to stay safely below limit
+            target_rpm = highest_rpm * 0.95
+            best_concurrency, best_politeness = best_rpm_config
+
+            # Calculate new concurrency to achieve target RPM
+            # Formula: target_rpm = (concurrency * 60) / politeness_policy
+            # Solving for concurrency: concurrency = (target_rpm * politeness) / 60
+            new_concurrency = math.floor((target_rpm * best_politeness) / 60.0)
+            # Ensure we stay within bounds
+            new_concurrency = max(
+                self._config.min_concurrency,
+                min(new_concurrency, self._config.max_concurrency),
+            )
+
+            logger.info(
+                "RPM-based backoff: targeting %.1f RPM (95%% of best "
+                "%.1f). Adjusting concurrency: %d→%d (politeness "
+                "unchanged at %.1fs)",
+                target_rpm,
+                highest_rpm,
+                self._current_concurrency,
+                new_concurrency,
+                best_politeness,
+            )
+
+            # Apply the new configuration
+            await self._update_concurrency(new_concurrency)
+
+            # Update tracking variables
+            self._overshoot_count += 1
+            self._current_warmup_factor = max(
+                1.1,
+                self._config.exponential_scaling_factor * (0.9**self._overshoot_count),
+            )
+            self._current_backoff_factor = max(
+                0.5,
+                self._config.backoff_factor * (0.9**self._overshoot_count),
+            )
+            self._cautious_step_size = 1
+            self._in_backoff = True
+            return
+
+        # Fallback to original backoff logic if no RPM history
         # Use current overshoot count to apply backoff, then increment for next
         # time. This way first backoff uses original factors, subsequent ones
         # use reduced factors
@@ -716,6 +762,29 @@ class AdaptiveConcurrencyController:
 
     async def _update_concurrency(self, new_concurrency: int):
         """Update the concurrency limit, preserving existing waiters."""
+        # Record current RPM before adjustment (only if we had successes)
+        current_rpm = self._get_current_rpm()
+        if current_rpm > 0:
+            try:
+                current_politeness = float(self._semaphore._politeness_policy)
+            except (TypeError, AttributeError):
+                current_politeness = self._initial_politeness_policy
+
+            # Only record if this is a successful operating point (low error rate)
+            error_rate = await self._get_error_rate()
+            if error_rate <= self._config.recovery_threshold:
+                self._rpm_history.append(
+                    (current_rpm, self._current_concurrency, current_politeness)
+                )
+                logger.info(
+                    "Recorded successful RPM: %.1f (concurrency=%d, "
+                    "politeness=%.1fs, history depth=%d)",
+                    current_rpm,
+                    self._current_concurrency,
+                    current_politeness,
+                    len(self._rpm_history),
+                )
+
         self._current_concurrency = new_concurrency
         await self._semaphore.adjust_capacity(new_concurrency)
 
@@ -737,46 +806,6 @@ class AdaptiveConcurrencyController:
         except (TypeError, AttributeError):
             # Mocked semaphore in tests
             pass
-
-        # Update politeness policy ONLY if at max concurrency and scaling enabled
-        # This ensures we scale up workers first, then adjust timing between reqs
-        if (
-            self._config.scale_politeness_with_concurrency
-            and new_concurrency == self._config.max_concurrency
-        ):
-            new_politeness = self._calculate_politeness_policy(new_concurrency)
-
-            # Cap politeness at max_politeness_policy threshold
-            # If we need more throttling beyond this cap, reduce workers instead
-            if new_politeness > self._config.max_politeness_policy:
-                logger.warning(
-                    "Calculated politeness (%.2fs) exceeds max threshold "
-                    "(%.2fs). Consider reducing concurrency if errors persist.",
-                    new_politeness,
-                    self._config.max_politeness_policy,
-                )
-                new_politeness = self._config.max_politeness_policy
-
-            # Ensure politeness never drops below 1.0 second
-            new_politeness = max(1.0, new_politeness)
-
-            await self._semaphore.adjust_politeness_policy(new_politeness)
-            target_qpm = self._calculate_target_qpm(new_concurrency)
-
-            # Scale min_update_time with politeness, but keep a floor
-            # This makes the system more responsive at high QPM
-            self._current_min_update_time = max(
-                1.0, self._min_update_time_floor, new_politeness
-            )
-
-            logger.info(
-                "Adjusted politeness policy to %.2fs (target QPM: %.1f, "
-                "min_update_time: %.2fs) for concurrency %d",
-                new_politeness,
-                target_qpm,
-                self._current_min_update_time,
-                new_concurrency,
-            )
 
         await self._reset_outcomes()
         await self._clear_adjustment_state()
