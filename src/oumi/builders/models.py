@@ -49,6 +49,11 @@ try:
 except ImportError:
     onebitllms = None
 
+try:
+    from unsloth import FastLanguageModel  # type: ignore
+except ImportError:
+    FastLanguageModel = None
+
 
 def build_model(
     model_params: ModelParams,
@@ -65,7 +70,13 @@ def build_model(
     Returns:
         model: The built model.
     """
-    if is_custom_model(model_params.model_name):
+    if model_params.enable_unsloth:
+        model = build_unsloth_model(
+            model_params=model_params,
+            peft_params=peft_params,
+            **kwargs,
+        )
+    elif is_custom_model(model_params.model_name):
         model = build_oumi_model(
             model_params=model_params,
             peft_params=peft_params,
@@ -170,6 +181,64 @@ def build_oumi_model(
     model = model.to(dtype=dtype)
     # Needed for MFUTrainerCallback
     model.dtype = dtype
+    return model
+
+
+def build_unsloth_model(
+    model_params: ModelParams,
+    peft_params: Optional[PeftParams] = None,
+    **kwargs,
+) -> nn.Module:
+    """Builds a model using Unsloth's optimized loading."""
+    if FastLanguageModel is None:
+        raise ImportError(
+            "Unsloth not installed. Please install with: pip install unsloth"
+        )
+
+    device_rank_info = get_device_rank_info()
+    if device_rank_info.world_size > 1:
+        raise ValueError(
+            "Unsloth does not support multi-GPU training (FSDP/DDP). "
+            f"Detected world_size={device_rank_info.world_size}. "
+            "Please use single GPU or disable `enable_unsloth`."
+        )
+
+    unsloth_kwargs = {
+        "model_name": model_params.model_name,
+        "dtype": model_params.torch_dtype,
+        "trust_remote_code": model_params.trust_remote_code,
+        "device_map": model_params.device_map or "sequential",
+    }
+
+    if model_params.model_max_length:
+        unsloth_kwargs["max_seq_length"] = model_params.model_max_length
+
+    if model_params.model_revision:
+        unsloth_kwargs["revision"] = model_params.model_revision
+
+    if peft_params and peft_params.q_lora:
+        if peft_params.q_lora_bits == 4:
+            unsloth_kwargs["load_in_4bit"] = True
+            unsloth_kwargs["load_in_8bit"] = False
+        elif peft_params.q_lora_bits == 8:
+            unsloth_kwargs["load_in_4bit"] = False
+            unsloth_kwargs["load_in_8bit"] = True
+    else:
+        unsloth_kwargs.setdefault("load_in_4bit", False)
+
+    unsloth_kwargs.update(model_params.unsloth_kwargs)
+
+    logger.info(
+        f"Loading model with Unsloth: {model_params.model_name} "
+        f"(kwargs: {unsloth_kwargs})"
+    )
+
+    model, _tokenizer = FastLanguageModel.from_pretrained(**unsloth_kwargs)
+
+    if model_params.adapter_model:
+        logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
+        model = PeftModel.from_pretrained(model, model_params.adapter_model)
+
     return model
 
 

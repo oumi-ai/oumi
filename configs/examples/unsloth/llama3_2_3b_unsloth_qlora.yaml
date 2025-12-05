@@ -1,0 +1,74 @@
+# Q-LoRA fine-tuning with Unsloth optimization for Llama 3.2 3B.
+#
+# Unsloth provides 2x faster training and 70% less VRAM through optimized
+# Triton kernels. This config demonstrates 4-bit quantized LoRA (Q-LoRA) training.
+#
+# Requirements:
+#   - Install unsloth: `pip install unsloth`
+#   - NVIDIA GPU with Compute Capability 7.0+ (V100, T4, RTX 20/30/40, A100, H100)
+#   - Single GPU only (multi-GPU not supported with Unsloth)
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.2: https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct
+#
+# Usage:
+#   oumi train -c configs/examples/unsloth/llama3_2_3b_unsloth_qlora.yaml
+#
+# See Also:
+#   - Unsloth docs: https://docs.unsloth.ai
+#   - Config class: oumi.core.configs.TrainingConfig
+
+model:
+  model_name: "unsloth/Llama-3.2-3B-Instruct"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: true
+  enable_unsloth: true
+  unsloth_kwargs:
+    use_gradient_checkpointing: "unsloth"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+    target_col: "output"
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: true
+  num_train_epochs: 1
+  max_steps: 500
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
+
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_steps: 50
+  weight_decay: 0.01
+
+  logging_steps: 10
+  save_steps: 100
+  output_dir: "output/llama3_2_3b_unsloth_qlora"
+  include_performance_metrics: true
+  enable_wandb: false
+
+peft:
+  q_lora: true
+  q_lora_bits: 4
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_compute_dtype: "bfloat16"
+  lora_r: 32
+  lora_alpha: 64
+  lora_dropout: 0.0
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"

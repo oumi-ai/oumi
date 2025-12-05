@@ -34,6 +34,7 @@ from oumi.builders.models import (
     build_model,
     build_peft_model,
     build_tokenizer,
+    build_unsloth_model,
     is_image_text_llm,
 )
 from oumi.builders.optimizers import build_optimizer
@@ -61,6 +62,7 @@ __all__ = [
     "build_trainer",
     "build_tuner",
     "build_training_callbacks",
+    "build_unsloth_model",
     "is_image_text_llm",
     "build_collator_from_config",
 ]

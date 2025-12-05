@@ -196,6 +196,38 @@ class ModelParams(BaseParams):
         model and hardware before use in production.
     """
 
+    enable_unsloth: bool = False
+    """Whether to use Unsloth for optimized model loading and training.
+
+    Unsloth provides 2x faster training and 70% less VRAM usage through
+    optimized Triton kernels. When enabled, models are loaded via
+    `unsloth.FastLanguageModel.from_pretrained()` instead of the standard
+    HuggingFace transformers loading.
+
+    Requirements:
+        - Install unsloth: `pip install unsloth`
+        - NVIDIA GPU with Compute Capability 7.0+ (V100, T4, RTX 20/30/40, A100, H100)
+        - Single GPU only (FSDP/DDP not supported with Unsloth)
+
+    Note:
+        When `enable_unsloth` is True, some ModelParams fields are mapped to
+        Unsloth equivalents. Use `unsloth_kwargs` for Unsloth-specific options.
+    """
+
+    unsloth_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments passed to `FastLanguageModel.from_pretrained()`.
+
+    Common options include:
+        - max_seq_length (int): Maximum sequence length (defaults to model_max_length)
+        - load_in_4bit (bool): Enable 4-bit quantization (default: True)
+        - load_in_8bit (bool): Enable 8-bit quantization (default: False)
+        - use_gradient_checkpointing (str|bool): "unsloth" for optimized checkpointing
+        - fast_inference (bool): Enable vLLM-like inference mode
+        - rope_scaling (dict): RoPE scaling configuration
+
+    These kwargs are passed directly to Unsloth and override any auto-mapped values.
+    """
+
     shard_for_eval: bool = False
     """Whether to shard the model for evaluation.
 
