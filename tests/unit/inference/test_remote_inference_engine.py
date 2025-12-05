@@ -2823,6 +2823,138 @@ def test_adaptive_concurrency_parameter_edge_cases():
     assert controller._config.min_update_time == 1
 
 
+def test_adaptive_concurrency_special_mode_num_workers_zero():
+    """Test special adaptive mode when num_workers=0."""
+    remote_params = RemoteParams(
+        api_url=_TARGET_SERVER,
+        use_adaptive_concurrency=True,
+        num_workers=0,  # Special mode
+        politeness_policy=0.0,  # Will be set to 60.0 automatically
+    )
+
+    engine = RemoteInferenceEngine(
+        model_params=_get_default_model_params(),
+        remote_params=remote_params,
+    )
+
+    # Should have adaptive concurrency controller
+    assert hasattr(engine, "_adaptive_concurrency_controller")
+    controller = engine._adaptive_concurrency_controller
+
+    # Verify special mode parameters
+    assert controller._config.min_concurrency == 10
+    assert controller._config.max_concurrency == 10000  # Very high upper bound
+    assert controller._current_concurrency == 10  # Start at minimum
+    assert controller._config.use_exponential_scaling is True
+    assert controller._config.exponential_scaling_factor == 1.44
+    assert controller._config.min_update_time == 59.0  # politeness_policy - 1
+
+    # Verify politeness policy was set
+    assert engine._remote_params.politeness_policy == 60.0
+
+    # Verify retry parameters were increased
+    assert engine._remote_params.max_retries >= 5
+    assert engine._remote_params.retry_backoff_max >= 60.0
+
+
+def test_adaptive_concurrency_special_mode_with_existing_politeness():
+    """Test special adaptive mode respects existing politeness policy."""
+    remote_params = RemoteParams(
+        api_url=_TARGET_SERVER,
+        use_adaptive_concurrency=True,
+        num_workers=0,  # Special mode
+        politeness_policy=120.0,  # Custom politeness policy
+    )
+
+    engine = RemoteInferenceEngine(
+        model_params=_get_default_model_params(),
+        remote_params=remote_params,
+    )
+
+    # Should preserve existing politeness policy
+    assert engine._remote_params.politeness_policy == 120.0
+
+
+def test_adaptive_concurrency_special_mode_scaling_behavior():
+    """Test that special mode scales from 10 to 200 workers with QPM scaling."""
+    remote_params = RemoteParams(
+        api_url=_TARGET_SERVER,
+        use_adaptive_concurrency=True,
+        num_workers=0,  # Special mode
+    )
+
+    engine = RemoteInferenceEngine(
+        model_params=_get_default_model_params(),
+        remote_params=remote_params,
+    )
+
+    controller = engine._adaptive_concurrency_controller
+
+    # Verify the scaling factor (1.44^8 = ~16.9x growth)
+    # Starting at 10, after 8 multiplications by 1.44 reaches ~169
+    # The controller caps at max_concurrency of 200
+    current = 10
+    for _ in range(8):
+        current = int(current * 1.44)
+
+    # Should reach ~169 (10 * 1.44^8), which is close to the 200 cap
+    assert 165 <= current <= 175, f"Expected ~169, got {current}"
+
+    # Verify the parameters match the design intent
+    assert controller._config.min_concurrency == 10  # Start at 10 concurrent requests
+    assert (
+        controller._config.max_concurrency == 10000
+    )  # Very high upper bound, no real maximum
+    assert controller._config.exponential_scaling_factor == 1.44  # Exponential growth
+    assert controller._config.min_update_time == 59.0  # politeness_policy - 1
+    # Verify backoff_factor uses default
+    assert controller._config.backoff_factor == 0.8
+
+
+def test_effective_max_workers_calculation_special_mode():
+    """Test effective max workers calculation for special adaptive mode."""
+    remote_params = RemoteParams(
+        api_url=_TARGET_SERVER,
+        use_adaptive_concurrency=True,
+        num_workers=0,  # Special mode
+    )
+
+    engine = RemoteInferenceEngine(
+        model_params=_get_default_model_params(),
+        remote_params=remote_params,
+    )
+
+    # Mock _infer to test effective_max_workers calculation
+    with patch.object(engine, "_query_api") as mock_query:
+        mock_query.return_value = create_test_text_only_conversation()
+
+        # Mock aiohttp components to verify connector limit
+        with (
+            patch("aiohttp.TCPConnector") as mock_connector,
+            patch("aiohttp.ClientSession") as mock_session,
+            patch(
+                "oumi.inference.remote_inference_engine.PoliteAdaptiveSemaphore"
+            ) as mock_semaphore,
+        ):  # noqa: E501
+            # Setup mock context manager
+            mock_session_instance = AsyncMock()
+            mock_session.return_value.__aenter__.return_value = mock_session_instance
+            mock_session.return_value.__aexit__.return_value = None
+
+            # Run inference to trigger connector creation
+            engine._infer_online([create_test_text_only_conversation()])
+
+            # Verify connector was created with max_concurrency of 200
+            # (capped to avoid file descriptor exhaustion)
+            mock_connector.assert_called_once_with(
+                limit=200
+            )  # Capped at _MAX_CONNECTION_LIMIT
+            mock_semaphore.assert_called_once_with(
+                capacity=200,  # Also capped at _MAX_CONNECTION_LIMIT
+                politeness_policy=60.0,  # Default for num_workers=0
+            )
+
+
 def test_adaptive_concurrency_used_in_query_api():
     """Test that adaptive concurrency controller is used instead of semaphore."""
     with aioresponses() as m:

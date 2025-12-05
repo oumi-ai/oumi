@@ -13,14 +13,20 @@
 # limitations under the License.
 
 import asyncio
+import logging
 import time
 from collections import deque
 
 from oumi.core.async_utils import safe_asyncio_run
 
+logger = logging.getLogger(__name__)
+
 
 class AdaptiveSemaphore:
-    """A semaphore that can dynamically adjust capacity while preserving waiters."""
+    """A semaphore that can dynamically adjust capacity.
+
+    Preserves waiters during capacity adjustments.
+    """
 
     def __init__(self, initial_capacity: int):
         """Initialize the adaptive semaphore.
@@ -106,14 +112,15 @@ class AdaptiveSemaphore:
 
     async def adjust_capacity(self, new_capacity: int):
         """Adjust the semaphore capacity, handling waiters appropriately."""
-        if new_capacity <= 0:
-            raise ValueError("New capacity must be greater than 0.")
+        if new_capacity < 0:
+            raise ValueError("New capacity must be non-negative.")
 
         async with self._lock:
             capacity_change = new_capacity - self._max_capacity
             self._max_capacity = new_capacity
             self._current_capacity += capacity_change
-            self._current_capacity = max(self._current_capacity, 0)
+            # Allow negative capacity to track excess active workers
+            # during backoff
 
             # If we increased capacity, wake up waiters
             if capacity_change > 0:
@@ -128,67 +135,173 @@ class AdaptiveSemaphore:
                         self._current_capacity -= 1
                         waiter.set_result(None)
                         woken += 1
+                logger.info(
+                    "Adjusted capacity: %d → %d (woke %d waiters)",
+                    new_capacity - capacity_change,
+                    new_capacity,
+                    woken,
+                )
 
-            # If we decreased capacity below current usage, we don't forcibly
-            # revoke permits, but future acquires will be limited by the new capacity
+            # If we decreased capacity below current usage, we don't
+            # forcibly revoke permits, but future acquires will be
+            # limited by the new capacity
 
 
 class PoliteAdaptiveSemaphore(AdaptiveSemaphore):
-    """A semaphore that enforces a politeness policy."""
+    """A semaphore that enforces rate limiting.
+
+    Based on capacity and politeness.
+
+    This semaphore grants permits at a controlled rate:
+    capacity / politeness_policy permits per second. For example, with
+    capacity=60 and politeness_policy=60s, the semaphore grants 1 permit
+    per second.
+
+    The base AdaptiveSemaphore handles capacity limiting
+    (max N concurrent workers), while this class adds rate limiting on top
+    (max R grants per second).
+    """
 
     def __init__(self, capacity: int, politeness_policy: float):
-        """A semaphore that enforces a politeness policy.
+        """Initialize the rate-limited adaptive semaphore.
 
         Args:
             capacity: The maximum number of concurrent tasks.
-            politeness_policy: The politeness policy in seconds.
+            politeness_policy: The politeness policy in seconds
+                (time window for rate limiting).
         """
         self._politeness_policy = politeness_policy
         super().__init__(initial_capacity=capacity)
-        self._queue: deque[float] = deque([-1] * capacity)
 
-    def _get_wait_time(self) -> float:
-        """Calculates the time to wait after acquiring the semaphore.
+        # Track active workers separately from capacity
+        # This helps during backoff to know when workers have drained
+        self._active_workers = 0
+        self._active_lock = asyncio.Lock()
 
-        Returns a negative number if no wait is needed.
+        # Lock to prevent concurrent capacity adjustments
+        self._adjustment_lock = asyncio.Lock()
+
+        # Rate limiting state
+        self._last_grant_time = 0.0  # Last time we granted a permit
+        self._grant_lock = asyncio.Lock()  # Serialize grant timing
+
+        # Event to signal when capacity becomes non-zero
+        self._capacity_available = asyncio.Event()
+        if capacity > 0:
+            self._capacity_available.set()
+
+    def _calculate_min_interval(self) -> float:
+        """Calculate minimum time between grants based on current capacity.
 
         Returns:
-            The time to wait to acquire the semaphore.
+            Minimum seconds between permits (politeness_policy / capacity).
         """
-        if len(self._queue) == 0:
-            return -1
-        next_start_time = self._queue.popleft()
-        if next_start_time == -1:
-            return next_start_time
-        return next_start_time - time.time()
-
-    async def adjust_capacity(self, new_capacity: int):
-        """Adjust the semaphore capacity."""
-        await super().adjust_capacity(new_capacity)
-        # If we decrease capacity, we should remove the oldest values from the queue.
-        if len(self._queue) > new_capacity:
-            for _ in range(len(self._queue) - new_capacity):
-                self._queue.popleft()
-        # If we increase capacity, we should pad the queue with -1.
-        elif len(self._queue) < new_capacity:
-            for _ in range(new_capacity - len(self._queue)):
-                self._queue.append(-1)
+        if self._max_capacity == 0:
+            return float("inf")  # No permits granted when capacity is 0
+        return self._politeness_policy / self._max_capacity
 
     async def acquire(self):
-        """Acquires the semaphore and waits for the politeness policy to be respected.
+        """Acquire a permit with rate limiting.
 
-        If the queue is empty, no wait is needed.
+        First acquires from the base semaphore (capacity limiting),
+        then enforces rate limiting by ensuring minimum interval between
+        grants.
         """
+        # First acquire from base semaphore (capacity limiting)
         await super().acquire()
-        wait_time = self._get_wait_time()
-        if wait_time > 0:
-            await asyncio.sleep(wait_time)
+
+        async with self._grant_lock:
+            # Wait for capacity to become non-zero
+            await self._capacity_available.wait()
+
+            async with self._adjustment_lock:
+                min_interval = self._calculate_min_interval()
+            try:
+                now_float = float(time.time())
+                last_grant_float = float(self._last_grant_time)
+                time_since_last = now_float - last_grant_float
+                if time_since_last < min_interval:
+                    await asyncio.sleep(min_interval - time_since_last)
+                self._last_grant_time = time.time()
+            except (TypeError, ValueError):
+                # Handle mocked time in tests
+                self._last_grant_time = time.time()
+
+        # Increment active worker count
+        async with self._active_lock:
+            self._active_workers += 1
+
+    async def pause_for_cooldown(self, cooldown_seconds: float):
+        """Pause for cooldown."""
+        await asyncio.sleep(cooldown_seconds)
 
     async def _release_async(self):
-        """Releases the semaphore.
+        """Release a permit."""
+        # Decrement active worker count
+        async with self._active_lock:
+            self._active_workers = max(0, self._active_workers - 1)
 
-        Adds the current time to the queue. So the next task will wait for the
-        politeness policy to be respected.
-        """
-        self._queue.append(time.time() + self._politeness_policy)
         await super()._release_async()
+
+    async def adjust_capacity(self, new_capacity: int):
+        """Adjust the semaphore capacity.
+
+        With the rate-based approach, capacity adjustments are simple:
+        just update the capacity and the rate calculation automatically
+        adjusts.
+        """
+        if new_capacity < 0:
+            raise ValueError("New capacity must be non-negative.")
+
+        # Acquire adjustment lock to prevent concurrent capacity adjustments
+        async with self._adjustment_lock:
+            old_capacity = self._max_capacity
+            old_rate = self._calculate_min_interval()
+
+            # Just update the base capacity
+            await super().adjust_capacity(new_capacity)
+
+            # Update the capacity available event
+            if new_capacity > 0:
+                self._capacity_available.set()
+            else:
+                self._capacity_available.clear()
+
+            new_rate = self._calculate_min_interval()
+            logger.info(
+                "Rate-limited capacity adjustment: %d → %d "
+                "(rate: %.3fs → %.3fs per permit, target QPM: %.1f → %.1f)",
+                old_capacity,
+                new_capacity,
+                old_rate,
+                new_rate,
+                (60.0 / old_rate) if old_rate > 0 else 0,
+                (60.0 / new_rate) if new_rate > 0 else 0,
+            )
+
+    async def adjust_politeness_policy(self, new_politeness: float):
+        """Adjust the politeness policy.
+
+        Args:
+            new_politeness: The new politeness policy in seconds.
+        """
+        if new_politeness <= 0:
+            raise ValueError("Politeness policy must be greater than 0.")
+
+        async with self._adjustment_lock:
+            old_politeness = self._politeness_policy
+            old_rate = self._calculate_min_interval()
+
+            self._politeness_policy = new_politeness
+
+            new_rate = self._calculate_min_interval()
+        logger.info(
+            "Politeness adjustment: %.1fs → %.1fs "
+            "(rate: %.3fs → %.3fs per permit, target QPM: %.1f → %.1f)",
+            old_politeness,
+            new_politeness,
+            old_rate,
+            new_rate,
+            (60.0 / old_rate) if old_rate > 0 else 0,
+            (60.0 / new_rate) if new_rate > 0 else 0,
+        )
