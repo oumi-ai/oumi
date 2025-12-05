@@ -124,6 +124,8 @@ class AdaptiveConcurrencyController:
         self._logged_backoff_warning = False
         self._logged_warmup_warning = False
 
+        self._cooldown_lock = asyncio.Lock()
+
     async def record_success(self):
         """Record a successful outcome."""
         async with self._outcome_lock:
@@ -221,7 +223,15 @@ class AdaptiveConcurrencyController:
 
     async def acquire(self):
         """Acquire a permit, then try to adjust concurrency before returning."""
+        logger.info(
+            "PERMIT ACQUIRE: Attempting to acquire permit (current capacity: %d)",
+            self._current_concurrency,
+        )
         await self._semaphore.acquire()
+        logger.info(
+            "PERMIT ACQUIRED: Successfully acquired permit (current capacity: %d)",
+            self._current_concurrency,
+        )
 
         # Initialize adjustment timer on first permit to ignore startup delay
         if not self._first_permit_granted:
@@ -232,7 +242,15 @@ class AdaptiveConcurrencyController:
 
     def release(self):
         """Release a permit."""
+        logger.info(
+            "PERMIT RELEASE: Releasing permit (current capacity: %d)",
+            self._current_concurrency,
+        )
         self._semaphore.release()
+        logger.info(
+            "PERMIT RELEASED: Successfully released permit (current capacity: %d)",
+            self._current_concurrency,
+        )
 
     async def __aenter__(self):
         """Enter the context manager."""
@@ -323,13 +341,11 @@ class AdaptiveConcurrencyController:
         if not self._outcomes or len(self._outcomes) < self._config.min_window_size:
             return
 
-        # If we haven't reached the update time, do nothing
-        time_since_last_adjustment = time.time() - self._last_adjustment_time
-        if time_since_last_adjustment < self._current_min_update_time:
-            return
-
-        # Check if we need to backoff due to high error rate
+        # Check error rate first for early backoff detection
         error_rate = await self._get_error_rate()
+
+        # If error rate is high, allow immediate backoff even before min_update_time
+        # This makes the system reactive to problems
         if error_rate >= self._config.error_threshold and not self._in_backoff:
             async with self._outcome_lock:
                 total_outcomes = len(self._outcomes)
@@ -352,6 +368,13 @@ class AdaptiveConcurrencyController:
                 self._config.error_threshold * 100,
             )
             await self._try_backoff()
+            # Apply cooldown to allow server-side token bucket recovery
+            await self._apply_cooldown()
+            return
+
+        # For recovery and warmup, enforce min_update_time to prevent thrashing
+        time_since_last_adjustment = time.time() - self._last_adjustment_time
+        if time_since_last_adjustment < self._current_min_update_time:
             return
 
         # Check if we can recover from backoff
@@ -380,6 +403,8 @@ class AdaptiveConcurrencyController:
                     # Skip additional backoff if burst backoff is in progress
                     if not self._burst_backoff_in_progress:
                         await self._try_backoff()
+                        # Apply cooldown to allow server-side token bucket recovery
+                        await self._apply_cooldown()
                     else:
                         logger.debug(
                             "Skipping additional backoff - burst backoff in progress"
@@ -394,76 +419,26 @@ class AdaptiveConcurrencyController:
         self._consecutive_good_windows_since_last_update = 0
         self._consecutive_error_windows_since_last_update = 0
 
-    async def _wait_for_worker_drain(self, target_capacity: int):
-        """Wait for active workers to drain to target capacity.
+    async def _apply_cooldown(self):
+        """Apply a cooldown period to allow server-side token bucket recovery.
 
-        After a backoff, the semaphore capacity is reduced but existing workers
-        are still finishing their requests. This method waits for the active
-        worker count to drop to the new target capacity before resuming normal
-        operation, preventing cascading backoffs.
-
-        Args:
-            target_capacity: The new capacity we backed off to.
+        After backoff, temporarily set capacity to 0, sleep for 5 seconds
+        to give the server's rate limiting token bucket time to refill,
+        then restore the backoff capacity.
         """
-        start_time = time.time()
-        initial_active = self._semaphore._active_workers
+        cooldown_seconds = 5
 
-        # Only wait if we have excess workers
-        if initial_active <= target_capacity:
-            logger.info(
-                "No worker drain needed: active=%d, target=%d",
-                initial_active,
-                target_capacity,
-            )
-            return
-
-        logger.info(
-            "Waiting for workers to drain: %d → %d (excess: %d)",
-            initial_active,
-            target_capacity,
-            initial_active - target_capacity,
-        )
-
-        while self._semaphore._active_workers > target_capacity:
-            elapsed = time.time() - start_time
-            if elapsed > 60:  # Safety timeout
-                logger.warning(
-                    "Worker drain timeout after %.1fs, active=%d, target=%d",
-                    elapsed,
-                    self._semaphore._active_workers,
-                    target_capacity,
-                )
-                break
-            await asyncio.sleep(0.5)
-
-        drain_time = time.time() - start_time
-        final_active = self._semaphore._active_workers
-        logger.info(
-            "Workers drained: %d → %d (target: %d) in %.1fs",
-            initial_active,
-            final_active,
-            target_capacity,
-            drain_time,
-        )
-
-        # Add cooldown period after drain to let token bucket refill
-        # During drain, requests were still hitting the server keeping bucket depleted
-        # Use a fixed 60s cooldown to ensure token bucket fully recovers
-        cooldown_seconds = 60
-
-        logger.info(
-            "Entering cooldown period: %.1fs (to allow token bucket recovery)",
-            cooldown_seconds,
-        )
-        # Enter cooldown mode to block new acquisitions during cooldown
-        await self._semaphore.enter_cooldown_mode()
-        await asyncio.sleep(cooldown_seconds)
-        # Exit cooldown mode to resume normal operations
-        await self._semaphore.exit_cooldown_mode()
-
-        # Reset outcomes after cooldown to have clean slate for next phase
-        await self._reset_outcomes()
-        logger.info("Cooldown complete, resuming normal operations")
+        # Restore capacity to the backoff level
+        logger.info("ACC: Attempting to pause for cooldown (%.1fs)", cooldown_seconds)
+        current_capacity = self._current_concurrency
+        logger.info("ACC: Current capacity: %d", current_capacity)
+        await self._semaphore.adjust_capacity(0)
+        logger.info("ACC: Successfully adjusted capacity to 0")
+        async with self._cooldown_lock:
+            await self._semaphore.pause_for_cooldown(cooldown_seconds)
+        logger.info("ACC: Successfully paused for cooldown (%.1fs)", cooldown_seconds)
+        await self._semaphore.adjust_capacity(current_capacity)
+        logger.info("ACC: Successfully adjusted capacity to %d", current_capacity)
 
     async def _immediate_burst_backoff(self):
         """Handle immediate backoff when error burst is detected.
@@ -475,10 +450,6 @@ class AdaptiveConcurrencyController:
         try:
             logger.info("Executing immediate burst backoff...")
             await self._try_backoff()
-
-            # Wait for excess workers to finish before resuming
-            # This prevents cascading backoffs when token bucket is depleted
-            await self._wait_for_worker_drain(self._current_concurrency)
         finally:
             # Always clear the flag, even if backoff fails
             self._burst_backoff_in_progress = False
@@ -685,6 +656,19 @@ class AdaptiveConcurrencyController:
                     self._cautious_step_size * 2,
                     self._config.max_concurrency,  # Cap at max to avoid overflow
                 )
+
+                # Push current concurrency to good stack during slow-start
+                # Since we're here, we've succeeded at this level
+                if (
+                    not self._good_concurrency_stack
+                    or self._good_concurrency_stack[-1] != self._current_concurrency
+                ):
+                    self._good_concurrency_stack.append(self._current_concurrency)
+                    logger.info(
+                        "Added concurrency %d to good stack (stack depth: %d)",
+                        self._current_concurrency,
+                        len(self._good_concurrency_stack),
+                    )
             else:
                 # Use current (possibly reduced) warmup factor
                 new_concurrency = min(
@@ -776,7 +760,7 @@ class AdaptiveConcurrencyController:
             # Ensure politeness never drops below 1.0 second
             new_politeness = max(1.0, new_politeness)
 
-            self._semaphore.adjust_politeness_policy(new_politeness)
+            await self._semaphore.adjust_politeness_policy(new_politeness)
             target_qpm = self._calculate_target_qpm(new_concurrency)
 
             # Scale min_update_time with politeness, but keep a floor

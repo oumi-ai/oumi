@@ -559,24 +559,25 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             if self._remote_params.use_adaptive_concurrency
             else semaphore
         )
-        async with semaphore_or_controller:
-            api_input = self._convert_conversation_to_api_input(
-                conversation, generation_params, model_params
-            )
-            headers = self._get_request_headers(remote_params)
-            failure_reason = None
+        api_input = self._convert_conversation_to_api_input(
+            conversation, generation_params, model_params
+        )
+        headers = self._get_request_headers(remote_params)
+        failure_reason = None
 
-            # Retry the request if it fails
-            for attempt in range(remote_params.max_retries + 1):
-                try:
-                    # Calculate exponential backoff delay
-                    if attempt > 0:
-                        delay = min(
-                            remote_params.retry_backoff_base * (2 ** (attempt - 1)),
-                            remote_params.retry_backoff_max,
-                        )
-                        await asyncio.sleep(delay)
+        # Retry the request if it fails
+        for attempt in range(remote_params.max_retries + 1):
+            try:
+                # Calculate exponential backoff delay (without holding permit)
+                if attempt > 0:
+                    delay = min(
+                        remote_params.retry_backoff_base * (2 ** (attempt - 1)),
+                        remote_params.retry_backoff_max,
+                    )
+                    await asyncio.sleep(delay)
 
+                # Acquire permit for this attempt
+                async with semaphore_or_controller:
                     async with session.post(
                         remote_params.api_url,
                         json=api_input,
@@ -649,44 +650,44 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                 raise RuntimeError(failure_reason) from e
                             continue
 
-                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                    # Connection or timeout errors are retriable.
-                    failure_reason = f"Connection error: {str(e)}"
-                    await self._try_record_error()
-                    logger.error(
-                        "Connection error at %s: %s",
-                        time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-                        failure_reason,
-                    )
-                    if attempt >= remote_params.max_retries:
-                        raise RuntimeError(
-                            f"Failed to query API after {attempt + 1} attempts due to "
-                            f"connection error: {str(e)}"
-                        ) from e
-                    continue
-                except RuntimeError:
-                    # RuntimeError is raised by our code, so we don't need to retry.
-                    raise
-                except Exception as e:
-                    # If we get here, we've hit an unexpected error.
-                    failure_reason = f"Unexpected error: {str(e)}"
-                    await self._try_record_error()
-                    logger.error(
-                        "Unexpected error at %s: %s",
-                        time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-                        failure_reason,
-                    )
-                    if attempt >= remote_params.max_retries:
-                        raise RuntimeError(
-                            f"Failed to query API after {attempt + 1} attempts due to "
-                            f"unexpected error: {str(e)}"
-                        ) from e
-                    continue
-            # This should only be reached if all retries failed
-            raise RuntimeError(
-                f"Failed to query API after {attempt + 1} attempts. "
-                + (f"Reason: {failure_reason}" if failure_reason else "")
-            )
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                # Connection or timeout errors are retriable.
+                failure_reason = f"Connection error: {str(e)}"
+                await self._try_record_error()
+                logger.error(
+                    "Connection error at %s: %s",
+                    time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                    failure_reason,
+                )
+                if attempt >= remote_params.max_retries:
+                    raise RuntimeError(
+                        f"Failed to query API after {attempt + 1} attempts due to "
+                        f"connection error: {str(e)}"
+                    ) from e
+                continue
+            except RuntimeError:
+                # RuntimeError is raised by our code, so we don't need to retry.
+                raise
+            except Exception as e:
+                # If we get here, we've hit an unexpected error.
+                failure_reason = f"Unexpected error: {str(e)}"
+                await self._try_record_error()
+                logger.error(
+                    "Unexpected error at %s: %s",
+                    time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                    failure_reason,
+                )
+                if attempt >= remote_params.max_retries:
+                    raise RuntimeError(
+                        f"Failed to query API after {attempt + 1} attempts due to "
+                        f"unexpected error: {str(e)}"
+                    ) from e
+                continue
+        # This should only be reached if all retries failed
+        raise RuntimeError(
+            f"Failed to query API after {attempt + 1} attempts. "
+            + (f"Reason: {failure_reason}" if failure_reason else "")
+        )
 
     async def _infer(
         self,

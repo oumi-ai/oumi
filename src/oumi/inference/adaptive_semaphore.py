@@ -41,7 +41,6 @@ class AdaptiveSemaphore:
         self._current_capacity = initial_capacity
         self._waiters: deque = deque()
         self._lock = asyncio.Lock()
-        self._cooldown_mode = False  # Block new acquisitions during cooldown
 
     async def __aenter__(self):
         """Enter the context manager."""
@@ -84,6 +83,10 @@ class AdaptiveSemaphore:
         finally:
             await self._remove_waiter_from_queue(waiter_future)
 
+        logger.info(
+            "ADAPTIVE SEMAPHORE: Acquired permit (current capacity: %d)",
+            self._current_capacity,
+        )
         return True
 
     async def _remove_waiter_from_queue(self, waiter: asyncio.Future):
@@ -99,11 +102,6 @@ class AdaptiveSemaphore:
         async with self._lock:
             self._current_capacity = min(self._current_capacity + 1, self._max_capacity)
 
-            # During cooldown, don't wake up waiters to allow token
-            # bucket to refill
-            if self._cooldown_mode:
-                return
-
             # Wake up the next waiter if any
             while self._waiters and self._current_capacity > 0:
                 waiter = self._waiters.popleft()
@@ -112,14 +110,19 @@ class AdaptiveSemaphore:
                     waiter.set_result(None)
                     break
 
+            logger.info(
+                "ADAPTIVE SEMAPHORE: Released permit (current capacity: %d)",
+                self._current_capacity,
+            )
+
     def release(self):
         """Release a permit."""
         safe_asyncio_run(self._release_async())
 
     async def adjust_capacity(self, new_capacity: int):
         """Adjust the semaphore capacity, handling waiters appropriately."""
-        if new_capacity <= 0:
-            raise ValueError("New capacity must be greater than 0.")
+        if new_capacity < 0:
+            raise ValueError("New capacity must be non-negative.")
 
         async with self._lock:
             capacity_change = new_capacity - self._max_capacity
@@ -151,26 +154,6 @@ class AdaptiveSemaphore:
             # If we decreased capacity below current usage, we don't
             # forcibly revoke permits, but future acquires will be
             # limited by the new capacity
-
-    async def enter_cooldown_mode(self):
-        """Enter cooldown mode - block new worker acquisitions."""
-        async with self._lock:
-            self._cooldown_mode = True
-
-    async def exit_cooldown_mode(self):
-        """Exit cooldown mode.
-
-        Resume normal operations and wake pending waiters.
-        """
-        async with self._lock:
-            self._cooldown_mode = False
-            # Wake up waiters that were blocked during cooldown
-            while self._waiters and self._current_capacity > 0:
-                waiter = self._waiters.popleft()
-                if not waiter.cancelled():
-                    self._current_capacity -= 1
-                    waiter.set_result(None)
-                    break
 
 
 class PoliteAdaptiveSemaphore(AdaptiveSemaphore):
@@ -211,12 +194,19 @@ class PoliteAdaptiveSemaphore(AdaptiveSemaphore):
         self._last_grant_time = 0.0  # Last time we granted a permit
         self._grant_lock = asyncio.Lock()  # Serialize grant timing
 
+        # Event to signal when capacity becomes non-zero
+        self._capacity_available = asyncio.Event()
+        if capacity > 0:
+            self._capacity_available.set()
+
     def _calculate_min_interval(self) -> float:
         """Calculate minimum time between grants based on current capacity.
 
         Returns:
             Minimum seconds between permits (politeness_policy / capacity).
         """
+        if self._max_capacity == 0:
+            return float("inf")  # No permits granted when capacity is 0
         return self._politeness_policy / self._max_capacity
 
     async def acquire(self):
@@ -229,30 +219,50 @@ class PoliteAdaptiveSemaphore(AdaptiveSemaphore):
         # First acquire from base semaphore (capacity limiting)
         await super().acquire()
 
-        # Then rate-limit using grant timing
         async with self._grant_lock:
-            now = time.time()
-            min_interval = self._calculate_min_interval()
-            time_since_last = now - self._last_grant_time
+            # Wait for capacity to become non-zero
+            await self._capacity_available.wait()
 
-            # If not enough time has passed since last grant, wait
-            if time_since_last < min_interval and self._last_grant_time > 0:
-                wait_time = min_interval - time_since_last
-                await asyncio.sleep(wait_time)
-
+            async with self._adjustment_lock:
+                min_interval = self._calculate_min_interval()
+            time_since_last = time.time() - self._last_grant_time
+            if time_since_last < min_interval:
+                await asyncio.sleep(min_interval - time_since_last)
             self._last_grant_time = time.time()
 
         # Increment active worker count
         async with self._active_lock:
             self._active_workers += 1
 
+    async def pause_for_cooldown(self, cooldown_seconds: float):
+        """Pause for cooldown."""
+        logger.info(
+            "POLITE ADAPTIVE SEMAPHORE: Pausing for cooldown (%.1fs)",
+            cooldown_seconds,
+        )
+        await asyncio.sleep(cooldown_seconds)
+
     async def _release_async(self):
         """Release a permit."""
         # Decrement active worker count
         async with self._active_lock:
             self._active_workers = max(0, self._active_workers - 1)
+            logger.info(
+                "Releasing permit: active_workers=%d, max_capacity=%d, "
+                "current_capacity=%d",
+                self._active_workers,
+                self._max_capacity,
+                self._current_capacity,
+            )
 
         await super()._release_async()
+
+        # Log after release
+        logger.info(
+            "Released permit: max_capacity=%d, current_capacity=%d",
+            self._max_capacity,
+            self._current_capacity,
+        )
 
     async def adjust_capacity(self, new_capacity: int):
         """Adjust the semaphore capacity.
@@ -261,8 +271,8 @@ class PoliteAdaptiveSemaphore(AdaptiveSemaphore):
         just update the capacity and the rate calculation automatically
         adjusts.
         """
-        if new_capacity <= 0:
-            raise ValueError("New capacity must be greater than 0.")
+        if new_capacity < 0:
+            raise ValueError("New capacity must be non-negative.")
 
         # Acquire adjustment lock to prevent concurrent capacity adjustments
         async with self._adjustment_lock:
@@ -271,6 +281,12 @@ class PoliteAdaptiveSemaphore(AdaptiveSemaphore):
 
             # Just update the base capacity
             await super().adjust_capacity(new_capacity)
+
+            # Update the capacity available event
+            if new_capacity > 0:
+                self._capacity_available.set()
+            else:
+                self._capacity_available.clear()
 
             new_rate = self._calculate_min_interval()
             logger.info(
@@ -284,7 +300,7 @@ class PoliteAdaptiveSemaphore(AdaptiveSemaphore):
                 (60.0 / new_rate) if new_rate > 0 else 0,
             )
 
-    def adjust_politeness_policy(self, new_politeness: float):
+    async def adjust_politeness_policy(self, new_politeness: float):
         """Adjust the politeness policy.
 
         Args:
@@ -293,12 +309,13 @@ class PoliteAdaptiveSemaphore(AdaptiveSemaphore):
         if new_politeness <= 0:
             raise ValueError("Politeness policy must be greater than 0.")
 
-        old_politeness = self._politeness_policy
-        old_rate = self._calculate_min_interval()
+        async with self._adjustment_lock:
+            old_politeness = self._politeness_policy
+            old_rate = self._calculate_min_interval()
 
-        self._politeness_policy = new_politeness
+            self._politeness_policy = new_politeness
 
-        new_rate = self._calculate_min_interval()
+            new_rate = self._calculate_min_interval()
         logger.info(
             "Politeness adjustment: %.1fs → %.1fs "
             "(rate: %.3fs → %.3fs per permit, target QPM: %.1f → %.1f)",
