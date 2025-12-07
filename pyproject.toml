@@ -169,6 +169,7 @@ analyze = [
     "scikit-learn>=1.3.0",          # For clustering in EmbeddingAnalyzer
     "tiktoken>=0.7.0",              # For GPT-style token counting in LengthAnalyzer
     "datasketch>=1.6.0",            # For MinHash fuzzy duplicate detection
+    "fast-langdetect>=0.2.0",       # For FastTextAnalyzer language detection
 ]
 
 quantization = ["autoawq>=0.2,<0.3", "bitsandbytes>=0.47,<0.49"]

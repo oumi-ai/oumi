@@ -1,0 +1,169 @@
+# Duplicate Detection Analysis Configuration
+# Usage: oumi analyze --config configs/examples/analyze/analyze_dedup.yaml
+#
+# This configuration runs comprehensive duplicate detection on the full
+# alpaca dataset using both semantic (embedding-based) and fuzzy (MinHash)
+# duplicate detection methods.
+#
+# Requirements:
+#   pip install 'oumi[analyze]'  # Includes sentence-transformers, datasketch
+#
+# Output files:
+#   - message_analysis.csv: Per-message metrics with duplicate flags
+#   - conversation_analysis.csv: Per-conversation aggregated metrics
+#   - analysis_summary.json: Statistical summary with duplicate counts
+#   - analysis_report.html: Interactive HTML report
+#
+# Expected runtime: ~10-30 minutes for full dataset (depends on hardware)
+# GPU recommended for faster embedding computation
+
+# Dataset configuration - FULL alpaca dataset
+dataset_name: yahma/alpaca-cleaned
+split: train
+# No sample_count = process entire dataset (~52k samples)
+
+# Output configuration
+output_path: ./analysis_output/dedup
+generate_report: true
+report_title: "Alpaca Dataset Duplicate Analysis"
+
+# Recommendation settings
+generate_recommendations: true
+
+analyzers:
+  # ==========================================================================
+  # EMBEDDING ANALYZER - Comprehensive duplicate detection
+  # ==========================================================================
+  - id: embedding
+    params:
+      # Model configuration
+      model_name: all-MiniLM-L6-v2  # Fast, good quality (384 dims)
+      # Alternative: all-mpnet-base-v2 (768 dims, slower but more accurate)
+      batch_size: 64                 # Increase if you have more GPU memory
+      device: null                   # Auto-detect (uses GPU if available)
+
+      # ----- Semantic Duplicate Detection (Embedding-based) -----
+      # Catches: Paraphrases, same meaning with different wording
+      # Method: Cosine similarity between embedding vectors
+      # Speed: O(n²) - slower, but catches semantic duplicates
+      detect_duplicates: true
+      duplicate_threshold: 0.95      # High threshold = only very similar
+      # Try 0.90 for more aggressive dedup, 0.98 for conservative
+
+      # ----- Fuzzy Duplicate Detection (MinHash LSH) -----
+      # Catches: Near-exact copies, minor edits, copy-paste variants
+      # Method: Jaccard similarity via MinHash with LSH indexing
+      # Speed: O(n) - very fast even for large datasets
+      detect_fuzzy_duplicates: true
+      fuzzy_threshold: 0.8           # Jaccard similarity threshold
+      fuzzy_ngram_size: 3            # Character n-gram size
+      fuzzy_num_perm: 128            # MinHash permutations (accuracy vs speed)
+      # Higher num_perm = more accurate but slower
+
+      # Clustering (optional - useful for grouping similar content)
+      cluster_samples: false         # Set true to cluster by topic
+      # clustering_method: dbscan    # or "kmeans"
+      # eps: 0.5                     # DBSCAN epsilon
+      # min_samples: 2               # DBSCAN min samples
+
+      # Don't store embeddings (saves memory)
+      store_embeddings: false
+
+  # ==========================================================================
+  # LENGTH ANALYZER - Token counts for context analysis
+  # ==========================================================================
+  - id: length
+    params:
+      char_count: false
+      word_count: true
+      sentence_count: false
+      token_count: true              # Uses tiktoken o200k_base
+
+  # ==========================================================================
+  # DIVERSITY ANALYZER - Vocabulary metrics
+  # ==========================================================================
+  - id: diversity
+    params:
+      unique_words_ratio: true
+      type_token_ratio: true
+      vocabulary_richness: false     # Disabled for speed on large dataset
+      hapax_legomena_ratio: false
+      case_sensitive: false
+
+  # ==========================================================================
+  # QUALITY ANALYZER - Data quality checks
+  # ==========================================================================
+  - id: quality
+    params:
+      detect_pii: true
+      detect_encoding_issues: true
+      detect_special_tokens: true
+      detect_repetition: true
+      repetition_ngram_size: 3
+      repetition_threshold: 0.3
+      compute_quality_score: true
+
+  # ==========================================================================
+  # TRAINING QUALITY ANALYZER - SFT effectiveness metrics
+  # ==========================================================================
+  - id: training_quality
+    params:
+      compute_instruction_clarity: true
+      compute_response_completeness: true
+      compute_turn_quality: true
+
+  # ==========================================================================
+  # COST ANALYZER - Context window utilization
+  # ==========================================================================
+  - id: cost
+    params:
+      target_context_windows: [4096, 8192, 16384]
+      compute_packing_efficiency: true
+
+# ==========================================================================
+# OUTPUT COLUMNS REFERENCE
+# ==========================================================================
+#
+# Semantic duplicates (embedding-based):
+#   - text_content_embedding_has_semantic_duplicate: Boolean
+#   - text_content_embedding_duplicate_group: Integer group ID
+#
+# Fuzzy duplicates (MinHash-based):
+#   - text_content_embedding_has_fuzzy_duplicate: Boolean
+#   - text_content_embedding_fuzzy_duplicate_group: Integer group ID
+#   - text_content_embedding_fuzzy_jaccard_score: 0-1 similarity
+#
+# ==========================================================================
+# INTERPRETING RESULTS
+# ==========================================================================
+#
+# After running, check these key metrics in analysis_summary.json:
+#
+# 1. Semantic duplicate ratio:
+#    - High (>5%): Dataset may have paraphrased duplicates
+#    - Action: Review samples with same duplicate_group
+#
+# 2. Fuzzy duplicate ratio:
+#    - High (>5%): Dataset may have copy-paste duplicates
+#    - Action: Consider deduplication before training
+#
+# 3. Samples flagged by BOTH methods:
+#    - These are high-confidence duplicates
+#    - Safe to remove for training
+#
+# ==========================================================================
+# PERFORMANCE TIPS
+# ==========================================================================
+#
+# For faster processing:
+#   - Use GPU (automatic if available)
+#   - Increase batch_size (if GPU memory allows)
+#   - Use smaller model (all-MiniLM-L6-v2 is already fast)
+#
+# For more accurate semantic detection:
+#   - Use all-mpnet-base-v2 (slower but better)
+#   - Lower duplicate_threshold to 0.90
+#
+# For more aggressive fuzzy dedup:
+#   - Lower fuzzy_threshold to 0.7
+#   - Increase fuzzy_ngram_size to 5
