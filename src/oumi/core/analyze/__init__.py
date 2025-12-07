@@ -53,6 +53,12 @@ try:
 except ImportError:
     LLMJudgeAnalyzer = None  # type: ignore[misc, assignment]
 
+# Conditional import for FastTextAnalyzer (requires fast-langdetect or fasttext)
+try:
+    from oumi.core.analyze.fasttext_analyzer import FastTextAnalyzer
+except ImportError:
+    FastTextAnalyzer = None  # type: ignore[misc, assignment]
+
 __all__ = [
     # Core
     "DatasetAnalyzer",
@@ -61,6 +67,7 @@ __all__ = [
     "CostAnalyzer",
     "DiversityAnalyzer",
     "EmbeddingAnalyzer",
+    "FastTextAnalyzer",
     "FormatAnalyzer",
     "LengthAnalyzer",
     "LLMJudgeAnalyzer",
