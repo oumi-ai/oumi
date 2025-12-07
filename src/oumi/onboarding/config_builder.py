@@ -669,8 +669,18 @@ Generate an appropriate response.""",
         goal: SynthGoal,
         domain: "DomainAnalysis",
         inferred: "InferredConfig",
+        attribute_map: Optional[dict[str, str]] = None,
     ) -> GeneralSynthesisParams:
-        """Build strategy params using LLM-inferred configuration."""
+        """Build strategy params using LLM-inferred configuration.
+
+        Args:
+            schema: The analyzed data schema.
+            goal: Synthesis goal.
+            domain: Domain analysis from LLM.
+            inferred: Inferred config from LLM.
+            attribute_map: Optional explicit column-to-role mapping that takes
+                precedence over both inferred and auto-detected mappings.
+        """
         params = GeneralSynthesisParams()
 
         # Add input data source if schema has data
@@ -680,22 +690,28 @@ Generate an appropriate response.""",
             "json",
             "jsonl",
         ):
-            # Use inferred field mappings or fallback to default logic
-            attribute_map = inferred.field_mappings if inferred.field_mappings else None
-
-            # If no mappings, try to find a good context column
-            if not attribute_map and schema.columns:
-                text_cols = [c for c in schema.columns if c.is_text]
-                if text_cols:
-                    best_col = max(text_cols, key=lambda c: c.avg_length or 0)
-                    attribute_map = {best_col.name: "context"}
-                elif schema.columns:
-                    attribute_map = {schema.columns[0].name: "context"}
+            # Priority: explicit attribute_map > inferred mappings > auto-detect
+            if attribute_map:
+                # User provided explicit column assignments
+                final_attribute_map = attribute_map
+            elif inferred.field_mappings:
+                # Use LLM-inferred field mappings
+                final_attribute_map = inferred.field_mappings
+            else:
+                # Fallback to auto-detect
+                final_attribute_map = None
+                if schema.columns:
+                    text_cols = [c for c in schema.columns if c.is_text]
+                    if text_cols:
+                        best_col = max(text_cols, key=lambda c: c.avg_length or 0)
+                        final_attribute_map = {best_col.name: "context"}
+                    elif schema.columns:
+                        final_attribute_map = {schema.columns[0].name: "context"}
 
             params.input_data = [
                 DatasetSource(
                     path=schema.source_path,
-                    attribute_map=attribute_map if attribute_map else None,
+                    attribute_map=final_attribute_map if final_attribute_map else None,
                 )
             ]
 

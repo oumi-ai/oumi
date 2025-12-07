@@ -2036,6 +2036,7 @@ def _wizard_synth(
                 question_template=question_template,
                 answer_template=answer_template,
                 postprocessing=postprocessing,
+                attribute_map=attribute_map,
             )
         else:
             # Quick auto-generation mode
@@ -2052,6 +2053,7 @@ def _wizard_synth(
                     output_path=str(output_path / "synth_output.jsonl"),
                     domain=domain,
                     llm_analyzer=llm_analyzer,
+                    attribute_map=attribute_map,
                 )
     else:
         config = builder.from_schema(
@@ -2059,6 +2061,7 @@ def _wizard_synth(
             goal=goal,
             num_samples=num_samples,
             output_path=str(output_path / "synth_output.jsonl"),
+            attribute_map=attribute_map,
         )
 
     config_path = output_path / "synth_config.yaml"
@@ -2240,9 +2243,20 @@ def _wizard_train(schema, output_path: Path):
 
 
 def _wizard_pipeline(
-    schema, output_path: Path, analyzer, domain=None, llm_analyzer=None, file_roles=None
+    schema, output_path: Path, analyzer, domain=None, llm_analyzer=None, file_roles=None,
+    column_assignments=None,
 ):
-    """Configure full pipeline."""
+    """Configure full pipeline.
+
+    Args:
+        schema: DataSchema for the primary data file.
+        output_path: Output directory for generated configs.
+        analyzer: DataAnalyzer instance.
+        domain: Optional DomainAnalysis from LLM analysis.
+        llm_analyzer: Optional LLMAnalyzer instance.
+        file_roles: Optional dict mapping roles to file paths.
+        column_assignments: Optional dict with column-level role assignments.
+    """
     from oumi.onboarding.config_builder import (
         JudgeConfigBuilder,
         SynthConfigBuilder,
@@ -2282,6 +2296,29 @@ def _wizard_pipeline(
 
     synth_builder = SynthConfigBuilder()
 
+    # Build attribute_map from column_assignments if provided
+    attribute_map = None
+    if column_assignments:
+        attribute_map = {}
+        if "context" in column_assignments:
+            attribute_map["context"] = column_assignments["context"]["column"]
+        if "question" in column_assignments:
+            attribute_map["question"] = column_assignments["question"]["column"]
+        if "answer" in column_assignments:
+            attribute_map["answer"] = column_assignments["answer"]["column"]
+        if "reference_values" in column_assignments:
+            attribute_map["reference"] = column_assignments["reference_values"]["column"]
+        if "label" in column_assignments:
+            attribute_map["label"] = column_assignments["label"]["column"]
+        if "metadata" in column_assignments and isinstance(column_assignments["metadata"], list):
+            metadata_cols = [m["column"] for m in column_assignments["metadata"]]
+            attribute_map["metadata"] = metadata_cols
+
+        if attribute_map:
+            cli_utils.CONSOLE.print(
+                f"[dim]Using column mappings: {attribute_map}[/dim]"
+            )
+
     # Use LLM-inferred config if domain analysis is available
     if domain is not None and llm_analyzer is not None:
         cli_utils.CONSOLE.print(
@@ -2297,6 +2334,7 @@ def _wizard_pipeline(
                 output_path=str(output_path / "synth_output.jsonl"),
                 domain=domain,
                 llm_analyzer=llm_analyzer,
+                attribute_map=attribute_map,
             )
     else:
         synth_config = synth_builder.from_schema(
@@ -2304,6 +2342,7 @@ def _wizard_pipeline(
             goal=goal,
             num_samples=num_samples,
             output_path=str(output_path / "synth_output.jsonl"),
+            attribute_map=attribute_map,
         )
 
     # Judge config
