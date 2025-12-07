@@ -45,6 +45,10 @@ class EmbeddingAnalyzer(SampleAnalyzer):
         model_name: str = "all-MiniLM-L6-v2",
         detect_duplicates: bool = True,
         duplicate_threshold: float = 0.95,
+        detect_fuzzy_duplicates: bool = False,
+        fuzzy_threshold: float = 0.8,
+        fuzzy_ngram_size: int = 3,
+        fuzzy_num_perm: int = 128,
         cluster_samples: bool = False,
         clustering_method: str = "dbscan",
         n_clusters: Optional[int] = None,
@@ -63,6 +67,15 @@ class EmbeddingAnalyzer(SampleAnalyzer):
                 Duplicates are identified by cosine similarity above threshold.
             duplicate_threshold: Cosine similarity threshold for detecting
                 duplicates. Values closer to 1.0 require higher similarity.
+            detect_fuzzy_duplicates: Whether to detect fuzzy (near) duplicates
+                using MinHash LSH. Much faster than semantic duplicate detection
+                for large datasets. Requires datasketch package.
+            fuzzy_threshold: Jaccard similarity threshold for fuzzy duplicates.
+                Values closer to 1.0 require higher similarity. Default 0.8.
+            fuzzy_ngram_size: N-gram size for fuzzy duplicate detection.
+                Smaller values are more sensitive to small changes. Default 3.
+            fuzzy_num_perm: Number of permutations for MinHash. Higher values
+                are more accurate but slower. Default 128.
             cluster_samples: Whether to cluster samples by semantic similarity.
             clustering_method: Clustering method to use: "dbscan" or "kmeans".
                 DBSCAN automatically determines the number of clusters.
@@ -83,6 +96,10 @@ class EmbeddingAnalyzer(SampleAnalyzer):
         self.model_name = model_name
         self.detect_duplicates = detect_duplicates
         self.duplicate_threshold = duplicate_threshold
+        self.detect_fuzzy_duplicates = detect_fuzzy_duplicates
+        self.fuzzy_threshold = fuzzy_threshold
+        self.fuzzy_ngram_size = fuzzy_ngram_size
+        self.fuzzy_num_perm = fuzzy_num_perm
         self.cluster_samples = cluster_samples
         self.clustering_method = clustering_method
         self.n_clusters = n_clusters
@@ -99,6 +116,10 @@ class EmbeddingAnalyzer(SampleAnalyzer):
                     "n_clusters must be specified when using kmeans clustering. "
                     "Either set n_clusters or use clustering_method='dbscan'."
                 )
+
+        # Check fuzzy duplicate dependencies
+        if self.detect_fuzzy_duplicates:
+            self._check_fuzzy_dependencies()
 
         # Lazy-load the model
         self._model = None
@@ -123,6 +144,20 @@ class EmbeddingAnalyzer(SampleAnalyzer):
             raise ImportError(
                 "EmbeddingAnalyzer requires scikit-learn for clustering. "
                 "Install with: pip install 'oumi[analyze_advanced]'"
+            )
+
+    def _check_fuzzy_dependencies(self) -> None:
+        """Check if datasketch is installed for fuzzy duplicate detection.
+
+        Raises:
+            ImportError: If datasketch is not installed.
+        """
+        try:
+            import datasketch  # noqa: F401
+        except ImportError:
+            raise ImportError(
+                "Fuzzy duplicate detection requires datasketch. "
+                "Install with: pip install 'oumi[analyze]' or pip install datasketch"
             )
 
     def _get_model(self) -> Any:
@@ -225,6 +260,107 @@ class EmbeddingAnalyzer(SampleAnalyzer):
 
         return duplicate_group_ids, is_duplicate
 
+    def _get_ngrams(self, text: str) -> set[str]:
+        """Extract character n-grams from text.
+
+        Args:
+            text: Input text.
+
+        Returns:
+            Set of n-gram strings.
+        """
+        text = text.lower().strip()
+        n = self.fuzzy_ngram_size
+        if len(text) < n:
+            return {text}
+        return {text[i : i + n] for i in range(len(text) - n + 1)}
+
+    def _detect_fuzzy_duplicates(
+        self, texts: list[str]
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Detect fuzzy (near) duplicates using MinHash LSH.
+
+        This method is much faster than semantic duplicate detection for
+        large datasets, as it uses locality-sensitive hashing.
+
+        Args:
+            texts: List of text strings.
+
+        Returns:
+            Tuple of (fuzzy_group_ids, is_fuzzy_duplicate, jaccard_scores).
+            - fuzzy_group_ids: Integer IDs grouping near-duplicates together
+            - is_fuzzy_duplicate: Boolean array indicating if sample has near-duplicates
+            - jaccard_scores: Estimated Jaccard similarity to nearest duplicate
+        """
+        from datasketch import MinHash, MinHashLSH
+
+        n_samples = len(texts)
+
+        # Initialize arrays
+        fuzzy_group_ids = np.arange(n_samples)
+        is_fuzzy_duplicate = np.zeros(n_samples, dtype=bool)
+        jaccard_scores = np.zeros(n_samples, dtype=float)
+
+        # Create MinHash for each text
+        logger.info(f"Creating MinHash signatures for {n_samples} samples...")
+        minhashes: list[MinHash] = []
+        for text in texts:
+            m = MinHash(num_perm=self.fuzzy_num_perm)
+            for ngram in self._get_ngrams(text):
+                m.update(ngram.encode("utf-8"))
+            minhashes.append(m)
+
+        # Create LSH index
+        lsh = MinHashLSH(threshold=self.fuzzy_threshold, num_perm=self.fuzzy_num_perm)
+        for i, m in enumerate(minhashes):
+            lsh.insert(str(i), m)
+
+        # Find near-duplicates
+        logger.info("Finding fuzzy duplicates using LSH...")
+        processed_groups: dict[int, int] = {}  # Maps sample index to group ID
+        current_group = 0
+
+        for i, m in enumerate(minhashes):
+            # Query LSH for similar items
+            candidates = lsh.query(m)
+            candidate_indices = [int(c) for c in candidates if int(c) != i]
+
+            if candidate_indices:
+                is_fuzzy_duplicate[i] = True
+
+                # Compute actual Jaccard similarity with nearest candidate
+                max_jaccard = 0.0
+                for j in candidate_indices:
+                    jaccard = minhashes[i].jaccard(minhashes[j])
+                    max_jaccard = max(max_jaccard, jaccard)
+                    is_fuzzy_duplicate[j] = True
+                jaccard_scores[i] = max_jaccard
+
+                # Assign group IDs
+                existing_groups = [
+                    processed_groups[j]
+                    for j in candidate_indices
+                    if j in processed_groups
+                ]
+
+                if i in processed_groups:
+                    group_id = processed_groups[i]
+                elif existing_groups:
+                    group_id = min(existing_groups)
+                else:
+                    group_id = current_group
+                    current_group += 1
+
+                processed_groups[i] = group_id
+                fuzzy_group_ids[i] = group_id
+
+                for j in candidate_indices:
+                    if j not in processed_groups:
+                        processed_groups[j] = group_id
+                    fuzzy_group_ids[j] = min(fuzzy_group_ids[j], group_id)
+
+        return fuzzy_group_ids, is_fuzzy_duplicate, jaccard_scores
+
     def _cluster_embeddings(self, embeddings: np.ndarray) -> np.ndarray:
         """Cluster embeddings using the specified method.
 
@@ -308,6 +444,16 @@ class EmbeddingAnalyzer(SampleAnalyzer):
                 result_df[dup_group_col] = duplicate_groups
                 has_dup_col = f"{column}_{analyzer_id}_has_semantic_duplicate"
                 result_df[has_dup_col] = is_duplicate
+
+            # Detect fuzzy (near) duplicates using MinHash
+            if self.detect_fuzzy_duplicates:
+                logger.info("Detecting fuzzy duplicates using MinHash LSH...")
+                fuzzy_groups, is_fuzzy_dup, jaccard_scores = (
+                    self._detect_fuzzy_duplicates(texts)
+                )
+                result_df[f"{column}_{analyzer_id}_fuzzy_duplicate_group"] = fuzzy_groups
+                result_df[f"{column}_{analyzer_id}_has_fuzzy_duplicate"] = is_fuzzy_dup
+                result_df[f"{column}_{analyzer_id}_fuzzy_jaccard_score"] = jaccard_scores
 
             # Cluster samples
             if self.cluster_samples:

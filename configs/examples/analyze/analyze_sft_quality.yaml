@@ -37,12 +37,14 @@ report_title: "SFT Dataset Quality Analysis"
 # These are the same analyzers as get_preset("sft_quality")
 analyzers:
   # Length analysis for understanding content size distribution
+  # Uses tiktoken o200k_base (GPT-4o/GPT-5) by default for token counting
   - id: "length"
     params:
-      char_count: true
-      word_count: true
-      sentence_count: true
-      token_count: false  # Set to true and add tokenizer_name to enable
+      char_count: false
+      word_count: false
+      sentence_count: false
+      token_count: true  # Uses tiktoken o200k_base by default
+      # tiktoken_encoding: null  # Set to null and add tokenizer_name to use HF tokenizer
 
   # Diversity analysis for vocabulary richness
   - id: "diversity"

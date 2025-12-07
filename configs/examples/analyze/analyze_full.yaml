@@ -37,14 +37,16 @@ report_title: "Dataset Analysis Report"  # Custom title for the report
 
 analyzers:
   # ==========================================================================
-  # Length Analyzer - Character, word, sentence, and token counts
+  # Length Analyzer - Token counts (uses tiktoken o200k_base/GPT-5 by default)
   # ==========================================================================
   - id: length
     params:
-      char_count: true       # Character count per text field
-      word_count: true       # Word count (whitespace-separated)
-      sentence_count: true   # Sentence count (split on .!?)
-      token_count: false     # Token count (requires tokenizer_name)
+      char_count: false      # Character count per text field
+      word_count: false      # Word count (whitespace-separated)
+      sentence_count: false  # Sentence count (split on .!?)
+      token_count: true      # Token count (tiktoken o200k_base by default)
+      # tiktoken_encoding: o200k_base  # GPT-4o/GPT-5 encoding (default)
+      # tiktoken_encoding: null  # Disable tiktoken to use tokenizer_name instead
 
   # ==========================================================================
   # Diversity Analyzer - Vocabulary richness metrics

@@ -27,10 +27,10 @@ sample_count: 100  # Limit samples for quick analysis
 output_path: ./analysis_output
 
 # Built-in analyzers:
-#   - "length": char, word, sentence, token counts
+#   - "length": token counts (uses tiktoken o200k_base/GPT-5 encoding by default)
 #   - "diversity": vocabulary richness metrics (unique_words_ratio, type_token_ratio)
 #   - "format": structured content detection (markdown, JSON, code blocks, URLs)
-#   - "embedding": semantic analysis (requires oumi[analyze_advanced])
+#   - "embedding": semantic analysis (requires oumi[analyze])
 #
 # See also:
 #   - analyze_diversity.yaml: Vocabulary diversity analysis
@@ -40,7 +40,10 @@ output_path: ./analysis_output
 analyzers:
   - id: length
     params:
-      char_count: true # Character count per text field
-      word_count: true # Word count (whitespace-separated)
-      sentence_count: true # Sentence count (split on .!?)
-      token_count: false # Token count (requires tokenizer_name or processor_name)
+      char_count: false # Character count per text field
+      word_count: false # Word count (whitespace-separated)
+      sentence_count: false # Sentence count (split on .!?)
+      token_count: true # Token count (uses tiktoken o200k_base by default)
+      # tiktoken_encoding: o200k_base  # GPT-4o/GPT-5 encoding (default)
+      # tiktoken_encoding: cl100k_base  # GPT-4/GPT-3.5-turbo encoding
+      # tiktoken_encoding: null  # Disable tiktoken (use tokenizer_name instead)

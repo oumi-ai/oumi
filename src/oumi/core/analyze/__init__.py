@@ -19,6 +19,7 @@ with different types of sample analyzers (length, diversity, format, quality, et
 """
 
 # Import analyzers to register them
+from oumi.core.analyze.cost_analyzer import CostAnalyzer
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.analyze.diversity_analyzer import DiversityAnalyzer
 from oumi.core.analyze.format_analyzer import FormatAnalyzer
@@ -38,6 +39,7 @@ from oumi.core.analyze.quality_analyzer import QualityAnalyzer
 from oumi.core.analyze.recommendations import Recommendation, RecommendationsEngine
 from oumi.core.analyze.report_generator import HTMLReportGenerator
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.training_quality_analyzer import TrainingQualityAnalyzer
 
 # Conditional import for EmbeddingAnalyzer (requires optional dependencies)
 try:
@@ -56,12 +58,14 @@ __all__ = [
     "DatasetAnalyzer",
     "SampleAnalyzer",
     # Analyzers
+    "CostAnalyzer",
     "DiversityAnalyzer",
     "EmbeddingAnalyzer",
     "FormatAnalyzer",
     "LengthAnalyzer",
     "LLMJudgeAnalyzer",
     "QualityAnalyzer",
+    "TrainingQualityAnalyzer",
     # Recommendations
     "Recommendation",
     "RecommendationsEngine",

@@ -29,13 +29,13 @@ generate_report: true
 report_title: "Multilingual Dataset Analysis"
 
 analyzers:
-  # Length metrics
+  # Length metrics (uses tiktoken o200k_base by default)
   - id: "length"
     params:
-      char_count: true
-      word_count: true
-      sentence_count: true
-      token_count: false  # Varies by language
+      char_count: false
+      word_count: false
+      sentence_count: false
+      token_count: true  # Uses tiktoken o200k_base (GPT-4o/GPT-5 encoding)
 
   # Diversity - important for multilingual
   - id: "diversity"

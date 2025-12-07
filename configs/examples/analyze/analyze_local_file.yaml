@@ -38,12 +38,13 @@ report_title: "Local Dataset Analysis"
 
 # SFT Quality preset analyzers
 analyzers:
+  # Length analyzer (uses tiktoken o200k_base by default)
   - id: "length"
     params:
-      char_count: true
-      word_count: true
-      sentence_count: true
-      token_count: false
+      char_count: false
+      word_count: false
+      sentence_count: false
+      token_count: true  # Uses tiktoken o200k_base (GPT-4o/GPT-5 encoding)
 
   - id: "diversity"
     params:

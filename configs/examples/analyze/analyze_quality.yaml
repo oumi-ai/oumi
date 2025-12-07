@@ -29,13 +29,13 @@ report_title: "Dataset Quality & Safety Analysis"
 
 # Quality-focused analyzers
 analyzers:
-  # Basic length metrics for context
+  # Basic length metrics for context (uses tiktoken o200k_base by default)
   - id: "length"
     params:
-      char_count: true
-      word_count: true
+      char_count: false
+      word_count: false
       sentence_count: false
-      token_count: false
+      token_count: true  # Uses tiktoken o200k_base (GPT-4o/GPT-5 encoding)
 
   # Quality analyzer - the main focus
   - id: "quality"

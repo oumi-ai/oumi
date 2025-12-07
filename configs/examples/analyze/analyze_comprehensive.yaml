@@ -33,14 +33,15 @@ report_title: "Comprehensive Dataset Health Report"
 
 # All analyzers enabled
 analyzers:
-  # 1. Length Analysis
+  # 1. Length Analysis (uses tiktoken o200k_base by default, or tokenizer_name if set)
   - id: "length"
     params:
-      char_count: true
-      word_count: true
-      sentence_count: true
-      token_count: true  # Uses tokenizer_name above
-      include_special_tokens: true
+      char_count: false
+      word_count: false
+      sentence_count: false
+      token_count: true  # Uses tiktoken o200k_base by default, or tokenizer_name above
+      # tiktoken_encoding: o200k_base  # GPT-4o/GPT-5 encoding (default)
+      # tiktoken_encoding: null  # Set to null to use tokenizer_name instead
 
   # 2. Diversity Analysis
   - id: "diversity"

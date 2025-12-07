@@ -75,10 +75,151 @@ Respond with a JSON object containing:
 
 JSON response:"""
 
+    # Preset prompts for common evaluation scenarios
+    PRESET_PROMPTS = {
+        "instruction_quality": """Evaluate this instruction/question for clarity and training quality (0-10).
+
+A high-quality instruction should:
+- Have a clear, specific goal or question
+- Use action verbs (write, explain, create, list, etc.)
+- Include enough context to understand the request
+- Avoid vague language ("something", "stuff", "whatever")
+- Be appropriately detailed (not too short, not overly verbose)
+
+Instruction to evaluate:
+{text}
+
+Respond with JSON:
+- "score": 0-10 (10 = perfectly clear and actionable)
+- "label": one of "excellent", "good", "needs_improvement", "poor"
+- "reasoning": brief explanation
+
+JSON response:""",
+        "response_quality": """Evaluate this assistant response for training quality (0-10).
+
+A high-quality response should:
+- Directly address the user's request
+- Be complete and not truncated
+- Have appropriate structure (lists, code blocks when needed)
+- Provide accurate and helpful information
+- Be appropriately detailed for the question
+
+Response to evaluate:
+{text}
+
+Respond with JSON:
+- "score": 0-10 (10 = excellent training example)
+- "label": one of "excellent", "good", "needs_improvement", "poor"
+- "reasoning": brief explanation
+
+JSON response:""",
+        "conversation_coherence": """Evaluate this multi-turn conversation for coherence (0-10).
+
+A coherent conversation should:
+- Have logical flow between turns
+- Reference previous context appropriately
+- Show consistent topic threading
+- Have natural turn-taking
+- Avoid repetition or contradictions
+
+Conversation to evaluate:
+{text}
+
+Respond with JSON:
+- "score": 0-10 (10 = perfectly coherent)
+- "label": one of "coherent", "mostly_coherent", "somewhat_disjointed", "incoherent"
+- "reasoning": brief explanation
+
+JSON response:""",
+        "safety": """Evaluate this text for safety concerns (0-10, higher = safer).
+
+Check for:
+- Harmful or dangerous content
+- Personal information exposure
+- Inappropriate language
+- Misleading or false claims
+- Potential policy violations
+
+Text to evaluate:
+{text}
+
+Respond with JSON:
+- "score": 0-10 (10 = completely safe)
+- "label": one of "safe", "caution", "concerning", "unsafe"
+- "reasoning": brief explanation of any concerns
+
+JSON response:""",
+        "helpfulness": """Evaluate how helpful this response is to the user (0-10).
+
+A helpful response should:
+- Actually answer the user's question
+- Provide actionable information
+- Be easy to understand
+- Include relevant details
+- Not be unnecessarily verbose
+
+Response to evaluate:
+{text}
+
+Respond with JSON:
+- "score": 0-10 (10 = maximally helpful)
+- "label": one of "very_helpful", "helpful", "somewhat_helpful", "not_helpful"
+- "reasoning": brief explanation
+
+JSON response:""",
+        "factuality": """Evaluate this text for factual accuracy (0-10).
+
+Consider:
+- Are claims verifiable and accurate?
+- Are there any obvious errors or misconceptions?
+- Is hedging appropriate when uncertain?
+- Are sources or reasoning provided when needed?
+
+Text to evaluate:
+{text}
+
+Respond with JSON:
+- "score": 0-10 (10 = completely factual)
+- "label": one of "factual", "mostly_factual", "contains_errors", "unreliable"
+- "reasoning": brief explanation of any issues
+
+JSON response:""",
+    }
+
+    @classmethod
+    def list_presets(cls) -> list[str]:
+        """List available prompt presets.
+
+        Returns:
+            List of available preset names.
+        """
+        return list(cls.PRESET_PROMPTS.keys())
+
+    @classmethod
+    def get_preset_prompt(cls, preset_name: str) -> str:
+        """Get a preset prompt by name.
+
+        Args:
+            preset_name: Name of the preset.
+
+        Returns:
+            The preset prompt string.
+
+        Raises:
+            ValueError: If preset name is not found.
+        """
+        if preset_name not in cls.PRESET_PROMPTS:
+            available = ", ".join(cls.PRESET_PROMPTS.keys())
+            raise ValueError(
+                f"Unknown preset: '{preset_name}'. Available: {available}"
+            )
+        return cls.PRESET_PROMPTS[preset_name]
+
     def __init__(
         self,
         *,
         prompt: Optional[str] = None,
+        prompt_preset: Optional[str] = None,
         inference_config: Optional[dict[str, Any]] = None,
         batch_size: int = 10,
         max_text_length: int = 4000,
@@ -95,6 +236,14 @@ JSON response:"""
         Args:
             prompt: Custom evaluation prompt. Use {text} as placeholder for the
                 sample text. If None, uses the default quality evaluation prompt.
+            prompt_preset: Use a preset prompt instead of custom. Available presets:
+                - "instruction_quality": Evaluate instruction clarity for SFT
+                - "response_quality": Evaluate assistant response quality
+                - "conversation_coherence": Evaluate multi-turn conversation flow
+                - "safety": Check for safety concerns
+                - "helpfulness": Evaluate how helpful a response is
+                - "factuality": Check for factual accuracy
+                Takes precedence over `prompt` if both are provided.
             inference_config: Dictionary with inference configuration. Keys:
                 - model_name: Name/path of the model to use
                 - engine: Inference engine type ("remote", "vllm", "native", etc.)
@@ -114,7 +263,19 @@ JSON response:"""
             default_label: Default label when parsing fails.
             cache_responses: Whether to cache LLM responses for identical texts.
         """
-        self.prompt = prompt or self.DEFAULT_PROMPT
+        # Handle preset prompts
+        if prompt_preset is not None:
+            if prompt_preset not in self.PRESET_PROMPTS:
+                available = ", ".join(self.PRESET_PROMPTS.keys())
+                raise ValueError(
+                    f"Unknown prompt preset: '{prompt_preset}'. "
+                    f"Available presets: {available}"
+                )
+            self.prompt = self.PRESET_PROMPTS[prompt_preset]
+        else:
+            self.prompt = prompt or self.DEFAULT_PROMPT
+
+        self.prompt_preset = prompt_preset
         self.inference_config = inference_config or {}
         self.batch_size = batch_size
         self.max_text_length = max_text_length

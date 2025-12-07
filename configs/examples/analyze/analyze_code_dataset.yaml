@@ -31,12 +31,14 @@ report_title: "Code Dataset Analysis Report"
 
 analyzers:
   # Length metrics - important for context window planning
+  # Uses tokenizer_name above since it's specified, otherwise defaults to tiktoken o200k_base
   - id: "length"
     params:
-      char_count: true
-      word_count: false  # Less meaningful for code
+      char_count: false
+      word_count: false
       sentence_count: false
       token_count: true
+      tiktoken_encoding: null  # Use tokenizer_name (CodeLlama) instead of tiktoken
 
   # Format analysis - focus on code detection
   - id: "format"
