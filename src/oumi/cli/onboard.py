@@ -166,8 +166,8 @@ def _analyze_file_purposes(files: list[dict], analyzer, llm_analyzer) -> list[di
                 sample_content = schema.raw_text[:1000] if schema.raw_text else ""
                 columns = []
 
-            # Build analysis prompt
-            prompt = f"""Analyze this file and suggest what it could be used for in an ML training pipeline.
+            # Build analysis prompt with detailed role explanations
+            prompt = f"""Analyze this file and suggest what role it should play in an ML training pipeline.
 
 FILE: {f['name']}
 TYPE: {f['extension']}
@@ -178,24 +178,34 @@ TYPE: {f['extension']}
                 prompt += f"\nSAMPLE CONTENT:\n{sample_content[:1500]}\n"
 
             prompt += """
+AVAILABLE ROLES:
+- primary: Main data to process - this is the core dataset for synthesis, evaluation, or training
+- reference: Lookup/validation data - catalogs, valid values lists, or mapping tables
+- rules: Guidelines documents - style guides, policies, or criteria definitions
+- examples: Labeled samples - data with known good/bad labels for training or calibration
+- context: Supporting information - background docs that inform but aren't directly processed
+
 Return a JSON object with:
 {
-    "purpose": "Brief description of what this file contains and could be used for (1-2 sentences)",
+    "purpose": "Brief description of what this file contains (1-2 sentences)",
     "suggested_role": "primary|reference|rules|examples|context",
-    "role_reason": "Why this role fits"
+    "role_explanation": "A clear 1-sentence explanation of WHY this role fits, citing specific evidence from the file (e.g., column names, content patterns, file structure)"
 }
+
+Be specific in the role_explanation - cite actual column names or content that led to your recommendation.
 
 Return ONLY the JSON object."""
 
             result = llm_analyzer._invoke_json(prompt)
             f["suggested_purpose"] = result.get("purpose", "Unknown")
             f["suggested_role"] = result.get("suggested_role", "context")
-            f["role_reason"] = result.get("role_reason", "")
+            f["role_reason"] = result.get("role_explanation", result.get("role_reason", ""))
             f["schema"] = schema
 
         except Exception as e:
             f["suggested_purpose"] = f"(Analysis failed: {str(e)[:50]})"
             f["suggested_role"] = "context"
+            f["role_reason"] = "Default assignment due to analysis failure"
 
     return files
 
@@ -250,8 +260,111 @@ def _display_columns_for_file(file_info: dict, schema=None) -> list[str]:
     return columns
 
 
+def _analyze_column_roles(all_columns: list[dict], llm_analyzer) -> list[dict]:
+    """Use AI to analyze columns and suggest roles.
+
+    Args:
+        all_columns: List of column info dicts.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Updated column list with suggested roles.
+    """
+    import json
+
+    # Build column descriptions for the LLM
+    columns_desc = []
+    for i, col_data in enumerate(all_columns, 1):
+        col_info = col_data["col_info"]
+        sample_vals = col_info.sample_values[:2] if col_info.sample_values else []
+        columns_desc.append({
+            "index": i,
+            "file": col_data["file"]["name"],
+            "column": col_data["column"],
+            "dtype": col_info.dtype,
+            "is_text": col_info.is_text,
+            "avg_length": col_info.avg_length,
+            "sample_values": [str(v)[:100] for v in sample_vals],
+        })
+
+    prompt = f"""Analyze these columns and suggest the best role for each in an ML data pipeline.
+
+COLUMNS:
+{json.dumps(columns_desc, indent=2)}
+
+AVAILABLE ROLES:
+- context: Main text content for synthesis/generation (longest, most informative text)
+- question: Contains questions or queries
+- answer: Contains answers or responses
+- reference_values: Lookup values, categories, or valid options for validation
+- metadata: Supporting information like IDs, dates, categories
+- label: Classification labels (valid/invalid, categories, scores)
+- skip: Column not useful for ML pipeline
+
+For each column, suggest ONE role based on:
+1. Column name patterns (e.g., "query" → question, "response" → answer)
+2. Data type and content (text vs numeric vs categorical)
+3. Average length (longer text = more likely context/answer)
+4. Sample values
+
+Return a JSON object:
+{{
+    "column_roles": [
+        {{"index": 1, "role": "context", "reason": "Why this role fits"}},
+        {{"index": 2, "role": "metadata", "reason": "Why this role fits"}}
+    ]
+}}
+
+Return ONLY the JSON object."""
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        role_map = {
+            item["index"]: {"role": item["role"], "reason": item.get("reason", "")}
+            for item in result.get("column_roles", [])
+        }
+
+        for i, col_data in enumerate(all_columns, 1):
+            if i in role_map:
+                col_data["suggested_role"] = role_map[i]["role"]
+                col_data["role_reason"] = role_map[i]["reason"]
+            else:
+                col_data["suggested_role"] = "metadata"
+                col_data["role_reason"] = "Default assignment"
+
+    except Exception as e:
+        cli_utils.CONSOLE.print(
+            f"[yellow]Warning: AI column analysis failed: {e}[/yellow]"
+        )
+        # Fallback: use heuristics
+        for col_data in all_columns:
+            col_info = col_data["col_info"]
+            col_name = col_data["column"].lower()
+
+            if col_info.is_text and (col_info.avg_length or 0) > 100:
+                col_data["suggested_role"] = "context"
+                col_data["role_reason"] = "Long text content"
+            elif "question" in col_name or "query" in col_name:
+                col_data["suggested_role"] = "question"
+                col_data["role_reason"] = "Column name suggests questions"
+            elif "answer" in col_name or "response" in col_name:
+                col_data["suggested_role"] = "answer"
+                col_data["role_reason"] = "Column name suggests answers"
+            elif "label" in col_name or "class" in col_name or "category" in col_name:
+                col_data["suggested_role"] = "label"
+                col_data["role_reason"] = "Column name suggests labels"
+            elif col_info.is_categorical:
+                col_data["suggested_role"] = "reference_values"
+                col_data["role_reason"] = "Categorical values"
+            else:
+                col_data["suggested_role"] = "metadata"
+                col_data["role_reason"] = "Supporting information"
+
+    return all_columns
+
+
 def _prompt_column_roles(
-    files: list[dict], analyzer, llm_analyzer=None
+    files: list[dict], analyzer, llm_analyzer=None, verbose: bool = False
 ) -> dict[str, dict]:
     """Prompt user to assign roles to specific columns from tabular files.
 
@@ -259,6 +372,7 @@ def _prompt_column_roles(
         files: List of file info dicts.
         analyzer: DataAnalyzer instance.
         llm_analyzer: Optional LLMAnalyzer for AI suggestions.
+        verbose: Whether to show detailed output.
 
     Returns:
         Dict mapping role names to {"path": Path, "column": str} or {"path": Path}.
@@ -304,124 +418,202 @@ def _prompt_column_roles(
         )
         return _prompt_file_roles(files)
 
-    # Display all available columns across files
-    cli_utils.CONSOLE.print(
-        Panel(
-            "[bold]Column-Level Role Assignment[/bold]\n\n"
-            "[dim]You can assign specific columns to different roles.\n"
-            "This allows fine-grained control over what data is used for what purpose.[/dim]",
-            border_style="cyan",
-        )
-    )
+    # Use AI to suggest column roles if available
+    if llm_analyzer:
+        with cli_utils.CONSOLE.status(
+            "[dim]Analyzing columns with AI...[/dim]", spinner="dots"
+        ):
+            all_columns = _analyze_column_roles(all_columns, llm_analyzer)
 
-    # Build a combined table of all columns
-    table = Table(title="Available Columns", show_edge=False)
-    table.add_column("#", style="cyan", width=4)
-    table.add_column("File", style="green", max_width=25)
-    table.add_column("Column", style="yellow")
-    table.add_column("Type", style="dim")
-    table.add_column("Sample", style="dim", max_width=35)
-
-    for i, col_data in enumerate(all_columns, 1):
-        sample = ""
-        if col_data["col_info"].sample_values:
-            sample = str(col_data["col_info"].sample_values[0])[:35]
-
-        table.add_row(
-            str(i),
-            col_data["file"]["name"],
-            col_data["column"],
-            col_data["col_info"].dtype,
-            sample,
-        )
-
-    cli_utils.CONSOLE.print(table)
-
-    # Prompt for context column (required)
-    cli_utils.CONSOLE.print(
-        "\n[bold cyan]CONTEXT[/bold cyan] - Main content for synthesis\n"
-        "[dim]Which column contains the text you want to generate from?[/dim]"
-    )
-
-    col_nums = [str(i) for i in range(1, len(all_columns) + 1)]
-    context_idx = IntPrompt.ask(
-        "Select context column",
-        choices=col_nums,
-        default="1",
-    )
-    context_col = all_columns[int(context_idx) - 1]
-    column_assignments["context"] = {
-        "path": context_col["file"]["path"],
-        "column": context_col["column"],
-        "file_name": context_col["file"]["name"],
-    }
-
-    # Set primary to the file containing context
-    column_assignments["primary"] = {
-        "path": context_col["file"]["path"],
-        "schema": context_col["schema"],
-    }
-
-    remaining_nums = [n for n in col_nums if n != str(context_idx)]
-
-    # Optional: Reference values column
-    if remaining_nums:
+    # Display columns - compact or verbose
+    if verbose:
         cli_utils.CONSOLE.print(
-            "\n[bold cyan]REFERENCE VALUES[/bold cyan] - Valid values for validation (optional)\n"
-            "[dim]Column with approved values, categories, or lookup data.[/dim]"
+            Panel(
+                "[bold]Column-Level Role Assignment[/bold]\n\n"
+                "[dim]The AI has analyzed your columns and suggested roles.\n"
+                "You can accept these suggestions or customize them.[/dim]",
+                border_style="cyan",
+            )
         )
-        if Confirm.ask("Do you have a reference values column?", default=False):
-            ref_idx = Prompt.ask("Select column", choices=remaining_nums)
-            ref_col = all_columns[int(ref_idx) - 1]
-            column_assignments["reference_values"] = {
-                "path": ref_col["file"]["path"],
-                "column": ref_col["column"],
-                "file_name": ref_col["file"]["name"],
+        # Full table with all details
+        table = Table(title="Available Columns", show_edge=False, expand=True)
+        table.add_column("#", style="cyan", width=4)
+        table.add_column("File", style="green", no_wrap=True)
+        table.add_column("Column", style="yellow", no_wrap=True)
+        table.add_column("Type", style="dim", no_wrap=True)
+        table.add_column("AI Role", style="magenta", no_wrap=True)
+        table.add_column("Why?", style="dim")
+
+        for i, col_data in enumerate(all_columns, 1):
+            suggested_role = col_data.get("suggested_role", "").upper()
+            role_reason = col_data.get("role_reason", "")
+            table.add_row(
+                str(i),
+                col_data["file"]["name"],
+                col_data["column"],
+                col_data["col_info"].dtype,
+                suggested_role,
+                role_reason,
+            )
+        cli_utils.CONSOLE.print(table)
+    else:
+        # Compact display
+        cli_utils.CONSOLE.print("\n[bold]Column Roles:[/bold]")
+        for i, col_data in enumerate(all_columns, 1):
+            suggested_role = col_data.get("suggested_role", "").upper()
+            cli_utils.CONSOLE.print(
+                f"  [{i}] [yellow]{col_data['column']}[/yellow] → [magenta]{suggested_role}[/magenta]"
+            )
+
+    # Ask if user wants to use AI suggestions or customize
+    use_ai = Confirm.ask(
+        "\nUse AI-suggested column roles?",
+        default=True,
+    )
+
+    if use_ai and llm_analyzer:
+        # Build assignments from AI suggestions
+        for col_data in all_columns:
+            role = col_data.get("suggested_role", "").lower()
+            if role in ("context", "question", "answer"):
+                if role not in column_assignments:
+                    column_assignments[role] = {
+                        "path": col_data["file"]["path"],
+                        "column": col_data["column"],
+                        "file_name": col_data["file"]["name"],
+                    }
+            elif role == "reference_values":
+                if "reference_values" not in column_assignments:
+                    column_assignments["reference_values"] = {
+                        "path": col_data["file"]["path"],
+                        "column": col_data["column"],
+                        "file_name": col_data["file"]["name"],
+                    }
+            elif role == "label":
+                if "label" not in column_assignments:
+                    column_assignments["label"] = {
+                        "path": col_data["file"]["path"],
+                        "column": col_data["column"],
+                        "file_name": col_data["file"]["name"],
+                    }
+            elif role == "metadata":
+                if "metadata" not in column_assignments:
+                    column_assignments["metadata"] = []
+                column_assignments["metadata"].append({
+                    "path": col_data["file"]["path"],
+                    "column": col_data["column"],
+                    "file_name": col_data["file"]["name"],
+                })
+
+        # Ensure we have a primary file and context
+        if "context" in column_assignments:
+            column_assignments["primary"] = {
+                "path": column_assignments["context"]["path"],
+                "schema": next(
+                    c["schema"] for c in all_columns
+                    if c["column"] == column_assignments["context"]["column"]
+                ),
             }
-            remaining_nums = [n for n in remaining_nums if n != ref_idx]
-
-    # Optional: Metadata column
-    if remaining_nums:
-        cli_utils.CONSOLE.print(
-            "\n[bold cyan]METADATA[/bold cyan] - Additional context (optional)\n"
-            "[dim]Extra information to include in prompts (e.g., category, type).[/dim]"
-        )
-        if Confirm.ask("Do you have metadata columns to include?", default=False):
-            # Allow multiple metadata columns
-            metadata_cols = []
-            while remaining_nums:
-                meta_idx = Prompt.ask(
-                    "Select metadata column (or 'done')",
-                    default="done",
-                )
-                if meta_idx.lower() == "done":
-                    break
-                if meta_idx in remaining_nums:
-                    meta_col = all_columns[int(meta_idx) - 1]
-                    metadata_cols.append({
-                        "path": meta_col["file"]["path"],
-                        "column": meta_col["column"],
-                        "file_name": meta_col["file"]["name"],
-                    })
-                    remaining_nums = [n for n in remaining_nums if n != meta_idx]
-
-            if metadata_cols:
-                column_assignments["metadata"] = metadata_cols
-
-    # Optional: Label column (for training/classification)
-    if remaining_nums:
-        cli_utils.CONSOLE.print(
-            "\n[bold cyan]LABEL[/bold cyan] - Classification labels (optional)\n"
-            "[dim]Column with labels like 'valid', 'invalid', or categories.[/dim]"
-        )
-        if Confirm.ask("Do you have a label column?", default=False):
-            label_idx = Prompt.ask("Select column", choices=remaining_nums)
-            label_col = all_columns[int(label_idx) - 1]
-            column_assignments["label"] = {
-                "path": label_col["file"]["path"],
-                "column": label_col["column"],
-                "file_name": label_col["file"]["name"],
+        elif all_columns:
+            # Fallback to first column
+            column_assignments["context"] = {
+                "path": all_columns[0]["file"]["path"],
+                "column": all_columns[0]["column"],
+                "file_name": all_columns[0]["file"]["name"],
             }
+            column_assignments["primary"] = {
+                "path": all_columns[0]["file"]["path"],
+                "schema": all_columns[0]["schema"],
+            }
+
+    else:
+        # Manual assignment flow
+        col_nums = [str(i) for i in range(1, len(all_columns) + 1)]
+
+        # Prompt for context column (required)
+        cli_utils.CONSOLE.print(
+            "\n[bold cyan]CONTEXT[/bold cyan] - Main content for synthesis\n"
+            "[dim]Which column contains the text you want to generate from?[/dim]"
+        )
+
+        context_idx = IntPrompt.ask(
+            "Select context column",
+            choices=col_nums,
+            default="1",
+        )
+        context_col = all_columns[int(context_idx) - 1]
+        column_assignments["context"] = {
+            "path": context_col["file"]["path"],
+            "column": context_col["column"],
+            "file_name": context_col["file"]["name"],
+        }
+
+        # Set primary to the file containing context
+        column_assignments["primary"] = {
+            "path": context_col["file"]["path"],
+            "schema": context_col["schema"],
+        }
+
+        remaining_nums = [n for n in col_nums if n != str(context_idx)]
+
+        # Optional: Reference values column
+        if remaining_nums:
+            cli_utils.CONSOLE.print(
+                "\n[bold cyan]REFERENCE VALUES[/bold cyan] - Valid values for validation (optional)\n"
+                "[dim]Column with approved values, categories, or lookup data.[/dim]"
+            )
+            if Confirm.ask("Do you have a reference values column?", default=False):
+                ref_idx = Prompt.ask("Select column", choices=remaining_nums)
+                ref_col = all_columns[int(ref_idx) - 1]
+                column_assignments["reference_values"] = {
+                    "path": ref_col["file"]["path"],
+                    "column": ref_col["column"],
+                    "file_name": ref_col["file"]["name"],
+                }
+                remaining_nums = [n for n in remaining_nums if n != ref_idx]
+
+        # Optional: Metadata column
+        if remaining_nums:
+            cli_utils.CONSOLE.print(
+                "\n[bold cyan]METADATA[/bold cyan] - Additional context (optional)\n"
+                "[dim]Extra information to include in prompts (e.g., category, type).[/dim]"
+            )
+            if Confirm.ask("Do you have metadata columns to include?", default=False):
+                # Allow multiple metadata columns
+                metadata_cols = []
+                while remaining_nums:
+                    meta_idx = Prompt.ask(
+                        "Select metadata column (or 'done')",
+                        default="done",
+                    )
+                    if meta_idx.lower() == "done":
+                        break
+                    if meta_idx in remaining_nums:
+                        meta_col = all_columns[int(meta_idx) - 1]
+                        metadata_cols.append({
+                            "path": meta_col["file"]["path"],
+                            "column": meta_col["column"],
+                            "file_name": meta_col["file"]["name"],
+                        })
+                        remaining_nums = [n for n in remaining_nums if n != meta_idx]
+
+                if metadata_cols:
+                    column_assignments["metadata"] = metadata_cols
+
+        # Optional: Label column (for training/classification)
+        if remaining_nums:
+            cli_utils.CONSOLE.print(
+                "\n[bold cyan]LABEL[/bold cyan] - Classification labels (optional)\n"
+                "[dim]Column with labels like 'valid', 'invalid', or categories.[/dim]"
+            )
+            if Confirm.ask("Do you have a label column?", default=False):
+                label_idx = Prompt.ask("Select column", choices=remaining_nums)
+                label_col = all_columns[int(label_idx) - 1]
+                column_assignments["label"] = {
+                    "path": label_col["file"]["path"],
+                    "column": label_col["column"],
+                    "file_name": label_col["file"]["name"],
+                }
 
     # Handle document files separately
     if doc_files:
@@ -1192,8 +1384,21 @@ def _display_multi_file_analysis(analysis):
             )
 
 
-def _display_annotated_synth_config(config, config_path: Path, schema, goal: str):
+def _display_annotated_synth_config(
+    config, config_path: Path, schema, goal: str, verbose: bool = False
+):
     """Display synth config with helpful annotations."""
+    # Simple output for non-verbose mode
+    if not verbose:
+        cli_utils.CONSOLE.print(
+            f"\n[green]Created:[/green] {config_path}"
+        )
+        cli_utils.CONSOLE.print(
+            f"  [dim]Strategy: {goal} | Samples: {config.num_samples} | "
+            f"Model: {config.inference_config.model.model_name}[/dim]"
+        )
+        return
+
     from rich.syntax import Syntax
 
     # Build annotated config display
@@ -1298,8 +1503,21 @@ def _display_annotated_synth_config(config, config_path: Path, schema, goal: str
     )
 
 
-def _display_annotated_judge_config(config, config_path: Path, schema, judge_type: str):
+def _display_annotated_judge_config(
+    config, config_path: Path, schema, judge_type: str, verbose: bool = False
+):
     """Display judge config with helpful annotations."""
+    # Simple output for non-verbose mode
+    if not verbose:
+        cli_utils.CONSOLE.print(
+            f"\n[green]Created:[/green] {config_path}"
+        )
+        cli_utils.CONSOLE.print(
+            f"  [dim]Type: {judge_type} | "
+            f"Model: {config.inference_config.model.model_name}[/dim]"
+        )
+        return
+
     judge_descriptions = {
         "generic": "Evaluates overall quality, coherence, and helpfulness",
         "compliance": "Checks if responses follow specific guidelines",
@@ -1338,9 +1556,21 @@ def _display_annotated_judge_config(config, config_path: Path, schema, judge_typ
 
 
 def _display_annotated_train_config(
-    config, config_path: Path, base_model: str, use_lora: bool
+    config, config_path: Path, base_model: str, use_lora: bool, verbose: bool = False
 ):
     """Display training config with helpful annotations."""
+    # Simple output for non-verbose mode
+    if not verbose:
+        cli_utils.CONSOLE.print(
+            f"\n[green]Created:[/green] {config_path}"
+        )
+        method = "LoRA" if use_lora else "Full"
+        cli_utils.CONSOLE.print(
+            f"  [dim]Model: {base_model} | Method: {method} | "
+            f"Steps: {config.training.max_steps}[/dim]"
+        )
+        return
+
     # Get dataset name safely
     dataset_name = "your_data.jsonl"
     if config.data and config.data.train and config.data.train.datasets:
@@ -1411,7 +1641,31 @@ def wizard(
         bool,
         typer.Option(
             "--llm/--no-llm",
-            help="Use LLM (Claude) to analyze data and infer domain-specific config.",
+            help="Use LLM to analyze data and infer domain-specific config.",
+        ),
+    ] = False,
+    engine: Annotated[
+        str,
+        typer.Option(
+            "--engine",
+            "-e",
+            help="LLM inference engine to use (ANTHROPIC, OPENAI, DEEPSEEK, TOGETHER).",
+        ),
+    ] = "ANTHROPIC",
+    model: Annotated[
+        Optional[str],
+        typer.Option(
+            "--model",
+            "-m",
+            help="Model name to use. If not specified, uses default for the engine.",
+        ),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Show detailed output including AI explanations and extra context.",
         ),
     ] = False,
 ):
@@ -1426,6 +1680,13 @@ def wizard(
 
         # Directory with multiple files
         oumi onboard wizard --data ./customer_data/
+
+        # With AI analysis using different engines
+        oumi onboard wizard --data ./data/ --llm --engine ANTHROPIC
+        oumi onboard wizard --data ./data/ --llm --engine OPENAI --model gpt-4o
+
+        # Show detailed output
+        oumi onboard wizard --data ./data/ --llm --verbose
     """
     # Delayed imports
     from oumi.onboarding import DataAnalyzer, FieldMapper
@@ -1435,19 +1696,26 @@ def wizard(
         TrainConfigBuilder,
     )
 
-    cli_utils.CONSOLE.print(
-        Panel(
-            "[bold green]Welcome to the Oumi Onboarding Wizard![/bold green]\n\n"
-            "This wizard will help you create configurations for:\n"
-            "  [cyan]oumi synth[/cyan]  - Generate synthetic training data\n"
-            "  [cyan]oumi judge[/cyan]  - Evaluate and score data quality\n"
-            "  [cyan]oumi train[/cyan]  - Fine-tune language models\n\n"
-            "[dim]The wizard will analyze your data and suggest the best options.\n"
-            "You can accept defaults or customize each setting.[/dim]",
-            title="Oumi Onboard",
-            border_style="green",
+    # Welcome message - concise by default
+    if verbose:
+        cli_utils.CONSOLE.print(
+            Panel(
+                "[bold green]Welcome to the Oumi Onboarding Wizard![/bold green]\n\n"
+                "This wizard will help you create configurations for:\n"
+                "  [cyan]oumi synth[/cyan]  - Generate synthetic training data\n"
+                "  [cyan]oumi judge[/cyan]  - Evaluate and score data quality\n"
+                "  [cyan]oumi train[/cyan]  - Fine-tune language models\n\n"
+                "[dim]The wizard will analyze your data and suggest the best options.\n"
+                "You can accept defaults or customize each setting.[/dim]",
+                title="Oumi Onboard",
+                border_style="green",
+            )
         )
-    )
+    else:
+        cli_utils.CONSOLE.print(
+            "[bold green]Oumi Onboarding Wizard[/bold green] "
+            "[dim](use --verbose for detailed output)[/dim]\n"
+        )
 
     # Check if input is a directory or file
     data_path = Path(data)
@@ -1463,13 +1731,31 @@ def wizard(
     # Initialize LLM analyzer early if needed
     llm_analyzer_instance = None
     if use_llm:
+        # Validate engine choice
+        valid_engines = ["ANTHROPIC", "OPENAI", "DEEPSEEK", "TOGETHER"]
+        engine_upper = engine.upper()
+        if engine_upper not in valid_engines:
+            cli_utils.CONSOLE.print(
+                f"[yellow]Warning: Unknown engine '{engine}'. "
+                f"Valid options: {', '.join(valid_engines)}. Using ANTHROPIC.[/yellow]"
+            )
+            engine_upper = "ANTHROPIC"
+
         try:
             from oumi.onboarding.llm_analyzer import FileContext, LLMAnalyzer
-            llm_analyzer_instance = LLMAnalyzer()
+
+            llm_analyzer_instance = LLMAnalyzer(
+                engine=engine_upper,
+                model=model,
+            )
+            cli_utils.CONSOLE.print(
+                f"[dim]Using {engine_upper} engine"
+                f"{f' with model {model}' if model else ''}[/dim]\n"
+            )
         except ImportError as e:
             cli_utils.CONSOLE.print(
                 f"[yellow]Warning: Could not load LLM analyzer: {e}[/yellow]\n"
-                "[dim]Install with: pip install anthropic[/dim]"
+                "[dim]Make sure you have the required API key set.[/dim]"
             )
             use_llm = False
         except Exception as e:
@@ -1492,55 +1778,54 @@ def wizard(
             )
             raise typer.Exit(1)
 
-        cli_utils.CONSOLE.print(f"\n[green]Found {len(files)} file(s)[/green]\n")
+        cli_utils.CONSOLE.print(f"[green]Found {len(files)} file(s)[/green]")
 
         # AI analysis of each file if LLM enabled
         if use_llm and llm_analyzer_instance:
-            cli_utils.CONSOLE.print(
-                "[bold cyan]AI Analysis: Analyzing each file's purpose...[/bold cyan]\n"
-            )
             with cli_utils.CONSOLE.status(
-                "[green]Analyzing files with AI...[/green]", spinner="dots"
+                "[dim]Analyzing files with AI...[/dim]", spinner="dots"
             ):
                 files = _analyze_file_purposes(files, analyzer, llm_analyzer_instance)
 
-            # Display files with AI analysis
-            _display_file_listing(files, analyzer, show_ai_analysis=True)
+            # Display files with AI analysis - verbose shows full table
+            if verbose:
+                _display_file_listing(files, analyzer, show_ai_analysis=True)
 
             # Show AI-suggested role assignments
-            cli_utils.CONSOLE.print(
-                "\n[bold]AI-Suggested File Roles:[/bold]"
-            )
+            cli_utils.CONSOLE.print("\n[bold]File Roles:[/bold]")
             for f in files:
                 role = f.get("suggested_role", "unknown").upper()
-                reason = f.get("role_reason", "")
-                cli_utils.CONSOLE.print(
-                    f"  [cyan]{f['name']}[/cyan] → [magenta]{role}[/magenta]"
-                    f"\n    [dim]{reason}[/dim]"
-                )
+                reason = f.get("role_reason") or ""
+                if verbose:
+                    cli_utils.CONSOLE.print(
+                        f"  [cyan]{f['name']}[/cyan] → [magenta]{role}[/magenta]"
+                    )
+                    if reason:
+                        cli_utils.CONSOLE.print(f"    [dim]{reason}[/dim]")
+                else:
+                    cli_utils.CONSOLE.print(
+                        f"  [cyan]{f['name']}[/cyan] → [magenta]{role}[/magenta]"
+                    )
 
             # Check if we have tabular files for column-level assignment
             has_tabular_files = any(
                 f["extension"] in TABULAR_EXTENSIONS for f in files
             )
 
-            # Ask what level of assignment
+            # Ask what level of assignment - simplified prompt
             cli_utils.CONSOLE.print("")
             if has_tabular_files:
-                cli_utils.CONSOLE.print(
-                    "[bold cyan]Assignment Mode[/bold cyan]\n"
-                    "[dim]You can assign entire files to roles, or pick specific columns.[/dim]\n"
-                )
                 assignment_mode = Prompt.ask(
-                    "How would you like to assign data?",
+                    "Assignment mode",
                     choices=["ai", "file", "column"],
                     default="ai",
                 )
-                cli_utils.CONSOLE.print(
-                    "[dim]  ai     = Use AI-suggested file roles\n"
-                    "  file   = Manually assign entire files to roles\n"
-                    "  column = Pick specific columns from tabular files[/dim]\n"
-                )
+                if verbose:
+                    cli_utils.CONSOLE.print(
+                        "[dim]  ai     = Use AI-suggested file roles\n"
+                        "  file   = Manually assign entire files to roles\n"
+                        "  column = Pick specific columns from tabular files[/dim]"
+                    )
             else:
                 use_ai_roles = Confirm.ask(
                     "Use AI-suggested file roles?",
@@ -1570,11 +1855,8 @@ def wizard(
 
             elif assignment_mode == "column":
                 # Column-level assignment for tabular files
-                cli_utils.CONSOLE.print(
-                    "\n[bold cyan]Column-Level Role Assignment[/bold cyan]\n"
-                )
                 column_assignments = _prompt_column_roles(
-                    files, analyzer, llm_analyzer_instance
+                    files, analyzer, llm_analyzer_instance, verbose=verbose
                 )
                 # Extract file_roles from column_assignments
                 file_roles = {}
@@ -1619,10 +1901,9 @@ def wizard(
                 )
 
                 if assignment_mode == "column":
-                    cli_utils.CONSOLE.print(
-                        "\n[bold cyan]Column-Level Role Assignment[/bold cyan]\n"
+                    column_assignments = _prompt_column_roles(
+                        files, analyzer, None, verbose=verbose
                     )
-                    column_assignments = _prompt_column_roles(files, analyzer, None)
                     # Extract file_roles from column_assignments
                     file_roles = {}
                     if "primary" in column_assignments:
@@ -1765,16 +2046,16 @@ def wizard(
     if choice == 1:
         commands = _wizard_synth(
             schema, output_path, analyzer, domain, llm_analyzer, file_roles,
-            column_assignments=column_assignments,
+            column_assignments=column_assignments, verbose=verbose,
         )
     elif choice == 2:
-        commands = _wizard_judge(schema, output_path, domain, llm_analyzer)
+        commands = _wizard_judge(schema, output_path, domain, llm_analyzer, verbose=verbose)
     elif choice == 3:
-        commands = _wizard_train(schema, output_path)
+        commands = _wizard_train(schema, output_path, verbose=verbose)
     elif choice == 4:
         commands = _wizard_pipeline(
             schema, output_path, analyzer, domain, llm_analyzer, file_roles,
-            column_assignments=column_assignments,
+            column_assignments=column_assignments, verbose=verbose,
         )
 
     # Step 5: Show runnable command(s)
@@ -1895,7 +2176,7 @@ def _display_schema_info(schema):
 
 def _wizard_synth(
     schema, output_path: Path, analyzer, domain=None, llm_analyzer=None, file_roles=None,
-    column_assignments=None,
+    column_assignments=None, verbose: bool = False,
 ):
     """Configure synthesis.
 
@@ -2070,12 +2351,12 @@ def _wizard_synth(
     cli_utils.CONSOLE.print(f"\n[green]Synth config saved to: {config_path}[/green]")
 
     # Display annotated config
-    _display_annotated_synth_config(config, config_path, schema, goal)
+    _display_annotated_synth_config(config, config_path, schema, goal, verbose=verbose)
 
     return [f"oumi synth -c {config_path}"]
 
 
-def _wizard_judge(schema, output_path: Path, domain=None, llm_analyzer=None):
+def _wizard_judge(schema, output_path: Path, domain=None, llm_analyzer=None, verbose: bool = False):
     """Configure judge."""
     from oumi.onboarding.config_builder import JudgeConfigBuilder
 
@@ -2158,12 +2439,12 @@ def _wizard_judge(schema, output_path: Path, domain=None, llm_analyzer=None):
     cli_utils.CONSOLE.print(f"\n[green]Judge config saved to: {config_path}[/green]")
 
     # Display annotated config
-    _display_annotated_judge_config(config, config_path, schema, judge_type)
+    _display_annotated_judge_config(config, config_path, schema, judge_type, verbose=verbose)
 
     return [f"oumi judge dataset -c {config_path} --input {schema.source_path}"]
 
 
-def _wizard_train(schema, output_path: Path):
+def _wizard_train(schema, output_path: Path, verbose: bool = False):
     """Configure training."""
     from oumi.onboarding.config_builder import TrainConfigBuilder
 
@@ -2237,14 +2518,14 @@ def _wizard_train(schema, output_path: Path):
     cli_utils.CONSOLE.print(f"\n[green]Train config saved to: {config_path}[/green]")
 
     # Display annotated config
-    _display_annotated_train_config(config, config_path, base_model, use_lora)
+    _display_annotated_train_config(config, config_path, base_model, use_lora, verbose=verbose)
 
     return [f"oumi train -c {config_path}"]
 
 
 def _wizard_pipeline(
     schema, output_path: Path, analyzer, domain=None, llm_analyzer=None, file_roles=None,
-    column_assignments=None,
+    column_assignments=None, verbose: bool = False,
 ):
     """Configure full pipeline.
 
@@ -2418,14 +2699,17 @@ def _wizard_pipeline(
     cli_utils.CONSOLE.print(f"  Train:  {train_path}")
 
     # Display annotated configs for all three
-    cli_utils.CONSOLE.print("\n[bold]Pipeline Configuration Summary:[/bold]")
+    if verbose:
+        cli_utils.CONSOLE.print("\n[bold]Pipeline Configuration Summary:[/bold]")
 
-    _display_annotated_synth_config(synth_config, synth_path, schema, goal)
-    cli_utils.CONSOLE.print("")
-    _display_annotated_judge_config(judge_config, judge_path, schema, judge_type)
-    cli_utils.CONSOLE.print("")
+    _display_annotated_synth_config(synth_config, synth_path, schema, goal, verbose=verbose)
+    if verbose:
+        cli_utils.CONSOLE.print("")
+    _display_annotated_judge_config(judge_config, judge_path, schema, judge_type, verbose=verbose)
+    if verbose:
+        cli_utils.CONSOLE.print("")
     _display_annotated_train_config(
-        train_config, train_path, "meta-llama/Llama-3.2-1B-Instruct", use_lora
+        train_config, train_path, "meta-llama/Llama-3.2-1B-Instruct", use_lora, verbose=verbose
     )
 
     return [

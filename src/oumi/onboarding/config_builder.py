@@ -20,10 +20,16 @@ analyzed customer data schemas.
 
 from __future__ import annotations
 
+import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Optional
+
+from oumi.utils.logging import logger
+
+# Supported file types for DatasetSource
+SUPPORTED_DATASET_EXTENSIONS = {".csv", ".json", ".jsonl", ".tsv", ".parquet"}
 
 from oumi.core.configs import (
     InferenceConfig,
@@ -63,6 +69,53 @@ if TYPE_CHECKING:
 
 SynthGoal = Literal["qa", "conversation", "augmentation", "instruction"]
 JudgeType = Literal["generic", "compliance", "relevance", "safety", "groundedness"]
+
+
+def _convert_to_supported_format(file_path: str, output_dir: Optional[str] = None) -> str:
+    """Convert unsupported file types to CSV for use with DatasetSource.
+
+    Args:
+        file_path: Path to the source file.
+        output_dir: Optional output directory. If not provided, uses same directory.
+
+    Returns:
+        Path to the converted file (CSV), or original path if already supported.
+    """
+    path = Path(file_path)
+    ext = path.suffix.lower()
+
+    # Already supported - return as-is
+    if ext in SUPPORTED_DATASET_EXTENSIONS:
+        return file_path
+
+    # Determine output path
+    if output_dir:
+        out_path = Path(output_dir) / f"{path.stem}.csv"
+    else:
+        out_path = path.with_suffix(".csv")
+
+    # Convert Excel files
+    if ext in {".xlsx", ".xls"}:
+        try:
+            import pandas as pd
+
+            df = pd.read_excel(file_path)
+            df.to_csv(out_path, index=False)
+            logger.info(f"Converted {path.name} to {out_path.name}")
+            return str(out_path)
+        except ImportError:
+            raise ImportError(
+                "pandas and openpyxl are required to convert Excel files. "
+                "Install with: pip install pandas openpyxl"
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to convert Excel file {file_path}: {e}")
+
+    # Unsupported format
+    raise ValueError(
+        f"Unsupported file type: {ext}. "
+        f"Supported types: {SUPPORTED_DATASET_EXTENSIONS}"
+    )
 
 
 @dataclass
@@ -280,7 +333,7 @@ Generate an appropriate response.""",
 
             params.input_data = [
                 DatasetSource(
-                    path=schema.source_path,
+                    path=_convert_to_supported_format(schema.source_path),
                     attribute_map=final_attribute_map if final_attribute_map else None,
                 )
             ]
@@ -622,7 +675,7 @@ Generate an appropriate response.""",
 
             params.input_data = [
                 DatasetSource(
-                    path=schema.source_path,
+                    path=_convert_to_supported_format(schema.source_path),
                     attribute_map=final_attribute_map if final_attribute_map else None,
                 )
             ]
@@ -710,7 +763,7 @@ Generate an appropriate response.""",
 
             params.input_data = [
                 DatasetSource(
-                    path=schema.source_path,
+                    path=_convert_to_supported_format(schema.source_path),
                     attribute_map=final_attribute_map if final_attribute_map else None,
                 )
             ]

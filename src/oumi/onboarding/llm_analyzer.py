@@ -14,7 +14,8 @@
 
 """LLM-based analysis for customer data onboarding.
 
-This module uses Claude to analyze customer data samples and automatically infer:
+This module uses Oumi inference engines to analyze customer data samples and
+automatically infer:
 - Domain and industry context
 - Terminology and key concepts
 - Quality signals and common issues
@@ -33,10 +34,14 @@ Example:
 from __future__ import annotations
 
 import json
-import os
+import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
+from oumi.core.configs.inference_config import InferenceEngineType
+from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.onboarding.data_analyzer import DataSchema
 from oumi.utils.logging import logger
 
@@ -141,60 +146,102 @@ class MultiFileAnalysis:
 class LLMAnalyzer:
     """Use an LLM to analyze customer data and infer configuration.
 
-    This class uses Claude to analyze sample data and automatically generate
-    domain-specific configurations for synthesis, evaluation, and training.
+    This class uses Oumi inference engines to analyze sample data and automatically
+    generate domain-specific configurations for synthesis, evaluation, and training.
+
+    Supports multiple inference engines: ANTHROPIC, OPENAI, VLLM, etc.
 
     Example:
         >>> llm = LLMAnalyzer()
         >>> domain = llm.analyze(schema)
         >>> synth_config = llm.infer_synth_config(schema, goal="qa", domain=domain)
+
+        >>> # Use a different engine
+        >>> llm = LLMAnalyzer(engine="OPENAI", model="gpt-4o")
     """
 
-    DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
+    # Default models per engine (prefer fast/cheap models for analysis tasks)
+    DEFAULT_MODELS: dict[str, str] = {
+        "ANTHROPIC": "claude-haiku-4-5",
+        "OPENAI": "gpt-5-mini",
+        "DEEPSEEK": "deepseek-chat",
+        "TOGETHER": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    }
+
+    # API key environment variables per engine
+    API_KEY_ENV_VARS: dict[str, str] = {
+        "ANTHROPIC": "ANTHROPIC_API_KEY",
+        "OPENAI": "OPENAI_API_KEY",
+        "DEEPSEEK": "DEEPSEEK_API_KEY",
+        "TOGETHER": "TOGETHER_API_KEY",
+    }
 
     def __init__(
         self,
-        model: str = DEFAULT_MODEL,
+        model: Optional[str] = None,
+        engine: Literal["ANTHROPIC", "OPENAI", "DEEPSEEK", "TOGETHER"] = "ANTHROPIC",
         api_key: Optional[str] = None,
-        api_key_env_var: str = "ANTHROPIC_API_KEY",
+        api_key_env_var: Optional[str] = None,
+        num_workers: int = 1,
     ):
         """Initialize the LLM analyzer.
 
         Args:
-            model: The Anthropic model to use.
+            model: Model name to use. If not provided, uses default for the engine.
+            engine: Inference engine to use (ANTHROPIC, OPENAI, DEEPSEEK, TOGETHER).
             api_key: Optional API key. If not provided, uses environment variable.
             api_key_env_var: Environment variable name for the API key.
+                If not provided, uses default for the engine.
+            num_workers: Number of concurrent workers for inference.
         """
-        self.model = model
+        self.engine_type = engine
+        self.model = model or self.DEFAULT_MODELS.get(engine, "claude-haiku-4-5")
         self._api_key = api_key
-        self._api_key_env_var = api_key_env_var
-        self._client = None
+        self._api_key_env_var = api_key_env_var or self.API_KEY_ENV_VARS.get(
+            engine, "ANTHROPIC_API_KEY"
+        )
+        self._num_workers = num_workers
+        self._inference_engine = None
+
+    def _get_engine_type(self) -> InferenceEngineType:
+        """Convert string engine type to InferenceEngineType enum."""
+        engine_map = {
+            "ANTHROPIC": InferenceEngineType.ANTHROPIC,
+            "OPENAI": InferenceEngineType.OPENAI,
+            "DEEPSEEK": InferenceEngineType.DEEPSEEK,
+            "TOGETHER": InferenceEngineType.TOGETHER,
+        }
+        return engine_map.get(self.engine_type, InferenceEngineType.ANTHROPIC)
 
     @property
-    def client(self):
-        """Lazy-load the Anthropic client."""
-        if self._client is None:
-            try:
-                import anthropic
-            except ImportError:
-                raise ImportError(
-                    "anthropic package is required for LLM analysis. "
-                    "Install with: pip install anthropic"
-                )
+    def inference_engine(self):
+        """Lazy-load the Oumi inference engine."""
+        if self._inference_engine is None:
+            from oumi.builders.inference_engines import build_inference_engine
 
-            api_key = self._api_key or os.environ.get(self._api_key_env_var)
-            if not api_key:
-                raise ValueError(
-                    f"Anthropic API key not found. Set {self._api_key_env_var} "
-                    "environment variable or pass api_key to constructor."
-                )
+            model_params = ModelParams(model_name=self.model)
+            generation_params = GenerationParams(
+                max_new_tokens=4096,
+                temperature=0.7,
+            )
+            remote_params = RemoteParams(
+                api_key=self._api_key,
+                api_key_env_varname=self._api_key_env_var,
+                num_workers=self._num_workers,
+                max_retries=3,
+            )
 
-            self._client = anthropic.Anthropic(api_key=api_key)
+            self._inference_engine = build_inference_engine(
+                engine_type=self._get_engine_type(),
+                model_params=model_params,
+                generation_params=generation_params,
+                remote_params=remote_params,
+            )
 
-        return self._client
+        return self._inference_engine
 
     def _invoke(self, prompt: str, system: str = "") -> str:
-        """Invoke the LLM with a prompt.
+        """Invoke the LLM with a prompt using Oumi inference engine.
 
         Args:
             prompt: The user prompt.
@@ -203,20 +250,40 @@ class LLMAnalyzer:
         Returns:
             The LLM response text.
         """
-        messages = [{"role": "user", "content": prompt}]
-
-        kwargs = {
-            "model": self.model,
-            "max_tokens": 4096,
-            "messages": messages,
-        }
-
+        # Build conversation
+        messages = []
         if system:
-            kwargs["system"] = system
+            messages.append(Message(content=system, role=Role.SYSTEM))
+        messages.append(Message(content=prompt, role=Role.USER))
+
+        conversation = Conversation(messages=messages)
+
+        # Create inference config
+        inference_config = InferenceConfig(
+            model=ModelParams(model_name=self.model),
+            generation=GenerationParams(
+                max_new_tokens=4096,
+                temperature=0.7,
+            ),
+            engine=self._get_engine_type(),
+        )
 
         try:
-            response = self.client.messages.create(**kwargs)
-            return response.content[0].text
+            # Run inference
+            results = self.inference_engine.infer(
+                input=[conversation],
+                inference_config=inference_config,
+            )
+
+            # Extract response text from the last message
+            if results and results[0].messages:
+                last_message = results[0].messages[-1]
+                if last_message.role == Role.ASSISTANT:
+                    return str(last_message.content)
+
+            logger.warning("No response from inference engine")
+            return ""
+
         except Exception as e:
             logger.error(f"LLM invocation failed: {e}")
             raise
@@ -241,8 +308,6 @@ class LLMAnalyzer:
             pass
 
         # Try to find JSON in code blocks
-        import re
-
         json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", response)
         if json_match:
             try:
