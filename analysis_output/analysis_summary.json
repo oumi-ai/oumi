@@ -1,0 +1,532 @@
+{
+  "dataset_overview": {
+    "dataset_name": "yahma/alpaca-cleaned",
+    "total_conversations": 10000,
+    "conversations_analyzed": 1000,
+    "dataset_coverage_percentage": 10.0,
+    "total_messages": 3000,
+    "analyzers_used": [
+      "length",
+      "diversity",
+      "format",
+      "quality"
+    ]
+  },
+  "message_level_summary": {
+    "length": {
+      "text_content_char_count": {
+        "count": 3000,
+        "mean": 285.83,
+        "std": 446.21,
+        "min": 1.0,
+        "max": 2684.0,
+        "median": 105.0
+      },
+      "text_content_word_count": {
+        "count": 3000,
+        "mean": 46.27,
+        "std": 71.62,
+        "min": 1.0,
+        "max": 421.0,
+        "median": 16.0
+      },
+      "text_content_sentence_count": {
+        "count": 3000,
+        "mean": 3.39,
+        "std": 4.57,
+        "min": 1.0,
+        "max": 41.0,
+        "median": 2.0
+      }
+    },
+    "diversity_unique": {
+      "text_content_words_ratio": {
+        "count": 3000,
+        "mean": 0.85,
+        "std": 0.13,
+        "min": 0.35,
+        "max": 1.0,
+        "median": 0.88
+      }
+    },
+    "diversity_type": {
+      "text_content_token_ratio": {
+        "count": 3000,
+        "mean": 0.85,
+        "std": 0.13,
+        "min": 0.35,
+        "max": 1.0,
+        "median": 0.88
+      }
+    },
+    "diversity": {
+      "text_content_vocabulary_richness": {
+        "count": 3000,
+        "mean": 4.36,
+        "std": 1.92,
+        "min": 1.0,
+        "max": 11.61,
+        "median": 3.64
+      }
+    },
+    "format_code": {
+      "text_content_block_count": {
+        "count": 3000,
+        "mean": 0.01,
+        "std": 0.1,
+        "min": 0.0,
+        "max": 2.0,
+        "median": 0.0
+      }
+    },
+    "format_format": {
+      "text_content_complexity_score": {
+        "count": 3000,
+        "mean": 0.05,
+        "std": 0.09,
+        "min": 0.0,
+        "max": 0.7,
+        "median": 0.0
+      }
+    },
+    "quality": {
+      "text_content_pii_count": {
+        "count": 3000,
+        "mean": 0.0,
+        "std": 0.04,
+        "min": 0.0,
+        "max": 2.0,
+        "median": 0.0
+      },
+      "text_content_repetition_ratio": {
+        "count": 3000,
+        "mean": 0.01,
+        "std": 0.03,
+        "min": 0.0,
+        "max": 0.33,
+        "median": 0.0
+      },
+      "text_content_quality_score": {
+        "count": 3000,
+        "mean": 1.0,
+        "std": 0.01,
+        "min": 0.7,
+        "max": 1.0,
+        "median": 1.0
+      }
+    }
+  },
+  "conversation_level_summary": {},
+  "conversation_turns": {
+    "count": 1000,
+    "mean": 3.0,
+    "std": 0.0,
+    "min": 3.0,
+    "max": 3.0,
+    "median": 3.0
+  },
+  "recommendations": [
+    {
+      "category": "warning",
+      "severity": "medium",
+      "title": "Outliers detected in length char count",
+      "description": "Found 99 samples (3.3%) with values outside 3.0 standard deviations from the mean. High outliers: 99, Low outliers: 0. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": "99",
+      "metric_name": "text_content_length_char_count",
+      "threshold": 3.0,
+      "details": {
+        "mean": 285.83,
+        "std": 446.21,
+        "upper_threshold": 1624.46,
+        "lower_threshold": -1052.8,
+        "high_outliers": 99,
+        "low_outliers": 0
+      },
+      "sample_indices": [
+        38,
+        62,
+        80,
+        98,
+        101,
+        125,
+        140,
+        206,
+        230,
+        245,
+        277,
+        301,
+        403,
+        473,
+        476,
+        485,
+        494,
+        608,
+        755,
+        788
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "medium",
+      "title": "Outliers detected in length word count",
+      "description": "Found 96 samples (3.2%) with values outside 3.0 standard deviations from the mean. High outliers: 96, Low outliers: 0. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": "96",
+      "metric_name": "text_content_length_word_count",
+      "threshold": 3.0,
+      "details": {
+        "mean": 46.27,
+        "std": 71.62,
+        "upper_threshold": 261.12,
+        "lower_threshold": -168.58,
+        "high_outliers": 96,
+        "low_outliers": 0
+      },
+      "sample_indices": [
+        23,
+        38,
+        62,
+        80,
+        98,
+        101,
+        125,
+        239,
+        245,
+        277,
+        301,
+        403,
+        473,
+        476,
+        485,
+        494,
+        521,
+        608,
+        755,
+        788
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "medium",
+      "title": "Outliers detected in length sentence count",
+      "description": "Found 94 samples (3.1%) with values outside 3.0 standard deviations from the mean. High outliers: 94, Low outliers: 0. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": "94",
+      "metric_name": "text_content_length_sentence_count",
+      "threshold": 3.0,
+      "details": {
+        "mean": 3.39,
+        "std": 4.57,
+        "upper_threshold": 17.11,
+        "lower_threshold": -10.33,
+        "high_outliers": 94,
+        "low_outliers": 0
+      },
+      "sample_indices": [
+        38,
+        98,
+        101,
+        125,
+        140,
+        230,
+        239,
+        248,
+        257,
+        269,
+        281,
+        320,
+        476,
+        548,
+        797,
+        809,
+        923,
+        974,
+        983,
+        1010
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "medium",
+      "title": "Outliers detected in diversity vocabulary richness",
+      "description": "Found 39 samples (1.3%) with values outside 3.0 standard deviations from the mean. High outliers: 39, Low outliers: 0. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": "39",
+      "metric_name": "text_content_diversity_vocabulary_richness",
+      "threshold": 3.0,
+      "details": {
+        "mean": 4.36,
+        "std": 1.92,
+        "upper_threshold": 10.11,
+        "lower_threshold": -1.39,
+        "high_outliers": 39,
+        "low_outliers": 0
+      },
+      "sample_indices": [
+        98,
+        101,
+        277,
+        301,
+        403,
+        466,
+        476,
+        923,
+        926,
+        983,
+        1040,
+        1211,
+        1247,
+        1364,
+        1397,
+        1583,
+        1619,
+        1622,
+        1630,
+        1877
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "medium",
+      "title": "Inconsistent instruction formatting detected",
+      "description": "Found multiple instruction format patterns in the dataset: alpaca: 410, vicuna: 3. Mixing formats may confuse the model and reduce training effectiveness. Consider standardizing to a single format.",
+      "affected_samples": 413,
+      "metric_name": "text_content",
+      "threshold": null,
+      "details": {
+        "format_distribution": {
+          "alpaca": 410,
+          "vicuna": 3
+        }
+      },
+      "sample_indices": []
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Outliers detected in diversity unique words ratio",
+      "description": "Found 12 samples (0.4%) with values outside 3.0 standard deviations from the mean. High outliers: 0, Low outliers: 12. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": "12",
+      "metric_name": "text_content_diversity_unique_words_ratio",
+      "threshold": 3.0,
+      "details": {
+        "mean": 0.85,
+        "std": 0.13,
+        "upper_threshold": 1.25,
+        "lower_threshold": 0.45,
+        "high_outliers": 0,
+        "low_outliers": 12
+      },
+      "sample_indices": [
+        473,
+        629,
+        647,
+        1205,
+        1313,
+        1937,
+        2060,
+        2297,
+        2306,
+        2546,
+        2681,
+        2915
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Outliers detected in diversity type token ratio",
+      "description": "Found 12 samples (0.4%) with values outside 3.0 standard deviations from the mean. High outliers: 0, Low outliers: 12. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": "12",
+      "metric_name": "text_content_diversity_type_token_ratio",
+      "threshold": 3.0,
+      "details": {
+        "mean": 0.85,
+        "std": 0.13,
+        "upper_threshold": 1.25,
+        "lower_threshold": 0.45,
+        "high_outliers": 0,
+        "low_outliers": 12
+      },
+      "sample_indices": [
+        473,
+        629,
+        647,
+        1205,
+        1313,
+        1937,
+        2060,
+        2297,
+        2306,
+        2546,
+        2681,
+        2915
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Outliers detected in format code block count",
+      "description": "Found 22 samples (0.7%) with values outside 3.0 standard deviations from the mean. High outliers: 22, Low outliers: 0. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": "22",
+      "metric_name": "text_content_format_code_block_count",
+      "threshold": 3.0,
+      "details": {
+        "mean": 0.01,
+        "std": 0.1,
+        "upper_threshold": 0.31,
+        "lower_threshold": -0.3,
+        "high_outliers": 22,
+        "low_outliers": 0
+      },
+      "sample_indices": [
+        50,
+        403,
+        434,
+        437,
+        440,
+        443,
+        446,
+        449,
+        452,
+        464,
+        466,
+        1043,
+        1436,
+        1445,
+        1454,
+        2039,
+        2072,
+        2140,
+        2182,
+        2201
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Outliers detected in format format complexity score",
+      "description": "Found 30 samples (1.0%) with values outside 3.0 standard deviations from the mean. High outliers: 30, Low outliers: 0. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": "30",
+      "metric_name": "text_content_format_format_complexity_score",
+      "threshold": 3.0,
+      "details": {
+        "mean": 0.05,
+        "std": 0.09,
+        "upper_threshold": 0.33,
+        "lower_threshold": -0.24,
+        "high_outliers": 30,
+        "low_outliers": 0
+      },
+      "sample_indices": [
+        50,
+        403,
+        434,
+        437,
+        439,
+        440,
+        443,
+        448,
+        449,
+        452,
+        457,
+        460,
+        461,
+        464,
+        466,
+        583,
+        1043,
+        1054,
+        1445,
+        1897
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Outliers detected in quality pii count",
+      "description": "Found 1 samples (0.0%) with values outside 3.0 standard deviations from the mean. High outliers: 1, Low outliers: 0. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": "1",
+      "metric_name": "text_content_quality_pii_count",
+      "threshold": 3.0,
+      "details": {
+        "mean": 0.0,
+        "std": 0.04,
+        "upper_threshold": 0.11,
+        "lower_threshold": -0.11,
+        "high_outliers": 1,
+        "low_outliers": 0
+      },
+      "sample_indices": [
+        2342
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Empty or near-empty messages detected",
+      "description": "Found 6 messages (0.2%) with 5 or fewer characters. These may indicate data quality issues or placeholder content that should be reviewed.",
+      "affected_samples": 6,
+      "metric_name": "text_content",
+      "threshold": 5.0,
+      "details": {
+        "empty_count": 6
+      },
+      "sample_indices": [
+        242,
+        296,
+        2261,
+        2603,
+        2711,
+        2720
+      ]
+    },
+    {
+      "category": "insight",
+      "severity": "low",
+      "title": "Many short messages detected",
+      "description": "Found 471 messages (15.7%) with fewer than 10 words. This may be intentional (e.g., short responses) or indicate low-quality samples worth reviewing.",
+      "affected_samples": 471,
+      "metric_name": "text_content_length_word_count",
+      "threshold": 10.0,
+      "details": {
+        "short_count": 471
+      },
+      "sample_indices": [
+        1,
+        4,
+        7,
+        10,
+        28,
+        31,
+        32,
+        37,
+        41,
+        46,
+        58,
+        64,
+        70,
+        73,
+        76,
+        79,
+        88,
+        92,
+        97,
+        104
+      ]
+    },
+    {
+      "category": "insight",
+      "severity": "low",
+      "title": "Highly repetitive content detected",
+      "description": "Found 2 messages (0.1%) with high repetition ratios. Repetitive content may cause the model to learn repetitive patterns. Consider reviewing or filtering these samples.",
+      "affected_samples": 2,
+      "metric_name": "text_content_quality_has_high_repetition",
+      "threshold": null,
+      "details": {
+        "repetitive_count": 2
+      },
+      "sample_indices": [
+        2546,
+        2915
+      ]
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+# Multilingual Dataset Analysis Configuration
+# Optimized for analyzing datasets with multiple languages.
+#
+# Features:
+# - Language detection for each sample
+# - Language consistency recommendations
+# - Diversity metrics per language
+#
+# Requirements:
+#   pip install langdetect
+#
+# Usage:
+#   oumi analyze --config configs/examples/analyze/analyze_multilingual.yaml
+
+# Dataset configuration - multilingual alpaca dataset
+dataset_name: "yahma/alpaca-cleaned"
+split: "train"
+sample_count: 500
+
+# Output configuration
+output_path: "./analysis_output/multilingual"
+
+# Recommendation settings
+generate_recommendations: true
+outlier_threshold: 3.0
+
+# Report generation
+generate_report: true
+report_title: "Multilingual Dataset Analysis"
+
+analyzers:
+  # Length metrics
+  - id: "length"
+    params:
+      char_count: true
+      word_count: true
+      sentence_count: true
+      token_count: false  # Varies by language
+
+  # Diversity - important for multilingual
+  - id: "diversity"
+    params:
+      unique_words_ratio: true
+      type_token_ratio: true
+      vocabulary_richness: true
+      hapax_legomena_ratio: true
+      case_sensitive: true  # Some languages are case-sensitive
+
+  # Quality with language detection
+  - id: "quality"
+    params:
+      detect_pii: true
+      detect_emails: true
+      detect_phones: true
+      detect_ssn: false  # US-specific
+      detect_credit_cards: true
+      detect_api_keys: true
+
+      detect_encoding_issues: true  # Critical for multilingual!
+      detect_special_tokens: true
+      detect_repetition: true
+      repetition_ngram_size: 3
+      repetition_threshold: 0.3
+
+      # Enable language detection
+      detect_language: true  # Requires langdetect package
+
+      compute_quality_score: true

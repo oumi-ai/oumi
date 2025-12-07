@@ -1,0 +1,68 @@
+# Code Dataset Analysis Configuration
+# Optimized for analyzing code-focused instruction datasets.
+#
+# Focuses on:
+# - Code block detection and language identification
+# - Format complexity (markdown, JSON structures)
+# - Quality issues common in code datasets
+# - Token counts (important for context windows)
+#
+# Usage:
+#   oumi analyze --config configs/examples/analyze/analyze_code_dataset.yaml
+
+# Dataset configuration - code instruction dataset
+dataset_name: "iamtarun/python_code_instructions_18k_alpaca"
+split: "train"
+sample_count: 500
+
+# Tokenizer for code
+tokenizer_name: "codellama/CodeLlama-7b-hf"
+
+# Output configuration
+output_path: "./analysis_output/code"
+
+# Recommendation settings
+generate_recommendations: true
+outlier_threshold: 3.0
+
+# Report generation
+generate_report: true
+report_title: "Code Dataset Analysis Report"
+
+analyzers:
+  # Length metrics - important for context window planning
+  - id: "length"
+    params:
+      char_count: true
+      word_count: false  # Less meaningful for code
+      sentence_count: false
+      token_count: true
+
+  # Format analysis - focus on code detection
+  - id: "format"
+    params:
+      detect_markdown: true
+      detect_json: true
+      detect_code_blocks: true  # Key for code datasets
+      detect_urls: true
+      detect_emails: false
+      compute_complexity: true
+
+  # Quality checks
+  - id: "quality"
+    params:
+      detect_pii: true
+      detect_emails: true
+      detect_phones: false
+      detect_ssn: false
+      detect_credit_cards: false
+      detect_ip_addresses: false
+      detect_api_keys: true  # Important for code!
+
+      detect_encoding_issues: true
+      detect_special_tokens: true
+      detect_repetition: true
+      repetition_ngram_size: 4  # Larger n-grams for code
+      repetition_threshold: 0.4
+
+      compute_quality_score: true

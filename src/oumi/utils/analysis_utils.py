@@ -247,6 +247,10 @@ def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[st
             "median": 0.0,
         }
 
+    # Convert boolean series to int for statistics (True=1, False=0)
+    if pd.api.types.is_bool_dtype(series):
+        series = series.astype(int)
+
     if len(series) == 1:
         single_value = round(float(series.iloc[0]), decimal_precision)
         return {
@@ -260,11 +264,11 @@ def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[st
 
     return {
         "count": len(series),
-        "mean": round(series.mean(), decimal_precision),
-        "std": round(series.std(), decimal_precision),
-        "min": round(series.min(), decimal_precision),
-        "max": round(series.max(), decimal_precision),
-        "median": round(series.median(), decimal_precision),
+        "mean": round(float(series.mean()), decimal_precision),
+        "std": round(float(series.std()), decimal_precision),
+        "min": round(float(series.min()), decimal_precision),
+        "max": round(float(series.max()), decimal_precision),
+        "median": round(float(series.median()), decimal_precision),
     }
 
 

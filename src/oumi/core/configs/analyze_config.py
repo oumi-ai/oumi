@@ -141,6 +141,36 @@ class AnalyzeConfig(BaseConfig):
         'processor_name' is provided.
     """
 
+    # Recommendations and report options
+    generate_recommendations: bool = True
+    """Whether to generate automated recommendations from analysis results.
+
+    When enabled, the analyzer will check for potential issues like outliers,
+    duplicates, empty content, and role imbalances, generating actionable
+    recommendations for improving the dataset.
+    """
+
+    outlier_threshold: float = 3.0
+    """Standard deviation threshold for outlier detection in recommendations.
+
+    Samples with metric values more than this many standard deviations from the
+    mean will be flagged as outliers. Lower values are more sensitive.
+    """
+
+    generate_report: bool = False
+    """Whether to generate an HTML report with interactive visualizations.
+
+    Requires the 'plotly' package: pip install 'oumi[analyze_advanced]'
+    The report includes charts, tables, and recommendations in a self-contained
+    HTML file.
+    """
+
+    report_title: Optional[str] = None
+    """Custom title for the HTML report.
+
+    If not provided, a default title will be generated based on the dataset name.
+    """
+
     def __post_init__(self):
         """Validates the configuration parameters."""
         # Emit deprecation warnings for deprecated fields

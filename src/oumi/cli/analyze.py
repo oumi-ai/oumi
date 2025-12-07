@@ -14,10 +14,11 @@
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Optional
+from typing import TYPE_CHECKING, Annotated, Any, Optional
 
 import pandas as pd
 import typer
+from rich.box import ROUNDED
 from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
@@ -56,6 +57,21 @@ def analyze(
             help="Output format for results: csv, json, or parquet (case-insensitive).",
         ),
     ] = "csv",
+    report: Annotated[
+        bool,
+        typer.Option(
+            "--report",
+            "-r",
+            help="Generate an interactive HTML report with charts. Requires plotly.",
+        ),
+    ] = False,
+    report_title: Annotated[
+        Optional[str],
+        typer.Option(
+            "--report-title",
+            help="Custom title for the HTML report.",
+        ),
+    ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
     verbose: cli_utils.VERBOSE_TYPE = False,
 ):
@@ -66,6 +82,8 @@ def analyze(
         config: Path to the configuration file for analysis.
         output: Output directory for results. Overrides config output_path.
         output_format: Output format (csv, json, parquet). Case-insensitive.
+        report: Whether to generate an interactive HTML report with charts.
+        report_title: Custom title for the HTML report.
         level: The logging level for the specified command.
         verbose: Enable verbose logging with additional debug information.
     """
@@ -123,11 +141,22 @@ def analyze(
             analyzer.analyze_dataset()
 
         # Display summary
-        _display_analysis_summary(analyzer)
+        _display_analysis_summary(analyzer, verbose=verbose)
 
         # Export results
         if parsed_config.output_path:
             _export_results(analyzer, parsed_config.output_path, output_format)
+
+        # Generate HTML report if requested via CLI flag or config
+        should_generate_report = report or getattr(
+            parsed_config, "generate_report", False
+        )
+        if should_generate_report:
+            # CLI flag takes precedence over config for title
+            effective_title = report_title or getattr(
+                parsed_config, "report_title", None
+            )
+            _generate_html_report(analyzer, parsed_config.output_path, effective_title)
 
     except FileNotFoundError as e:
         logger.error(f"Configuration file not found: {e}")
@@ -150,106 +179,287 @@ def analyze(
         raise typer.Exit(code=1)
 
 
-def _display_analysis_summary(analyzer: "DatasetAnalyzer") -> None:
-    """Display analysis summary in formatted tables to the console."""
+def _clean_metric_name(name: str, analyzer_id: str = "") -> str:
+    """Clean up metric name for display.
+
+    Args:
+        name: The raw metric name (e.g., 'text_content_length_char_count')
+        analyzer_id: The analyzer ID to strip from the name
+
+    Returns:
+        Cleaned metric name in Title Case (e.g., 'Char Count')
+    """
+    # Remove common prefixes
+    for prefix in ["text_content_", "content_"]:
+        if name.startswith(prefix):
+            name = name[len(prefix) :]
+
+    # Remove analyzer ID prefix if present (e.g., 'length_', 'format_')
+    if analyzer_id and name.startswith(f"{analyzer_id}_"):
+        name = name[len(analyzer_id) + 1 :]
+
+    # Convert snake_case to Title Case
+    return name.replace("_", " ").title()
+
+
+def _get_analyzer_id_from_group(group_name: str) -> str:
+    """Extract the base analyzer ID from a group name.
+
+    Group names may be like 'length', 'format_code', 'format_format'.
+    We want to extract 'length', 'format', 'format'.
+    """
+    # Known analyzer IDs
+    known_analyzers = ["length", "format", "diversity", "embedding"]
+    for analyzer in known_analyzers:
+        if group_name == analyzer or group_name.startswith(f"{analyzer}_"):
+            return analyzer
+    return group_name
+
+
+def _display_analysis_summary(
+    analyzer: "DatasetAnalyzer", verbose: bool = False
+) -> None:
+    """Display analysis summary in a single consolidated table to the console.
+
+    Args:
+        analyzer: The DatasetAnalyzer with completed analysis
+        verbose: If True, show all stats (std, min, max, median).
+                 If False, show only mean and count.
+    """
+    from rich.panel import Panel
+    from rich.text import Text
+
     summary = analyzer.analysis_summary
 
-    # Dataset overview table
+    # Dataset overview - compact header panel
     overview = summary.get("dataset_overview", {})
     if overview:
-        table = Table(
-            title="Dataset Overview",
-            title_style="bold magenta",
-            show_lines=True,
-        )
-        table.add_column("Metric", style="cyan")
-        table.add_column("Value", style="green")
+        conversations = overview.get("total_conversations", 0)
+        coverage = overview.get("dataset_coverage_percentage", 0)
+        messages = overview.get("total_messages", 0)
+        analyzers_list = overview.get("analyzers_used", [])
+        dataset_name = overview.get("dataset_name", "Unknown")
 
-        table.add_row("Dataset Name", str(overview.get("dataset_name", "N/A")))
-        table.add_row(
-            "Total Conversations", str(overview.get("total_conversations", "N/A"))
-        )
-        table.add_row(
-            "Conversations Analyzed", str(overview.get("conversations_analyzed", "N/A"))
-        )
-        table.add_row(
-            "Coverage",
-            f"{overview.get('dataset_coverage_percentage', 0):.1f}%",
-        )
-        table.add_row("Total Messages", str(overview.get("total_messages", "N/A")))
-        table.add_row(
-            "Analyzers Used",
-            ", ".join(overview.get("analyzers_used", [])) or "None",
-        )
-        cli_utils.CONSOLE.print(table)
+        overview_text = Text()
+        overview_text.append(f"Dataset: ", style="dim")
+        overview_text.append(f"{dataset_name}\n", style="cyan bold")
+        overview_text.append(f"Conversations: ", style="dim")
+        overview_text.append(f"{conversations}", style="green")
+        overview_text.append(f" ({coverage:.0f}% coverage)  ", style="dim")
+        overview_text.append(f"Messages: ", style="dim")
+        overview_text.append(f"{messages}\n", style="green")
+        overview_text.append(f"Analyzers: ", style="dim")
+        overview_text.append(", ".join(analyzers_list) or "None", style="yellow")
 
-    # Message-level summary
+        cli_utils.CONSOLE.print(
+            Panel(overview_text, title="Dataset Overview", border_style="magenta")
+        )
+        cli_utils.CONSOLE.print()
+
+    # Build a single consolidated metrics table
     msg_summary = summary.get("message_level_summary", {})
-    if msg_summary:
-        for analyzer_name, metrics in msg_summary.items():
-            table = Table(
-                title=f"Message-Level Metrics ({analyzer_name})",
-                title_style="bold blue",
-                show_lines=True,
-            )
-            table.add_column("Metric", style="cyan")
-            table.add_column("Mean", style="green")
-            table.add_column("Std", style="yellow")
-            table.add_column("Min", style="dim")
-            table.add_column("Max", style="dim")
-            table.add_column("Median", style="dim")
-
-            for metric_name, stats in metrics.items():
-                if isinstance(stats, dict):
-                    table.add_row(
-                        metric_name,
-                        f"{stats.get('mean', 'N/A'):.2f}"
-                        if isinstance(stats.get("mean"), (int, float))
-                        else "N/A",
-                        f"{stats.get('std', 'N/A'):.2f}"
-                        if isinstance(stats.get("std"), (int, float))
-                        else "N/A",
-                        str(stats.get("min", "N/A")),
-                        str(stats.get("max", "N/A")),
-                        f"{stats.get('median', 'N/A'):.2f}"
-                        if isinstance(stats.get("median"), (int, float))
-                        else "N/A",
-                    )
-            cli_utils.CONSOLE.print(table)
-
-    # Conversation turns summary
     turns_summary = summary.get("conversation_turns", {})
-    if turns_summary and isinstance(turns_summary, dict) and turns_summary.get("count"):
-        table = Table(
-            title="Conversation Turns",
-            title_style="bold yellow",
-            show_lines=True,
-        )
-        table.add_column("Statistic", style="cyan")
-        table.add_column("Value", style="green")
 
-        table.add_row("Count", str(turns_summary.get("count", "N/A")))
-        table.add_row(
-            "Mean",
-            f"{turns_summary.get('mean', 0):.2f}"
-            if isinstance(turns_summary.get("mean"), (int, float))
-            else "N/A",
+    if msg_summary or turns_summary:
+        # Create consolidated table
+        table = Table(
+            title="Analysis Metrics",
+            title_style="bold blue",
+            box=ROUNDED,
+            show_header=True,
+            header_style="bold",
         )
-        table.add_row(
-            "Std",
-            f"{turns_summary.get('std', 0):.2f}"
-            if isinstance(turns_summary.get("std"), (int, float))
-            else "N/A",
+
+        table.add_column("Analyzer", style="magenta", width=12)
+        table.add_column("Metric", style="cyan")
+        table.add_column("Mean", style="green", justify="right", width=10)
+        table.add_column("Count", style="dim", justify="right", width=8)
+        if verbose:
+            table.add_column("Std", style="yellow", justify="right", width=10)
+            table.add_column("Min", style="dim", justify="right", width=10)
+            table.add_column("Max", style="dim", justify="right", width=10)
+            table.add_column("Median", style="dim", justify="right", width=10)
+
+        # Group metrics by base analyzer ID
+        analyzer_metrics: dict[str, dict[str, dict]] = {}
+        for group_name, metrics in msg_summary.items():
+            base_analyzer = _get_analyzer_id_from_group(group_name)
+            if base_analyzer not in analyzer_metrics:
+                analyzer_metrics[base_analyzer] = {}
+            analyzer_metrics[base_analyzer].update(metrics)
+
+        # Sort analyzers for consistent display order
+        analyzer_order = ["length", "diversity", "format", "quality", "embedding"]
+        sorted_analyzers = sorted(
+            analyzer_metrics.keys(),
+            key=lambda x: analyzer_order.index(x) if x in analyzer_order else 999,
         )
-        table.add_row("Min", str(turns_summary.get("min", "N/A")))
-        table.add_row("Max", str(turns_summary.get("max", "N/A")))
-        table.add_row(
-            "Median",
-            f"{turns_summary.get('median', 0):.2f}"
-            if isinstance(turns_summary.get("median"), (int, float))
-            else "N/A",
-        )
+
+        # Add rows grouped by analyzer
+        for idx, analyzer_id in enumerate(sorted_analyzers):
+            metrics = analyzer_metrics[analyzer_id]
+
+            # Add section separator (except for first)
+            if idx > 0:
+                if verbose:
+                    table.add_row("", "", "", "", "", "", "", "", style="dim")
+                else:
+                    table.add_row("", "", "", "", style="dim")
+
+            first_metric = True
+            for metric_name, stats in sorted(metrics.items()):
+                if isinstance(stats, dict):
+                    clean_name = _clean_metric_name(metric_name, analyzer_id)
+                    mean_val = stats.get("mean", 0)
+                    count_val = stats.get("count", 0)
+
+                    # Format values
+                    mean_str = _format_number(mean_val)
+                    count_str = str(count_val)
+
+                    # Show analyzer name only on first row of each group
+                    analyzer_label = analyzer_id.title() if first_metric else ""
+
+                    if verbose:
+                        std_val = stats.get("std", 0)
+                        min_val = stats.get("min", 0)
+                        max_val = stats.get("max", 0)
+                        median_val = stats.get("median", 0)
+                        table.add_row(
+                            analyzer_label,
+                            clean_name,
+                            mean_str,
+                            count_str,
+                            _format_number(std_val),
+                            _format_number(min_val),
+                            _format_number(max_val),
+                            _format_number(median_val),
+                        )
+                    else:
+                        table.add_row(analyzer_label, clean_name, mean_str, count_str)
+
+                    first_metric = False
+
+        # Add conversation turns as a separate section
+        if turns_summary and isinstance(turns_summary, dict) and turns_summary.get(
+            "count"
+        ):
+            # Add separator
+            if sorted_analyzers:
+                if verbose:
+                    table.add_row("", "", "", "", "", "", "", "", style="dim")
+                else:
+                    table.add_row("", "", "", "", style="dim")
+
+            mean_val = turns_summary.get("mean", 0)
+            count_val = turns_summary.get("count", 0)
+
+            if verbose:
+                std_val = turns_summary.get("std", 0)
+                min_val = turns_summary.get("min", 0)
+                max_val = turns_summary.get("max", 0)
+                median_val = turns_summary.get("median", 0)
+                table.add_row(
+                    "Turns",
+                    "Messages Per Conversation",
+                    _format_number(mean_val),
+                    str(count_val),
+                    _format_number(std_val),
+                    _format_number(min_val),
+                    _format_number(max_val),
+                    _format_number(median_val),
+                )
+            else:
+                table.add_row(
+                    "Turns",
+                    "Messages Per Conversation",
+                    _format_number(mean_val),
+                    str(count_val),
+                )
+
         cli_utils.CONSOLE.print(table)
+        cli_utils.CONSOLE.print()
+
+    # Display recommendations
+    _display_recommendations(summary)
+
+
+def _format_number(value: Any) -> str:
+    """Format a number for display.
+
+    Args:
+        value: The value to format.
+
+    Returns:
+        Formatted string representation.
+    """
+    if value is None:
+        return "N/A"
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, float):
+        if value == int(value):
+            return str(int(value))
+        if abs(value) >= 1000:
+            return f"{value:,.0f}"
+        if abs(value) >= 100:
+            return f"{value:.1f}"
+        if abs(value) >= 1:
+            return f"{value:.2f}"
+        return f"{value:.3f}"
+    if isinstance(value, int):
+        if abs(value) >= 1000:
+            return f"{value:,}"
+        return str(value)
+    return str(value)
+
+
+def _display_recommendations(summary: dict) -> None:
+    """Display recommendations with color-coded severity.
+
+    Args:
+        summary: The analysis summary containing recommendations.
+    """
+    recommendations = summary.get("recommendations", [])
+    if not recommendations:
+        return
+
+    # Severity icons and colors
+    severity_styles = {
+        "high": ("[red]●[/red]", "red"),
+        "medium": ("[yellow]●[/yellow]", "yellow"),
+        "low": ("[dim]●[/dim]", "dim"),
+    }
+
+    table = Table(
+        title=f"Recommendations ({len(recommendations)})",
+        title_style="bold cyan",
+        box=ROUNDED,
+        show_header=False,
+        padding=(0, 1),
+    )
+    table.add_column("", style="white", overflow="fold")
+
+    for rec in recommendations[:5]:  # Show top 5 recommendations
+        severity = rec.get("severity", "low")
+        icon, style = severity_styles.get(severity, severity_styles["low"])
+        title = rec.get("title", "")
+        description = rec.get("description", "")
+
+        # Format: ● SEVERITY: Title
+        severity_label = severity.upper()
+        table.add_row(f"{icon} [bold]{severity_label}:[/bold] {title}")
+        if description:
+            table.add_row(f"   [{style}]{description}[/{style}]")
+
+    cli_utils.CONSOLE.print(table)
+
+    if len(recommendations) > 5:
+        cli_utils.CONSOLE.print(
+            f"[dim]  ... and {len(recommendations) - 5} more recommendations "
+            "(see analysis_summary.json)[/dim]"
+        )
+    cli_utils.CONSOLE.print()
 
 
 def _export_results(
@@ -290,3 +500,54 @@ def _save_dataframe(df: pd.DataFrame, path: Path, output_format: str) -> None:
         df.to_json(path, orient="records", indent=2)
     elif output_format == "parquet":
         df.to_parquet(path, index=False)
+
+
+def _generate_html_report(
+    analyzer: "DatasetAnalyzer",
+    output_path: Optional[str],
+    title: Optional[str],
+) -> None:
+    """Generate an interactive HTML report with charts.
+
+    Args:
+        analyzer: The DatasetAnalyzer instance with completed analysis.
+        output_path: Output directory for the report.
+        title: Optional custom title for the report.
+    """
+    try:
+        from oumi.core.analyze.report_generator import HTMLReportGenerator
+    except ImportError:
+        cli_utils.CONSOLE.print(
+            "[yellow]Warning:[/yellow] HTML report generation requires additional "
+            "dependencies. Install with: pip install 'oumi[analyze_advanced]'"
+        )
+        return
+
+    try:
+        generator = HTMLReportGenerator()
+
+        # Determine output path
+        if output_path:
+            report_path = Path(output_path)
+        else:
+            report_path = Path()
+
+        # Generate report
+        with cli_utils.CONSOLE.status(
+            "[green]Generating HTML report...[/green]", spinner="dots"
+        ):
+            output_file = generator.generate_report(
+                analyzer=analyzer,
+                output_path=report_path,
+                title=title,
+            )
+
+        cli_utils.CONSOLE.print(
+            f"[green]Generated HTML report:[/green] {output_file}"
+        )
+
+    except Exception as e:
+        logger.warning(f"Failed to generate HTML report: {e}")
+        cli_utils.CONSOLE.print(
+            f"[yellow]Warning:[/yellow] Failed to generate HTML report: {e}"
+        )

@@ -1,0 +1,42 @@
+# Diversity Analyzer Configuration
+# Measures vocabulary diversity and text richness metrics
+#
+# Usage: oumi analyze --config configs/examples/analyze/analyze_diversity.yaml
+#
+# Metrics computed:
+#   - unique_words_ratio: unique words / total words (0-1, higher = more diverse)
+#   - type_token_ratio: unique tokens / total tokens (0-1)
+#   - vocabulary_richness: log-adjusted TTR for longer texts
+#   - hapax_legomena_ratio: words appearing once / unique words
+
+# Dataset configuration
+dataset_name: yahma/alpaca-cleaned
+split: train
+sample_count: 100  # Limit samples for quick analysis
+
+# Or use a local file:
+# dataset_path: data/dataset_examples/oumi_format.jsonl
+
+output_path: ./analysis_output
+
+# Recommendations and report settings
+generate_recommendations: true
+outlier_threshold: 3.0  # Standard deviations for outlier detection
+
+analyzers:
+  # Length analyzer for baseline metrics
+  - id: length
+    params:
+      char_count: true
+      word_count: true
+      sentence_count: true
+      token_count: false
+
+  # Diversity analyzer for vocabulary richness
+  - id: diversity
+    params:
+      unique_words_ratio: true      # Ratio of unique to total words
+      type_token_ratio: true        # Classic TTR metric
+      vocabulary_richness: true     # Log-adjusted TTR (better for varying lengths)
+      hapax_legomena_ratio: false   # Words appearing only once (optional)
+      case_sensitive: false         # Treat "Hello" and "hello" as same word
