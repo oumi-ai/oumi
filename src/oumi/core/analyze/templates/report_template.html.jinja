@@ -841,93 +841,181 @@
             padding: 0;
         }
 
-        .sample-list {
+        /* Conversation List */
+        .conversation-list {
             display: flex;
             flex-direction: column;
         }
 
-        .sample-item {
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--color-border-subtle);
-            transition: background 0.2s ease;
+        .conversation-item {
+            border-bottom: 1px solid var(--color-border);
         }
 
-        .sample-item:hover {
-            background: var(--color-bg-hover);
-        }
-
-        .sample-item:last-child {
+        .conversation-item:last-child {
             border-bottom: none;
         }
 
-        .sample-item-header {
+        .conversation-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            background: var(--color-surface);
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .conversation-header:hover {
+            background: var(--color-bg-hover);
+        }
+
+        .conversation-header-left {
             display: flex;
             align-items: center;
             gap: 12px;
-            margin-bottom: 12px;
         }
 
-        .sample-item-index {
+        .conversation-id {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        .conversation-stats {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .conversation-stat {
             font-family: var(--font-mono);
             font-size: 11px;
-            font-weight: 600;
-            background: var(--color-surface);
-            padding: 4px 8px;
+            padding: 3px 8px;
             border-radius: 4px;
+            background: var(--color-bg-card);
             color: var(--color-text-muted);
         }
 
-        .sample-item-role {
+        .conversation-stat.flagged {
+            background: var(--color-danger-dim);
+            color: var(--color-danger);
+        }
+
+        .conversation-toggle {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-text-muted);
+            transition: transform 0.2s ease;
+        }
+
+        .conversation-item.expanded .conversation-toggle {
+            transform: rotate(180deg);
+        }
+
+        .conversation-turns {
+            display: none;
+            padding: 0 24px 20px;
+        }
+
+        .conversation-item.expanded .conversation-turns {
+            display: block;
+        }
+
+        /* Conversation Turn (Message) */
+        .turn {
+            display: flex;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--color-border-subtle);
+        }
+
+        .turn:last-child {
+            border-bottom: none;
+        }
+
+        .turn.flagged {
+            background: var(--color-danger-dim);
+            margin: 0 -16px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(214, 106, 106, 0.3);
+        }
+
+        .turn-role {
+            flex-shrink: 0;
+            width: 80px;
+        }
+
+        .turn-role-badge {
             font-family: var(--font-mono);
-            font-size: 11px;
-            font-weight: 500;
+            font-size: 10px;
+            font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             padding: 4px 8px;
             border-radius: 4px;
+            display: inline-block;
         }
 
-        .sample-item-role.user {
+        .turn-role-badge.user {
             background: var(--color-info-dim);
             color: var(--color-info);
         }
 
-        .sample-item-role.assistant {
+        .turn-role-badge.assistant {
             background: var(--color-success-dim);
             color: var(--color-success);
         }
 
-        .sample-item-role.system {
+        .turn-role-badge.system {
             background: var(--color-warning-dim);
             color: var(--color-warning);
         }
 
-        .sample-item-metric {
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: var(--color-accent);
-            margin-left: auto;
+        .turn-content-wrapper {
+            flex: 1;
+            min-width: 0;
         }
 
-        .sample-item-content {
+        .turn-content {
             font-size: 13px;
             line-height: 1.6;
             color: var(--color-text-secondary);
-            background: var(--color-bg-card);
-            padding: 12px 16px;
-            border-radius: 8px;
-            border: 1px solid var(--color-border-subtle);
             white-space: pre-wrap;
             word-break: break-word;
-            max-height: 200px;
+            max-height: 150px;
             overflow-y: auto;
         }
 
-        .sample-item-content.expanded {
+        .turn.flagged .turn-content {
+            color: var(--color-text);
+        }
+
+        .turn-content.expanded {
             max-height: none;
         }
 
-        .sample-expand-btn {
+        .turn-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .turn-metric {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--color-danger);
+            background: var(--color-bg-card);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .turn-expand-btn {
             display: inline-flex;
             align-items: center;
             gap: 4px;
@@ -937,13 +1025,29 @@
             background: none;
             border: none;
             cursor: pointer;
-            margin-top: 8px;
             padding: 0;
             transition: color 0.2s ease;
         }
 
-        .sample-expand-btn:hover {
+        .turn-expand-btn:hover {
             color: var(--color-accent);
+        }
+
+        .flagged-indicator {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--color-danger);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .flagged-indicator svg {
+            width: 12px;
+            height: 12px;
         }
 
         .sample-modal-footer {
@@ -1120,13 +1224,12 @@
                                     {{ rec.metric_name }}
                                 </span>
                                 {% endif %}
-                                {% if rec.samples and rec.samples | length > 0 %}
+                                {% if rec.conversations and rec.conversations | length > 0 %}
                                 <button class="view-samples-btn" onclick="openSampleModal('{{ rec.id }}')">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                        <circle cx="12" cy="12" r="3"></circle>
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                                     </svg>
-                                    View {{ rec.samples | length }}{% if rec.affected_samples > rec.samples | length %} of {{ rec.affected_samples }}{% endif %} samples
+                                    View {{ rec.conversations | length }}{% if rec.affected_samples > 20 %} of {{ rec.affected_samples }}{% endif %} conversation{{ 's' if rec.conversations | length != 1 else '' }}
                                 </button>
                                 {% endif %}
                             </div>
@@ -1287,12 +1390,12 @@
         </div>
     </main>
 
-    <!-- Sample Modal -->
+    <!-- Conversation Modal -->
     {% if recommendations %}
     <div id="sampleModal" class="sample-modal-overlay" onclick="closeSampleModal(event)">
         <div class="sample-modal" onclick="event.stopPropagation()">
             <div class="sample-modal-header">
-                <h3 id="sampleModalTitle">Affected Samples</h3>
+                <h3 id="sampleModalTitle">Affected Conversations</h3>
                 <button class="sample-modal-close" onclick="closeSampleModal()">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -1301,10 +1404,10 @@
                 </button>
             </div>
             <div class="sample-modal-body" id="sampleModalBody">
-                <!-- Samples will be inserted here -->
+                <!-- Conversations will be inserted here -->
             </div>
             <div class="sample-modal-footer">
-                <p>Showing up to 20 samples. Export the analysis data for the complete list.</p>
+                <p>Showing up to 20 conversations with flagged messages highlighted.</p>
             </div>
         </div>
     </div>
@@ -1372,15 +1475,15 @@
     </script>
     {% endif %}
 
-    <!-- Sample Modal Scripts -->
+    <!-- Conversation Modal Scripts -->
     {% if recommendations %}
     <script>
-        // Sample data for each recommendation
-        const sampleData = {
+        // Conversation data for each recommendation
+        const conversationData = {
             {% for rec in recommendations %}
             '{{ rec.id }}': {
                 title: {{ rec.title | tojson }},
-                samples: {{ rec.samples | tojson }}
+                conversations: {{ rec.conversations | tojson }}
             },
             {% endfor %}
         };
@@ -1390,7 +1493,7 @@
             const title = document.getElementById('sampleModalTitle');
             const body = document.getElementById('sampleModalBody');
 
-            const data = sampleData[recId];
+            const data = conversationData[recId];
             if (!data) return;
 
             title.textContent = data.title;
@@ -1400,82 +1503,171 @@
                 body.removeChild(body.firstChild);
             }
 
-            // Build sample list using safe DOM methods
-            const sampleList = document.createElement('div');
-            sampleList.className = 'sample-list';
+            // Build conversation list using safe DOM methods
+            const convList = document.createElement('div');
+            convList.className = 'conversation-list';
 
-            data.samples.forEach((sample, idx) => {
-                const roleClass = sample.role ? sample.role.toLowerCase() : '';
-                const contentId = `sample-content-${recId}-${idx}`;
-                const needsExpand = sample.text_full && sample.text_full.length > 300;
+            data.conversations.forEach((conv, convIdx) => {
+                const convItem = document.createElement('div');
+                convItem.className = 'conversation-item';
+                convItem.id = `conv-${recId}-${convIdx}`;
 
-                const sampleItem = document.createElement('div');
-                sampleItem.className = 'sample-item';
-
-                // Header
+                // Conversation header (clickable to expand)
                 const header = document.createElement('div');
-                header.className = 'sample-item-header';
+                header.className = 'conversation-header';
+                header.onclick = function() {
+                    convItem.classList.toggle('expanded');
+                };
 
-                const indexSpan = document.createElement('span');
-                indexSpan.className = 'sample-item-index';
-                indexSpan.textContent = '#' + sample.index;
-                header.appendChild(indexSpan);
+                const headerLeft = document.createElement('div');
+                headerLeft.className = 'conversation-header-left';
 
-                const roleSpan = document.createElement('span');
-                roleSpan.className = 'sample-item-role ' + roleClass;
-                roleSpan.textContent = sample.role || 'N/A';
-                header.appendChild(roleSpan);
+                const convId = document.createElement('span');
+                convId.className = 'conversation-id';
+                convId.textContent = 'Conversation ' + (convIdx + 1);
+                headerLeft.appendChild(convId);
 
-                if (sample.metric_value) {
-                    const metricSpan = document.createElement('span');
-                    metricSpan.className = 'sample-item-metric';
-                    metricSpan.textContent = 'Value: ' + sample.metric_value;
-                    header.appendChild(metricSpan);
+                const stats = document.createElement('div');
+                stats.className = 'conversation-stats';
+
+                const turnsStat = document.createElement('span');
+                turnsStat.className = 'conversation-stat';
+                turnsStat.textContent = conv.turns.length + ' turn' + (conv.turns.length !== 1 ? 's' : '');
+                stats.appendChild(turnsStat);
+
+                const flaggedStat = document.createElement('span');
+                flaggedStat.className = 'conversation-stat flagged';
+                flaggedStat.textContent = conv.flagged_count + ' flagged';
+                stats.appendChild(flaggedStat);
+
+                headerLeft.appendChild(stats);
+                header.appendChild(headerLeft);
+
+                // Toggle chevron
+                const toggle = document.createElement('div');
+                toggle.className = 'conversation-toggle';
+                const chevronSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                chevronSvg.setAttribute('width', '16');
+                chevronSvg.setAttribute('height', '16');
+                chevronSvg.setAttribute('viewBox', '0 0 24 24');
+                chevronSvg.setAttribute('fill', 'none');
+                chevronSvg.setAttribute('stroke', 'currentColor');
+                chevronSvg.setAttribute('stroke-width', '2');
+                const chevronPath = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                chevronPath.setAttribute('points', '6,9 12,15 18,9');
+                chevronSvg.appendChild(chevronPath);
+                toggle.appendChild(chevronSvg);
+                header.appendChild(toggle);
+
+                convItem.appendChild(header);
+
+                // Conversation turns
+                const turnsContainer = document.createElement('div');
+                turnsContainer.className = 'conversation-turns';
+
+                conv.turns.forEach((turn, turnIdx) => {
+                    const turnEl = document.createElement('div');
+                    turnEl.className = 'turn' + (turn.is_flagged ? ' flagged' : '');
+
+                    // Role badge
+                    const roleDiv = document.createElement('div');
+                    roleDiv.className = 'turn-role';
+                    const roleBadge = document.createElement('span');
+                    roleBadge.className = 'turn-role-badge ' + (turn.role ? turn.role.toLowerCase() : '');
+                    roleBadge.textContent = turn.role || 'unknown';
+                    roleDiv.appendChild(roleBadge);
+                    turnEl.appendChild(roleDiv);
+
+                    // Content wrapper
+                    const contentWrapper = document.createElement('div');
+                    contentWrapper.className = 'turn-content-wrapper';
+
+                    // Flagged indicator
+                    if (turn.is_flagged) {
+                        const flaggedIndicator = document.createElement('div');
+                        flaggedIndicator.className = 'flagged-indicator';
+                        const flagSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        flagSvg.setAttribute('viewBox', '0 0 24 24');
+                        flagSvg.setAttribute('fill', 'none');
+                        flagSvg.setAttribute('stroke', 'currentColor');
+                        flagSvg.setAttribute('stroke-width', '2');
+                        const flagPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        flagPath.setAttribute('d', 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z');
+                        flagSvg.appendChild(flagPath);
+                        flaggedIndicator.appendChild(flagSvg);
+                        const flagText = document.createElement('span');
+                        flagText.textContent = 'Issue detected';
+                        flaggedIndicator.appendChild(flagText);
+                        contentWrapper.appendChild(flaggedIndicator);
+                    }
+
+                    // Content text
+                    const contentId = `turn-content-${recId}-${convIdx}-${turnIdx}`;
+                    const content = document.createElement('div');
+                    content.className = 'turn-content';
+                    content.id = contentId;
+                    const truncatedText = turn.text.length > 300 ? turn.text.substring(0, 300) + '...' : turn.text;
+                    content.textContent = truncatedText;
+                    contentWrapper.appendChild(content);
+
+                    // Meta row (metric value and expand button)
+                    const meta = document.createElement('div');
+                    meta.className = 'turn-meta';
+
+                    if (turn.metric_value) {
+                        const metric = document.createElement('span');
+                        metric.className = 'turn-metric';
+                        metric.textContent = 'Value: ' + turn.metric_value;
+                        meta.appendChild(metric);
+                    }
+
+                    if (turn.text.length > 300) {
+                        const expandBtn = document.createElement('button');
+                        expandBtn.className = 'turn-expand-btn';
+                        expandBtn.setAttribute('data-full-text', turn.text);
+                        expandBtn.setAttribute('data-truncated-text', truncatedText);
+                        expandBtn.setAttribute('data-content-id', contentId);
+                        expandBtn.onclick = function() {
+                            toggleTurnExpand(this);
+                        };
+
+                        const expandSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        expandSvg.setAttribute('width', '12');
+                        expandSvg.setAttribute('height', '12');
+                        expandSvg.setAttribute('viewBox', '0 0 24 24');
+                        expandSvg.setAttribute('fill', 'none');
+                        expandSvg.setAttribute('stroke', 'currentColor');
+                        expandSvg.setAttribute('stroke-width', '2');
+                        const expandPolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                        expandPolyline.setAttribute('points', '6,9 12,15 18,9');
+                        expandSvg.appendChild(expandPolyline);
+                        expandBtn.appendChild(expandSvg);
+
+                        const expandText = document.createElement('span');
+                        expandText.textContent = 'Show full';
+                        expandBtn.appendChild(expandText);
+
+                        meta.appendChild(expandBtn);
+                    }
+
+                    if (meta.children.length > 0) {
+                        contentWrapper.appendChild(meta);
+                    }
+
+                    turnEl.appendChild(contentWrapper);
+                    turnsContainer.appendChild(turnEl);
+                });
+
+                convItem.appendChild(turnsContainer);
+                convList.appendChild(convItem);
+
+                // Auto-expand first conversation
+                if (convIdx === 0) {
+                    convItem.classList.add('expanded');
                 }
-
-                sampleItem.appendChild(header);
-
-                // Content
-                const content = document.createElement('div');
-                content.className = 'sample-item-content';
-                content.id = contentId;
-                content.textContent = sample.text_preview || '';
-                sampleItem.appendChild(content);
-
-                // Expand button
-                if (needsExpand) {
-                    const expandBtn = document.createElement('button');
-                    expandBtn.className = 'sample-expand-btn';
-                    expandBtn.setAttribute('data-rec-id', recId);
-                    expandBtn.setAttribute('data-sample-idx', idx);
-                    expandBtn.setAttribute('data-content-id', contentId);
-                    expandBtn.onclick = function() {
-                        toggleExpand(this.getAttribute('data-content-id'), this.getAttribute('data-rec-id'), parseInt(this.getAttribute('data-sample-idx')), this);
-                    };
-
-                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    svg.setAttribute('width', '12');
-                    svg.setAttribute('height', '12');
-                    svg.setAttribute('viewBox', '0 0 24 24');
-                    svg.setAttribute('fill', 'none');
-                    svg.setAttribute('stroke', 'currentColor');
-                    svg.setAttribute('stroke-width', '2');
-                    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-                    polyline.setAttribute('points', '6,9 12,15 18,9');
-                    svg.appendChild(polyline);
-                    expandBtn.appendChild(svg);
-
-                    const btnText = document.createElement('span');
-                    btnText.textContent = 'Show full content';
-                    expandBtn.appendChild(btnText);
-
-                    sampleItem.appendChild(expandBtn);
-                }
-
-                sampleList.appendChild(sampleItem);
             });
 
-            body.appendChild(sampleList);
+            body.appendChild(convList);
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
         }
@@ -1487,21 +1679,21 @@
             document.body.style.overflow = '';
         }
 
-        function toggleExpand(contentId, recId, sampleIdx, btn) {
+        function toggleTurnExpand(btn) {
+            const contentId = btn.getAttribute('data-content-id');
             const content = document.getElementById(contentId);
-            const data = sampleData[recId];
             const btnText = btn.querySelector('span');
             const svg = btn.querySelector('svg');
             const polyline = svg.querySelector('polyline');
 
             if (content.classList.contains('expanded')) {
                 content.classList.remove('expanded');
-                content.textContent = data.samples[sampleIdx].text_preview;
-                btnText.textContent = 'Show full content';
+                content.textContent = btn.getAttribute('data-truncated-text');
+                btnText.textContent = 'Show full';
                 polyline.setAttribute('points', '6,9 12,15 18,9');
             } else {
                 content.classList.add('expanded');
-                content.textContent = data.samples[sampleIdx].text_full;
+                content.textContent = btn.getAttribute('data-full-text');
                 btnText.textContent = 'Show less';
                 polyline.setAttribute('points', '18,15 12,9 6,15');
             }

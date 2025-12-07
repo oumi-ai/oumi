@@ -181,6 +181,10 @@ class RecommendationsEngine:
         self.pii_warn_threshold = pii_warn_threshold
         self.quality_score_threshold = quality_score_threshold
 
+        # Training quality thresholds
+        self.instruction_clarity_threshold = 0.5
+        self.response_completeness_threshold = 0.5
+
     def generate_recommendations(
         self,
         message_df: pd.DataFrame,
@@ -218,6 +222,11 @@ class RecommendationsEngine:
         recommendations.extend(self._check_quality_scores(message_df))
         recommendations.extend(self._check_encoding_issues(message_df))
         recommendations.extend(self._check_high_repetition(message_df))
+
+        # Training quality checks
+        recommendations.extend(self._check_instruction_clarity(message_df))
+        recommendations.extend(self._check_response_completeness(message_df))
+        recommendations.extend(self._check_truncated_responses(message_df))
 
         # Sort by severity (high first, then medium, then low)
         severity_order = {
@@ -1186,6 +1195,219 @@ class RecommendationsEngine:
                         metric_name=col,
                         details={"repetitive_count": int(repetitive_count)},
                         sample_indices=repetitive_indices,
+                    )
+                )
+            break  # Only report once
+
+        return recommendations
+
+    def _check_instruction_clarity(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for unclear instructions in user messages.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for instruction clarity issues.
+        """
+        recommendations = []
+
+        # Look for instruction clarity score columns from training quality analyzer
+        clarity_cols = [
+            col for col in df.columns if "instruction_clarity_score" in col
+        ]
+
+        for col in clarity_cols:
+            if col not in df.columns:
+                continue
+
+            # Only consider non-null values (user messages)
+            scores = df[col].dropna()
+            if len(scores) == 0:
+                continue
+
+            low_clarity_mask = scores < self.instruction_clarity_threshold
+            low_clarity_count = low_clarity_mask.sum()
+
+            if low_clarity_count > 0:
+                low_clarity_pct = (low_clarity_count / len(scores)) * 100
+                avg_score = scores.mean()
+
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if low_clarity_pct > 30
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if low_clarity_pct > 15
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                # Get indices of low clarity samples (limit to 20)
+                low_clarity_indices = scores[low_clarity_mask].index.tolist()[:20]
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="Unclear instructions detected",
+                        description=(
+                            f"Found {low_clarity_count} user instructions "
+                            f"({low_clarity_pct:.1f}%) with low clarity scores "
+                            f"(below {self.instruction_clarity_threshold}). "
+                            f"Average clarity score: {avg_score:.2f}. "
+                            f"Unclear instructions may lead to inconsistent model "
+                            f"behavior. Consider making instructions more specific "
+                            f"with clear action verbs and concrete details."
+                        ),
+                        affected_samples=int(low_clarity_count),
+                        metric_name=col,
+                        threshold=self.instruction_clarity_threshold,
+                        details={
+                            "low_clarity_count": int(low_clarity_count),
+                            "average_score": round(avg_score, 3),
+                            "min_score": round(scores.min(), 3),
+                        },
+                        sample_indices=low_clarity_indices,
+                    )
+                )
+            break  # Only report once
+
+        return recommendations
+
+    def _check_response_completeness(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for incomplete responses in assistant messages.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for response completeness issues.
+        """
+        recommendations = []
+
+        # Look for response completeness score columns
+        completeness_cols = [
+            col for col in df.columns if "response_completeness_score" in col
+        ]
+
+        for col in completeness_cols:
+            if col not in df.columns:
+                continue
+
+            # Only consider non-null values (assistant messages)
+            scores = df[col].dropna()
+            if len(scores) == 0:
+                continue
+
+            incomplete_mask = scores < self.response_completeness_threshold
+            incomplete_count = incomplete_mask.sum()
+
+            if incomplete_count > 0:
+                incomplete_pct = (incomplete_count / len(scores)) * 100
+                avg_score = scores.mean()
+
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if incomplete_pct > 25
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if incomplete_pct > 10
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                # Get indices of incomplete samples (limit to 20)
+                incomplete_indices = scores[incomplete_mask].index.tolist()[:20]
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="Incomplete responses detected",
+                        description=(
+                            f"Found {incomplete_count} assistant responses "
+                            f"({incomplete_pct:.1f}%) with low completeness scores "
+                            f"(below {self.response_completeness_threshold}). "
+                            f"Average completeness score: {avg_score:.2f}. "
+                            f"Incomplete responses may teach the model to generate "
+                            f"truncated or minimal outputs. Consider expanding "
+                            f"short responses or removing low-quality samples."
+                        ),
+                        affected_samples=int(incomplete_count),
+                        metric_name=col,
+                        threshold=self.response_completeness_threshold,
+                        details={
+                            "incomplete_count": int(incomplete_count),
+                            "average_score": round(avg_score, 3),
+                            "min_score": round(scores.min(), 3),
+                        },
+                        sample_indices=incomplete_indices,
+                    )
+                )
+            break  # Only report once
+
+        return recommendations
+
+    def _check_truncated_responses(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for truncated responses (improper endings).
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for truncated response issues.
+        """
+        recommendations = []
+
+        # Look for proper ending columns from training quality analyzer
+        ending_cols = [col for col in df.columns if "has_proper_ending" in col]
+
+        for col in ending_cols:
+            if col not in df.columns:
+                continue
+
+            # Only consider non-null values (assistant messages)
+            endings = df[col].dropna()
+            if len(endings) == 0:
+                continue
+
+            truncated_mask = endings == False  # noqa: E712
+            truncated_count = truncated_mask.sum()
+
+            if truncated_count > 0:
+                truncated_pct = (truncated_count / len(endings)) * 100
+
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if truncated_pct > 15
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if truncated_pct > 5
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                # Get indices of truncated samples (limit to 20)
+                truncated_indices = endings[truncated_mask].index.tolist()[:20]
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="Truncated responses detected",
+                        description=(
+                            f"Found {truncated_count} assistant responses "
+                            f"({truncated_pct:.1f}%) that appear to be truncated "
+                            f"(ending mid-sentence or with incomplete punctuation). "
+                            f"Training on truncated responses may cause the model "
+                            f"to generate incomplete outputs. Consider completing "
+                            f"or removing these samples."
+                        ),
+                        affected_samples=int(truncated_count),
+                        metric_name=col,
+                        details={"truncated_count": int(truncated_count)},
+                        sample_indices=truncated_indices,
                     )
                 )
             break  # Only report once

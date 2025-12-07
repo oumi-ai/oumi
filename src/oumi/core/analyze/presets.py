@@ -49,6 +49,8 @@ def get_preset(preset_name: str) -> list[SampleAnalyzerParams]:
     """
     presets = {
         "sft_quality": _get_sft_quality_preset(),
+        "sft_comprehensive": _get_sft_comprehensive_preset(),
+        "sft_fast": _get_sft_fast_preset(),
     }
 
     if preset_name not in presets:
@@ -71,6 +73,16 @@ def list_presets() -> dict[str, str]:
             "Comprehensive analysis for SFT (instruction tuning) datasets. "
             "Includes length, diversity, format, and quality analyzers optimized "
             "for conversation-style training data."
+        ),
+        "sft_comprehensive": (
+            "Full SFT analysis with all analyzers including training quality, "
+            "cost optimization, and data hygiene metrics. Best for thorough "
+            "dataset evaluation before training."
+        ),
+        "sft_fast": (
+            "Fast heuristic-only analysis for SFT datasets. Excludes embedding "
+            "and LLM-based analyzers for quick iteration. Good for initial "
+            "data exploration."
         ),
     }
 
@@ -208,3 +220,152 @@ def get_preset_with_language_detection(
             analyzer.params["detect_language"] = True
 
     return analyzers
+
+
+def _get_sft_comprehensive_preset() -> list[SampleAnalyzerParams]:
+    """Get the comprehensive SFT preset configuration.
+
+    This preset includes all analyzers for thorough dataset evaluation:
+
+    1. Length Analyzer: Token counts (using tiktoken)
+    2. Diversity Analyzer: Vocabulary richness metrics
+    3. Format Analyzer: Markdown, code, JSON detection
+    4. Quality Analyzer: PII, encoding issues, special tokens, repetition
+    5. Training Quality Analyzer: Instruction clarity, response completeness
+    6. Cost Analyzer: Context window utilization
+
+    Returns:
+        List of analyzer configurations.
+    """
+    return [
+        # Length analysis with token counting (tiktoken by default)
+        SampleAnalyzerParams(
+            id="length",
+            params={
+                "char_count": False,
+                "word_count": True,
+                "sentence_count": False,
+                "token_count": True,  # Enabled for cost analysis
+            },
+        ),
+        # Diversity analysis for vocabulary richness
+        SampleAnalyzerParams(
+            id="diversity",
+            params={
+                "unique_words_ratio": True,
+                "type_token_ratio": True,
+                "vocabulary_richness": True,
+                "hapax_legomena_ratio": False,
+                "case_sensitive": False,
+            },
+        ),
+        # Format analysis for content structure
+        SampleAnalyzerParams(
+            id="format",
+            params={
+                "detect_markdown": True,
+                "detect_json": True,
+                "detect_code_blocks": True,
+                "detect_urls": True,
+                "detect_emails": False,
+                "compute_complexity": True,
+            },
+        ),
+        # Quality analysis for safety and data issues
+        SampleAnalyzerParams(
+            id="quality",
+            params={
+                "detect_pii": True,
+                "detect_emails": True,
+                "detect_phones": True,
+                "detect_ssn": True,
+                "detect_credit_cards": True,
+                "detect_ip_addresses": False,
+                "detect_api_keys": True,
+                "detect_language": False,
+                "detect_encoding_issues": True,
+                "detect_special_tokens": True,
+                "detect_repetition": True,
+                "repetition_ngram_size": 3,
+                "repetition_threshold": 0.3,
+                "compute_quality_score": True,
+            },
+        ),
+        # Training quality analysis for SFT effectiveness
+        SampleAnalyzerParams(
+            id="training_quality",
+            params={
+                "compute_instruction_clarity": True,
+                "compute_response_completeness": True,
+                "compute_turn_quality": True,
+            },
+        ),
+        # Cost analysis for training optimization
+        SampleAnalyzerParams(
+            id="cost",
+            params={
+                "target_context_windows": [4096, 8192, 16384],
+                "compute_packing_efficiency": True,
+                "packing_overhead_tokens": 10,
+            },
+        ),
+    ]
+
+
+def _get_sft_fast_preset() -> list[SampleAnalyzerParams]:
+    """Get the fast SFT preset configuration.
+
+    This preset includes only fast heuristic analyzers, excluding:
+    - Embedding-based analysis
+    - LLM judge analysis
+    - Token counting (unless tiktoken is available)
+
+    Optimized for quick iteration and initial data exploration.
+
+    Returns:
+        List of analyzer configurations.
+    """
+    return [
+        # Length analysis (basic metrics only)
+        SampleAnalyzerParams(
+            id="length",
+            params={
+                "char_count": True,
+                "word_count": True,
+                "sentence_count": False,
+                "token_count": True,  # Uses tiktoken by default, fast
+            },
+        ),
+        # Diversity analysis (fast metrics)
+        SampleAnalyzerParams(
+            id="diversity",
+            params={
+                "unique_words_ratio": True,
+                "type_token_ratio": True,
+                "vocabulary_richness": False,  # Disabled for speed
+                "hapax_legomena_ratio": False,
+                "case_sensitive": False,
+            },
+        ),
+        # Format analysis (basic detection)
+        SampleAnalyzerParams(
+            id="format",
+            params={
+                "detect_markdown": True,
+                "detect_json": True,
+                "detect_code_blocks": True,
+                "detect_urls": False,
+                "detect_emails": False,
+                "compute_complexity": False,  # Disabled for speed
+            },
+        ),
+        # Training quality (heuristic-based, fast)
+        SampleAnalyzerParams(
+            id="training_quality",
+            params={
+                "compute_instruction_clarity": True,
+                "compute_response_completeness": True,
+                "compute_turn_quality": True,
+            },
+        ),
+    ]

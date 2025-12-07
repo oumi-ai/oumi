@@ -233,7 +233,7 @@ class TestHealthScoreCalculator:
         assert isinstance(health_score, DatasetHealthScore)
         assert 0 <= health_score.overall <= 100
         assert health_score.grade in ["A", "B", "C", "D", "F"]
-        assert len(health_score.components) == 5
+        assert len(health_score.components) == 7
         assert health_score.recommendations_count == 0
         assert health_score.high_severity_count == 0
 
@@ -338,6 +338,8 @@ class TestHealthScoreCalculator:
             "Quality",
             "Consistency",
             "Length Distribution",
+            "Training Quality",
+            "Data Hygiene",
         }
         assert component_names == expected_names
 

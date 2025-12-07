@@ -92,8 +92,10 @@ def test_sentence_count():
 
 def test_analyzer_instantiation():
     """Test analyzer can be instantiated with different parameter combinations."""
-    # Test with defaults
-    analyzer = LengthAnalyzer()
+    # Test with custom parameters (all non-token metrics enabled)
+    analyzer = LengthAnalyzer(
+        char_count=True, word_count=True, sentence_count=True, token_count=False
+    )
     conv = _single_message_conversation("Hello, world!")
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
 
@@ -121,17 +123,18 @@ def test_analyzer_instantiation():
     assert "text_content_length_token_count" not in result_df.columns
 
     # Test with partial parameters (some defaults, some overridden)
-    analyzer = LengthAnalyzer(char_count=False, word_count=True)
+    # Default: char_count=False, word_count=False, sentence_count=False, token_count=True
+    analyzer = LengthAnalyzer(char_count=True, word_count=True, token_count=False)
     conv = _single_message_conversation("Hello, world!")
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
 
     result_df, _ = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
-    assert "text_content_length_char_count" not in result_df.columns
+    assert result_df.iloc[0]["text_content_length_char_count"] == 13
     assert result_df.iloc[0]["text_content_length_word_count"] == 2
-    assert result_df.iloc[0]["text_content_length_sentence_count"] == 1  # Default True
-    assert "text_content_length_token_count" not in result_df.columns  # Default False
+    assert "text_content_length_sentence_count" not in result_df.columns  # Default False
+    assert "text_content_length_token_count" not in result_df.columns
 
 
 def test_token_count():
@@ -183,18 +186,15 @@ def test_token_count():
         "Hello, world!", add_special_tokens=False
     )
 
-    # Test without tokenizer (should raise ValueError)
-    with pytest.raises(ValueError, match="tokenizer must be provided"):
-        analyzer_no_tokenizer = LengthAnalyzer(
+    # Test without tokenizer and without tiktoken_encoding (should raise ValueError)
+    with pytest.raises(ValueError, match="Either tokenizer or tiktoken_encoding"):
+        LengthAnalyzer(
             char_count=False,
             word_count=False,
             sentence_count=False,
             token_count=True,
-            # No tokenizer
-        )
-        _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
-        analyzer_no_tokenizer.analyze_sample(
-            test_df, schema={"text_content": {"content_type": "text"}}
+            tokenizer=None,
+            tiktoken_encoding=None,  # Disable tiktoken
         )
 
     # Test with tokenizer but token_count=False (should not call tokenizer)
@@ -359,3 +359,64 @@ def test_conversation_level_metrics_aggregation():
 
     # Two message encodes (one per row)
     assert mock_tokenizer.encode.call_count == 2
+
+
+def test_tiktoken_token_count():
+    """Test token count functionality with tiktoken."""
+    pytest.importorskip("tiktoken")
+
+    # Test default tiktoken encoding (o200k_base)
+    analyzer = LengthAnalyzer(
+        char_count=False,
+        word_count=False,
+        sentence_count=False,
+        token_count=True,
+        # Uses default tiktoken_encoding="o200k_base"
+    )
+    conv = _single_message_conversation("Hello, world!")
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
+    # o200k_base encodes "Hello, world!" as tokens
+    assert "text_content_length_token_count" in result_df.columns
+    assert result_df.iloc[0]["text_content_length_token_count"] > 0
+
+    # Test with explicit tiktoken encoding
+    analyzer_cl100k = LengthAnalyzer(
+        char_count=False,
+        word_count=False,
+        sentence_count=False,
+        token_count=True,
+        tiktoken_encoding="cl100k_base",
+    )
+    conv = _single_message_conversation("Hello, world!")
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+
+    result_df = analyzer_cl100k.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
+    assert "text_content_length_token_count" in result_df.columns
+    assert result_df.iloc[0]["text_content_length_token_count"] > 0
+
+
+def test_tiktoken_defaults():
+    """Test that defaults use tiktoken with o200k_base encoding."""
+    pytest.importorskip("tiktoken")
+
+    # Test default instantiation (should use tiktoken o200k_base)
+    analyzer = LengthAnalyzer()
+    conv = _single_message_conversation("Hello, world!")
+    _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
+
+    result_df = analyzer.analyze_sample(
+        test_df, schema={"text_content": {"content_type": "text"}}
+    )
+
+    # With new defaults: only token_count should be present
+    assert "text_content_length_char_count" not in result_df.columns
+    assert "text_content_length_word_count" not in result_df.columns
+    assert "text_content_length_sentence_count" not in result_df.columns
+    assert "text_content_length_token_count" in result_df.columns
+    assert result_df.iloc[0]["text_content_length_token_count"] > 0

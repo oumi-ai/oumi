@@ -105,11 +105,13 @@ class HealthScoreCalculator:
 
     # Default weights for each component (must sum to 1.0)
     DEFAULT_WEIGHTS = {
-        "diversity": 0.20,
-        "balance": 0.15,
-        "quality": 0.25,
-        "consistency": 0.20,
-        "length_distribution": 0.20,
+        "diversity": 0.15,
+        "balance": 0.10,
+        "quality": 0.15,
+        "consistency": 0.10,
+        "length_distribution": 0.10,
+        "training_quality": 0.25,
+        "data_hygiene": 0.15,
     }
 
     # Grade thresholds
@@ -185,6 +187,12 @@ class HealthScoreCalculator:
             message_df, analysis_summary
         )
         components.append(length_score)
+
+        training_quality_score = self._calculate_training_quality_score(message_df)
+        components.append(training_quality_score)
+
+        data_hygiene_score = self._calculate_data_hygiene_score(message_df)
+        components.append(data_hygiene_score)
 
         # Calculate weighted overall score
         overall = sum(
@@ -500,8 +508,168 @@ class HealthScoreCalculator:
         return HealthScoreComponent(
             name="Length Distribution",
             score=score,
-            weight=self.weights.get("length_distribution", 0.2),
+            weight=self.weights.get("length_distribution", 0.1),
             description="Measures length distribution health and outliers",
+            details=details,
+        )
+
+    def _calculate_training_quality_score(
+        self, df: pd.DataFrame
+    ) -> HealthScoreComponent:
+        """Calculate training quality component score.
+
+        This component measures how well the dataset is structured for
+        effective SFT training based on instruction clarity and response
+        completeness metrics.
+
+        Args:
+            df: Message-level DataFrame.
+
+        Returns:
+            HealthScoreComponent for training quality.
+        """
+        score = 75.0  # Default baseline
+        details = {}
+        metrics_found = 0
+
+        # Check instruction clarity score
+        clarity_cols = [
+            col for col in df.columns if "instruction_clarity_score" in col
+        ]
+        if clarity_cols:
+            col = clarity_cols[0]
+            scores = df[col].dropna()
+            if len(scores) > 0:
+                avg_clarity = scores.mean()
+                # Scale 0-1 to 0-100
+                clarity_score = avg_clarity * 100
+                details["avg_instruction_clarity"] = round(avg_clarity, 3)
+                details["low_clarity_ratio"] = round((scores < 0.5).mean(), 3)
+                score = clarity_score
+                metrics_found += 1
+
+        # Check response completeness score
+        completeness_cols = [
+            col for col in df.columns if "response_completeness_score" in col
+        ]
+        if completeness_cols:
+            col = completeness_cols[0]
+            scores = df[col].dropna()
+            if len(scores) > 0:
+                avg_completeness = scores.mean()
+                completeness_score = avg_completeness * 100
+                details["avg_response_completeness"] = round(avg_completeness, 3)
+                details["incomplete_ratio"] = round((scores < 0.5).mean(), 3)
+
+                if metrics_found > 0:
+                    score = (score + completeness_score) / 2
+                else:
+                    score = completeness_score
+                metrics_found += 1
+
+        # Check turn quality score
+        turn_cols = [col for col in df.columns if "turn_quality_score" in col]
+        if turn_cols:
+            col = turn_cols[0]
+            scores = df[col].dropna()
+            if len(scores) > 0:
+                avg_turn = scores.mean()
+                turn_score = avg_turn * 100
+                details["avg_turn_quality"] = round(avg_turn, 3)
+
+                if metrics_found > 0:
+                    score = (score * metrics_found + turn_score) / (metrics_found + 1)
+                else:
+                    score = turn_score
+                metrics_found += 1
+
+        # Check for truncated responses (penalize)
+        ending_cols = [col for col in df.columns if "has_proper_ending" in col]
+        if ending_cols:
+            col = ending_cols[0]
+            endings = df[col].dropna()
+            if len(endings) > 0:
+                truncated_ratio = (~endings).mean()
+                if truncated_ratio > 0.05:
+                    penalty = truncated_ratio * 30
+                    score = max(0, score - penalty)
+                    details["truncated_ratio"] = round(truncated_ratio, 3)
+
+        return HealthScoreComponent(
+            name="Training Quality",
+            score=score,
+            weight=self.weights.get("training_quality", 0.25),
+            description="Measures instruction clarity and response completeness for SFT",
+            details=details,
+        )
+
+    def _calculate_data_hygiene_score(self, df: pd.DataFrame) -> HealthScoreComponent:
+        """Calculate data hygiene component score.
+
+        This component measures data cleanliness including duplicates,
+        format consistency, and data integrity issues.
+
+        Args:
+            df: Message-level DataFrame.
+
+        Returns:
+            HealthScoreComponent for data hygiene.
+        """
+        score = 90.0  # Default baseline (optimistic - assume clean)
+        details = {}
+
+        # Check for duplicates
+        if "text_content" in df.columns:
+            duplicate_ratio = df["text_content"].duplicated().mean()
+            if duplicate_ratio > 0:
+                # Scale penalty: 5% duplicates = -10, 20% = -40
+                dup_penalty = min(50, duplicate_ratio * 200)
+                score = max(0, score - dup_penalty)
+                details["duplicate_ratio"] = round(duplicate_ratio, 3)
+
+        # Check for near-duplicates from embedding analyzer
+        near_dup_cols = [col for col in df.columns if "near_duplicate" in col.lower()]
+        if near_dup_cols:
+            col = near_dup_cols[0]
+            near_dup_ratio = df[col].mean()
+            if near_dup_ratio > 0:
+                near_dup_penalty = min(30, near_dup_ratio * 150)
+                score = max(0, score - near_dup_penalty)
+                details["near_duplicate_ratio"] = round(near_dup_ratio, 3)
+
+        # Check for special token leakage
+        token_cols = [col for col in df.columns if "has_special_tokens" in col]
+        if token_cols:
+            col = token_cols[0]
+            leakage_ratio = df[col].mean()
+            if leakage_ratio > 0:
+                leakage_penalty = min(20, leakage_ratio * 100)
+                score = max(0, score - leakage_penalty)
+                details["special_token_leakage_ratio"] = round(leakage_ratio, 3)
+
+        # Check for encoding issues
+        encoding_cols = [col for col in df.columns if "has_encoding_issues" in col]
+        if encoding_cols:
+            col = encoding_cols[0]
+            encoding_ratio = df[col].mean()
+            if encoding_ratio > 0:
+                encoding_penalty = min(25, encoding_ratio * 150)
+                score = max(0, score - encoding_penalty)
+                details["encoding_issues_ratio"] = round(encoding_ratio, 3)
+
+        # Check for empty content
+        if "text_content" in df.columns:
+            empty_ratio = (df["text_content"].astype(str).str.len() <= 5).mean()
+            if empty_ratio > 0.01:
+                empty_penalty = min(20, empty_ratio * 100)
+                score = max(0, score - empty_penalty)
+                details["empty_content_ratio"] = round(empty_ratio, 3)
+
+        return HealthScoreComponent(
+            name="Data Hygiene",
+            score=score,
+            weight=self.weights.get("data_hygiene", 0.15),
+            description="Measures data cleanliness including duplicates and integrity",
             details=details,
         )
 

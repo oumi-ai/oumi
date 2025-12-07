@@ -224,14 +224,17 @@ class HTMLReportGenerator:
         recommendations: list[dict[str, Any]],
         analyzer: "DatasetAnalyzer",
     ) -> list[dict[str, Any]]:
-        """Enrich recommendations with actual sample data for display.
+        """Enrich recommendations with full conversation data for display.
+
+        For each problematic sample, retrieves the entire conversation to provide
+        context. The problematic message is highlighted within the conversation.
 
         Args:
             recommendations: List of recommendation dictionaries.
             analyzer: DatasetAnalyzer instance with analysis results.
 
         Returns:
-            List of recommendations enriched with sample data.
+            List of recommendations enriched with conversation data.
         """
         message_df = analyzer.message_df
         if message_df is None or message_df.empty:
@@ -242,31 +245,68 @@ class HTMLReportGenerator:
             rec_copy = dict(rec)
             rec_copy["id"] = f"rec_{idx}"
             sample_indices = rec.get("sample_indices", [])
+            sample_indices_set = set(sample_indices)
 
             if sample_indices:
-                samples = []
-                for sample_idx in sample_indices[:20]:  # Limit to 20 samples
-                    if sample_idx in message_df.index:
-                        row = message_df.loc[sample_idx]
-                        sample_data = {
-                            "index": int(sample_idx),
-                            "conversation_id": row.get("conversation_id", "N/A"),
-                            "role": row.get("role", "N/A"),
-                            "text_preview": self._truncate_text(
-                                str(row.get("text_content", "")), max_length=300
-                            ),
-                            "text_full": str(row.get("text_content", "")),
+                # Get unique conversation IDs from the sample indices
+                conversations = []
+                seen_conv_ids: set[str] = set()
+
+                for sample_idx in sample_indices:
+                    if sample_idx not in message_df.index:
+                        continue
+
+                    row = message_df.loc[sample_idx]
+                    conv_id = row.get("conversation_id", f"unknown_{sample_idx}")
+
+                    # Skip if we've already processed this conversation
+                    if conv_id in seen_conv_ids:
+                        continue
+
+                    # Limit to 20 conversations
+                    if len(seen_conv_ids) >= 20:
+                        break
+
+                    seen_conv_ids.add(conv_id)
+
+                    # Get all messages in this conversation
+                    conv_messages = message_df[
+                        message_df["conversation_id"] == conv_id
+                    ].sort_index()
+
+                    # Build conversation data with turns
+                    turns = []
+                    for msg_idx, msg_row in conv_messages.iterrows():
+                        turn_data = {
+                            "index": int(msg_idx),
+                            "role": msg_row.get("role", "unknown"),
+                            "text": str(msg_row.get("text_content", "")),
+                            "is_flagged": int(msg_idx) in sample_indices_set,
                         }
-                        # Add metric value if available
-                        metric_name = rec.get("metric_name")
-                        if metric_name and metric_name in row:
-                            sample_data["metric_value"] = self._format_metric_value(
-                                row[metric_name]
-                            )
-                        samples.append(sample_data)
-                rec_copy["samples"] = samples
+                        # Add metric value for flagged messages
+                        if turn_data["is_flagged"]:
+                            metric_name = rec.get("metric_name")
+                            if metric_name and metric_name in msg_row:
+                                turn_data["metric_value"] = self._format_metric_value(
+                                    msg_row[metric_name]
+                                )
+                        turns.append(turn_data)
+
+                    conversations.append(
+                        {
+                            "conversation_id": str(conv_id),
+                            "turns": turns,
+                            "flagged_count": sum(
+                                1 for t in turns if t.get("is_flagged")
+                            ),
+                        }
+                    )
+
+                rec_copy["conversations"] = conversations
+                rec_copy["total_conversations"] = len(seen_conv_ids)
             else:
-                rec_copy["samples"] = []
+                rec_copy["conversations"] = []
+                rec_copy["total_conversations"] = 0
 
             enriched.append(rec_copy)
 

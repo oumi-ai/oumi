@@ -1,0 +1,67 @@
+# Fast SFT Dataset Analysis Configuration
+# Usage: oumi analyze --config configs/examples/analyze/analyze_sft_fast.yaml
+#
+# This configuration provides fast heuristic-only analysis for quick iteration.
+# It excludes embedding-based and LLM-based analyzers for speed.
+# Good for initial data exploration and rapid feedback during data preparation.
+#
+# Output files:
+#   - message_analysis.csv: Per-message metrics
+#   - conversation_analysis.csv: Per-conversation aggregated metrics
+#   - analysis_summary.json: Statistical summary
+
+# Dataset configuration
+dataset_name: yahma/alpaca-cleaned
+split: train
+sample_count: 5000  # Larger sample size since analysis is fast
+
+# Or use a local file
+# dataset_path: data/my_sft_dataset.jsonl
+
+# Output configuration
+output_path: ./analysis_output
+generate_report: true
+
+# Analyzers - fast heuristic-only set
+analyzers:
+  # Length analysis (uses tiktoken - very fast)
+  - id: length
+    params:
+      char_count: true
+      word_count: true
+      sentence_count: false  # Disabled for speed
+      token_count: true
+
+  # Vocabulary diversity (fast metrics only)
+  - id: diversity
+    params:
+      unique_words_ratio: true
+      type_token_ratio: true
+      vocabulary_richness: false  # Disabled for speed
+      hapax_legomena_ratio: false
+      case_sensitive: false
+
+  # Format detection (basic only)
+  - id: format
+    params:
+      detect_markdown: true
+      detect_json: true
+      detect_code_blocks: true
+      detect_urls: false  # Disabled for speed
+      detect_emails: false
+      compute_complexity: false  # Disabled for speed
+
+  # Training quality (all heuristic-based, fast)
+  - id: training_quality
+    params:
+      compute_instruction_clarity: true
+      compute_response_completeness: true
+      compute_turn_quality: true
+
+# Note: The following analyzers are NOT included for speed:
+#   - quality: PII detection, encoding checks (moderate overhead)
+#   - embedding: Semantic duplicate detection (requires GPU/CPU inference)
+#   - llm_judge: LLM-based evaluation (requires API calls)
+#   - cost: Context window analysis (requires token counts, minimal overhead)
+#
+# For comprehensive analysis, use: analyze_sft_comprehensive.yaml
