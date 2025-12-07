@@ -33,6 +33,1164 @@ GOAL_CHOICES = ["synth", "judge", "train", "pipeline"]
 SYNTH_GOAL_CHOICES = ["qa", "conversation", "augmentation", "instruction"]
 JUDGE_TYPE_CHOICES = ["generic", "compliance", "relevance", "safety", "groundedness"]
 
+# Supported file extensions for auto-detection
+SUPPORTED_EXTENSIONS = {".csv", ".json", ".jsonl", ".xlsx", ".xls", ".docx", ".doc"}
+
+# File role descriptions for the wizard
+FILE_ROLE_GUIDANCE = {
+    "primary": {
+        "title": "PRIMARY DATA",
+        "description": "The main data you want to process",
+        "help": [
+            "This is what you'll synthesize from, evaluate, or train on",
+            "Usually your largest dataset",
+            "Examples: customer conversations, invoices, documents to classify",
+        ],
+    },
+    "reference": {
+        "title": "REFERENCE DATA",
+        "description": "Valid values to match against",
+        "help": [
+            "Lookup tables, catalogs, or lists of valid options",
+            "Used to check if primary data matches known values",
+            "Examples: product catalog, service types, approved terms",
+        ],
+    },
+    "rules": {
+        "title": "RULES/GUIDELINES",
+        "description": "Evaluation criteria and standards",
+        "help": [
+            "Documents describing what makes data valid/invalid",
+            "Quality standards or processing rules",
+            "Examples: style guide, validation rules, compliance requirements",
+        ],
+    },
+    "examples": {
+        "title": "LABELED EXAMPLES",
+        "description": "Known good/bad samples",
+        "help": [
+            "Examples with labels like 'valid', 'invalid', 'approved'",
+            "Helps train classifiers and calibrate judges",
+            "Examples: approved_responses.csv, rejected_items.txt",
+        ],
+    },
+}
+
+# Column role descriptions for granular assignment
+COLUMN_ROLE_GUIDANCE = {
+    "context": {
+        "title": "CONTEXT",
+        "description": "Main content to generate from",
+        "help": "Text column containing the source material for synthesis",
+    },
+    "question": {
+        "title": "QUESTION",
+        "description": "Existing questions to use or augment",
+        "help": "Column containing questions (if you have existing Q&A data)",
+    },
+    "answer": {
+        "title": "ANSWER",
+        "description": "Existing answers to use or augment",
+        "help": "Column containing answers (if you have existing Q&A data)",
+    },
+    "reference_values": {
+        "title": "REFERENCE VALUES",
+        "description": "Valid values for validation",
+        "help": "Column with valid/approved values to match against",
+    },
+    "label": {
+        "title": "LABEL",
+        "description": "Classification labels",
+        "help": "Column with labels like 'valid', 'invalid', 'category'",
+    },
+    "metadata": {
+        "title": "METADATA",
+        "description": "Additional context",
+        "help": "Supporting information to include in prompts",
+    },
+}
+
+# Tabular file extensions that support column selection
+TABULAR_EXTENSIONS = {".csv", ".tsv", ".xlsx", ".xls", ".json", ".jsonl"}
+
+
+def _detect_files_in_directory(dir_path: Path) -> list[dict]:
+    """Scan directory for supported data files.
+
+    Args:
+        dir_path: Path to the directory to scan.
+
+    Returns:
+        List of file info dicts with path, name, extension, and size.
+    """
+    files = []
+    for item in dir_path.iterdir():
+        if item.is_file() and item.suffix.lower() in SUPPORTED_EXTENSIONS:
+            files.append({
+                "path": item,
+                "name": item.name,
+                "extension": item.suffix.lower(),
+                "size": item.stat().st_size,
+                "suggested_purpose": None,  # Will be filled by LLM analysis
+                "suggested_role": None,
+            })
+    # Sort by size descending (largest files first)
+    return sorted(files, key=lambda f: f["size"], reverse=True)
+
+
+def _analyze_file_purposes(files: list[dict], analyzer, llm_analyzer) -> list[dict]:
+    """Use LLM to analyze each file and suggest its purpose.
+
+    Args:
+        files: List of file info dicts.
+        analyzer: DataAnalyzer instance.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Updated files list with suggested purposes.
+    """
+    import json
+
+    for f in files:
+        try:
+            # Get schema for data files
+            schema = None
+            sample_content = ""
+
+            if f["extension"] in {".csv", ".json", ".jsonl", ".xlsx", ".xls"}:
+                schema = analyzer.analyze(f["path"])
+                sample_content = json.dumps(schema.sample_rows[:2], indent=2) if schema.sample_rows else ""
+                columns = [c.name for c in schema.columns] if schema.columns else []
+            elif f["extension"] in {".docx", ".doc"}:
+                schema = analyzer.analyze(f["path"])
+                sample_content = schema.raw_text[:1000] if schema.raw_text else ""
+                columns = []
+
+            # Build analysis prompt
+            prompt = f"""Analyze this file and suggest what it could be used for in an ML training pipeline.
+
+FILE: {f['name']}
+TYPE: {f['extension']}
+"""
+            if columns:
+                prompt += f"COLUMNS: {columns}\n"
+            if sample_content:
+                prompt += f"\nSAMPLE CONTENT:\n{sample_content[:1500]}\n"
+
+            prompt += """
+Return a JSON object with:
+{
+    "purpose": "Brief description of what this file contains and could be used for (1-2 sentences)",
+    "suggested_role": "primary|reference|rules|examples|context",
+    "role_reason": "Why this role fits"
+}
+
+Return ONLY the JSON object."""
+
+            result = llm_analyzer._invoke_json(prompt)
+            f["suggested_purpose"] = result.get("purpose", "Unknown")
+            f["suggested_role"] = result.get("suggested_role", "context")
+            f["role_reason"] = result.get("role_reason", "")
+            f["schema"] = schema
+
+        except Exception as e:
+            f["suggested_purpose"] = f"(Analysis failed: {str(e)[:50]})"
+            f["suggested_role"] = "context"
+
+    return files
+
+
+def _display_columns_for_file(file_info: dict, schema=None) -> list[str]:
+    """Display columns available in a tabular file.
+
+    Args:
+        file_info: File info dict with path and extension.
+        schema: Optional pre-analyzed schema.
+
+    Returns:
+        List of column names.
+    """
+    if file_info["extension"] not in TABULAR_EXTENSIONS:
+        return []
+
+    columns = []
+    if schema and schema.columns:
+        columns = [c.name for c in schema.columns]
+    elif file_info.get("schema") and file_info["schema"].columns:
+        columns = [c.name for c in file_info["schema"].columns]
+
+    if columns:
+        table = Table(
+            title=f"Columns in {file_info['name']}",
+            show_edge=False,
+            title_style="cyan",
+        )
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Column Name", style="green")
+        table.add_column("Type", style="yellow")
+        table.add_column("Sample Value", style="dim", max_width=40)
+
+        schema_obj = schema or file_info.get("schema")
+        for i, col_name in enumerate(columns, 1):
+            col_info = None
+            if schema_obj:
+                col_info = next(
+                    (c for c in schema_obj.columns if c.name == col_name), None
+                )
+
+            dtype = col_info.dtype if col_info else "unknown"
+            sample = ""
+            if col_info and col_info.sample_values:
+                sample = str(col_info.sample_values[0])[:40]
+
+            table.add_row(str(i), col_name, dtype, sample)
+
+        cli_utils.CONSOLE.print(table)
+
+    return columns
+
+
+def _prompt_column_roles(
+    files: list[dict], analyzer, llm_analyzer=None
+) -> dict[str, dict]:
+    """Prompt user to assign roles to specific columns from tabular files.
+
+    Args:
+        files: List of file info dicts.
+        analyzer: DataAnalyzer instance.
+        llm_analyzer: Optional LLMAnalyzer for AI suggestions.
+
+    Returns:
+        Dict mapping role names to {"path": Path, "column": str} or {"path": Path}.
+    """
+    column_assignments = {}
+
+    # First, analyze all tabular files to get their columns
+    tabular_files = [
+        f for f in files if f["extension"] in TABULAR_EXTENSIONS
+    ]
+    doc_files = [
+        f for f in files if f["extension"] not in TABULAR_EXTENSIONS
+    ]
+
+    if not tabular_files:
+        cli_utils.CONSOLE.print(
+            "[yellow]No tabular files found. Using document-level assignments.[/yellow]"
+        )
+        return _prompt_file_roles(files)
+
+    # Collect all columns from all files
+    all_columns = []  # List of {"file": file_info, "column": str, "schema": schema}
+    for f in tabular_files:
+        try:
+            schema = f.get("schema") or analyzer.analyze(f["path"])
+            f["schema"] = schema
+            if schema.columns:
+                for col in schema.columns:
+                    all_columns.append({
+                        "file": f,
+                        "column": col.name,
+                        "col_info": col,
+                        "schema": schema,
+                    })
+        except Exception as e:
+            cli_utils.CONSOLE.print(
+                f"[yellow]Warning: Could not analyze {f['name']}: {e}[/yellow]"
+            )
+
+    if not all_columns:
+        cli_utils.CONSOLE.print(
+            "[yellow]No columns found in tabular files.[/yellow]"
+        )
+        return _prompt_file_roles(files)
+
+    # Display all available columns across files
+    cli_utils.CONSOLE.print(
+        Panel(
+            "[bold]Column-Level Role Assignment[/bold]\n\n"
+            "[dim]You can assign specific columns to different roles.\n"
+            "This allows fine-grained control over what data is used for what purpose.[/dim]",
+            border_style="cyan",
+        )
+    )
+
+    # Build a combined table of all columns
+    table = Table(title="Available Columns", show_edge=False)
+    table.add_column("#", style="cyan", width=4)
+    table.add_column("File", style="green", max_width=25)
+    table.add_column("Column", style="yellow")
+    table.add_column("Type", style="dim")
+    table.add_column("Sample", style="dim", max_width=35)
+
+    for i, col_data in enumerate(all_columns, 1):
+        sample = ""
+        if col_data["col_info"].sample_values:
+            sample = str(col_data["col_info"].sample_values[0])[:35]
+
+        table.add_row(
+            str(i),
+            col_data["file"]["name"],
+            col_data["column"],
+            col_data["col_info"].dtype,
+            sample,
+        )
+
+    cli_utils.CONSOLE.print(table)
+
+    # Prompt for context column (required)
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]CONTEXT[/bold cyan] - Main content for synthesis\n"
+        "[dim]Which column contains the text you want to generate from?[/dim]"
+    )
+
+    col_nums = [str(i) for i in range(1, len(all_columns) + 1)]
+    context_idx = IntPrompt.ask(
+        "Select context column",
+        choices=col_nums,
+        default="1",
+    )
+    context_col = all_columns[int(context_idx) - 1]
+    column_assignments["context"] = {
+        "path": context_col["file"]["path"],
+        "column": context_col["column"],
+        "file_name": context_col["file"]["name"],
+    }
+
+    # Set primary to the file containing context
+    column_assignments["primary"] = {
+        "path": context_col["file"]["path"],
+        "schema": context_col["schema"],
+    }
+
+    remaining_nums = [n for n in col_nums if n != str(context_idx)]
+
+    # Optional: Reference values column
+    if remaining_nums:
+        cli_utils.CONSOLE.print(
+            "\n[bold cyan]REFERENCE VALUES[/bold cyan] - Valid values for validation (optional)\n"
+            "[dim]Column with approved values, categories, or lookup data.[/dim]"
+        )
+        if Confirm.ask("Do you have a reference values column?", default=False):
+            ref_idx = Prompt.ask("Select column", choices=remaining_nums)
+            ref_col = all_columns[int(ref_idx) - 1]
+            column_assignments["reference_values"] = {
+                "path": ref_col["file"]["path"],
+                "column": ref_col["column"],
+                "file_name": ref_col["file"]["name"],
+            }
+            remaining_nums = [n for n in remaining_nums if n != ref_idx]
+
+    # Optional: Metadata column
+    if remaining_nums:
+        cli_utils.CONSOLE.print(
+            "\n[bold cyan]METADATA[/bold cyan] - Additional context (optional)\n"
+            "[dim]Extra information to include in prompts (e.g., category, type).[/dim]"
+        )
+        if Confirm.ask("Do you have metadata columns to include?", default=False):
+            # Allow multiple metadata columns
+            metadata_cols = []
+            while remaining_nums:
+                meta_idx = Prompt.ask(
+                    "Select metadata column (or 'done')",
+                    default="done",
+                )
+                if meta_idx.lower() == "done":
+                    break
+                if meta_idx in remaining_nums:
+                    meta_col = all_columns[int(meta_idx) - 1]
+                    metadata_cols.append({
+                        "path": meta_col["file"]["path"],
+                        "column": meta_col["column"],
+                        "file_name": meta_col["file"]["name"],
+                    })
+                    remaining_nums = [n for n in remaining_nums if n != meta_idx]
+
+            if metadata_cols:
+                column_assignments["metadata"] = metadata_cols
+
+    # Optional: Label column (for training/classification)
+    if remaining_nums:
+        cli_utils.CONSOLE.print(
+            "\n[bold cyan]LABEL[/bold cyan] - Classification labels (optional)\n"
+            "[dim]Column with labels like 'valid', 'invalid', or categories.[/dim]"
+        )
+        if Confirm.ask("Do you have a label column?", default=False):
+            label_idx = Prompt.ask("Select column", choices=remaining_nums)
+            label_col = all_columns[int(label_idx) - 1]
+            column_assignments["label"] = {
+                "path": label_col["file"]["path"],
+                "column": label_col["column"],
+                "file_name": label_col["file"]["name"],
+            }
+
+    # Handle document files separately
+    if doc_files:
+        cli_utils.CONSOLE.print(
+            "\n[bold cyan]Document Files[/bold cyan]\n"
+            "[dim]These non-tabular files can be assigned to roles:[/dim]"
+        )
+        for i, f in enumerate(doc_files, 1):
+            cli_utils.CONSOLE.print(f"  [{i}] {f['name']}")
+
+        if Confirm.ask("\nDo any of these contain rules or guidelines?", default=False):
+            rules_idx = Prompt.ask(
+                "Which file?",
+                choices=[str(i) for i in range(1, len(doc_files) + 1)],
+            )
+            column_assignments["rules"] = {
+                "path": doc_files[int(rules_idx) - 1]["path"],
+            }
+
+    # Display summary
+    cli_utils.CONSOLE.print("\n[bold green]Column Assignments Summary:[/bold green]")
+    for role, data in column_assignments.items():
+        if role == "metadata" and isinstance(data, list):
+            cols = ", ".join(d["column"] for d in data)
+            cli_utils.CONSOLE.print(f"  [cyan]{role}:[/cyan] {cols}")
+        elif isinstance(data, dict) and "column" in data:
+            cli_utils.CONSOLE.print(
+                f"  [cyan]{role}:[/cyan] {data.get('file_name', 'file')}.{data['column']}"
+            )
+        elif isinstance(data, dict) and "path" in data:
+            cli_utils.CONSOLE.print(
+                f"  [cyan]{role}:[/cyan] {data['path'].name if hasattr(data['path'], 'name') else data['path']}"
+            )
+
+    return column_assignments
+
+
+def _analyze_columns_with_llm(
+    files: list[dict], analyzer, llm_analyzer
+) -> dict[str, dict]:
+    """Use LLM to analyze and suggest column roles.
+
+    Args:
+        files: List of file info dicts with schemas.
+        analyzer: DataAnalyzer instance.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Dict with suggested column assignments.
+    """
+    import json
+
+    # Gather all column info
+    all_columns = []
+    for f in files:
+        if f["extension"] not in TABULAR_EXTENSIONS:
+            continue
+
+        schema = f.get("schema")
+        if not schema:
+            try:
+                schema = analyzer.analyze(f["path"])
+                f["schema"] = schema
+            except Exception:
+                continue
+
+        if schema.columns:
+            for col in schema.columns:
+                sample = col.sample_values[0] if col.sample_values else ""
+                all_columns.append({
+                    "file": f["name"],
+                    "column": col.name,
+                    "type": col.dtype,
+                    "is_text": col.is_text,
+                    "avg_length": col.avg_length,
+                    "sample": str(sample)[:100],
+                })
+
+    if not all_columns:
+        return {}
+
+    prompt = f"""Analyze these columns and suggest their roles for an ML training pipeline.
+
+COLUMNS:
+{json.dumps(all_columns, indent=2)}
+
+AVAILABLE ROLES:
+- context: Main text content for synthesis (required, pick the best text column)
+- reference_values: Lookup values, valid options, categories
+- metadata: Supporting information (can pick multiple)
+- label: Classification labels like 'valid', 'invalid'
+
+Return JSON:
+{{
+    "suggestions": [
+        {{
+            "file": "filename",
+            "column": "column_name",
+            "suggested_role": "context|reference_values|metadata|label",
+            "confidence": 0.0-1.0,
+            "reason": "Why this role fits"
+        }}
+    ],
+    "primary_context": {{
+        "file": "best file for context",
+        "column": "best column for context"
+    }}
+}}
+
+Return ONLY the JSON object."""
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        return result
+    except Exception as e:
+        cli_utils.CONSOLE.print(
+            f"[yellow]Warning: Column analysis failed: {e}[/yellow]"
+        )
+        return {}
+
+
+def _display_file_listing(files: list[dict], analyzer, show_ai_analysis: bool = False):
+    """Display detected files with type info.
+
+    Args:
+        files: List of file info dicts.
+        analyzer: DataAnalyzer instance for quick schema detection.
+        show_ai_analysis: Whether to show AI-analyzed purposes.
+    """
+    table = Table(title="Files Detected", show_edge=False)
+    table.add_column("#", style="cyan", width=3)
+    table.add_column("File", style="green")
+    table.add_column("Type", style="yellow")
+    table.add_column("Size", style="dim")
+
+    if show_ai_analysis:
+        table.add_column("AI Analysis", style="white", max_width=50)
+        table.add_column("Suggested Role", style="magenta")
+    else:
+        table.add_column("Details", style="dim")
+
+    for i, f in enumerate(files, 1):
+        # Get basic info without full analysis
+        ext = f["extension"]
+        type_map = {
+            ".csv": "CSV",
+            ".json": "JSON",
+            ".jsonl": "JSONL",
+            ".xlsx": "Excel",
+            ".xls": "Excel",
+            ".docx": "Word",
+            ".doc": "Word",
+        }
+        file_type = type_map.get(ext, ext.upper())
+
+        # Format size
+        size = f["size"]
+        if size > 1_000_000:
+            size_str = f"{size / 1_000_000:.1f} MB"
+        elif size > 1000:
+            size_str = f"{size / 1000:.1f} KB"
+        else:
+            size_str = f"{size} B"
+
+        if show_ai_analysis and f.get("suggested_purpose"):
+            # Show AI analysis
+            purpose = f.get("suggested_purpose", "")
+            role = f.get("suggested_role", "unknown").upper()
+            table.add_row(str(i), f["name"], file_type, size_str, purpose, role)
+        else:
+            # Quick peek at structure if it's a data file
+            details = ""
+            if ext in {".csv", ".json", ".jsonl", ".xlsx", ".xls"}:
+                try:
+                    schema = f.get("schema") or analyzer.analyze(f["path"])
+                    details = f"{schema.row_count} rows, {len(schema.columns)} cols"
+                except Exception:
+                    details = "(unable to read)"
+            table.add_row(str(i), f["name"], file_type, size_str, details)
+
+    cli_utils.CONSOLE.print(table)
+
+
+def _iterative_system_prompt_builder(
+    schema, domain, llm_analyzer, file_roles: dict = None
+) -> str:
+    """Interactively build a system prompt with user feedback.
+
+    Args:
+        schema: DataSchema of primary data.
+        domain: DomainAnalysis from LLM.
+        llm_analyzer: LLMAnalyzer instance.
+        file_roles: Dict of file roles for context.
+
+    Returns:
+        Final approved system prompt.
+    """
+    import json
+
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]Building System Prompt[/bold cyan]\n"
+        "[dim]Let's create an expert persona for your AI. "
+        "I'll generate a draft and we'll refine it together.[/dim]\n"
+    )
+
+    # Build context for prompt generation
+    context = {
+        "domain": domain.domain if domain else "general",
+        "description": domain.description if domain else "",
+        "terminology": domain.terminology if domain else [],
+        "columns": [c.name for c in schema.columns] if schema.columns else [],
+        "sample": schema.sample_rows[0] if schema.sample_rows else {},
+    }
+
+    if file_roles:
+        context["files"] = {k: str(v.name) if hasattr(v, 'name') else str(v) for k, v in file_roles.items()}
+
+    # Generate initial system prompt
+    prompt = f"""Create a system prompt for an AI expert working in the {context['domain']} domain.
+
+CONTEXT:
+- Domain: {context['domain']}
+- Description: {context['description']}
+- Key terminology: {context['terminology']}
+- Data columns: {context['columns']}
+- Sample data: {json.dumps(context['sample'], indent=2)[:500]}
+
+Create a detailed system prompt that:
+1. Establishes an expert persona specific to this domain
+2. Sets clear expectations for output quality
+3. Incorporates domain terminology naturally
+4. Is 3-5 sentences long
+
+Return ONLY the system prompt text, no JSON or formatting."""
+
+    current_prompt = llm_analyzer._invoke(prompt).strip()
+
+    # Show initial version
+    cli_utils.CONSOLE.print(
+        Panel(
+            current_prompt,
+            title="[green]Draft System Prompt[/green]",
+            border_style="green",
+        )
+    )
+
+    # Iterative refinement loop
+    iteration = 0
+    max_iterations = 5
+
+    while iteration < max_iterations:
+        cli_utils.CONSOLE.print(
+            "\n[bold]Options:[/bold]\n"
+            "  [cyan][1][/cyan] Accept this prompt\n"
+            "  [cyan][2][/cyan] Make it more formal/professional\n"
+            "  [cyan][3][/cyan] Make it more conversational/friendly\n"
+            "  [cyan][4][/cyan] Add specific expertise or focus\n"
+            "  [cyan][5][/cyan] Custom feedback (describe what to change)\n"
+        )
+
+        choice = Prompt.ask(
+            "Your choice",
+            choices=["1", "2", "3", "4", "5"],
+            default="1",
+        )
+
+        if choice == "1":
+            break
+
+        feedback = ""
+        if choice == "2":
+            feedback = "Make this more formal and professional in tone."
+        elif choice == "3":
+            feedback = "Make this more conversational and approachable."
+        elif choice == "4":
+            expertise = Prompt.ask("What expertise or focus should be added?")
+            feedback = f"Add specific expertise in: {expertise}"
+        elif choice == "5":
+            feedback = Prompt.ask("Describe what changes you'd like")
+
+        # Refine the prompt
+        refine_prompt = f"""Revise this system prompt based on the feedback.
+
+CURRENT PROMPT:
+{current_prompt}
+
+FEEDBACK: {feedback}
+
+Return ONLY the revised system prompt text, no JSON or formatting."""
+
+        current_prompt = llm_analyzer._invoke(refine_prompt).strip()
+
+        cli_utils.CONSOLE.print(
+            Panel(
+                current_prompt,
+                title=f"[green]Revised System Prompt (v{iteration + 2})[/green]",
+                border_style="green",
+            )
+        )
+
+        iteration += 1
+
+    cli_utils.CONSOLE.print("[green]✓ System prompt finalized[/green]")
+    return current_prompt
+
+
+def _iterative_question_template_builder(
+    schema, domain, system_prompt: str, llm_analyzer
+) -> str:
+    """Interactively build a question/instruction template with user feedback.
+
+    Args:
+        schema: DataSchema of primary data.
+        domain: DomainAnalysis from LLM.
+        system_prompt: The finalized system prompt.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Final approved question template.
+    """
+    import json
+
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]Building User Question Template[/bold cyan]\n"
+        "[dim]Now let's create the template for user questions/instructions. "
+        "This defines what the AI will be asked to do.[/dim]\n"
+    )
+
+    # Get column names for placeholders
+    columns = [c.name for c in schema.columns] if schema.columns else []
+    placeholder_hint = ", ".join(f"{{{c}}}" for c in columns[:5])
+
+    cli_utils.CONSOLE.print(
+        f"[dim]Available placeholders from your data: {placeholder_hint}[/dim]\n"
+    )
+
+    # Generate initial question template
+    context = {
+        "domain": domain.domain if domain else "general",
+        "terminology": domain.terminology if domain else [],
+        "columns": columns,
+        "sample": schema.sample_rows[0] if schema.sample_rows else {},
+        "system_prompt": system_prompt,
+    }
+
+    prompt = f"""Create a user instruction template for generating training data.
+
+CONTEXT:
+- Domain: {context['domain']}
+- System prompt: {context['system_prompt'][:200]}...
+- Available columns: {context['columns']}
+- Sample row: {json.dumps(context['sample'], indent=2)[:400]}
+
+Create an instruction template that:
+1. Uses {{column_name}} placeholders for data fields
+2. Clearly describes what output is expected
+3. Is specific to the {context['domain']} domain
+4. Will produce high-quality training examples
+
+Example format:
+"Based on the following [data type]: {{column_name}}
+
+Generate a [output type] that [specific requirement]."
+
+Return ONLY the template text with placeholders, no JSON."""
+
+    current_template = llm_analyzer._invoke(prompt).strip()
+
+    # Show initial version
+    cli_utils.CONSOLE.print(
+        Panel(
+            current_template,
+            title="[yellow]Draft Question Template[/yellow]",
+            border_style="yellow",
+        )
+    )
+
+    # Iterative refinement loop
+    iteration = 0
+    max_iterations = 5
+
+    while iteration < max_iterations:
+        cli_utils.CONSOLE.print(
+            "\n[bold]Options:[/bold]\n"
+            "  [cyan][1][/cyan] Accept this template\n"
+            "  [cyan][2][/cyan] Add more specific instructions\n"
+            "  [cyan][3][/cyan] Simplify the template\n"
+            "  [cyan][4][/cyan] Change the output format requested\n"
+            "  [cyan][5][/cyan] Custom feedback\n"
+        )
+
+        choice = Prompt.ask(
+            "Your choice",
+            choices=["1", "2", "3", "4", "5"],
+            default="1",
+        )
+
+        if choice == "1":
+            break
+
+        feedback = ""
+        if choice == "2":
+            details = Prompt.ask("What specific instructions should be added?")
+            feedback = f"Add more specific instructions about: {details}"
+        elif choice == "3":
+            feedback = "Simplify this template - make it more concise and direct."
+        elif choice == "4":
+            new_format = Prompt.ask("What output format should be requested?")
+            feedback = f"Change to request this output format: {new_format}"
+        elif choice == "5":
+            feedback = Prompt.ask("Describe what changes you'd like")
+
+        # Refine the template
+        refine_prompt = f"""Revise this user instruction template based on the feedback.
+
+CURRENT TEMPLATE:
+{current_template}
+
+AVAILABLE COLUMNS: {columns}
+
+FEEDBACK: {feedback}
+
+Return ONLY the revised template text with {{placeholders}}, no JSON."""
+
+        current_template = llm_analyzer._invoke(refine_prompt).strip()
+
+        cli_utils.CONSOLE.print(
+            Panel(
+                current_template,
+                title=f"[yellow]Revised Question Template (v{iteration + 2})[/yellow]",
+                border_style="yellow",
+            )
+        )
+
+        iteration += 1
+
+    cli_utils.CONSOLE.print("[green]✓ Question template finalized[/green]")
+    return current_template
+
+
+def _iterative_answer_template_builder(
+    schema, domain, system_prompt: str, question_template: str, llm_analyzer
+) -> tuple[str, dict]:
+    """Interactively build an answer template with user feedback.
+
+    Args:
+        schema: DataSchema of primary data.
+        domain: DomainAnalysis from LLM.
+        system_prompt: The finalized system prompt.
+        question_template: The finalized question template.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Tuple of (answer template, postprocessing config).
+    """
+    import json
+
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]Building Answer Template[/bold cyan]\n"
+        "[dim]Finally, let's define how the AI should format its answers. "
+        "This ensures consistent, parseable outputs.[/dim]\n"
+    )
+
+    columns = [c.name for c in schema.columns] if schema.columns else []
+
+    context = {
+        "domain": domain.domain if domain else "general",
+        "system_prompt": system_prompt,
+        "question_template": question_template,
+    }
+
+    prompt = f"""Create an answer generation instruction and format.
+
+CONTEXT:
+- Domain: {context['domain']}
+- System prompt: {context['system_prompt'][:150]}...
+- Question template: {context['question_template'][:200]}...
+
+Create an answer instruction that:
+1. Tells the AI how to generate the response
+2. Specifies a clear output format with a prefix (e.g., "Answer:", "Response:")
+3. Ensures consistent, parseable outputs
+
+Return JSON with:
+{{
+    "instruction": "The instruction for generating the answer (can reference {{question}} and data placeholders)",
+    "output_prefix": "The prefix the answer should start with (e.g., 'Answer:')",
+    "format_guidance": "Brief guidance on answer format"
+}}
+
+Return ONLY the JSON object."""
+
+    result = llm_analyzer._invoke_json(prompt)
+
+    instruction = result.get("instruction", "Provide a helpful response to: {question}")
+    output_prefix = result.get("output_prefix", "Answer:")
+    format_guidance = result.get("format_guidance", "")
+
+    # Build display template
+    current_template = f"{instruction}\n\nFormat your response as:\n{output_prefix} <your response>"
+
+    # Show initial version
+    cli_utils.CONSOLE.print(
+        Panel(
+            f"[bold]Instruction:[/bold]\n{instruction}\n\n"
+            f"[bold]Output prefix:[/bold] {output_prefix}\n\n"
+            f"[bold]Format guidance:[/bold] {format_guidance}",
+            title="[magenta]Draft Answer Template[/magenta]",
+            border_style="magenta",
+        )
+    )
+
+    # Iterative refinement loop
+    iteration = 0
+    max_iterations = 5
+
+    while iteration < max_iterations:
+        cli_utils.CONSOLE.print(
+            "\n[bold]Options:[/bold]\n"
+            "  [cyan][1][/cyan] Accept this template\n"
+            "  [cyan][2][/cyan] Request longer/more detailed answers\n"
+            "  [cyan][3][/cyan] Request shorter/concise answers\n"
+            "  [cyan][4][/cyan] Change the output prefix\n"
+            "  [cyan][5][/cyan] Custom feedback\n"
+        )
+
+        choice = Prompt.ask(
+            "Your choice",
+            choices=["1", "2", "3", "4", "5"],
+            default="1",
+        )
+
+        if choice == "1":
+            break
+
+        feedback = ""
+        if choice == "2":
+            feedback = "Request longer, more detailed and comprehensive answers."
+        elif choice == "3":
+            feedback = "Request shorter, more concise answers - just the essential information."
+        elif choice == "4":
+            new_prefix = Prompt.ask("What prefix should answers use?")
+            output_prefix = new_prefix
+            feedback = f"Use this output prefix: {new_prefix}"
+        elif choice == "5":
+            feedback = Prompt.ask("Describe what changes you'd like")
+
+        # Refine the template
+        refine_prompt = f"""Revise this answer generation instruction based on the feedback.
+
+CURRENT:
+- Instruction: {instruction}
+- Output prefix: {output_prefix}
+- Format guidance: {format_guidance}
+
+FEEDBACK: {feedback}
+
+Return JSON with:
+{{
+    "instruction": "revised instruction",
+    "output_prefix": "{output_prefix}",
+    "format_guidance": "revised format guidance"
+}}
+
+Return ONLY the JSON object."""
+
+        result = llm_analyzer._invoke_json(refine_prompt)
+        instruction = result.get("instruction", instruction)
+        output_prefix = result.get("output_prefix", output_prefix)
+        format_guidance = result.get("format_guidance", format_guidance)
+
+        cli_utils.CONSOLE.print(
+            Panel(
+                f"[bold]Instruction:[/bold]\n{instruction}\n\n"
+                f"[bold]Output prefix:[/bold] {output_prefix}\n\n"
+                f"[bold]Format guidance:[/bold] {format_guidance}",
+                title=f"[magenta]Revised Answer Template (v{iteration + 2})[/magenta]",
+                border_style="magenta",
+            )
+        )
+
+        iteration += 1
+
+    cli_utils.CONSOLE.print("[green]✓ Answer template finalized[/green]")
+
+    # Build final template and postprocessing config
+    final_template = f"{instruction}\n\nFormat your response as:\n{output_prefix} <your response>"
+    postprocessing = {
+        "cut_prefix": output_prefix,
+        "strip_whitespace": True,
+    }
+
+    return final_template, postprocessing
+
+
+def _show_role_guidance(role: str):
+    """Display contextual help for a file role.
+
+    Args:
+        role: The role to show guidance for (primary, reference, rules, examples).
+    """
+    guidance = FILE_ROLE_GUIDANCE.get(role)
+    if not guidance:
+        return
+
+    help_text = "\n".join(f"  • {h}" for h in guidance.get("help", []))
+
+    cli_utils.CONSOLE.print(
+        Panel(
+            f"[bold]{guidance['title']}[/bold] - {guidance['description']}\n\n"
+            f"[dim]{help_text}[/dim]",
+            border_style="blue",
+        )
+    )
+
+
+def _prompt_file_roles(files: list[dict]) -> dict[str, Path]:
+    """Interactive prompts to assign file roles.
+
+    Args:
+        files: List of detected files.
+
+    Returns:
+        Dict mapping role names to file paths.
+    """
+    roles = {}
+    file_nums = [str(i) for i in range(1, len(files) + 1)]
+
+    # Primary data (required)
+    _show_role_guidance("primary")
+    primary_idx = IntPrompt.ask(
+        "\nWhich file is your [bold]PRIMARY[/bold] data?",
+        choices=file_nums,
+        default="1",
+    )
+    roles["primary"] = files[int(primary_idx) - 1]["path"]
+
+    # Get remaining file numbers
+    remaining_nums = [n for n in file_nums if n != str(primary_idx)]
+
+    if remaining_nums:
+        # Reference data (optional)
+        _show_role_guidance("reference")
+        if Confirm.ask("\nDo you have [bold]reference data[/bold]?", default=False):
+            ref_idx = Prompt.ask(
+                "Which file?",
+                choices=remaining_nums,
+            )
+            roles["reference"] = files[int(ref_idx) - 1]["path"]
+            remaining_nums = [n for n in remaining_nums if n != ref_idx]
+
+    if remaining_nums:
+        # Rules/guidelines (optional)
+        _show_role_guidance("rules")
+        if Confirm.ask("\nDo you have [bold]rules or guidelines[/bold]?", default=False):
+            rules_idx = Prompt.ask(
+                "Which file?",
+                choices=remaining_nums,
+            )
+            roles["rules"] = files[int(rules_idx) - 1]["path"]
+            remaining_nums = [n for n in remaining_nums if n != rules_idx]
+
+    if remaining_nums:
+        # Labeled examples (optional)
+        _show_role_guidance("examples")
+        if Confirm.ask("\nDo you have [bold]labeled examples[/bold]?", default=False):
+            examples_idx = Prompt.ask(
+                "Which file?",
+                choices=remaining_nums,
+            )
+            roles["examples"] = files[int(examples_idx) - 1]["path"]
+
+    return roles
+
+
+def _display_multi_file_analysis(analysis):
+    """Display results of multi-file analysis.
+
+    Args:
+        analysis: MultiFileAnalysis object with relationships and suggestions.
+    """
+    # Purpose
+    cli_utils.CONSOLE.print(
+        Panel(
+            f"[bold]Primary Purpose:[/bold] {analysis.primary_purpose}",
+            title="[cyan]Multi-File Analysis[/cyan]",
+            border_style="cyan",
+        )
+    )
+
+    # Relationships
+    if analysis.relationships:
+        rel_table = Table(title="File Relationships", show_edge=False)
+        rel_table.add_column("From", style="cyan")
+        rel_table.add_column("To", style="green")
+        rel_table.add_column("Type", style="yellow")
+
+        for rel in analysis.relationships:
+            from_str = f"{rel.get('from_file', '?')}.{rel.get('from_col', '?')}"
+            to_str = f"{rel.get('to_file', '?')}.{rel.get('to_col', '?')}"
+            rel_table.add_row(from_str, to_str, rel.get("type", "?"))
+
+        cli_utils.CONSOLE.print(rel_table)
+
+    # Extracted rules
+    if analysis.extracted_rules:
+        rules_text = "\n".join(f"  • {r}" for r in analysis.extracted_rules[:5])
+        cli_utils.CONSOLE.print(
+            Panel(
+                f"[dim]{rules_text}[/dim]",
+                title="[yellow]Extracted Rules[/yellow]",
+                border_style="yellow",
+            )
+        )
+
+    # Quality patterns
+    if analysis.quality_patterns:
+        good_patterns = analysis.quality_patterns.get("good", [])
+        bad_patterns = analysis.quality_patterns.get("bad", [])
+
+        patterns_text = ""
+        if good_patterns:
+            patterns_text += "[green]Good patterns:[/green]\n"
+            patterns_text += "\n".join(f"  ✓ {p}" for p in good_patterns[:3])
+        if bad_patterns:
+            if patterns_text:
+                patterns_text += "\n\n"
+            patterns_text += "[red]Bad patterns:[/red]\n"
+            patterns_text += "\n".join(f"  ✗ {p}" for p in bad_patterns[:3])
+
+        if patterns_text:
+            cli_utils.CONSOLE.print(
+                Panel(patterns_text, title="Quality Patterns", border_style="dim")
+            )
+
+    # Suggested pipeline
+    if analysis.suggested_pipeline:
+        pipeline = analysis.suggested_pipeline
+        pipeline_text = []
+
+        if pipeline.get("synth", {}).get("enabled"):
+            synth_info = pipeline["synth"]
+            pipeline_text.append(
+                f"[cyan]1. Synth:[/cyan] {synth_info.get('goal', 'qa')} "
+                f"from {synth_info.get('source_file', 'primary data')}"
+            )
+
+        if pipeline.get("judge", {}).get("enabled"):
+            judge_info = pipeline["judge"]
+            pipeline_text.append(
+                f"[cyan]2. Judge:[/cyan] {judge_info.get('type', 'generic')} "
+                f"evaluation"
+            )
+
+        if pipeline.get("train", {}).get("enabled"):
+            train_info = pipeline["train"]
+            pipeline_text.append(
+                f"[cyan]3. Train:[/cyan] {train_info.get('task', 'fine-tuning')}"
+            )
+
+        if pipeline_text:
+            cli_utils.CONSOLE.print(
+                Panel(
+                    "\n".join(pipeline_text),
+                    title="[magenta]Suggested Pipeline[/magenta]",
+                    border_style="magenta",
+                )
+            )
+
 
 def _display_annotated_synth_config(config, config_path: Path, schema, goal: str):
     """Display synth config with helpful annotations."""
@@ -238,7 +1396,7 @@ def wizard(
         typer.Option(
             "--data",
             "-d",
-            help="Path to your data file (CSV, JSON, Excel, or Word).",
+            help="Path to your data file or directory (CSV, JSON, Excel, or Word).",
         ),
     ],
     output_dir: Annotated[
@@ -249,14 +1407,25 @@ def wizard(
             help="Directory to save generated configs.",
         ),
     ] = "./oumi_configs",
+    use_llm: Annotated[
+        bool,
+        typer.Option(
+            "--llm/--no-llm",
+            help="Use LLM (Claude) to analyze data and infer domain-specific config.",
+        ),
+    ] = False,
 ):
     """Interactive wizard to guide you through Oumi setup.
 
     This wizard analyzes your data and helps you create configurations
     for synthesis, evaluation, and training.
 
-    Example:
+    Examples:
+        # Single file
         oumi onboard wizard --data ./my_data.csv
+
+        # Directory with multiple files
+        oumi onboard wizard --data ./customer_data/
     """
     # Delayed imports
     from oumi.onboarding import DataAnalyzer, FieldMapper
@@ -280,24 +1449,290 @@ def wizard(
         )
     )
 
-    # Step 1: Analyze data
-    cli_utils.CONSOLE.print("\n[bold cyan]Step 1/5: Analyzing your data...[/bold cyan]")
-
+    # Check if input is a directory or file
     data_path = Path(data)
     if not data_path.exists():
-        cli_utils.CONSOLE.print(f"[red]Error: File not found: {data}[/red]")
+        cli_utils.CONSOLE.print(f"[red]Error: Path not found: {data}[/red]")
         raise typer.Exit(1)
 
-    with cli_utils.CONSOLE.status("[green]Analyzing...[/green]", spinner="dots"):
-        analyzer = DataAnalyzer()
+    analyzer = DataAnalyzer()
+    file_roles = {}
+    multi_file_analysis = None
+    column_assignments = None  # For column-level role assignment
+
+    # Initialize LLM analyzer early if needed
+    llm_analyzer_instance = None
+    if use_llm:
         try:
-            schema = analyzer.analyze(data_path)
+            from oumi.onboarding.llm_analyzer import FileContext, LLMAnalyzer
+            llm_analyzer_instance = LLMAnalyzer()
+        except ImportError as e:
+            cli_utils.CONSOLE.print(
+                f"[yellow]Warning: Could not load LLM analyzer: {e}[/yellow]\n"
+                "[dim]Install with: pip install anthropic[/dim]"
+            )
+            use_llm = False
         except Exception as e:
-            cli_utils.CONSOLE.print(f"[red]Error analyzing data: {e}[/red]")
+            cli_utils.CONSOLE.print(
+                f"[yellow]Warning: LLM initialization failed: {e}[/yellow]"
+            )
+            use_llm = False
+
+    # Handle directory input (multi-file mode)
+    if data_path.is_dir():
+        cli_utils.CONSOLE.print(
+            "\n[bold cyan]Step 1/5: Scanning directory...[/bold cyan]"
+        )
+
+        files = _detect_files_in_directory(data_path)
+        if not files:
+            cli_utils.CONSOLE.print(
+                f"[red]Error: No supported files found in {data_path}[/red]\n"
+                f"[dim]Supported formats: {', '.join(SUPPORTED_EXTENSIONS)}[/dim]"
+            )
             raise typer.Exit(1)
 
-    # Display schema info
-    _display_schema_info(schema)
+        cli_utils.CONSOLE.print(f"\n[green]Found {len(files)} file(s)[/green]\n")
+
+        # AI analysis of each file if LLM enabled
+        if use_llm and llm_analyzer_instance:
+            cli_utils.CONSOLE.print(
+                "[bold cyan]AI Analysis: Analyzing each file's purpose...[/bold cyan]\n"
+            )
+            with cli_utils.CONSOLE.status(
+                "[green]Analyzing files with AI...[/green]", spinner="dots"
+            ):
+                files = _analyze_file_purposes(files, analyzer, llm_analyzer_instance)
+
+            # Display files with AI analysis
+            _display_file_listing(files, analyzer, show_ai_analysis=True)
+
+            # Show AI-suggested role assignments
+            cli_utils.CONSOLE.print(
+                "\n[bold]AI-Suggested File Roles:[/bold]"
+            )
+            for f in files:
+                role = f.get("suggested_role", "unknown").upper()
+                reason = f.get("role_reason", "")
+                cli_utils.CONSOLE.print(
+                    f"  [cyan]{f['name']}[/cyan] → [magenta]{role}[/magenta]"
+                    f"\n    [dim]{reason}[/dim]"
+                )
+
+            # Check if we have tabular files for column-level assignment
+            has_tabular_files = any(
+                f["extension"] in TABULAR_EXTENSIONS for f in files
+            )
+
+            # Ask what level of assignment
+            cli_utils.CONSOLE.print("")
+            if has_tabular_files:
+                cli_utils.CONSOLE.print(
+                    "[bold cyan]Assignment Mode[/bold cyan]\n"
+                    "[dim]You can assign entire files to roles, or pick specific columns.[/dim]\n"
+                )
+                assignment_mode = Prompt.ask(
+                    "How would you like to assign data?",
+                    choices=["ai", "file", "column"],
+                    default="ai",
+                )
+                cli_utils.CONSOLE.print(
+                    "[dim]  ai     = Use AI-suggested file roles\n"
+                    "  file   = Manually assign entire files to roles\n"
+                    "  column = Pick specific columns from tabular files[/dim]\n"
+                )
+            else:
+                use_ai_roles = Confirm.ask(
+                    "Use AI-suggested file roles?",
+                    default=True,
+                )
+                assignment_mode = "ai" if use_ai_roles else "file"
+
+            column_assignments = None
+
+            if assignment_mode == "ai":
+                # Build file_roles from AI suggestions
+                file_roles = {}
+                for f in files:
+                    role = f.get("suggested_role", "context")
+                    if role == "primary" and "primary" not in file_roles:
+                        file_roles["primary"] = f["path"]
+                    elif role == "reference" and "reference" not in file_roles:
+                        file_roles["reference"] = f["path"]
+                    elif role == "rules" and "rules" not in file_roles:
+                        file_roles["rules"] = f["path"]
+                    elif role == "examples" and "examples" not in file_roles:
+                        file_roles["examples"] = f["path"]
+
+                # Ensure we have a primary
+                if "primary" not in file_roles and files:
+                    file_roles["primary"] = files[0]["path"]
+
+            elif assignment_mode == "column":
+                # Column-level assignment for tabular files
+                cli_utils.CONSOLE.print(
+                    "\n[bold cyan]Column-Level Role Assignment[/bold cyan]\n"
+                )
+                column_assignments = _prompt_column_roles(
+                    files, analyzer, llm_analyzer_instance
+                )
+                # Extract file_roles from column_assignments
+                file_roles = {}
+                if "primary" in column_assignments:
+                    file_roles["primary"] = column_assignments["primary"]["path"]
+                if "rules" in column_assignments:
+                    file_roles["rules"] = column_assignments["rules"]["path"]
+
+            else:
+                # Manual file-level role assignment
+                cli_utils.CONSOLE.print(
+                    "\n[bold cyan]Manual File Role Assignment[/bold cyan]\n"
+                )
+                file_roles = _prompt_file_roles(files)
+        else:
+            # No LLM - display basic listing and manual assignment
+            with cli_utils.CONSOLE.status(
+                "[green]Analyzing files...[/green]", spinner="dots"
+            ):
+                _display_file_listing(files, analyzer)
+
+            # Check if we have tabular files for column-level assignment
+            has_tabular_files = any(
+                f["extension"] in TABULAR_EXTENSIONS for f in files
+            )
+
+            column_assignments = None
+
+            if has_tabular_files:
+                cli_utils.CONSOLE.print(
+                    "\n[bold cyan]Assignment Mode[/bold cyan]\n"
+                    "[dim]You can assign entire files to roles, or pick specific columns.[/dim]\n"
+                )
+                assignment_mode = Prompt.ask(
+                    "How would you like to assign data?",
+                    choices=["file", "column"],
+                    default="file",
+                )
+                cli_utils.CONSOLE.print(
+                    "[dim]  file   = Assign entire files to roles\n"
+                    "  column = Pick specific columns from tabular files[/dim]\n"
+                )
+
+                if assignment_mode == "column":
+                    cli_utils.CONSOLE.print(
+                        "\n[bold cyan]Column-Level Role Assignment[/bold cyan]\n"
+                    )
+                    column_assignments = _prompt_column_roles(files, analyzer, None)
+                    # Extract file_roles from column_assignments
+                    file_roles = {}
+                    if "primary" in column_assignments:
+                        file_roles["primary"] = column_assignments["primary"]["path"]
+                    if "rules" in column_assignments:
+                        file_roles["rules"] = column_assignments["rules"]["path"]
+                else:
+                    cli_utils.CONSOLE.print(
+                        "\n[bold cyan]Identify File Roles[/bold cyan]\n"
+                        "[dim]Help us understand how each file should be used.[/dim]\n"
+                    )
+                    file_roles = _prompt_file_roles(files)
+            else:
+                cli_utils.CONSOLE.print(
+                    "\n[bold cyan]Identify File Roles[/bold cyan]\n"
+                    "[dim]Help us understand how each file should be used.[/dim]\n"
+                )
+                file_roles = _prompt_file_roles(files)
+
+        # Use primary file as the main schema
+        primary_path = file_roles["primary"]
+        with cli_utils.CONSOLE.status(
+            "[green]Analyzing primary data...[/green]", spinner="dots"
+        ):
+            try:
+                schema = analyzer.analyze(primary_path)
+            except Exception as e:
+                cli_utils.CONSOLE.print(f"[red]Error analyzing primary data: {e}[/red]")
+                raise typer.Exit(1)
+
+        # Display schema info for primary file
+        _display_schema_info(schema)
+
+        # Multi-file LLM analysis if enabled and multiple roles assigned
+        if use_llm and llm_analyzer_instance and len(file_roles) > 1:
+            cli_utils.CONSOLE.print(
+                "\n[bold cyan]AI Analysis: Analyzing file relationships...[/bold cyan]"
+            )
+            try:
+                from oumi.onboarding.llm_analyzer import FileContext
+
+                # Build file contexts
+                file_contexts = []
+                for role, path in file_roles.items():
+                    ctx_schema = None
+                    try:
+                        ctx_schema = analyzer.analyze(path)
+                    except Exception:
+                        pass
+
+                    file_contexts.append(
+                        FileContext(
+                            path=str(path),
+                            role=role,
+                            schema=ctx_schema,
+                            summary=f"{role} data file",
+                        )
+                    )
+
+                with cli_utils.CONSOLE.status(
+                    "[green]Analyzing relationships between files...[/green]",
+                    spinner="dots",
+                ):
+                    multi_file_analysis = llm_analyzer_instance.analyze_multi_file(file_contexts)
+
+                _display_multi_file_analysis(multi_file_analysis)
+
+            except Exception as e:
+                cli_utils.CONSOLE.print(
+                    f"[yellow]Warning: Multi-file analysis failed: {e}[/yellow]\n"
+                    "[dim]Continuing with single-file config generation.[/dim]"
+                )
+
+    else:
+        # Single file mode (original behavior)
+        cli_utils.CONSOLE.print(
+            "\n[bold cyan]Step 1/5: Analyzing your data...[/bold cyan]"
+        )
+
+        with cli_utils.CONSOLE.status("[green]Analyzing...[/green]", spinner="dots"):
+            try:
+                schema = analyzer.analyze(data_path)
+            except Exception as e:
+                cli_utils.CONSOLE.print(f"[red]Error analyzing data: {e}[/red]")
+                raise typer.Exit(1)
+
+        # Display schema info
+        _display_schema_info(schema)
+
+    # Optional: LLM-based domain analysis (reuse llm_analyzer_instance if available)
+    domain = None
+    llm_analyzer = llm_analyzer_instance  # Use the instance created earlier if any
+    if use_llm and llm_analyzer is not None:
+        cli_utils.CONSOLE.print(
+            "\n[bold cyan]AI Analysis: Analyzing your data with Claude...[/bold cyan]"
+        )
+        try:
+            with cli_utils.CONSOLE.status(
+                "[green]Analyzing domain and terminology...[/green]", spinner="dots"
+            ):
+                domain = llm_analyzer.analyze(schema)
+
+            # Display domain analysis results
+            _display_domain_analysis(domain)
+
+        except Exception as e:
+            cli_utils.CONSOLE.print(
+                f"[yellow]Warning: LLM analysis failed: {e}[/yellow]\n"
+                "[dim]Continuing with template-based config generation.[/dim]"
+            )
 
     # Step 2: Select goal
     cli_utils.CONSOLE.print("\n[bold cyan]Step 2/5: What would you like to do?[/bold cyan]")
@@ -328,13 +1763,19 @@ def wizard(
 
     # Step 3-4: Configure based on choice
     if choice == 1:
-        commands = _wizard_synth(schema, output_path, analyzer)
+        commands = _wizard_synth(
+            schema, output_path, analyzer, domain, llm_analyzer, file_roles,
+            column_assignments=column_assignments,
+        )
     elif choice == 2:
-        commands = _wizard_judge(schema, output_path)
+        commands = _wizard_judge(schema, output_path, domain, llm_analyzer)
     elif choice == 3:
         commands = _wizard_train(schema, output_path)
     elif choice == 4:
-        commands = _wizard_pipeline(schema, output_path, analyzer)
+        commands = _wizard_pipeline(
+            schema, output_path, analyzer, domain, llm_analyzer, file_roles,
+            column_assignments=column_assignments,
+        )
 
     # Step 5: Show runnable command(s)
     cli_utils.CONSOLE.print("\n[bold cyan]Step 5/5: Ready to run![/bold cyan]")
@@ -387,6 +1828,30 @@ def wizard(
         )
 
 
+def _display_domain_analysis(domain):
+    """Display LLM-inferred domain analysis."""
+    terminology_str = ", ".join(domain.terminology[:8]) if domain.terminology else "None detected"
+    quality_str = "\n    ".join(f"- {s}" for s in domain.quality_signals[:4]) if domain.quality_signals else "- General quality"
+    issues_str = "\n    ".join(f"- {s}" for s in domain.common_issues[:4]) if domain.common_issues else "- No specific issues"
+
+    cli_utils.CONSOLE.print(
+        Panel(
+            f"[bold]Domain:[/bold] [green]{domain.domain}[/green]\n"
+            f"[bold]Description:[/bold] {domain.description}\n\n"
+            f"[bold]Key Terminology:[/bold]\n    {terminology_str}\n\n"
+            f"[bold]Quality Signals:[/bold]\n    {quality_str}\n\n"
+            f"[bold]Common Issues to Watch:[/bold]\n    {issues_str}",
+            title="[cyan]AI Analysis of Your Data[/cyan]",
+            border_style="cyan",
+        )
+    )
+
+    if domain.suggested_persona:
+        cli_utils.CONSOLE.print(
+            f"\n[dim]Suggested AI persona: {domain.suggested_persona[:150]}...[/dim]"
+        )
+
+
 def _display_schema_info(schema):
     """Display analyzed schema information."""
     from oumi.onboarding.data_analyzer import DataSchema
@@ -428,8 +1893,22 @@ def _display_schema_info(schema):
         cli_utils.CONSOLE.print(col_table)
 
 
-def _wizard_synth(schema, output_path: Path, analyzer):
-    """Configure synthesis."""
+def _wizard_synth(
+    schema, output_path: Path, analyzer, domain=None, llm_analyzer=None, file_roles=None,
+    column_assignments=None,
+):
+    """Configure synthesis.
+
+    Args:
+        schema: DataSchema for the primary data file.
+        output_path: Output directory for generated configs.
+        analyzer: DataAnalyzer instance.
+        domain: Optional DomainAnalysis from LLM analysis.
+        llm_analyzer: Optional LLMAnalyzer instance.
+        file_roles: Optional dict mapping roles to file paths.
+        column_assignments: Optional dict with column-level role assignments.
+            Format: {"context": {"path": Path, "column": str}, "metadata": [...], ...}
+    """
     from oumi.onboarding.config_builder import SynthConfigBuilder
 
     cli_utils.CONSOLE.print("\n[bold cyan]Step 3/5: Configuring synthesis...[/bold cyan]")
@@ -478,12 +1957,109 @@ def _wizard_synth(schema, output_path: Path, analyzer):
     cli_utils.CONSOLE.print("\n[bold cyan]Step 4/5: Generating configuration...[/bold cyan]")
 
     builder = SynthConfigBuilder()
-    config = builder.from_schema(
-        schema,
-        goal=goal,
-        num_samples=num_samples,
-        output_path=str(output_path / "synth_output.jsonl"),
-    )
+
+    # Build attribute_map from column_assignments if provided
+    attribute_map = None
+    if column_assignments:
+        attribute_map = {}
+        if "context" in column_assignments:
+            attribute_map["context"] = column_assignments["context"]["column"]
+        if "question" in column_assignments:
+            attribute_map["question"] = column_assignments["question"]["column"]
+        if "answer" in column_assignments:
+            attribute_map["answer"] = column_assignments["answer"]["column"]
+        if "reference_values" in column_assignments:
+            attribute_map["reference"] = column_assignments["reference_values"]["column"]
+        if "label" in column_assignments:
+            attribute_map["label"] = column_assignments["label"]["column"]
+        # Handle metadata as list of columns
+        if "metadata" in column_assignments and isinstance(column_assignments["metadata"], list):
+            metadata_cols = [m["column"] for m in column_assignments["metadata"]]
+            attribute_map["metadata"] = metadata_cols
+
+        if attribute_map:
+            cli_utils.CONSOLE.print(
+                f"[dim]Using column mappings: {attribute_map}[/dim]"
+            )
+
+    # Use LLM-inferred config if domain analysis is available
+    if domain is not None and llm_analyzer is not None:
+        # Offer interactive prompt building
+        cli_utils.CONSOLE.print(
+            Panel(
+                "[bold]Configuration Mode[/bold]\n\n"
+                "[cyan][1][/cyan] [bold]Quick[/bold] - Auto-generate prompts based on your data\n"
+                "    [dim]AI creates everything automatically. Good for fast iteration.[/dim]\n\n"
+                "[cyan][2][/cyan] [bold]Interactive[/bold] - Build prompts step by step with AI\n"
+                "    [dim]You'll refine system prompt, questions, and answers together.\n"
+                "    Best for high-quality, customized outputs.[/dim]",
+                title="Choose Configuration Mode",
+                border_style="magenta",
+            )
+        )
+
+        mode_choice = Prompt.ask(
+            "Select mode",
+            choices=["1", "2"],
+            default="1",
+        )
+
+        if mode_choice == "2":
+            # Interactive prompt building mode
+            cli_utils.CONSOLE.print(
+                "\n[bold magenta]Interactive Prompt Building[/bold magenta]\n"
+                "[dim]We'll work together to create the perfect prompts for your use case.[/dim]"
+            )
+
+            # Step 1: Build system prompt interactively
+            system_prompt = _iterative_system_prompt_builder(
+                schema, domain, llm_analyzer, file_roles
+            )
+
+            # Step 2: Build question template interactively
+            question_template = _iterative_question_template_builder(
+                schema, domain, system_prompt, llm_analyzer
+            )
+
+            # Step 3: Build answer template interactively
+            answer_template, postprocessing = _iterative_answer_template_builder(
+                schema, domain, system_prompt, question_template, llm_analyzer
+            )
+
+            # Build config with custom prompts
+            config = builder.from_schema_with_custom_prompts(
+                schema,
+                goal=goal,
+                num_samples=num_samples,
+                output_path=str(output_path / "synth_output.jsonl"),
+                system_prompt=system_prompt,
+                question_template=question_template,
+                answer_template=answer_template,
+                postprocessing=postprocessing,
+            )
+        else:
+            # Quick auto-generation mode
+            cli_utils.CONSOLE.print(
+                "[dim]Using AI-inferred domain knowledge for config generation...[/dim]"
+            )
+            with cli_utils.CONSOLE.status(
+                "[green]Generating domain-specific prompts...[/green]", spinner="dots"
+            ):
+                config = builder.from_schema_with_inference(
+                    schema,
+                    goal=goal,
+                    num_samples=num_samples,
+                    output_path=str(output_path / "synth_output.jsonl"),
+                    domain=domain,
+                    llm_analyzer=llm_analyzer,
+                )
+    else:
+        config = builder.from_schema(
+            schema,
+            goal=goal,
+            num_samples=num_samples,
+            output_path=str(output_path / "synth_output.jsonl"),
+        )
 
     config_path = output_path / "synth_config.yaml"
     config.to_yaml(str(config_path))
@@ -496,7 +2072,7 @@ def _wizard_synth(schema, output_path: Path, analyzer):
     return [f"oumi synth -c {config_path}"]
 
 
-def _wizard_judge(schema, output_path: Path):
+def _wizard_judge(schema, output_path: Path, domain=None, llm_analyzer=None):
     """Configure judge."""
     from oumi.onboarding.config_builder import JudgeConfigBuilder
 
@@ -550,11 +2126,28 @@ def _wizard_judge(schema, output_path: Path):
     cli_utils.CONSOLE.print("\n[bold cyan]Step 4/5: Generating configuration...[/bold cyan]")
 
     builder = JudgeConfigBuilder()
-    config = builder.from_schema(
-        schema,
-        judge_type=judge_type,
-        custom_criteria=custom_criteria,
-    )
+
+    # Use LLM-inferred config if domain analysis is available
+    if domain is not None and llm_analyzer is not None and custom_criteria is None:
+        cli_utils.CONSOLE.print(
+            "[dim]Using AI-inferred domain knowledge for evaluation criteria...[/dim]"
+        )
+        with cli_utils.CONSOLE.status(
+            "[green]Generating domain-specific evaluation prompts...[/green]",
+            spinner="dots",
+        ):
+            config = builder.from_schema_with_inference(
+                schema,
+                judge_type=judge_type,
+                domain=domain,
+                llm_analyzer=llm_analyzer,
+            )
+    else:
+        config = builder.from_schema(
+            schema,
+            judge_type=judge_type,
+            custom_criteria=custom_criteria,
+        )
 
     config_path = output_path / "judge_config.yaml"
     config.to_yaml(str(config_path))
@@ -646,7 +2239,9 @@ def _wizard_train(schema, output_path: Path):
     return [f"oumi train -c {config_path}"]
 
 
-def _wizard_pipeline(schema, output_path: Path, analyzer):
+def _wizard_pipeline(
+    schema, output_path: Path, analyzer, domain=None, llm_analyzer=None, file_roles=None
+):
     """Configure full pipeline."""
     from oumi.onboarding.config_builder import (
         JudgeConfigBuilder,
@@ -686,12 +2281,30 @@ def _wizard_pipeline(schema, output_path: Path, analyzer):
     num_samples = IntPrompt.ask("Number of samples to generate", default=100)
 
     synth_builder = SynthConfigBuilder()
-    synth_config = synth_builder.from_schema(
-        schema,
-        goal=goal,
-        num_samples=num_samples,
-        output_path=str(output_path / "synth_output.jsonl"),
-    )
+
+    # Use LLM-inferred config if domain analysis is available
+    if domain is not None and llm_analyzer is not None:
+        cli_utils.CONSOLE.print(
+            "[dim]Using AI-inferred domain knowledge for synth config...[/dim]"
+        )
+        with cli_utils.CONSOLE.status(
+            "[green]Generating domain-specific synth prompts...[/green]", spinner="dots"
+        ):
+            synth_config = synth_builder.from_schema_with_inference(
+                schema,
+                goal=goal,
+                num_samples=num_samples,
+                output_path=str(output_path / "synth_output.jsonl"),
+                domain=domain,
+                llm_analyzer=llm_analyzer,
+            )
+    else:
+        synth_config = synth_builder.from_schema(
+            schema,
+            goal=goal,
+            num_samples=num_samples,
+            output_path=str(output_path / "synth_output.jsonl"),
+        )
 
     # Judge config
     cli_utils.CONSOLE.print(
@@ -710,7 +2323,24 @@ def _wizard_pipeline(schema, output_path: Path, analyzer):
         "Judge type", choices=JUDGE_TYPE_CHOICES, default="generic"
     )
     judge_builder = JudgeConfigBuilder()
-    judge_config = judge_builder.from_schema(schema, judge_type=judge_type)
+
+    # Use LLM-inferred config if domain analysis is available
+    if domain is not None and llm_analyzer is not None:
+        cli_utils.CONSOLE.print(
+            "[dim]Using AI-inferred domain knowledge for judge config...[/dim]"
+        )
+        with cli_utils.CONSOLE.status(
+            "[green]Generating domain-specific evaluation prompts...[/green]",
+            spinner="dots",
+        ):
+            judge_config = judge_builder.from_schema_with_inference(
+                schema,
+                judge_type=judge_type,
+                domain=domain,
+                llm_analyzer=llm_analyzer,
+            )
+    else:
+        judge_config = judge_builder.from_schema(schema, judge_type=judge_type)
 
     # Train config
     cli_utils.CONSOLE.print(

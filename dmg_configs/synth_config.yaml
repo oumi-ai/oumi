@@ -1,0 +1,143 @@
+output_path: dmg_configs/synth_output.jsonl
+strategy: GENERAL
+strategy_params:
+  input_data:
+  - path: customers/dmg/service_types.csv
+    hf_split: null
+    hf_revision: null
+    attribute_map:
+      service_type_description: context
+  input_documents: null
+  input_examples: null
+  sampled_attributes: null
+  combination_sampling: null
+  generated_attributes:
+  - id: question_raw
+    instruction_messages:
+    - role: SYSTEM
+      content: 'You are an expert at creating high-quality question-answer pairs.
+
+        Create questions that are clear, specific, and educational.
+
+        Base your questions on the provided context when available.'
+    - role: USER
+      content: 'Based on the following information, generate a thoughtful question:
+
+
+        {context}
+
+
+        Format your response as:
+
+        Question: <your question>'
+    postprocessing_params:
+      id: question
+      keep_original_text_attribute: true
+      cut_prefix: 'Question:'
+      cut_suffix: null
+      regex: null
+      strip_whitespace: true
+      added_prefix: null
+      added_suffix: null
+  - id: answer_raw
+    instruction_messages:
+    - role: SYSTEM
+      content: 'You are an expert at creating high-quality question-answer pairs.
+
+        Create questions that are clear, specific, and educational.
+
+        Base your questions on the provided context when available.'
+    - role: USER
+      content: 'Provide a helpful, accurate answer to this question:
+
+
+        {question}
+
+
+        Format your response as:
+
+        Answer: <your answer>'
+    postprocessing_params:
+      id: answer
+      keep_original_text_attribute: true
+      cut_prefix: 'Answer:'
+      cut_suffix: null
+      regex: null
+      strip_whitespace: true
+      added_prefix: null
+      added_suffix: null
+  transformed_attributes:
+  - id: conversation
+    transformation_strategy:
+      type: CHAT
+      string_transform: null
+      list_transform: null
+      dict_transform: null
+      chat_transform:
+        messages:
+        - role: USER
+          content: '{question}'
+        - role: ASSISTANT
+          content: '{answer}'
+        conversation_id: null
+        metadata: {}
+  passthrough_attributes:
+  - conversation
+  - question
+  - answer
+inference_config:
+  model:
+    model_name: claude-3-5-sonnet-20240620
+    adapter_model: null
+    tokenizer_name: null
+    tokenizer_pad_token: null
+    tokenizer_kwargs: {}
+    processor_kwargs: {}
+    model_max_length: null
+    load_pretrained_weights: true
+    trust_remote_code: false
+    torch_dtype_str: auto
+    compile: false
+    chat_template: null
+    chat_template_kwargs: null
+    attn_implementation: null
+    device_map: auto
+    model_kwargs: {}
+    enable_liger_kernel: false
+    shard_for_eval: false
+    freeze_layers: []
+    model_revision: null
+  generation:
+    max_new_tokens: 8192
+    batch_size: 1
+    exclude_prompt_from_response: true
+    seed: null
+    temperature: 0.7
+    top_p: 0.9
+    frequency_penalty: 0.0
+    presence_penalty: 0.0
+    stop_strings: null
+    stop_token_ids: null
+    logit_bias: {}
+    min_p: 0.0
+    use_cache: false
+    num_beams: 1
+    use_sampling: false
+    guided_decoding: null
+    skip_special_tokens: true
+  input_path: null
+  output_path: null
+  engine: ANTHROPIC
+  remote_params:
+    api_url: null
+    api_key: null
+    api_key_env_varname: null
+    max_retries: 3
+    retry_backoff_base: 1.0
+    retry_backoff_max: 30.0
+    connection_timeout: 300.0
+    num_workers: 50
+    politeness_policy: 60
+    batch_completion_window: 24h
+    use_adaptive_concurrency: true
+num_samples: 200

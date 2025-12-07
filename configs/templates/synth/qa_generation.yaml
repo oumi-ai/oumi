@@ -1,0 +1,96 @@
+# Oumi Synth Template: Q&A Generation
+# Generate question-answer pairs from context documents
+#
+# Usage:
+#   oumi onboard generate --template synth/qa_generation --data ./your_data.csv -o ./qa_config.yaml
+#
+# Required: Replace ??? with your data path and map your context column
+
+output_path: ???  # Required: path to save generated Q&A pairs (e.g., ./output/qa_pairs.jsonl)
+
+strategy: GENERAL
+
+strategy_params:
+  input_data:
+    - path: ???  # Required: path to your data file (CSV, JSON, JSONL)
+      attribute_map:
+        # Map your column name to 'context'
+        # Example: if your column is 'document_text', use:
+        #   document_text: context
+        ???: context
+
+  generated_attributes:
+    - id: question_raw
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are an expert at creating high-quality question-answer pairs.
+            Create questions that are clear, specific, and educational.
+            Base your questions on the provided context.
+        - role: USER
+          content: |
+            Based on the following information, generate a thoughtful question that can be answered using this context:
+
+            {context}
+
+            Format your response as:
+            Question: <your question>
+      postprocessing_params:
+        id: question
+        keep_original_text_attribute: true
+        cut_prefix: "Question:"
+        strip_whitespace: true
+
+    - id: answer_raw
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are an expert at creating high-quality question-answer pairs.
+            Provide accurate, helpful answers based on the given context.
+        - role: USER
+          content: |
+            Using the following context, provide a helpful and accurate answer to the question.
+
+            Context: {context}
+
+            Question: {question}
+
+            Format your response as:
+            Answer: <your answer>
+      postprocessing_params:
+        id: answer
+        keep_original_text_attribute: true
+        cut_prefix: "Answer:"
+        strip_whitespace: true
+
+  transformed_attributes:
+    - id: conversation
+      transformation_strategy:
+        type: CHAT
+        chat_transform:
+          messages:
+            - role: USER
+              content: "{question}"
+            - role: ASSISTANT
+              content: "{answer}"
+
+  passthrough_attributes:
+    - conversation
+    - question
+    - answer
+    - context
+
+inference_config:
+  model:
+    model_name: claude-3-5-sonnet-20240620
+    device_map: auto
+  generation:
+    max_new_tokens: 2048
+    temperature: 0.7
+    top_p: 0.9
+  engine: ANTHROPIC
+  remote_params:
+    max_retries: 3
+    num_workers: 50
+
+num_samples: 100

@@ -55,6 +55,12 @@ from oumi.core.types.conversation import Role
 from oumi.onboarding.data_analyzer import DataSchema
 from oumi.onboarding.field_mapper import FieldMapper, FieldMapping
 
+# Import TYPE_CHECKING to avoid circular imports
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from oumi.onboarding.llm_analyzer import DomainAnalysis, InferredConfig, LLMAnalyzer
+
 SynthGoal = Literal["qa", "conversation", "augmentation", "instruction"]
 JudgeType = Literal["generic", "compliance", "relevance", "safety", "groundedness"]
 
@@ -192,6 +198,7 @@ Generate an appropriate response.""",
         num_samples: int = 100,
         output_path: Optional[str] = None,
         mappings: Optional[list[FieldMapping]] = None,
+        attribute_map: Optional[dict[str, str]] = None,
     ) -> SynthesisConfig:
         """Build a SynthesisConfig from analyzed data.
 
@@ -201,6 +208,9 @@ Generate an appropriate response.""",
             num_samples: Number of samples to generate.
             output_path: Optional output path for generated data.
             mappings: Optional pre-computed field mappings.
+            attribute_map: Optional explicit column-to-role mapping (e.g.,
+                {"context": "description_col", "question": "query_col"}).
+                Takes precedence over auto-detected mappings.
 
         Returns:
             A configured SynthesisConfig.
@@ -212,7 +222,9 @@ Generate an appropriate response.""",
             mappings = self.field_mapper.suggest_mappings(schema, goal)
 
         # Build strategy params based on goal
-        strategy_params = self._build_strategy_params(schema, goal, mappings)
+        strategy_params = self._build_strategy_params(
+            schema, goal, mappings, attribute_map=attribute_map
+        )
 
         # Create output path if not provided
         if output_path is None:
@@ -231,31 +243,45 @@ Generate an appropriate response.""",
         schema: DataSchema,
         goal: SynthGoal,
         mappings: list[FieldMapping],
+        attribute_map: Optional[dict[str, str]] = None,
     ) -> GeneralSynthesisParams:
-        """Build strategy params based on the goal."""
+        """Build strategy params based on the goal.
+
+        Args:
+            schema: The analyzed data schema.
+            goal: Synthesis goal.
+            mappings: Field mappings from auto-detection.
+            attribute_map: Optional explicit column-to-role mapping that takes
+                precedence over auto-detected mappings.
+        """
         params = GeneralSynthesisParams()
 
         # Add input data source if schema has data
         if schema.source_path and schema.detected_format in ("csv", "excel", "json", "jsonl"):
-            # Build attribute map - map source columns to standard placeholders
-            attribute_map = self._build_attribute_map(mappings)
+            # Use provided attribute_map or build from mappings
+            if attribute_map:
+                # Explicit column assignments provided - use directly
+                final_attribute_map = attribute_map
+            else:
+                # Build attribute map from auto-detected mappings
+                final_attribute_map = self._build_attribute_map(mappings)
 
-            # If no mappings, try to find a good context column
-            if not attribute_map and schema.columns:
-                # Find the best text column to use as context
-                text_cols = [c for c in schema.columns if c.is_text]
-                if text_cols:
-                    # Use the longest text column as context
-                    best_col = max(text_cols, key=lambda c: c.avg_length or 0)
-                    attribute_map = {best_col.name: "context"}
-                elif schema.columns:
-                    # Fallback: use first column as context
-                    attribute_map = {schema.columns[0].name: "context"}
+                # If no mappings, try to find a good context column
+                if not final_attribute_map and schema.columns:
+                    # Find the best text column to use as context
+                    text_cols = [c for c in schema.columns if c.is_text]
+                    if text_cols:
+                        # Use the longest text column as context
+                        best_col = max(text_cols, key=lambda c: c.avg_length or 0)
+                        final_attribute_map = {best_col.name: "context"}
+                    elif schema.columns:
+                        # Fallback: use first column as context
+                        final_attribute_map = {schema.columns[0].name: "context"}
 
             params.input_data = [
                 DatasetSource(
                     path=schema.source_path,
-                    attribute_map=attribute_map if attribute_map else None,
+                    attribute_map=final_attribute_map if final_attribute_map else None,
                 )
             ]
 
@@ -430,6 +456,429 @@ Generate an appropriate response.""",
             )
         ]
 
+    def from_schema_with_inference(
+        self,
+        schema: DataSchema,
+        goal: SynthGoal = "qa",
+        num_samples: int = 100,
+        output_path: Optional[str] = None,
+        domain: Optional["DomainAnalysis"] = None,
+        llm_analyzer: Optional["LLMAnalyzer"] = None,
+        attribute_map: Optional[dict[str, str]] = None,
+    ) -> SynthesisConfig:
+        """Build a SynthesisConfig using LLM-inferred domain knowledge.
+
+        This method uses an LLM to analyze the data and generate domain-specific
+        prompts and configuration, rather than using generic templates.
+
+        Args:
+            schema: The analyzed data schema.
+            goal: Synthesis goal ("qa", "conversation", "augmentation", "instruction").
+            num_samples: Number of samples to generate.
+            output_path: Optional output path for generated data.
+            domain: Optional pre-computed DomainAnalysis. If not provided,
+                will be computed using the LLM analyzer.
+            llm_analyzer: Optional LLMAnalyzer instance. If not provided,
+                a new one will be created.
+            attribute_map: Optional explicit column-to-role mapping (e.g.,
+                {"context": "description_col", "question": "query_col"}).
+
+        Returns:
+            A configured SynthesisConfig with domain-specific prompts.
+        """
+        from oumi.core.configs.synthesis_config import SynthesisStrategy
+        from oumi.onboarding.llm_analyzer import LLMAnalyzer as LLMAnalyzerClass
+
+        # Create LLM analyzer if not provided
+        if llm_analyzer is None:
+            llm_analyzer = LLMAnalyzerClass()
+
+        # Get domain analysis if not provided
+        if domain is None:
+            domain = llm_analyzer.analyze(schema)
+
+        # Get LLM-inferred config
+        inferred = llm_analyzer.infer_synth_config(schema, goal, domain)
+
+        # Build strategy params using inferred config
+        strategy_params = self._build_inferred_strategy_params(
+            schema, goal, domain, inferred, attribute_map=attribute_map
+        )
+
+        # Create output path if not provided
+        if output_path is None:
+            output_path = f"synth_{goal}_output.jsonl"
+
+        return SynthesisConfig(
+            strategy=SynthesisStrategy.GENERAL,
+            num_samples=num_samples,
+            output_path=output_path,
+            strategy_params=strategy_params,
+            inference_config=self._create_inference_config(),
+        )
+
+    def from_schema_with_custom_prompts(
+        self,
+        schema: DataSchema,
+        goal: SynthGoal = "qa",
+        num_samples: int = 100,
+        output_path: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        question_template: Optional[str] = None,
+        answer_template: Optional[str] = None,
+        postprocessing: Optional[dict] = None,
+        attribute_map: Optional[dict[str, str]] = None,
+    ) -> SynthesisConfig:
+        """Build a SynthesisConfig using custom prompts provided by the user.
+
+        This method allows for iteratively refined prompts from the wizard
+        to be used directly in the config.
+
+        Args:
+            schema: The analyzed data schema.
+            goal: Synthesis goal ("qa", "conversation", "augmentation", "instruction").
+            num_samples: Number of samples to generate.
+            output_path: Optional output path for generated data.
+            system_prompt: Custom system prompt for the AI persona.
+            question_template: Custom question/instruction template with {placeholders}.
+            answer_template: Custom answer generation template.
+            postprocessing: Postprocessing config dict (cut_prefix, strip_whitespace).
+            attribute_map: Optional explicit column-to-role mapping (e.g.,
+                {"context": "description_col", "question": "query_col"}).
+
+        Returns:
+            A configured SynthesisConfig with custom prompts.
+        """
+        from oumi.core.configs.synthesis_config import SynthesisStrategy
+
+        # Build strategy params using custom prompts
+        strategy_params = self._build_custom_strategy_params(
+            schema,
+            goal,
+            system_prompt or self.GOAL_TEMPLATES.get(goal, {}).get("system_prompt", ""),
+            question_template or "",
+            answer_template or "",
+            postprocessing or {},
+            attribute_map=attribute_map,
+        )
+
+        # Create output path if not provided
+        if output_path is None:
+            output_path = f"synth_{goal}_output.jsonl"
+
+        return SynthesisConfig(
+            strategy=SynthesisStrategy.GENERAL,
+            num_samples=num_samples,
+            output_path=output_path,
+            strategy_params=strategy_params,
+            inference_config=self._create_inference_config(),
+        )
+
+    def _build_custom_strategy_params(
+        self,
+        schema: DataSchema,
+        goal: SynthGoal,
+        system_prompt: str,
+        question_template: str,
+        answer_template: str,
+        postprocessing: dict,
+        attribute_map: Optional[dict[str, str]] = None,
+    ) -> GeneralSynthesisParams:
+        """Build strategy params using custom prompts.
+
+        Args:
+            schema: The analyzed data schema.
+            goal: Synthesis goal.
+            system_prompt: Custom system prompt.
+            question_template: Question/instruction template.
+            answer_template: Answer generation template.
+            postprocessing: Postprocessing config dict.
+            attribute_map: Optional explicit column-to-role mapping that takes
+                precedence over auto-detected mappings.
+        """
+        params = GeneralSynthesisParams()
+
+        # Add input data source if schema has data
+        if schema.source_path and schema.detected_format in (
+            "csv",
+            "excel",
+            "json",
+            "jsonl",
+        ):
+            # Use provided attribute_map or build from columns
+            if attribute_map:
+                # Explicit column assignments provided - use directly
+                final_attribute_map = attribute_map
+            else:
+                # Build attribute map from columns
+                final_attribute_map = {}
+                if schema.columns:
+                    text_cols = [c for c in schema.columns if c.is_text]
+                    if text_cols:
+                        best_col = max(text_cols, key=lambda c: c.avg_length or 0)
+                        final_attribute_map = {best_col.name: "context"}
+                    elif schema.columns:
+                        final_attribute_map = {schema.columns[0].name: "context"}
+
+            params.input_data = [
+                DatasetSource(
+                    path=schema.source_path,
+                    attribute_map=final_attribute_map if final_attribute_map else None,
+                )
+            ]
+
+        # Build generated attributes using custom prompts
+        cut_prefix = postprocessing.get("cut_prefix", "Answer:")
+        strip_ws = postprocessing.get("strip_whitespace", True)
+
+        question_attr = GeneratedAttribute(
+            id="question_raw",
+            instruction_messages=[
+                TextMessage(role=Role.SYSTEM, content=system_prompt),
+                TextMessage(role=Role.USER, content=question_template),
+            ],
+            postprocessing_params=GeneratedAttributePostprocessingParams(
+                id="question",
+                cut_prefix="Question:",
+                strip_whitespace=True,
+            ),
+        )
+
+        answer_attr = GeneratedAttribute(
+            id="answer_raw",
+            instruction_messages=[
+                TextMessage(role=Role.SYSTEM, content=system_prompt),
+                TextMessage(role=Role.USER, content=answer_template),
+            ],
+            postprocessing_params=GeneratedAttributePostprocessingParams(
+                id="answer",
+                cut_prefix=cut_prefix,
+                strip_whitespace=strip_ws,
+            ),
+        )
+
+        params.generated_attributes = [question_attr, answer_attr]
+        params.transformed_attributes = self._build_qa_transform()
+        params.passthrough_attributes = ["conversation", "question", "answer"]
+
+        return params
+
+    def _build_inferred_strategy_params(
+        self,
+        schema: DataSchema,
+        goal: SynthGoal,
+        domain: "DomainAnalysis",
+        inferred: "InferredConfig",
+    ) -> GeneralSynthesisParams:
+        """Build strategy params using LLM-inferred configuration."""
+        params = GeneralSynthesisParams()
+
+        # Add input data source if schema has data
+        if schema.source_path and schema.detected_format in (
+            "csv",
+            "excel",
+            "json",
+            "jsonl",
+        ):
+            # Use inferred field mappings or fallback to default logic
+            attribute_map = inferred.field_mappings if inferred.field_mappings else None
+
+            # If no mappings, try to find a good context column
+            if not attribute_map and schema.columns:
+                text_cols = [c for c in schema.columns if c.is_text]
+                if text_cols:
+                    best_col = max(text_cols, key=lambda c: c.avg_length or 0)
+                    attribute_map = {best_col.name: "context"}
+                elif schema.columns:
+                    attribute_map = {schema.columns[0].name: "context"}
+
+            params.input_data = [
+                DatasetSource(
+                    path=schema.source_path,
+                    attribute_map=attribute_map if attribute_map else None,
+                )
+            ]
+
+        # Build generated attributes using inferred prompts
+        if goal == "qa":
+            params.generated_attributes = self._build_inferred_qa_attributes(
+                domain, inferred
+            )
+            params.transformed_attributes = self._build_qa_transform()
+            params.passthrough_attributes = ["conversation", "question", "answer"]
+        elif goal == "conversation":
+            params.generated_attributes = self._build_inferred_conversation_attributes(
+                domain, inferred
+            )
+            params.passthrough_attributes = ["conversation"]
+        elif goal == "augmentation":
+            params.generated_attributes = self._build_inferred_augmentation_attributes(
+                domain, inferred
+            )
+            params.passthrough_attributes = ["augmented"]
+        elif goal == "instruction":
+            params.generated_attributes = self._build_inferred_instruction_attributes(
+                domain, inferred, schema
+            )
+            params.passthrough_attributes = ["output"]
+
+        return params
+
+    def _build_inferred_qa_attributes(
+        self,
+        domain: "DomainAnalysis",
+        inferred: "InferredConfig",
+    ) -> list[GeneratedAttribute]:
+        """Build Q&A attributes using LLM-inferred prompts."""
+        # Use inferred system prompt or fall back to domain-enhanced default
+        system_prompt = inferred.system_prompt or domain.suggested_persona
+        if not system_prompt:
+            system_prompt = self.GOAL_TEMPLATES["qa"]["system_prompt"]
+
+        # Use inferred instruction template or build from domain knowledge
+        question_template = inferred.instruction_template
+        if not question_template:
+            terminology_str = ", ".join(domain.terminology[:5]) if domain.terminology else ""
+            question_template = f"""Based on the following information about {domain.domain}, generate a thoughtful question.
+
+Domain terminology to use: {terminology_str}
+
+{{context}}
+
+Format your response as:
+Question: <your question>"""
+
+        # Build postprocessing params from inferred config
+        postproc = inferred.postprocessing or {}
+        cut_prefix = postproc.get("cut_prefix", "Question:")
+
+        question_attr = GeneratedAttribute(
+            id="question_raw",
+            instruction_messages=[
+                TextMessage(role=Role.SYSTEM, content=system_prompt),
+                TextMessage(role=Role.USER, content=question_template),
+            ],
+            postprocessing_params=GeneratedAttributePostprocessingParams(
+                id="question",
+                cut_prefix=cut_prefix,
+                strip_whitespace=postproc.get("strip_whitespace", True),
+            ),
+        )
+
+        # Build answer attribute
+        answer_template = f"""Provide a helpful, accurate answer to this question about {domain.domain}:
+
+{{question}}
+
+Use appropriate domain terminology and be specific.
+
+Format your response as:
+Answer: <your answer>"""
+
+        answer_attr = GeneratedAttribute(
+            id="answer_raw",
+            instruction_messages=[
+                TextMessage(role=Role.SYSTEM, content=system_prompt),
+                TextMessage(role=Role.USER, content=answer_template),
+            ],
+            postprocessing_params=GeneratedAttributePostprocessingParams(
+                id="answer",
+                cut_prefix="Answer:",
+                strip_whitespace=True,
+            ),
+        )
+
+        return [question_attr, answer_attr]
+
+    def _build_inferred_conversation_attributes(
+        self,
+        domain: "DomainAnalysis",
+        inferred: "InferredConfig",
+    ) -> list[GeneratedAttribute]:
+        """Build conversation attributes using LLM-inferred prompts."""
+        system_prompt = inferred.system_prompt or domain.suggested_persona
+        if not system_prompt:
+            system_prompt = f"""You are an expert at generating realistic conversation exchanges in {domain.domain}.
+Create natural dialogue that demonstrates expertise and helpfulness."""
+
+        instruction = inferred.instruction_template
+        if not instruction:
+            instruction = f"""Generate a realistic conversation based on this context about {domain.domain}:
+
+{{context}}
+
+The conversation should be professional and demonstrate domain knowledge."""
+
+        return [
+            GeneratedAttribute(
+                id="conversation",
+                instruction_messages=[
+                    TextMessage(role=Role.SYSTEM, content=system_prompt),
+                    TextMessage(role=Role.USER, content=instruction),
+                ],
+            )
+        ]
+
+    def _build_inferred_augmentation_attributes(
+        self,
+        domain: "DomainAnalysis",
+        inferred: "InferredConfig",
+    ) -> list[GeneratedAttribute]:
+        """Build augmentation attributes using LLM-inferred prompts."""
+        system_prompt = inferred.system_prompt or domain.suggested_persona
+        if not system_prompt:
+            system_prompt = f"""You are an expert at creating variations of {domain.domain} content.
+Generate diverse variations that preserve the core meaning while varying style and phrasing."""
+
+        instruction = inferred.instruction_template
+        if not instruction:
+            terminology_str = ", ".join(domain.terminology[:5]) if domain.terminology else ""
+            instruction = f"""Create a variation of the following {domain.domain} content:
+
+{{context}}
+
+Maintain the core meaning but vary the phrasing and style.
+Use domain terminology: {terminology_str}"""
+
+        return [
+            GeneratedAttribute(
+                id="augmented",
+                instruction_messages=[
+                    TextMessage(role=Role.SYSTEM, content=system_prompt),
+                    TextMessage(role=Role.USER, content=instruction),
+                ],
+            )
+        ]
+
+    def _build_inferred_instruction_attributes(
+        self,
+        domain: "DomainAnalysis",
+        inferred: "InferredConfig",
+        schema: DataSchema,
+    ) -> list[GeneratedAttribute]:
+        """Build instruction attributes using LLM-inferred prompts."""
+        system_prompt = inferred.system_prompt or domain.suggested_persona
+        if not system_prompt:
+            system_prompt = f"""You are following specific instructions to generate {domain.domain} content.
+Follow the provided instructions precisely and generate high-quality outputs."""
+
+        # Use document content or inferred instruction
+        instruction = "{instruction}"
+        if schema.raw_text:
+            instruction = schema.raw_text[:2000]
+        elif inferred.instruction_template:
+            instruction = inferred.instruction_template
+
+        return [
+            GeneratedAttribute(
+                id="output",
+                instruction_messages=[
+                    TextMessage(role=Role.SYSTEM, content=system_prompt),
+                    TextMessage(role=Role.USER, content=instruction),
+                ],
+            )
+        ]
+
     def from_template(
         self,
         template_name: str,
@@ -594,6 +1043,79 @@ Is the response grounded in and supported by the context?""",
             result = f"Evaluation Criteria: {custom_criteria}\n\n{result}"
 
         return result
+
+    def from_schema_with_inference(
+        self,
+        schema: DataSchema,
+        judge_type: JudgeType = "generic",
+        domain: Optional["DomainAnalysis"] = None,
+        llm_analyzer: Optional["LLMAnalyzer"] = None,
+    ) -> JudgeConfig:
+        """Build a JudgeConfig using LLM-inferred domain knowledge.
+
+        This method uses an LLM to analyze the data and generate domain-specific
+        evaluation criteria and prompts, rather than using generic templates.
+
+        Args:
+            schema: The analyzed data schema.
+            judge_type: Type of judge ("generic", "compliance", "relevance", etc.).
+            domain: Optional pre-computed DomainAnalysis. If not provided,
+                will be computed using the LLM analyzer.
+            llm_analyzer: Optional LLMAnalyzer instance. If not provided,
+                a new one will be created.
+
+        Returns:
+            A configured JudgeConfig with domain-specific evaluation criteria.
+        """
+        from oumi.onboarding.llm_analyzer import LLMAnalyzer as LLMAnalyzerClass
+
+        # Create LLM analyzer if not provided
+        if llm_analyzer is None:
+            llm_analyzer = LLMAnalyzerClass()
+
+        # Get domain analysis if not provided
+        if domain is None:
+            domain = llm_analyzer.analyze(schema)
+
+        # Get LLM-inferred judge config
+        inferred = llm_analyzer.infer_judge_config(schema, judge_type, domain)
+
+        # Build judge params using inferred config
+        system_instruction = inferred.system_prompt
+        if not system_instruction:
+            system_instruction = (
+                f"You are an expert evaluator for {domain.domain} content. "
+                f"Assess the quality objectively, watching for: {', '.join(domain.common_issues[:3])}."
+            )
+
+        prompt_template = inferred.instruction_template
+        if not prompt_template:
+            quality_signals = ", ".join(domain.quality_signals[:3]) if domain.quality_signals else "accuracy, clarity, completeness"
+            prompt_template = f"""Evaluate the following {domain.domain} content:
+
+{{context}}
+
+Assessment criteria: {quality_signals}
+
+Provide your evaluation."""
+
+        # Determine judgment type based on judge_type
+        judgment_type = self.JUDGE_TEMPLATES.get(
+            judge_type, self.JUDGE_TEMPLATES["generic"]
+        )["judgment_type"]
+
+        judge_params = JudgeParams(
+            system_instruction=system_instruction,
+            prompt_template=prompt_template,
+            response_format=JudgeResponseFormat.XML,
+            judgment_type=judgment_type,
+            include_explanation=True,
+        )
+
+        return JudgeConfig(
+            judge_params=judge_params,
+            inference_config=self._create_inference_config(),
+        )
 
 
 class TrainConfigBuilder(ConfigBuilder):

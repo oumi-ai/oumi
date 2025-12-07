@@ -1,0 +1,114 @@
+# Oumi Synth Template: Instruction Following
+# Generate task instructions with expected outputs
+#
+# Usage:
+#   oumi onboard generate --template synth/instruction_following --data ./your_data.csv -o ./inst_config.yaml
+#
+# Best for: Training models to follow specific guidelines or procedures
+
+output_path: ???  # Required: path to save generated instructions (e.g., ./output/instructions.jsonl)
+
+strategy: GENERAL
+
+strategy_params:
+  input_data:
+    - path: ???  # Required: path to your data with tasks or guidelines
+      attribute_map:
+        # Map your columns:
+        #   task_description: task    # What the task is about
+        #   guidelines: rules         # Optional: specific rules to follow
+        ???: task
+
+  generated_attributes:
+    - id: instruction_raw
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You create clear, specific instructions for tasks.
+            Instructions should be:
+            - Actionable and unambiguous
+            - Include any constraints or requirements
+            - Specify the expected output format
+        - role: USER
+          content: |
+            Based on this task context, create a clear instruction that someone could follow:
+
+            Task: {task}
+
+            Format: Instruction: <clear instruction>
+      postprocessing_params:
+        id: instruction
+        cut_prefix: "Instruction:"
+        strip_whitespace: true
+
+    - id: expected_output_raw
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You complete tasks by following instructions precisely.
+            Produce high-quality outputs that fully satisfy the instruction.
+        - role: USER
+          content: |
+            Complete the following task according to the instruction:
+
+            Task context: {task}
+            Instruction: {instruction}
+
+            Provide a complete, high-quality response.
+
+            Format: Output: <your response>
+      postprocessing_params:
+        id: expected_output
+        cut_prefix: "Output:"
+        strip_whitespace: true
+
+    - id: explanation_raw
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You explain how tasks are completed, highlighting key steps and reasoning.
+        - role: USER
+          content: |
+            Briefly explain why this output satisfies the instruction:
+
+            Instruction: {instruction}
+            Output: {expected_output}
+
+            Format: Explanation: <brief explanation>
+      postprocessing_params:
+        id: explanation
+        cut_prefix: "Explanation:"
+        strip_whitespace: true
+
+  transformed_attributes:
+    - id: conversation
+      transformation_strategy:
+        type: CHAT
+        chat_transform:
+          messages:
+            - role: USER
+              content: "{instruction}"
+            - role: ASSISTANT
+              content: "{expected_output}"
+
+  passthrough_attributes:
+    - conversation
+    - instruction
+    - expected_output
+    - explanation
+    - task
+
+inference_config:
+  model:
+    model_name: claude-3-5-sonnet-20240620
+    device_map: auto
+  generation:
+    max_new_tokens: 2048
+    temperature: 0.7
+    top_p: 0.9
+  engine: ANTHROPIC
+  remote_params:
+    max_retries: 3
+    num_workers: 50
+
+num_samples: 100

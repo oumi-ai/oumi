@@ -41,6 +41,13 @@ from oumi.onboarding.data_analyzer import (
     DataSchema,
 )
 from oumi.onboarding.field_mapper import FieldMapper, FieldMapping
+from oumi.onboarding.llm_analyzer import (
+    DomainAnalysis,
+    FileContext,
+    InferredConfig,
+    LLMAnalyzer,
+    MultiFileAnalysis,
+)
 
 __all__ = [
     "BuilderOptions",
@@ -48,9 +55,14 @@ __all__ = [
     "ConfigBuilder",
     "DataAnalyzer",
     "DataSchema",
+    "DomainAnalysis",
     "FieldMapper",
     "FieldMapping",
+    "FileContext",
+    "InferredConfig",
     "JudgeConfigBuilder",
+    "LLMAnalyzer",
+    "MultiFileAnalysis",
     "SynthConfigBuilder",
     "TrainConfigBuilder",
 ]
