@@ -476,3 +476,20 @@ def test_compute_statistics_multiple_values_with_precision():
         "median": 3.3,
     }
     assert result == expected
+
+
+def test_compute_statistics_boolean_series():
+    """Test compute_statistics handles boolean series correctly."""
+    series = pd.Series([True, False, True, True, False])
+    result = compute_statistics(series)
+
+    # Boolean series should be converted to int (True=1, False=0)
+    expected = {
+        "count": 5,
+        "mean": 0.6,  # 3/5 = 0.6
+        "std": 0.55,  # std of [1, 0, 1, 1, 0]
+        "min": 0.0,
+        "max": 1.0,
+        "median": 1.0,
+    }
+    assert result == expected

@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-bg: #0f0f0f;
+            --color-bg-elevated: #1a1a1a;
+            --color-bg-card: #141414;
+            --color-bg-hover: #1f1f1f;
+            --color-surface: #242424;
+            --color-text: #e8e6e3;
+            --color-text-secondary: #a39e93;
+            --color-text-muted: #6b6660;
+            --color-border: #2a2825;
+            --color-border-subtle: #1f1e1c;
+            --color-accent: #d4a574;
+            --color-accent-dim: #a67c52;
+            --color-accent-glow: rgba(212, 165, 116, 0.15);
+            --color-success: #7cb97c;
+            --color-success-dim: rgba(124, 185, 124, 0.12);
+            --color-warning: #e0b854;
+            --color-warning-dim: rgba(224, 184, 84, 0.12);
+            --color-danger: #d66a6a;
+            --color-danger-dim: rgba(214, 106, 106, 0.12);
+            --color-info: #6b9bd1;
+            --color-info-dim: rgba(107, 155, 209, 0.12);
+            --font-display: 'Instrument Serif', Georgia, serif;
+            --font-body: 'Source Sans 3', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-body);
+            font-size: 15px;
+            line-height: 1.65;
+            color: var(--color-text);
+            background-color: var(--color-bg);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Noise texture overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.025;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            z-index: 9999;
+        }
+
+        /* Animated gradient accent line */
+        .accent-line {
+            height: 2px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                var(--color-accent) 20%,
+                var(--color-accent) 80%,
+                transparent 100%);
+            opacity: 0.6;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 32px;
+        }
+
+        /* Header */
+        header {
+            padding: 80px 0 60px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -20%;
+            width: 140%;
+            height: 200%;
+            background: radial-gradient(ellipse at 30% 20%, var(--color-accent-glow) 0%, transparent 50%);
+            pointer-events: none;
+            animation: headerGlow 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes headerGlow {
+            0% { opacity: 0.5; transform: translate(0, 0); }
+            100% { opacity: 0.8; transform: translate(5%, 5%); }
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            background: var(--color-accent-glow);
+            border: 1px solid var(--color-accent-dim);
+            padding: 6px 14px;
+            border-radius: 100px;
+            margin-bottom: 24px;
+            animation: fadeInUp 0.8s var(--ease-out-expo) both;
+        }
+
+        .header-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: var(--color-accent);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        header h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 400;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+            animation: fadeInUp 0.8s var(--ease-out-expo) 0.1s both;
+        }
+
+        header h1 em {
+            font-style: italic;
+            color: var(--color-accent);
+        }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--color-text-muted);
+            animation: fadeInUp 0.8s var(--ease-out-expo) 0.2s both;
+        }
+
+        .header-meta span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Health Score Hero */
+        {% if health_score %}
+        .health-hero {
+            padding: 60px 0;
+            position: relative;
+            animation: fadeIn 1s var(--ease-out-expo) 0.3s both;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .health-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .health-score-ring {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            margin: 0 auto;
+        }
+
+        .health-score-ring svg {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+
+        .health-score-ring .ring-bg {
+            fill: none;
+            stroke: var(--color-surface);
+            stroke-width: 12;
+        }
+
+        .health-score-ring .ring-progress {
+            fill: none;
+            stroke-width: 12;
+            stroke-linecap: round;
+            stroke-dasharray: 628;
+            stroke-dashoffset: calc(628 - (628 * var(--score, 0) / 100));
+            transition: stroke-dashoffset 1.5s var(--ease-out-expo);
+        }
+
+        .health-score-ring .ring-progress.excellent { stroke: var(--color-success); }
+        .health-score-ring .ring-progress.good { stroke: var(--color-info); }
+        .health-score-ring .ring-progress.fair { stroke: var(--color-warning); }
+        .health-score-ring .ring-progress.poor { stroke: var(--color-danger); }
+
+        .health-score-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .health-score-value .number {
+            font-family: var(--font-mono);
+            font-size: 56px;
+            font-weight: 600;
+            letter-spacing: -0.03em;
+            line-height: 1;
+        }
+
+        .health-score-value .label {
+            font-size: 13px;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-top: 4px;
+        }
+
+        .health-breakdown {
+            display: grid;
+            gap: 16px;
+        }
+
+        .health-dimension {
+            display: grid;
+            grid-template-columns: 140px 1fr auto;
+            gap: 16px;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--color-border-subtle);
+        }
+
+        .health-dimension:last-child {
+            border-bottom: none;
+        }
+
+        .health-dimension .dim-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+        }
+
+        .health-dimension .dim-bar {
+            height: 6px;
+            background: var(--color-surface);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .health-dimension .dim-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 1s var(--ease-out-expo);
+        }
+
+        .health-dimension .dim-bar-fill.excellent { background: var(--color-success); }
+        .health-dimension .dim-bar-fill.good { background: var(--color-info); }
+        .health-dimension .dim-bar-fill.fair { background: var(--color-warning); }
+        .health-dimension .dim-bar-fill.poor { background: var(--color-danger); }
+
+        .health-dimension .dim-score {
+            font-family: var(--font-mono);
+            font-size: 14px;
+            font-weight: 500;
+            width: 48px;
+            text-align: right;
+        }
+        {% endif %}
+
+        /* Main Content */
+        main {
+            padding: 40px 0 80px;
+        }
+
+        /* Section */
+        .section {
+            margin-bottom: 64px;
+            animation: fadeInUp 0.8s var(--ease-out-expo) both;
+        }
+
+        .section:nth-child(1) { animation-delay: 0.1s; }
+        .section:nth-child(2) { animation-delay: 0.2s; }
+        .section:nth-child(3) { animation-delay: 0.3s; }
+        .section:nth-child(4) { animation-delay: 0.4s; }
+
+        .section-header {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            margin-bottom: 32px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .section-header h2 {
+            font-family: var(--font-display);
+            font-size: 1.75rem;
+            font-weight: 400;
+            letter-spacing: -0.01em;
+        }
+
+        .section-header .count {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--color-text-muted);
+            background: var(--color-surface);
+            padding: 4px 10px;
+            border-radius: 100px;
+        }
+
+        /* Overview Stats */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+        }
+
+        .stat-card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border-subtle);
+            border-radius: 12px;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s var(--ease-out-expo);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--color-accent-dim), var(--color-accent));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--color-border);
+            transform: translateY(-2px);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--color-text-muted);
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--color-text);
+        }
+
+        .stat-card .value.small {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+        }
+
+        .stat-card .value .unit {
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--color-text-muted);
+        }
+
+        /* Recommendations */
+        .recommendations-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .recommendation {
+            display: grid;
+            grid-template-columns: 4px 1fr;
+            gap: 0;
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border-subtle);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s var(--ease-out-expo);
+        }
+
+        .recommendation:hover {
+            border-color: var(--color-border);
+            transform: translateX(4px);
+        }
+
+        .recommendation .severity-bar {
+            border-radius: 0;
+        }
+
+        .recommendation.high .severity-bar { background: var(--color-danger); }
+        .recommendation.medium .severity-bar { background: var(--color-warning); }
+        .recommendation.low .severity-bar { background: var(--color-info); }
+
+        .recommendation-content {
+            padding: 20px 24px;
+        }
+
+        .recommendation-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .recommendation .badge {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+
+        .recommendation.high .badge {
+            background: var(--color-danger-dim);
+            color: var(--color-danger);
+        }
+
+        .recommendation.medium .badge {
+            background: var(--color-warning-dim);
+            color: var(--color-warning);
+        }
+
+        .recommendation.low .badge {
+            background: var(--color-info-dim);
+            color: var(--color-info);
+        }
+
+        .recommendation .title {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .recommendation .description {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .recommendation .meta {
+            display: flex;
+            gap: 20px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--color-text-muted);
+        }
+
+        .recommendation .meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 40px;
+            background: var(--color-bg-card);
+            border: 1px dashed var(--color-border);
+            border-radius: 16px;
+        }
+
+        .empty-state .icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 20px;
+            background: var(--color-success-dim);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .empty-state .icon svg {
+            width: 32px;
+            height: 32px;
+            stroke: var(--color-success);
+        }
+
+        .empty-state h3 {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            color: var(--color-text-muted);
+        }
+
+        /* Charts */
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+            gap: 24px;
+        }
+
+        .chart-card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border-subtle);
+            border-radius: 12px;
+            padding: 24px;
+            transition: border-color 0.3s ease;
+        }
+
+        .chart-card:hover {
+            border-color: var(--color-border);
+        }
+
+        .chart-card h3 {
+            font-family: var(--font-body);
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--color-text-muted);
+            margin-bottom: 16px;
+        }
+
+        .chart-wrapper {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        /* Anomaly Chart Card */
+        .anomaly-card {
+            position: relative;
+        }
+
+        .anomaly-card .anomaly-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 500;
+            background: var(--color-danger-dim);
+            color: var(--color-danger);
+            padding: 4px 10px;
+            border-radius: 100px;
+        }
+
+        /* Tables */
+        .table-wrapper {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border-subtle);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 14px 20px;
+            text-align: left;
+        }
+
+        th {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--color-text-muted);
+            background: var(--color-surface);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        td {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            border-bottom: 1px solid var(--color-border-subtle);
+            transition: background 0.2s ease;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover td {
+            background: var(--color-bg-hover);
+        }
+
+        td:first-child {
+            font-family: var(--font-body);
+            font-weight: 500;
+            color: var(--color-text-secondary);
+        }
+
+        td:not(:first-child) {
+            color: var(--color-text);
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .footer-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .footer-brand svg {
+            width: 28px;
+            height: 28px;
+            fill: var(--color-accent);
+        }
+
+        .footer-brand span {
+            font-family: var(--font-display);
+            font-size: 18px;
+            color: var(--color-text-secondary);
+        }
+
+        .footer-meta {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--color-text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .container {
+                padding: 0 20px;
+            }
+
+            header {
+                padding: 60px 0 40px;
+            }
+
+            {% if health_score %}
+            .health-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .health-score-ring {
+                width: 200px;
+                height: 200px;
+            }
+            {% endif %}
+
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header-meta {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .footer-content {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+        }
+
+        /* View Samples Button */
+        .view-samples-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--color-accent);
+            background: var(--color-accent-glow);
+            border: 1px solid var(--color-accent-dim);
+            padding: 4px 12px;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .view-samples-btn:hover {
+            background: var(--color-accent-dim);
+            color: var(--color-text);
+        }
+
+        /* Sample Modal */
+        .sample-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s var(--ease-out-expo);
+        }
+
+        .sample-modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .sample-modal {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 600px;
+            max-width: 90vw;
+            background: var(--color-bg-elevated);
+            border-left: 1px solid var(--color-border);
+            z-index: 10001;
+            transform: translateX(100%);
+            transition: transform 0.4s var(--ease-out-expo);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sample-modal-overlay.active .sample-modal {
+            transform: translateX(0);
+        }
+
+        .sample-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--color-border);
+            flex-shrink: 0;
+        }
+
+        .sample-modal-header h3 {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 400;
+        }
+
+        .sample-modal-close {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border-subtle);
+            border-radius: 8px;
+            color: var(--color-text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sample-modal-close:hover {
+            background: var(--color-bg-hover);
+            color: var(--color-text);
+        }
+
+        .sample-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .sample-list {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sample-item {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--color-border-subtle);
+            transition: background 0.2s ease;
+        }
+
+        .sample-item:hover {
+            background: var(--color-bg-hover);
+        }
+
+        .sample-item:last-child {
+            border-bottom: none;
+        }
+
+        .sample-item-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .sample-item-index {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            background: var(--color-surface);
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: var(--color-text-muted);
+        }
+
+        .sample-item-role {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .sample-item-role.user {
+            background: var(--color-info-dim);
+            color: var(--color-info);
+        }
+
+        .sample-item-role.assistant {
+            background: var(--color-success-dim);
+            color: var(--color-success);
+        }
+
+        .sample-item-role.system {
+            background: var(--color-warning-dim);
+            color: var(--color-warning);
+        }
+
+        .sample-item-metric {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--color-accent);
+            margin-left: auto;
+        }
+
+        .sample-item-content {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--color-text-secondary);
+            background: var(--color-bg-card);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--color-border-subtle);
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .sample-item-content.expanded {
+            max-height: none;
+        }
+
+        .sample-expand-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--color-text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+            margin-top: 8px;
+            padding: 0;
+            transition: color 0.2s ease;
+        }
+
+        .sample-expand-btn:hover {
+            color: var(--color-accent);
+        }
+
+        .sample-modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--color-border);
+            background: var(--color-bg-card);
+            flex-shrink: 0;
+        }
+
+        .sample-modal-footer p {
+            font-size: 12px;
+            color: var(--color-text-muted);
+            text-align: center;
+        }
+
+        /* Print styles */
+        @media print {
+            body::before {
+                display: none;
+            }
+
+            header::before {
+                display: none;
+            }
+
+            .recommendation:hover,
+            .stat-card:hover,
+            .chart-card:hover {
+                transform: none;
+            }
+
+            .view-samples-btn,
+            .sample-modal-overlay {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="header-badge">Dataset Analysis</div>
+                <h1>{{ title.replace('Analysis Report: ', '') | e }}</h1>
+                <div class="header-meta">
+                    <span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12,6 12,12 16,14"></polyline>
+                        </svg>
+                        {{ generated_at }}
+                    </span>
+                    <span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        {{ overview.total_conversations | default(0) | int }} conversations
+                    </span>
+                    <span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="4" y1="9" x2="20" y2="9"></line>
+                            <line x1="4" y1="15" x2="20" y2="15"></line>
+                            <line x1="10" y1="3" x2="8" y2="21"></line>
+                            <line x1="16" y1="3" x2="14" y2="21"></line>
+                        </svg>
+                        {{ overview.total_messages | default(0) | int }} messages
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="accent-line"></div>
+
+    {% if health_score %}
+    <section class="health-hero">
+        <div class="container">
+            <div class="health-grid">
+                <div class="health-score-ring" style="--score: {{ health_score.overall_score }}">
+                    <svg viewBox="0 0 220 220">
+                        <circle class="ring-bg" cx="110" cy="110" r="100"></circle>
+                        <circle class="ring-progress {% if health_score.overall_score >= 80 %}excellent{% elif health_score.overall_score >= 60 %}good{% elif health_score.overall_score >= 40 %}fair{% else %}poor{% endif %}" cx="110" cy="110" r="100"></circle>
+                    </svg>
+                    <div class="health-score-value">
+                        <div class="number {% if health_score.overall_score >= 80 %}excellent{% elif health_score.overall_score >= 60 %}good{% elif health_score.overall_score >= 40 %}fair{% else %}poor{% endif %}" style="color: var(--color-{% if health_score.overall_score >= 80 %}success{% elif health_score.overall_score >= 60 %}info{% elif health_score.overall_score >= 40 %}warning{% else %}danger{% endif %})">{{ health_score.overall_score | int }}</div>
+                        <div class="label">Health Score</div>
+                    </div>
+                </div>
+                <div class="health-breakdown">
+                    {% for dim_name, dim_score in health_score.dimension_scores.items() %}
+                    <div class="health-dimension">
+                        <div class="dim-name">{{ dim_name.replace('_', ' ').title() }}</div>
+                        <div class="dim-bar">
+                            <div class="dim-bar-fill {% if dim_score >= 80 %}excellent{% elif dim_score >= 60 %}good{% elif dim_score >= 40 %}fair{% else %}poor{% endif %}" style="width: {{ dim_score }}%"></div>
+                        </div>
+                        <div class="dim-score">{{ dim_score | int }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <main>
+        <div class="container">
+            <!-- Dataset Overview -->
+            <section class="section">
+                <div class="section-header">
+                    <h2>Overview</h2>
+                </div>
+                <div class="overview-grid">
+                    <div class="stat-card">
+                        <div class="label">Dataset</div>
+                        <div class="value small">{{ overview.dataset_name or 'Unknown' }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Conversations</div>
+                        <div class="value">{{ overview.total_conversations | default(0) | int }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Analyzed</div>
+                        <div class="value">{{ overview.conversations_analyzed | default(0) | int }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Coverage</div>
+                        <div class="value">{{ overview.dataset_coverage_percentage | default(0) }}<span class="unit">%</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Messages</div>
+                        <div class="value">{{ overview.total_messages | default(0) | int }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Analyzers</div>
+                        <div class="value small">{{ overview.analyzers_used | join(', ') if overview.analyzers_used else 'None' }}</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recommendations -->
+            <section class="section">
+                <div class="section-header">
+                    <h2>Recommendations</h2>
+                    {% if recommendations %}
+                    <span class="count">{{ recommendations | length }} issue{{ 's' if recommendations | length != 1 else '' }}</span>
+                    {% endif %}
+                </div>
+                {% if recommendations %}
+                <div class="recommendations-list">
+                    {% for rec in recommendations %}
+                    <div class="recommendation {{ rec.severity }}">
+                        <div class="severity-bar"></div>
+                        <div class="recommendation-content">
+                            <div class="recommendation-header">
+                                <span class="badge">{{ rec.severity }}</span>
+                                <span class="title">{{ rec.title }}</span>
+                            </div>
+                            <div class="description">{{ rec.description }}</div>
+                            <div class="meta">
+                                <span>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                    </svg>
+                                    {{ rec.affected_samples | int }} samples
+                                </span>
+                                {% if rec.metric_name %}
+                                <span>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"></polyline>
+                                    </svg>
+                                    {{ rec.metric_name }}
+                                </span>
+                                {% endif %}
+                                {% if rec.samples and rec.samples | length > 0 %}
+                                <button class="view-samples-btn" onclick="openSampleModal('{{ rec.id }}')">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    View {{ rec.samples | length }}{% if rec.affected_samples > rec.samples | length %} of {{ rec.affected_samples }}{% endif %} samples
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <div class="icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <polyline points="20,6 9,17 4,12"></polyline>
+                        </svg>
+                    </div>
+                    <h3>Looking Good</h3>
+                    <p>No issues detected. Your dataset passes all quality checks.</p>
+                </div>
+                {% endif %}
+            </section>
+
+            <!-- Charts Section -->
+            {% if charts %}
+            <section class="section">
+                <div class="section-header">
+                    <h2>Distributions</h2>
+                    <span class="count">{{ charts | length }} chart{{ 's' if charts | length != 1 else '' }}</span>
+                </div>
+                <div class="chart-grid">
+                    {% for chart in charts %}
+                    <div class="chart-card">
+                        <h3>{{ chart.title }}</h3>
+                        <div class="chart-wrapper" id="{{ chart.id }}"></div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Anomaly Charts Section -->
+            {% if anomaly_charts %}
+            <section class="section">
+                <div class="section-header">
+                    <h2>Anomaly Detection</h2>
+                    <span class="count">{{ anomaly_charts | length }} visualization{{ 's' if anomaly_charts | length != 1 else '' }}</span>
+                </div>
+                <div class="chart-grid">
+                    {% for chart in anomaly_charts %}
+                    <div class="chart-card anomaly-card">
+                        <h3>{{ chart.title }}</h3>
+                        <span class="anomaly-badge">{{ chart.outlier_count }} outliers</span>
+                        <div class="chart-wrapper" id="{{ chart.id }}"></div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Message-Level Statistics -->
+            {% if message_stats %}
+            <section class="section">
+                <div class="section-header">
+                    <h2>Message Statistics</h2>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Mean</th>
+                                <th>Std</th>
+                                <th>Min</th>
+                                <th>Max</th>
+                                <th>Median</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for analyzer_name, metrics in message_stats.items() %}
+                            {% for metric_name, stats in metrics.items() %}
+                            <tr>
+                                <td>{{ metric_name }}</td>
+                                <td>{{ stats.mean | round(2) }}</td>
+                                <td>{{ stats.std | round(2) }}</td>
+                                <td>{{ stats.min | round(2) }}</td>
+                                <td>{{ stats.max | round(2) }}</td>
+                                <td>{{ stats.median | round(2) }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Conversation-Level Statistics -->
+            {% if conversation_stats %}
+            <section class="section">
+                <div class="section-header">
+                    <h2>Conversation Statistics</h2>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Mean</th>
+                                <th>Std</th>
+                                <th>Min</th>
+                                <th>Max</th>
+                                <th>Median</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for analyzer_name, metrics in conversation_stats.items() %}
+                            {% for metric_name, stats in metrics.items() %}
+                            <tr>
+                                <td>{{ metric_name }}</td>
+                                <td>{{ stats.mean | round(2) }}</td>
+                                <td>{{ stats.std | round(2) }}</td>
+                                <td>{{ stats.min | round(2) }}</td>
+                                <td>{{ stats.max | round(2) }}</td>
+                                <td>{{ stats.median | round(2) }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Conversation Turns -->
+            {% if conversation_turns %}
+            <section class="section">
+                <div class="section-header">
+                    <h2>Conversation Turns</h2>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Statistic</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Count</td><td>{{ conversation_turns.count | int }}</td></tr>
+                            <tr><td>Mean</td><td>{{ conversation_turns.mean | round(2) }}</td></tr>
+                            <tr><td>Std</td><td>{{ conversation_turns.std | round(2) }}</td></tr>
+                            <tr><td>Min</td><td>{{ conversation_turns.min | int }}</td></tr>
+                            <tr><td>Max</td><td>{{ conversation_turns.max | int }}</td></tr>
+                            <tr><td>Median</td><td>{{ conversation_turns.median | round(2) }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- Sample Modal -->
+    {% if recommendations %}
+    <div id="sampleModal" class="sample-modal-overlay" onclick="closeSampleModal(event)">
+        <div class="sample-modal" onclick="event.stopPropagation()">
+            <div class="sample-modal-header">
+                <h3 id="sampleModalTitle">Affected Samples</h3>
+                <button class="sample-modal-close" onclick="closeSampleModal()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="sample-modal-body" id="sampleModalBody">
+                <!-- Samples will be inserted here -->
+            </div>
+            <div class="sample-modal-footer">
+                <p>Showing up to 20 samples. Export the analysis data for the complete list.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    <span>Oumi Dataset Analyzer</span>
+                </div>
+                <div class="footer-meta">
+                    Generated {{ generated_at }}
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Render Plotly Charts -->
+    {% if charts or anomaly_charts %}
+    <script>
+        const plotlyConfig = {
+            responsive: true,
+            displayModeBar: false
+        };
+
+        const darkLayout = {
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: {
+                family: 'Source Sans 3, sans-serif',
+                color: '#a39e93'
+            },
+            xaxis: {
+                gridcolor: 'rgba(255,255,255,0.05)',
+                linecolor: 'rgba(255,255,255,0.1)',
+                tickfont: { family: 'JetBrains Mono, monospace', size: 11 }
+            },
+            yaxis: {
+                gridcolor: 'rgba(255,255,255,0.05)',
+                linecolor: 'rgba(255,255,255,0.1)',
+                tickfont: { family: 'JetBrains Mono, monospace', size: 11 }
+            },
+            margin: { l: 50, r: 20, t: 20, b: 50 }
+        };
+
+        {% for chart in charts %}
+        (function() {
+            const data = {{ chart.data | safe }};
+            const layout = Object.assign({}, {{ chart.layout | safe }}, darkLayout);
+            Plotly.newPlot('{{ chart.id }}', data, layout, plotlyConfig);
+        })();
+        {% endfor %}
+
+        {% for chart in anomaly_charts %}
+        (function() {
+            const data = {{ chart.data | safe }};
+            const layout = Object.assign({}, {{ chart.layout | safe }}, darkLayout);
+            Plotly.newPlot('{{ chart.id }}', data, layout, plotlyConfig);
+        })();
+        {% endfor %}
+    </script>
+    {% endif %}
+
+    <!-- Sample Modal Scripts -->
+    {% if recommendations %}
+    <script>
+        // Sample data for each recommendation
+        const sampleData = {
+            {% for rec in recommendations %}
+            '{{ rec.id }}': {
+                title: {{ rec.title | tojson }},
+                samples: {{ rec.samples | tojson }}
+            },
+            {% endfor %}
+        };
+
+        function openSampleModal(recId) {
+            const modal = document.getElementById('sampleModal');
+            const title = document.getElementById('sampleModalTitle');
+            const body = document.getElementById('sampleModalBody');
+
+            const data = sampleData[recId];
+            if (!data) return;
+
+            title.textContent = data.title;
+
+            // Clear previous content
+            while (body.firstChild) {
+                body.removeChild(body.firstChild);
+            }
+
+            // Build sample list using safe DOM methods
+            const sampleList = document.createElement('div');
+            sampleList.className = 'sample-list';
+
+            data.samples.forEach((sample, idx) => {
+                const roleClass = sample.role ? sample.role.toLowerCase() : '';
+                const contentId = `sample-content-${recId}-${idx}`;
+                const needsExpand = sample.text_full && sample.text_full.length > 300;
+
+                const sampleItem = document.createElement('div');
+                sampleItem.className = 'sample-item';
+
+                // Header
+                const header = document.createElement('div');
+                header.className = 'sample-item-header';
+
+                const indexSpan = document.createElement('span');
+                indexSpan.className = 'sample-item-index';
+                indexSpan.textContent = '#' + sample.index;
+                header.appendChild(indexSpan);
+
+                const roleSpan = document.createElement('span');
+                roleSpan.className = 'sample-item-role ' + roleClass;
+                roleSpan.textContent = sample.role || 'N/A';
+                header.appendChild(roleSpan);
+
+                if (sample.metric_value) {
+                    const metricSpan = document.createElement('span');
+                    metricSpan.className = 'sample-item-metric';
+                    metricSpan.textContent = 'Value: ' + sample.metric_value;
+                    header.appendChild(metricSpan);
+                }
+
+                sampleItem.appendChild(header);
+
+                // Content
+                const content = document.createElement('div');
+                content.className = 'sample-item-content';
+                content.id = contentId;
+                content.textContent = sample.text_preview || '';
+                sampleItem.appendChild(content);
+
+                // Expand button
+                if (needsExpand) {
+                    const expandBtn = document.createElement('button');
+                    expandBtn.className = 'sample-expand-btn';
+                    expandBtn.setAttribute('data-rec-id', recId);
+                    expandBtn.setAttribute('data-sample-idx', idx);
+                    expandBtn.setAttribute('data-content-id', contentId);
+                    expandBtn.onclick = function() {
+                        toggleExpand(this.getAttribute('data-content-id'), this.getAttribute('data-rec-id'), parseInt(this.getAttribute('data-sample-idx')), this);
+                    };
+
+                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('width', '12');
+                    svg.setAttribute('height', '12');
+                    svg.setAttribute('viewBox', '0 0 24 24');
+                    svg.setAttribute('fill', 'none');
+                    svg.setAttribute('stroke', 'currentColor');
+                    svg.setAttribute('stroke-width', '2');
+                    const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                    polyline.setAttribute('points', '6,9 12,15 18,9');
+                    svg.appendChild(polyline);
+                    expandBtn.appendChild(svg);
+
+                    const btnText = document.createElement('span');
+                    btnText.textContent = 'Show full content';
+                    expandBtn.appendChild(btnText);
+
+                    sampleItem.appendChild(expandBtn);
+                }
+
+                sampleList.appendChild(sampleItem);
+            });
+
+            body.appendChild(sampleList);
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSampleModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            const modal = document.getElementById('sampleModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function toggleExpand(contentId, recId, sampleIdx, btn) {
+            const content = document.getElementById(contentId);
+            const data = sampleData[recId];
+            const btnText = btn.querySelector('span');
+            const svg = btn.querySelector('svg');
+            const polyline = svg.querySelector('polyline');
+
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                content.textContent = data.samples[sampleIdx].text_preview;
+                btnText.textContent = 'Show full content';
+                polyline.setAttribute('points', '6,9 12,15 18,9');
+            } else {
+                content.classList.add('expanded');
+                content.textContent = data.samples[sampleIdx].text_full;
+                btnText.textContent = 'Show less';
+                polyline.setAttribute('points', '18,15 12,9 6,15');
+            }
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeSampleModal();
+            }
+        });
+    </script>
+    {% endif %}
+</body>
+</html>

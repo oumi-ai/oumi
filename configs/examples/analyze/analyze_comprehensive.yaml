@@ -1,0 +1,87 @@
+# Comprehensive Dataset Analysis Configuration
+# This configuration runs ALL analyzers for a complete dataset health assessment.
+#
+# Includes:
+# - Length metrics (chars, words, sentences, tokens)
+# - Diversity metrics (vocabulary richness)
+# - Format detection (markdown, code, JSON)
+# - Quality/Safety checks (PII, encoding, special tokens)
+#
+# The health score provides an overall grade (A-F) based on all metrics.
+#
+# Usage:
+#   oumi analyze --config configs/examples/analyze/analyze_comprehensive.yaml
+
+# Dataset configuration
+dataset_name: "yahma/alpaca-cleaned"
+split: "train"
+sample_count: 1000
+
+# Tokenizer for accurate token counting
+tokenizer_name: "meta-llama/Llama-3.1-8B-Instruct"
+
+# Output configuration
+output_path: "./analysis_output/comprehensive"
+
+# Recommendation settings
+generate_recommendations: true
+outlier_threshold: 3.0
+
+# Report generation - full HTML report with all visualizations
+generate_report: true
+report_title: "Comprehensive Dataset Health Report"
+
+# All analyzers enabled
+analyzers:
+  # 1. Length Analysis
+  - id: "length"
+    params:
+      char_count: true
+      word_count: true
+      sentence_count: true
+      token_count: true  # Uses tokenizer_name above
+      include_special_tokens: true
+
+  # 2. Diversity Analysis
+  - id: "diversity"
+    params:
+      unique_words_ratio: true
+      type_token_ratio: true
+      vocabulary_richness: true
+      hapax_legomena_ratio: true  # Words appearing only once
+      case_sensitive: false
+
+  # 3. Format Analysis
+  - id: "format"
+    params:
+      detect_markdown: true
+      detect_json: true
+      detect_code_blocks: true
+      detect_urls: true
+      detect_emails: true
+      compute_complexity: true
+
+  # 4. Quality Analysis
+  - id: "quality"
+    params:
+      # PII Detection
+      detect_pii: true
+      detect_emails: true
+      detect_phones: true
+      detect_ssn: true
+      detect_credit_cards: true
+      detect_ip_addresses: true
+      detect_api_keys: true
+
+      # Content Quality
+      detect_encoding_issues: true
+      detect_special_tokens: true
+      detect_repetition: true
+      repetition_ngram_size: 3
+      repetition_threshold: 0.3
+
+      # Language (install langdetect for this)
+      detect_language: false
+
+      # Composite Score
+      compute_quality_score: true

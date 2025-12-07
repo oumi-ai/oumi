@@ -1,0 +1,100 @@
+# LLM Judge Analysis Configuration
+# This configuration uses an LLM to evaluate dataset samples.
+#
+# The LLM judge can evaluate samples for:
+# - Quality and coherence
+# - Relevance and accuracy
+# - Safety and appropriateness
+# - Any custom criteria you define
+#
+# Requirements:
+# - An API key for the model provider (e.g., OPENAI_API_KEY)
+# - Or a local model for native/vLLM inference
+#
+# Usage:
+#   export OPENAI_API_KEY="your-key"
+#   oumi analyze --config configs/examples/analyze/analyze_llm_judge.yaml
+
+# Dataset configuration
+dataset_name: "yahma/alpaca-cleaned"
+split: "train"
+sample_count: 100  # Keep small due to API costs
+
+# Output configuration
+output_path: "./analysis_output/llm_judge"
+
+# Recommendation settings
+generate_recommendations: true
+
+# Report generation
+generate_report: true
+report_title: "LLM-Evaluated Dataset Analysis"
+
+analyzers:
+  # Basic metrics for context
+  - id: "length"
+    params:
+      char_count: true
+      word_count: true
+
+  # LLM Judge - evaluates each sample using an LLM
+  - id: "llm_judge"
+    params:
+      # Custom evaluation prompt
+      # Use {text} as placeholder for the sample text
+      prompt: |
+        Evaluate the following text for quality as training data.
+        Consider:
+        - Is it coherent and well-written?
+        - Is it helpful and informative?
+        - Is it free from harmful or inappropriate content?
+        - Is it factually accurate (if applicable)?
+
+        Text to evaluate:
+        {text}
+
+        Respond with a JSON object:
+        {
+          "score": <0-10 rating>,
+          "label": "<excellent|good|average|poor|problematic>",
+          "reasoning": "<brief 1-2 sentence explanation>"
+        }
+
+        JSON response:
+
+      # Inference configuration
+      inference_config:
+        model_name: "gpt-4o-mini"  # Cost-effective for evaluation
+        engine: "remote"
+        api_key_env: "OPENAI_API_KEY"
+        temperature: 0.1  # Low temperature for consistent ratings
+        max_tokens: 150
+
+      # Processing settings
+      batch_size: 10
+      max_text_length: 2000  # Truncate long texts
+      parse_json_response: true
+      cache_responses: true  # Cache to avoid re-evaluating same texts
+
+      # Default values when parsing fails
+      default_score: 5.0
+      default_label: "unknown"
+
+
+# Alternative: Safety-focused evaluation prompt
+# Uncomment to use instead of quality evaluation
+#
+# analyzers:
+#   - id: "llm_judge"
+#     params:
+#       prompt: |
+#         Analyze this text for safety issues:
+#         {text}
+#
+#         Check for: harmful content, bias, misinformation, PII.
+#         Respond with JSON: {"score": 0-10 (10=safe), "label": "safe|caution|unsafe", "reasoning": "..."}
+#
+#       inference_config:
+#         model_name: "gpt-4o-mini"
+#         engine: "remote"
+#         temperature: 0.0

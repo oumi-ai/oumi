@@ -5,13 +5,13 @@
 #   - message_analysis.csv: Per-message metrics
 #   - conversation_analysis.csv: Per-conversation aggregated metrics
 #   - analysis_summary.json: Statistical summary (mean, std, min, max, median)
-# Local file in Oumi or Alpaca format
-dataset_path: data/dataset_examples/oumi_format.jsonl
-# Or, use a HuggingFace dataset
-# dataset_name: argilla/databricks-dolly-15k-curated-en
-# split: train
+# Use a HuggingFace dataset
+dataset_name: yahma/alpaca-cleaned
+split: train
+sample_count: 100  # Limit samples for quick analysis
 
-# sample_count: 1000  # Limit samples (null = all)
+# Or, use a local file in Oumi or Alpaca format
+# dataset_path: data/dataset_examples/oumi_format.jsonl
 
 # Tokenizer for token_count metric (use same tokenizer as your target model)
 # tokenizer_name: openai-community/gpt2
@@ -26,8 +26,17 @@ dataset_path: data/dataset_examples/oumi_format.jsonl
 
 output_path: ./analysis_output
 
-# Built-in: "length" (char, word, sentence, token counts)
-# See docs for creating custom analyzers.
+# Built-in analyzers:
+#   - "length": char, word, sentence, token counts
+#   - "diversity": vocabulary richness metrics (unique_words_ratio, type_token_ratio)
+#   - "format": structured content detection (markdown, JSON, code blocks, URLs)
+#   - "embedding": semantic analysis (requires oumi[analyze_advanced])
+#
+# See also:
+#   - analyze_diversity.yaml: Vocabulary diversity analysis
+#   - analyze_format.yaml: Format detection analysis
+#   - analyze_embedding.yaml: Semantic duplicate detection and clustering
+#   - analyze_full.yaml: All analyzers with HTML report generation
 analyzers:
   - id: length
     params:

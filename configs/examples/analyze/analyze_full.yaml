@@ -1,0 +1,83 @@
+# Full Analysis Configuration
+# Comprehensive dataset analysis with all built-in analyzers and HTML report
+#
+# Usage: oumi analyze --config configs/examples/analyze/analyze_full.yaml
+#        oumi analyze --config configs/examples/analyze/analyze_full.yaml --report
+#
+# For HTML reports with interactive charts, install optional dependencies:
+#   pip install "oumi[analyze_advanced]"
+#
+# Output files:
+#   - message_analysis.csv: Per-message metrics from all analyzers
+#   - conversation_analysis.csv: Per-conversation aggregated metrics
+#   - analysis_summary.json: Statistical summary with recommendations
+#   - analysis_report.html: Interactive HTML report (with --report flag)
+
+# Dataset configuration
+dataset_name: yahma/alpaca-cleaned
+split: train
+sample_count: 100  # Limit samples for quick analysis
+
+# Or use a local file:
+# dataset_path: data/dataset_examples/oumi_format.jsonl
+
+# Tokenizer for token_count metric (use same tokenizer as your target model)
+# tokenizer_name: openai-community/gpt2
+# tokenizer_kwargs: {}
+
+output_path: ./analysis_output
+
+# Recommendations settings
+generate_recommendations: true
+outlier_threshold: 3.0  # Standard deviations for outlier detection
+
+# HTML report settings (can also use --report CLI flag)
+generate_report: false   # Set true to auto-generate HTML report
+report_title: "Dataset Analysis Report"  # Custom title for the report
+
+analyzers:
+  # ==========================================================================
+  # Length Analyzer - Character, word, sentence, and token counts
+  # ==========================================================================
+  - id: length
+    params:
+      char_count: true       # Character count per text field
+      word_count: true       # Word count (whitespace-separated)
+      sentence_count: true   # Sentence count (split on .!?)
+      token_count: false     # Token count (requires tokenizer_name)
+
+  # ==========================================================================
+  # Diversity Analyzer - Vocabulary richness metrics
+  # ==========================================================================
+  - id: diversity
+    params:
+      unique_words_ratio: true      # unique words / total words
+      type_token_ratio: true        # unique tokens / total tokens
+      vocabulary_richness: true     # Log-adjusted TTR
+      hapax_legomena_ratio: false   # Words appearing only once
+      case_sensitive: false         # Case-insensitive comparison
+
+  # ==========================================================================
+  # Format Analyzer - Structured content detection
+  # ==========================================================================
+  - id: format
+    params:
+      detect_markdown: true      # Headers, lists, bold, italic, links
+      detect_json: true          # JSON code blocks and inline JSON
+      detect_code_blocks: true   # Fenced code blocks with language detection
+      detect_urls: true          # HTTP/HTTPS URLs
+      detect_emails: false       # Email addresses
+      compute_complexity: true   # Overall format complexity score
+
+  # ==========================================================================
+  # Embedding Analyzer - Semantic analysis (requires oumi[analyze_advanced])
+  # Uncomment to enable semantic duplicate detection and clustering
+  # ==========================================================================
+  # - id: embedding
+  #   params:
+  #     model_name: all-MiniLM-L6-v2
+  #     detect_duplicates: true
+  #     duplicate_threshold: 0.95
+  #     cluster_samples: false
+  #     clustering_method: dbscan
+  #     batch_size: 32
