@@ -1,0 +1,233 @@
+# Evol-Instruct / DEITA Dataset Quality Analysis Configuration
+#
+# Based on two key papers:
+# 1. "WizardLM: Empowering Large Language Models to Follow Complex Instructions"
+#    (Evol-Instruct - instruction complexity evolution)
+# 2. "What Makes Good Data for Alignment?" (DEITA - data quality scoring)
+#
+# The Evol-Instruct approach:
+# - Evolves simple instructions into more complex versions
+# - Uses operators: add_constraints, require_reasoning, increase_depth, etc.
+# - Ranks original instruction complexity relative to evolved versions
+#
+# The DEITA approach evaluates data quality along three dimensions:
+# 1. Complexity - How sophisticated/challenging are the instructions?
+# 2. Quality - How helpful/accurate are the responses?
+# 3. Diversity - How unique/varied are the samples?
+#
+# Usage:
+#   oumi analyze -c configs/examples/analyze/analyze_evol_instruct.yaml
+#
+# Requirements:
+#   - sentence-transformers: pip install 'oumi[analyze_advanced]'
+#   - API key for complexity/quality scoring:
+#     export ANTHROPIC_API_KEY=... (or OPENAI_API_KEY)
+
+# Dataset configuration
+dataset_name: "tatsu-lab/alpaca"
+split: "train"
+sample_count: 100  # Start small due to API costs, increase for full analysis
+
+# Output configuration
+output_path: "./analysis_output/evol_instruct"
+generate_report: true
+report_title: "Evol-Instruct / DEITA Quality Analysis Report"
+generate_recommendations: true
+
+analyzers:
+  # ==========================================================================
+  # EVOL COMPLEXITY ANALYZER (Evol-Instruct / DEITA)
+  # Generates more complex instruction variants and ranks the original
+  #
+  # How it works:
+  # 1. Takes each instruction
+  # 2. Uses LLM to generate N more complex versions using evolution operators
+  # 3. Asks LLM to rank all versions by complexity
+  # 4. Returns normalized complexity score (0=simplest, 1=most complex)
+  #
+  # Evolution operators:
+  # - add_constraints: Add specific requirements or limitations
+  # - require_reasoning: Require step-by-step thinking
+  # - increase_depth: Require deeper understanding
+  # - add_edge_cases: Include corner cases to consider
+  # - require_specificity: Require more specific answers
+  # - add_domain_knowledge: Require specialized knowledge
+  # ==========================================================================
+  - id: evol_complexity
+    params:
+      # Model configuration - Anthropic (recommended)
+      model_type: api
+      api_provider: anthropic
+      api_model: claude-3-5-haiku-20241022  # Cost-effective
+      # api_model: claude-sonnet-4-5-20250514  # Higher quality
+
+      # Alternative: OpenAI
+      # model_type: api
+      # api_provider: openai
+      # api_model: gpt-4o-mini
+
+      # Alternative: Local model (no API cost)
+      # model_type: local
+      # local_model: meta-llama/Llama-3.1-8B-Instruct
+      # inference_config:
+      #   engine: vllm
+
+      # Evolution configuration
+      num_evolutions: 3  # Number of complex variants (1-6, higher = more accurate but costly)
+      evolution_operators:
+        - add_constraints
+        - require_reasoning
+        - increase_depth
+
+      # Analysis scope
+      analyze_role: user  # Analyze user instructions
+
+      # Performance settings
+      temperature: 0.7
+      max_retries: 2
+      cache_responses: true  # Cache to avoid re-processing
+      show_progress: true
+
+  # ==========================================================================
+  # EVOL QUALITY ANALYZER (DEITA)
+  # Generates improved response variants and ranks the original
+  #
+  # How it works:
+  # 1. Takes each response (with its instruction context)
+  # 2. Uses LLM to generate N improved versions
+  # 3. Asks LLM to rank all versions by quality
+  # 4. Returns normalized quality score (0=worst, 1=best)
+  #
+  # Quality aspects evaluated:
+  # - helpfulness: How well it addresses the instruction
+  # - depth: Level of detail and thoroughness
+  # - accuracy: Correctness of information
+  # - structure: Organization and clarity
+  # ==========================================================================
+  - id: evol_quality
+    params:
+      model_type: api
+      api_provider: anthropic
+      api_model: claude-3-5-haiku-20241022
+
+      # Quality dimensions to improve
+      num_evolutions: 3
+      quality_aspects:
+        - helpfulness
+        - depth
+        - accuracy
+        - structure
+
+      # Use instruction context for better quality assessment
+      use_conversation_context: true
+
+      # Analysis scope
+      analyze_role: assistant  # Analyze assistant responses
+
+      # Performance settings
+      temperature: 0.7
+      max_retries: 2
+      cache_responses: true
+      show_progress: true
+
+  # ==========================================================================
+  # REPR DIVERSITY ANALYZER (DEITA Repr Filter)
+  # Measures how unique each sample is relative to the dataset
+  #
+  # How it works:
+  # 1. Embeds all samples using sentence-transformers
+  # 2. For each sample, finds K nearest neighbors
+  # 3. Computes diversity score based on distance to neighbors
+  # 4. Low diversity = sample is redundant/similar to others
+  #
+  # DEITA insight: Diversity filtering improves downstream performance
+  # ==========================================================================
+  - id: repr_diversity
+    params:
+      model_name: sentence-transformers/all-MiniLM-L6-v2  # Fast, 384 dims
+      # model_name: sentence-transformers/all-mpnet-base-v2  # Better quality, slower
+      k_neighbors: 5  # Number of neighbors for diversity calculation
+      diversity_threshold: 0.3  # Samples below this are flagged as redundant
+      embed_field: all  # "all" (full conv), "user", or "assistant"
+      batch_size: 32
+      show_progress_bar: true
+
+  # ==========================================================================
+  # IFD ANALYZER - Instruction-Following Difficulty (Related)
+  # Measures how much the instruction helps the model predict the response
+  #
+  # IFD = P(response | instruction) / P(response)
+  # - IFD > 1: Instruction helps (valuable training sample)
+  # - IFD < 1: Instruction may be confusing or unnecessary
+  # - IFD ~ 1: Instruction provides minimal guidance
+  #
+  # Requires: transformers, torch
+  # ==========================================================================
+  # - id: ifd
+  #   params:
+  #     model_name: Qwen/Qwen3-0.6B  # Fast, good quality
+  #     # model_name: gpt2  # Smallest, fastest
+  #     instruction_column: instruction
+  #     response_column: output
+  #     batch_size: 4
+  #     max_length: 2048
+  #     trust_remote_code: true
+
+  # ==========================================================================
+  # SUPPORTING ANALYZERS
+  # ==========================================================================
+  - id: length
+    params:
+      token_count: true
+
+  - id: diversity
+    params:
+      unique_words_ratio: true
+
+  - id: quality
+    params:
+      detect_pii: true
+      detect_encoding_issues: true
+      detect_repetition: true
+
+# ==========================================================================
+# DEITA-STYLE DATA SELECTION
+# ==========================================================================
+# After running analysis, select high-quality samples using DEITA criteria:
+#
+# 1. Complexity filtering:
+#    - Keep samples with evol_complexity_score > 0.3
+#    - These are "appropriately complex" instructions
+#
+# 2. Quality filtering:
+#    - Keep samples with evol_quality_score > 0.5
+#    - These are high-quality responses
+#
+# 3. Diversity filtering:
+#    - Keep samples with repr_diversity_score > 0.3
+#    - Remove redundant/similar samples
+#
+# 4. Combined DEITA score:
+#    deita_score = complexity_score * quality_score * diversity_score
+#    Keep top K samples by deita_score
+#
+# Example pandas selection:
+#   df['deita_score'] = (
+#       df['evol_complexity_score'] *
+#       df['evol_quality_score'] *
+#       df['repr_diversity_score']
+#   )
+#   df_selected = df.nlargest(10000, 'deita_score')
+#
+# ==========================================================================
+# COST ESTIMATION
+# ==========================================================================
+# API costs (approximate, for 1000 samples):
+# - evol_complexity (3 evolutions): ~$0.50-1.00 with Haiku
+# - evol_quality (3 evolutions): ~$0.50-1.00 with Haiku
+# - Total: ~$1-2 per 1000 samples
+#
+# For large datasets, consider:
+# 1. Running on a random sample first
+# 2. Using local models (slower but free)
+# 3. Using caching (cache_responses: true)

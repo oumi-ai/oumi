@@ -6,11 +6,12 @@
 #
 # Available configs:
 #   - analyze.yaml: This file (minimal starter)
-#   - analyze_comprehensive.yaml: ALL analyzers (uncomment what you need)
-#   - analyze_dedup.yaml: Alpaca dataset with dedup + content pattern detection
-#   - analyze_deita.yaml: DEITA-style quality scoring
-#   - analyze_code_dataset.yaml: Code-specific analysis
-#   - analyze_local_file.yaml: Local file example
+#   - analyze_comprehensive.yaml: ALL 22 analyzers (uncomment what you need)
+#   - analyze_fixing_it_in_post.yaml: Magpie "Fixing It in Post" data curation
+#   - analyze_evol_instruct.yaml: DEITA/Evol-Instruct quality scoring
+#   - analyze_dedup.yaml: Duplicate detection (semantic + fuzzy)
+#   - analyze_deita.yaml: DEITA-style quality scoring (simpler)
+#   - analyze_alpaca.yaml: Streamlined Alpaca quality analysis
 #
 # Programmatic presets: from oumi.core.analyze.presets import get_preset
 #   - get_preset("sft_quality"): Length, diversity, format, quality

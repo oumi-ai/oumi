@@ -14,7 +14,7 @@ AnalyzeConfig (core/configs/analyze_config.py)
 DatasetAnalyzer (core/analyze/dataset_analyzer.py)
     ├─ Registry (sample analyzers lookup)
     ├─ DataFrameAnalyzer (core analysis engine)
-    └─ Individual SampleAnalyzers (26 total)
+    └─ Individual SampleAnalyzers (22 total)
 ```
 
 ## Complete Analyzer Metrics Reference
@@ -22,32 +22,29 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### LengthAnalyzer (`length`)
+
 **File**: `src/oumi/core/analyze/length_analyzer.py`
 **Dependencies**: tiktoken (optional), transformers (optional)
 
 | Metric | Type | Description | Implementation | Limitations |
 |--------|------|-------------|----------------|-------------|
-| `char_count` | int | Total character count including whitespace and punctuation | `len(text)` | Includes all Unicode characters; may count multi-byte chars as 1 |
-| `word_count` | int | Number of words in text | `len(text.split())` - whitespace splitting | Doesn't handle hyphenated words, contractions, or CJK properly |
-| `sentence_count` | int | Number of sentences | Regex split on `[.!?]+` | Misses abbreviations (Dr., U.S.A.); mishandles ellipsis; no NLP parsing |
 | `token_count` | int | Number of tokens using specified tokenizer | tiktoken (default: o200k_base for GPT-4o/5) or HuggingFace tokenizer | tiktoken encodings are OpenAI-specific; HF tokenizers require model download |
 
 ---
 
 ### DiversityAnalyzer (`diversity`)
+
 **File**: `src/oumi/core/analyze/diversity_analyzer.py`
 **Dependencies**: None
 
 | Metric | Type | Range | Description | Implementation | Limitations |
 |--------|------|-------|-------------|----------------|-------------|
-| `unique_words_ratio` | float | 0-1 | Ratio of unique words to total words | `len(set(words)) / len(words)` | Simple whitespace tokenization; case-insensitive; no stemming/lemmatization |
-| `type_token_ratio` | float | 0-1 | Same as unique_words_ratio (standard NLP term) | Identical to unique_words_ratio | Length-biased: longer texts naturally have lower TTR |
-| `vocabulary_richness` | float | 0+ | Root TTR - length-normalized diversity | `len(set(words)) / sqrt(len(words))` | Better for comparing texts of different lengths; still affected by domain |
-| `hapax_legomena_ratio` | float | 0-1 | Ratio of words appearing exactly once | Count words with frequency=1 / total words | Sensitive to text length; domain-specific terms inflate value |
+| `unique_words_ratio` | float | 0-1 | Ratio of unique words to total words | `len(set(words)) / len(words)` | Simple whitespace tokenization; case-insensitive by default; no stemming/lemmatization |
 
 ---
 
 ### FormatAnalyzer (`format`)
+
 **File**: `src/oumi/core/analyze/format_analyzer.py`
 **Dependencies**: None
 
@@ -65,47 +62,45 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### QualityAnalyzer (`quality`)
+
 **File**: `src/oumi/core/analyze/quality_analyzer.py`
 **Dependencies**: langdetect (optional for language detection)
 
 | Metric | Type | Description | Implementation | Limitations |
 |--------|------|-------------|----------------|-------------|
 | `has_pii` | bool | Contains personally identifiable information | OR of all PII type detections | Binary flag misses severity; false positives on synthetic data |
-| `pii_types` | str | Comma-separated list of detected PII types | `email, phone, ssn, credit_card, ip_address, api_key` | Limited to 6 types; misses names, addresses, dates of birth |
+| `pii_types` | str | Comma-separated list of detected PII types | `email, phone, ssn, credit_card, api_key` | Limited to 5 types; misses names, addresses, dates of birth |
 | `pii_count` | int | Total count of PII instances | Sum of all PII pattern matches | Multiple matches of same item counted separately |
-| `detected_language` | str | ISO 639-1 language code | langdetect library (if installed) | Requires langdetect; short texts unreliable; code-mixed text problematic |
-| `language_confidence` | float | 0-1 | Confidence in language detection | langdetect probability score | Low confidence on short texts; doesn't indicate uncertainty well |
+| `detected_language` | str | ISO 639-1 language code | langdetect library (if enabled and installed) | Requires langdetect; short texts unreliable; disabled by default |
+| `language_confidence` | float | 0-1 | Confidence in language detection | langdetect probability score | Low confidence on short texts |
 | `has_encoding_issues` | bool | Contains mojibake/encoding problems | Regex for common mojibake patterns (UTF-8 decoded as Latin-1) | Only detects common patterns; may miss subtle issues |
-| `has_special_tokens` | bool | Contains LLM special tokens | Patterns: `<\|endoftext\|>`, `[INST]`, `<s>`, `</s>`, etc. | May flag legitimate uses; doesn't cover all tokenizers |
 | `repetition_ratio` | float | 0-1 | Ratio of repeated n-grams | 1 - (unique_ngrams / total_ngrams) with n=3 | N-gram size affects sensitivity; common phrases inflate value |
 | `has_high_repetition` | bool | Repetition exceeds threshold | `repetition_ratio > 0.3` (default) | Threshold is arbitrary; prose vs code have different baselines |
-| `quality_score` | float | 0-1 | Composite quality score | 1.0 - (PII: 0.3, encoding: 0.2, special_tokens: 0.2, repetition: 0.3 max) | Fixed penalties; doesn't weight by severity; minimum is 0.0 |
 
 ---
 
 ### TrainingQualityAnalyzer (`training_quality`)
+
 **File**: `src/oumi/core/analyze/training_quality_analyzer.py`
 **Dependencies**: None
 
+Analyzes assistant response quality for SFT datasets. Only computes metrics for assistant messages.
+
 | Metric | Type | Role | Description | Implementation | Limitations |
 |--------|------|------|-------------|----------------|-------------|
-| `instruction_clarity_score` | float | user | 0-1 score for instruction clarity | Starts at 1.0; penalizes: vague terms (-0.15 each), no verb (-0.2), too short (-0.3), too long (-0.1) | English-centric; 60+ imperative verbs hardcoded |
-| `has_clear_intent` | bool | user | Instruction has clear purpose | Checks for imperative verb in first 10 words OR ends with `?` | May miss implied instructions; non-English problematic |
-| `has_specificity` | bool | user | Contains specific details | Checks for numbers, quoted text, or code indicators | Binary flag; doesn't measure degree of specificity |
-| `instruction_word_count` | int | user | Word count of instruction | `len(text.split())` | Same as diversity analyzer word count |
-| `response_completeness_score` | float | assistant | 0-1 score for response completeness | Checks proper ending, structure, references context | Heuristic-based; may penalize intentionally brief responses |
+| `response_completeness_score` | float | assistant | 0-1 score for response completeness | Checks proper ending, structure; penalizes truncation | Heuristic-based; may penalize intentionally brief responses |
 | `has_proper_ending` | bool | assistant | Response ends properly | Checks for: no trailing ellipsis, has punctuation, no trailing conjunctions | Strict rules; may flag streaming/partial responses |
 | `has_structure` | bool | assistant | Response has formatting structure | Checks for: bullets, numbered lists, code blocks, headers, bold, blockquotes | May miss well-structured prose; favors formatted responses |
-| `response_word_count` | int | assistant | Word count of response | `len(text.split())` | Same limitations as other word counts |
-| `turn_quality_score` | float | both | 0-1 score for turn quality | Average of clarity (user) and completeness (assistant) scores | Averages may hide issues; role-specific concerns lost |
-| `references_context` | bool | assistant | Response references prior context | Patterns: "you mentioned", "the code", "this function", etc. | Limited patterns; may miss implicit references |
-| `role_appropriate` | bool | both | Content appropriate for role | User: has question/instruction; Assistant: has substantive response | Very basic check; doesn't assess quality of role adherence |
+| `response_word_count` | int | assistant | Word count of response | `len(text.split())` | Simple whitespace tokenization |
 
 ---
 
 ### ContentPatternAnalyzer (`content_pattern`)
+
 **File**: `src/oumi/core/analyze/content_pattern_analyzer.py`
 **Dependencies**: None
+
+Detects AI-specific quality issues commonly found in synthetic training data.
 
 | Metric | Type | Description | Implementation | Limitations |
 |--------|------|-------------|----------------|-------------|
@@ -115,13 +110,11 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `has_hallucinated_experience` | bool | Contains fabricated AI experiences | Patterns: "I had to...", "When I was a...", "In my experience..." | Keyword-based; may flag legitimate first-person writing |
 | `has_nooutput` | bool | Contains no-output markers | Patterns: `<nooutput>`, `N/A`, `[N/A]`, `None`, `-` | May flag legitimate use of these terms; context-insensitive |
 | `has_refusal` | bool | Contains AI refusal phrases | Patterns: "I cannot...", "I'm unable to...", "This task cannot be..." | May flag educational content about AI; context-insensitive |
-| `has_suspicious_url` | bool | Contains potentially hallucinated URLs | Checks against known hallucinated domain patterns | Limited domain list; may have false positives on legitimate URLs |
-| `suspicious_url_count` | int | Count of suspicious URLs | Number of URLs matching suspicious patterns | Same limitations as has_suspicious_url |
-| `content_pattern_score` | float | 0-1 | Composite pattern quality score | 1.0 - (nooutput: 0.5, refusal: 0.4, placeholders: min(0.3, count×0.1), hallucination: 0.2, suspicious_url: 0.1) | Fixed penalties; doesn't weight by context |
 
 ---
 
 ### TaskCategoryAnalyzer (`task_category`)
+
 **File**: `src/oumi/core/analyze/task_category_analyzer.py`
 **Dependencies**: None
 
@@ -133,6 +126,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `is_conversational` | bool | True/False | Task is conversational | True if category in: advice, role_play | Very limited; misses casual chat, emotional support |
 
 **Task Categories**:
+
 - `math`: Calculations, proofs, equations, word problems
 - `coding`: Programming, debugging, code review, algorithms
 - `information_seeking`: Factual questions, definitions, explanations
@@ -149,6 +143,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### SafetyAnalyzer (`safety`)
+
 **File**: `src/oumi/core/analyze/safety_analyzer.py`
 **Dependencies**: None
 
@@ -160,6 +155,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `safety_categories` | str | Comma-separated | Flagged safety categories | List of categories with detected violations | May have multiple false positives |
 
 **Safety Categories**:
+
 | Category | Keywords | Limitations |
 |----------|----------|-------------|
 | `violence` | kill, murder, attack, bomb, weapon, torture | May flag news, history, fiction |
@@ -174,6 +170,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### DifficultyAnalyzer (`difficulty`)
+
 **File**: `src/oumi/core/analyze/difficulty_analyzer.py`
 **Dependencies**: None
 
@@ -186,6 +183,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `constraint_count` | int | 0+ | Number of explicit constraints | Count of: must, should, required, exactly, at least, etc. | May count incidental uses; misses implicit constraints |
 
 **Domain Knowledge Detection**:
+
 | Domain | Example Terms | Limitations |
 |--------|---------------|-------------|
 | `programming` | algorithm, database, API, recursion | May miss domain-specific languages |
@@ -198,6 +196,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### CostAnalyzer (`cost`)
+
 **File**: `src/oumi/core/analyze/cost_analyzer.py`
 **Dependencies**: None (requires LengthAnalyzer for token counts)
 
@@ -208,6 +207,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `tokens_wasted_{size}` | int | Tokens wasted in packing | `context_size - token_count` if sample used alone | Theoretical; actual training may differ |
 
 **Dataset-Level Metrics**:
+
 | Metric | Type | Description | Implementation | Limitations |
 |--------|------|-------------|----------------|-------------|
 | `total_tokens` | int | Sum of all tokens | Sum of token_count column | Requires LengthAnalyzer to run first |
@@ -217,6 +217,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### EmbeddingAnalyzer (`embedding`)
+
 **File**: `src/oumi/core/analyze/embedding_analyzer.py`
 **Dependencies**: sentence-transformers, scikit-learn, datasketch (optional for fuzzy)
 
@@ -231,6 +232,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `embedding` | list[float] | Embedding vector | sentence-transformers model output | Large storage; model choice affects quality |
 
 **Configuration Impact**:
+
 - `model_name`: "all-MiniLM-L6-v2" (default) is fast but less accurate than larger models
 - `duplicate_threshold`: 0.95 is very strict; 0.85-0.90 catches more near-duplicates
 - `duplicate_scope`: "all" compares everything; "by_role" only within same role
@@ -239,6 +241,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### QuestionDiversityAnalyzer (`question_diversity`)
+
 **File**: `src/oumi/core/analyze/question_diversity_analyzer.py`
 **Dependencies**: sentence-transformers, scikit-learn
 
@@ -249,6 +252,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `is_concentrated` | bool | In concentrated cluster | True if cluster_size > concentration_threshold | Threshold is configurable; may miss gradual redundancy |
 
 **Dataset-Level Metrics**:
+
 | Metric | Type | Description | Implementation | Limitations |
 |--------|------|-------------|----------------|-------------|
 | `num_question_clusters` | int | Total cluster count | Number of unique cluster IDs (excluding noise) | DBSCAN auto-determines; KMeans is fixed |
@@ -260,6 +264,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### ReprDiversityAnalyzer (`repr_diversity`)
+
 **File**: `src/oumi/core/analyze/repr_diversity_analyzer.py`
 **Dependencies**: sentence-transformers, scikit-learn
 
@@ -271,6 +276,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `percentile` | float | 0-100 | Percentile rank in dataset | Rank position among all diversity scores | Relative measure; not comparable across datasets |
 
 **Dataset-Level Metrics**:
+
 | Metric | Type | Description | Limitations |
 |--------|------|-------------|-------------|
 | `redundant_ratio` | float | Fraction of redundant samples | Depends on threshold setting |
@@ -281,6 +287,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### FastTextAnalyzer (`fasttext`)
+
 **File**: `src/oumi/core/analyze/fasttext_analyzer.py`
 **Dependencies**: fast-langdetect OR fasttext + huggingface_hub
 
@@ -299,6 +306,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### IFDAnalyzer (`ifd`)
+
 **File**: `src/oumi/core/analyze/ifd_analyzer.py`
 **Dependencies**: transformers, torch
 
@@ -310,11 +318,13 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `response_loss` | float | 0+ | Cross-entropy loss | Average token loss on response | Raw loss value for debugging |
 
 **Interpretation**:
+
 - **IFD > 10**: High-value instruction significantly helps the model
 - **IFD 1-10**: Good instruction provides meaningful context
 - **IFD < 1**: Instruction is confusing or misleading (response harder to predict with it)
 
 **Limitations**:
+
 - GPU strongly recommended (CPU is very slow)
 - Model must be downloaded (~600MB for Qwen3-0.6B)
 - Only meaningful for instruction-response pairs
@@ -324,6 +334,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### LLMJudgeAnalyzer (`llm_judge`)
+
 **File**: `src/oumi/core/analyze/llm_judge_analyzer.py`
 **Dependencies**: oumi inference engines (transformers, vLLM, or API clients)
 
@@ -335,6 +346,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `raw_response` | str | Full response | Complete LLM output | Stored for debugging/analysis | Large storage for full responses |
 
 **Prompt Presets**:
+
 | Preset | Description | Use Case |
 |--------|-------------|----------|
 | `instruction_quality` | Evaluate instruction clarity for SFT | Data quality filtering |
@@ -345,6 +357,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `factuality` | Check for factual accuracy | Misinformation filtering |
 
 **Limitations**:
+
 - API costs for each sample
 - Latency depends on model/API (0.5-5 sec/sample)
 - JSON parsing may fail on malformed responses
@@ -354,6 +367,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### EvolComplexityAnalyzer (`evol_complexity`)
+
 **File**: `src/oumi/core/analyze/evol_complexity_analyzer.py`
 **Dependencies**: oumi inference engines
 
@@ -364,6 +378,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `evol_complexity_headroom` | float | 0-1 | Improvement potential | 1 - (rank / num_variants) | How much more complex it could be |
 
 **Evolution Operators**:
+
 | Operator | Description | Effect |
 |----------|-------------|--------|
 | `add_constraints` | Add explicit constraints | Increases specificity |
@@ -374,6 +389,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `add_domain_knowledge` | Require domain expertise | Increases difficulty |
 
 **Limitations**:
+
 - API cost per sample (3-6 LLM calls per sample)
 - Slow (~5-15 sec/sample)
 - Quality depends on LLM capability
@@ -383,6 +399,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### EvolQualityAnalyzer (`evol_quality`)
+
 **File**: `src/oumi/core/analyze/evol_quality_analyzer.py`
 **Dependencies**: oumi inference engines
 
@@ -393,6 +410,121 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `evol_quality_headroom` | float | 0-1 | Improvement potential | 1 - (rank / num_variants) | How much better it could be |
 
 **Same limitations as EvolComplexityAnalyzer**
+
+---
+
+### InstructRewardAnalyzer (`instruct_reward`)
+
+**File**: `src/oumi/core/analyze/instruct_reward_analyzer.py`
+**Dependencies**: None
+
+Based on the Magpie/ArmoRM framework from "Fixing It in Post" paper, this analyzer scores response quality on a 0-5 scale.
+
+| Metric | Type | Range | Description | Implementation | Limitations |
+|--------|------|-------|-------------|----------------|-------------|
+| `reward_score` | float | 0-5 | Overall quality score | Weighted combination of helpfulness, completeness, clarity, safety | Heuristic-based; doesn't use actual reward model |
+| `reward_tier` | str | 4 tiers | Quality tier | poor (<2), fair (2-3), good (3-4), excellent (≥4) | Arbitrary thresholds |
+| `helpfulness_score` | float | 0-1 | Addresses instruction | Pattern matching for helpful/unhelpful responses | May miss nuanced helpfulness |
+| `completeness_score` | float | 0-1 | Response thoroughness | Based on word count and proper endings | Length-biased |
+| `clarity_score` | float | 0-1 | Organization and clarity | Structure patterns (lists, headers, code blocks) | Favors formatted responses |
+
+**Reward Score Weights**: helpfulness=0.3, completeness=0.25, clarity=0.2, safety=0.25
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `min_response_words` | int | 10 | Minimum words for quality response |
+| `max_response_words` | int | 2000 | Maximum words before length penalty |
+| `analyze_assistant_only` | bool | True | Only analyze assistant messages |
+| `include_component_scores` | bool | True | Include individual dimension scores |
+
+---
+
+### InputQualityAnalyzer (`input_quality`)
+
+**File**: `src/oumi/core/analyze/input_quality_analyzer.py`
+**Dependencies**: None
+
+Based on the Magpie framework, rates input/instruction quality from "very poor" to "excellent".
+
+| Metric | Type | Range | Description | Implementation | Limitations |
+|--------|------|-------|-------------|----------------|-------------|
+| `input_quality_tier` | str | 5 tiers | Quality tier | very_poor (<0.2), poor (0.2-0.4), fair (0.4-0.6), good (0.6-0.8), excellent (≥0.8) | Arbitrary thresholds |
+| `input_quality_score` | float | 0-1 | Overall quality score | Weighted combination of clarity, context, answerability | Heuristic-based |
+| `is_ambiguous` | bool | True/False | Instruction is ambiguous | Count of ambiguous patterns (something, stuff, etc.) ≥2 | May flag legitimate use |
+| `is_answerable` | bool | True/False | Can be meaningfully answered | Checks for greeting-only, too short, contradictory | May reject valid short queries |
+| `has_sufficient_context` | bool | True/False | Enough context provided | Word count + context indicators (numbers, quotes, code) | Favors longer instructions |
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `analyze_user_only` | bool | True | Only analyze user messages |
+| `include_component_flags` | bool | True | Include individual quality flags |
+
+---
+
+### ConversationStructureAnalyzer (`conversation_structure`)
+
+**File**: `src/oumi/core/analyze/conversation_structure_analyzer.py`
+**Dependencies**: None
+
+Analyzes conversation turn patterns. The paper found that Tulu is 95% single-turn vs SmolTalk 70% multi-turn.
+
+| Metric | Type | Description | Implementation | Limitations |
+|--------|------|-------------|----------------|-------------|
+| `turn_count` | int | Total turns in conversation | Count of all messages | Includes system messages |
+| `user_turn_count` | int | Number of user messages | Count where role="user" | - |
+| `assistant_turn_count` | int | Number of assistant messages | Count where role="assistant" | - |
+| `is_single_turn` | bool | Single-turn conversation | turn_count ≤ threshold (default 2) | Threshold is configurable |
+| `is_multi_turn` | bool | Multi-turn conversation | turn_count > threshold | - |
+| `conversation_depth` | int | Complete exchanges | min(user_turns, assistant_turns) | Doesn't account for order |
+| `role_balance` | float | User to assistant ratio | user_turns / (user + assistant) | 0.5 = balanced |
+| `has_system_prompt` | bool | Has system message | Any role="system" | - |
+| `avg_turn_length` | float | Average words per turn | Mean word count (excludes system) | Simple word split |
+| `turn_length_variance` | float | Length variance | Statistical variance | May be high for Q&A format |
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `single_turn_threshold` | int | 2 | Max messages for single-turn |
+| `compute_length_stats` | bool | True | Compute length statistics |
+
+---
+
+### ResponseCompletenessAnalyzer (`response_completeness`)
+
+**File**: `src/oumi/core/analyze/response_completeness_analyzer.py`
+**Dependencies**: None
+
+Detects truncated/incomplete/partial responses, a common issue in synthetic data.
+
+| Metric | Type | Description | Implementation | Limitations |
+|--------|------|-------------|----------------|-------------|
+| `is_complete` | bool | Response is complete | score ≥ 0.7 (or strict: no truncation + natural ending) | Binary; misses partial issues |
+| `completeness_score` | float | 0-1 completeness score | Penalties for truncation, unnatural endings | Heuristic-based |
+| `ends_naturally` | bool | Natural ending | Ends with .!? or ``` or closing bracket | May miss valid endings |
+| `has_conclusion` | bool | Has concluding statement | Patterns in last 20% (in conclusion, hope this helps) | Only for long responses |
+| `truncation_type` | str | Type of truncation | mid_sentence, incomplete_list, incomplete_code, empty | May miss novel truncation |
+
+**Truncation Detection:**
+
+| Type | Detection | Penalty |
+|------|-----------|---------|
+| `mid_sentence` | Ends with connector (and, or, but, the) | -0.5 |
+| `incomplete_code` | Unclosed code block or function | -0.4 |
+| `incomplete_list` | Started list not finished | -0.3 |
+| `empty` | No content | score = 0 |
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `analyze_assistant_only` | bool | True | Only analyze assistant messages |
+| `strict_mode` | bool | False | Require natural endings |
+| `include_truncation_type` | bool | True | Include truncation type |
 
 ---
 
@@ -407,6 +539,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | **Language Detection** | fasttext | fast-langdetect | Fast (~500+ samples/sec) | Multilingual datasets |
 | **Neural Scoring** | ifd | transformers, torch | Slow (~0.5-2 samples/sec GPU) | Instruction quality |
 | **LLM-Based** | llm_judge, evol_complexity, evol_quality | oumi inference | Very Slow (~0.1-0.5 samples/sec) | High-quality evaluation |
+| **"Fixing It in Post"** | instruct_reward, input_quality, conversation_structure, response_completeness | None | Fast (~1000+ samples/sec) | Data curation (Magpie framework) |
 
 ---
 
@@ -415,50 +548,50 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 1. LengthAnalyzer
+
 **File**: `src/oumi/core/analyze/length_analyzer.py`
 **ID**: `length`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `char_count` | bool | False | Count characters |
-| `word_count` | bool | False | Count words |
-| `sentence_count` | bool | False | Count sentences |
-| `token_count` | bool | True | Count tokens (primary) |
-| `tokenizer` | HF tokenizer | None | Custom tokenizer |
+| `token_count` | bool | True | Count tokens |
+| `tokenizer` | HF tokenizer | None | Custom HuggingFace tokenizer |
 | `tiktoken_encoding` | str | "o200k_base" | tiktoken encoding (GPT-4o/GPT-5) |
-| `include_special_tokens` | bool | True | Include special tokens |
+| `include_special_tokens` | bool | True | Include special tokens (HF only) |
 
-**Output Columns:** `{col}_length_char_count`, `{col}_length_word_count`, `{col}_length_sentence_count`, `{col}_length_token_count`
+**Output Columns:** `{col}_length_token_count`
 
 **Dependencies:** tiktoken (optional), transformers (optional)
 
 ---
 
 ### 2. DiversityAnalyzer
+
 **File**: `src/oumi/core/analyze/diversity_analyzer.py`
 **ID**: `diversity`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `unique_words_ratio` | bool | True | Compute TTR |
-| `type_token_ratio` | bool | True | Same as unique_words_ratio |
-| `vocabulary_richness` | bool | True | Root TTR (length-normalized) |
-| `hapax_legomena_ratio` | bool | False | Words appearing only once |
-| `case_sensitive` | bool | False | Case-sensitive comparison |
+| `unique_words_ratio` | bool | True | Compute unique words / total words ratio |
+| `case_sensitive` | bool | False | Case-sensitive word comparison |
 
-**Output Columns:** `{col}_diversity_unique_words_ratio`, `{col}_diversity_type_token_ratio`, `{col}_diversity_vocabulary_richness`, `{col}_diversity_hapax_legomena_ratio`
+**Output Columns:** `{col}_diversity_unique_words_ratio`
 
 **Dependencies:** None
 
 ---
 
 ### 3. FormatAnalyzer
+
 **File**: `src/oumi/core/analyze/format_analyzer.py`
 **ID**: `format`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `detect_markdown` | bool | True | Headers, lists, bold, italic, links |
@@ -477,10 +610,12 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 4. QualityAnalyzer
+
 **File**: `src/oumi/core/analyze/quality_analyzer.py`
 **ID**: `quality`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `detect_pii` | bool | True | Master PII switch |
@@ -488,64 +623,65 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 | `detect_phones` | bool | True | Phone numbers |
 | `detect_ssn` | bool | True | Social Security Numbers |
 | `detect_credit_cards` | bool | True | Credit card numbers |
-| `detect_ip_addresses` | bool | False | IP addresses |
 | `detect_api_keys` | bool | True | API keys and secrets |
+| `detect_language` | bool | False | Language detection (requires langdetect) |
 | `detect_encoding_issues` | bool | True | Mojibake patterns |
-| `detect_special_tokens` | bool | True | LLM special tokens |
 | `detect_repetition` | bool | True | Repetitive content |
 | `repetition_ngram_size` | int | 3 | N-gram size |
 | `repetition_threshold` | float | 0.3 | High repetition threshold |
-| `compute_quality_score` | bool | True | Composite score |
 
-**Output Columns:** `{col}_quality_has_pii`, `{col}_quality_pii_types`, `{col}_quality_pii_count`, `{col}_quality_has_encoding_issues`, `{col}_quality_has_special_tokens`, `{col}_quality_repetition_ratio`, `{col}_quality_has_high_repetition`, `{col}_quality_quality_score`
+**Output Columns:** `{col}_quality_has_pii`, `{col}_quality_pii_types`, `{col}_quality_pii_count`, `{col}_quality_detected_language`, `{col}_quality_language_confidence`, `{col}_quality_has_encoding_issues`, `{col}_quality_repetition_ratio`, `{col}_quality_has_high_repetition`
 
-**Quality Score Deductions:** PII=-0.3, Encoding=-0.2, Special tokens=-0.2, Repetition=-0.3 max
-
-**Dependencies:** langdetect (optional)
+**Dependencies:** langdetect (optional, for language detection)
 
 ---
 
 ### 5. TrainingQualityAnalyzer
+
 **File**: `src/oumi/core/analyze/training_quality_analyzer.py`
 **ID**: `training_quality`
 
+Analyzes assistant response quality for SFT datasets.
+
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `compute_instruction_clarity` | bool | True | Clarity metrics |
 | `compute_response_completeness` | bool | True | Completeness metrics |
-| `compute_turn_quality` | bool | True | Turn quality metrics |
-| `min_instruction_words` | int | 3 | Min instruction length |
-| `max_instruction_words` | int | 500 | Max instruction length |
 | `min_response_words` | int | 5 | Min response length |
 
-**Output Columns:** `{col}_training_quality_instruction_clarity_score`, `{col}_training_quality_has_clear_intent`, `{col}_training_quality_has_specificity`, `{col}_training_quality_response_completeness_score`, `{col}_training_quality_has_proper_ending`, `{col}_training_quality_has_structure`, `{col}_training_quality_turn_quality_score`
+**Output Columns:** `{col}_training_quality_response_completeness_score`, `{col}_training_quality_has_proper_ending`, `{col}_training_quality_has_structure`, `{col}_training_quality_response_word_count`
 
 **Dependencies:** None
 
 ---
 
 ### 6. ContentPatternAnalyzer
+
 **File**: `src/oumi/core/analyze/content_pattern_analyzer.py`
 **ID**: `content_pattern`
 
+Detects AI-specific quality issues in synthetic training data.
+
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `detect_placeholders` | bool | True | `[Name]`, `<your_company>` |
 | `detect_hallucinated_experiences` | bool | True | AI fabricated stories |
 | `detect_nooutput` | bool | True | `<nooutput>`, `N/A` |
 | `detect_refusals` | bool | True | "I cannot provide..." |
-| `detect_suspicious_urls` | bool | False | Hallucinated domains |
+| `placeholder_whitelist` | list | None | Patterns to ignore |
 | `check_output_only` | bool | False | Only assistant messages |
 
-**Output Columns:** `{col}_content_pattern_has_placeholder`, `{col}_content_pattern_placeholder_count`, `{col}_content_pattern_has_hallucinated_experience`, `{col}_content_pattern_has_nooutput`, `{col}_content_pattern_has_refusal`, `{col}_content_pattern_content_pattern_score`
+**Output Columns:** `{col}_content_pattern_has_placeholder`, `{col}_content_pattern_placeholder_count`, `{col}_content_pattern_placeholder_types`, `{col}_content_pattern_has_hallucinated_experience`, `{col}_content_pattern_has_nooutput`, `{col}_content_pattern_has_refusal`
 
 **Dependencies:** None
 
 ---
 
 ### 7. TaskCategoryAnalyzer
+
 **File**: `src/oumi/core/analyze/task_category_analyzer.py`
 **ID**: `task_category`
 
@@ -558,6 +694,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 8. SafetyAnalyzer
+
 **File**: `src/oumi/core/analyze/safety_analyzer.py`
 **ID**: `safety`
 
@@ -570,6 +707,7 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 9. DifficultyAnalyzer
+
 **File**: `src/oumi/core/analyze/difficulty_analyzer.py`
 **ID**: `difficulty`
 
@@ -582,10 +720,12 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 10. CostAnalyzer
+
 **File**: `src/oumi/core/analyze/cost_analyzer.py`
 **ID**: `cost`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `target_context_windows` | list[int] | [2048, 4096, 8192, 16384, 32768] | Context sizes |
@@ -601,10 +741,12 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 11. EmbeddingAnalyzer
+
 **File**: `src/oumi/core/analyze/embedding_analyzer.py`
 **ID**: `embedding`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `model_name` | str | "all-MiniLM-L6-v2" | Sentence-transformers model |
@@ -625,10 +767,12 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 12. QuestionDiversityAnalyzer
+
 **File**: `src/oumi/core/analyze/question_diversity_analyzer.py`
 **ID**: `question_diversity`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `cluster_questions` | bool | True | Enable clustering |
@@ -647,10 +791,12 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 13. ReprDiversityAnalyzer
+
 **File**: `src/oumi/core/analyze/repr_diversity_analyzer.py`
 **ID**: `repr_diversity`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `model_name` | str | "all-MiniLM-L6-v2" | Embedding model |
@@ -665,10 +811,12 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 14. FastTextAnalyzer
+
 **File**: `src/oumi/core/analyze/fasttext_analyzer.py`
 **ID**: `fasttext`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `detect_language` | bool | True | Language detection |
@@ -686,10 +834,12 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 15. IFDAnalyzer
+
 **File**: `src/oumi/core/analyze/ifd_analyzer.py`
 **ID**: `ifd`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `model_name` | str | "Qwen/Qwen3-0.6B" | HuggingFace model |
@@ -707,10 +857,12 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 16. LLMJudgeAnalyzer
+
 **File**: `src/oumi/core/analyze/llm_judge_analyzer.py`
 **ID**: `llm_judge`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `prompt` | str | None | Custom prompt with `{text}` |
@@ -729,15 +881,17 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 ---
 
 ### 17. EvolComplexityAnalyzer
+
 **File**: `src/oumi/core/analyze/evol_complexity_analyzer.py`
 **ID**: `evol_complexity`
 
 **Parameters:**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `model_type` | str | "api" | "api" or "local" |
 | `api_provider` | str | "anthropic" | "openai" or "anthropic" |
-| `api_model` | str | "claude-3-5-haiku-20241022" | API model |
+| `api_model` | str | "claude-4-5-haiku" | API model |
 | `num_evolutions` | int | 3 | Number of evolved variants (1-6) |
 | `analyze_role` | str | "user" | "user", "assistant", "all" |
 | `temperature` | float | 0.7 | Generation temperature |
@@ -748,6 +902,87 @@ DatasetAnalyzer (core/analyze/dataset_analyzer.py)
 
 **Dependencies:** oumi inference engines, LLM API access
 
+---
+
+### 18. InstructRewardAnalyzer
+
+**File**: `src/oumi/core/analyze/instruct_reward_analyzer.py`
+**ID**: `instruct_reward`
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `min_response_words` | int | 10 | Minimum words for quality response |
+| `max_response_words` | int | 2000 | Maximum words before length penalty |
+| `analyze_assistant_only` | bool | True | Only analyze assistant messages |
+| `include_component_scores` | bool | True | Include individual dimension scores |
+
+**Output Columns:** `{col}_instruct_reward_score`, `{col}_instruct_reward_tier`, `{col}_instruct_reward_helpfulness`, `{col}_instruct_reward_completeness`, `{col}_instruct_reward_clarity`
+
+**Reward Tiers:** poor (<2), fair (2-3), good (3-4), excellent (≥4)
+
+**Dependencies:** None
+
+---
+
+### 19. InputQualityAnalyzer
+
+**File**: `src/oumi/core/analyze/input_quality_analyzer.py`
+**ID**: `input_quality`
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `analyze_user_only` | bool | True | Only analyze user messages |
+| `include_component_flags` | bool | True | Include individual quality flags |
+
+**Output Columns:** `{col}_input_quality_tier`, `{col}_input_quality_score`, `{col}_input_quality_is_ambiguous`, `{col}_input_quality_is_answerable`, `{col}_input_quality_has_sufficient_context`
+
+**Quality Tiers:** very_poor (<0.2), poor (0.2-0.4), fair (0.4-0.6), good (0.6-0.8), excellent (≥0.8)
+
+**Dependencies:** None
+
+---
+
+### 20. ConversationStructureAnalyzer
+
+**File**: `src/oumi/core/analyze/conversation_structure_analyzer.py`
+**ID**: `conversation_structure`
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `single_turn_threshold` | int | 2 | Max messages to consider single-turn |
+| `compute_length_stats` | bool | True | Compute length statistics |
+
+**Output Columns:** `conversation_structure_turn_count`, `conversation_structure_user_turn_count`, `conversation_structure_assistant_turn_count`, `conversation_structure_is_single_turn`, `conversation_structure_is_multi_turn`, `conversation_structure_conversation_depth`, `conversation_structure_role_balance`, `conversation_structure_has_system_prompt`, `conversation_structure_avg_turn_length`, `conversation_structure_turn_length_variance`
+
+**Dependencies:** None
+
+---
+
+### 21. ResponseCompletenessAnalyzer
+
+**File**: `src/oumi/core/analyze/response_completeness_analyzer.py`
+**ID**: `response_completeness`
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `analyze_assistant_only` | bool | True | Only analyze assistant messages |
+| `strict_mode` | bool | False | Require natural endings for completeness |
+| `include_truncation_type` | bool | True | Include type of truncation detected |
+
+**Output Columns:** `{col}_response_completeness_is_complete`, `{col}_response_completeness_score`, `{col}_response_completeness_ends_naturally`, `{col}_response_completeness_has_conclusion`, `{col}_response_completeness_truncation_type`
+
+**Truncation Types:** mid_sentence, incomplete_list, incomplete_code, empty
+
+**Dependencies:** None
+
 ## CLI Usage
 
 ```bash
@@ -755,6 +990,7 @@ oumi analyze --config <config_file> [OPTIONS]
 ```
 
 **Options:**
+
 - `--config/-c`: Configuration file path (required)
 - `--output/-o`: Output directory
 - `--format/-f`: Output format: csv, json, parquet
@@ -780,9 +1016,11 @@ oumi analyze --config <config_file> [OPTIONS]
 ---
 
 ### Recommendations Engine
+
 **File**: `src/oumi/core/analyze/recommendations.py` (2634 lines)
 
 **Data Structures:**
+
 ```python
 RecommendationCategory: WARNING | INSIGHT | SUGGESTION
 RecommendationSeverity: HIGH | MEDIUM | LOW
@@ -795,6 +1033,7 @@ class Recommendation:
 ```
 
 **Default Thresholds:**
+
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `outlier_std_threshold` | 3.0 | Standard deviations for outliers |
@@ -804,29 +1043,26 @@ class Recommendation:
 | `short_content_threshold` | 10 words | Short content detection |
 | `language_consistency_threshold` | 90% | Dominant language requirement |
 | `pii_warn_threshold` | 1% | PII prevalence |
-| `quality_score_threshold` | 0.5 | Quality score minimum |
+| `response_completeness_threshold` | 0.5 | Response completeness minimum |
 
-**27 Check Categories:**
+**Check Categories:**
 
 1. **Content Quality**: Outliers (multimodal-aware), duplicates, empty content, short content
 2. **Distribution**: Role distribution, token lengths, conversation length
-3. **Quality Analyzer**: Language consistency, special token leakage, format consistency, PII, quality scores, encoding, repetition
-4. **Training Quality**: Instruction clarity, response completeness, truncated responses
+3. **Quality Analyzer**: Language consistency, format consistency, PII, encoding issues, repetition
+4. **Training Quality**: Response completeness, truncated responses
 5. **AI-Specific**: Placeholders, hallucinated experiences, nooutput markers, refusals
 6. **Diversity**: Instruction diversity, concentrated clusters
 7. **Advanced**: IFD scores, task categories, instruct reward, input quality, conversation structure, safety, difficulty
 
-**Special Token Patterns Detected:**
-- OpenAI: `<|endoftext|>`, `<|im_start|>`, `<|im_end|>`
-- Llama: `[INST]`, `[/INST]`, `<<SYS>>`, `<</SYS>>`
-- Generic: `<s>`, `</s>`, `<|eot_id|>`
-
 ---
 
 ### Health Score Calculator
+
 **File**: `src/oumi/core/analyze/health_score.py` (779 lines)
 
 **Data Structures:**
+
 ```python
 @dataclass
 class HealthScoreComponent:
@@ -839,6 +1075,7 @@ class DatasetHealthScore:
 ```
 
 **Component Weights (sum to 1.0):**
+
 | Component | Weight | Description |
 |-----------|--------|-------------|
 | `training_quality` | 0.25 | Instruction clarity & response completeness |
@@ -850,6 +1087,7 @@ class DatasetHealthScore:
 | `length_distribution` | 0.10 | Token/word length distribution |
 
 **Grade Thresholds:**
+
 | Grade | Range | Label |
 |-------|-------|-------|
 | A | 90-100 | Excellent |
@@ -859,10 +1097,12 @@ class DatasetHealthScore:
 | F | 0-59 | Critical |
 
 **Penalty System:**
+
 - Base penalty: 2.0 points per recommendation
 - High severity penalty: Additional 5.0 points
 
 **Key Scoring Features:**
+
 - **Multimodal-Aware**: Detects bimodal distributions (e.g., short questions + long responses)
 - **Within-Mode CV**: Scores coherence within each mode separately
 - **Separation Bonus**: Rewards clear separation between modes
@@ -870,10 +1110,12 @@ class DatasetHealthScore:
 ---
 
 ### HTML Report Generator
+
 **File**: `src/oumi/core/analyze/report_generator.py` (1465 lines)
 **Template**: `src/oumi/core/analyze/templates/report_template.html.jinja` (1827 lines)
 
 **Initialization Parameters:**
+
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `include_charts` | True | Generate distribution charts |
@@ -886,6 +1128,7 @@ class DatasetHealthScore:
 | `outlier_std_threshold` | 3.0 | Outlier detection threshold |
 
 **Output Structure:**
+
 ```
 output_dir/
 ├── index.html          # Main report (lightweight)
@@ -897,6 +1140,7 @@ output_dir/
 ```
 
 **Visualizations:**
+
 1. **Health Score Ring**: Animated circular progress (0-100) with grade
 2. **Component Breakdown**: Individual scores with color-coded bars
 3. **Distribution Histograms**: With multimodal detection and mode annotations
@@ -906,23 +1150,30 @@ output_dir/
 7. **Quality Score Distribution**: Good vs low quality overlay
 
 **Interactive Features:**
+
 - **Recommendations Modal**: Slide-in panel with full conversation context
 - **Expandable Groups**: Duplicate groups and cluster samples
 - **Lazy Loading**: External JSON files loaded on-demand
 - **Dark Theme**: Sophisticated color palette with accent colors
 
 **Design System:**
+
 - Fonts: Instrument Serif (display), Source Sans 3 (body), JetBrains Mono (code)
 - Colors: Beige accent (#d4a574), Success (#7cb97c), Warning (#e0b854), Danger (#d66a6a)
 - Responsive: Desktop, tablet (900px), mobile breakpoints
 
 ## Recent Additions (Dec 2024)
 
-1. **FastText analyzer** - Fast 176+ language detection
-2. **"Fixing It in Post" analyzers** - Task category, instruction reward, input quality, response completeness, safety, difficulty, conversation structure
+1. **FastText analyzer** - Fast 176+ language detection with script detection
+2. **"Fixing It in Post" analyzers** (Magpie framework):
+   - `instruct_reward` - Response quality scoring (0-5 scale)
+   - `input_quality` - Instruction quality rating (5 tiers)
+   - `response_completeness` - Truncation/incompleteness detection
+   - `conversation_structure` - Single/multi-turn analysis
 3. **DEITA support** - EvolComplexity and EvolQuality analyzers
-4. **Health score system** - Composite quality grading
-5. **Recommendations engine** - Actionable feedback
+4. **Health score system** - Composite quality grading (A-F)
+5. **Recommendations engine** - 27 automated check categories
+6. **Total analyzers**: 22 sample analyzers across 8 categories
 
 ## Key Files
 
@@ -930,6 +1181,7 @@ output_dir/
 - Config: `src/oumi/core/configs/analyze_config.py`
 - Main orchestrator: `src/oumi/core/analyze/dataset_analyzer.py`
 - DataFrame analyzer: `src/oumi/core/analyze/dataframe_analyzer.py`
-- Analyzers: `src/oumi/core/analyze/*.py` (26 files)
+- Analyzers: `src/oumi/core/analyze/*_analyzer.py` (22 analyzer files)
+- Supporting: `src/oumi/core/analyze/{recommendations,health_score,report_generator}.py`
 - Presets: `src/oumi/core/analyze/presets.py`
-- Example configs: `configs/recipes/analyze/` (19 pre-built examples)
+- Example configs: `configs/examples/analyze/` (analysis recipe examples)

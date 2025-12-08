@@ -1,0 +1,166 @@
+# "Fixing It in Post" Dataset Curation Configuration
+#
+# Based on the Magpie framework from "Fixing It in Post: A Recipe for Data Curation"
+# paper which demonstrates systematic data quality analysis for instruction datasets.
+#
+# The Magpie framework evaluates data along multiple dimensions:
+# - Task categorization (distribution of instruction types)
+# - Input quality (instruction clarity, answerability)
+# - Response quality (reward scoring, completeness)
+# - Safety assessment (content safety)
+# - Conversation structure (single vs multi-turn analysis)
+#
+# Key findings from the paper:
+# - Tulu is 95% single-turn vs SmolTalk 70% multi-turn
+# - Task category distribution varies significantly across datasets
+# - Input quality filtering improves downstream model performance
+#
+# Usage:
+#   oumi analyze -c configs/examples/analyze/analyze_fixing_it_in_post.yaml
+#
+# Requirements:
+#   - No external dependencies (all heuristic-based)
+#   - Fast execution (~1000+ samples/sec)
+
+# Dataset configuration
+dataset_name: "tatsu-lab/alpaca"
+split: "train"
+sample_count: 1000  # Start small, increase for full analysis
+
+# Output configuration
+output_path: "./analysis_output/fixing_it_in_post"
+generate_report: true
+report_title: "Fixing It in Post - Data Curation Analysis"
+generate_recommendations: true
+
+analyzers:
+  # ==========================================================================
+  # TASK CATEGORY ANALYZER
+  # Classifies instructions into task types (math, coding, creative, etc.)
+  # Paper insight: Task distribution varies significantly across datasets
+  # ==========================================================================
+  - id: task_category
+    params:
+      min_confidence: 0.3  # Minimum confidence for classification
+      default_category: other
+      analyze_user_only: true  # Only classify user instructions
+
+  # ==========================================================================
+  # INPUT QUALITY ANALYZER
+  # Rates instruction quality from very_poor to excellent
+  # Paper insight: Filtering low-quality inputs improves model performance
+  # ==========================================================================
+  - id: input_quality
+    params:
+      analyze_user_only: true
+      include_component_flags: true  # Include is_ambiguous, is_answerable, etc.
+
+  # ==========================================================================
+  # INSTRUCT REWARD ANALYZER
+  # Scores responses on helpfulness, completeness, clarity, safety (0-5 scale)
+  # Based on ArmoRM reward modeling approach from the paper
+  # ==========================================================================
+  - id: instruct_reward
+    params:
+      min_response_words: 10
+      max_response_words: 2000
+      analyze_assistant_only: true
+      include_component_scores: true  # Include helpfulness, clarity, etc.
+
+  # ==========================================================================
+  # RESPONSE COMPLETENESS ANALYZER
+  # Detects truncated/incomplete responses (common in synthetic data)
+  # Paper insight: Truncation is a major quality issue in generated data
+  # ==========================================================================
+  - id: response_completeness
+    params:
+      analyze_assistant_only: true
+      strict_mode: false  # Set true for stricter completeness checks
+      include_truncation_type: true  # mid_sentence, incomplete_list, etc.
+
+  # ==========================================================================
+  # CONVERSATION STRUCTURE ANALYZER
+  # Analyzes single-turn vs multi-turn patterns
+  # Paper finding: Tulu 95% single-turn vs SmolTalk 70% multi-turn
+  # ==========================================================================
+  - id: conversation_structure
+    params:
+      single_turn_threshold: 2  # Max messages to consider single-turn
+      compute_length_stats: true  # Include avg_turn_length, variance
+
+  # ==========================================================================
+  # SAFETY ANALYZER
+  # Detects potentially harmful content (violence, hate, etc.)
+  # Paper used Llama-Guard; this provides heuristic-based assessment
+  # ==========================================================================
+  - id: safety
+    params:
+      strict_mode: false  # Set true to flag any pattern match
+      include_categories: true  # Include detailed category flags
+
+  # ==========================================================================
+  # DIFFICULTY ANALYZER
+  # Estimates instruction complexity for curriculum learning
+  # ==========================================================================
+  - id: difficulty
+    params:
+      analyze_user_only: true
+      include_component_scores: true  # reasoning_required, domain_knowledge
+
+  # ==========================================================================
+  # SUPPORTING ANALYZERS - Basic quality metrics
+  # ==========================================================================
+  - id: length
+    params:
+      token_count: true
+
+  - id: diversity
+    params:
+      unique_words_ratio: true
+
+  - id: quality
+    params:
+      detect_pii: true
+      detect_encoding_issues: true
+      detect_repetition: true
+      repetition_threshold: 0.3
+
+  - id: content_pattern
+    params:
+      detect_placeholders: true
+      detect_hallucinated_experiences: true
+      detect_nooutput: true
+      detect_refusals: true
+
+# ==========================================================================
+# FILTERING RECOMMENDATIONS (based on paper)
+# ==========================================================================
+# After running analysis, consider filtering samples with:
+#
+# 1. Input quality:
+#    - input_quality_tier in ['very_poor', 'poor']
+#    - is_ambiguous = true
+#    - is_answerable = false
+#
+# 2. Response quality:
+#    - instruct_reward_tier = 'poor'
+#    - instruct_reward_score < 2.0
+#    - is_complete = false
+#    - truncation_type != null
+#
+# 3. Safety:
+#    - is_safe = false
+#    - risk_level in ['medium', 'high']
+#
+# 4. Content issues:
+#    - has_placeholder = true
+#    - has_nooutput = true
+#    - has_refusal = true
+#
+# Example pandas filtering:
+#   df_clean = df[
+#       (df['input_quality_tier'].isin(['fair', 'good', 'excellent'])) &
+#       (df['instruct_reward_score'] >= 2.0) &
+#       (df['is_complete'] == True) &
+#       (df['is_safe'] == True)
+#   ]

@@ -32,7 +32,7 @@ class TestEvolQualityAnalyzerInit:
         analyzer = EvolQualityAnalyzer()
         assert analyzer.model_type == "api"
         assert analyzer.api_provider == "anthropic"
-        assert analyzer.api_model == "claude-3-5-haiku-20241022"
+        assert analyzer.api_model == "claude-4-5-haiku"
         assert analyzer.num_evolutions == 3
         assert analyzer.analyze_role == "assistant"
 
@@ -94,7 +94,9 @@ class TestEvolQualityAnalyzerWithMocks:
     @pytest.fixture
     def mock_llm_response(self):
         """Create mock LLM responses."""
-        evolution_response = '["Improved version 1", "Better version 2", "Best version"]'
+        evolution_response = (
+            '["Improved version 1", "Better version 2", "Best version"]'
+        )
         ranking_response = '{"A": 2, "B": 1, "C": 3, "D": 4}'
         return evolution_response, ranking_response
 
@@ -359,9 +361,7 @@ class TestEvolQualityAnalyzerEdgeCases:
             }
         )
 
-        with patch.object(
-            analyzer, "_call_llm", side_effect=mock_call_llm_with_error
-        ):
+        with patch.object(analyzer, "_call_llm", side_effect=mock_call_llm_with_error):
             result_df = analyzer.analyze_sample(df, sample_schema)
 
         # Should handle error gracefully with default values
