@@ -23,6 +23,7 @@ This report analyzes the current state of SFT (Supervised Fine-Tuning) dataset q
 ### Implemented Recommendations Engine
 
 The `RecommendationsEngine` (in `src/oumi/core/analyze/recommendations.py`) checks for:
+
 - Outliers (values > N standard deviations from mean)
 - Exact duplicates (excluding system prompts)
 - Empty/near-empty content (≤5 characters)
@@ -41,6 +42,7 @@ The `RecommendationsEngine` (in `src/oumi/core/analyze/recommendations.py`) chec
 ### Health Score Components
 
 The `HealthScoreCalculator` (in `src/oumi/core/analyze/health_score.py`) computes scores across:
+
 - Diversity
 - Balance
 - Quality
@@ -53,6 +55,7 @@ The `HealthScoreCalculator` (in `src/oumi/core/analyze/health_score.py`) compute
 Based on research and the current implementation, these are the key problems that can degrade SFT effectiveness:
 
 ### Size & Length Issues
+
 | Problem | Impact | Detection |
 |---------|--------|-----------|
 | Dataset too small | Insufficient learning signal | ⚠️ Not detected |
@@ -61,6 +64,7 @@ Based on research and the current implementation, these are the key problems tha
 | Very short content | Limited learning signal | ✅ Detected |
 
 ### Diversity & Repetition Issues
+
 | Problem | Impact | Detection |
 |---------|--------|-----------|
 | Exact duplicates | Overfitting, wasted compute | ✅ Detected |
@@ -70,6 +74,7 @@ Based on research and the current implementation, these are the key problems tha
 | Topic/domain imbalance | Capability gaps | ⚠️ Not detected |
 
 ### Distribution & Balance Issues
+
 | Problem | Impact | Detection |
 |---------|--------|-----------|
 | Role imbalance | Biased learning | ✅ Detected |
@@ -78,6 +83,7 @@ Based on research and the current implementation, these are the key problems tha
 | Task type imbalance | Capability gaps | ⚠️ Not detected |
 
 ### Data Quality Issues
+
 | Problem | Impact | Detection |
 |---------|--------|-----------|
 | PII leakage | Privacy/legal risks, memorization | ✅ Detected |
@@ -88,6 +94,7 @@ Based on research and the current implementation, these are the key problems tha
 | Instruction-response misalignment | Incorrect associations | ⚠️ Not detected |
 
 ### Language Issues
+
 | Problem | Impact | Detection |
 |---------|--------|-----------|
 | Unintended mixed languages | Inconsistent behavior | ✅ Detected |
@@ -98,6 +105,7 @@ Based on research and the current implementation, these are the key problems tha
 ## Part 3: Frontier Lab Techniques (2024-2025)
 
 ### Meta - Llama 3
+
 **Source:** [Technical Report](https://arxiv.org/pdf/2407.21783)
 
 | Technique | Description | In oumi? |
@@ -110,6 +118,7 @@ Based on research and the current implementation, these are the key problems tha
 | Synthetic Data Cleaning | Remove excessive emojis, exclamation points | ❌ No |
 
 ### DeepSeek - V3/R1
+
 **Source:** [Technical Report](https://arxiv.org/html/2412.19437v1)
 
 | Technique | Description | In oumi? |
@@ -121,6 +130,7 @@ Based on research and the current implementation, these are the key problems tha
 | Generative Reward Model | Score reasoning quality | ❌ No |
 
 ### Alibaba - Qwen 2.5
+
 **Source:** [Technical Report](https://arxiv.org/pdf/2412.15115)
 
 | Technique | Description | In oumi? |
@@ -132,6 +142,7 @@ Based on research and the current implementation, these are the key problems tha
 | Two-stage SFT | Short first, then mixed | N/A (workflow) |
 
 ### Microsoft - Phi-4
+
 **Source:** [Technical Report](https://arxiv.org/html/2412.08905v1)
 
 | Technique | Description | In oumi? |
@@ -144,6 +155,7 @@ Based on research and the current implementation, these are the key problems tha
 | Quality Principles | Diversity, Nuance, Accuracy, CoT | ❌ Partial |
 
 ### Allen AI - OLMo 2 / Tulu 3
+
 **Source:** [Blog](https://allenai.org/blog/olmo2), [Paper](https://arxiv.org/pdf/2411.15124)
 
 | Technique | Description | In oumi? |
@@ -155,6 +167,7 @@ Based on research and the current implementation, these are the key problems tha
 | Prompt Diversity Analysis | Millions of prompts as starting point | ❌ No |
 
 ### Zhipu AI - GLM-4
+
 **Source:** [Paper](https://arxiv.org/html/2406.12793v1)
 
 | Technique | Description | In oumi? |
@@ -170,6 +183,7 @@ Based on research and the current implementation, these are the key problems tha
 ### Key Papers and Techniques
 
 #### IFD (Instruction-Following Difficulty)
+
 **Source:** [Cherry LLM](https://github.com/tianyi-lab/Cherry_LLM), [Superfiltering](https://arxiv.org/html/2402.00530v1)
 
 ```
@@ -178,14 +192,16 @@ IFD = PPL(response | no instruction) / PPL(response | with instruction)
 
 - Higher IFD = instruction provides more guidance = more valuable sample
 - 5-10% of data selected via IFD matches full-data performance
-- Weak models (GPT-2) can filter for strong models (LLaMA-7B)
+- Weak models (Qwen3-0.6b) can filter for strong models
 
 **Status in oumi:** ❌ Not implemented
 
 #### DEITA (Data-Efficient Instruction Tuning)
+
 **Source:** [ICLR 2024](https://arxiv.org/abs/2312.15685)
 
 Three dimensions:
+
 1. **EVOL Complexity** - Instruction difficulty scoring
 2. **EVOL Quality** - Response quality assessment
 3. **Repr Filter** - Embedding-based diversity selection
@@ -197,6 +213,7 @@ Combined score: `complexity × quality`
 **Status in oumi:** ❌ Not implemented
 
 #### AlpaGasus
+
 **Source:** [ICLR 2024](https://arxiv.org/abs/2307.08701v5)
 
 - ChatGPT scores each sample 0-5 on helpfulness/accuracy
@@ -207,9 +224,11 @@ Combined score: `complexity × quality`
 **Status in oumi:** ❌ Not implemented
 
 #### LIMA (Less Is More for Alignment)
+
 **Source:** [NeurIPS 2023](https://arxiv.org/abs/2305.11206)
 
 Key findings:
+
 - 1,000 carefully curated samples sufficient for alignment
 - Diversity matters more than quantity
 - Quality has 0.5 point impact vs. filtering
@@ -218,9 +237,11 @@ Key findings:
 **Status in oumi:** Diversity partially covered, quality scoring not implemented
 
 #### HelpSteer Family
+
 **Source:** [NAACL 2024](https://aclanthology.org/2024.naacl-long.185.pdf)
 
 Multi-attribute scoring:
+
 - Helpfulness
 - Correctness
 - Coherence
@@ -230,6 +251,7 @@ Multi-attribute scoring:
 **Status in oumi:** ❌ Not implemented
 
 #### ArmoRM (Reward Model Scoring)
+
 **Source:** [RLHFlow](https://rlhflow.github.io/posts/2024-05-29-multi-objective-reward-modeling/)
 
 - Multi-objective reward modeling
@@ -239,6 +261,7 @@ Multi-attribute scoring:
 **Status in oumi:** ❌ Not implemented
 
 #### 2025 Findings
+
 **Source:** [NAACL 2025](https://aclanthology.org/2025.naacl-long.336.pdf), [Post-Training Study](https://arxiv.org/html/2506.06522v2)
 
 - Perplexity is most reliable predictor of downstream improvement
@@ -284,6 +307,7 @@ Multi-attribute scoring:
 ## Part 6: Proposed New Analyzers
 
 ### 1. LLM Judge Analyzer (High Priority)
+
 ```yaml
 - id: llm_judge
   params:
@@ -297,6 +321,7 @@ Multi-attribute scoring:
 ```
 
 **Metrics:**
+
 - `helpfulness_score` (0-5)
 - `correctness_score` (0-5)
 - `coherence_score` (0-5)
@@ -304,6 +329,7 @@ Multi-attribute scoring:
 - `passes_threshold` (bool)
 
 ### 2. Instruction Complexity Analyzer (High Priority)
+
 ```yaml
 - id: complexity
   params:
@@ -312,12 +338,14 @@ Multi-attribute scoring:
 ```
 
 **Metrics:**
+
 - `instruction_complexity_score` (0-10)
 - `task_type` (qa, reasoning, coding, creative, math, summarization)
 - `requires_multi_step` (bool)
 - `requires_external_knowledge` (bool)
 
 ### 3. Difficulty Analyzer (High Priority)
+
 ```yaml
 - id: difficulty
   params:
@@ -327,11 +355,13 @@ Multi-attribute scoring:
 ```
 
 **Metrics:**
+
 - `perplexity` (float)
 - `ifd_score` (float) - Instruction-Following Difficulty
 - `difficulty_bucket` (easy, medium, hard)
 
 ### 4. Combined Quality Score Analyzer
+
 ```yaml
 - id: combined_score
   params:
@@ -341,11 +371,13 @@ Multi-attribute scoring:
 ```
 
 **Metrics:**
+
 - `combined_score` = quality × complexity × difficulty
 - `selection_rank` (1 to N)
 - `top_k_percentile` (bool)
 
 ### 5. Task Classifier Analyzer (Medium Priority)
+
 ```yaml
 - id: task_classifier
   params:
@@ -361,11 +393,13 @@ Multi-attribute scoring:
 ```
 
 **Metrics:**
+
 - `task_type` (string)
 - `task_confidence` (0-1)
 - `domain` (string)
 
 ### 6. Code Quality Analyzer (Medium Priority)
+
 ```yaml
 - id: code_quality
   params:
@@ -375,12 +409,14 @@ Multi-attribute scoring:
 ```
 
 **Metrics:**
+
 - `has_code` (bool)
 - `code_language` (string)
 - `syntax_valid` (bool)
 - `execution_success` (bool, optional)
 
 ### 7. Instruction-Response Alignment Analyzer
+
 ```yaml
 - id: alignment
   params:
@@ -389,6 +425,7 @@ Multi-attribute scoring:
 ```
 
 **Metrics:**
+
 - `alignment_score` (0-1) - semantic similarity
 - `response_addresses_instruction` (bool)
 - `is_non_sequitur` (bool)
@@ -398,21 +435,25 @@ Multi-attribute scoring:
 ## Part 7: Implementation Priorities
 
 ### Phase 1: Foundation (Highest Impact)
+
 1. **LLM Judge Analyzer** - Most requested, highest ROI
 2. **Task Classifier** - Enables domain analysis
 3. **Instruction Complexity** - Part of quality × complexity scoring
 
 ### Phase 2: Advanced Metrics
+
 4. **Difficulty/IFD Analyzer** - Research-backed effectiveness
 5. **Combined Score Calculator** - Ties everything together
 6. **Instruction-Response Alignment** - Catches mismatches
 
 ### Phase 3: Domain-Specific
+
 7. **Code Quality Analyzer** - For coding datasets
 8. **Chain-of-Thought Analyzer** - For reasoning datasets
 9. **Math Validator** - For math datasets
 
 ### Phase 4: Advanced
+
 10. **Reward Model Integration** - ArmoRM or similar
 11. **Synthetic Data Cleaner** - For synthetic pipelines
 
@@ -421,6 +462,7 @@ Multi-attribute scoring:
 ## Part 8: Key Takeaways
 
 ### Research Consensus
+
 1. **Quality > Quantity** - 1k-10k high-quality samples often sufficient
 2. **Diversity matters** - Topic/task diversity as important as volume
 3. **Quality × Difficulty** - Neither alone is optimal
@@ -428,6 +470,7 @@ Multi-attribute scoring:
 5. **Model-based scoring** - LLM judges are effective and scalable
 
 ### What Frontier Labs Do That We Don't
+
 1. Score every sample with LLM judge or reward model
 2. Compute instruction complexity
 3. Use difficulty/IFD metrics
@@ -435,6 +478,7 @@ Multi-attribute scoring:
 5. Apply domain-specific quality checks
 
 ### Recommended Next Steps
+
 1. Implement LLM Judge Analyzer (biggest gap)
 2. Add task/domain classification
 3. Implement complexity scoring
@@ -446,6 +490,7 @@ Multi-attribute scoring:
 ## References
 
 ### Frontier Model Reports
+
 - [Llama 3 Technical Report](https://arxiv.org/pdf/2407.21783) (Meta, 2024)
 - [DeepSeek-V3 Technical Report](https://arxiv.org/html/2412.19437v1) (DeepSeek, 2024)
 - [Qwen 2.5 Technical Report](https://arxiv.org/pdf/2412.15115) (Alibaba, 2024)
@@ -455,6 +500,7 @@ Multi-attribute scoring:
 - [GLM-4 Paper](https://arxiv.org/html/2406.12793v1) (Zhipu AI, 2024)
 
 ### Academic Papers
+
 - [LIMA: Less Is More for Alignment](https://arxiv.org/abs/2305.11206) (NeurIPS 2023)
 - [AlpaGasus: Training A Better Alpaca with Fewer Data](https://arxiv.org/abs/2307.08701v5) (ICLR 2024)
 - [DEITA: What Makes Good Data for Alignment?](https://arxiv.org/abs/2312.15685) (ICLR 2024)
@@ -491,16 +537,19 @@ pip install langdetect
 **Purpose:** Measures text length in characters, words, sentences, and tokens.
 
 **When to use:**
+
 - Check if samples exceed context window limits
 - Identify empty or very short samples
 - Understand token distribution for training cost estimation
 
 **Command:**
+
 ```bash
 oumi analyze --config configs/examples/analyze/analyze.yaml
 ```
 
 **Minimal Config (`length_analysis.yaml`):**
+
 ```yaml
 dataset_name: yahma/alpaca-cleaned
 split: train
@@ -519,6 +568,7 @@ analyzers:
 ```
 
 **Using a Custom Tokenizer:**
+
 ```yaml
 dataset_name: yahma/alpaca-cleaned
 split: train
@@ -536,6 +586,7 @@ analyzers:
 ```
 
 **Expected Output:**
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      Dataset Overview                       │
@@ -560,6 +611,7 @@ Saved analysis summary to: ./analysis_output/analysis_summary.json
 ```
 
 **Output Files:**
+
 - `message_analysis.csv` - Per-message metrics with columns like `text_content_length_token_count`
 - `conversation_analysis.csv` - Aggregated per-conversation
 - `analysis_summary.json` - Statistics (mean, std, min, max, median)
@@ -571,16 +623,19 @@ Saved analysis summary to: ./analysis_output/analysis_summary.json
 **Purpose:** Measures vocabulary richness and text diversity.
 
 **When to use:**
+
 - Detect repetitive or templated responses
 - Assess vocabulary complexity
 - Identify low-diversity samples that may cause overfitting
 
 **Command:**
+
 ```bash
 oumi analyze --config configs/examples/analyze/analyze_diversity.yaml
 ```
 
 **Config (`analyze_diversity.yaml`):**
+
 ```yaml
 dataset_name: yahma/alpaca-cleaned
 split: train
@@ -605,6 +660,7 @@ analyzers:
 ```
 
 **Metrics Explained:**
+
 | Metric | Formula | Interpretation |
 |--------|---------|----------------|
 | `unique_words_ratio` | unique/total words | 0.5 = 50% unique words |
@@ -613,6 +669,7 @@ analyzers:
 | `hapax_legomena_ratio` | once-words/unique | High = many rare words |
 
 **Expected Output:**
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                     Analysis Metrics                         │
@@ -632,16 +689,19 @@ analyzers:
 **Purpose:** Detects structured content (markdown, code blocks, JSON, URLs).
 
 **When to use:**
+
 - Analyze coding datasets for language distribution
 - Detect markdown formatting patterns
 - Identify samples with URLs or structured data
 
 **Command:**
+
 ```bash
 oumi analyze --config configs/examples/analyze/analyze_format.yaml
 ```
 
 **Config (`analyze_format.yaml`):**
+
 ```yaml
 dataset_name: yahma/alpaca-cleaned
 split: train
@@ -664,6 +724,7 @@ analyzers:
 ```
 
 **Metrics Produced:**
+
 - `has_markdown` (bool) - Contains markdown formatting
 - `has_json` (bool) - Contains JSON content
 - `has_code_blocks` (bool) - Contains fenced code blocks
@@ -672,6 +733,7 @@ analyzers:
 - `format_complexity_score` (0-1) - Composite complexity
 
 **Expected Output:**
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                     Analysis Metrics                         │
@@ -692,17 +754,20 @@ analyzers:
 **Purpose:** Detects PII, encoding issues, special token leakage, and repetitive content.
 
 **When to use:**
+
 - **Before training:** Check for PII that could be memorized
 - **Data cleaning:** Find encoding issues (mojibake)
 - **Safety:** Detect leaked special tokens that interfere with training
 - **Quality:** Identify highly repetitive samples
 
 **Command:**
+
 ```bash
 oumi analyze --config configs/examples/analyze/analyze_quality.yaml
 ```
 
 **Config (`analyze_quality.yaml`):**
+
 ```yaml
 dataset_name: yahma/alpaca-cleaned
 split: train
@@ -746,6 +811,7 @@ analyzers:
 ```
 
 **Metrics Produced:**
+
 | Metric | Type | Description |
 |--------|------|-------------|
 | `has_pii` | bool | Any PII detected |
@@ -759,6 +825,7 @@ analyzers:
 | `detected_language` | string | ISO code (en, fr, etc.) |
 
 **Expected Recommendations:**
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                   Recommendations (3)                        │
@@ -782,21 +849,25 @@ analyzers:
 **Purpose:** Semantic analysis using sentence embeddings for duplicate detection and clustering.
 
 **When to use:**
+
 - Find near-duplicate samples with different wording
 - Cluster similar conversations
 - Identify semantic repetition that exact-match dedup misses
 
 **Prerequisites:**
+
 ```bash
 pip install "oumi[analyze_advanced]"  # Installs sentence-transformers
 ```
 
 **Command:**
+
 ```bash
 oumi analyze --config configs/examples/analyze/analyze_embedding.yaml
 ```
 
 **Config (`analyze_embedding.yaml`):**
+
 ```yaml
 dataset_name: yahma/alpaca-cleaned
 split: train
@@ -834,6 +905,7 @@ analyzers:
 ```
 
 **Metrics Produced:**
+
 | Metric | Type | Description |
 |--------|------|-------------|
 | `embedding_duplicate_group` | int | Group ID (-1 = no duplicate) |
@@ -841,6 +913,7 @@ analyzers:
 | `embedding_cluster` | int | Cluster label (if enabled) |
 
 **Expected Output:**
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                     Analysis Metrics                         │
@@ -868,11 +941,13 @@ analyzers:
 **Purpose:** Run all analyzers for complete dataset health assessment.
 
 **Command:**
+
 ```bash
 oumi analyze --config configs/examples/analyze/analyze_comprehensive.yaml --report
 ```
 
 **Config (`analyze_comprehensive.yaml`):**
+
 ```yaml
 dataset_name: yahma/alpaca-cleaned
 split: train
@@ -932,6 +1007,7 @@ analyzers:
 ```
 
 **Output Files:**
+
 ```
 ./analysis_output/comprehensive/
 ├── message_analysis.csv           # Per-message metrics (all analyzers)
@@ -945,6 +1021,7 @@ analyzers:
 ### 7. Using Local Files
 
 **For JSONL files in Oumi format:**
+
 ```yaml
 dataset_path: /path/to/your/data.jsonl
 output_path: ./analysis_output
@@ -956,6 +1033,7 @@ analyzers:
 ```
 
 **Oumi format example (`data.jsonl`):**
+
 ```json
 {"messages": [{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi there!"}]}
 {"messages": [{"role": "user", "content": "What is 2+2?"}, {"role": "assistant", "content": "4"}]}
@@ -1006,6 +1084,7 @@ The health score (in `analysis_summary.json`) provides an overall grade:
 | **F** | 0-59 | Failing - Major problems |
 
 **Components:**
+
 - **Diversity** - Vocabulary richness across samples
 - **Balance** - Role distribution, conversation lengths
 - **Quality** - PII, encoding, special tokens
@@ -1016,6 +1095,7 @@ The health score (in `analysis_summary.json`) provides an overall grade:
 ### 10. Common Workflows
 
 #### Pre-training Data Audit
+
 ```bash
 # Quick quality check
 oumi analyze -c configs/examples/analyze/analyze_quality.yaml \
@@ -1023,6 +1103,7 @@ oumi analyze -c configs/examples/analyze/analyze_quality.yaml \
 ```
 
 #### Find Duplicates Before Training
+
 ```bash
 # Semantic deduplication analysis
 oumi analyze -c configs/examples/analyze/analyze_embedding.yaml \
@@ -1030,6 +1111,7 @@ oumi analyze -c configs/examples/analyze/analyze_embedding.yaml \
 ```
 
 #### Full Health Check
+
 ```bash
 # Comprehensive analysis with report
 oumi analyze -c configs/examples/analyze/analyze_comprehensive.yaml \
@@ -1037,6 +1119,7 @@ oumi analyze -c configs/examples/analyze/analyze_comprehensive.yaml \
 ```
 
 #### Analyze Local File
+
 ```bash
 oumi analyze -c configs/examples/analyze/analyze.yaml \
   --dataset_path /path/to/data.jsonl --output ./results
