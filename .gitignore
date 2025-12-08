@@ -1,3 +1,5 @@
+analysis_output/
+
 # Local experiments
 tmp/
 wandb/
