@@ -1,9 +1,10 @@
-# Duplicate Detection Analysis Configuration
+# Comprehensive Alpaca Dataset Analysis Configuration
 # Usage: oumi analyze --config configs/examples/analyze/analyze_dedup.yaml
 #
-# This configuration runs comprehensive duplicate detection on the full
-# alpaca dataset using both semantic (embedding-based) and fuzzy (MinHash)
-# duplicate detection methods.
+# This configuration runs comprehensive analysis on the alpaca dataset including:
+# - Duplicate detection (semantic + fuzzy MinHash)
+# - Content pattern detection (placeholders, hallucinations, refusals)
+# - Quality and training effectiveness metrics
 #
 # Requirements:
 #   pip install 'oumi[analyze]'  # Includes sentence-transformers, datasketch
@@ -69,6 +70,19 @@ analyzers:
 
       # Don't store embeddings (saves memory)
       store_embeddings: false
+
+  # ==========================================================================
+  # CONTENT PATTERN ANALYZER - AI-specific quality issues
+  # ==========================================================================
+  # Detects placeholders, hallucinated experiences, nooutput markers, refusals
+  - id: content_pattern
+    params:
+      detect_placeholders: true
+      detect_hallucinated_experiences: true
+      detect_nooutput: true
+      detect_refusals: true
+      detect_suspicious_urls: true
+      compute_content_pattern_score: true
 
   # ==========================================================================
   # LENGTH ANALYZER - Token counts for context analysis

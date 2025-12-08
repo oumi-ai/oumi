@@ -1,88 +1,279 @@
 # Comprehensive Dataset Analysis Configuration
-# This configuration runs ALL analyzers for a complete dataset health assessment.
+# This config includes ALL available analyzers. Uncomment what you need.
 #
-# Includes:
-# - Length metrics (chars, words, sentences, tokens)
-# - Diversity metrics (vocabulary richness)
-# - Format detection (markdown, code, JSON)
-# - Quality/Safety checks (PII, encoding, special tokens)
+# Usage: oumi analyze --config configs/examples/analyze/analyze_comprehensive.yaml
 #
-# The health score provides an overall grade (A-F) based on all metrics.
+# Quick start:
+#   1. Set your dataset_name or dataset_path below
+#   2. Uncomment the analyzers you want to run
+#   3. Run: oumi analyze --config configs/examples/analyze/analyze_comprehensive.yaml
 #
-# Usage:
-#   oumi analyze --config configs/examples/analyze/analyze_comprehensive.yaml
+# For programmatic presets: from oumi.core.analyze.presets import get_preset
+#   - get_preset("sft_quality"): Length, diversity, format, quality
+#   - get_preset("sft_comprehensive"): Above + training_quality + cost
+#   - get_preset("sft_fast"): Fast heuristic-only analysis
+#
+# Output files:
+#   - message_analysis.csv: Per-message metrics
+#   - conversation_analysis.csv: Per-conversation aggregated metrics
+#   - analysis_summary.json: Statistical summary with recommendations
+#   - analysis_report.html: Interactive HTML report (if generate_report: true)
 
-# Dataset configuration
-dataset_name: "yahma/alpaca-cleaned"
-split: "train"
+# =============================================================================
+# DATASET CONFIGURATION
+# =============================================================================
+dataset_name: yahma/alpaca-cleaned
+split: train
 sample_count: 1000
 
-# Tokenizer for accurate token counting
-tokenizer_name: "meta-llama/Llama-3.1-8B-Instruct"
+# Or use a local file (takes precedence over dataset_name):
+# dataset_path: ./my_dataset.jsonl
 
-# Output configuration
-output_path: "./analysis_output/comprehensive"
+# Tokenizer for accurate token counting (optional, uses tiktoken by default)
+# tokenizer_name: meta-llama/Llama-3.1-8B-Instruct
 
-# Recommendation settings
+# For multimodal datasets, specify a processor:
+# processor_name: llava-hf/llava-1.5-7b-hf
+
+# =============================================================================
+# OUTPUT CONFIGURATION
+# =============================================================================
+output_path: ./analysis_output
+generate_report: true
+report_title: "Dataset Analysis Report"
 generate_recommendations: true
 outlier_threshold: 3.0
 
-# Report generation - full HTML report with all visualizations
-generate_report: true
-report_title: "Comprehensive Dataset Health Report"
-
-# All analyzers enabled
+# =============================================================================
+# ANALYZERS - Uncomment sections you need
+# =============================================================================
 analyzers:
-  # 1. Length Analysis (uses tiktoken o200k_base by default, or tokenizer_name if set)
-  - id: "length"
+
+  # ---------------------------------------------------------------------------
+  # LENGTH ANALYZER - Token/word/char counts
+  # ---------------------------------------------------------------------------
+  - id: length
     params:
       char_count: false
-      word_count: false
+      word_count: true
       sentence_count: false
-      token_count: true  # Uses tiktoken o200k_base by default, or tokenizer_name above
+      token_count: true  # Uses tiktoken o200k_base by default
       # tiktoken_encoding: o200k_base  # GPT-4o/GPT-5 encoding (default)
-      # tiktoken_encoding: null  # Set to null to use tokenizer_name instead
+      # tiktoken_encoding: cl100k_base  # GPT-4/GPT-3.5-turbo encoding
+      # tiktoken_encoding: null  # Disable tiktoken, use tokenizer_name instead
 
-  # 2. Diversity Analysis
-  - id: "diversity"
+  # ---------------------------------------------------------------------------
+  # DIVERSITY ANALYZER - Vocabulary richness metrics
+  # ---------------------------------------------------------------------------
+  - id: diversity
     params:
       unique_words_ratio: true
       type_token_ratio: true
       vocabulary_richness: true
-      hapax_legomena_ratio: true  # Words appearing only once
+      hapax_legomena_ratio: false  # Words appearing only once
       case_sensitive: false
 
-  # 3. Format Analysis
-  - id: "format"
+  # ---------------------------------------------------------------------------
+  # FORMAT ANALYZER - Structured content detection
+  # ---------------------------------------------------------------------------
+  - id: format
     params:
       detect_markdown: true
       detect_json: true
       detect_code_blocks: true
       detect_urls: true
-      detect_emails: true
+      detect_emails: false
       compute_complexity: true
 
-  # 4. Quality Analysis
-  - id: "quality"
+  # ---------------------------------------------------------------------------
+  # QUALITY ANALYZER - PII, encoding issues, special tokens, repetition
+  # ---------------------------------------------------------------------------
+  - id: quality
     params:
-      # PII Detection
       detect_pii: true
       detect_emails: true
       detect_phones: true
       detect_ssn: true
       detect_credit_cards: true
-      detect_ip_addresses: true
+      detect_ip_addresses: false
       detect_api_keys: true
-
-      # Content Quality
       detect_encoding_issues: true
       detect_special_tokens: true
       detect_repetition: true
       repetition_ngram_size: 3
       repetition_threshold: 0.3
-
-      # Language (install langdetect for this)
-      detect_language: false
-
-      # Composite Score
       compute_quality_score: true
+
+  # ---------------------------------------------------------------------------
+  # TRAINING QUALITY ANALYZER - SFT effectiveness metrics
+  # Uncomment for instruction tuning datasets
+  # ---------------------------------------------------------------------------
+  # - id: training_quality
+  #   params:
+  #     compute_instruction_clarity: true
+  #     compute_response_completeness: true
+  #     compute_turn_quality: true
+  #     min_instruction_words: 3
+  #     max_instruction_words: 500
+  #     min_response_words: 5
+
+  # ---------------------------------------------------------------------------
+  # COST ANALYZER - Context window utilization
+  # Uncomment for training cost estimation
+  # ---------------------------------------------------------------------------
+  # - id: cost
+  #   params:
+  #     target_context_windows: [4096, 8192, 16384, 32768]
+  #     compute_packing_efficiency: true
+  #     packing_overhead_tokens: 10
+
+  # ---------------------------------------------------------------------------
+  # CONTENT PATTERN ANALYZER - AI-specific quality issues
+  # Detects placeholders, hallucinated experiences, refusals, nooutput markers
+  # Uncomment for AI-generated dataset quality checks
+  # ---------------------------------------------------------------------------
+  # - id: content_pattern
+  #   params:
+  #     detect_placeholders: true        # [Name], [Company], etc.
+  #     detect_hallucinated_experiences: true  # Fabricated first-person stories
+  #     detect_nooutput: true            # <nooutput>, N/A, etc.
+  #     detect_refusals: true            # "I cannot provide..."
+  #     detect_suspicious_urls: false    # Potentially fake URLs
+  #     check_output_only: false         # Only check assistant messages
+  #     compute_content_pattern_score: true
+
+  # ---------------------------------------------------------------------------
+  # EMBEDDING ANALYZER - Semantic duplicate detection and clustering
+  # Requires: pip install 'oumi[analyze_advanced]'
+  # ---------------------------------------------------------------------------
+  # - id: embedding
+  #   params:
+  #     model_name: all-MiniLM-L6-v2  # Fast, 384 dims
+  #     # model_name: all-mpnet-base-v2  # Higher quality, 768 dims
+  #     detect_duplicates: true
+  #     duplicate_threshold: 0.95  # Cosine similarity (0.9-0.99)
+  #     detect_fuzzy_duplicates: true  # MinHash LSH (fast)
+  #     fuzzy_threshold: 0.8
+  #     fuzzy_ngram_size: 3
+  #     cluster_samples: false
+  #     clustering_method: dbscan
+  #     batch_size: 32
+  #     store_embeddings: false
+
+  # ---------------------------------------------------------------------------
+  # QUESTION DIVERSITY ANALYZER - Cluster-based question distribution
+  # Measures if user questions are too similar to each other
+  # Requires: pip install 'oumi[analyze_advanced]'
+  # ---------------------------------------------------------------------------
+  # - id: question_diversity
+  #   params:
+  #     cluster_questions: true
+  #     clustering_method: dbscan
+  #     eps: 0.15  # ~99% cosine similarity
+  #     min_samples: 2
+  #     model_name: all-MiniLM-L6-v2
+  #     batch_size: 32
+  #     compute_entropy: true
+  #     compute_concentration: true
+  #     flag_concentrated_clusters: true
+  #     concentration_threshold: 0.5
+
+  # ---------------------------------------------------------------------------
+  # FASTTEXT ANALYZER - Language detection (176+ languages)
+  # 80x faster than langdetect, works offline
+  # Requires: pip install 'oumi[analyze]'
+  # ---------------------------------------------------------------------------
+  # - id: fasttext
+  #   params:
+  #     detect_language: true
+  #     detect_script: true  # latin, cyrillic, cjk, etc.
+  #     detect_multilingual: true
+  #     min_confidence: 0.0
+  #     low_confidence_threshold: 0.5
+
+  # ---------------------------------------------------------------------------
+  # LLM JUDGE ANALYZER - LLM-based sample evaluation
+  # Requires: API key (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
+  # ---------------------------------------------------------------------------
+  # - id: llm_judge
+  #   params:
+  #     prompt: |
+  #       Evaluate the following text for quality as training data.
+  #       Consider: coherence, helpfulness, safety, factual accuracy.
+  #
+  #       Text: {text}
+  #
+  #       Respond with JSON: {"score": 0-10, "label": "excellent|good|average|poor", "reasoning": "..."}
+  #     inference_config:
+  #       model_name: gpt-4o-mini
+  #       engine: remote
+  #       api_key_env: OPENAI_API_KEY
+  #       temperature: 0.1
+  #       max_tokens: 150
+  #     batch_size: 10
+  #     max_text_length: 2000
+  #     parse_json_response: true
+  #     cache_responses: true
+
+  # ---------------------------------------------------------------------------
+  # IFD ANALYZER - Instruction-Following Difficulty
+  # Measures how much instructions help model predict responses
+  # IFD > 1 = instruction helps (valuable), IFD < 1 = may be confusing
+  # Requires: pip install 'oumi[analyze]' transformers torch
+  # ---------------------------------------------------------------------------
+  # - id: ifd
+  #   params:
+  #     model_name: Qwen/Qwen3-0.6B  # Fast, good quality
+  #     # model_name: gpt2  # Smallest, fastest
+  #     # model_name: meta-llama/Llama-3.2-1B  # Alternative
+  #     instruction_column: instruction
+  #     response_column: output
+  #     batch_size: 4
+  #     max_length: 2048
+  #     trust_remote_code: true
+
+  # ---------------------------------------------------------------------------
+  # REPR DIVERSITY ANALYZER - DEITA-style embedding diversity
+  # Measures how unique each sample is relative to dataset
+  # Requires: pip install 'oumi[analyze_advanced]'
+  # ---------------------------------------------------------------------------
+  # - id: repr_diversity
+  #   params:
+  #     model_name: sentence-transformers/all-MiniLM-L6-v2
+  #     k_neighbors: 5
+  #     diversity_threshold: 0.3
+  #     embed_field: all  # "all", "user", or "assistant"
+  #     batch_size: 32
+
+  # ---------------------------------------------------------------------------
+  # EVOL COMPLEXITY ANALYZER - DEITA instruction complexity scoring
+  # Generates more complex variants and ranks the original
+  # Requires: API key (Anthropic/OpenAI)
+  # ---------------------------------------------------------------------------
+  # - id: evol_complexity
+  #   params:
+  #     model_type: api
+  #     api_provider: anthropic  # or "openai"
+  #     api_model: claude-3-5-haiku-20241022
+  #     num_evolutions: 3
+  #     evolution_operators: [add_constraints, require_reasoning, increase_depth]
+  #     analyze_role: user
+  #     temperature: 0.7
+  #     cache_responses: true
+
+  # ---------------------------------------------------------------------------
+  # EVOL QUALITY ANALYZER - DEITA response quality scoring
+  # Generates improved variants and ranks the original
+  # Requires: API key (Anthropic/OpenAI)
+  # ---------------------------------------------------------------------------
+  # - id: evol_quality
+  #   params:
+  #     model_type: api
+  #     api_provider: anthropic
+  #     api_model: claude-3-5-haiku-20241022
+  #     num_evolutions: 3
+  #     quality_aspects: [helpfulness, depth, accuracy, structure]
+  #     analyze_role: assistant
+  #     use_conversation_context: true
+  #     temperature: 0.7
+  #     cache_responses: true
