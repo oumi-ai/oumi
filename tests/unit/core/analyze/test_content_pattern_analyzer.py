@@ -41,7 +41,7 @@ def sample_df():
                 "I had to make a difficult decision when I was working.",
                 "<nooutput>",
                 "I cannot provide that information as it is harmful.",
-                "Visit https://www.diversityintech.com/ for more info.",
+                "Visit https://www.example.com/ for more info.",
                 "Normal clean text without any issues.",
                 "Please fill in [Your Name] and [Your Email].",
             ],
@@ -69,21 +69,17 @@ class TestContentPatternAnalyzer:
         assert analyzer.detect_hallucinated_experiences is True
         assert analyzer.detect_nooutput is True
         assert analyzer.detect_refusals is True
-        assert analyzer.detect_suspicious_urls is False
         assert analyzer.check_output_only is False
-        assert analyzer.compute_content_pattern_score is True
 
     def test_init_custom(self):
         """Test custom initialization."""
         analyzer = ContentPatternAnalyzer(
             detect_placeholders=False,
             detect_hallucinated_experiences=False,
-            detect_suspicious_urls=True,
             placeholder_whitelist=["[INPUT]", "[OUTPUT]"],
         )
         assert analyzer.detect_placeholders is False
         assert analyzer.detect_hallucinated_experiences is False
-        assert analyzer.detect_suspicious_urls is True
         assert "[INPUT]" in analyzer.placeholder_whitelist
 
     def test_detect_bracket_placeholders(self, sample_df, sample_schema):
@@ -93,7 +89,6 @@ class TestContentPatternAnalyzer:
             detect_hallucinated_experiences=False,
             detect_nooutput=False,
             detect_refusals=False,
-            compute_content_pattern_score=False,
         )
         analyzer.analyzer_id = "content_pattern"
 
@@ -135,7 +130,6 @@ class TestContentPatternAnalyzer:
             detect_nooutput=False,
             detect_refusals=False,
             placeholder_whitelist=["[INPUT]", "[OUTPUT]"],
-            compute_content_pattern_score=False,
         )
         analyzer.analyzer_id = "content_pattern"
 
@@ -155,7 +149,6 @@ class TestContentPatternAnalyzer:
             detect_hallucinated_experiences=True,
             detect_nooutput=False,
             detect_refusals=False,
-            compute_content_pattern_score=False,
         )
         analyzer.analyzer_id = "content_pattern"
 
@@ -198,7 +191,6 @@ class TestContentPatternAnalyzer:
             detect_hallucinated_experiences=True,
             detect_nooutput=False,
             detect_refusals=False,
-            compute_content_pattern_score=False,
         )
         analyzer.analyzer_id = "content_pattern"
 
@@ -235,7 +227,6 @@ class TestContentPatternAnalyzer:
             detect_hallucinated_experiences=False,
             detect_nooutput=True,
             detect_refusals=False,
-            compute_content_pattern_score=False,
         )
         analyzer.analyzer_id = "content_pattern"
 
@@ -271,7 +262,6 @@ class TestContentPatternAnalyzer:
             detect_hallucinated_experiences=False,
             detect_nooutput=True,
             detect_refusals=False,
-            compute_content_pattern_score=False,
         )
         analyzer.analyzer_id = "content_pattern"
 
@@ -293,7 +283,6 @@ class TestContentPatternAnalyzer:
             detect_hallucinated_experiences=False,
             detect_nooutput=False,
             detect_refusals=True,
-            compute_content_pattern_score=False,
         )
         analyzer.analyzer_id = "content_pattern"
 
@@ -327,7 +316,6 @@ class TestContentPatternAnalyzer:
             detect_hallucinated_experiences=False,
             detect_nooutput=False,
             detect_refusals=True,
-            compute_content_pattern_score=False,
         )
         analyzer.analyzer_id = "content_pattern"
 
@@ -341,69 +329,6 @@ class TestContentPatternAnalyzer:
 
         # Row 4 should not be flagged
         assert result_df.loc[4, "text_content_content_pattern_has_refusal"] == False  # noqa: E712
-
-    def test_detect_suspicious_urls(self, sample_df, sample_schema):
-        """Test detection of suspicious/hallucinated URLs."""
-        analyzer = ContentPatternAnalyzer(
-            detect_placeholders=False,
-            detect_hallucinated_experiences=False,
-            detect_nooutput=False,
-            detect_refusals=False,
-            detect_suspicious_urls=True,
-            compute_content_pattern_score=False,
-        )
-        analyzer.analyzer_id = "content_pattern"
-
-        result_df = analyzer.analyze_sample(sample_df, sample_schema)
-
-        assert "text_content_content_pattern_has_suspicious_url" in result_df.columns
-        assert "text_content_content_pattern_suspicious_url_count" in result_df.columns
-
-        # Row 5 has suspicious URL (diversityintech.com)
-        assert (
-            result_df.loc[5, "text_content_content_pattern_has_suspicious_url"] == True  # noqa: E712
-        )  # noqa: E712
-        assert (
-            result_df.loc[5, "text_content_content_pattern_suspicious_url_count"] == 1
-        )
-
-        # Row 6 has no suspicious URL
-        assert (
-            result_df.loc[6, "text_content_content_pattern_has_suspicious_url"] == False  # noqa: E712
-        )
-
-    def test_compute_content_pattern_score(self, sample_df, sample_schema):
-        """Test content pattern score computation."""
-        analyzer = ContentPatternAnalyzer(
-            detect_placeholders=True,
-            detect_hallucinated_experiences=True,
-            detect_nooutput=True,
-            detect_refusals=True,
-            compute_content_pattern_score=True,
-        )
-        analyzer.analyzer_id = "content_pattern"
-
-        result_df = analyzer.analyze_sample(sample_df, sample_schema)
-
-        assert "text_content_content_pattern_content_pattern_score" in result_df.columns
-
-        # Clean text (row 6) should have high score
-        clean_score = result_df.loc[
-            6, "text_content_content_pattern_content_pattern_score"
-        ]
-        assert clean_score >= 0.9
-
-        # Nooutput (row 3) should have low score
-        nooutput_score = result_df.loc[
-            3, "text_content_content_pattern_content_pattern_score"
-        ]
-        assert nooutput_score < 0.6
-
-        # Refusal (row 4) should have lower score than clean
-        refusal_score = result_df.loc[
-            4, "text_content_content_pattern_content_pattern_score"
-        ]
-        assert refusal_score < clean_score
 
     def test_check_output_only(self, sample_schema):
         """Test that check_output_only only analyzes assistant messages."""
@@ -423,7 +348,6 @@ class TestContentPatternAnalyzer:
             detect_nooutput=False,
             detect_refusals=False,
             check_output_only=True,
-            compute_content_pattern_score=False,
         )
         analyzer.analyzer_id = "content_pattern"
 
@@ -475,7 +399,7 @@ class TestContentPatternAnalyzer:
             {
                 "text_content": [
                     "I cannot provide [Name]'s info. When I was a manager, "
-                    "I learned to refuse such requests. Visit https://www.diversityintech.com/"
+                    "I learned to refuse such requests."
                 ],
                 "role": ["assistant"],
             }
@@ -486,8 +410,6 @@ class TestContentPatternAnalyzer:
             detect_hallucinated_experiences=True,
             detect_nooutput=True,
             detect_refusals=True,
-            detect_suspicious_urls=True,
-            compute_content_pattern_score=True,
         )
         analyzer.analyzer_id = "content_pattern"
 
@@ -500,10 +422,3 @@ class TestContentPatternAnalyzer:
             == True  # noqa: E712
         )
         assert result_df.loc[0, "text_content_content_pattern_has_refusal"] == True  # noqa: E712
-        assert (
-            result_df.loc[0, "text_content_content_pattern_has_suspicious_url"] == True  # noqa: E712
-        )  # noqa: E712
-
-        # Score should be very low
-        score = result_df.loc[0, "text_content_content_pattern_content_pattern_score"]
-        assert score < 0.3

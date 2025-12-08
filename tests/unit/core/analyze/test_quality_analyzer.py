@@ -40,7 +40,7 @@ def sample_df():
                 "My email is test@example.com and phone is 555-123-4567.",
                 "api_key=sk1234567890abcdef1234567890abcdef",
                 "The The The same same same words words words repeated.",
-                "Some text with <|endoftext|> special tokens.",
+                "Some text with content here.",
                 "Normal clean text without any issues.",
                 "Ã©ncoding issues in this text",
             ],
@@ -59,9 +59,7 @@ class TestQualityAnalyzer:
         assert analyzer.detect_emails is True
         assert analyzer.detect_phones is True
         assert analyzer.detect_encoding_issues is True
-        assert analyzer.detect_special_tokens is True
         assert analyzer.detect_repetition is True
-        assert analyzer.compute_quality_score is True
 
     def test_init_custom(self):
         """Test custom initialization."""
@@ -85,9 +83,7 @@ class TestQualityAnalyzer:
             detect_credit_cards=False,
             detect_api_keys=False,
             detect_encoding_issues=False,
-            detect_special_tokens=False,
             detect_repetition=False,
-            compute_quality_score=False,
         )
         analyzer.analyzer_id = "quality"
 
@@ -114,9 +110,7 @@ class TestQualityAnalyzer:
             detect_credit_cards=False,
             detect_api_keys=False,
             detect_encoding_issues=False,
-            detect_special_tokens=False,
             detect_repetition=False,
-            compute_quality_score=False,
         )
         analyzer.analyzer_id = "quality"
 
@@ -136,9 +130,7 @@ class TestQualityAnalyzer:
             detect_credit_cards=False,
             detect_api_keys=True,
             detect_encoding_issues=False,
-            detect_special_tokens=False,
             detect_repetition=False,
-            compute_quality_score=False,
         )
         analyzer.analyzer_id = "quality"
 
@@ -149,35 +141,12 @@ class TestQualityAnalyzer:
         assert result_df.loc[2, "text_content_quality_has_pii"] == True  # noqa: E712
         assert "api_key" in result_df.loc[2, "text_content_quality_pii_types"]
 
-    def test_detect_special_tokens(self, sample_df, sample_schema):
-        """Test special token detection."""
-        analyzer = QualityAnalyzer(
-            detect_pii=False,
-            detect_encoding_issues=False,
-            detect_special_tokens=True,
-            detect_repetition=False,
-            compute_quality_score=False,
-        )
-        analyzer.analyzer_id = "quality"
-
-        result_df = analyzer.analyze_sample(sample_df, sample_schema)
-
-        assert "text_content_quality_has_special_tokens" in result_df.columns
-
-        # Row 4 has special tokens
-        assert result_df.loc[4, "text_content_quality_has_special_tokens"] == True  # noqa: E712
-
-        # Row 5 has no special tokens
-        assert result_df.loc[5, "text_content_quality_has_special_tokens"] == False  # noqa: E712
-
     def test_detect_encoding_issues(self, sample_df, sample_schema):
         """Test encoding issue detection."""
         analyzer = QualityAnalyzer(
             detect_pii=False,
             detect_encoding_issues=True,
-            detect_special_tokens=False,
             detect_repetition=False,
-            compute_quality_score=False,
         )
         analyzer.analyzer_id = "quality"
 
@@ -196,11 +165,9 @@ class TestQualityAnalyzer:
         analyzer = QualityAnalyzer(
             detect_pii=False,
             detect_encoding_issues=False,
-            detect_special_tokens=False,
             detect_repetition=True,
             repetition_ngram_size=2,
             repetition_threshold=0.3,
-            compute_quality_score=False,
         )
         analyzer.analyzer_id = "quality"
 
@@ -214,34 +181,6 @@ class TestQualityAnalyzer:
 
         # Row 5 has low repetition
         assert result_df.loc[5, "text_content_quality_has_high_repetition"] == False  # noqa: E712
-
-    def test_compute_quality_score(self, sample_df, sample_schema):
-        """Test quality score computation."""
-        analyzer = QualityAnalyzer(
-            detect_pii=True,
-            detect_emails=True,
-            detect_phones=True,
-            detect_ssn=False,
-            detect_credit_cards=False,
-            detect_api_keys=True,
-            detect_encoding_issues=True,
-            detect_special_tokens=True,
-            detect_repetition=True,
-            compute_quality_score=True,
-        )
-        analyzer.analyzer_id = "quality"
-
-        result_df = analyzer.analyze_sample(sample_df, sample_schema)
-
-        assert "text_content_quality_quality_score" in result_df.columns
-
-        # Clean text should have high score
-        clean_score = result_df.loc[5, "text_content_quality_quality_score"]
-        assert clean_score >= 0.8
-
-        # Text with PII should have lower score
-        pii_score = result_df.loc[1, "text_content_quality_quality_score"]
-        assert pii_score < clean_score
 
     def test_no_schema_raises_error(self, sample_df):
         """Test that missing schema raises error."""
