@@ -20,6 +20,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.recommendations import Recommendation, RecommendationSeverity
+from oumi.utils.analysis_utils import DistributionType, detect_distribution_type
 
 
 @dataclass
@@ -455,6 +456,11 @@ class HealthScoreCalculator:
     ) -> HealthScoreComponent:
         """Calculate length distribution component score.
 
+        For unimodal distributions, uses CV-based scoring.
+        For multimodal distributions, scores based on within-mode consistency
+        and mode separation. Well-separated modes with low within-mode variance
+        indicate intentional content types (e.g., short questions vs long explanations).
+
         Args:
             df: Message-level DataFrame.
             analysis_summary: Summary statistics.
@@ -485,12 +491,62 @@ class HealthScoreCalculator:
                 details["std_length"] = round(std_len, 1)
                 details["cv"] = round(cv, 3)
 
-                # Penalize high variation
-                # CV of 1.0 is acceptable, CV > 2.0 is problematic
-                cv_penalty = max(0, (cv - 1.0) * 20)
-                score = max(0, score - cv_penalty)
+                # Detect distribution type
+                dist_result = detect_distribution_type(lengths)
+                details["distribution_type"] = dist_result.distribution_type.value
 
-                # Penalize very short content
+                if dist_result.distribution_type in (
+                    DistributionType.BIMODAL,
+                    DistributionType.MULTIMODAL,
+                ):
+                    # For multimodal distributions, score based on:
+                    # 1. Within-mode consistency (low CV per mode = good)
+                    # 2. Mode separation confidence (well-separated = intentional)
+                    details["num_modes"] = dist_result.num_modes
+                    details["mode_separation_confidence"] = dist_result.confidence
+
+                    # Calculate average within-mode CV
+                    within_mode_cvs = []
+                    for ms in dist_result.mode_statistics:
+                        mode_cv = ms.std / ms.mean if ms.mean > 0 else 0
+                        within_mode_cvs.append(mode_cv)
+
+                    if within_mode_cvs:
+                        avg_within_cv = sum(within_mode_cvs) / len(within_mode_cvs)
+                        details["avg_within_mode_cv"] = round(avg_within_cv, 3)
+
+                        # Score: Low within-mode CV + high separation = good
+                        # Within-mode CV < 0.5 is excellent
+                        cv_score = max(0, 100 - (avg_within_cv * 80))
+
+                        # Bonus for well-separated modes (indicates intentional design)
+                        separation_bonus = dist_result.confidence * 20
+
+                        score = min(100, cv_score + separation_bonus)
+                    else:
+                        # Fallback to global CV if mode stats unavailable
+                        cv_penalty = max(0, (cv - 1.0) * 20)
+                        score = max(0, score - cv_penalty)
+
+                    # Add mode details
+                    details["mode_statistics"] = [
+                        {
+                            "mode_id": ms.mode_id,
+                            "mean": ms.mean,
+                            "std": ms.std,
+                            "count": ms.count,
+                            "weight": ms.weight,
+                        }
+                        for ms in dist_result.mode_statistics
+                    ]
+                else:
+                    # Unimodal: use existing CV-based scoring
+                    # Penalize high variation
+                    # CV of 1.0 is acceptable, CV > 2.0 is problematic
+                    cv_penalty = max(0, (cv - 1.0) * 20)
+                    score = max(0, score - cv_penalty)
+
+                # Penalize very short content (applies to all distributions)
                 short_ratio = (lengths < 10).mean()
                 if short_ratio > 0.1:
                     short_penalty = short_ratio * 30

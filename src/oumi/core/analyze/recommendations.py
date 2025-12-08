@@ -20,7 +20,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
 
+import numpy as np
 import pandas as pd
+
+from oumi.utils.analysis_utils import (
+    DistributionType,
+    compute_multimodal_outliers,
+    detect_distribution_type,
+)
 
 
 class RecommendationCategory(str, Enum):
@@ -113,7 +120,9 @@ class RecommendationsEngine:
 
     # Common special tokens that indicate data leakage
     SPECIAL_TOKEN_PATTERNS = [
-        re.compile(r"<\|(?:endoftext|im_start|im_end|pad|unk|sep|cls)\|>", re.IGNORECASE),
+        re.compile(
+            r"<\|(?:endoftext|im_start|im_end|pad|unk|sep|cls)\|>", re.IGNORECASE
+        ),
         re.compile(r"\[/?(?:INST|SYS|/INST)\]", re.IGNORECASE),
         re.compile(r"</?s>"),
         re.compile(r"<<SYS>>|<</SYS>>"),
@@ -228,6 +237,28 @@ class RecommendationsEngine:
         recommendations.extend(self._check_response_completeness(message_df))
         recommendations.extend(self._check_truncated_responses(message_df))
 
+        # Content pattern checks (AI-specific quality issues)
+        recommendations.extend(self._check_placeholder_text(message_df))
+        recommendations.extend(self._check_hallucinated_experiences(message_df))
+        recommendations.extend(self._check_nooutput_markers(message_df))
+        recommendations.extend(self._check_refusal_patterns(message_df))
+
+        # Instruction diversity checks
+        recommendations.extend(self._check_instruction_diversity(message_df))
+        recommendations.extend(self._check_concentrated_clusters(message_df))
+
+        # IFD (Instruction-Following Difficulty) checks
+        recommendations.extend(self._check_ifd_scores(message_df))
+
+        # New analyzer checks (from "Fixing It in Post" paper)
+        recommendations.extend(self._check_task_category_distribution(message_df))
+        recommendations.extend(self._check_instruct_reward_scores(message_df))
+        recommendations.extend(self._check_input_quality_issues(message_df))
+        recommendations.extend(self._check_conversation_structure(message_df))
+        recommendations.extend(self._check_safety_issues(message_df))
+        recommendations.extend(self._check_difficulty_distribution(message_df))
+        recommendations.extend(self._check_response_completeness_analyzer(message_df))
+
         # Sort by severity (high first, then medium, then low)
         severity_order = {
             RecommendationSeverity.HIGH: 0,
@@ -244,6 +275,11 @@ class RecommendationsEngine:
         analysis_summary: dict[str, Any],
     ) -> list[Recommendation]:
         """Check for outliers in numeric analysis columns.
+
+        Uses multimodal distribution detection to avoid false positives in
+        bimodal/multimodal distributions. For unimodal distributions, uses
+        standard 3-sigma detection. For multimodal distributions, detects
+        outliers within each mode separately.
 
         Args:
             df: DataFrame with analysis results.
@@ -273,20 +309,28 @@ class RecommendationsEngine:
             if len(series) < 2:
                 continue
 
-            mean = series.mean()
-            std = series.std()
+            # Detect distribution type first
+            dist_result = detect_distribution_type(series)
 
-            if std == 0:
+            # Skip if insufficient data
+            if dist_result.distribution_type == DistributionType.INSUFFICIENT_DATA:
                 continue
 
-            # Find outliers
-            upper_threshold = mean + (self.outlier_std_threshold * std)
-            lower_threshold = mean - (self.outlier_std_threshold * std)
+            # Add insight about multimodal distribution if detected
+            if dist_result.distribution_type in (
+                DistributionType.BIMODAL,
+                DistributionType.MULTIMODAL,
+            ):
+                recommendations.extend(
+                    self._create_multimodal_insight(col, dist_result)
+                )
 
-            outlier_mask = (series > upper_threshold) | (series < lower_threshold)
-            high_outliers = (series > upper_threshold).sum()
-            low_outliers = (series < lower_threshold).sum()
-            total_outliers = high_outliers + low_outliers
+            # Detect outliers using multimodal-aware method
+            outlier_mask, outlier_details = compute_multimodal_outliers(
+                series, dist_result, self.outlier_std_threshold
+            )
+
+            total_outliers = outlier_details["num_outliers"]
 
             if total_outliers > 0:
                 outlier_pct = (total_outliers / len(series)) * 100
@@ -306,34 +350,135 @@ class RecommendationsEngine:
                 # Get indices of outlier samples (limit to 20)
                 outlier_indices = series[outlier_mask].index.tolist()[:20]
 
+                # Build description based on distribution type
+                if dist_result.distribution_type == DistributionType.UNIMODAL:
+                    mean = dist_result.global_statistics["mean"]
+                    std = dist_result.global_statistics["std"]
+                    upper_threshold = mean + (self.outlier_std_threshold * std)
+                    lower_threshold = mean - (self.outlier_std_threshold * std)
+
+                    # Count high/low outliers for unimodal
+                    values = series.to_numpy()
+                    high_outliers = int(np.sum(values > upper_threshold))
+                    low_outliers = int(np.sum(values < lower_threshold))
+
+                    description = (
+                        f"Found {total_outliers} samples ({outlier_pct:.1f}%) with "
+                        f"values outside {self.outlier_std_threshold} standard "
+                        f"deviations from the mean. High outliers: {high_outliers}, "
+                        f"Low outliers: {low_outliers}. Consider reviewing these "
+                        f"samples for potential data quality issues."
+                    )
+                    details = {
+                        "distribution_type": "unimodal",
+                        "mean": round(mean, 2),
+                        "std": round(std, 2),
+                        "upper_threshold": round(upper_threshold, 2),
+                        "lower_threshold": round(lower_threshold, 2),
+                        "high_outliers": high_outliers,
+                        "low_outliers": low_outliers,
+                    }
+                else:
+                    # Multimodal description
+                    mode_info = ", ".join(
+                        f"mode {ms.mode_id}: μ={ms.mean}, σ={ms.std}"
+                        for ms in dist_result.mode_statistics
+                    )
+                    description = (
+                        f"Found {total_outliers} samples ({outlier_pct:.1f}%) "
+                        f"that are outliers within their respective modes. "
+                        f"Distribution has {dist_result.num_modes} modes "
+                        f"({mode_info}). Outliers are samples more than "
+                        f"{self.outlier_std_threshold} std from mode mean."
+                    )
+                    details = {
+                        "distribution_type": dist_result.distribution_type.value,
+                        "num_modes": dist_result.num_modes,
+                        "mode_statistics": [
+                            {
+                                "mode_id": ms.mode_id,
+                                "mean": ms.mean,
+                                "std": ms.std,
+                                "count": ms.count,
+                            }
+                            for ms in dist_result.mode_statistics
+                        ],
+                        "outliers_per_mode": outlier_details.get(
+                            "outliers_per_mode", {}
+                        ),
+                    }
+
                 recommendations.append(
                     Recommendation(
                         category=RecommendationCategory.WARNING,
                         severity=severity,
                         title=f"Outliers detected in {metric_name}",
-                        description=(
-                            f"Found {total_outliers} samples ({outlier_pct:.1f}%) with "
-                            f"values outside {self.outlier_std_threshold} standard "
-                            f"deviations from the mean. High outliers: {high_outliers}, "
-                            f"Low outliers: {low_outliers}. Consider reviewing these "
-                            f"samples for potential data quality issues."
-                        ),
+                        description=description,
                         affected_samples=total_outliers,
                         metric_name=col,
                         threshold=self.outlier_std_threshold,
-                        details={
-                            "mean": round(mean, 2),
-                            "std": round(std, 2),
-                            "upper_threshold": round(upper_threshold, 2),
-                            "lower_threshold": round(lower_threshold, 2),
-                            "high_outliers": int(high_outliers),
-                            "low_outliers": int(low_outliers),
-                        },
+                        details=details,
                         sample_indices=outlier_indices,
                     )
                 )
 
         return recommendations
+
+    def _create_multimodal_insight(
+        self, col: str, dist_result
+    ) -> list[Recommendation]:
+        """Create an insight recommendation about a multimodal distribution.
+
+        Args:
+            col: Column name
+            dist_result: Distribution analysis result
+
+        Returns:
+            List containing a single insight recommendation
+        """
+        metric_name = col.replace("_", " ").replace("text content ", "")
+
+        # Format mode information
+        mode_summaries = []
+        for ms in dist_result.mode_statistics:
+            pct = ms.weight * 100
+            mode_summaries.append(f"Mode {ms.mode_id + 1}: {ms.count} samples "
+                                  f"({pct:.1f}%), mean={ms.mean}, std={ms.std}")
+
+        mode_text = "; ".join(mode_summaries)
+
+        return [
+            Recommendation(
+                category=RecommendationCategory.INSIGHT,
+                severity=RecommendationSeverity.LOW,
+                title=f"Multimodal distribution in {metric_name}",
+                description=(
+                    f"Detected {dist_result.num_modes} distinct modes in the "
+                    f"distribution (confidence: {dist_result.confidence:.0%}). "
+                    f"{mode_text}. This may indicate different types of content "
+                    f"(e.g., short questions vs long explanations). "
+                    f"Outlier detection uses per-mode statistics to avoid "
+                    f"false positives."
+                ),
+                affected_samples=dist_result.global_statistics["count"],
+                metric_name=col,
+                details={
+                    "distribution_type": dist_result.distribution_type.value,
+                    "num_modes": dist_result.num_modes,
+                    "confidence": dist_result.confidence,
+                    "mode_statistics": [
+                        {
+                            "mode_id": ms.mode_id,
+                            "mean": ms.mean,
+                            "std": ms.std,
+                            "count": ms.count,
+                            "weight": ms.weight,
+                        }
+                        for ms in dist_result.mode_statistics
+                    ],
+                },
+            )
+        ]
 
     def _check_duplicates(self, df: pd.DataFrame) -> list[Recommendation]:
         """Check for duplicate content in messages.
@@ -391,7 +536,7 @@ class RecommendationsEngine:
                         severity=severity,
                         title="Duplicate content detected",
                         description=(
-                            f"Found {duplicate_count} messages ({duplicate_pct*100:.1f}%) "
+                            f"Found {duplicate_count} messages ({duplicate_pct * 100:.1f}%) "
                             f"that are exact duplicates (excluding system prompts), "
                             f"representing {unique_duplicated} unique repeated texts. "
                             f"Consider deduplicating your dataset to improve training "
@@ -541,7 +686,7 @@ class RecommendationsEngine:
                         severity=RecommendationSeverity.MEDIUM,
                         title=f"Role distribution imbalance: {role}",
                         description=(
-                            f"The '{role}' role accounts for {fraction*100:.1f}% of "
+                            f"The '{role}' role accounts for {fraction * 100:.1f}% of "
                             f"all messages. This may indicate an imbalanced dataset. "
                             f"For conversational fine-tuning, a more balanced "
                             f"distribution is typically preferred."
@@ -551,7 +696,8 @@ class RecommendationsEngine:
                         threshold=self.imbalance_threshold,
                         details={
                             "role_distribution": {
-                                str(r): round(f * 100, 2) for r, f in role_counts.items()
+                                str(r): round(f * 100, 2)
+                                for r, f in role_counts.items()
                             }
                         },
                     )
@@ -777,7 +923,7 @@ class RecommendationsEngine:
                         severity=severity,
                         title="Mixed language content detected",
                         description=(
-                            f"Only {dominant_fraction*100:.1f}% of messages are in the "
+                            f"Only {dominant_fraction * 100:.1f}% of messages are in the "
                             f"dominant language ({dominant_lang}). Found {other_count} "
                             f"messages in other languages. Mixed-language datasets may "
                             f"cause inconsistent model behavior. Consider filtering to "
@@ -811,9 +957,7 @@ class RecommendationsEngine:
         recommendations = []
 
         # Check for has_special_tokens column from quality analyzer
-        special_token_cols = [
-            col for col in df.columns if "has_special_tokens" in col
-        ]
+        special_token_cols = [col for col in df.columns if "has_special_tokens" in col]
 
         for col in special_token_cols:
             if col not in df.columns:
@@ -1006,7 +1150,7 @@ class RecommendationsEngine:
                             severity=severity,
                             title="PII (Personally Identifiable Information) detected",
                             description=(
-                                f"Found {pii_count} messages ({pii_pct*100:.1f}%) "
+                                f"Found {pii_count} messages ({pii_pct * 100:.1f}%) "
                                 f"containing potential PII.{pii_types_detail} "
                                 f"Consider redacting or removing PII before training "
                                 f"to prevent the model from memorizing sensitive data."
@@ -1213,9 +1357,7 @@ class RecommendationsEngine:
         recommendations = []
 
         # Look for instruction clarity score columns from training quality analyzer
-        clarity_cols = [
-            col for col in df.columns if "instruction_clarity_score" in col
-        ]
+        clarity_cols = [col for col in df.columns if "instruction_clarity_score" in col]
 
         for col in clarity_cols:
             if col not in df.columns:
@@ -1411,5 +1553,1081 @@ class RecommendationsEngine:
                     )
                 )
             break  # Only report once
+
+        return recommendations
+
+    def _check_instruction_diversity(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for low question diversity based on clustering results.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for question diversity issues.
+        """
+        recommendations = []
+
+        # Look for diversity-related columns from QuestionDiversityAnalyzer
+        # These would be in dataset-level metrics, but we can detect issues
+        # from the cluster distribution in per-sample data
+
+        # Check for cluster_id columns
+        cluster_cols = [
+            col for col in df.columns if "question_diversity_cluster_id" in col
+        ]
+
+        for col in cluster_cols:
+            if col not in df.columns:
+                continue
+
+            # Get cluster IDs, excluding None (non-user rows)
+            cluster_ids = df[col].dropna()
+            if len(cluster_ids) < 10:
+                continue
+
+            # Count cluster sizes
+            cluster_counts = cluster_ids.value_counts()
+            total_samples = len(cluster_ids)
+
+            # IMPORTANT: cluster_id == -1 means "noise" in DBSCAN
+            # Noise points are DIVERSE (not similar to others) - this is GOOD
+            noise_count = cluster_counts.get(-1, 0)
+            noise_ratio = noise_count / total_samples if total_samples > 0 else 0
+
+            # Exclude noise (-1) from cluster count
+            n_clusters = len([c for c in cluster_counts.index if c != -1])
+
+            # High noise ratio means HIGH diversity - don't warn
+            if noise_ratio > 0.5:
+                # More than half are unique/diverse - this is good!
+                continue
+
+            # Check for low diversity (few clusters relative to sample size)
+            # If we have fewer than log2(n) clusters, diversity is low
+            import math
+
+            expected_min_clusters = max(5, int(math.log2(total_samples)))
+
+            if n_clusters < expected_min_clusters:
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if n_clusters <= 3
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if n_clusters <= 5
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="Low user question diversity detected",
+                        description=(
+                            f"Found only {n_clusters} question clusters for "
+                            f"{total_samples} user questions (excluding "
+                            f"{noise_count} unique questions). This suggests "
+                            f"your clustered questions are narrowly distributed. "
+                            f"Consider expanding question variety."
+                        ),
+                        affected_samples=int(total_samples - noise_count),
+                        metric_name=col,
+                        details={
+                            "num_clusters": int(n_clusters),
+                            "total_questions": int(total_samples),
+                            "unique_questions": int(noise_count),
+                            "expected_min_clusters": int(expected_min_clusters),
+                        },
+                    )
+                )
+            break  # Only report once
+
+        return recommendations
+
+    def _check_concentrated_clusters(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for highly concentrated question clusters.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for concentrated cluster issues.
+        """
+        recommendations = []
+
+        # Look for concentration flag columns
+        concentration_cols = [
+            col for col in df.columns if "question_diversity_is_concentrated" in col
+        ]
+
+        for col in concentration_cols:
+            if col not in df.columns:
+                continue
+
+            # Count samples in concentrated clusters
+            concentrated_mask = df[col] == True  # noqa: E712
+            concentrated_count = concentrated_mask.sum()
+
+            # Get total user messages (non-null concentration values)
+            total_users = df[col].notna().sum()
+            if total_users == 0:
+                continue
+
+            concentrated_pct = (concentrated_count / total_users) * 100
+
+            # Only warn if a significant portion (>50%) is in concentrated clusters
+            # Lower percentages are common with DBSCAN and don't indicate a problem
+            if concentrated_pct <= 50:
+                continue
+
+            severity = (
+                RecommendationSeverity.HIGH
+                if concentrated_pct > 80
+                else RecommendationSeverity.MEDIUM
+            )
+
+            # Get indices of concentrated samples (limit to 20)
+            concentrated_indices = df[concentrated_mask].index.tolist()[:20]
+
+            # Get cluster size info for better context
+            cluster_col = col.replace("_is_concentrated", "_cluster_size")
+            if cluster_col in df.columns:
+                cluster_sizes = df[cluster_col].dropna()
+                if len(cluster_sizes) > 0:
+                    max_cluster = int(cluster_sizes.max())
+                    max_cluster_pct = (max_cluster / total_users) * 100
+                else:
+                    max_cluster_pct = concentrated_pct
+            else:
+                max_cluster_pct = concentrated_pct
+
+            recommendations.append(
+                Recommendation(
+                    category=RecommendationCategory.WARNING,
+                    severity=severity,
+                    title="User questions concentrated in few clusters",
+                    description=(
+                        f"Found {concentrated_count} questions ({concentrated_pct:.1f}%) "
+                        f"in large clusters (largest: {max_cluster_pct:.1f}%). "
+                        f"This may indicate similar question structure or phrasing. "
+                        f"Review whether this reflects low diversity or just common "
+                        f"patterns. Note: DBSCAN can group similar structures."
+                    ),
+                    affected_samples=int(concentrated_count),
+                    metric_name=col,
+                    details={
+                        "concentrated_count": int(concentrated_count),
+                        "total_questions": int(total_users),
+                        "concentrated_percentage": round(concentrated_pct, 2),
+                        "largest_cluster_percentage": round(max_cluster_pct, 2),
+                    },
+                    sample_indices=concentrated_indices,
+                )
+            )
+            break  # Only report once
+
+        return recommendations
+
+    def _check_placeholder_text(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for placeholder text in content.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for placeholder text issues.
+        """
+        recommendations = []
+
+        # Look for placeholder columns from content pattern analyzer
+        placeholder_cols = [col for col in df.columns if "has_placeholder" in col]
+
+        for col in placeholder_cols:
+            if col not in df.columns:
+                continue
+
+            placeholder_mask = df[col] == True  # noqa: E712
+            placeholder_count = placeholder_mask.sum()
+            if placeholder_count > 0:
+                placeholder_pct = (placeholder_count / len(df)) * 100
+
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if placeholder_pct > 5
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if placeholder_pct > 1
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                # Get indices of placeholder samples (limit to 20)
+                placeholder_indices = df[placeholder_mask].index.tolist()[:20]
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="Placeholder text detected",
+                        description=(
+                            f"Found {placeholder_count} messages ({placeholder_pct:.1f}%) "
+                            f"containing placeholder text (e.g., [Name], [Company Name], "
+                            f"[Your...], [Insert...]). These indicate incomplete or "
+                            f"template responses that should be filled in or removed "
+                            f"before training."
+                        ),
+                        affected_samples=int(placeholder_count),
+                        metric_name=col,
+                        details={"placeholder_count": int(placeholder_count)},
+                        sample_indices=placeholder_indices,
+                    )
+                )
+            break  # Only report once
+
+        return recommendations
+
+    def _check_hallucinated_experiences(
+        self, df: pd.DataFrame
+    ) -> list[Recommendation]:
+        """Check for AI hallucinated personal experiences.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for hallucinated experience issues.
+        """
+        recommendations = []
+
+        # Look for hallucinated experience columns from content pattern analyzer
+        hallucination_cols = [
+            col for col in df.columns if "has_hallucinated_experience" in col
+        ]
+
+        for col in hallucination_cols:
+            if col not in df.columns:
+                continue
+
+            hallucination_mask = df[col] == True  # noqa: E712
+            hallucination_count = hallucination_mask.sum()
+            if hallucination_count > 0:
+                hallucination_pct = (hallucination_count / len(df)) * 100
+
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if hallucination_pct > 2
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if hallucination_pct > 0.5
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                # Get indices of hallucination samples (limit to 20)
+                hallucination_indices = df[hallucination_mask].index.tolist()[:20]
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="AI hallucinated experiences detected",
+                        description=(
+                            f"Found {hallucination_count} messages ({hallucination_pct:.1f}%) "
+                            f"containing fabricated first-person experiences "
+                            f"(e.g., 'When I was working as a project manager...'). "
+                            f"Training on these may cause the model to generate similar "
+                            f"hallucinations. Consider removing or rewriting these samples."
+                        ),
+                        affected_samples=int(hallucination_count),
+                        metric_name=col,
+                        details={"hallucination_count": int(hallucination_count)},
+                        sample_indices=hallucination_indices,
+                    )
+                )
+            break  # Only report once
+
+        return recommendations
+
+    def _check_nooutput_markers(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for nooutput/NA markers in content.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for nooutput marker issues.
+        """
+        recommendations = []
+
+        # Look for nooutput columns from content pattern analyzer
+        nooutput_cols = [col for col in df.columns if "has_nooutput" in col]
+
+        for col in nooutput_cols:
+            if col not in df.columns:
+                continue
+
+            nooutput_mask = df[col] == True  # noqa: E712
+            nooutput_count = nooutput_mask.sum()
+            if nooutput_count > 0:
+                nooutput_pct = (nooutput_count / len(df)) * 100
+
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if nooutput_pct > 1
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if nooutput_pct > 0.1
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                # Get indices of nooutput samples (limit to 20)
+                nooutput_indices = df[nooutput_mask].index.tolist()[:20]
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="Nooutput/NA markers detected",
+                        description=(
+                            f"Found {nooutput_count} messages ({nooutput_pct:.1f}%) "
+                            f"containing nooutput markers (e.g., <nooutput>, N/A, None). "
+                            f"These are unusable training samples and should be removed."
+                        ),
+                        affected_samples=int(nooutput_count),
+                        metric_name=col,
+                        details={"nooutput_count": int(nooutput_count)},
+                        sample_indices=nooutput_indices,
+                    )
+                )
+            break  # Only report once
+
+        return recommendations
+
+    def _check_refusal_patterns(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for AI refusal patterns in content.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for refusal pattern issues.
+        """
+        recommendations = []
+
+        # Look for refusal columns from content pattern analyzer
+        refusal_cols = [col for col in df.columns if "has_refusal" in col]
+
+        for col in refusal_cols:
+            if col not in df.columns:
+                continue
+
+            refusal_mask = df[col] == True  # noqa: E712
+            refusal_count = refusal_mask.sum()
+            if refusal_count > 0:
+                refusal_pct = (refusal_count / len(df)) * 100
+
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if refusal_pct > 1
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if refusal_pct > 0.1
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                # Get indices of refusal samples (limit to 20)
+                refusal_indices = df[refusal_mask].index.tolist()[:20]
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="AI refusal patterns detected",
+                        description=(
+                            f"Found {refusal_count} messages ({refusal_pct:.1f}%) "
+                            f"containing AI refusal patterns (e.g., 'I cannot provide...', "
+                            f"'I'm unable to help...'). These indicate the model refused "
+                            f"to complete the task. Consider reviewing or removing these "
+                            f"samples unless training for appropriate refusals."
+                        ),
+                        affected_samples=int(refusal_count),
+                        metric_name=col,
+                        details={"refusal_count": int(refusal_count)},
+                        sample_indices=refusal_indices,
+                    )
+                )
+            break  # Only report once
+
+        return recommendations
+
+    def _check_ifd_scores(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for IFD (Instruction-Following Difficulty) score issues.
+
+        IFD measures how much the instruction helps the model predict the response.
+        IFD = PPL(response | no instruction) / PPL(response | with instruction)
+
+        - IFD > 1: Instruction helps the model (valuable sample)
+        - IFD ≈ 1: Instruction provides minimal guidance
+        - IFD < 1: Instruction may be confusing or misaligned (potentially problematic)
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for IFD score issues.
+        """
+        recommendations = []
+
+        # Look for IFD score columns
+        ifd_cols = [col for col in df.columns if "ifd_score" in col]
+
+        for col in ifd_cols:
+            if col not in df.columns:
+                continue
+
+            scores = df[col].dropna()
+            if len(scores) == 0:
+                continue
+
+            # Check for samples where IFD < 1.0 (instruction doesn't help)
+            problematic_mask = scores < 1.0
+            problematic_count = problematic_mask.sum()
+
+            if problematic_count > 0:
+                problematic_pct = (problematic_count / len(scores)) * 100
+                avg_score = scores.mean()
+                median_score = scores.median()
+
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if problematic_pct > 20
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if problematic_pct > 10
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                # Get indices of problematic samples (limit to 20)
+                problematic_indices = scores[problematic_mask].index.tolist()[:20]
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="Low IFD scores detected (instruction not helping)",
+                        description=(
+                            f"Found {problematic_count} samples "
+                            f"({problematic_pct:.1f}%) with IFD scores below 1.0, "
+                            f"meaning the instruction does not help the model predict "
+                            f"the response. These may indicate misaligned "
+                            f"instruction-response pairs or confusing instructions. "
+                            f"Consider reviewing or removing these samples."
+                        ),
+                        affected_samples=int(problematic_count),
+                        metric_name=col,
+                        threshold=1.0,
+                        details={
+                            "problematic_count": int(problematic_count),
+                            "average_ifd": round(avg_score, 3),
+                            "median_ifd": round(median_score, 3),
+                            "min_ifd": round(scores.min(), 3),
+                            "max_ifd": round(scores.max(), 3),
+                        },
+                        sample_indices=problematic_indices,
+                    )
+                )
+
+            # Also provide insight about overall IFD distribution
+            if len(scores) >= 10:
+                avg_score = scores.mean()
+                median_score = scores.median()
+
+                # High IFD samples are valuable for training
+                high_ifd_mask = scores > 2.0
+                high_ifd_count = high_ifd_mask.sum()
+                high_ifd_pct = (high_ifd_count / len(scores)) * 100
+
+                # Very high IFD may indicate trivial responses
+                very_high_ifd_mask = scores > 100.0
+                very_high_ifd_count = very_high_ifd_mask.sum()
+
+                if avg_score > 2.0:
+                    # Good dataset - instructions are helpful
+                    recommendations.append(
+                        Recommendation(
+                            category=RecommendationCategory.INSIGHT,
+                            severity=RecommendationSeverity.LOW,
+                            title="Good instruction quality (high IFD scores)",
+                            description=(
+                                f"Average IFD score is {avg_score:.2f}, indicating "
+                                f"that instructions effectively guide the model. "
+                                f"{high_ifd_count} samples ({high_ifd_pct:.1f}%) "
+                                f"have IFD > 2.0, making them high-value examples."
+                            ),
+                            affected_samples=int(high_ifd_count),
+                            metric_name=col,
+                            details={
+                                "average_ifd": round(avg_score, 3),
+                                "median_ifd": round(median_score, 3),
+                                "high_ifd_count": int(high_ifd_count),
+                                "high_ifd_percentage": round(high_ifd_pct, 2),
+                            },
+                        )
+                    )
+                elif avg_score < 1.5:
+                    # Concerning - instructions provide minimal value
+                    recommendations.append(
+                        Recommendation(
+                            category=RecommendationCategory.WARNING,
+                            severity=RecommendationSeverity.MEDIUM,
+                            title="Low average IFD (minimal instruction value)",
+                            description=(
+                                f"Average IFD score is {avg_score:.2f}, suggesting "
+                                f"that instructions provide limited guidance. "
+                                f"Consider reviewing instruction quality or ensuring "
+                                f"instruction-response pairs are well-aligned."
+                            ),
+                            affected_samples=len(scores),
+                            metric_name=col,
+                            details={
+                                "average_ifd": round(avg_score, 3),
+                                "median_ifd": round(median_score, 3),
+                            },
+                        )
+                    )
+
+                # Warn about very high IFD values
+                if very_high_ifd_count > 0:
+                    very_high_pct = (very_high_ifd_count / len(scores)) * 100
+                    very_high_indices = scores[very_high_ifd_mask].index.tolist()[:20]
+
+                    recommendations.append(
+                        Recommendation(
+                            category=RecommendationCategory.INSIGHT,
+                            severity=RecommendationSeverity.LOW,
+                            title="Very high IFD scores detected",
+                            description=(
+                                f"Found {very_high_ifd_count} samples "
+                                f"({very_high_pct:.1f}%) with IFD > 100. While high "
+                                f"IFD generally indicates valuable samples, extremely "
+                                f"high values may indicate trivial responses or data "
+                                f"issues. Consider reviewing these samples."
+                            ),
+                            affected_samples=int(very_high_ifd_count),
+                            metric_name=col,
+                            details={
+                                "very_high_ifd_count": int(very_high_ifd_count),
+                                "max_ifd": round(scores.max(), 3),
+                            },
+                            sample_indices=very_high_indices,
+                        )
+                    )
+
+            break  # Only report once
+
+        return recommendations
+
+    def _check_task_category_distribution(
+        self, df: pd.DataFrame
+    ) -> list[Recommendation]:
+        """Check for task category distribution issues.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for task category issues.
+        """
+        recommendations = []
+
+        # Look for task category columns
+        category_cols = [col for col in df.columns if "task_category_category" in col]
+
+        for col in category_cols:
+            if col not in df.columns:
+                continue
+
+            # Get category distribution (excluding None)
+            categories = df[col].dropna()
+            if len(categories) < 10:
+                continue
+
+            category_counts = categories.value_counts()
+            total = len(categories)
+
+            # Check for imbalanced distribution
+            largest_category = category_counts.iloc[0]
+            largest_category_name = category_counts.index[0]
+            largest_pct = (largest_category / total) * 100
+
+            # Check if dominated by single category
+            if largest_pct > 50:
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if largest_pct > 70
+                    else RecommendationSeverity.MEDIUM
+                )
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title=f"Task distribution dominated by '{largest_category_name}'",
+                        description=(
+                            f"The '{largest_category_name}' category accounts for "
+                            f"{largest_pct:.1f}% of all tasks. This imbalance may "
+                            f"cause the model to underperform on less common tasks. "
+                            f"Consider adding more diverse task types."
+                        ),
+                        affected_samples=int(largest_category),
+                        metric_name=col,
+                        details={
+                            "dominant_category": largest_category_name,
+                            "dominant_percentage": round(largest_pct, 2),
+                            "category_distribution": {
+                                str(k): int(v)
+                                for k, v in category_counts.head(10).items()
+                            },
+                        },
+                    )
+                )
+
+            # Check for missing important categories
+            important_categories = {"math", "coding", "reasoning", "creative_writing"}
+            missing = important_categories - set(category_counts.index)
+            if missing and len(category_counts) >= 3:
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.INSIGHT,
+                        severity=RecommendationSeverity.LOW,
+                        title="Some common task categories are missing",
+                        description=(
+                            f"The following task categories are not represented: "
+                            f"{', '.join(missing)}. Consider whether your dataset "
+                            f"needs coverage in these areas."
+                        ),
+                        affected_samples=0,
+                        metric_name=col,
+                        details={"missing_categories": list(missing)},
+                    )
+                )
+            break
+
+        return recommendations
+
+    def _check_instruct_reward_scores(
+        self, df: pd.DataFrame
+    ) -> list[Recommendation]:
+        """Check for response quality issues based on instruct reward scores.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for reward score issues.
+        """
+        recommendations = []
+
+        # Look for reward score columns
+        reward_cols = [col for col in df.columns if "instruct_reward_score" in col]
+
+        for col in reward_cols:
+            if col not in df.columns:
+                continue
+
+            scores = df[col].dropna()
+            if len(scores) < 10:
+                continue
+
+            avg_score = scores.mean()
+            low_quality_mask = scores < 2.5  # Below 2.5 on 0-5 scale
+            low_quality_count = low_quality_mask.sum()
+            low_quality_pct = (low_quality_count / len(scores)) * 100
+
+            if low_quality_count > 0 and low_quality_pct > 10:
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if low_quality_pct > 30
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if low_quality_pct > 20
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                low_quality_indices = scores[low_quality_mask].index.tolist()[:20]
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="Low-quality responses detected (instruct reward)",
+                        description=(
+                            f"Found {low_quality_count} responses ({low_quality_pct:.1f}%) "
+                            f"with reward scores below 2.5 (out of 5). Average score: "
+                            f"{avg_score:.2f}. Consider filtering or improving these "
+                            f"low-quality responses before training."
+                        ),
+                        affected_samples=int(low_quality_count),
+                        metric_name=col,
+                        threshold=2.5,
+                        details={
+                            "low_quality_count": int(low_quality_count),
+                            "average_score": round(avg_score, 2),
+                            "min_score": round(scores.min(), 2),
+                        },
+                        sample_indices=low_quality_indices,
+                    )
+                )
+            break
+
+        return recommendations
+
+    def _check_input_quality_issues(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for input quality issues.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for input quality issues.
+        """
+        recommendations = []
+
+        # Look for input quality tier columns
+        tier_cols = [col for col in df.columns if "input_quality_tier" in col]
+
+        for col in tier_cols:
+            if col not in df.columns:
+                continue
+
+            tiers = df[col].dropna()
+            if len(tiers) < 10:
+                continue
+
+            tier_counts = tiers.value_counts()
+            total = len(tiers)
+
+            # Count poor quality inputs
+            poor_count = tier_counts.get("poor", 0) + tier_counts.get("very_poor", 0)
+            poor_pct = (poor_count / total) * 100
+
+            if poor_count > 0 and poor_pct > 10:
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if poor_pct > 25
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if poor_pct > 15
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                poor_mask = df[col].isin(["poor", "very_poor"])
+                poor_indices = df[poor_mask].index.tolist()[:20]
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="Poor quality inputs detected",
+                        description=(
+                            f"Found {poor_count} inputs ({poor_pct:.1f}%) rated as "
+                            f"'poor' or 'very_poor'. These may be ambiguous, incomplete, "
+                            f"or unanswerable instructions that could confuse the model. "
+                            f"Consider improving or filtering these samples."
+                        ),
+                        affected_samples=int(poor_count),
+                        metric_name=col,
+                        details={
+                            "poor_count": int(poor_count),
+                            "tier_distribution": {str(k): int(v) for k, v in tier_counts.items()},
+                        },
+                        sample_indices=poor_indices,
+                    )
+                )
+            break
+
+        return recommendations
+
+    def _check_conversation_structure(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for conversation structure issues.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for conversation structure issues.
+        """
+        recommendations = []
+
+        # Look for conversation structure columns
+        single_turn_cols = [
+            col for col in df.columns if "conversation_structure_is_single_turn" in col
+        ]
+
+        for col in single_turn_cols:
+            if col not in df.columns:
+                continue
+
+            single_turn = df[col].dropna()
+            if len(single_turn) < 10:
+                continue
+
+            single_turn_count = single_turn.sum()
+            total = len(single_turn)
+            single_turn_pct = (single_turn_count / total) * 100
+
+            # High single-turn ratio insight
+            if single_turn_pct > 90:
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.INSIGHT,
+                        severity=RecommendationSeverity.LOW,
+                        title="Dataset is predominantly single-turn",
+                        description=(
+                            f"{single_turn_pct:.1f}% of conversations are single-turn. "
+                            f"This is similar to Tulu-3 (95% single-turn). If training "
+                            f"for multi-turn dialogue capabilities, consider adding "
+                            f"more multi-turn conversations."
+                        ),
+                        affected_samples=int(single_turn_count),
+                        metric_name=col,
+                        details={"single_turn_percentage": round(single_turn_pct, 2)},
+                    )
+                )
+            break
+
+        return recommendations
+
+    def _check_safety_issues(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for safety issues in content.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for safety issues.
+        """
+        recommendations = []
+
+        # Look for safety columns
+        safety_cols = [col for col in df.columns if "safety_is_safe" in col]
+
+        for col in safety_cols:
+            if col not in df.columns:
+                continue
+
+            safety = df[col].dropna()
+            if len(safety) == 0:
+                continue
+
+            unsafe_mask = safety == False  # noqa: E712
+            unsafe_count = unsafe_mask.sum()
+            unsafe_pct = (unsafe_count / len(safety)) * 100
+
+            if unsafe_count > 0:
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if unsafe_pct > 5
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if unsafe_pct > 1
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                unsafe_indices = safety[unsafe_mask].index.tolist()[:20]
+
+                # Get category breakdown if available
+                category_col = col.replace("_is_safe", "_categories")
+                category_detail = ""
+                if category_col in df.columns:
+                    all_categories = df[category_col].dropna()
+                    all_categories = all_categories[all_categories != ""]
+                    if len(all_categories) > 0:
+                        cat_counts = Counter(
+                            c for cats in all_categories for c in cats.split(",") if c
+                        )
+                        if cat_counts:
+                            category_detail = (
+                                f" Categories: "
+                                f"{', '.join(f'{c} ({n})' for c, n in cat_counts.most_common(5))}."
+                            )
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="Potentially unsafe content detected",
+                        description=(
+                            f"Found {unsafe_count} samples ({unsafe_pct:.1f}%) flagged "
+                            f"as potentially unsafe.{category_detail} Review these "
+                            f"samples before training to ensure appropriate content."
+                        ),
+                        affected_samples=int(unsafe_count),
+                        metric_name=col,
+                        details={"unsafe_count": int(unsafe_count)},
+                        sample_indices=unsafe_indices,
+                    )
+                )
+            break
+
+        return recommendations
+
+    def _check_difficulty_distribution(self, df: pd.DataFrame) -> list[Recommendation]:
+        """Check for difficulty distribution issues.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for difficulty distribution issues.
+        """
+        recommendations = []
+
+        # Look for difficulty tier columns
+        tier_cols = [col for col in df.columns if "difficulty_tier" in col]
+
+        for col in tier_cols:
+            if col not in df.columns:
+                continue
+
+            tiers = df[col].dropna()
+            if len(tiers) < 10:
+                continue
+
+            tier_counts = tiers.value_counts()
+            total = len(tiers)
+
+            # Check for skewed distribution
+            easy_count = tier_counts.get("easy", 0)
+            easy_pct = (easy_count / total) * 100
+
+            hard_count = tier_counts.get("hard", 0) + tier_counts.get("expert", 0)
+            hard_pct = (hard_count / total) * 100
+
+            if easy_pct > 70:
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.INSIGHT,
+                        severity=RecommendationSeverity.LOW,
+                        title="Dataset skewed toward easy samples",
+                        description=(
+                            f"{easy_pct:.1f}% of samples are rated as 'easy'. "
+                            f"Consider adding more challenging samples for better "
+                            f"model capability development."
+                        ),
+                        affected_samples=int(easy_count),
+                        metric_name=col,
+                        details={
+                            "tier_distribution": {
+                                str(k): int(v) for k, v in tier_counts.items()
+                            }
+                        },
+                    )
+                )
+            elif hard_pct > 70:
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.INSIGHT,
+                        severity=RecommendationSeverity.MEDIUM,
+                        title="Dataset skewed toward difficult samples",
+                        description=(
+                            f"{hard_pct:.1f}% of samples are rated as 'hard' or 'expert'. "
+                            f"Consider adding easier samples for curriculum learning."
+                        ),
+                        affected_samples=int(hard_count),
+                        metric_name=col,
+                        details={
+                            "tier_distribution": {
+                                str(k): int(v) for k, v in tier_counts.items()
+                            }
+                        },
+                    )
+                )
+            break
+
+        return recommendations
+
+    def _check_response_completeness_analyzer(
+        self, df: pd.DataFrame
+    ) -> list[Recommendation]:
+        """Check for response completeness issues from the new analyzer.
+
+        Args:
+            df: DataFrame with message data.
+
+        Returns:
+            List of recommendations for response completeness issues.
+        """
+        recommendations = []
+
+        # Look for completeness columns from response_completeness analyzer
+        complete_cols = [
+            col for col in df.columns if "response_completeness_is_complete" in col
+        ]
+
+        for col in complete_cols:
+            if col not in df.columns:
+                continue
+
+            completeness = df[col].dropna()
+            if len(completeness) == 0:
+                continue
+
+            incomplete_mask = completeness == False  # noqa: E712
+            incomplete_count = incomplete_mask.sum()
+            incomplete_pct = (incomplete_count / len(completeness)) * 100
+
+            if incomplete_count > 0 and incomplete_pct > 5:
+                severity = (
+                    RecommendationSeverity.HIGH
+                    if incomplete_pct > 20
+                    else (
+                        RecommendationSeverity.MEDIUM
+                        if incomplete_pct > 10
+                        else RecommendationSeverity.LOW
+                    )
+                )
+
+                incomplete_indices = completeness[incomplete_mask].index.tolist()[:20]
+
+                # Get truncation type breakdown if available
+                truncation_col = col.replace("_is_complete", "_truncation_type")
+                truncation_detail = ""
+                if truncation_col in df.columns:
+                    incomplete_rows = df.loc[incomplete_mask]
+                    truncation_types = incomplete_rows[truncation_col].dropna()
+                    truncation_types = truncation_types[truncation_types != ""]
+                    if len(truncation_types) > 0:
+                        type_counts = truncation_types.value_counts()
+                        truncation_detail = (
+                            f" Truncation types: "
+                            f"{', '.join(f'{t} ({c})' for t, c in type_counts.items())}."
+                        )
+
+                recommendations.append(
+                    Recommendation(
+                        category=RecommendationCategory.WARNING,
+                        severity=severity,
+                        title="Incomplete responses detected",
+                        description=(
+                            f"Found {incomplete_count} responses ({incomplete_pct:.1f}%) "
+                            f"that appear incomplete or truncated.{truncation_detail} "
+                            f"Training on incomplete responses may cause the model to "
+                            f"generate truncated outputs."
+                        ),
+                        affected_samples=int(incomplete_count),
+                        metric_name=col,
+                        details={"incomplete_count": int(incomplete_count)},
+                        sample_indices=incomplete_indices,
+                    )
+                )
+            break
 
         return recommendations

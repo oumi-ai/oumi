@@ -201,9 +201,7 @@ class LengthAnalyzer(SampleAnalyzer):
                 elif self._tiktoken_encoder is not None:
                     # Use tiktoken encoder
                     result_df[col_name] = (
-                        df[column]
-                        .astype(str)
-                        .apply(self._count_tokens_tiktoken)
+                        df[column].astype(str).apply(self._count_tokens_tiktoken)
                     )
                 generated_schema[col_name] = {
                     "type": ColumnType.INT,

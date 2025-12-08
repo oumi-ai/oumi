@@ -27,6 +27,7 @@ from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.registry import REGISTRY
 from oumi.utils.analysis_utils import (
     compute_statistics,
+    compute_statistics_with_distribution,
     convert_dataset_to_dataframes,
     get_schema_for_format,
     load_dataset_from_config,

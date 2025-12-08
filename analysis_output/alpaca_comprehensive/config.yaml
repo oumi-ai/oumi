@@ -1,0 +1,55 @@
+# Comprehensive Alpaca Quality Analysis
+# Compares automated detection with manually identified issues
+#
+# Usage: oumi analyze --config configs/examples/analyze/analyze_alpaca_comprehensive.yaml
+
+dataset_name: tatsu-lab/alpaca
+split: train
+# Run on full dataset
+# sample_count: 5000  # Uncomment to test on subset first
+
+output_path: ./analysis_output/alpaca_comprehensive
+generate_report: true
+report_title: "Alpaca Dataset Comprehensive Quality Analysis"
+generate_recommendations: true
+
+analyzers:
+  # Content pattern analyzer (custom filters)
+  - id: content_pattern
+    params:
+      detect_placeholders: true
+      detect_hallucinated_experiences: true
+      detect_nooutput: true
+      detect_refusals: true
+      detect_suspicious_urls: true
+      compute_content_pattern_score: true
+
+  # Length analyzer (detect short/empty outputs)
+  - id: length
+    params:
+      char_count: true
+      word_count: true
+      token_count: true
+
+  # Quality analyzer (special tokens, encoding, repetition)
+  - id: quality
+    params:
+      detect_pii: true
+      detect_encoding_issues: true
+      detect_special_tokens: true
+      detect_repetition: true
+      repetition_threshold: 0.3
+      compute_quality_score: true
+
+  # Diversity analyzer (repetitive language patterns)
+  - id: diversity
+    params:
+      type_token_ratio: true
+      unique_words_ratio: true
+
+  # Training quality (instruction clarity, response completeness)
+  - id: training_quality
+    params:
+      compute_instruction_clarity: true
+      compute_response_completeness: true
+      compute_turn_quality: true

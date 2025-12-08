@@ -18,9 +18,10 @@
 # GPU recommended for faster embedding computation
 
 # Dataset configuration - FULL alpaca dataset
-dataset_name: yahma/alpaca-cleaned
+dataset_name: tatsu-lab/alpaca
 split: train
 # No sample_count = process entire dataset (~52k samples)
+# sample_count: 5000
 
 # Output configuration
 output_path: ./analysis_output/dedup
@@ -37,17 +38,17 @@ analyzers:
   - id: embedding
     params:
       # Model configuration
-      model_name: all-MiniLM-L6-v2  # Fast, good quality (384 dims)
-      # Alternative: all-mpnet-base-v2 (768 dims, slower but more accurate)
-      batch_size: 64                 # Increase if you have more GPU memory
-      device: null                   # Auto-detect (uses GPU if available)
+      # model_name: all-MiniLM-L6-v2 # Fast, good quality (384 dims)
+      # # Alternative: all-mpnet-base-v2 (768 dims, slower but more accurate)
+      # batch_size: 64 # Increase if you have more GPU memory
+      # device: null # Auto-detect (uses GPU if available)
 
       # ----- Semantic Duplicate Detection (Embedding-based) -----
       # Catches: Paraphrases, same meaning with different wording
       # Method: Cosine similarity between embedding vectors
       # Speed: O(n²) - slower, but catches semantic duplicates
-      detect_duplicates: true
-      duplicate_threshold: 0.95      # High threshold = only very similar
+      # detect_duplicates: true
+      # duplicate_threshold: 0.95 # High threshold = only very similar
       # Try 0.90 for more aggressive dedup, 0.98 for conservative
 
       # ----- Fuzzy Duplicate Detection (MinHash LSH) -----
@@ -55,13 +56,13 @@ analyzers:
       # Method: Jaccard similarity via MinHash with LSH indexing
       # Speed: O(n) - very fast even for large datasets
       detect_fuzzy_duplicates: true
-      fuzzy_threshold: 0.8           # Jaccard similarity threshold
-      fuzzy_ngram_size: 3            # Character n-gram size
-      fuzzy_num_perm: 128            # MinHash permutations (accuracy vs speed)
+      fuzzy_threshold: 0.8 # Jaccard similarity threshold
+      fuzzy_ngram_size: 3 # Character n-gram size
+      fuzzy_num_perm: 128 # MinHash permutations (accuracy vs speed)
       # Higher num_perm = more accurate but slower
 
       # Clustering (optional - useful for grouping similar content)
-      cluster_samples: false         # Set true to cluster by topic
+      cluster_samples: false # Set true to cluster by topic
       # clustering_method: dbscan    # or "kmeans"
       # eps: 0.5                     # DBSCAN epsilon
       # min_samples: 2               # DBSCAN min samples
@@ -77,7 +78,7 @@ analyzers:
       char_count: false
       word_count: true
       sentence_count: false
-      token_count: true              # Uses tiktoken o200k_base
+      token_count: true # Uses tiktoken o200k_base
 
   # ==========================================================================
   # DIVERSITY ANALYZER - Vocabulary metrics
@@ -86,7 +87,7 @@ analyzers:
     params:
       unique_words_ratio: true
       type_token_ratio: true
-      vocabulary_richness: false     # Disabled for speed on large dataset
+      vocabulary_richness: false # Disabled for speed on large dataset
       hapax_legomena_ratio: false
       case_sensitive: false
 
@@ -119,7 +120,6 @@ analyzers:
     params:
       target_context_windows: [4096, 8192, 16384]
       compute_packing_efficiency: true
-
 # ==========================================================================
 # OUTPUT COLUMNS REFERENCE
 # ==========================================================================
