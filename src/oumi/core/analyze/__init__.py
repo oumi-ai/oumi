@@ -36,6 +36,7 @@ from oumi.core.analyze.presets import (
     get_preset_with_tokenizer,
     list_presets,
 )
+from oumi.core.analyze.observations import Observation, ObservationsEngine
 from oumi.core.analyze.quality_analyzer import QualityAnalyzer
 from oumi.core.analyze.recommendations import Recommendation, RecommendationsEngine
 from oumi.core.analyze.report_generator import HTMLReportGenerator
@@ -129,6 +130,9 @@ __all__ = [
     "SafetyAnalyzer",
     "DifficultyAnalyzer",
     "ResponseCompletenessAnalyzer",
+    # Observations
+    "Observation",
+    "ObservationsEngine",
     # Recommendations
     "Recommendation",
     "RecommendationsEngine",

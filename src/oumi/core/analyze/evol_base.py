@@ -48,6 +48,9 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
     - _process_evolution_result(): Process results into scores
     """
 
+    requires_llm: bool = True
+    requires_remote_llm: bool = True  # Uses API by default (OpenAI/Anthropic)
+
     def __init__(
         self,
         *,

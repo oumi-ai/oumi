@@ -106,15 +106,26 @@ class DatasetAnalysisResult:
 class DatasetAnalyzer:
     """Orchestrates the analysis of datasets using multiple sample analyzers."""
 
-    def __init__(self, config: AnalyzeConfig, dataset: Optional[BaseMapDataset] = None):
+    def __init__(
+        self,
+        config: AnalyzeConfig,
+        dataset: Optional[BaseMapDataset] = None,
+        skip_llm_analyzers: bool = False,
+        skip_remote_llm_analyzers: bool = False,
+    ):
         """Initialize the dataset analyzer with configuration.
 
         Args:
             config: AnalyzeConfig object containing all analysis parameters
             dataset: Optional pre-loaded dataset. If provided, this dataset will be used
                     instead of loading from the config.
+            skip_llm_analyzers: If True, skip analyzers that require LLM inference.
+            skip_remote_llm_analyzers: If True, skip analyzers that require remote
+                LLM APIs (e.g., OpenAI, Anthropic). Local model analyzers are allowed.
         """
         self.config = config
+        self.skip_llm_analyzers = skip_llm_analyzers
+        self.skip_remote_llm_analyzers = skip_remote_llm_analyzers
         self.dataset_name = config.dataset_name
         self.split = config.split
 
@@ -247,6 +258,7 @@ class DatasetAnalyzer:
         """
         sample_analyzers = {}
         failed_analyzers: list[tuple[str, str]] = []
+        skipped_analyzers: list[str] = []
 
         for analyzer_params in self.config.analyzers:
             try:
@@ -255,6 +267,28 @@ class DatasetAnalyzer:
                     raise ValueError(
                         f"Sample analyzer '{analyzer_params.id}' not found in registry"
                     )
+
+                # Check if this analyzer requires LLM and should be skipped
+                if self.skip_llm_analyzers and getattr(
+                    analyzer_class, "requires_llm", False
+                ):
+                    skipped_analyzers.append(analyzer_params.id)
+                    logger.info(
+                        f"Skipping LLM-based analyzer: {analyzer_params.id} "
+                        f"(--skip-llm flag set)"
+                    )
+                    continue
+
+                # Check if this analyzer requires remote LLM API and should be skipped
+                if self.skip_remote_llm_analyzers and getattr(
+                    analyzer_class, "requires_remote_llm", False
+                ):
+                    skipped_analyzers.append(analyzer_params.id)
+                    logger.info(
+                        f"Skipping remote LLM analyzer: {analyzer_params.id} "
+                        f"(--skip-remote-llm flag set)"
+                    )
+                    continue
 
                 # Prepare parameters for analyzer constructor
                 analyzer_kwargs = dict(analyzer_params.params)
@@ -280,6 +314,12 @@ class DatasetAnalyzer:
             raise RuntimeError(
                 f"Failed to initialize {len(failed_analyzers)} analyzer(s):\n"
                 f"{error_details}"
+            )
+
+        if skipped_analyzers:
+            logger.info(
+                f"Skipped {len(skipped_analyzers)} LLM-based analyzer(s): "
+                f"{', '.join(skipped_analyzers)}"
             )
 
         return sample_analyzers
@@ -651,6 +691,9 @@ class DatasetAnalyzer:
             "conversation_turns": self._get_conversation_turns_summary(),
         }
 
+        # Generate observations (key findings summary)
+        summary["observations"] = self._generate_observations(summary)
+
         # Generate recommendations if enabled in config
         if getattr(self.config, "generate_recommendations", True):
             summary["recommendations"] = self._generate_recommendations(summary)
@@ -690,6 +733,39 @@ class DatasetAnalyzer:
             return [rec.to_dict() for rec in recommendations]
         except Exception as e:
             logger.warning(f"Failed to generate recommendations: {e}")
+            return []
+
+    def _generate_observations(
+        self, summary: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Generate observations (key findings) based on analysis results.
+
+        Args:
+            summary: The analysis summary dict.
+
+        Returns:
+            List of observation dictionaries.
+        """
+        try:
+            from oumi.core.analyze.observations import ObservationsEngine
+
+            engine = ObservationsEngine()
+            msg_df = (
+                self._message_df if self._message_df is not None else pd.DataFrame()
+            )
+            conv_df = (
+                self._conversation_df
+                if self._conversation_df is not None
+                else pd.DataFrame()
+            )
+            observations = engine.generate_observations(
+                message_df=msg_df,
+                conversation_df=conv_df,
+                analysis_summary=summary,
+            )
+            return [obs.to_dict() for obs in observations]
+        except Exception as e:
+            logger.warning(f"Failed to generate observations: {e}")
             return []
 
     @property

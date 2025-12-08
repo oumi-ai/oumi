@@ -57,6 +57,9 @@ class LLMJudgeAnalyzer(SampleAnalyzer):
         It supports both local models and remote APIs (OpenAI, Anthropic, etc.).
     """
 
+    requires_llm: bool = True
+    requires_remote_llm: bool = True  # Uses remote API by default
+
     # Default evaluation prompt
     DEFAULT_PROMPT = """Evaluate the following text for quality on a scale of 0-10.
 Consider factors like:

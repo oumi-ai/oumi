@@ -26,6 +26,15 @@ class SampleAnalyzer(ABC):
     All analyzers work with pandas DataFrames for efficient processing.
     """
 
+    # Whether this analyzer requires an LLM for analysis.
+    # Set to True in subclasses that use LLM inference (e.g., LLMJudgeAnalyzer).
+    requires_llm: bool = False
+
+    # Whether this analyzer requires a remote LLM API (e.g., OpenAI, Anthropic).
+    # Set to True in subclasses that use remote API inference by default.
+    # Local model-based analyzers (e.g., IFDAnalyzer) should keep this False.
+    requires_remote_llm: bool = False
+
     @abstractmethod
     def analyze_sample(
         self,
