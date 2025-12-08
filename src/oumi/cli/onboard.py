@@ -524,6 +524,38 @@ TABULAR_EXTENSIONS = {".csv", ".tsv", ".xlsx", ".xls", ".json", ".jsonl"}
 # ============================================================================
 
 
+def _derive_task_name(description: str) -> str:
+    """Derive a short task name from a description.
+
+    Args:
+        description: Full task description.
+
+    Returns:
+        Short task name (max ~50 chars).
+    """
+    if not description:
+        return "Custom Task"
+
+    # Take first sentence or first 50 chars
+    desc = description.strip()
+
+    # Find first sentence end
+    for end_char in [".", "!", "?"]:
+        idx = desc.find(end_char)
+        if 0 < idx < 80:
+            return desc[: idx + 1]
+
+    # Otherwise truncate at word boundary
+    if len(desc) <= 50:
+        return desc
+
+    truncated = desc[:50]
+    last_space = truncated.rfind(" ")
+    if last_space > 20:
+        return truncated[:last_space] + "..."
+    return truncated + "..."
+
+
 def _wizard_step_task(state: WizardState, verbose: bool = False) -> WizardState:
     """Step 1: Define task and generate system prompt.
 
@@ -568,6 +600,9 @@ def _wizard_step_task(state: WizardState, verbose: bool = False) -> WizardState:
     else:
         state.task.description = Prompt.ask("What should your model do?")
 
+    # Derive task name from description (short summary)
+    state.task.name = _derive_task_name(state.task.description)
+
     # Auto-generate system prompt
     if state.llm_analyzer:
         with cli_utils.CONSOLE.status("[dim]Generating system prompt...[/dim]", spinner="dots"):
@@ -600,10 +635,157 @@ def _wizard_step_task(state: WizardState, verbose: bool = False) -> WizardState:
     return state
 
 
+def _detect_input_source(state: WizardState, llm_analyzer) -> dict:
+    """Use AI to detect the best input source for the task.
+
+    Analyzes columns and sample data to find meaningful input columns,
+    excluding things like UUIDs, IDs, timestamps that don't make sense as inputs.
+
+    Args:
+        state: Wizard state with task and schema info.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Dict with: source_column, format, samples, reasoning
+    """
+    import json
+
+    if not state.primary_schema or not state.primary_schema.columns:
+        return {
+            "source_column": "",
+            "format": "single_turn",
+            "samples": [],
+            "reasoning": "No schema available",
+        }
+
+    # Build column info with samples
+    cols_info = []
+    for col in state.primary_schema.columns[:15]:
+        col_info = {"name": col.name, "dtype": col.dtype}
+        if col.avg_length:
+            col_info["avg_length"] = col.avg_length
+        # Get sample values for this column
+        if state.primary_schema.sample_rows:
+            sample_vals = [
+                str(row.get(col.name, ""))[:100]
+                for row in state.primary_schema.sample_rows[:3]
+                if row.get(col.name)
+            ]
+            col_info["sample_values"] = sample_vals
+        cols_info.append(col_info)
+
+    prompt = f"""Analyze this data to determine the best INPUT column(s) for a machine learning task.
+
+Task: {state.task.description}
+
+Available columns:
+{json.dumps(cols_info, indent=2)}
+
+Select the column(s) that should be used as INPUT to the model. Consider:
+1. The task description - what data does the model need to perform this task?
+2. Exclude meaningless columns like: UUIDs, IDs, timestamps, row numbers, internal identifiers
+3. Prefer columns with actual text content, questions, or structured data relevant to the task
+4. If multiple columns are needed together (e.g., "title" + "body"), suggest combining them
+
+Return JSON:
+{{
+    "source_column": "column_name",  // The primary input column, or comma-separated if multiple needed
+    "format": "single_turn|multi_turn|document|structured|instruction",
+    "reasoning": "Brief explanation of why this column makes sense for the task"
+}}
+
+Return ONLY the JSON object."""
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        source_col = result.get("source_column", "")
+        fmt = result.get("format", "single_turn")
+        reasoning = result.get("reasoning", "")
+
+        # Get samples from the selected column
+        samples = []
+        if source_col and state.primary_schema.sample_rows:
+            # Handle comma-separated columns
+            cols_to_use = [c.strip() for c in source_col.split(",")]
+            for row in state.primary_schema.sample_rows[:3]:
+                if len(cols_to_use) == 1:
+                    val = row.get(cols_to_use[0], "")
+                    if val:
+                        samples.append(str(val)[:200])
+                else:
+                    # Combine multiple columns
+                    parts = [str(row.get(c, "")) for c in cols_to_use if row.get(c)]
+                    if parts:
+                        samples.append(" | ".join(parts)[:200])
+
+        return {
+            "source_column": source_col,
+            "format": fmt if fmt in INPUT_FORMAT_TYPES else "single_turn",
+            "samples": samples,
+            "reasoning": reasoning,
+        }
+    except Exception:
+        # Fallback to simple heuristic
+        return _fallback_input_detection(state)
+
+
+def _fallback_input_detection(state: WizardState) -> dict:
+    """Fallback input detection using simple heuristics."""
+    if not state.primary_schema or not state.primary_schema.columns:
+        return {
+            "source_column": "",
+            "format": "single_turn",
+            "samples": [],
+            "reasoning": "No schema available",
+        }
+
+    # Skip columns that look like IDs/UUIDs
+    skip_patterns = ["id", "uuid", "_id", "created", "updated", "timestamp", "index"]
+
+    input_col = None
+    for col in state.primary_schema.columns:
+        name_lower = col.name.lower()
+        # Skip ID-like columns
+        if any(pat in name_lower for pat in skip_patterns):
+            continue
+        # Prefer text-like columns
+        if any(kw in name_lower for kw in ["question", "input", "query", "prompt", "text", "content", "message"]):
+            input_col = col.name
+            break
+
+    # If no match, pick first non-ID column
+    if not input_col:
+        for col in state.primary_schema.columns:
+            name_lower = col.name.lower()
+            if not any(pat in name_lower for pat in skip_patterns):
+                input_col = col.name
+                break
+
+    # Last resort: first column
+    if not input_col and state.primary_schema.columns:
+        input_col = state.primary_schema.columns[0].name
+
+    # Get samples
+    samples = []
+    if input_col and state.primary_schema.sample_rows:
+        samples = [
+            str(row.get(input_col, ""))[:200]
+            for row in state.primary_schema.sample_rows[:3]
+            if row.get(input_col)
+        ]
+
+    return {
+        "source_column": input_col or "",
+        "format": "single_turn",
+        "samples": samples,
+        "reasoning": "Selected using keyword heuristics",
+    }
+
+
 def _wizard_step_inputs(state: WizardState, verbose: bool = False) -> WizardState:
     """Step 2: Define input distribution.
 
-    Auto-detects format and samples from data, user just confirms.
+    Uses AI to intelligently detect the right input columns for the task.
 
     Args:
         state: Current wizard state.
@@ -616,36 +798,24 @@ def _wizard_step_inputs(state: WizardState, verbose: bool = False) -> WizardStat
         "\n[bold cyan]━━━ Step 2/4: Input Distribution ━━━[/bold cyan]\n"
     )
 
-    # Auto-detect from schema
-    if state.primary_schema:
-        # Find likely input column
-        input_col = None
-        for col in state.primary_schema.columns or []:
-            name_lower = col.name.lower()
-            if any(kw in name_lower for kw in ["question", "input", "query", "prompt", "text", "content"]):
-                input_col = col.name
-                break
+    # Use AI to detect the best input source
+    if state.llm_analyzer and state.primary_schema:
+        with cli_utils.CONSOLE.status("[dim]Analyzing data for best input columns...[/dim]", spinner="dots"):
+            detection = _detect_input_source(state, state.llm_analyzer)
 
-        if not input_col and state.primary_schema.columns:
-            input_col = state.primary_schema.columns[0].name
+        state.inputs.source_column = detection["source_column"]
+        state.inputs.format = detection["format"]
+        state.inputs.samples = detection["samples"]
 
-        state.inputs.source_column = input_col or ""
-
-        # Get samples
-        if state.primary_schema.sample_rows and input_col:
-            samples = [
-                str(row.get(input_col, ""))[:200]
-                for row in state.primary_schema.sample_rows[:3]
-                if row.get(input_col)
-            ]
-            state.inputs.samples = samples
-
-    # Detect format
-    if state.llm_analyzer and state.inputs.samples:
-        with cli_utils.CONSOLE.status("[dim]Detecting input format...[/dim]", spinner="dots"):
-            state.inputs.format = _detect_input_format(state, state.llm_analyzer)
+        # Show reasoning
+        if detection.get("reasoning"):
+            cli_utils.CONSOLE.print(f"[dim]{detection['reasoning']}[/dim]\n")
     else:
-        state.inputs.format = "single_turn"
+        # Fallback to heuristics
+        detection = _fallback_input_detection(state)
+        state.inputs.source_column = detection["source_column"]
+        state.inputs.format = detection["format"]
+        state.inputs.samples = detection["samples"]
 
     # Show what we found
     format_name = INPUT_FORMATS.get(state.inputs.format, state.inputs.format)
@@ -659,10 +829,18 @@ def _wizard_step_inputs(state: WizardState, verbose: bool = False) -> WizardStat
             cli_utils.CONSOLE.print(f"  {i}. {sample[:100]}{'...' if len(sample) > 100 else ''}")
 
     if not Confirm.ask("\nIs this correct?", default=True):
-        # Let user specify column
+        # Show columns with sample data to help user choose
         if state.primary_schema and state.primary_schema.columns:
-            cols = [c.name for c in state.primary_schema.columns]
-            cli_utils.CONSOLE.print(f"[dim]Available columns: {', '.join(cols)}[/dim]")
+            cli_utils.CONSOLE.print("\n[bold]Available columns:[/bold]\n")
+            for col in state.primary_schema.columns:
+                cli_utils.CONSOLE.print(f"  [cyan]{col.name}[/cyan] ({col.dtype})")
+                # Show sample values for this column
+                if state.primary_schema.sample_rows:
+                    for i, row in enumerate(state.primary_schema.sample_rows[:2], 1):
+                        val = str(row.get(col.name, ""))[:80]
+                        if val:
+                            cli_utils.CONSOLE.print(f"    [dim]{i}. {val}{'...' if len(str(row.get(col.name, ''))) > 80 else ''}[/dim]")
+                cli_utils.CONSOLE.print()  # blank line between columns
         state.inputs.source_column = Prompt.ask("Input column name", default=state.inputs.source_column)
 
     cli_utils.CONSOLE.print("[green]✓ Inputs configured[/green]")
@@ -747,18 +925,16 @@ def _wizard_step_generate(
     if state.primary_schema:
         synth_config = synth_builder.from_schema(
             state.primary_schema,
-            synth_type="qa",
+            goal="qa",
             output_path=str(output_path / "synth_output.jsonl"),
+            system_prompt=state.task.system_prompt,
+            task_description=state.task.description,
         )
     else:
         synth_config = synth_builder.from_template(
             "qa_generation",
             output_path=str(output_path / "synth_output.jsonl"),
         )
-
-    # Update with task info
-    if state.task.system_prompt:
-        synth_config.generation.system_prompt = state.task.system_prompt
 
     synth_path = output_path / "synth_config.yaml"
     synth_config.to_yaml(str(synth_path))

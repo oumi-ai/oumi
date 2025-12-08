@@ -252,6 +252,8 @@ Generate an appropriate response.""",
         output_path: Optional[str] = None,
         mappings: Optional[list[FieldMapping]] = None,
         attribute_map: Optional[dict[str, str]] = None,
+        system_prompt: Optional[str] = None,
+        task_description: Optional[str] = None,
     ) -> SynthesisConfig:
         """Build a SynthesisConfig from analyzed data.
 
@@ -264,6 +266,8 @@ Generate an appropriate response.""",
             attribute_map: Optional explicit column-to-role mapping (e.g.,
                 {"context": "description_col", "question": "query_col"}).
                 Takes precedence over auto-detected mappings.
+            system_prompt: Optional custom system prompt for the task.
+            task_description: Optional task description to customize prompts.
 
         Returns:
             A configured SynthesisConfig.
@@ -276,7 +280,8 @@ Generate an appropriate response.""",
 
         # Build strategy params based on goal
         strategy_params = self._build_strategy_params(
-            schema, goal, mappings, attribute_map=attribute_map
+            schema, goal, mappings, attribute_map=attribute_map,
+            system_prompt=system_prompt, task_description=task_description
         )
 
         # Create output path if not provided
@@ -297,6 +302,8 @@ Generate an appropriate response.""",
         goal: SynthGoal,
         mappings: list[FieldMapping],
         attribute_map: Optional[dict[str, str]] = None,
+        system_prompt: Optional[str] = None,
+        task_description: Optional[str] = None,
     ) -> GeneralSynthesisParams:
         """Build strategy params based on the goal.
 
@@ -306,6 +313,8 @@ Generate an appropriate response.""",
             mappings: Field mappings from auto-detection.
             attribute_map: Optional explicit column-to-role mapping that takes
                 precedence over auto-detected mappings.
+            system_prompt: Optional custom system prompt for the task.
+            task_description: Optional task description to customize prompts.
         """
         params = GeneralSynthesisParams()
 
@@ -340,7 +349,9 @@ Generate an appropriate response.""",
 
         # Build generated attributes based on goal
         if goal == "qa":
-            params.generated_attributes = self._build_qa_attributes(mappings)
+            params.generated_attributes = self._build_qa_attributes(
+                mappings, system_prompt=system_prompt, task_description=task_description
+            )
             params.transformed_attributes = self._build_qa_transform()
             params.passthrough_attributes = ["conversation", "question", "answer"]
         elif goal == "conversation":
@@ -360,10 +371,22 @@ Generate an appropriate response.""",
         return {m.customer_column: m.oumi_placeholder for m in mappings}
 
     def _build_qa_attributes(
-        self, mappings: list[FieldMapping]
+        self,
+        mappings: list[FieldMapping],
+        system_prompt: Optional[str] = None,
+        task_description: Optional[str] = None,
     ) -> list[GeneratedAttribute]:
-        """Build generated attributes for Q&A synthesis."""
+        """Build generated attributes for Q&A synthesis.
+
+        Args:
+            mappings: Field mappings from auto-detection.
+            system_prompt: Optional custom system prompt for the task.
+            task_description: Optional task description to customize prompts.
+        """
         templates = self.GOAL_TEMPLATES["qa"]
+
+        # Use custom system prompt if provided, otherwise use template
+        final_system_prompt = system_prompt or templates["system_prompt"]
 
         # Find the context placeholder
         context_placeholder = "context"
@@ -372,16 +395,40 @@ Generate an appropriate response.""",
                 context_placeholder = m.oumi_placeholder
                 break
 
+        # Build question prompt - customize if task description provided
+        if task_description:
+            question_prompt = f"""Based on the following information, generate a question relevant to this task:
+
+Task: {task_description}
+
+Context:
+{{{context_placeholder}}}
+
+Format your response as:
+Question: <your question>"""
+        else:
+            question_prompt = templates["question_prompt"].replace(
+                "{context}", f"{{{context_placeholder}}}"
+            )
+
+        # Build answer prompt - customize if task description provided
+        if task_description:
+            answer_prompt = f"""Provide a response to this question according to the task requirements.
+
+Task: {task_description}
+
+Question: {{question}}
+
+Format your response as:
+Answer: <your answer>"""
+        else:
+            answer_prompt = templates["answer_prompt"]
+
         question_attr = GeneratedAttribute(
             id="question_raw",
             instruction_messages=[
-                TextMessage(role=Role.SYSTEM, content=templates["system_prompt"]),
-                TextMessage(
-                    role=Role.USER,
-                    content=templates["question_prompt"].replace(
-                        "{context}", f"{{{context_placeholder}}}"
-                    ),
-                ),
+                TextMessage(role=Role.SYSTEM, content=final_system_prompt),
+                TextMessage(role=Role.USER, content=question_prompt),
             ],
             postprocessing_params=GeneratedAttributePostprocessingParams(
                 id="question",
@@ -393,11 +440,8 @@ Generate an appropriate response.""",
         answer_attr = GeneratedAttribute(
             id="answer_raw",
             instruction_messages=[
-                TextMessage(role=Role.SYSTEM, content=templates["system_prompt"]),
-                TextMessage(
-                    role=Role.USER,
-                    content=templates["answer_prompt"].replace("{question}", "{question}"),
-                ),
+                TextMessage(role=Role.SYSTEM, content=final_system_prompt),
+                TextMessage(role=Role.USER, content=answer_prompt),
             ],
             postprocessing_params=GeneratedAttributePostprocessingParams(
                 id="answer",
