@@ -1,0 +1,596 @@
+conversation_index,conversation_id,message_index,message_id,role,text_content,ifd_score,ifd_ppl_with_instruction,ifd_ppl_without_instruction,ifd_response_loss,text_content_length_word_count,text_content_length_token_count
+0,0,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+0,0,1,msg_1,user,Give three tips for staying healthy.,,,,,6,7
+0,0,2,msg_2,assistant,"1.Eat a balanced diet and make sure to include plenty of fruits and vegetables. 
+2. Exercise regularly to keep your body active and strong. 
+3. Get enough sleep and maintain a consistent sleep schedule.",1.1236,5.1494,5.786,1.6389,34,43
+1,1,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+1,1,1,msg_1,user,What are the three primary colors?,,,,,6,7
+1,1,2,msg_2,assistant,"The three primary colors are red, blue, and yellow.",2.7435,3.1605,8.6708,1.1507,9,12
+2,2,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+2,2,1,msg_1,user,Describe the structure of an atom.,,,,,6,7
+2,2,2,msg_2,assistant,"An atom is made up of a nucleus, which contains protons and neutrons, surrounded by electrons that travel in orbits around the nucleus. The protons and neutrons have a positive charge, while the electrons have a negative charge, resulting in an overall neutral atom. The number of each particle determines the atomic number and the type of atom.",1.36,3.4264,4.66,1.2315,58,70
+3,3,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+3,3,1,msg_1,user,How can we reduce air pollution?,,,,,6,7
+3,3,2,msg_2,assistant,"There are a number of ways to reduce air pollution, such as shifting to renewable energy sources, encouraging the use of public transportation, prohibiting the burning of fossil fuels, implementing policies to reduce emissions from industrial sources, and implementing vehicle emissions standards. Additionally, individuals can do their part to reduce air pollution by reducing car use, avoiding burning materials such as wood, and changing to energy efficient appliances.",1.4341,6.6296,9.5078,1.8916,68,79
+4,4,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+4,4,1,msg_1,user,Describe a time when you had to make a difficult decision.,,,,,11,12
+4,4,2,msg_2,assistant,"I had to make a difficult decision when I was working as a project manager at a construction company. I was in charge of a project that needed to be completed by a certain date in order to meet the client’s expectations. However, due to unexpected delays, we were not able to meet the deadline and so I had to make a difficult decision. I decided to extend the deadline, but I had to stretch the team’s resources even further and increase the budget. Although it was a risky decision, I ultimately decided to go ahead with it to ensure that the project was completed on time and that the client’s expectations were met. The project was eventually successfully completed and this was seen as a testament to my leadership and decision-making abilities.",1.3618,4.8575,6.6151,1.5805,133,147
+5,5,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+5,5,1,msg_1,user,"Identify the odd one out.
+
+### Input:
+Twitter, Instagram, Telegram",,,,,10,14
+5,5,2,msg_2,assistant,Telegram,inf,11849859.1344,,16.2878,1,1
+6,6,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+6,6,1,msg_1,user,"Explain why the following fraction is equivalent to 1/4
+
+### Input:
+4/16",,,,,12,19
+6,6,2,msg_2,assistant,The fraction 4/16 is equivalent to 1/4 because both numerators and denominators are divisible by 4. Dividing both the top and bottom numbers by 4 yields the fraction 1/4.,1.5182,3.4925,5.3023,1.2506,29,45
+7,7,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+7,7,1,msg_1,user,Write a short story in third person narration about a protagonist who has to make an important career decision.,,,,,19,20
+7,7,2,msg_2,assistant,"John was at a crossroads in his life. He had just graduated college and was now facing the big decision of what career to pursue. After much deliberation, he decided that he wanted to be an accountant and help the financially disadvantaged. He had always been good with numbers and enjoyed seeing the tangible results of his work. 
+
+John enrolled in accounting courses and initially found it quite challenging. He had to learn multiple systems and regulations quickly, but he worked hard and eventually excelled in his studies. After a few years, John started working at an accounting firm in his city. He was eager to put his knowledge of taxes and accounting to use in a real-world setting.
+
+John loved his job, as it let him express his creativity in finding strategies to save his clients money. After a few years at the firm, he became a senior accountant and was asked to manage bigger and more challenging cases. He was now a respected figure in the financial industry, but he still remembers when he was just a recent college graduate, unsure of the direction in which his life would take him.",1.1293,10.0949,11.4,2.312,193,215
+8,8,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+8,8,1,msg_1,user,Render a 3D model of a house,,,,,7,9
+8,8,2,msg_2,assistant,<nooutput> This type of instruction cannot be fulfilled by a GPT model.,0.6997,110.9991,77.669,4.7095,12,16
+9,9,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+9,9,1,msg_1,user,"Evaluate this sentence for spelling and grammar mistakes
+
+### Input:
+He finnished his meal and left the resturant",,,,,18,22
+9,9,2,msg_2,assistant,He finished his meal and left the restaurant.,6.7574,9.5026,64.213,2.2516,8,9
+10,10,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+10,10,1,msg_1,user,How did Julius Caesar die?,,,,,5,6
+10,10,2,msg_2,assistant,"Julius Caesar was assassinated by a group of up to 60 conspirators, led by Gaius Cassius Longinus and Marcus Junius Brutus, in the Senate House on the Ides of March (15 March) of 44 BC.",1.4817,6.1304,9.0836,1.8133,35,53
+11,11,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+11,11,1,msg_1,user,What is the capital of France?,,,,,6,7
+11,11,2,msg_2,assistant,The capital of France is Paris.,4.8046,4.5511,21.8662,1.5154,6,7
+12,12,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+12,12,1,msg_1,user,Generate a list of ten items a person might need for a camping trip,,,,,14,14
+12,12,2,msg_2,assistant,"1. Tent
+2. Sleeping bags
+3. Flashlight
+4. Matches/lighter
+5. Insect repellent
+6. Extra clothes
+7. First aid kit
+8. Camp stove
+9. Cooking utensils
+10. Biodegradable soaps/shampoos",1.4336,8.108,11.6234,2.0929,28,57
+13,13,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+13,13,1,msg_1,user,Discuss the causes of the Great Depression,,,,,7,7
+13,13,2,msg_2,assistant,"The Great Depression was a severe global economic downturn that lasted from 1929 to 1939. It was caused by several factors, including the stock market crash of 1929, structural weaknesses in the economy, low consumer spending, high unemployment, and a lack of confidence in the banking system. Other contributing factors included overproduction of commodities, reliance on borrowing to finance investments, agricultural overproduction, and a decrease in international trade.",1.1314,5.1081,5.7794,1.6308,68,87
+14,14,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+14,14,1,msg_1,user,"Classify the following into animals, plants, and minerals
+
+### Input:
+Oak tree, copper ore, elephant",,,,,15,22
+14,14,2,msg_2,assistant,"Oak tree: Plant
+ Copper ore: Mineral
+ Elephant: Animal",5.8165,28.0551,163.1822,3.3342,8,13
+15,15,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+15,15,1,msg_1,user,Explain the use of word embeddings in Natural Language Processing,,,,,10,10
+15,15,2,msg_2,assistant,"Word embeddings are one of the most powerful tools available for Natural Language Processing (NLP). They are mathematical representations of words or phrases in a vector space, allowing similarities between words and the context in which they are used to be measured. Word embeddings are useful for tasks such as sentiment analysis, text classification, predicting the next word in a sequence, and understanding synonyms and analogies. They allow for words to be processed as numerical values, giving machines an easier way to perform NLP tasks.",1.096,8.1586,8.9414,2.0991,85,97
+16,16,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+16,16,1,msg_1,user,Describe the function of a computer motherboard,,,,,7,7
+16,16,2,msg_2,assistant,"A computer motherboard is the main circuit board in a computer. It is the backbone of the system, connecting all other components such as the processor, RAM, storage, graphics card and peripheral ports. It provides communication pathways between all of these components, allowing them to interact and work together. The motherboard is responsible for regulating power, and also houses slots for expansion cards, as well as ports for USB, audio, Ethernet, and other connection types.",1.3426,6.7903,9.1169,1.9155,75,89
+17,17,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+17,17,1,msg_1,user,"Reverse engineer this code to create a new version
+
+### Input:
+def factorialize(num):
+  factorial = 1
+  for i in range(1, num):
+    factorial *= i
+  
+  return factorial",,,,,26,42
+17,17,2,msg_2,assistant,"def factorialize(num):
+  factorial = 1
+  for i in range(num, 0, -1):
+    factorial *= i
+  
+  return factorial",2.4635,1.9168,4.722,0.6506,16,32
+18,18,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+18,18,1,msg_1,user,Propose an ethical solution to the problem of data privacy,,,,,10,11
+18,18,2,msg_2,assistant,"One ethical solution to the problem of data privacy is to implement an opt-in data collection policy. This means that companies cannot collect and use personal data without the explicit permission of the data owners. This approach gives users the power to determine which data companies can use and for what purpose. Companies should also be transparent about how they use the collected data, so that users can make informed decisions and have control over their own data.",1.0985,7.4609,8.1955,2.0097,78,84
+19,19,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+19,19,1,msg_1,user,"Generate three verbs that mean the same as ""to apologize""",,,,,10,12
+19,19,2,msg_2,assistant,"Acknowledge, express regret, make amends.",4.2496,14.6329,62.1843,2.6833,5,11
+20,20,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+20,20,1,msg_1,user,What does DNA stand for?,,,,,5,6
+20,20,2,msg_2,assistant,DNA stands for deoxyribonucleic acid.,5.3979,2.4053,12.9837,0.8777,5,11
+21,21,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+21,21,1,msg_1,user,Compare and contrast the Cuban Missile Crisis and the Vietnam War.,,,,,11,12
+21,21,2,msg_2,assistant,"The Cuban Missile Crisis and the Vietnam War were two of the largest and deadliest conflicts of the 20th century. The Cuban Missile Crisis involved a standoff between the United States and the Soviet Union over Soviet nuclear missile bases in Cuba, while the Vietnam War was a prolonged military conflict in Indochina between the North, which was backed by the Soviet Union and the South, which was backed by the United States. The Cuban Missile Crisis unfolded over a period of 13 days in October 1962, with the resolution coming in the form of a diplomatic agreement. The Vietnam War lasted for 19 years, beginning in 1954 and ending in 1973, with the signing of the Paris Peace Accords. While both of these conflicts were Cold War related, they were also very different in terms of causes, objectives, strategic objectives and outcomes. The Cuban Missile Crisis did not result in any direct military conflict and was resolved primarily through diplomacy and the decision to withdraw nuclear weapons from Cuba. On the other hand, the Vietnam War was a prolonged series of battles resulting in significant losses for both sides. The Vietnam War also had a significant impact on the United States, as it highlighted the realities of a prolonged conflict and the limits of U.S. military intervention. Additionally, the Vietnam War also drastically changed the way public opinion viewed the military and the use of force.",1.1126,5.1159,5.6919,1.6324,237,275
+22,22,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+22,22,1,msg_1,user,Generate a list of random words.,,,,,6,7
+22,22,2,msg_2,assistant,"sneeze, conflict, ancestor, thunder, companion, amulet, forge, serpent, magnify, jester, cascade, universe, surge, nausea, oasis, anomaly, pursue, rapture, pagoda, mosaic.",1.084,80.6521,87.4307,4.3901,20,47
+23,23,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+23,23,1,msg_1,user,"Transcribe the recording into text.
+
+### Input:
+Recording about the history of Waterloo",,,,,13,16
+23,23,2,msg_2,assistant,"The Battle of Waterloo, fought on June 18, 1815, was the last major battle of the Napoleonic Wars. It marked the end of Napoleon Bonaparte's rule. The battle was fought between Napoleon Bonaparte's French forces and an allied force of British, Dutch, Belgian and Prussian troops, led by the Duke of Wellington. It was fought near the town of Waterloo in the former Austrian Netherlands, now present-day Belgium. The battle was a defeat for Napoleon's forces and ended Napoleon's rule over France. Napoleon himself was exiled to St. Helena, where he would die in 1821. The battle marked the end of French domination of Europe and the beginning of a period of peace in the region. It was also the last major battle of the Napoleonic Wars and is remembered as one of the most important battles in history. The victory of the allied forces at Waterloo helped to bring an end to French imperial ambitions in Europe. It also established the British as one of the most powerful nations in Europe. The battle was fought with a combination of infantry, cavalry, and artillery tactics, and showed the beginning of the changing nature of warfare. Although the French forces greatly outnumbered the allies, their strategic and tactical mistake led to the loss of the battle. This defeat signaled the end of French imperial power in Europe. The legacy of Waterloo still stands today, and it cemented the British Empire's position for the next one hundred years.",0.9433,5.5502,5.2353,1.7138,246,299
+24,24,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+24,24,1,msg_1,user,Who is the world's most famous painter?,,,,,7,8
+24,24,2,msg_2,assistant,"The world's most famous painter is generally considered to be the Italian renaissance artist Leonardo da Vinci. His work includes the Mona Lisa and The Last Supper, both of which are considered masterpieces. Da Vinci was also a master of science, inventing the helicopter and the tank, among other inventions. He was also a prolific musician, sculptor, and architect. His work has inspired generations of artists and continues to be revered today.",1.3916,7.5805,10.5488,2.0256,72,85
+25,25,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+25,25,1,msg_1,user,Explain the concept of cogging torque.,,,,,6,8
+25,25,2,msg_2,assistant,"Cogging torque is the torque that is applied to a rotating device when the device experiences resistance from the teeth of the gears that are connected to the device. Cogging torque occurs due to the reaction force generated when the teeth of the gear drive mesh. This force pushes against each other, resulting in a drag force that is transmitted from the gears to the shaft. The magnitude of the cogging torque can vary depending on the size and number of teeth, as well as the gear's material and design. Cogging torque is undesirable in most motorized applications, as it can lead to loss of efficiency. To reduce cogging torque, gear designs are often symmetrical or have certain tooth profiles which reduce the force of contact between the teeth when they come into contact with each other.",1.1911,6.8112,8.1127,1.9186,137,154
+26,26,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+26,26,1,msg_1,user,Look up the boiling point of water.,,,,,7,8
+26,26,2,msg_2,assistant,"The boiling point of water is 100°C (212°F), at standard atmospheric pressure. When heated at higher pressures, water's boiling point increases. For example, water will boil at a temperature of 115°C (239°F) at an atmospheric pressure of 1 bar. At higher pressures, such as those experienced at the bottom of the ocean, the boiling point of water can be as high as 374°C (705°F).",1.2006,3.283,3.9417,1.1888,64,88
+27,27,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+27,27,1,msg_1,user,Describe the life and reign of King Charles II.,,,,,9,10
+27,27,2,msg_2,assistant,"King Charles II ascended to the throne of England following the English Civil War and the death of his father, Charles I. He was crowned in 1661 and his reign lasted until his death in 1685. Charles II was also a patron of the arts, working with some of the greatest painters and sculptors of his day. He also encouraged theater and sports and had an interest in sciences such as astronomy and natural history. Charles II was a moderate ruler who respected the civil and religious liberties of his citizens. He was tolerant of other religions and gave Jews and Catholics more rights in the kingdom. Charles II was also a strong supporter of the Royal Navy, which saw England increase its power in the world. He also promoted the development of industry and commerce, which helped to modernize the country. Charles II's reign was an important step in restoring the monarchy of England after the turmoil of the English Civil War.",1.1432,7.5266,8.6043,2.0184,163,184
+28,28,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+28,28,1,msg_1,user,"Find the area of a circle given its radius.
+
+### Input:
+Radius = 4",,,,,14,17
+28,28,2,msg_2,assistant,"The area of a circle with a radius of 4 is equal to 12.5664 square units. This is calculated by using the formula A = πr2, where A is the area, π is roughly equal to 3.1416 and r is the radius of the circle.",1.0866,4.7407,5.1512,1.5562,45,60
+29,29,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+29,29,1,msg_1,user,Identify the lines of longitude that divides North and South America.,,,,,11,12
+29,29,2,msg_2,assistant,The lines of longitude that divides North and South America is the line of the Panama Canal. This line of longitude cuts through the Isthmus of Panama and separates South America from Central America. It is approximately 800 km (500 mi) in total length and was completed in 1914. The Panama Canal is an important shipping route and serves as an international waterway connecting the Caribbean Sea with the Pacific Ocean.,1.6046,5.5006,8.8263,1.7049,71,83
+30,30,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+30,30,1,msg_1,user,Explain the process of cellular respiration in plants.,,,,,8,9
+30,30,2,msg_2,assistant,"Cellular respiration in plants is a complex process in which the plant converts glucose into usable energy. The process begins when the plant takes in carbon dioxide from the environment and combines it with water to form glucose molecules using the energy from sunlight. This glucose is then broken down into simpler molecules of carbon dioxide and water. During this process, the energy released is used to produce adenosine triphosphate (ATP) molecules. ATP is used by the plant to power other processes, such as growth and reproduction. Additionally, the ATP can also be broken down further to produce heat energy, which helps to sustain the plant's temperature. The carbon dioxide and water molecules produced in the process are then released back into the environment to complete the cycle.",1.1412,3.8322,4.3734,1.3434,128,148
+31,31,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+31,31,1,msg_1,user,"Rewrite the following sentence using active voice.
+
+### Input:
+The news report was read by the captain.",,,,,17,20
+31,31,2,msg_2,assistant,The captain read the news report.,105.1047,3.4384,361.388,1.235,6,7
+32,32,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+32,32,1,msg_1,user,Generate a list of adjectives that describe a person as brave.,,,,,11,12
+32,32,2,msg_2,assistant,"Courageous, heroic, audacious, vigorous, valorous, resolute, intrepid, bold, brave, daring, tenacious, plucky, stout-hearted, doughty, gallant, fearless, undaunted, spirited, daredevil.",1.3413,14.2523,19.1169,2.6569,19,54
+33,33,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+33,33,1,msg_1,user,Outline the consequences of deforestation.,,,,,5,7
+33,33,2,msg_2,assistant,"Deforestation is the process of clearing and removing forests. The consequences of deforestation can include soil erosion, reduced water quality, decreased biodiversity, increased carbon dioxide in the atmosphere and loss of habitat for wildlife. Soil erosion occurs when the trees that help retain water and soil are removed, leading to soil particles being washed away. This can cause siltation in rivers and streams, affecting water quality and leading to flooding. Additionally, when trees are removed, wildlife lose their habitat. This can cause species to become endangered, leading to further loss of biodiversity. Deforestation can also lead to increased carbon dioxide in the atmosphere as there are fewer trees to take up the gas during photosynthesis, which can contribute to climate change.",1.23,5.5059,6.7722,1.7058,121,144
+34,34,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+34,34,1,msg_1,user,Develop a plan to reduce electricity usage in a home.,,,,,10,11
+34,34,2,msg_2,assistant,"A plan to reduce electricity usage in a home can include a number of different strategies. These include replacing inefficient lightbulbs with energy-efficient LEDs, unplugging appliances and electronics when not in use, using natural light instead of electric lights where possible, using a touch-free faucet to reduce water heater use, using a smart thermostat to monitor and adjust temperatures automatically, installing a solar hot water heater, and turning off electronics when not in use. Additionally, making sure to install and seal windows and doors correctly to reduce air leakage can also help reduce electricity usage.",1.4467,8.531,12.3416,2.1437,95,110
+35,35,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+35,35,1,msg_1,user,"Arrange the words in the given sentence to form a grammatically correct sentence.
+
+### Input:
+quickly the brown fox jumped",,,,,20,24
+35,35,2,msg_2,assistant,The quick brown fox jumped quickly.,8.4182,16.4296,138.3073,2.7991,6,7
+36,36,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+36,36,1,msg_1,user,"Analyze the given text for its tone.
+
+### Input:
+The world has been greatly impacted by the COVID-19 pandemic and it has drastically changed our lives.",,,,,26,31
+36,36,2,msg_2,assistant,The tone of the text is one of concern and recognition of the dramatic effects of the COVID-19 pandemic on the world. It is an acknowledgement of the upheaval that the virus has caused and that our lives have been drastically changed.,1.5912,9.2576,14.7305,2.2254,42,47
+37,37,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+37,37,1,msg_1,user,"Use the given data to calculate the median.
+
+### Input:
+[2, 3, 7, 8, 10]",,,,,15,27
+37,37,2,msg_2,assistant,The median of the given data is 7.,2.5339,10.1979,25.841,2.3222,8,10
+38,38,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+38,38,1,msg_1,user,"Rewrite the given paragraph in a shorter, easier to understand form.
+
+### Input:
+Although it is generally accepted that the internet has allowed us to connect with people all over the world, there are still those people who are not familiar with its basic functions, who don’t understand why it has become so commonplace, or what its true capabilities are.",,,,,60,68
+38,38,2,msg_2,assistant,"The internet has allowed us to connect globally, even though some people are unfamiliar with its functions, don't comprehend its widespread use, and don't know its full potential.",2.7948,7.5041,20.9721,2.0154,28,32
+39,39,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+39,39,1,msg_1,user,Design a logo for a website about recycling.,,,,,8,9
+39,39,2,msg_2,assistant,"The logo should feature a green motif that is recognizable and memorable, such as a recycle symbol or a stylized representation of a recycling bin. The logo should also include text that communicates the website's purpose, such as ""Recycling"" or ""Go Green"".",1.8431,6.9948,12.8923,1.9452,42,52
+40,40,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+40,40,1,msg_1,user,Generate a poem that expresses joy.,,,,,6,7
+40,40,2,msg_2,assistant,"Joy flows through me like a river clear,
+Bringing laughter and bliss to my soul to hear.
+
+The world is bright and wonderful, I can see,
+Making every moment something happy and free.
+
+My heart feels light, my cares have flown,
+As I discover what happiness gives me alone.
+
+I open my arms and accept the joy,
+Bringing life to my song, so sweet like a toy.
+
+Every moment is a precious gift,
+That I savor and never let drift.",1.52,31.2083,47.4369,3.4407,80,95
+41,41,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+41,41,1,msg_1,user,"Convert the given equation into an algebraic expression.
+
+### Input:
+3x+5y=9",,,,,11,20
+41,41,2,msg_2,assistant,3x + 5y - 9 = 0,0.8987,10.4157,9.3608,2.3433,7,12
+42,42,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+42,42,1,msg_1,user,Brainstorm possible solutions to reduce water pollution.,,,,,7,9
+42,42,2,msg_2,assistant,"- Implement stricter regulations on industrial waste disposal
+- Increase the use of green technology in wastewater treatment
+- Provide incentives to businesses that reduce their water consumption and waste generation
+- Educate citizens about water conservation and pollution prevention
+- Offer recycling programs to reduce plastic waste
+- Replace disposable plastics with biodegradable alternatives
+- Improve sewer systems
+- Re-introduce native plant species
+- Foster artificial wetlands and green infrastructure
+- Provide filtration systems at water treatment plants
+- Implement best practices for agricultural runoff
+- Increase research and monitoring of water quality
+- Establish buffer zones between aquatic environments and land-based activities.",1.2457,10.7668,13.4121,2.3765,104,123
+43,43,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+43,43,1,msg_1,user,"Explain why the given definition is wrong.
+
+### Input:
+A mole is an animal that lives underground.",,,,,17,20
+43,43,2,msg_2,assistant,"The definition is wrong because a mole is actually a small mammal that lives above ground and feeds on insects. It is most distinguishable by its long snout and wide, paddle-like feet. It does, however, often dig burrows in which it lives and shelters.",1.9198,16.7772,32.2091,2.82,44,55
+44,44,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+44,44,1,msg_1,user,Variable x is defined as “4x + 2y = 10”. Find the value of x.,,,,,15,22
+44,44,2,msg_2,assistant,"The value of x is 2. To find the value, simplify the equation by subtracting 2y from both sides, giving 4x = 10; dividing both sides by 4, giving x = 2/4, which is equal to 2.",1.8806,3.7862,7.1204,1.3314,37,56
+45,45,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+45,45,1,msg_1,user,"Write a short paragraph about the given topic.
+
+### Input:
+The importance of using renewable energy",,,,,16,18
+45,45,2,msg_2,assistant,"The use of renewable energy is growing rapidly in relevance and importance as the world looks towards solutions to combat climate change. Renewable energy sources, such as solar, wind, and hydropower, are sustainable and have a much lower environmental impact than traditional energy sources like coal and oil. Switching to renewable energy can reduce carbon emissions, improve air quality, lessen the dependence on non-renewable resources, and provide a stable and secure energy future. Renewable energy is essential for achieving a sustainable future and should be an important part of any country’s energy portfolio.",1.0632,5.5188,5.8675,1.7082,93,110
+46,46,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+46,46,1,msg_1,user,Explain the concept of artificial intelligence in simple terms.,,,,,9,10
+46,46,2,msg_2,assistant,"Artificial Intelligence (AI) is the ability of machines and computers to make decisions and complete tasks similar to what humans can do. AI can learn from data, recognize patterns, and make predictions. AI technology can automate tedious and complex processes, helping to reduce human effort and errors, and enable more accurate and efficient decisions. AI can be used in a wide range of applications, from robotics and autonomous vehicles to healthcare and finance. It is increasingly becoming an integral part of everyday life.",1.1907,6.0883,7.249,1.8064,83,95
+47,47,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+47,47,1,msg_1,user,Design an app for a delivery company.,,,,,7,8
+47,47,2,msg_2,assistant,"The app should allow customers to order items from local businesses and nearby store, place delivery requests with detailed delivery requirements, and track their orders. It should also allow customers to easily find and pay for services. The app should allow businesses to manage orders, track deliveries and drivers, set delivery boundaries, and set prices. It should also have features to help businesses promote their products and services, as well as options to provide customer feedback and support.",1.271,11.8541,15.0665,2.4727,78,88
+48,48,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+48,48,1,msg_1,user,"Summarize the given passage.
+
+### Input:
+A recent study showed that global climate change is one of the most important challenges facing the world today. The consequences of global warming include rising sea levels, extreme weather events and biodiversity loss. Climate change is caused by human activities such as burning fossil fuels, and if unchecked will have long-term and devastating impacts on the planet.",,,,,64,74
+48,48,2,msg_2,assistant,"A recent study revealed that global climate change is one of the world’s most pressing issues. In addition to rising sea levels, extreme weather events and biodiversity loss, it is caused largely by human activities like burning fossil fuels. If left unchecked, climate change will have far-reaching and devastating consequences.",2.4517,3.8624,9.4696,1.3513,50,58
+49,49,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+49,49,1,msg_1,user,"Extract the facts from the paragraph.
+
+### Input:
+Online education continues to become more popular for schools and students alike. Its advantages are generally lower costs, less commitment and the ability to study at a time, place and pace that suits the student.",,,,,43,49
+49,49,2,msg_2,assistant,"- Online education is becoming increasingly popular.
+- It has several advantages such as lower costs, less commitment and the ability to study at one’s own time and pace.",2.714,6.5931,17.8936,1.886,29,33
+50,50,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+50,50,1,msg_1,user,"Edit the following sentence to make it more concise.
+
+### Input:
+He ran to the bus stop in order to catch the bus that was due to arrive in five minutes.",,,,,31,34
+50,50,2,msg_2,assistant,"He ran to the bus stop, due to arrive in five minutes.",19.9292,3.4927,69.6066,1.2507,12,14
+51,51,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+51,51,1,msg_1,user,Generate a poem with 10 lines.,,,,,6,8
+51,51,2,msg_2,assistant,"The evening light shimmers on the shore
+Softly the waves echoes around and more 
+As I bask in the sun, my worries are all gone
+The sound of seagulls I now foolishly ignore 
+Glistening sand, beckons me with a silent plea 
+Glistening seawater, cool to the touch and refreshingly free 
+The evening brings peace, yet I can't find any 
+But maybe in the morning there'll be time for me
+My bottled peacefulness, I uncork and pour 
+The sound of the ocean, lulls me even more 
+And for just a moment I close my eyes and behold 
+The vastness of the ocean, to my soul I now unfold.",1.0934,34.0078,37.1843,3.5266,107,143
+52,52,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+52,52,1,msg_1,user,"Convert from celsius to fahrenheit.
+
+### Input:
+Temperature in Celsius: 15",,,,,11,17
+52,52,2,msg_2,assistant,Temperature in Fahrenheit: 59,5.058,18.3325,92.7256,2.9087,4,6
+53,53,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+53,53,1,msg_1,user,"Arrange the given numbers in ascending order.
+
+### Input:
+2, 4, 0, 8, 3",,,,,14,24
+53,53,2,msg_2,assistant,"0, 2, 3, 4, 8",1.0846,4.997,5.4198,1.6088,5,13
+54,54,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+54,54,1,msg_1,user,Calculate the total surface area of a cube with a side length of 5 cm.,,,,,15,17
+54,54,2,msg_2,assistant,Total surface area of the cube: 150 cm^2,3.1502,4.9956,15.7374,1.6086,8,12
+55,55,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+55,55,1,msg_1,user,What is the force on a 1 kg mass due to the gravitational force?,,,,,14,16
+55,55,2,msg_2,assistant,The force on a 1 kg mass due to the gravitational force is 9.8 N.,2.9756,2.9054,8.6453,1.0666,15,20
+56,56,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+56,56,1,msg_1,user,Provide one example for a cultural practice.,,,,,7,8
+56,56,2,msg_2,assistant,An example of a cultural practice is the Japanese tea ceremony.,8.841,3.8712,34.225,1.3536,11,12
+57,57,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+57,57,1,msg_1,user,"Given a set of numbers, find the maximum value.
+
+### Input:
+Set: {10, 3, 25, 6, 16}",,,,,17,31
+57,57,2,msg_2,assistant,The maximum value is 25.,6.0057,9.3399,56.093,2.2343,5,7
+58,58,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+58,58,1,msg_1,user,Give two examples of a liquid.,,,,,6,7
+58,58,2,msg_2,assistant,Two examples of liquids are water and oil.,4.0345,6.9967,28.2282,1.9454,8,9
+59,59,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+59,59,1,msg_1,user,What is the product of 6 and 2?,,,,,8,11
+59,59,2,msg_2,assistant,The product of 6 and 2 is 12.,2.413,3.2486,7.8389,1.1782,8,12
+60,60,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+60,60,1,msg_1,user,What type of plant is a skunk cabbage?,,,,,8,10
+60,60,2,msg_2,assistant,Skunk cabbage is a type of perennial flowering plant.,7.9361,6.2561,49.6489,1.8336,9,11
+61,61,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+61,61,1,msg_1,user,"Convert the given binary number to its decimal equivalent.
+
+### Input:
+101101",,,,,12,15
+61,61,2,msg_2,assistant,The decimal equivalent of 101101 is 45.,2.1193,7.0453,14.9313,1.9524,7,11
+62,62,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+62,62,1,msg_1,user,Name two types of desert biomes.,,,,,6,8
+62,62,2,msg_2,assistant,Two types of desert biomes are xeric and subpolar deserts.,14.185,13.5233,191.827,2.6044,10,14
+63,63,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+63,63,1,msg_1,user,"Given a sentence, convert it into passive voice.
+
+### Input:
+The dog barked at the alley cat.",,,,,17,22
+63,63,2,msg_2,assistant,The alley cat was barked at by the dog.,23.4358,3.5444,83.065,1.2654,9,11
+64,64,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+64,64,1,msg_1,user,"Transform the following sentence into the passive voice
+
+### Input:
+I bought a book",,,,,14,16
+64,64,2,msg_2,assistant,A book was bought by me.,3.0787,20.4452,62.9455,3.0177,6,7
+65,65,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+65,65,1,msg_1,user,"Create a dialog between two people who are discussing a scientific phenomenon
+
+### Input:
+Hydropower",,,,,15,19
+65,65,2,msg_2,assistant,"Person 1: Did you know that hydropower is now being used to generate electricity?
+Person 2: Really? That’s incredible! How does it work?
+Person: 1: Well, hydropower utilizes the energy of moving water to generate electricity. By capturing and harnessing the energy of falling or flowing water, hydropower can be used for efficient electricity generation.",0.9566,8.7391,8.3597,2.1678,55,78
+66,66,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+66,66,1,msg_1,user,"Identify the most suitable adverb for the following sentence
+
+### Input:
+She works",,,,,13,16
+66,66,2,msg_2,assistant,She works diligently.,10.4507,313.9235,3280.7054,5.7491,3,4
+67,67,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+67,67,1,msg_1,user,"Find the main idea of the following passage
+
+### Input:
+Climate change is an increasingly contentious global issue. It is already having a drastic effect on the environment and human lives. We are already seeing an increase in extreme weather events and rising sea levels, both of which have a major impact on the planet.",,,,,55,61
+67,67,2,msg_2,assistant,The main idea of the passage is that climate change is a global issue that is having a detrimental effect on the environment and has caused an increase in extreme weather events and rising sea levels.,2.7584,2.6124,7.2062,0.9603,36,37
+68,68,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+68,68,1,msg_1,user,"Analyze the tone of the following sentences
+
+### Input:
+I am so upset with you right now",,,,,17,19
+68,68,2,msg_2,assistant,The tone of the sentences is angry and accusatory.,1.1696,51.9362,60.7433,3.95,9,11
+69,69,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+69,69,1,msg_1,user,"Construct an argument to defend the following statement
+
+### Input:
+Alternative energy sources are critical to solving the climate crisis",,,,,20,22
+69,69,2,msg_2,assistant,"Alternative energy sources are absolutely vital in order to mitigate the most detrimental impacts of climate change. As the world transitions away from fossil fuels and towards more sustainable sources of energy, such as wind, solar, and hydropower, we can reduce the number of greenhouse gases in the atmosphere and prevent further warming of our planet. Additionally, using renewable and alternative energies sources will create thousands of jobs and can help to create a healthy, stable economy. Investing in alternative energy sources is a sound decision and a necessary step if we want to effectively address the climate crisis.",1.0306,10.6937,11.0206,2.3697,99,111
+70,70,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+70,70,1,msg_1,user,"Convert the following sentence into the present continuous tense
+
+### Input:
+He reads books",,,,,14,16
+70,70,2,msg_2,assistant,He is reading books.,16.3284,48.2399,787.6795,3.8762,4,5
+71,71,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+71,71,1,msg_1,user,"Give an example of a metaphor that uses the following object
+
+### Input:
+Stars",,,,,14,16
+71,71,2,msg_2,assistant,The stars were twinkling diamonds in the night sky.,1.7511,35.6924,62.4998,3.5749,9,12
+72,72,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+72,72,1,msg_1,user,"Describe the following person
+
+### Input:
+John",,,,,7,9
+72,72,2,msg_2,assistant,"John is a tall, dark-haired man with a kind smile and a twinkle in his eyes. He has a gentle, caring nature, and he always strives to understand others. He has a passion for learning and exploring new places, experiences and cultures.",1.438,10.1515,14.5981,2.3176,42,51
+73,73,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+73,73,1,msg_1,user,"Construct a mathematical problem with the following numbers
+
+### Input:
+21, 4",,,,,12,16
+73,73,2,msg_2,assistant,"If 21 pieces of candy are divided among 4 people, how many pieces of candy does each person get?",0.6557,8.1366,5.3349,2.0964,19,23
+74,74,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+74,74,1,msg_1,user,"Aim to reduce the following sentence without changing its meaning
+
+### Input:
+When he came in, he woke everyone up",,,,,20,23
+74,74,2,msg_2,assistant,He woke everyone on entering.,12.8765,474.1618,6105.5255,6.1615,5,6
+75,75,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+75,75,1,msg_1,user,"Identify the conjunctions in the following sentence
+
+### Input:
+She wrote a letter and sealed it",,,,,16,19
+75,75,2,msg_2,assistant,"The conjunctions in the sentence are ""and"".",2.4375,15.8645,38.6694,2.7641,7,10
+76,76,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+76,76,1,msg_1,user,"Rewrite the following sentence in the third person
+
+### Input:
+I am anxious",,,,,13,15
+76,76,2,msg_2,assistant,She is anxious.,22.6487,323.7406,7332.2924,5.7799,3,4
+77,77,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+77,77,1,msg_1,user,Generate a list of business ideas for a food delivery service.,,,,,11,12
+77,77,2,msg_2,assistant,"- Offer discounts and loyalty programs for frequent customers.
+- Partner with local restaurants and promote their food.
+- Train delivery personnel to handle orders and provide good customer service.
+- Use mobile apps and websites for ordering.
+- Offer diverse payment options for customers.
+- Allow customers to customize their orders.
+- Pack food in recyclable and compostable packaging.
+- Launch a subscription model for regular customers.
+- Offer special services like food suggestions based on customers' preferences.
+- Provide contactless delivery and curbside pickup.
+- Provide catering services for large orders and special events.
+- Use online marketing and social media platforms to reach more customers.
+- Create incentives to encourage customers to try new dishes.
+- Create meal kits with all the necessary ingredients and a recipe.
+- Make use of food delivery robots and drones.
+- Offer a loyalty points system for customers.
+- Collaborate with local farmers to source produce and ingredients.
+- Offer vegetarian, vegan, and gluten-free options.
+- Allow customers to select the delivery time.
+- Implement AI-powered recommendations for customers.",1.1386,8.9287,10.166,2.1893,178,207
+78,78,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+78,78,1,msg_1,user,"Edit the following sentence to improve clarity and flow.
+
+### Input:
+The restaurant has great food though the prices are a bit hefty",,,,,23,25
+78,78,2,msg_2,assistant,The restaurant offers great food but at a slightly higher price.,2.5343,24.8501,62.9767,3.2129,11,12
+79,79,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+79,79,1,msg_1,user,Imagine you are speaking with a customer who is unsatisfied with the product they bought from you. Construct a response that diffuses the situation.,,,,,24,28
+79,79,2,msg_2,assistant,"I'm sorry that you're not happy with your purchase. We want all of our customers to be satisfied, so I'd like to offer you a full refund, as well as a 15% discount for your next purchase. Is there anything else I can do to make this right for you?",1.5522,4.8792,7.5733,1.585,50,57
+80,80,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+80,80,1,msg_1,user,Explain the concept of a bubble sort algorithm to a non-technical audience.,,,,,12,15
+80,80,2,msg_2,assistant,"A bubble sort algorithm is a type of sorting algorithm that is used to sort elements in an array. It works by looking at each element of the array and comparing it to the next element. If the first element is bigger than the second element, they are swapped. This process is repeated until the whole array is sorted. This type of sorting is one of the simplest sorting algorithms, but it can be slow if the array has many elements.",1.3482,3.0639,4.1308,1.1197,81,88
+81,81,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+81,81,1,msg_1,user,"Classify the following incident as a breach of protocol. Output 1 for breach, and 0 for no breach.
+
+### Input:
+Using a school laptop for personal use",,,,,27,34
+81,81,2,msg_2,assistant,1,inf,707425.1122,,13.4694,1,1
+82,82,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+82,82,1,msg_1,user,"Given the following input, construct a creative story.
+
+### Input:
+A magic bow and arrow",,,,,15,18
+82,82,2,msg_2,assistant,"Once upon a time, there lived a young girl named Alexa who was gifted with an incredible magical bow and arrow. Whenever she pulled back her bow and let an arrow fly, wherever it landed, something extraordinary happened. Flowers bloomed, oceans calmed, and the sun shone brighter. Alexa's bow and arrow were so powerful, that it could make even the most impossible things possible. One day, during a great storm, Alexa used her magical bow and arrow to bring calm and harmony to her hometown. She was praised and celebrated by the whole town, and she soon became a symbol of hope and peace.",1.2097,9.8806,11.9525,2.2906,104,123
+83,83,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+83,83,1,msg_1,user,Generate a list of methods to reduce food waste.,,,,,9,10
+83,83,2,msg_2,assistant,"- Shop smarter and only buy what you need.
+- Save leftovers for later and freeze them if necessary. 
+- Monitor expiration dates and consume items before they go bad.
+- Participate in community or public food sharing initiatives.
+- Compost leftover food scraps.
+- Reuse containers, jars, and bags.
+- Make use of restaurant discounts to reduce over-ordering. 
+- Donate foods that have short expiration dates to local food banks. 
+- Buy more produce that is close to the expiration date and prepare it soon.
+- Order small portions while dining out.
+- Educate yourself and others about food waste.
+- Plan meals in advance and base your grocery list on the meals. 
+- Store food correctly to reduce spoilage.
+- Make sure your fridge is at the right temperature.
+- Have a system to track leftovers in the fridge. 
+- Eat all edible parts of food, including stems and skins.
+- Use creative recipes to use the entire food item.
+- Use food that would otherwise be thrown away for animal feed.
+- Take part in campaigns to make food sustainability an issue.",1.2613,13.0296,16.4344,2.5672,185,217
+84,84,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+84,84,1,msg_1,user,Propose an idea for a self-driving car.,,,,,7,10
+84,84,2,msg_2,assistant,"My idea for a self-driving car is to develop an AI system that uses machine learning to help the car recognize its environment. The AI system will also be able to learn from its mistakes and increase its accuracy. Additionally, the self-driving car will be able to detect potential hazards and warn the driver, or take corrective action if necessary. The car will also be equipped with an emergency button, in case the driver needs to take manual control of the vehicle. Furthermore, the car will be capable of automated parking and will be able to drive itself to a nearby charging station when the battery is low. Finally, the software will be able to connect with smartphones, so the user can access their navigation system and entertainment options even while on the move.",1.1597,7.3825,8.5616,1.9991,134,148
+85,85,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+85,85,1,msg_1,user,Explain the concept of a linear regression model using simple language.,,,,,11,12
+85,85,2,msg_2,assistant,"A linear regression model is a type of machine learning model that can be used to predict or estimate the value of a continuous numerical variable from a set of input variables. In this model, a line is fitted to a set of data points such that the sum of the squared distance of the data points from the line is minimized. This line of best fit can then be used to estimate the value of the output variable based on the values of the input variables.",1.2015,2.9739,3.573,1.0899,87,91
+86,86,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+86,86,1,msg_1,user,Construct a list of tips to help reduce stress.,,,,,9,10
+86,86,2,msg_2,assistant,"- Take a time out and acquire some rest when feeling overwhelmed. 
+- Make time for yourself and learn to relax. 
+- Exercise regularly and get plenty of sleep. 
+- Listen to music you like, or take a warm bath. 
+- Stick to a healthy diet full of essential vitamins and minerals.
+- Reach out to friends and family for support.
+- Try aromatherapy or yoga. 
+- Do something creative like drawing, painting, or writing. 
+- Engage in activities that bring you joy and peace of mind. 
+- Avoid drugs or excessive amounts of alcohol. 
+- Practice deep breathing and progressive muscle relaxation. 
+- Take up a new hobby to stay occupied. 
+- Break big tasks down into smaller, more manageable tasks. 
+- Practice positive self-talk to keep your morale high. 
+- Talk to a therapist or trusted mentor if necessary. 
+- Make time for fun activities and social events. 
+- Prioritize tasks and create a weekly schedule. 
+- Create a plan of action and identify solutions to problems. 
+- Learn to forgive yourself and others.",1.0924,8.1197,8.87,2.0943,176,218
+87,87,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+87,87,1,msg_1,user,"Write a review of a recent movie you watched.
+
+### Input:
+Parasite (2019)",,,,,13,19
+87,87,2,msg_2,assistant,"I recently watched the movie Parasite, directed by Bong Joon-Ho, and I was absolutely blown away. This movie is a masterful blend of genres—it's both a black comedy and a commentary on classism, with a twist ending that no one could see coming. The acting is fantastic, particularly Song Kang-ho as the head of the poor household, and the cinematography is stunning. The movie has a perfect balance of humor and thought-provoking drama, and it will leave you talking about the ending for days afterwards. Overall, I highly recommend Parasite; it is an exceptional movie and an experience you won't soon forget.",1.2182,9.8817,12.0379,2.2907,102,127
+88,88,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+88,88,1,msg_1,user,"Create a Twitter post to promote your new product.
+
+### Input:
+Alisha's All Natural Jam",,,,,15,19
+88,88,2,msg_2,assistant,"Introducing Alisha's All Natural Jam, handmade with love using only the finest ingredients! Get ready for a delicious treat that will give your tastebuds a flavor explosion! Try our five amazing flavors: Strawberry, Blueberry, Peach, Raspberry, and Blackberry. Buy now and snack with the world! #snacktime #allnatural #jam #tastebuds #freshfruit #homemade #delicious #salttw",1.3129,20.0852,26.3693,3.0,53,85
+89,89,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+89,89,1,msg_1,user,"Given the following input, classify the verb as transitive or intransitive.
+
+### Input:
+improve",,,,,14,21
+89,89,2,msg_2,assistant,Transitive.,10.013,1692.7476,16949.4613,7.4341,1,3
+90,90,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+90,90,1,msg_1,user,Generate a list of marketing strategies to promote a new mobile app.,,,,,12,13
+90,90,2,msg_2,assistant,"- Implement paid campaigns on social media platforms.
+- Utilize influencer marketing.
+- Reach out to tech bloggers and websites.
+- Share the app through word of mouth among friends.
+- Create demo videos and tutorials to explain the app's features.
+- Offer discounts and special incentives to early adopters.
+- Build a basic website to explain the app's purpose and features. 
+- Take advantage of app store optimization techniques.
+- Send out emails and newsletters to inform new users about the app.
+- Aim for awards and good reviews on the app store.
+- Include the app link in your email signature.
+- Try promotional press releases and campaigns.
+- Encourage users to rate and review the app on the app store.
+- Leverage user-generated content to your advantage. 
+- Integrate the app with existing or popular apps.
+- Hold giveaways or contests to drive engagement.
+- Feature the app on your company's website and blog.
+- Cross-promote the app with other apps, websites, and social media platforms. 
+- Create promotional content such as blogs and podcasts.",1.1074,10.0403,11.1182,2.3066,178,210
+91,91,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+91,91,1,msg_1,user,"Rewrite the sentence to provide more clarity and flow.
+
+### Input:
+Making the decision to rent a house was a wise choice",,,,,22,24
+91,91,2,msg_2,assistant,Renting a house was a wise decision to make.,3.0404,12.2194,37.1522,2.503,9,11
+92,92,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+92,92,1,msg_1,user,"Give a description of the following customer segment.
+
+### Input:
+Online shoppers in the US aged between 18-25",,,,,18,23
+92,92,2,msg_2,assistant,"This customer segment consists of online shoppers in the US aged between 18-25. They are typically young adults who are tech-savvy and prefer to shop online for convenience and variety. They often shop for a variety of items, ranging from clothing to electronics and are comfortable using different payment methods such as credit or debit cards and digital wallets.",1.7847,5.8172,10.3819,1.7608,59,68
+93,93,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+93,93,1,msg_1,user,Design a logo for a mobile application.,,,,,7,8
+93,93,2,msg_2,assistant,"The logo design should be simple, modern, and unique. It should capture the essence of the application and communicate its functions. The logo should feature bold colors that are eye-catching, and the design should be adaptable to various sizes and platforms, such as websites and mobile devices.",1.4451,5.4676,7.9012,1.6988,47,55
+94,94,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+94,94,1,msg_1,user,Generate a list of country names in the western hemisphere.,,,,,10,11
+94,94,2,msg_2,assistant,"- Canada
+- United States 
+- Mexico 
+- Brazil
+- Argentina 
+- Chile 
+- Colombia 
+- Venezuela 
+- Cuba
+- Jamaica 
+- Ecuador
+- Peru 
+- Uruguay
+- Paraguay 
+- Costa Rica 
+- Panama 
+- Honduras 
+- Nicaragua
+- Guatemala",0.9981,5.4916,5.4811,1.7032,40,58
+95,95,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+95,95,1,msg_1,user,"Translate the following phrase into French.
+
+### Input:
+I miss you",,,,,11,13
+95,95,2,msg_2,assistant,Je te manque.,2.2224,623.4228,1385.499,6.4352,3,4
+96,96,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+96,96,1,msg_1,user,Explain what an API is.,,,,,5,6
+96,96,2,msg_2,assistant,API stands for Application Programming Interface. It is a set of instructions or programming instructions that allow two applications to communicate and exchange data with each other. APIs provide a way for developers to access and manipulate data and services offered by other applications or platforms. They are an essential part of modern web development and allow developers to develop complex applications and websites using modular components.,1.4095,4.7599,6.7089,1.5602,67,71
+97,97,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+97,97,1,msg_1,user,Compute the area of a rectangle with length 10cm and width 5cm.,,,,,12,17
+97,97,2,msg_2,assistant,The area of the rectangle is 50 cm2.,6.1085,2.7966,17.083,1.0284,8,11
+98,98,0,msg_0,system,Below is an instruction that describes a task. Write a response that appropriately completes the request.,,,,,16,18
+98,98,1,msg_1,user,Find the capital of Spain.,,,,,5,6
+98,98,2,msg_2,assistant,The capital of Spain is Madrid.,22.9274,1.454,33.3372,0.3743,6,7
+99,99,0,msg_0,system,"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.",,,,,24,27
+99,99,1,msg_1,user,"Classify the following statement as true or false.
+
+### Input:
+The Supreme Court is the highest court in the US.",,,,,20,24
+99,99,2,msg_2,assistant,True.,13.0205,4026.6908,52429.6002,8.3007,1,2

@@ -1,0 +1,454 @@
+{
+  "dataset_overview": {
+    "dataset_name": "tatsu-lab/alpaca",
+    "total_conversations": 1000,
+    "conversations_analyzed": 100,
+    "dataset_coverage_percentage": 10.0,
+    "total_messages": 300,
+    "analyzers_used": [
+      "ifd",
+      "length"
+    ]
+  },
+  "message_level_summary": {
+    "length": {
+      "text_content_word_count": {
+        "count": 300,
+        "mean": 28.54,
+        "std": 37.23,
+        "min": 1.0,
+        "max": 246.0,
+        "median": 16.0,
+        "distribution_type": "multimodal",
+        "num_modes": 5,
+        "mode_separation_confidence": 0.881,
+        "mode_statistics": [
+          {
+            "mode_id": 0,
+            "mean": 11.84,
+            "std": 4.85,
+            "count": 190,
+            "weight": 0.625
+          },
+          {
+            "mode_id": 3,
+            "mean": 24.0,
+            "std": 0.0,
+            "count": 47,
+            "weight": 0.157
+          },
+          {
+            "mode_id": 2,
+            "mean": 52.02,
+            "std": 18.19,
+            "count": 42,
+            "weight": 0.143
+          },
+          {
+            "mode_id": 4,
+            "mean": 111.08,
+            "std": 16.58,
+            "count": 13,
+            "weight": 0.042
+          },
+          {
+            "mode_id": 1,
+            "mean": 194.5,
+            "std": 28.35,
+            "count": 8,
+            "weight": 0.033
+          }
+        ]
+      },
+      "text_content_token_count": {
+        "count": 300,
+        "mean": 34.08,
+        "std": 43.66,
+        "min": 1.0,
+        "max": 299.0,
+        "median": 18.0,
+        "distribution_type": "multimodal",
+        "num_modes": 5,
+        "mode_separation_confidence": 0.988,
+        "mode_statistics": [
+          {
+            "mode_id": 4,
+            "mean": 14.06,
+            "std": 5.49,
+            "count": 186,
+            "weight": 0.61
+          },
+          {
+            "mode_id": 0,
+            "mean": 27.0,
+            "std": 0.0,
+            "count": 47,
+            "weight": 0.157
+          },
+          {
+            "mode_id": 3,
+            "mean": 65.16,
+            "std": 22.82,
+            "count": 50,
+            "weight": 0.179
+          },
+          {
+            "mode_id": 1,
+            "mean": 139.67,
+            "std": 11.27,
+            "count": 9,
+            "weight": 0.025
+          },
+          {
+            "mode_id": 2,
+            "mean": 228.12,
+            "std": 35.95,
+            "count": 8,
+            "weight": 0.029
+          }
+        ]
+      }
+    }
+  },
+  "conversation_level_summary": {},
+  "conversation_turns": {
+    "count": 100,
+    "mean": 3.0,
+    "std": 0.0,
+    "min": 3.0,
+    "max": 3.0,
+    "median": 3.0
+  },
+  "recommendations": [
+    {
+      "category": "warning",
+      "severity": "medium",
+      "title": "Outliers detected in length word count",
+      "description": "Found 6 samples (2.0%) that are outliers within their respective modes. Distribution has 5 modes (mode 0: \u03bc=11.84, \u03c3=4.85, mode 3: \u03bc=24.0, \u03c3=0.0, mode 2: \u03bc=52.02, \u03c3=18.19, mode 4: \u03bc=111.08, \u03c3=16.58, mode 1: \u03bc=194.5, \u03c3=28.35). Outliers are samples more than 2.0 std from mode mean.",
+      "affected_samples": 6,
+      "metric_name": "text_content_length_word_count",
+      "threshold": 2.0,
+      "details": {
+        "distribution_type": "multimodal",
+        "num_modes": 5,
+        "mode_statistics": [
+          {
+            "mode_id": 0,
+            "mean": 11.84,
+            "std": 4.85,
+            "count": 190
+          },
+          {
+            "mode_id": 3,
+            "mean": 24.0,
+            "std": 0.0,
+            "count": 47
+          },
+          {
+            "mode_id": 2,
+            "mean": 52.02,
+            "std": 18.19,
+            "count": 42
+          },
+          {
+            "mode_id": 4,
+            "mean": 111.08,
+            "std": 16.58,
+            "count": 13
+          },
+          {
+            "mode_id": 1,
+            "mean": 194.5,
+            "std": 28.35,
+            "count": 8
+          }
+        ],
+        "outliers_per_mode": {
+          "0": 6,
+          "2": 0,
+          "4": 0,
+          "1": 0
+        }
+      },
+      "sample_indices": [
+        17,
+        235,
+        245,
+        269,
+        274,
+        299
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "medium",
+      "title": "Outliers detected in length token count",
+      "description": "Found 6 samples (2.0%) that are outliers within their respective modes. Distribution has 5 modes (mode 4: \u03bc=14.06, \u03c3=5.49, mode 0: \u03bc=27.0, \u03c3=0.0, mode 3: \u03bc=65.16, \u03c3=22.82, mode 1: \u03bc=139.67, \u03c3=11.27, mode 2: \u03bc=228.12, \u03c3=35.95). Outliers are samples more than 2.0 std from mode mean.",
+      "affected_samples": 6,
+      "metric_name": "text_content_length_token_count",
+      "threshold": 2.0,
+      "details": {
+        "distribution_type": "multimodal",
+        "num_modes": 5,
+        "mode_statistics": [
+          {
+            "mode_id": 4,
+            "mean": 14.06,
+            "std": 5.49,
+            "count": 186
+          },
+          {
+            "mode_id": 0,
+            "mean": 27.0,
+            "std": 0.0,
+            "count": 47
+          },
+          {
+            "mode_id": 3,
+            "mean": 65.16,
+            "std": 22.82,
+            "count": 50
+          },
+          {
+            "mode_id": 1,
+            "mean": 139.67,
+            "std": 11.27,
+            "count": 9
+          },
+          {
+            "mode_id": 2,
+            "mean": 228.12,
+            "std": 35.95,
+            "count": 8
+          }
+        ],
+        "outliers_per_mode": {
+          "4": 5,
+          "3": 1,
+          "1": 0,
+          "2": 0
+        }
+      },
+      "sample_indices": [
+        17,
+        209,
+        238,
+        245,
+        269,
+        299
+      ]
+    },
+    {
+      "category": "insight",
+      "severity": "low",
+      "title": "Multimodal distribution in length word count",
+      "description": "Detected 5 distinct modes in the distribution (confidence: 88%). Mode 1: 190 samples (62.5%), mean=11.84, std=4.85; Mode 4: 47 samples (15.7%), mean=24.0, std=0.0; Mode 3: 42 samples (14.3%), mean=52.02, std=18.19; Mode 5: 13 samples (4.2%), mean=111.08, std=16.58; Mode 2: 8 samples (3.3%), mean=194.5, std=28.35. This may indicate different types of content (e.g., short questions vs long explanations). Outlier detection uses per-mode statistics to avoid false positives.",
+      "affected_samples": 300,
+      "metric_name": "text_content_length_word_count",
+      "threshold": null,
+      "details": {
+        "distribution_type": "multimodal",
+        "num_modes": 5,
+        "confidence": 0.881,
+        "mode_statistics": [
+          {
+            "mode_id": 0,
+            "mean": 11.84,
+            "std": 4.85,
+            "count": 190,
+            "weight": 0.625
+          },
+          {
+            "mode_id": 3,
+            "mean": 24.0,
+            "std": 0.0,
+            "count": 47,
+            "weight": 0.157
+          },
+          {
+            "mode_id": 2,
+            "mean": 52.02,
+            "std": 18.19,
+            "count": 42,
+            "weight": 0.143
+          },
+          {
+            "mode_id": 4,
+            "mean": 111.08,
+            "std": 16.58,
+            "count": 13,
+            "weight": 0.042
+          },
+          {
+            "mode_id": 1,
+            "mean": 194.5,
+            "std": 28.35,
+            "count": 8,
+            "weight": 0.033
+          }
+        ]
+      },
+      "sample_indices": []
+    },
+    {
+      "category": "insight",
+      "severity": "low",
+      "title": "Multimodal distribution in length token count",
+      "description": "Detected 5 distinct modes in the distribution (confidence: 99%). Mode 5: 186 samples (61.0%), mean=14.06, std=5.49; Mode 1: 47 samples (15.7%), mean=27.0, std=0.0; Mode 4: 50 samples (17.9%), mean=65.16, std=22.82; Mode 2: 9 samples (2.5%), mean=139.67, std=11.27; Mode 3: 8 samples (2.9%), mean=228.12, std=35.95. This may indicate different types of content (e.g., short questions vs long explanations). Outlier detection uses per-mode statistics to avoid false positives.",
+      "affected_samples": 300,
+      "metric_name": "text_content_length_token_count",
+      "threshold": null,
+      "details": {
+        "distribution_type": "multimodal",
+        "num_modes": 5,
+        "confidence": 0.988,
+        "mode_statistics": [
+          {
+            "mode_id": 4,
+            "mean": 14.06,
+            "std": 5.49,
+            "count": 186,
+            "weight": 0.61
+          },
+          {
+            "mode_id": 0,
+            "mean": 27.0,
+            "std": 0.0,
+            "count": 47,
+            "weight": 0.157
+          },
+          {
+            "mode_id": 3,
+            "mean": 65.16,
+            "std": 22.82,
+            "count": 50,
+            "weight": 0.179
+          },
+          {
+            "mode_id": 1,
+            "mean": 139.67,
+            "std": 11.27,
+            "count": 9,
+            "weight": 0.025
+          },
+          {
+            "mode_id": 2,
+            "mean": 228.12,
+            "std": 35.95,
+            "count": 8,
+            "weight": 0.029
+          }
+        ]
+      },
+      "sample_indices": []
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Empty or near-empty messages detected",
+      "description": "Found 2 messages (0.7%) with 5 or fewer characters. These may indicate data quality issues or placeholder content that should be reviewed.",
+      "affected_samples": 2,
+      "metric_name": "text_content",
+      "threshold": 5.0,
+      "details": {
+        "empty_count": 2
+      },
+      "sample_indices": [
+        245,
+        299
+      ]
+    },
+    {
+      "category": "insight",
+      "severity": "low",
+      "title": "Many short messages detected",
+      "description": "Found 70 messages (23.3%) with fewer than 10 words. This may be intentional (e.g., short responses) or indicate low-quality samples worth reviewing.",
+      "affected_samples": 70,
+      "metric_name": "text_content_length_word_count",
+      "threshold": 10.0,
+      "details": {
+        "short_count": 70
+      },
+      "sample_indices": [
+        1,
+        4,
+        5,
+        7,
+        10,
+        17,
+        25,
+        29,
+        31,
+        34,
+        35,
+        40,
+        44,
+        49,
+        59,
+        61,
+        62,
+        67,
+        73,
+        76
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Low IFD scores detected (instruction not helping)",
+      "description": "Found 6 samples (6.0%) with IFD scores below 1.0, meaning the instruction does not help the model predict the response. These may indicate misaligned instruction-response pairs or confusing instructions. Consider reviewing or removing these samples.",
+      "affected_samples": 6,
+      "metric_name": "ifd_score",
+      "threshold": 1.0,
+      "details": {
+        "problematic_count": 6,
+        "average_ifd": Infinity,
+        "median_ifd": 1.519,
+        "min_ifd": 0.656,
+        "max_ifd": Infinity
+      },
+      "sample_indices": [
+        26,
+        71,
+        125,
+        197,
+        221,
+        284
+      ]
+    },
+    {
+      "category": "insight",
+      "severity": "low",
+      "title": "Good instruction quality (high IFD scores)",
+      "description": "Average IFD score is inf, indicating that instructions effectively guide the model. 41 samples (41.0%) have IFD > 2.0, making them high-value examples.",
+      "affected_samples": 41,
+      "metric_name": "ifd_score",
+      "threshold": null,
+      "details": {
+        "average_ifd": Infinity,
+        "median_ifd": 1.519,
+        "high_ifd_count": 41,
+        "high_ifd_percentage": 41.0
+      },
+      "sample_indices": []
+    },
+    {
+      "category": "insight",
+      "severity": "low",
+      "title": "Very high IFD scores detected",
+      "description": "Found 3 samples (3.0%) with IFD > 100. While high IFD generally indicates valuable samples, extremely high values may indicate trivial responses or data issues. Consider reviewing these samples.",
+      "affected_samples": 3,
+      "metric_name": "ifd_score",
+      "threshold": null,
+      "details": {
+        "very_high_ifd_count": 3,
+        "max_ifd": Infinity
+      },
+      "sample_indices": [
+        17,
+        95,
+        245
+      ]
+    }
+  ]
+}

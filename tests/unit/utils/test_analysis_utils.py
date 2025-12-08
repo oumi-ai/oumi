@@ -25,7 +25,13 @@ from oumi.core.configs.analyze_config import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.datasets import TextSftJsonLinesDataset, VLJsonlinesDataset
 from oumi.utils.analysis_utils import (
+    DistributionAnalysisResult,
+    DistributionType,
+    ModeStatistics,
+    compute_multimodal_outliers,
     compute_statistics,
+    compute_statistics_with_distribution,
+    detect_distribution_type,
     load_dataset_from_config,
 )
 
@@ -493,3 +499,309 @@ def test_compute_statistics_boolean_series():
         "median": 1.0,
     }
     assert result == expected
+
+
+# =============================================================================
+# Distribution Analysis Tests
+# =============================================================================
+
+
+def _sklearn_available():
+    """Check if sklearn is available for distribution tests."""
+    try:
+        import sklearn  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+@pytest.fixture
+def unimodal_data():
+    """Create unimodal (normal) distribution data."""
+    import numpy as np
+
+    np.random.seed(42)
+    return pd.Series(np.random.normal(100, 10, 200))
+
+
+@pytest.fixture
+def bimodal_data():
+    """Create bimodal distribution data."""
+    import numpy as np
+
+    np.random.seed(42)
+    # Two distinct modes: ~50 and ~500
+    short = np.random.normal(50, 5, 100)
+    long = np.random.normal(500, 30, 100)
+    return pd.Series(np.concatenate([short, long]))
+
+
+@pytest.fixture
+def trimodal_data():
+    """Create trimodal distribution data."""
+    import numpy as np
+
+    np.random.seed(42)
+    # Three distinct modes
+    mode1 = np.random.normal(20, 3, 80)
+    mode2 = np.random.normal(100, 10, 80)
+    mode3 = np.random.normal(500, 40, 80)
+    return pd.Series(np.concatenate([mode1, mode2, mode3]))
+
+
+@pytest.mark.skipif(not _sklearn_available(), reason="sklearn not installed")
+class TestDistributionDetection:
+    """Tests for distribution type detection using GMM."""
+
+    def test_detect_unimodal_normal(self, unimodal_data):
+        """Test that a normal distribution is detected as unimodal."""
+        result = detect_distribution_type(unimodal_data)
+
+        assert isinstance(result, DistributionAnalysisResult)
+        assert result.distribution_type == DistributionType.UNIMODAL
+        assert result.num_modes == 1
+        assert len(result.mode_statistics) == 1
+
+        # Mode statistics should match the distribution parameters (~100, ~10)
+        mode = result.mode_statistics[0]
+        assert 90 < mode.mean < 110  # Close to 100
+        assert 5 < mode.std < 15  # Close to 10
+        assert mode.weight == pytest.approx(1.0, abs=0.01)
+
+    def test_detect_bimodal_distribution(self, bimodal_data):
+        """Test that two modes are correctly identified."""
+        result = detect_distribution_type(bimodal_data)
+
+        assert isinstance(result, DistributionAnalysisResult)
+        assert result.distribution_type == DistributionType.BIMODAL
+        assert result.num_modes == 2
+        assert len(result.mode_statistics) == 2
+
+        # Check mode means are close to expected values (50 and 500)
+        means = sorted([ms.mean for ms in result.mode_statistics])
+        assert 40 < means[0] < 60  # First mode around 50
+        assert 450 < means[1] < 550  # Second mode around 500
+
+        # Weights should be roughly equal (~0.5 each)
+        weights = [ms.weight for ms in result.mode_statistics]
+        for w in weights:
+            assert 0.4 < w < 0.6
+
+        # High confidence for well-separated modes
+        assert result.confidence > 0.8
+
+    def test_detect_trimodal_distribution(self, trimodal_data):
+        """Test that three modes are correctly identified."""
+        result = detect_distribution_type(trimodal_data)
+
+        assert isinstance(result, DistributionAnalysisResult)
+        assert result.distribution_type == DistributionType.MULTIMODAL
+        assert result.num_modes >= 3  # May detect 3 or more modes
+        assert len(result.mode_statistics) >= 3
+
+    def test_insufficient_data(self):
+        """Test graceful handling of small datasets."""
+        # Empty series
+        empty = pd.Series([], dtype=float)
+        result = detect_distribution_type(empty)
+        assert result.distribution_type == DistributionType.INSUFFICIENT_DATA
+        assert result.num_modes == 0
+
+        # Single value
+        single = pd.Series([42.0])
+        result = detect_distribution_type(single)
+        assert result.distribution_type == DistributionType.INSUFFICIENT_DATA
+
+        # Small dataset (below min_samples threshold)
+        small = pd.Series([1, 2, 3, 4, 5])
+        result = detect_distribution_type(small, min_samples=50)
+        # Should fallback to unimodal
+        assert result.distribution_type == DistributionType.UNIMODAL
+        assert result.num_modes == 1
+
+    def test_low_cv_skips_gmm(self):
+        """Test that low coefficient of variation skips GMM analysis."""
+        import numpy as np
+
+        # Very tight distribution (low CV)
+        np.random.seed(42)
+        tight = pd.Series(np.random.normal(100, 1, 200))  # CV = 0.01
+
+        result = detect_distribution_type(tight, cv_threshold=0.5)
+
+        assert result.distribution_type == DistributionType.UNIMODAL
+        assert result.num_modes == 1
+        # Should have high confidence (bypassed GMM)
+        assert result.confidence == 1.0
+
+
+@pytest.mark.skipif(not _sklearn_available(), reason="sklearn not installed")
+class TestMultimodalOutlierDetection:
+    """Tests for outlier detection in multimodal distributions."""
+
+    def test_unimodal_outlier_detection(self, unimodal_data):
+        """Test standard outlier detection for unimodal distributions."""
+        dist_result = detect_distribution_type(unimodal_data)
+
+        # Add some outliers
+        import numpy as np
+
+        data_with_outliers = pd.Series(
+            np.append(unimodal_data.values, [200, 0, 250])  # Clear outliers
+        )
+        dist_result = detect_distribution_type(data_with_outliers)
+
+        outlier_mask, details = compute_multimodal_outliers(
+            data_with_outliers, dist_result, std_threshold=3.0
+        )
+
+        assert details["distribution_type"] == "unimodal"
+        assert details["num_outliers"] >= 2  # At least 200 and 250 should be flagged
+        assert details["num_outliers"] < 10  # But not too many
+
+    def test_no_false_positives_between_modes(self, bimodal_data):
+        """Test that samples near mode means are NOT flagged as outliers."""
+        dist_result = detect_distribution_type(bimodal_data)
+
+        outlier_mask, details = compute_multimodal_outliers(
+            bimodal_data, dist_result, std_threshold=3.0
+        )
+
+        # In a clean bimodal distribution, there should be very few outliers
+        # (only true outliers within each mode, not samples between modes)
+        assert details["num_outliers"] < len(bimodal_data) * 0.02  # Less than 2%
+
+        # Specifically check that values at mode centers aren't outliers
+        import numpy as np
+
+        center_mask = (
+            ((bimodal_data > 45) & (bimodal_data < 55)) |  # Near mode 1
+            ((bimodal_data > 470) & (bimodal_data < 530))  # Near mode 2
+        )
+        # None of these center values should be outliers
+        assert not np.any(outlier_mask[center_mask.values])
+
+    def test_bimodal_outlier_detection(self, bimodal_data):
+        """Test outlier detection within each mode of bimodal distribution."""
+        import numpy as np
+
+        # Add clear outliers to each mode
+        outliers = np.array([10, 600])  # Far from both modes
+        data_with_outliers = pd.Series(
+            np.append(bimodal_data.values, outliers)
+        )
+
+        dist_result = detect_distribution_type(data_with_outliers)
+        outlier_mask, details = compute_multimodal_outliers(
+            data_with_outliers, dist_result, std_threshold=3.0
+        )
+
+        # The added outliers should be detected
+        # The outlier at 10 should be flagged (far from mode ~50)
+        # The outlier at 600 should be flagged (far from mode ~500)
+        assert details["num_outliers"] >= 2
+        assert details["distribution_type"] in ("bimodal", "multimodal")
+
+
+@pytest.mark.skipif(not _sklearn_available(), reason="sklearn not installed")
+class TestDistributionStatistics:
+    """Tests for compute_statistics_with_distribution function."""
+
+    def test_unimodal_statistics(self, unimodal_data):
+        """Test statistics with distribution info for unimodal data."""
+        result = compute_statistics_with_distribution(unimodal_data)
+
+        # Should have all base statistics
+        assert "count" in result
+        assert "mean" in result
+        assert "std" in result
+        assert "min" in result
+        assert "max" in result
+        assert "median" in result
+
+        # Should have distribution info
+        assert result["distribution_type"] == "unimodal"
+        assert result["num_modes"] == 1
+        assert "mode_statistics" in result
+        assert len(result["mode_statistics"]) == 1
+
+    def test_bimodal_statistics(self, bimodal_data):
+        """Test statistics with distribution info for bimodal data."""
+        result = compute_statistics_with_distribution(bimodal_data)
+
+        # Should have all base statistics
+        assert "count" in result
+        assert "mean" in result
+
+        # Should have distribution info
+        assert result["distribution_type"] == "bimodal"
+        assert result["num_modes"] == 2
+        assert "mode_statistics" in result
+        assert len(result["mode_statistics"]) == 2
+
+        # Each mode should have all required fields
+        for mode in result["mode_statistics"]:
+            assert "mode_id" in mode
+            assert "mean" in mode
+            assert "std" in mode
+            assert "count" in mode
+            assert "weight" in mode
+
+    def test_empty_series_statistics(self):
+        """Test statistics with distribution info for empty series."""
+        empty = pd.Series([], dtype=float)
+        result = compute_statistics_with_distribution(empty)
+
+        # Should have base statistics
+        assert result["count"] == 0
+        assert result["mean"] == 0.0
+
+        # Should NOT have distribution info (too small)
+        assert "distribution_type" not in result
+
+
+class TestModeStatisticsDataclass:
+    """Tests for ModeStatistics dataclass."""
+
+    def test_mode_statistics_creation(self):
+        """Test creating ModeStatistics instance."""
+        mode = ModeStatistics(
+            mode_id=0,
+            mean=100.0,
+            std=10.0,
+            count=150,
+            weight=0.75,
+        )
+
+        assert mode.mode_id == 0
+        assert mode.mean == 100.0
+        assert mode.std == 10.0
+        assert mode.count == 150
+        assert mode.weight == 0.75
+
+
+class TestDistributionAnalysisResultDataclass:
+    """Tests for DistributionAnalysisResult dataclass."""
+
+    def test_distribution_result_creation(self):
+        """Test creating DistributionAnalysisResult instance."""
+        mode_stats = [
+            ModeStatistics(mode_id=0, mean=50.0, std=5.0, count=100, weight=0.5),
+            ModeStatistics(mode_id=1, mean=500.0, std=30.0, count=100, weight=0.5),
+        ]
+
+        result = DistributionAnalysisResult(
+            distribution_type=DistributionType.BIMODAL,
+            num_modes=2,
+            global_statistics={"count": 200, "mean": 275.0, "std": 225.0},
+            mode_statistics=mode_stats,
+            mode_assignments=[0] * 100 + [1] * 100,
+            confidence=0.95,
+        )
+
+        assert result.distribution_type == DistributionType.BIMODAL
+        assert result.num_modes == 2
+        assert len(result.mode_statistics) == 2
+        assert len(result.mode_assignments) == 200
+        assert result.confidence == 0.95

@@ -19,6 +19,7 @@ with different types of sample analyzers (length, diversity, format, quality, et
 """
 
 # Import analyzers to register them
+from oumi.core.analyze.content_pattern_analyzer import ContentPatternAnalyzer
 from oumi.core.analyze.cost_analyzer import CostAnalyzer
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.analyze.diversity_analyzer import DiversityAnalyzer
@@ -59,20 +60,75 @@ try:
 except ImportError:
     FastTextAnalyzer = None  # type: ignore[misc, assignment]
 
+# Conditional import for QuestionDiversityAnalyzer (requires sentence-transformers)
+try:
+    from oumi.core.analyze.question_diversity_analyzer import (
+        QuestionDiversityAnalyzer,
+    )
+except ImportError:
+    QuestionDiversityAnalyzer = None  # type: ignore[misc, assignment]
+
+# Conditional import for IFDAnalyzer (requires transformers)
+try:
+    from oumi.core.analyze.ifd_analyzer import IFDAnalyzer
+except ImportError:
+    IFDAnalyzer = None  # type: ignore[misc, assignment]
+
+# Conditional import for ReprDiversityAnalyzer (requires sentence-transformers)
+try:
+    from oumi.core.analyze.repr_diversity_analyzer import ReprDiversityAnalyzer
+except ImportError:
+    ReprDiversityAnalyzer = None  # type: ignore[misc, assignment]
+
+# Conditional import for EvolComplexityAnalyzer (requires inference dependencies)
+try:
+    from oumi.core.analyze.evol_complexity_analyzer import EvolComplexityAnalyzer
+except ImportError:
+    EvolComplexityAnalyzer = None  # type: ignore[misc, assignment]
+
+# Conditional import for EvolQualityAnalyzer (requires inference dependencies)
+try:
+    from oumi.core.analyze.evol_quality_analyzer import EvolQualityAnalyzer
+except ImportError:
+    EvolQualityAnalyzer = None  # type: ignore[misc, assignment]
+
+# New analyzers based on "Fixing It in Post" paper
+from oumi.core.analyze.task_category_analyzer import TaskCategoryAnalyzer
+from oumi.core.analyze.instruct_reward_analyzer import InstructRewardAnalyzer
+from oumi.core.analyze.input_quality_analyzer import InputQualityAnalyzer
+from oumi.core.analyze.conversation_structure_analyzer import ConversationStructureAnalyzer
+from oumi.core.analyze.safety_analyzer import SafetyAnalyzer
+from oumi.core.analyze.difficulty_analyzer import DifficultyAnalyzer
+from oumi.core.analyze.response_completeness_analyzer import ResponseCompletenessAnalyzer
+
 __all__ = [
     # Core
     "DatasetAnalyzer",
     "SampleAnalyzer",
     # Analyzers
+    "ContentPatternAnalyzer",
     "CostAnalyzer",
     "DiversityAnalyzer",
     "EmbeddingAnalyzer",
+    "EvolComplexityAnalyzer",
+    "EvolQualityAnalyzer",
     "FastTextAnalyzer",
     "FormatAnalyzer",
+    "IFDAnalyzer",
     "LengthAnalyzer",
     "LLMJudgeAnalyzer",
     "QualityAnalyzer",
+    "QuestionDiversityAnalyzer",
+    "ReprDiversityAnalyzer",
     "TrainingQualityAnalyzer",
+    # New analyzers (from "Fixing It in Post" paper)
+    "TaskCategoryAnalyzer",
+    "InstructRewardAnalyzer",
+    "InputQualityAnalyzer",
+    "ConversationStructureAnalyzer",
+    "SafetyAnalyzer",
+    "DifficultyAnalyzer",
+    "ResponseCompletenessAnalyzer",
     # Recommendations
     "Recommendation",
     "RecommendationsEngine",

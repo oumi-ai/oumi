@@ -38,16 +38,8 @@
             --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
         body {
             font-family: var(--font-body);
             font-size: 15px;
@@ -55,70 +47,45 @@
             color: var(--color-text);
             background-color: var(--color-bg);
             -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Noise texture overlay */
         body::before {
             content: '';
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none;
             opacity: 0.025;
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
             z-index: 9999;
         }
 
-        /* Animated gradient accent line */
         .accent-line {
             height: 2px;
-            background: linear-gradient(90deg,
-                transparent 0%,
-                var(--color-accent) 20%,
-                var(--color-accent) 80%,
-                transparent 100%);
+            background: linear-gradient(90deg, transparent 0%, var(--color-accent) 20%, var(--color-accent) 80%, transparent 100%);
             opacity: 0.6;
         }
 
-        /* Container */
-        .container {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 0 32px;
-        }
+        .container { max-width: 1280px; margin: 0 auto; padding: 0 32px; }
 
-        /* Header */
         header {
             padding: 80px 0 60px;
             position: relative;
             overflow: hidden;
         }
-
         header::before {
             content: '';
             position: absolute;
-            top: -50%;
-            left: -20%;
-            width: 140%;
-            height: 200%;
+            top: -50%; left: -20%; width: 140%; height: 200%;
             background: radial-gradient(ellipse at 30% 20%, var(--color-accent-glow) 0%, transparent 50%);
             pointer-events: none;
             animation: headerGlow 8s ease-in-out infinite alternate;
         }
-
         @keyframes headerGlow {
             0% { opacity: 0.5; transform: translate(0, 0); }
             100% { opacity: 0.8; transform: translate(5%, 5%); }
         }
 
-        .header-content {
-            position: relative;
-            z-index: 1;
-        }
-
+        .header-content { position: relative; z-index: 1; }
         .header-badge {
             display: inline-flex;
             align-items: center;
@@ -136,16 +103,13 @@
             margin-bottom: 24px;
             animation: fadeInUp 0.8s var(--ease-out-expo) both;
         }
-
         .header-badge::before {
             content: '';
-            width: 6px;
-            height: 6px;
+            width: 6px; height: 6px;
             background: var(--color-accent);
             border-radius: 50%;
             animation: pulse 2s ease-in-out infinite;
         }
-
         @keyframes pulse {
             0%, 100% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.5; transform: scale(1.2); }
@@ -160,11 +124,7 @@
             margin-bottom: 16px;
             animation: fadeInUp 0.8s var(--ease-out-expo) 0.1s both;
         }
-
-        header h1 em {
-            font-style: italic;
-            color: var(--color-accent);
-        }
+        header h1 em { font-style: italic; color: var(--color-accent); }
 
         .header-meta {
             display: flex;
@@ -175,63 +135,37 @@
             color: var(--color-text-muted);
             animation: fadeInUp 0.8s var(--ease-out-expo) 0.2s both;
         }
-
-        .header-meta span {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .header-meta span { display: flex; align-items: center; gap: 8px; }
 
         @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
-        /* Health Score Hero */
+        /* Health Score */
         {% if health_score %}
         .health-hero {
             padding: 60px 0;
             position: relative;
             animation: fadeIn 1s var(--ease-out-expo) 0.3s both;
         }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
         .health-grid {
             display: grid;
             grid-template-columns: 280px 1fr;
             gap: 48px;
             align-items: center;
         }
-
         .health-score-ring {
             position: relative;
-            width: 240px;
-            height: 240px;
+            width: 240px; height: 240px;
             margin: 0 auto;
         }
-
-        .health-score-ring svg {
-            transform: rotate(-90deg);
-            width: 100%;
-            height: 100%;
-        }
-
-        .health-score-ring .ring-bg {
-            fill: none;
-            stroke: var(--color-surface);
-            stroke-width: 12;
-        }
-
+        .health-score-ring svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+        .health-score-ring .ring-bg { fill: none; stroke: var(--color-surface); stroke-width: 12; }
         .health-score-ring .ring-progress {
             fill: none;
             stroke-width: 12;
@@ -240,20 +174,16 @@
             stroke-dashoffset: calc(628 - (628 * var(--score, 0) / 100));
             transition: stroke-dashoffset 1.5s var(--ease-out-expo);
         }
-
         .health-score-ring .ring-progress.excellent { stroke: var(--color-success); }
         .health-score-ring .ring-progress.good { stroke: var(--color-info); }
         .health-score-ring .ring-progress.fair { stroke: var(--color-warning); }
         .health-score-ring .ring-progress.poor { stroke: var(--color-danger); }
-
         .health-score-value {
             position: absolute;
-            top: 50%;
-            left: 50%;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
         }
-
         .health-score-value .number {
             font-family: var(--font-mono);
             font-size: 56px;
@@ -261,7 +191,6 @@
             letter-spacing: -0.03em;
             line-height: 1;
         }
-
         .health-score-value .label {
             font-size: 13px;
             color: var(--color-text-muted);
@@ -269,12 +198,7 @@
             letter-spacing: 0.1em;
             margin-top: 4px;
         }
-
-        .health-breakdown {
-            display: grid;
-            gap: 16px;
-        }
-
+        .health-breakdown { display: grid; gap: 16px; }
         .health-dimension {
             display: grid;
             grid-template-columns: 140px 1fr auto;
@@ -283,55 +207,23 @@
             padding: 16px 0;
             border-bottom: 1px solid var(--color-border-subtle);
         }
-
-        .health-dimension:last-child {
-            border-bottom: none;
-        }
-
-        .health-dimension .dim-name {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--color-text-secondary);
-        }
-
-        .health-dimension .dim-bar {
-            height: 6px;
-            background: var(--color-surface);
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .health-dimension .dim-bar-fill {
-            height: 100%;
-            border-radius: 3px;
-            transition: width 1s var(--ease-out-expo);
-        }
-
+        .health-dimension:last-child { border-bottom: none; }
+        .health-dimension .dim-name { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); }
+        .health-dimension .dim-bar { height: 6px; background: var(--color-surface); border-radius: 3px; overflow: hidden; }
+        .health-dimension .dim-bar-fill { height: 100%; border-radius: 3px; transition: width 1s var(--ease-out-expo); }
         .health-dimension .dim-bar-fill.excellent { background: var(--color-success); }
         .health-dimension .dim-bar-fill.good { background: var(--color-info); }
         .health-dimension .dim-bar-fill.fair { background: var(--color-warning); }
         .health-dimension .dim-bar-fill.poor { background: var(--color-danger); }
-
-        .health-dimension .dim-score {
-            font-family: var(--font-mono);
-            font-size: 14px;
-            font-weight: 500;
-            width: 48px;
-            text-align: right;
-        }
+        .health-dimension .dim-score { font-family: var(--font-mono); font-size: 14px; font-weight: 500; width: 48px; text-align: right; }
         {% endif %}
 
-        /* Main Content */
-        main {
-            padding: 40px 0 80px;
-        }
+        main { padding: 40px 0 80px; }
 
-        /* Section */
         .section {
             margin-bottom: 64px;
             animation: fadeInUp 0.8s var(--ease-out-expo) both;
         }
-
         .section:nth-child(1) { animation-delay: 0.1s; }
         .section:nth-child(2) { animation-delay: 0.2s; }
         .section:nth-child(3) { animation-delay: 0.3s; }
@@ -345,14 +237,12 @@
             padding-bottom: 16px;
             border-bottom: 1px solid var(--color-border);
         }
-
         .section-header h2 {
             font-family: var(--font-display);
             font-size: 1.75rem;
             font-weight: 400;
             letter-spacing: -0.01em;
         }
-
         .section-header .count {
             font-family: var(--font-mono);
             font-size: 12px;
@@ -362,13 +252,12 @@
             border-radius: 100px;
         }
 
-        /* Overview Stats */
+        /* Stat Cards */
         .overview-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 16px;
         }
-
         .stat-card {
             background: var(--color-bg-card);
             border: 1px solid var(--color-border-subtle);
@@ -378,28 +267,16 @@
             overflow: hidden;
             transition: all 0.4s var(--ease-out-expo);
         }
-
         .stat-card::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
+            top: 0; left: 0; right: 0; height: 2px;
             background: linear-gradient(90deg, var(--color-accent-dim), var(--color-accent));
             opacity: 0;
             transition: opacity 0.3s ease;
         }
-
-        .stat-card:hover {
-            border-color: var(--color-border);
-            transform: translateY(-2px);
-        }
-
-        .stat-card:hover::before {
-            opacity: 1;
-        }
-
+        .stat-card:hover { border-color: var(--color-border); transform: translateY(-2px); }
+        .stat-card:hover::before { opacity: 1; }
         .stat-card .label {
             font-size: 12px;
             font-weight: 500;
@@ -408,7 +285,6 @@
             color: var(--color-text-muted);
             margin-bottom: 8px;
         }
-
         .stat-card .value {
             font-family: var(--font-mono);
             font-size: 28px;
@@ -416,26 +292,11 @@
             letter-spacing: -0.02em;
             color: var(--color-text);
         }
-
-        .stat-card .value.small {
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--color-text-secondary);
-        }
-
-        .stat-card .value .unit {
-            font-size: 16px;
-            font-weight: 400;
-            color: var(--color-text-muted);
-        }
+        .stat-card .value.small { font-size: 14px; font-weight: 500; color: var(--color-text-secondary); }
+        .stat-card .value .unit { font-size: 16px; font-weight: 400; color: var(--color-text-muted); }
 
         /* Recommendations */
-        .recommendations-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
+        .recommendations-list { display: flex; flex-direction: column; gap: 12px; }
         .recommendation {
             display: grid;
             grid-template-columns: 4px 1fr;
@@ -446,31 +307,13 @@
             overflow: hidden;
             transition: all 0.3s var(--ease-out-expo);
         }
-
-        .recommendation:hover {
-            border-color: var(--color-border);
-            transform: translateX(4px);
-        }
-
-        .recommendation .severity-bar {
-            border-radius: 0;
-        }
-
+        .recommendation:hover { border-color: var(--color-border); transform: translateX(4px); }
+        .recommendation .severity-bar { border-radius: 0; }
         .recommendation.high .severity-bar { background: var(--color-danger); }
         .recommendation.medium .severity-bar { background: var(--color-warning); }
         .recommendation.low .severity-bar { background: var(--color-info); }
-
-        .recommendation-content {
-            padding: 20px 24px;
-        }
-
-        .recommendation-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 8px;
-        }
-
+        .recommendation-content { padding: 20px 24px; }
+        .recommendation-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
         .recommendation .badge {
             font-family: var(--font-mono);
             font-size: 10px;
@@ -480,34 +323,11 @@
             padding: 4px 10px;
             border-radius: 4px;
         }
-
-        .recommendation.high .badge {
-            background: var(--color-danger-dim);
-            color: var(--color-danger);
-        }
-
-        .recommendation.medium .badge {
-            background: var(--color-warning-dim);
-            color: var(--color-warning);
-        }
-
-        .recommendation.low .badge {
-            background: var(--color-info-dim);
-            color: var(--color-info);
-        }
-
-        .recommendation .title {
-            font-weight: 600;
-            font-size: 15px;
-        }
-
-        .recommendation .description {
-            color: var(--color-text-secondary);
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 12px;
-        }
-
+        .recommendation.high .badge { background: var(--color-danger-dim); color: var(--color-danger); }
+        .recommendation.medium .badge { background: var(--color-warning-dim); color: var(--color-warning); }
+        .recommendation.low .badge { background: var(--color-info-dim); color: var(--color-info); }
+        .recommendation .title { font-weight: 600; font-size: 15px; }
+        .recommendation .description { color: var(--color-text-secondary); font-size: 14px; line-height: 1.6; margin-bottom: 12px; }
         .recommendation .meta {
             display: flex;
             gap: 20px;
@@ -515,12 +335,7 @@
             font-size: 11px;
             color: var(--color-text-muted);
         }
-
-        .recommendation .meta span {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
+        .recommendation .meta span { display: flex; align-items: center; gap: 6px; }
 
         /* Empty State */
         .empty-state {
@@ -530,10 +345,8 @@
             border: 1px dashed var(--color-border);
             border-radius: 16px;
         }
-
         .empty-state .icon {
-            width: 64px;
-            height: 64px;
+            width: 64px; height: 64px;
             margin: 0 auto 20px;
             background: var(--color-success-dim);
             border-radius: 50%;
@@ -541,22 +354,9 @@
             align-items: center;
             justify-content: center;
         }
-
-        .empty-state .icon svg {
-            width: 32px;
-            height: 32px;
-            stroke: var(--color-success);
-        }
-
-        .empty-state h3 {
-            font-family: var(--font-display);
-            font-size: 1.5rem;
-            margin-bottom: 8px;
-        }
-
-        .empty-state p {
-            color: var(--color-text-muted);
-        }
+        .empty-state .icon svg { width: 32px; height: 32px; stroke: var(--color-success); }
+        .empty-state h3 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 8px; }
+        .empty-state p { color: var(--color-text-muted); }
 
         /* Charts */
         .chart-grid {
@@ -564,7 +364,6 @@
             grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
             gap: 24px;
         }
-
         .chart-card {
             background: var(--color-bg-card);
             border: 1px solid var(--color-border-subtle);
@@ -572,11 +371,7 @@
             padding: 24px;
             transition: border-color 0.3s ease;
         }
-
-        .chart-card:hover {
-            border-color: var(--color-border);
-        }
-
+        .chart-card:hover { border-color: var(--color-border); }
         .chart-card h3 {
             font-family: var(--font-body);
             font-size: 13px;
@@ -586,21 +381,11 @@
             color: var(--color-text-muted);
             margin-bottom: 16px;
         }
-
-        .chart-wrapper {
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        /* Anomaly Chart Card */
-        .anomaly-card {
-            position: relative;
-        }
-
+        .chart-wrapper { border-radius: 8px; overflow: hidden; }
+        .anomaly-card { position: relative; }
         .anomaly-card .anomaly-badge {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: 20px; right: 20px;
             font-family: var(--font-mono);
             font-size: 11px;
             font-weight: 500;
@@ -617,17 +402,8 @@
             border-radius: 12px;
             overflow: hidden;
         }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 14px 20px;
-            text-align: left;
-        }
-
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 14px 20px; text-align: left; }
         th {
             font-family: var(--font-mono);
             font-size: 11px;
@@ -638,109 +414,19 @@
             background: var(--color-surface);
             border-bottom: 1px solid var(--color-border);
         }
-
         td {
             font-family: var(--font-mono);
             font-size: 13px;
             border-bottom: 1px solid var(--color-border-subtle);
             transition: background 0.2s ease;
         }
+        tr:last-child td { border-bottom: none; }
+        tbody tr:hover td { background: var(--color-bg-hover); }
+        td:first-child { font-family: var(--font-body); font-weight: 500; color: var(--color-text-secondary); }
+        td:not(:first-child) { color: var(--color-text); }
 
-        tr:last-child td {
-            border-bottom: none;
-        }
-
-        tbody tr:hover td {
-            background: var(--color-bg-hover);
-        }
-
-        td:first-child {
-            font-family: var(--font-body);
-            font-weight: 500;
-            color: var(--color-text-secondary);
-        }
-
-        td:not(:first-child) {
-            color: var(--color-text);
-        }
-
-        /* Footer */
-        footer {
-            padding: 40px 0;
-            border-top: 1px solid var(--color-border);
-        }
-
-        .footer-content {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .footer-brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .footer-brand svg {
-            width: 28px;
-            height: 28px;
-            fill: var(--color-accent);
-        }
-
-        .footer-brand span {
-            font-family: var(--font-display);
-            font-size: 18px;
-            color: var(--color-text-secondary);
-        }
-
-        .footer-meta {
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: var(--color-text-muted);
-        }
-
-        /* Responsive */
-        @media (max-width: 900px) {
-            .container {
-                padding: 0 20px;
-            }
-
-            header {
-                padding: 60px 0 40px;
-            }
-
-            {% if health_score %}
-            .health-grid {
-                grid-template-columns: 1fr;
-                gap: 32px;
-            }
-
-            .health-score-ring {
-                width: 200px;
-                height: 200px;
-            }
-            {% endif %}
-
-            .chart-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .header-meta {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-            }
-
-            .footer-content {
-                flex-direction: column;
-                gap: 16px;
-                text-align: center;
-            }
-        }
-
-        /* View Samples Button */
-        .view-samples-btn {
+        /* Buttons */
+        .view-samples-btn, .load-data-btn {
             display: inline-flex;
             align-items: center;
             gap: 6px;
@@ -755,19 +441,36 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
-
-        .view-samples-btn:hover {
+        .view-samples-btn:hover, .load-data-btn:hover {
             background: var(--color-accent-dim);
             color: var(--color-text);
         }
+        .load-data-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* Sample Modal */
+        /* Loading spinner */
+        .loading-spinner {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2px solid var(--color-border);
+            border-top-color: var(--color-accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--color-text-muted);
+            gap: 12px;
+        }
+
+        /* Modal */
         .sample-modal-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.8);
             backdrop-filter: blur(4px);
             z-index: 10000;
@@ -775,17 +478,10 @@
             visibility: hidden;
             transition: all 0.3s var(--ease-out-expo);
         }
-
-        .sample-modal-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
+        .sample-modal-overlay.active { opacity: 1; visibility: visible; }
         .sample-modal {
             position: fixed;
-            top: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; right: 0; bottom: 0;
             width: 600px;
             max-width: 90vw;
             background: var(--color-bg-elevated);
@@ -796,11 +492,7 @@
             display: flex;
             flex-direction: column;
         }
-
-        .sample-modal-overlay.active .sample-modal {
-            transform: translateX(0);
-        }
-
+        .sample-modal-overlay.active .sample-modal { transform: translateX(0); }
         .sample-modal-header {
             display: flex;
             align-items: center;
@@ -809,16 +501,9 @@
             border-bottom: 1px solid var(--color-border);
             flex-shrink: 0;
         }
-
-        .sample-modal-header h3 {
-            font-family: var(--font-display);
-            font-size: 1.25rem;
-            font-weight: 400;
-        }
-
+        .sample-modal-header h3 { font-family: var(--font-display); font-size: 1.25rem; font-weight: 400; }
         .sample-modal-close {
-            width: 36px;
-            height: 36px;
+            width: 36px; height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -829,32 +514,20 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
-
-        .sample-modal-close:hover {
-            background: var(--color-bg-hover);
-            color: var(--color-text);
+        .sample-modal-close:hover { background: var(--color-bg-hover); color: var(--color-text); }
+        .sample-modal-body { flex: 1; overflow-y: auto; padding: 0; }
+        .sample-modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--color-border);
+            background: var(--color-bg-card);
+            flex-shrink: 0;
         }
-
-        .sample-modal-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 0;
-        }
+        .sample-modal-footer p { font-size: 12px; color: var(--color-text-muted); text-align: center; }
 
         /* Conversation List */
-        .conversation-list {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .conversation-item {
-            border-bottom: 1px solid var(--color-border);
-        }
-
-        .conversation-item:last-child {
-            border-bottom: none;
-        }
-
+        .conversation-list { display: flex; flex-direction: column; }
+        .conversation-item { border-bottom: 1px solid var(--color-border); }
+        .conversation-item:last-child { border-bottom: none; }
         .conversation-header {
             display: flex;
             align-items: center;
@@ -864,30 +537,10 @@
             cursor: pointer;
             transition: background 0.2s ease;
         }
-
-        .conversation-header:hover {
-            background: var(--color-bg-hover);
-        }
-
-        .conversation-header-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .conversation-id {
-            font-family: var(--font-mono);
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--color-text);
-        }
-
-        .conversation-stats {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
+        .conversation-header:hover { background: var(--color-bg-hover); }
+        .conversation-header-left { display: flex; align-items: center; gap: 12px; }
+        .conversation-id { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--color-text); }
+        .conversation-stats { display: flex; align-items: center; gap: 8px; }
         .conversation-stat {
             font-family: var(--font-mono);
             font-size: 11px;
@@ -896,47 +549,26 @@
             background: var(--color-bg-card);
             color: var(--color-text-muted);
         }
-
-        .conversation-stat.flagged {
-            background: var(--color-danger-dim);
-            color: var(--color-danger);
-        }
-
+        .conversation-stat.flagged { background: var(--color-danger-dim); color: var(--color-danger); }
         .conversation-toggle {
-            width: 24px;
-            height: 24px;
+            width: 24px; height: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: var(--color-text-muted);
             transition: transform 0.2s ease;
         }
+        .conversation-item.expanded .conversation-toggle { transform: rotate(180deg); }
+        .conversation-turns { display: none; padding: 0 24px 20px; }
+        .conversation-item.expanded .conversation-turns { display: block; }
 
-        .conversation-item.expanded .conversation-toggle {
-            transform: rotate(180deg);
-        }
-
-        .conversation-turns {
-            display: none;
-            padding: 0 24px 20px;
-        }
-
-        .conversation-item.expanded .conversation-turns {
-            display: block;
-        }
-
-        /* Conversation Turn (Message) */
         .turn {
             display: flex;
             gap: 12px;
             padding: 12px 0;
             border-bottom: 1px solid var(--color-border-subtle);
         }
-
-        .turn:last-child {
-            border-bottom: none;
-        }
-
+        .turn:last-child { border-bottom: none; }
         .turn.flagged {
             background: var(--color-danger-dim);
             margin: 0 -16px;
@@ -944,12 +576,7 @@
             border-radius: 8px;
             border: 1px solid rgba(214, 106, 106, 0.3);
         }
-
-        .turn-role {
-            flex-shrink: 0;
-            width: 80px;
-        }
-
+        .turn-role { flex-shrink: 0; width: 80px; }
         .turn-role-badge {
             font-family: var(--font-mono);
             font-size: 10px;
@@ -960,52 +587,19 @@
             border-radius: 4px;
             display: inline-block;
         }
-
-        .turn-role-badge.user {
-            background: var(--color-info-dim);
-            color: var(--color-info);
-        }
-
-        .turn-role-badge.assistant {
-            background: var(--color-success-dim);
-            color: var(--color-success);
-        }
-
-        .turn-role-badge.system {
-            background: var(--color-warning-dim);
-            color: var(--color-warning);
-        }
-
-        .turn-content-wrapper {
-            flex: 1;
-            min-width: 0;
-        }
-
+        .turn-role-badge.user { background: var(--color-info-dim); color: var(--color-info); }
+        .turn-role-badge.assistant { background: var(--color-success-dim); color: var(--color-success); }
+        .turn-role-badge.system { background: var(--color-warning-dim); color: var(--color-warning); }
+        .turn-content-wrapper { flex: 1; min-width: 0; }
         .turn-content {
             font-size: 13px;
             line-height: 1.6;
             color: var(--color-text-secondary);
             white-space: pre-wrap;
             word-break: break-word;
-            max-height: 150px;
-            overflow-y: auto;
         }
-
-        .turn.flagged .turn-content {
-            color: var(--color-text);
-        }
-
-        .turn-content.expanded {
-            max-height: none;
-        }
-
-        .turn-meta {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-top: 8px;
-        }
-
+        .turn.flagged .turn-content { color: var(--color-text); }
+        .turn-meta { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
         .turn-metric {
             font-family: var(--font-mono);
             font-size: 11px;
@@ -1014,25 +608,6 @@
             padding: 2px 8px;
             border-radius: 4px;
         }
-
-        .turn-expand-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: var(--color-text-muted);
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            transition: color 0.2s ease;
-        }
-
-        .turn-expand-btn:hover {
-            color: var(--color-accent);
-        }
-
         .flagged-indicator {
             font-family: var(--font-mono);
             font-size: 10px;
@@ -1043,46 +618,129 @@
             display: flex;
             align-items: center;
             gap: 4px;
+            margin-bottom: 8px;
         }
+        .flagged-indicator svg { width: 12px; height: 12px; }
 
-        .flagged-indicator svg {
-            width: 12px;
-            height: 12px;
-        }
-
-        .sample-modal-footer {
-            padding: 16px 24px;
-            border-top: 1px solid var(--color-border);
+        /* Expandable Groups (duplicates, clusters) */
+        .expandable-groups { display: flex; flex-direction: column; gap: 8px; }
+        .expandable-group {
             background: var(--color-bg-card);
-            flex-shrink: 0;
+            border: 1px solid var(--color-border-subtle);
+            border-radius: 8px;
+            overflow: hidden;
         }
-
-        .sample-modal-footer p {
-            font-size: 12px;
+        .expandable-group.concentrated { border-color: var(--color-warning-dim); }
+        .expandable-group-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        .expandable-group-header:hover { background: var(--color-bg-hover); }
+        .expandable-group-info { display: flex; align-items: center; gap: 12px; min-width: 200px; }
+        .expandable-group-id { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--color-text); }
+        .expandable-group-count {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--color-accent);
+            background: var(--color-accent-glow);
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+        .expandable-group.concentrated .expandable-group-count { color: var(--color-warning); background: var(--color-warning-dim); }
+        .expandable-group-pct { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); }
+        .expandable-group-bar { flex: 1; height: 8px; background: var(--color-surface); border-radius: 4px; overflow: hidden; }
+        .expandable-group-bar-fill {
+            height: 100%;
+            background: var(--color-accent);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .expandable-group-bar-fill.concentrated { background: var(--color-warning); }
+        .expandable-group-toggle { color: var(--color-text-muted); transition: transform 0.2s ease; }
+        .expandable-group.expanded .expandable-group-toggle { transform: rotate(180deg); }
+        .expandable-group-samples {
+            display: none;
+            padding: 0 16px 16px;
+            border-top: 1px solid var(--color-border-subtle);
+        }
+        .expandable-group.expanded .expandable-group-samples { display: block; }
+        .group-sample {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--color-border-subtle);
+        }
+        .group-sample:last-child { border-bottom: none; }
+        .group-sample-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .group-sample-role {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 3px 6px;
+            border-radius: 3px;
+        }
+        .group-sample-role.user { background: var(--color-info-dim); color: var(--color-info); }
+        .group-sample-role.assistant { background: var(--color-success-dim); color: var(--color-success); }
+        .group-sample-role.system { background: var(--color-warning-dim); color: var(--color-warning); }
+        .group-sample-conv { font-family: var(--font-mono); font-size: 10px; color: var(--color-text-muted); }
+        .group-sample-text {
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--color-text-secondary);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .group-sample-more {
+            padding: 12px 0 0;
+            font-family: var(--font-mono);
+            font-size: 11px;
             color: var(--color-text-muted);
-            text-align: center;
+            font-style: italic;
         }
 
-        /* Print styles */
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .section-title-note {
+            font-weight: 400;
+            color: var(--color-text-muted);
+        }
+
+        /* Footer */
+        footer { padding: 40px 0; border-top: 1px solid var(--color-border); }
+        .footer-content { display: flex; align-items: center; justify-content: space-between; }
+        .footer-brand { display: flex; align-items: center; gap: 12px; }
+        .footer-brand svg { width: 28px; height: 28px; fill: var(--color-accent); }
+        .footer-brand span { font-family: var(--font-display); font-size: 18px; color: var(--color-text-secondary); }
+        .footer-meta { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .container { padding: 0 20px; }
+            header { padding: 60px 0 40px; }
+            {% if health_score %}
+            .health-grid { grid-template-columns: 1fr; gap: 32px; }
+            .health-score-ring { width: 200px; height: 200px; }
+            {% endif %}
+            .chart-grid { grid-template-columns: 1fr; }
+            .header-meta { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .footer-content { flex-direction: column; gap: 16px; text-align: center; }
+        }
+
         @media print {
-            body::before {
-                display: none;
-            }
-
-            header::before {
-                display: none;
-            }
-
-            .recommendation:hover,
-            .stat-card:hover,
-            .chart-card:hover {
-                transform: none;
-            }
-
-            .view-samples-btn,
-            .sample-modal-overlay {
-                display: none !important;
-            }
+            body::before, header::before { display: none; }
+            .recommendation:hover, .stat-card:hover, .chart-card:hover { transform: none; }
+            .view-samples-btn, .load-data-btn, .sample-modal-overlay { display: none !important; }
+            .expandable-group-samples { display: block !important; }
         }
     </style>
 </head>
@@ -1132,7 +790,7 @@
                         <circle class="ring-progress {% if health_score.overall_score >= 80 %}excellent{% elif health_score.overall_score >= 60 %}good{% elif health_score.overall_score >= 40 %}fair{% else %}poor{% endif %}" cx="110" cy="110" r="100"></circle>
                     </svg>
                     <div class="health-score-value">
-                        <div class="number {% if health_score.overall_score >= 80 %}excellent{% elif health_score.overall_score >= 60 %}good{% elif health_score.overall_score >= 40 %}fair{% else %}poor{% endif %}" style="color: var(--color-{% if health_score.overall_score >= 80 %}success{% elif health_score.overall_score >= 60 %}info{% elif health_score.overall_score >= 40 %}warning{% else %}danger{% endif %})">{{ health_score.overall_score | int }}</div>
+                        <div class="number" style="color: var(--color-{% if health_score.overall_score >= 80 %}success{% elif health_score.overall_score >= 60 %}info{% elif health_score.overall_score >= 40 %}warning{% else %}danger{% endif %})">{{ health_score.overall_score | int }}</div>
                         <div class="label">Health Score</div>
                     </div>
                 </div>
@@ -1191,13 +849,13 @@
             <section class="section">
                 <div class="section-header">
                     <h2>Recommendations</h2>
-                    {% if recommendations %}
-                    <span class="count">{{ recommendations | length }} issue{{ 's' if recommendations | length != 1 else '' }}</span>
+                    {% if recommendations_summary.total > 0 %}
+                    <span class="count">{{ recommendations_summary.total }} issue{{ 's' if recommendations_summary.total != 1 else '' }}</span>
                     {% endif %}
                 </div>
-                {% if recommendations %}
+                {% if recommendations_summary.total > 0 %}
                 <div class="recommendations-list">
-                    {% for rec in recommendations %}
+                    {% for rec in recommendations_summary.list %}
                     <div class="recommendation {{ rec.severity }}">
                         <div class="severity-bar"></div>
                         <div class="recommendation-content">
@@ -1224,12 +882,12 @@
                                     {{ rec.metric_name }}
                                 </span>
                                 {% endif %}
-                                {% if rec.conversations and rec.conversations | length > 0 %}
-                                <button class="view-samples-btn" onclick="openSampleModal('{{ rec.id }}')">
+                                {% if rec.has_conversations %}
+                                <button class="view-samples-btn" data-rec-id="{{ rec.id }}">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                                     </svg>
-                                    View {{ rec.conversations | length }}{% if rec.affected_samples > 20 %} of {{ rec.affected_samples }}{% endif %} conversation{{ 's' if rec.conversations | length != 1 else '' }}
+                                    View {{ rec.conversation_count }} conversation{{ 's' if rec.conversation_count != 1 else '' }}
                                 </button>
                                 {% endif %}
                             </div>
@@ -1251,38 +909,121 @@
             </section>
 
             <!-- Charts Section -->
-            {% if charts %}
+            {% if charts_summary.count > 0 %}
             <section class="section">
                 <div class="section-header">
                     <h2>Distributions</h2>
-                    <span class="count">{{ charts | length }} chart{{ 's' if charts | length != 1 else '' }}</span>
+                    <span class="count">{{ charts_summary.count }} chart{{ 's' if charts_summary.count != 1 else '' }}</span>
                 </div>
-                <div class="chart-grid">
-                    {% for chart in charts %}
-                    <div class="chart-card">
-                        <h3>{{ chart.title }}</h3>
-                        <div class="chart-wrapper" id="{{ chart.id }}"></div>
+                <div id="charts-container" class="chart-grid">
+                    <div class="loading-container">
+                        <div class="loading-spinner"></div>
+                        <span>Loading charts...</span>
                     </div>
-                    {% endfor %}
                 </div>
             </section>
             {% endif %}
 
             <!-- Anomaly Charts Section -->
-            {% if anomaly_charts %}
+            {% if charts_summary.anomaly_count > 0 %}
             <section class="section">
                 <div class="section-header">
                     <h2>Anomaly Detection</h2>
-                    <span class="count">{{ anomaly_charts | length }} visualization{{ 's' if anomaly_charts | length != 1 else '' }}</span>
+                    <span class="count">{{ charts_summary.anomaly_count }} visualization{{ 's' if charts_summary.anomaly_count != 1 else '' }}</span>
                 </div>
-                <div class="chart-grid">
-                    {% for chart in anomaly_charts %}
-                    <div class="chart-card anomaly-card">
-                        <h3>{{ chart.title }}</h3>
-                        <span class="anomaly-badge">{{ chart.outlier_count }} outliers</span>
-                        <div class="chart-wrapper" id="{{ chart.id }}"></div>
+                <div id="anomaly-charts-container" class="chart-grid">
+                    <div class="loading-container">
+                        <div class="loading-spinner"></div>
+                        <span>Loading anomaly charts...</span>
                     </div>
-                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Duplicates Section -->
+            {% if duplicates_summary %}
+            <section class="section">
+                <div class="section-header">
+                    <h2>Duplicate Detection</h2>
+                </div>
+
+                <div class="overview-grid" style="margin-bottom: 24px;">
+                    {% if duplicates_summary.semantic %}
+                    <div class="stat-card">
+                        <div class="label">Semantic Duplicates</div>
+                        <div class="value">{{ duplicates_summary.semantic.total_with_duplicates }}<span class="unit"> ({{ duplicates_summary.semantic.percentage }}%)</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Duplicate Groups</div>
+                        <div class="value">{{ duplicates_summary.semantic.num_groups }}</div>
+                    </div>
+                    {% endif %}
+                    {% if duplicates_summary.fuzzy %}
+                    <div class="stat-card">
+                        <div class="label">Fuzzy Duplicates</div>
+                        <div class="value">{{ duplicates_summary.fuzzy.total_with_duplicates }}<span class="unit"> ({{ duplicates_summary.fuzzy.percentage }}%)</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Fuzzy Groups</div>
+                        <div class="value">{{ duplicates_summary.fuzzy.num_groups }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div id="duplicates-container">
+                    <button class="load-data-btn" id="load-duplicates-btn">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Load duplicate groups
+                    </button>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Clusters Section -->
+            {% if clusters_summary %}
+            <section class="section">
+                <div class="section-header">
+                    <h2>Clustering Analysis</h2>
+                </div>
+
+                <div class="overview-grid" style="margin-bottom: 24px;">
+                    {% if clusters_summary.question_diversity_clusters %}
+                    <div class="stat-card">
+                        <div class="label">Question Clusters</div>
+                        <div class="value">{{ clusters_summary.question_diversity_clusters.total_clusters }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Questions Analyzed</div>
+                        <div class="value">{{ clusters_summary.question_diversity_clusters.total_questions }}</div>
+                    </div>
+                    {% if clusters_summary.question_diversity_clusters.concentrated_count > 0 %}
+                    <div class="stat-card">
+                        <div class="label">In Concentrated Clusters</div>
+                        <div class="value" style="color: var(--color-warning);">{{ clusters_summary.question_diversity_clusters.concentrated_count }}</div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% if clusters_summary.embedding_clusters %}
+                    <div class="stat-card">
+                        <div class="label">Embedding Clusters</div>
+                        <div class="value">{{ clusters_summary.embedding_clusters.total_clusters }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div id="clusters-container">
+                    <button class="load-data-btn" id="load-clusters-btn">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Load cluster details
+                    </button>
                 </div>
             </section>
             {% endif %}
@@ -1390,13 +1131,12 @@
         </div>
     </main>
 
-    <!-- Conversation Modal -->
-    {% if recommendations %}
-    <div id="sampleModal" class="sample-modal-overlay" onclick="closeSampleModal(event)">
-        <div class="sample-modal" onclick="event.stopPropagation()">
+    <!-- Sample Modal -->
+    <div id="sampleModal" class="sample-modal-overlay">
+        <div class="sample-modal">
             <div class="sample-modal-header">
                 <h3 id="sampleModalTitle">Affected Conversations</h3>
-                <button class="sample-modal-close" onclick="closeSampleModal()">
+                <button class="sample-modal-close" id="closeModalBtn">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
                         <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -1404,14 +1144,16 @@
                 </button>
             </div>
             <div class="sample-modal-body" id="sampleModalBody">
-                <!-- Conversations will be inserted here -->
+                <div class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <span>Loading conversations...</span>
+                </div>
             </div>
             <div class="sample-modal-footer">
                 <p>Showing up to 20 conversations with flagged messages highlighted.</p>
             </div>
         </div>
     </div>
-    {% endif %}
 
     <footer>
         <div class="container">
@@ -1429,95 +1171,554 @@
         </div>
     </footer>
 
-    <!-- Render Plotly Charts -->
-    {% if charts or anomaly_charts %}
     <script>
-        const plotlyConfig = {
-            responsive: true,
-            displayModeBar: false
-        };
+        // External data file paths
+        const externalData = {{ external_data | tojson }};
 
-        const darkLayout = {
-            paper_bgcolor: 'rgba(0,0,0,0)',
-            plot_bgcolor: 'rgba(0,0,0,0)',
-            font: {
-                family: 'Source Sans 3, sans-serif',
-                color: '#a39e93'
-            },
-            xaxis: {
-                gridcolor: 'rgba(255,255,255,0.05)',
-                linecolor: 'rgba(255,255,255,0.1)',
-                tickfont: { family: 'JetBrains Mono, monospace', size: 11 }
-            },
-            yaxis: {
-                gridcolor: 'rgba(255,255,255,0.05)',
-                linecolor: 'rgba(255,255,255,0.1)',
-                tickfont: { family: 'JetBrains Mono, monospace', size: 11 }
-            },
-            margin: { l: 50, r: 20, t: 20, b: 50 }
-        };
+        // Cache for loaded data
+        const dataCache = {};
 
-        {% for chart in charts %}
-        (function() {
-            const data = {{ chart.data | safe }};
-            const layout = Object.assign({}, {{ chart.layout | safe }}, darkLayout);
-            Plotly.newPlot('{{ chart.id }}', data, layout, plotlyConfig);
-        })();
-        {% endfor %}
+        // Helper to create SVG element
+        function createSvg(width, height, viewBox, content) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+            svg.setAttribute('viewBox', viewBox);
+            svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke', 'currentColor');
+            svg.setAttribute('stroke-width', '2');
+            // Parse content and add elements safely
+            const temp = document.createElement('template');
+            temp.innerHTML = content.trim();
+            // Only allow specific SVG elements
+            const allowedTags = ['path', 'circle', 'line', 'polyline', 'rect', 'g'];
+            Array.from(temp.content.children).forEach(child => {
+                if (allowedTags.includes(child.tagName.toLowerCase())) {
+                    const el = document.createElementNS('http://www.w3.org/2000/svg', child.tagName);
+                    Array.from(child.attributes).forEach(attr => {
+                        el.setAttribute(attr.name, attr.value);
+                    });
+                    svg.appendChild(el);
+                }
+            });
+            return svg;
+        }
 
-        {% for chart in anomaly_charts %}
-        (function() {
-            const data = {{ chart.data | safe }};
-            const layout = Object.assign({}, {{ chart.layout | safe }}, darkLayout);
-            Plotly.newPlot('{{ chart.id }}', data, layout, plotlyConfig);
-        })();
-        {% endfor %}
-    </script>
-    {% endif %}
+        // Helper to create chevron SVG
+        function createChevronSvg() {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', '16');
+            svg.setAttribute('height', '16');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke', 'currentColor');
+            svg.setAttribute('stroke-width', '2');
+            const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            polyline.setAttribute('points', '6,9 12,15 18,9');
+            svg.appendChild(polyline);
+            return svg;
+        }
 
-    <!-- Conversation Modal Scripts -->
-    {% if recommendations %}
-    <script>
-        // Conversation data for each recommendation
-        const conversationData = {
-            {% for rec in recommendations %}
-            '{{ rec.id }}': {
-                title: {{ rec.title | tojson }},
-                conversations: {{ rec.conversations | tojson }}
-            },
-            {% endfor %}
-        };
+        // Load charts on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (externalData.charts) {
+                loadCharts();
+            }
 
-        function openSampleModal(recId) {
+            // Setup event listeners
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // View samples buttons
+            document.querySelectorAll('.view-samples-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    openSampleModal(this.getAttribute('data-rec-id'));
+                });
+            });
+
+            // Load duplicates button
+            const loadDupBtn = document.getElementById('load-duplicates-btn');
+            if (loadDupBtn) {
+                loadDupBtn.addEventListener('click', loadDuplicates);
+            }
+
+            // Load clusters button
+            const loadClusterBtn = document.getElementById('load-clusters-btn');
+            if (loadClusterBtn) {
+                loadClusterBtn.addEventListener('click', loadClusters);
+            }
+
+            // Modal close
+            const modal = document.getElementById('sampleModal');
+            const closeBtn = document.getElementById('closeModalBtn');
+
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) closeSampleModal();
+            });
+            closeBtn.addEventListener('click', closeSampleModal);
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') closeSampleModal();
+            });
+        }
+
+        // Load charts from external file
+        async function loadCharts() {
+            if (dataCache.charts) {
+                renderCharts(dataCache.charts);
+                return;
+            }
+
+            try {
+                const response = await fetch(externalData.charts.file);
+                const data = await response.json();
+                dataCache.charts = data;
+                renderCharts(data);
+            } catch (error) {
+                console.error('Failed to load charts:', error);
+                const container = document.getElementById('charts-container');
+                if (container) {
+                    container.textContent = '';
+                    const errorMsg = document.createElement('p');
+                    errorMsg.style.color = 'var(--color-danger)';
+                    errorMsg.textContent = 'Failed to load charts';
+                    container.appendChild(errorMsg);
+                }
+            }
+        }
+
+        function renderCharts(data) {
+            const plotlyConfig = { responsive: true, displayModeBar: false };
+            const darkLayout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { family: 'Source Sans 3, sans-serif', color: '#a39e93' },
+                xaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'rgba(255,255,255,0.1)', tickfont: { family: 'JetBrains Mono, monospace', size: 11 } },
+                yaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'rgba(255,255,255,0.1)', tickfont: { family: 'JetBrains Mono, monospace', size: 11 } },
+                margin: { l: 50, r: 20, t: 20, b: 50 }
+            };
+
+            // Render distribution charts
+            const chartsContainer = document.getElementById('charts-container');
+            if (chartsContainer && data.charts && data.charts.length > 0) {
+                chartsContainer.textContent = '';
+                data.charts.forEach(chart => {
+                    const card = document.createElement('div');
+                    card.className = 'chart-card';
+
+                    const h3 = document.createElement('h3');
+                    h3.textContent = chart.title;
+                    card.appendChild(h3);
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'chart-wrapper';
+                    wrapper.id = chart.id;
+                    card.appendChild(wrapper);
+
+                    chartsContainer.appendChild(card);
+
+                    const chartData = JSON.parse(chart.data);
+                    const chartLayout = Object.assign({}, JSON.parse(chart.layout), darkLayout);
+                    Plotly.newPlot(chart.id, chartData, chartLayout, plotlyConfig);
+                });
+            }
+
+            // Render anomaly charts
+            const anomalyContainer = document.getElementById('anomaly-charts-container');
+            if (anomalyContainer && data.anomaly_charts && data.anomaly_charts.length > 0) {
+                anomalyContainer.textContent = '';
+                data.anomaly_charts.forEach(chart => {
+                    const card = document.createElement('div');
+                    card.className = 'chart-card anomaly-card';
+
+                    const h3 = document.createElement('h3');
+                    h3.textContent = chart.title;
+                    card.appendChild(h3);
+
+                    const badge = document.createElement('span');
+                    badge.className = 'anomaly-badge';
+                    badge.textContent = chart.outlier_count + ' outliers';
+                    card.appendChild(badge);
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'chart-wrapper';
+                    wrapper.id = chart.id;
+                    card.appendChild(wrapper);
+
+                    anomalyContainer.appendChild(card);
+
+                    const chartData = JSON.parse(chart.data);
+                    const chartLayout = Object.assign({}, JSON.parse(chart.layout), darkLayout);
+                    Plotly.newPlot(chart.id, chartData, chartLayout, plotlyConfig);
+                });
+            }
+        }
+
+        // Load duplicates data
+        async function loadDuplicates() {
+            const container = document.getElementById('duplicates-container');
+            container.textContent = '';
+
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading-container';
+            const spinner = document.createElement('div');
+            spinner.className = 'loading-spinner';
+            loadingDiv.appendChild(spinner);
+            const loadingText = document.createElement('span');
+            loadingText.textContent = 'Loading duplicates...';
+            loadingDiv.appendChild(loadingText);
+            container.appendChild(loadingDiv);
+
+            try {
+                const response = await fetch(externalData.duplicates.file);
+                const data = await response.json();
+                dataCache.duplicates = data;
+                renderDuplicates(data, container);
+            } catch (error) {
+                console.error('Failed to load duplicates:', error);
+                container.textContent = '';
+                const errorMsg = document.createElement('p');
+                errorMsg.style.color = 'var(--color-danger)';
+                errorMsg.textContent = 'Failed to load duplicates data';
+                container.appendChild(errorMsg);
+            }
+        }
+
+        function renderDuplicates(data, container) {
+            container.textContent = '';
+
+            if (data.semantic && data.semantic.sample_groups && data.semantic.sample_groups.length > 0) {
+                const section = document.createElement('div');
+
+                const title = document.createElement('h3');
+                title.className = 'section-title';
+                title.textContent = 'Semantic Duplicate Groups ';
+                const note = document.createElement('span');
+                note.className = 'section-title-note';
+                note.textContent = '(showing up to 10 groups)';
+                title.appendChild(note);
+                section.appendChild(title);
+
+                section.appendChild(renderGroups(data.semantic.sample_groups, 'duplicate'));
+                container.appendChild(section);
+            }
+
+            if (data.fuzzy && data.fuzzy.sample_groups && data.fuzzy.sample_groups.length > 0) {
+                const section = document.createElement('div');
+                section.style.marginTop = '32px';
+
+                const title = document.createElement('h3');
+                title.className = 'section-title';
+                title.textContent = 'Fuzzy Duplicate Groups ';
+                const note = document.createElement('span');
+                note.className = 'section-title-note';
+                note.textContent = '(showing up to 10 groups)';
+                title.appendChild(note);
+                section.appendChild(title);
+
+                section.appendChild(renderGroups(data.fuzzy.sample_groups, 'duplicate'));
+                container.appendChild(section);
+            }
+        }
+
+        // Load clusters data
+        async function loadClusters() {
+            const container = document.getElementById('clusters-container');
+            container.textContent = '';
+
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading-container';
+            const spinner = document.createElement('div');
+            spinner.className = 'loading-spinner';
+            loadingDiv.appendChild(spinner);
+            const loadingText = document.createElement('span');
+            loadingText.textContent = 'Loading clusters...';
+            loadingDiv.appendChild(loadingText);
+            container.appendChild(loadingDiv);
+
+            try {
+                const response = await fetch(externalData.clusters.file);
+                const data = await response.json();
+                dataCache.clusters = data;
+                renderClusters(data, container);
+            } catch (error) {
+                console.error('Failed to load clusters:', error);
+                container.textContent = '';
+                const errorMsg = document.createElement('p');
+                errorMsg.style.color = 'var(--color-danger)';
+                errorMsg.textContent = 'Failed to load clusters data';
+                container.appendChild(errorMsg);
+            }
+        }
+
+        function renderClusters(data, container) {
+            container.textContent = '';
+
+            if (data.question_diversity_clusters && data.question_diversity_clusters.distribution) {
+                const section = document.createElement('div');
+
+                const title = document.createElement('h3');
+                title.className = 'section-title';
+                title.textContent = 'Question Diversity Clusters ';
+                const note = document.createElement('span');
+                note.className = 'section-title-note';
+                note.textContent = '(click to view samples)';
+                title.appendChild(note);
+                section.appendChild(title);
+
+                section.appendChild(renderClusterGroups(data.question_diversity_clusters.distribution));
+                container.appendChild(section);
+            }
+
+            if (data.embedding_clusters && data.embedding_clusters.distribution) {
+                const section = document.createElement('div');
+                section.style.marginTop = '32px';
+
+                const title = document.createElement('h3');
+                title.className = 'section-title';
+                title.textContent = 'Embedding Clusters ';
+                const note = document.createElement('span');
+                note.className = 'section-title-note';
+                note.textContent = '(click to view samples)';
+                title.appendChild(note);
+                section.appendChild(title);
+
+                section.appendChild(renderClusterGroups(data.embedding_clusters.distribution));
+                container.appendChild(section);
+            }
+        }
+
+        function renderGroups(groups, type) {
+            const container = document.createElement('div');
+            container.className = 'expandable-groups';
+
+            groups.forEach(group => {
+                const groupEl = document.createElement('div');
+                groupEl.className = 'expandable-group';
+
+                const header = document.createElement('div');
+                header.className = 'expandable-group-header';
+                header.addEventListener('click', function() { groupEl.classList.toggle('expanded'); });
+
+                const info = document.createElement('div');
+                info.className = 'expandable-group-info';
+
+                const idSpan = document.createElement('span');
+                idSpan.className = 'expandable-group-id';
+                idSpan.textContent = 'Group ' + group.group_id;
+                info.appendChild(idSpan);
+
+                const countSpan = document.createElement('span');
+                countSpan.className = 'expandable-group-count';
+                countSpan.textContent = group.count + (type === 'duplicate' ? ' duplicates' : ' samples');
+                info.appendChild(countSpan);
+
+                header.appendChild(info);
+
+                const toggle = document.createElement('div');
+                toggle.className = 'expandable-group-toggle';
+                toggle.appendChild(createChevronSvg());
+                header.appendChild(toggle);
+
+                groupEl.appendChild(header);
+
+                const samples = document.createElement('div');
+                samples.className = 'expandable-group-samples';
+
+                if (group.samples) {
+                    group.samples.forEach(sample => {
+                        const sampleEl = document.createElement('div');
+                        sampleEl.className = 'group-sample';
+
+                        const meta = document.createElement('div');
+                        meta.className = 'group-sample-meta';
+
+                        const role = document.createElement('span');
+                        role.className = 'group-sample-role ' + (sample.role || '');
+                        role.textContent = sample.role || 'unknown';
+                        meta.appendChild(role);
+
+                        const conv = document.createElement('span');
+                        conv.className = 'group-sample-conv';
+                        conv.textContent = sample.conversation_id || '';
+                        meta.appendChild(conv);
+
+                        sampleEl.appendChild(meta);
+
+                        const text = document.createElement('div');
+                        text.className = 'group-sample-text';
+                        text.textContent = sample.text || '';
+                        sampleEl.appendChild(text);
+
+                        samples.appendChild(sampleEl);
+                    });
+                }
+
+                groupEl.appendChild(samples);
+                container.appendChild(groupEl);
+            });
+
+            return container;
+        }
+
+        function renderClusterGroups(distribution) {
+            const container = document.createElement('div');
+            container.className = 'expandable-groups';
+
+            distribution.forEach(item => {
+                const isConcentrated = item.percentage > 30;
+                const groupEl = document.createElement('div');
+                groupEl.className = 'expandable-group' + (isConcentrated ? ' concentrated' : '');
+
+                const header = document.createElement('div');
+                header.className = 'expandable-group-header';
+                header.addEventListener('click', function() { groupEl.classList.toggle('expanded'); });
+
+                const info = document.createElement('div');
+                info.className = 'expandable-group-info';
+
+                const idSpan = document.createElement('span');
+                idSpan.className = 'expandable-group-id';
+                idSpan.textContent = item.label;
+                info.appendChild(idSpan);
+
+                const countSpan = document.createElement('span');
+                countSpan.className = 'expandable-group-count';
+                countSpan.textContent = item.count + ' samples';
+                info.appendChild(countSpan);
+
+                const pctSpan = document.createElement('span');
+                pctSpan.className = 'expandable-group-pct';
+                pctSpan.textContent = item.percentage + '%';
+                info.appendChild(pctSpan);
+
+                header.appendChild(info);
+
+                const bar = document.createElement('div');
+                bar.className = 'expandable-group-bar';
+                const barFill = document.createElement('div');
+                barFill.className = 'expandable-group-bar-fill' + (isConcentrated ? ' concentrated' : '');
+                barFill.style.width = item.percentage + '%';
+                bar.appendChild(barFill);
+                header.appendChild(bar);
+
+                const toggle = document.createElement('div');
+                toggle.className = 'expandable-group-toggle';
+                toggle.appendChild(createChevronSvg());
+                header.appendChild(toggle);
+
+                groupEl.appendChild(header);
+
+                const samples = document.createElement('div');
+                samples.className = 'expandable-group-samples';
+
+                if (item.samples) {
+                    item.samples.forEach(sample => {
+                        const sampleEl = document.createElement('div');
+                        sampleEl.className = 'group-sample';
+
+                        const meta = document.createElement('div');
+                        meta.className = 'group-sample-meta';
+
+                        const role = document.createElement('span');
+                        role.className = 'group-sample-role ' + (sample.role || '');
+                        role.textContent = sample.role || 'unknown';
+                        meta.appendChild(role);
+
+                        const conv = document.createElement('span');
+                        conv.className = 'group-sample-conv';
+                        conv.textContent = sample.conversation_id || '';
+                        meta.appendChild(conv);
+
+                        sampleEl.appendChild(meta);
+
+                        const text = document.createElement('div');
+                        text.className = 'group-sample-text';
+                        text.textContent = sample.text || '';
+                        sampleEl.appendChild(text);
+
+                        samples.appendChild(sampleEl);
+                    });
+
+                    if (item.count > 5) {
+                        const moreEl = document.createElement('div');
+                        moreEl.className = 'group-sample-more';
+                        moreEl.textContent = '+ ' + (item.count - 5) + ' more samples in this cluster';
+                        samples.appendChild(moreEl);
+                    }
+                }
+
+                groupEl.appendChild(samples);
+                container.appendChild(groupEl);
+            });
+
+            return container;
+        }
+
+        // Modal functions
+        async function openSampleModal(recId) {
             const modal = document.getElementById('sampleModal');
             const title = document.getElementById('sampleModalTitle');
             const body = document.getElementById('sampleModalBody');
 
-            const data = conversationData[recId];
-            if (!data) return;
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
 
-            title.textContent = data.title;
+            body.textContent = '';
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading-container';
+            const spinner = document.createElement('div');
+            spinner.className = 'loading-spinner';
+            loadingDiv.appendChild(spinner);
+            const loadingText = document.createElement('span');
+            loadingText.textContent = 'Loading conversations...';
+            loadingDiv.appendChild(loadingText);
+            body.appendChild(loadingDiv);
 
-            // Clear previous content
-            while (body.firstChild) {
-                body.removeChild(body.firstChild);
+            // Load recommendations data if not cached
+            if (!dataCache.recommendations) {
+                try {
+                    const response = await fetch(externalData.recommendations.file);
+                    dataCache.recommendations = await response.json();
+                } catch (error) {
+                    console.error('Failed to load recommendations:', error);
+                    body.textContent = '';
+                    const errorMsg = document.createElement('p');
+                    errorMsg.style.cssText = 'padding: 20px; color: var(--color-danger);';
+                    errorMsg.textContent = 'Failed to load conversation data';
+                    body.appendChild(errorMsg);
+                    return;
+                }
             }
 
-            // Build conversation list using safe DOM methods
+            // Find the recommendation
+            const rec = dataCache.recommendations.find(r => r.id === recId);
+            if (!rec) {
+                body.textContent = '';
+                const errorMsg = document.createElement('p');
+                errorMsg.style.cssText = 'padding: 20px; color: var(--color-danger);';
+                errorMsg.textContent = 'Recommendation not found';
+                body.appendChild(errorMsg);
+                return;
+            }
+
+            title.textContent = rec.title;
+            renderConversations(rec.conversations, body);
+        }
+
+        function renderConversations(conversations, container) {
+            container.textContent = '';
             const convList = document.createElement('div');
             convList.className = 'conversation-list';
 
-            data.conversations.forEach((conv, convIdx) => {
+            conversations.forEach((conv, convIdx) => {
                 const convItem = document.createElement('div');
-                convItem.className = 'conversation-item';
-                convItem.id = `conv-${recId}-${convIdx}`;
+                convItem.className = 'conversation-item' + (convIdx === 0 ? ' expanded' : '');
 
-                // Conversation header (clickable to expand)
                 const header = document.createElement('div');
                 header.className = 'conversation-header';
-                header.onclick = function() {
-                    convItem.classList.toggle('expanded');
-                };
+                header.addEventListener('click', function() { convItem.classList.toggle('expanded'); });
 
                 const headerLeft = document.createElement('div');
                 headerLeft.className = 'conversation-header-left';
@@ -1543,49 +1744,35 @@
                 headerLeft.appendChild(stats);
                 header.appendChild(headerLeft);
 
-                // Toggle chevron
                 const toggle = document.createElement('div');
                 toggle.className = 'conversation-toggle';
-                const chevronSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                chevronSvg.setAttribute('width', '16');
-                chevronSvg.setAttribute('height', '16');
-                chevronSvg.setAttribute('viewBox', '0 0 24 24');
-                chevronSvg.setAttribute('fill', 'none');
-                chevronSvg.setAttribute('stroke', 'currentColor');
-                chevronSvg.setAttribute('stroke-width', '2');
-                const chevronPath = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-                chevronPath.setAttribute('points', '6,9 12,15 18,9');
-                chevronSvg.appendChild(chevronPath);
-                toggle.appendChild(chevronSvg);
+                toggle.appendChild(createChevronSvg());
                 header.appendChild(toggle);
 
                 convItem.appendChild(header);
 
-                // Conversation turns
-                const turnsContainer = document.createElement('div');
-                turnsContainer.className = 'conversation-turns';
+                const turns = document.createElement('div');
+                turns.className = 'conversation-turns';
 
-                conv.turns.forEach((turn, turnIdx) => {
+                conv.turns.forEach(turn => {
                     const turnEl = document.createElement('div');
                     turnEl.className = 'turn' + (turn.is_flagged ? ' flagged' : '');
 
-                    // Role badge
                     const roleDiv = document.createElement('div');
                     roleDiv.className = 'turn-role';
                     const roleBadge = document.createElement('span');
-                    roleBadge.className = 'turn-role-badge ' + (turn.role ? turn.role.toLowerCase() : '');
+                    roleBadge.className = 'turn-role-badge ' + (turn.role || '').toLowerCase();
                     roleBadge.textContent = turn.role || 'unknown';
                     roleDiv.appendChild(roleBadge);
                     turnEl.appendChild(roleDiv);
 
-                    // Content wrapper
                     const contentWrapper = document.createElement('div');
                     contentWrapper.className = 'turn-content-wrapper';
 
-                    // Flagged indicator
                     if (turn.is_flagged) {
-                        const flaggedIndicator = document.createElement('div');
-                        flaggedIndicator.className = 'flagged-indicator';
+                        const flagged = document.createElement('div');
+                        flagged.className = 'flagged-indicator';
+
                         const flagSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                         flagSvg.setAttribute('viewBox', '0 0 24 24');
                         flagSvg.setAttribute('fill', 'none');
@@ -1594,118 +1781,46 @@
                         const flagPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                         flagPath.setAttribute('d', 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z');
                         flagSvg.appendChild(flagPath);
-                        flaggedIndicator.appendChild(flagSvg);
+                        flagged.appendChild(flagSvg);
+
                         const flagText = document.createElement('span');
                         flagText.textContent = 'Issue detected';
-                        flaggedIndicator.appendChild(flagText);
-                        contentWrapper.appendChild(flaggedIndicator);
+                        flagged.appendChild(flagText);
+
+                        contentWrapper.appendChild(flagged);
                     }
 
-                    // Content text
-                    const contentId = `turn-content-${recId}-${convIdx}-${turnIdx}`;
                     const content = document.createElement('div');
                     content.className = 'turn-content';
-                    content.id = contentId;
-                    const truncatedText = turn.text.length > 300 ? turn.text.substring(0, 300) + '...' : turn.text;
-                    content.textContent = truncatedText;
+                    content.textContent = turn.text || '';
                     contentWrapper.appendChild(content);
 
-                    // Meta row (metric value and expand button)
-                    const meta = document.createElement('div');
-                    meta.className = 'turn-meta';
-
                     if (turn.metric_value) {
+                        const meta = document.createElement('div');
+                        meta.className = 'turn-meta';
                         const metric = document.createElement('span');
                         metric.className = 'turn-metric';
                         metric.textContent = 'Value: ' + turn.metric_value;
                         meta.appendChild(metric);
-                    }
-
-                    if (turn.text.length > 300) {
-                        const expandBtn = document.createElement('button');
-                        expandBtn.className = 'turn-expand-btn';
-                        expandBtn.setAttribute('data-full-text', turn.text);
-                        expandBtn.setAttribute('data-truncated-text', truncatedText);
-                        expandBtn.setAttribute('data-content-id', contentId);
-                        expandBtn.onclick = function() {
-                            toggleTurnExpand(this);
-                        };
-
-                        const expandSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                        expandSvg.setAttribute('width', '12');
-                        expandSvg.setAttribute('height', '12');
-                        expandSvg.setAttribute('viewBox', '0 0 24 24');
-                        expandSvg.setAttribute('fill', 'none');
-                        expandSvg.setAttribute('stroke', 'currentColor');
-                        expandSvg.setAttribute('stroke-width', '2');
-                        const expandPolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-                        expandPolyline.setAttribute('points', '6,9 12,15 18,9');
-                        expandSvg.appendChild(expandPolyline);
-                        expandBtn.appendChild(expandSvg);
-
-                        const expandText = document.createElement('span');
-                        expandText.textContent = 'Show full';
-                        expandBtn.appendChild(expandText);
-
-                        meta.appendChild(expandBtn);
-                    }
-
-                    if (meta.children.length > 0) {
                         contentWrapper.appendChild(meta);
                     }
 
                     turnEl.appendChild(contentWrapper);
-                    turnsContainer.appendChild(turnEl);
+                    turns.appendChild(turnEl);
                 });
 
-                convItem.appendChild(turnsContainer);
+                convItem.appendChild(turns);
                 convList.appendChild(convItem);
-
-                // Auto-expand first conversation
-                if (convIdx === 0) {
-                    convItem.classList.add('expanded');
-                }
             });
 
-            body.appendChild(convList);
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
+            container.appendChild(convList);
         }
 
-        function closeSampleModal(event) {
-            if (event && event.target !== event.currentTarget) return;
+        function closeSampleModal() {
             const modal = document.getElementById('sampleModal');
             modal.classList.remove('active');
             document.body.style.overflow = '';
         }
-
-        function toggleTurnExpand(btn) {
-            const contentId = btn.getAttribute('data-content-id');
-            const content = document.getElementById(contentId);
-            const btnText = btn.querySelector('span');
-            const svg = btn.querySelector('svg');
-            const polyline = svg.querySelector('polyline');
-
-            if (content.classList.contains('expanded')) {
-                content.classList.remove('expanded');
-                content.textContent = btn.getAttribute('data-truncated-text');
-                btnText.textContent = 'Show full';
-                polyline.setAttribute('points', '6,9 12,15 18,9');
-            } else {
-                content.classList.add('expanded');
-                content.textContent = btn.getAttribute('data-full-text');
-                btnText.textContent = 'Show less';
-                polyline.setAttribute('points', '18,15 12,9 6,15');
-            }
-        }
-
-        // Close modal on Escape key
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                closeSampleModal();
-            }
-        });
     </script>
-    {% endif %}
 </body>
 </html>

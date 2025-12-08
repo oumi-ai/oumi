@@ -115,17 +115,23 @@ class TestHTMLReportGeneratorGeneration:
         return analyzer
 
     def test_generate_report_to_file(self, mock_analyzer):
-        """Test generating report to a specific file."""
+        """Test generating report to a specific file path (creates directory)."""
         generator = HTMLReportGenerator(include_charts=False)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "report.html"
             result = generator.generate_report(mock_analyzer, output_path)
 
-            assert result == output_path
-            assert output_path.exists()
+            # Result is now the directory (parent of the specified .html file)
+            assert result == output_path.parent
+            # HTML file is created as index.html
+            html_file = result / "index.html"
+            assert html_file.exists()
+            # Data directory should exist
+            data_dir = result / "data"
+            assert data_dir.exists()
 
-            content = output_path.read_text()
+            content = html_file.read_text()
             assert "test_dataset" in content
             assert "Test Warning" in content
 
@@ -137,9 +143,14 @@ class TestHTMLReportGeneratorGeneration:
             output_path = Path(tmpdir)
             result = generator.generate_report(mock_analyzer, output_path)
 
-            expected_file = output_path / "analysis_report.html"
-            assert result == expected_file
+            # Result is the directory
+            assert result == output_path
+            # HTML file is index.html
+            expected_file = output_path / "index.html"
             assert expected_file.exists()
+            # Data directory should exist
+            data_dir = output_path / "data"
+            assert data_dir.exists()
 
     def test_generate_report_custom_title(self, mock_analyzer):
         """Test generating report with custom title."""
@@ -147,11 +158,12 @@ class TestHTMLReportGeneratorGeneration:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "report.html"
-            generator.generate_report(
+            result = generator.generate_report(
                 mock_analyzer, output_path, title="Custom Report Title"
             )
 
-            content = output_path.read_text()
+            html_file = result / "index.html"
+            content = html_file.read_text()
             assert "Custom Report Title" in content
 
     def test_generate_report_without_recommendations(self, mock_analyzer):
@@ -162,9 +174,10 @@ class TestHTMLReportGeneratorGeneration:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "report.html"
-            generator.generate_report(mock_analyzer, output_path)
+            result = generator.generate_report(mock_analyzer, output_path)
 
-            content = output_path.read_text()
+            html_file = result / "index.html"
+            content = html_file.read_text()
             # The recommendation content should not be present
             assert "Test Warning" not in content
 
@@ -197,8 +210,14 @@ class TestHTMLReportGeneratorGeneration:
             output_path = Path(tmpdir) / "nested" / "path" / "report.html"
             result = generator.generate_report(mock_analyzer, output_path)
 
-            assert result == output_path
-            assert output_path.exists()
+            # Result is the parent directory of the specified .html file
+            assert result == output_path.parent
+            # HTML file is created as index.html
+            html_file = result / "index.html"
+            assert html_file.exists()
+            # Data directory should exist
+            data_dir = result / "data"
+            assert data_dir.exists()
 
 
 class TestHTMLReportGeneratorWithPlotly:
@@ -247,13 +266,18 @@ class TestHTMLReportGeneratorWithPlotly:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "report.html"
-            generator.generate_report(mock_analyzer_with_data, output_path)
+            result = generator.generate_report(mock_analyzer_with_data, output_path)
 
-            content = output_path.read_text()
-            # Check that Plotly script is included
-            assert "Plotly.newPlot" in content
+            # Result is directory, HTML file is index.html
+            html_file = result / "index.html"
+            content = html_file.read_text()
+            # Check that Plotly reference is included
+            assert "plotly" in content.lower()
             # Check that chart containers are present
-            assert "chart_" in content
+            assert "chart" in content.lower()
+            # Charts data should be in external file
+            charts_file = result / "data" / "charts.json"
+            assert charts_file.exists()
 
     @pytest.mark.skipif(
         not HTMLReportGenerator()._check_plotly(),
@@ -289,8 +313,10 @@ class TestHTMLReportGeneratorEdgeCases:
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "report.html"
             # Should not crash
-            generator.generate_report(mock_analyzer, output_path)
-            assert output_path.exists()
+            result = generator.generate_report(mock_analyzer, output_path)
+            # Result is directory, HTML file is index.html
+            html_file = result / "index.html"
+            assert html_file.exists()
 
     def test_no_recommendations(self):
         """Test report generation when there are no recommendations."""
@@ -311,8 +337,10 @@ class TestHTMLReportGeneratorEdgeCases:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "report.html"
-            generator.generate_report(mock_analyzer, output_path)
+            result = generator.generate_report(mock_analyzer, output_path)
 
-            content = output_path.read_text()
+            # Result is directory, HTML file is index.html
+            html_file = result / "index.html"
+            content = html_file.read_text()
             # Should show "no issues detected" message
             assert "looks good" in content.lower() or "no issues" in content.lower()

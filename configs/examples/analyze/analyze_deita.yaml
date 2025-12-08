@@ -1,0 +1,117 @@
+# DEITA-style dataset analysis configuration
+#
+# This configuration implements the data quality analysis approach from the DEITA paper:
+# "What Makes Good Data for Alignment?" (Liu et al., 2023)
+# https://arxiv.org/abs/2312.15685
+#
+# The DEITA approach evaluates data quality along three dimensions:
+# 1. Complexity - How sophisticated/challenging are the instructions?
+# 2. Quality - How helpful/accurate are the responses?
+# 3. Diversity - How unique/varied are the samples?
+#
+# Usage:
+#   oumi analyze -c configs/examples/analyze/analyze_deita.yaml
+#
+# Requirements:
+#   - sentence-transformers (for repr_diversity): pip install 'oumi[analyze_advanced]'
+#   - Anthropic API key (for evol_complexity and evol_quality): export ANTHROPIC_API_KEY=...
+#     OR use OpenAI/local models by changing api_provider/model_type
+
+# Dataset configuration
+dataset_name: "tatsu-lab/alpaca"
+split: "train"
+sample_count: 100  # Start small for testing, increase for full analysis
+
+# Output configuration
+output_path: "./analysis_output/deita"
+generate_report: true
+report_title: "DEITA Data Quality Analysis Report"
+
+# Analyzers
+analyzers:
+  # Basic metrics (fast, no external dependencies)
+  - id: "length"
+    params:
+      word_count: true
+      token_count: false  # Set to true if you want token counts
+      char_count: false
+
+  # Embedding-based diversity scoring (DEITA Repr Filter)
+  # Measures how unique each sample is relative to the dataset
+  - id: "repr_diversity"
+    params:
+      model_name: "sentence-transformers/all-MiniLM-L6-v2"
+      k_neighbors: 5
+      diversity_threshold: 0.3  # Samples below this are flagged as redundant
+      embed_field: "all"  # "all", "user", or "assistant"
+      batch_size: 32
+      show_progress_bar: true
+
+  # Instruction complexity scoring via evolved variant ranking
+  # Generates more complex versions of instructions and ranks the original
+  - id: "evol_complexity"
+    params:
+      # Model configuration - choose one:
+      # Option 1: Use Anthropic API (default)
+      model_type: "api"
+      api_provider: "anthropic"
+      api_model: "claude-3-5-haiku-20241022"  # Cost-effective, try "claude-sonnet-4-5-20250514" for higher quality
+
+      # Option 2: Use OpenAI API
+      # model_type: "api"
+      # api_provider: "openai"
+      # api_model: "gpt-4o-mini"
+
+      # Option 3: Use local model
+      # model_type: "local"
+      # local_model: "meta-llama/Llama-3-8B-Instruct"
+      # inference_config:
+      #   engine: "vllm"
+
+      # Evolution configuration
+      num_evolutions: 3  # Number of more complex variants to generate (1-6)
+      evolution_operators:
+        - "add_constraints"
+        - "require_reasoning"
+        - "increase_depth"
+
+      # Analysis scope
+      analyze_role: "user"  # Analyze user instructions
+
+      # Performance
+      temperature: 0.7
+      max_retries: 2
+      cache_responses: true
+      show_progress: true
+
+  # Response quality scoring via evolved variant ranking
+  # Generates improved versions of responses and ranks the original
+  - id: "evol_quality"
+    params:
+      model_type: "api"
+      api_provider: "anthropic"
+      api_model: "claude-3-5-haiku-20241022"
+
+      # Quality aspects to improve
+      num_evolutions: 3
+      quality_aspects:
+        - "helpfulness"
+        - "depth"
+        - "accuracy"
+        - "structure"
+
+      # Context configuration
+      use_conversation_context: true  # Try to find instruction for context
+
+      # Analysis scope
+      analyze_role: "assistant"  # Analyze assistant responses
+
+      # Performance
+      temperature: 0.7
+      max_retries: 2
+      cache_responses: true
+      show_progress: true
+
+# Recommendations configuration
+generate_recommendations: true
+outlier_threshold: 3.0

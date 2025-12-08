@@ -26,6 +26,7 @@ from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.registry import REGISTRY
 from oumi.utils.analysis_utils import (
     compute_statistics,
+    compute_statistics_with_distribution,
     convert_dataset_to_dataframes,
     get_schema_for_format,
     load_dataset_from_config,
@@ -809,9 +810,28 @@ class DatasetAnalyzer:
                         # Compute statistics for numeric columns
                         values = cast(pd.Series, self._message_df[col].dropna())
                         if len(values) > 0:
-                            summary[analyzer_name][metric_name] = compute_statistics(
-                                values, self._decimal_precision
+                            # Use distribution-aware statistics for length metrics
+                            # to detect bimodal/multimodal distributions
+                            is_length_metric = any(
+                                pattern in metric_name
+                                for pattern in [
+                                    "char_count",
+                                    "word_count",
+                                    "token_count",
+                                    "sentence_count",
+                                ]
                             )
+
+                            if is_length_metric:
+                                summary[analyzer_name][metric_name] = (
+                                    compute_statistics_with_distribution(
+                                        values, self._decimal_precision
+                                    )
+                                )
+                            else:
+                                summary[analyzer_name][metric_name] = (
+                                    compute_statistics(values, self._decimal_precision)
+                                )
 
         return summary
 

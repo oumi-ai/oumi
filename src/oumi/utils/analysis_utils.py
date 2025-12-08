@@ -13,9 +13,12 @@
 # limitations under the License.
 
 import logging
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any, Optional, Union
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
@@ -270,6 +273,424 @@ def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[st
         "max": round(float(series.max()), decimal_precision),
         "median": round(float(series.median()), decimal_precision),
     }
+
+
+# =============================================================================
+# Multi-Modal Distribution Analysis
+# =============================================================================
+
+
+class DistributionType(str, Enum):
+    """Type of distribution detected in data."""
+
+    UNIMODAL = "unimodal"
+    BIMODAL = "bimodal"
+    MULTIMODAL = "multimodal"
+    UNIFORM = "uniform"
+    INSUFFICIENT_DATA = "insufficient_data"
+
+
+@dataclass
+class ModeStatistics:
+    """Statistics for a single mode in a distribution."""
+
+    mode_id: int
+    mean: float
+    std: float
+    count: int
+    weight: float  # Proportion of samples (0-1)
+
+
+@dataclass
+class DistributionAnalysisResult:
+    """Result of distribution analysis including mode detection."""
+
+    distribution_type: DistributionType
+    num_modes: int
+    global_statistics: dict
+    mode_statistics: list[ModeStatistics] = field(default_factory=list)
+    mode_assignments: Optional[list[int]] = None  # Per-sample mode assignment
+    confidence: float = 0.0  # Mode separation confidence (0-1)
+
+
+def detect_distribution_type(
+    series: pd.Series,
+    max_components: int = 5,
+    min_samples: int = 50,
+    cv_threshold: float = 0.5,
+) -> DistributionAnalysisResult:
+    """Detect if a distribution is unimodal, bimodal, or multimodal using GMM.
+
+    Uses Gaussian Mixture Models with BIC (Bayesian Information Criterion) to
+    automatically determine the optimal number of components.
+
+    Args:
+        series: Pandas Series containing numeric values
+        max_components: Maximum number of components to test
+        min_samples: Minimum samples required for GMM analysis
+        cv_threshold: CV below this threshold skips GMM (assumes unimodal)
+
+    Returns:
+        DistributionAnalysisResult with detected distribution type and statistics
+    """
+    # Handle empty or small series
+    clean_series = series.dropna()
+    if len(clean_series) < 2:
+        return DistributionAnalysisResult(
+            distribution_type=DistributionType.INSUFFICIENT_DATA,
+            num_modes=0,
+            global_statistics=compute_statistics(series),
+        )
+
+    global_stats = compute_statistics(clean_series)
+
+    # Not enough data for GMM - use simple statistics
+    if len(clean_series) < min_samples:
+        return DistributionAnalysisResult(
+            distribution_type=DistributionType.UNIMODAL,
+            num_modes=1,
+            global_statistics=global_stats,
+            mode_statistics=[
+                ModeStatistics(
+                    mode_id=0,
+                    mean=global_stats["mean"],
+                    std=global_stats["std"],
+                    count=global_stats["count"],
+                    weight=1.0,
+                )
+            ],
+            confidence=1.0,
+        )
+
+    # Pre-screening: if CV is low, distribution is likely unimodal
+    mean = global_stats["mean"]
+    std = global_stats["std"]
+    cv = std / abs(mean) if mean != 0 else 0
+
+    if cv < cv_threshold:
+        return DistributionAnalysisResult(
+            distribution_type=DistributionType.UNIMODAL,
+            num_modes=1,
+            global_statistics=global_stats,
+            mode_statistics=[
+                ModeStatistics(
+                    mode_id=0,
+                    mean=mean,
+                    std=std,
+                    count=len(clean_series),
+                    weight=1.0,
+                )
+            ],
+            confidence=1.0,
+        )
+
+    # Run GMM with BIC to determine optimal number of components
+    try:
+        from sklearn.mixture import GaussianMixture
+
+        X = clean_series.to_numpy().reshape(-1, 1)
+
+        best_n_components = 1
+        best_bic = float("inf")
+        best_gmm = None
+
+        # Test 1 to max_components, select model with lowest BIC
+        for n_components in range(1, min(max_components + 1, len(clean_series) // 10)):
+            gmm = GaussianMixture(
+                n_components=n_components,
+                random_state=42,
+                n_init=3,
+                max_iter=200,
+            )
+            gmm.fit(X)
+            bic = gmm.bic(X)
+
+            if bic < best_bic:
+                best_bic = bic
+                best_n_components = n_components
+                best_gmm = gmm
+
+        if best_gmm is None:
+            # Fallback to unimodal if GMM fitting failed
+            return DistributionAnalysisResult(
+                distribution_type=DistributionType.UNIMODAL,
+                num_modes=1,
+                global_statistics=global_stats,
+                mode_statistics=[
+                    ModeStatistics(
+                        mode_id=0,
+                        mean=mean,
+                        std=std,
+                        count=len(clean_series),
+                        weight=1.0,
+                    )
+                ],
+                confidence=1.0,
+            )
+
+        # Get mode assignments and compute per-mode statistics
+        labels = best_gmm.predict(X)
+        mode_stats = compute_mode_statistics(clean_series, labels, best_gmm.weights_)
+
+        # Determine distribution type
+        if best_n_components == 1:
+            dist_type = DistributionType.UNIMODAL
+        elif best_n_components == 2:
+            dist_type = DistributionType.BIMODAL
+        else:
+            dist_type = DistributionType.MULTIMODAL
+
+        # Compute confidence based on mode separation
+        confidence = _compute_mode_separation_confidence(best_gmm)
+
+        return DistributionAnalysisResult(
+            distribution_type=dist_type,
+            num_modes=best_n_components,
+            global_statistics=global_stats,
+            mode_statistics=mode_stats,
+            mode_assignments=labels.tolist(),
+            confidence=confidence,
+        )
+
+    except ImportError:
+        logger.warning("sklearn not installed, falling back to unimodal analysis")
+        return DistributionAnalysisResult(
+            distribution_type=DistributionType.UNIMODAL,
+            num_modes=1,
+            global_statistics=global_stats,
+            mode_statistics=[
+                ModeStatistics(
+                    mode_id=0,
+                    mean=mean,
+                    std=std,
+                    count=len(clean_series),
+                    weight=1.0,
+                )
+            ],
+            confidence=1.0,
+        )
+    except Exception as e:
+        logger.warning(f"GMM fitting failed: {e}, falling back to unimodal analysis")
+        return DistributionAnalysisResult(
+            distribution_type=DistributionType.UNIMODAL,
+            num_modes=1,
+            global_statistics=global_stats,
+            mode_statistics=[
+                ModeStatistics(
+                    mode_id=0,
+                    mean=mean,
+                    std=std,
+                    count=len(clean_series),
+                    weight=1.0,
+                )
+            ],
+            confidence=1.0,
+        )
+
+
+def compute_mode_statistics(
+    series: pd.Series, labels: np.ndarray, weights: np.ndarray
+) -> list[ModeStatistics]:
+    """Compute statistics for each mode based on GMM labels.
+
+    Args:
+        series: Original data series
+        labels: Per-sample mode assignments from GMM
+        weights: GMM component weights
+
+    Returns:
+        List of ModeStatistics for each mode
+    """
+    mode_stats = []
+    values = series.to_numpy()
+
+    for mode_id in range(len(weights)):
+        mask = labels == mode_id
+        mode_values = values[mask]
+
+        if len(mode_values) > 0:
+            mode_mean = float(np.mean(mode_values))
+            mode_std = float(np.std(mode_values)) if len(mode_values) > 1 else 0.0
+            mode_stats.append(
+                ModeStatistics(
+                    mode_id=mode_id,
+                    mean=round(mode_mean, 2),
+                    std=round(mode_std, 2),
+                    count=int(np.sum(mask)),
+                    weight=round(float(weights[mode_id]), 3),
+                )
+            )
+
+    # Sort by mean value for consistent ordering
+    mode_stats.sort(key=lambda x: x.mean)
+
+    return mode_stats
+
+
+def _compute_mode_separation_confidence(gmm) -> float:
+    """Compute confidence score based on how well-separated the modes are.
+
+    Higher values mean modes are more distinct (less overlap).
+
+    Args:
+        gmm: Fitted GaussianMixture model
+
+    Returns:
+        Confidence score between 0 and 1
+    """
+    if gmm.n_components == 1:
+        return 1.0
+
+    means = gmm.means_.flatten()
+    # Covariances can be various shapes depending on covariance_type
+    if gmm.covariance_type == "full":
+        stds = np.sqrt(gmm.covariances_[:, 0, 0])
+    elif gmm.covariance_type == "tied":
+        stds = np.sqrt(np.full(gmm.n_components, gmm.covariances_[0, 0]))
+    elif gmm.covariance_type == "diag":
+        stds = np.sqrt(gmm.covariances_[:, 0])
+    else:  # spherical
+        stds = np.sqrt(gmm.covariances_)
+
+    # Compute pairwise separation ratios
+    separations = []
+    for i in range(len(means)):
+        for j in range(i + 1, len(means)):
+            distance = abs(means[i] - means[j])
+            avg_std = (stds[i] + stds[j]) / 2
+            if avg_std > 0:
+                # Separation ratio: how many standard deviations apart
+                separation = distance / (2 * avg_std)
+                separations.append(separation)
+
+    if not separations:
+        return 0.0
+
+    # Convert separation to confidence (sigmoid-like transformation)
+    avg_separation = np.mean(separations)
+    # >2 std separation = high confidence, <1 std = low confidence
+    confidence = 1.0 / (1.0 + np.exp(-2 * (avg_separation - 1.5)))
+
+    return round(float(confidence), 3)
+
+
+def compute_multimodal_outliers(
+    series: pd.Series,
+    dist_result: DistributionAnalysisResult,
+    std_threshold: float = 3.0,
+) -> tuple[np.ndarray, dict]:
+    """Detect outliers within each mode of a multimodal distribution.
+
+    For unimodal distributions, uses standard 3-sigma detection.
+    For multimodal distributions, detects outliers within each mode separately.
+
+    Args:
+        series: Data series to analyze
+        dist_result: Distribution analysis result from detect_distribution_type
+        std_threshold: Number of standard deviations for outlier detection
+
+    Returns:
+        Tuple of (outlier_mask, details_dict)
+        - outlier_mask: Boolean array where True indicates an outlier
+        - details_dict: Dictionary with outlier detection details
+    """
+    clean_series = series.dropna()
+    n_samples = len(clean_series)
+
+    if n_samples == 0:
+        return np.array([], dtype=bool), {"num_outliers": 0}
+
+    values = clean_series.to_numpy()
+    outlier_mask = np.zeros(n_samples, dtype=bool)
+    details: dict = {
+        "distribution_type": dist_result.distribution_type.value,
+        "num_modes": dist_result.num_modes,
+        "outliers_per_mode": {},
+    }
+
+    if (
+        dist_result.distribution_type == DistributionType.UNIMODAL
+        or dist_result.mode_assignments is None
+    ):
+        # Standard 3-sigma outlier detection
+        mean = dist_result.global_statistics["mean"]
+        std = dist_result.global_statistics["std"]
+
+        if std > 0:
+            z_scores = np.abs((values - mean) / std)
+            outlier_mask = z_scores > std_threshold
+
+        details["outliers_per_mode"][0] = int(np.sum(outlier_mask))
+    else:
+        # Per-mode outlier detection
+        labels = np.array(dist_result.mode_assignments)
+
+        for mode_stat in dist_result.mode_statistics:
+            mode_id = mode_stat.mode_id
+            mode_mask = labels == mode_id
+            mode_values = values[mode_mask]
+
+            if len(mode_values) > 1 and mode_stat.std > 0:
+                z_scores = np.abs((mode_values - mode_stat.mean) / mode_stat.std)
+                mode_outliers = z_scores > std_threshold
+
+                # Map back to original indices
+                mode_indices = np.where(mode_mask)[0]
+                outlier_mask[mode_indices[mode_outliers]] = True
+
+                details["outliers_per_mode"][mode_id] = int(np.sum(mode_outliers))
+
+    details["num_outliers"] = int(np.sum(outlier_mask))
+    details["outlier_ratio"] = round(np.sum(outlier_mask) / n_samples, 4)
+
+    return outlier_mask, details
+
+
+def compute_statistics_with_distribution(
+    series: pd.Series,
+    decimal_precision: int = 2,
+    include_distribution: bool = True,
+) -> dict[str, Any]:
+    """Compute statistics including distribution type detection.
+
+    Enhanced version of compute_statistics that also detects multimodal
+    distributions and provides per-mode statistics.
+
+    Args:
+        series: Pandas Series containing numeric values
+        decimal_precision: Number of decimal places for rounding
+        include_distribution: Whether to include distribution analysis
+
+    Returns:
+        Dictionary with statistics and distribution information
+    """
+    base_stats = compute_statistics(series, decimal_precision)
+
+    if not include_distribution or series.empty or len(series) < 2:
+        return base_stats
+
+    # Detect distribution type
+    dist_result = detect_distribution_type(series)
+
+    # Add distribution information to stats
+    base_stats["distribution_type"] = dist_result.distribution_type.value
+    base_stats["num_modes"] = dist_result.num_modes
+    base_stats["mode_separation_confidence"] = dist_result.confidence
+
+    # Add per-mode statistics
+    if dist_result.mode_statistics:
+        base_stats["mode_statistics"] = [
+            {
+                "mode_id": ms.mode_id,
+                "mean": ms.mean,
+                "std": ms.std,
+                "count": ms.count,
+                "weight": ms.weight,
+            }
+            for ms in dist_result.mode_statistics
+        ]
+
+    return base_stats
 
 
 def conversation_to_dataframes(
