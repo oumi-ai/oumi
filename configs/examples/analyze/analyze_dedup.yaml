@@ -81,17 +81,12 @@ analyzers:
       detect_hallucinated_experiences: true
       detect_nooutput: true
       detect_refusals: true
-      detect_suspicious_urls: true
-      compute_content_pattern_score: true
 
   # ==========================================================================
   # LENGTH ANALYZER - Token counts for context analysis
   # ==========================================================================
   - id: length
     params:
-      char_count: false
-      word_count: true
-      sentence_count: false
       token_count: true # Uses tiktoken o200k_base
 
   # ==========================================================================
@@ -100,9 +95,6 @@ analyzers:
   - id: diversity
     params:
       unique_words_ratio: true
-      type_token_ratio: true
-      vocabulary_richness: false # Disabled for speed on large dataset
-      hapax_legomena_ratio: false
       case_sensitive: false
 
   # ==========================================================================
@@ -112,20 +104,16 @@ analyzers:
     params:
       detect_pii: true
       detect_encoding_issues: true
-      detect_special_tokens: true
       detect_repetition: true
       repetition_ngram_size: 3
       repetition_threshold: 0.3
-      compute_quality_score: true
 
   # ==========================================================================
   # TRAINING QUALITY ANALYZER - SFT effectiveness metrics
   # ==========================================================================
   - id: training_quality
     params:
-      compute_instruction_clarity: true
       compute_response_completeness: true
-      compute_turn_quality: true
 
   # ==========================================================================
   # COST ANALYZER - Context window utilization

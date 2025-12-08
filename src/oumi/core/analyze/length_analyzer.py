@@ -14,7 +14,6 @@
 
 """Length analyzer for text content."""
 
-import re
 from typing import TYPE_CHECKING, Optional, Union
 
 import pandas as pd
@@ -33,14 +32,11 @@ DEFAULT_TIKTOKEN_ENCODING = "o200k_base"
 
 @register_sample_analyzer("length")
 class LengthAnalyzer(SampleAnalyzer):
-    """Analyzer that computes various length metrics for text content."""
+    """Analyzer that computes token count for text content."""
 
     def __init__(
         self,
         *,
-        char_count: bool = False,
-        word_count: bool = False,
-        sentence_count: bool = False,
         token_count: bool = True,
         tokenizer: Optional[
             Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]
@@ -51,9 +47,6 @@ class LengthAnalyzer(SampleAnalyzer):
         """Initialize the LengthAnalyzer.
 
         Args:
-            char_count: Whether to compute character count. Defaults to False.
-            word_count: Whether to compute word count. Defaults to False.
-            sentence_count: Whether to compute sentence count. Defaults to False.
             token_count: Whether to compute token count. Defaults to True.
             tokenizer: HuggingFace tokenizer to use for token counting.
                 If provided, this takes precedence over tiktoken_encoding.
@@ -66,9 +59,6 @@ class LengthAnalyzer(SampleAnalyzer):
                 Defaults to True to match training tokenization. Set to False for raw
                 content analysis only. Only applies to HuggingFace tokenizers.
         """
-        self.char_count = char_count
-        self.word_count = word_count
-        self.sentence_count = sentence_count
         self.token_count = token_count
         self.tokenizer = tokenizer
         self.tiktoken_encoding = tiktoken_encoding
@@ -147,6 +137,7 @@ class LengthAnalyzer(SampleAnalyzer):
         analyzer_id = getattr(self, "analyzer_id", "length")
 
         for column in text_columns:
+<<<<<<< HEAD
             if self.char_count:
                 col_name = f"{column}_{analyzer_id}_char_count"
                 result_df[col_name] = df[column].astype(str).str.len()

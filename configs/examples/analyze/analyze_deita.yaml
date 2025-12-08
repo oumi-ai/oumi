@@ -32,9 +32,7 @@ analyzers:
   # Basic metrics (fast, no external dependencies)
   - id: "length"
     params:
-      word_count: true
-      token_count: false  # Set to true if you want token counts
-      char_count: false
+      token_count: true
 
   # Embedding-based diversity scoring (DEITA Repr Filter)
   # Measures how unique each sample is relative to the dataset

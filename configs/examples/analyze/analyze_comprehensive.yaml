@@ -50,13 +50,10 @@ outlier_threshold: 3.0
 analyzers:
 
   # ---------------------------------------------------------------------------
-  # LENGTH ANALYZER - Token/word/char counts
+  # LENGTH ANALYZER - Token counts
   # ---------------------------------------------------------------------------
   - id: length
     params:
-      char_count: false
-      word_count: true
-      sentence_count: false
       token_count: true  # Uses tiktoken o200k_base by default
       # tiktoken_encoding: o200k_base  # GPT-4o/GPT-5 encoding (default)
       # tiktoken_encoding: cl100k_base  # GPT-4/GPT-3.5-turbo encoding
@@ -68,9 +65,6 @@ analyzers:
   - id: diversity
     params:
       unique_words_ratio: true
-      type_token_ratio: true
-      vocabulary_richness: true
-      hapax_legomena_ratio: false  # Words appearing only once
       case_sensitive: false
 
   # ---------------------------------------------------------------------------
@@ -86,7 +80,7 @@ analyzers:
       compute_complexity: true
 
   # ---------------------------------------------------------------------------
-  # QUALITY ANALYZER - PII, encoding issues, special tokens, repetition
+  # QUALITY ANALYZER - PII, encoding issues, repetition
   # ---------------------------------------------------------------------------
   - id: quality
     params:
@@ -95,14 +89,11 @@ analyzers:
       detect_phones: true
       detect_ssn: true
       detect_credit_cards: true
-      detect_ip_addresses: false
       detect_api_keys: true
       detect_encoding_issues: true
-      detect_special_tokens: true
       detect_repetition: true
       repetition_ngram_size: 3
       repetition_threshold: 0.3
-      compute_quality_score: true
 
   # ---------------------------------------------------------------------------
   # TRAINING QUALITY ANALYZER - SFT effectiveness metrics
@@ -110,11 +101,7 @@ analyzers:
   # ---------------------------------------------------------------------------
   # - id: training_quality
   #   params:
-  #     compute_instruction_clarity: true
   #     compute_response_completeness: true
-  #     compute_turn_quality: true
-  #     min_instruction_words: 3
-  #     max_instruction_words: 500
   #     min_response_words: 5
 
   # ---------------------------------------------------------------------------
@@ -138,9 +125,7 @@ analyzers:
   #     detect_hallucinated_experiences: true  # Fabricated first-person stories
   #     detect_nooutput: true            # <nooutput>, N/A, etc.
   #     detect_refusals: true            # "I cannot provide..."
-  #     detect_suspicious_urls: false    # Potentially fake URLs
   #     check_output_only: false         # Only check assistant messages
-  #     compute_content_pattern_score: true
 
   # ---------------------------------------------------------------------------
   # EMBEDDING ANALYZER - Semantic duplicate detection and clustering
