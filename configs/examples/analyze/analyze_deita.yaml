@@ -53,7 +53,7 @@ analyzers:
       # Option 1: Use Anthropic API (default)
       model_type: "api"
       api_provider: "anthropic"
-      api_model: "claude-3-5-haiku-20241022"  # Cost-effective
+      api_model: "claude-4-5-haiku" # Cost-effective
 
       # Option 2: Use OpenAI API
       # model_type: "api"
@@ -88,7 +88,7 @@ analyzers:
     params:
       model_type: "api"
       api_provider: "anthropic"
-      api_model: "claude-3-5-haiku-20241022"
+      api_model: "claude-4-5-haiku"
 
       # Quality aspects to improve
       num_evolutions: 3
