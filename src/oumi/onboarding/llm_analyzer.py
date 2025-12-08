@@ -509,19 +509,22 @@ SYNTHESIS GOAL: {goal}
 - instruction: Generate instruction-following data
 
 Create synthesis prompts that are specific to the {domain.domain} domain.
-Use the actual column names as placeholders in the format {{column_name}}.
+Use the actual column names as placeholders in the format {{column_name}} in instruction_template.
 
 Return a JSON object with:
 {{
     "system_prompt": "Expert persona system prompt specific to this domain",
-    "instruction_template": "User instruction with {{placeholders}} for available columns",
+    "instruction_template": "User instruction with {{column_name}} placeholders for available columns",
     "output_format": {{"field1": "description", "field2": "description"}},
-    "field_mappings": {{"source_column": "target_placeholder"}},
+    "field_mappings": {{"column_name": "column_name"}},
     "postprocessing": {{
         "cut_prefix": "prefix to remove from output or null",
         "strip_whitespace": true
     }}
 }}
+
+IMPORTANT: In field_mappings, use plain column names WITHOUT braces.
+Example: {{"LINE_ID": "LINE_ID", "DESCRIPTION": "DESCRIPTION"}} NOT {{"LINE_ID": "{{LINE_ID}}"}}
 
 Make the prompts domain-specific using the terminology: {domain.terminology}
 

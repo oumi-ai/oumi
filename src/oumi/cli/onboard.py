@@ -37,81 +37,2351 @@ JUDGE_TYPE_CHOICES = ["generic", "compliance", "relevance", "safety", "groundedn
 SUPPORTED_EXTENSIONS = {".csv", ".json", ".jsonl", ".xlsx", ".xls", ".docx", ".doc"}
 
 # File role descriptions for the wizard
+# These describe what each file contributes to training data generation
 FILE_ROLE_GUIDANCE = {
     "primary": {
-        "title": "PRIMARY DATA",
-        "description": "The main data you want to process",
+        "title": "TRAINING DATA",
+        "description": "Your main dataset for training/synthesis",
         "help": [
-            "This is what you'll synthesize from, evaluate, or train on",
-            "Usually your largest dataset",
-            "Examples: customer conversations, invoices, documents to classify",
+            "Contains the inputs you want to generate outputs for",
+            "Usually your largest dataset with user questions or requests",
+            "Examples: customer_questions.csv, support_tickets.json",
         ],
     },
     "reference": {
-        "title": "REFERENCE DATA",
-        "description": "Valid values to match against",
+        "title": "KNOWLEDGE BASE",
+        "description": "Background information for grounding answers",
         "help": [
-            "Lookup tables, catalogs, or lists of valid options",
-            "Used to check if primary data matches known values",
-            "Examples: product catalog, service types, approved terms",
+            "Facts, documents, or data the model should reference",
+            "Helps generate accurate, grounded responses",
+            "Examples: product_catalog.csv, company_policies.pdf, FAQ.docx",
         ],
     },
     "rules": {
-        "title": "RULES/GUIDELINES",
-        "description": "Evaluation criteria and standards",
+        "title": "SYSTEM INSTRUCTIONS",
+        "description": "Guidelines for how the model should behave",
         "help": [
-            "Documents describing what makes data valid/invalid",
-            "Quality standards or processing rules",
-            "Examples: style guide, validation rules, compliance requirements",
+            "Tone, style, constraints, and response format",
+            "Becomes part of the system prompt",
+            "Examples: style_guide.md, response_rules.txt, brand_voice.docx",
         ],
     },
     "examples": {
-        "title": "LABELED EXAMPLES",
-        "description": "Known good/bad samples",
+        "title": "EXAMPLE OUTPUTS",
+        "description": "Sample input-output pairs showing ideal responses",
         "help": [
-            "Examples with labels like 'valid', 'invalid', 'approved'",
-            "Helps train classifiers and calibrate judges",
-            "Examples: approved_responses.csv, rejected_items.txt",
+            "Shows the model what good answers look like",
+            "Used for few-shot prompting and quality benchmarks",
+            "Examples: approved_responses.csv, gold_standard.json",
         ],
     },
 }
 
 # Column role descriptions for granular assignment
+# These describe what each column contributes to training examples
 COLUMN_ROLE_GUIDANCE = {
     "context": {
-        "title": "CONTEXT",
-        "description": "Main content to generate from",
-        "help": "Text column containing the source material for synthesis",
+        "title": "SOURCE CONTENT",
+        "description": "Text to generate questions/answers from",
+        "help": "The main content column (e.g., document text, article body)",
     },
     "question": {
-        "title": "QUESTION",
-        "description": "Existing questions to use or augment",
-        "help": "Column containing questions (if you have existing Q&A data)",
+        "title": "USER INPUT",
+        "description": "Questions or requests from users",
+        "help": "What users ask the model (defines input distribution)",
     },
     "answer": {
-        "title": "ANSWER",
-        "description": "Existing answers to use or augment",
-        "help": "Column containing answers (if you have existing Q&A data)",
+        "title": "MODEL OUTPUT",
+        "description": "Ideal responses to learn from",
+        "help": "What the model should output (defines output quality)",
     },
     "reference_values": {
-        "title": "REFERENCE VALUES",
-        "description": "Valid values for validation",
-        "help": "Column with valid/approved values to match against",
+        "title": "VALID OPTIONS",
+        "description": "Allowed values for constrained outputs",
+        "help": "List of valid choices (e.g., categories, product names)",
     },
     "label": {
-        "title": "LABEL",
-        "description": "Classification labels",
-        "help": "Column with labels like 'valid', 'invalid', 'category'",
+        "title": "QUALITY LABEL",
+        "description": "Quality scores or classifications",
+        "help": "Labels like 'good', 'bad', 'approved', 'rejected'",
     },
     "metadata": {
-        "title": "METADATA",
-        "description": "Additional context",
-        "help": "Supporting information to include in prompts",
+        "title": "EXTRA CONTEXT",
+        "description": "Additional info to include in prompts",
+        "help": "Supporting fields like date, category, customer_id",
     },
 }
 
+
+# ============================================================================
+# SIMPLIFIED WIZARD FLOW: Minimum viable dataclasses (Occam's Razor)
+# ============================================================================
+
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class TaskSpec:
+    """Minimal task specification - just what's essential."""
+
+    name: str = ""
+    """Short name/title for the task."""
+
+    description: str = ""
+    """What the model should do (free-form description from user)."""
+
+    example_input: str = ""
+    """Example input for the task."""
+
+    system_prompt: str = ""
+    """The complete system prompt (auto-generated, user can edit)."""
+
+
+@dataclass
+class InputSpec:
+    """Minimal input specification - detected from data."""
+
+    format: str = "single_turn"
+    """Detected format: single_turn, multi_turn, document, structured."""
+
+    samples: list = field(default_factory=list)
+    """Sample inputs from the data (auto-detected)."""
+
+    source_column: str = ""
+    """Column to use for inputs."""
+
+
+@dataclass
+class OutputSpec:
+    """Minimal output specification - just quality criteria."""
+
+    criteria: list = field(default_factory=list)
+    """What makes a good response (user-provided list)."""
+
+    example: str = ""
+    """One good example output (optional)."""
+
+
+# Input format types (simplified - just for detection)
+INPUT_FORMATS = {
+    "single_turn": "Single question/answer",
+    "multi_turn": "Multi-turn conversation",
+    "document": "Document/text processing",
+    "structured": "Structured data (JSON/records)",
+}
+
+# Backward compatibility aliases for legacy code
+TaskDefinition = TaskSpec
+SystemPromptSpec = TaskSpec  # System prompt is now part of TaskSpec
+InputDistributionSpec = InputSpec
+OutputQualitySpec = OutputSpec
+
+# Legacy INPUT_FORMAT_TYPES for backward compatibility
+INPUT_FORMAT_TYPES = {
+    "single_turn": {"name": "Single-turn Q&A", "description": "One question, one answer"},
+    "multi_turn": {"name": "Multi-turn conversation", "description": "Back-and-forth dialogue"},
+    "document": {"name": "Document/Text", "description": "Long-form text processing"},
+    "structured": {"name": "Structured data", "description": "JSON or tabular data"},
+    "instruction": {"name": "Instruction-following", "description": "Task instructions with input"},
+}
+
+
+@dataclass
+class WizardState:
+    """Simplified state object for the wizard."""
+
+    task: TaskSpec = field(default_factory=TaskSpec)
+    inputs: InputSpec = field(default_factory=InputSpec)
+    outputs: OutputSpec = field(default_factory=OutputSpec)
+
+    # File analysis results
+    files: list = field(default_factory=list)
+    schemas: dict = field(default_factory=dict)
+    primary_schema: Any = None
+
+    # LLM analyzer (not serialized)
+    llm_analyzer: Any = None
+    domain_analysis: Any = None
+
+    # Track completed steps for caching
+    completed_steps: list = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        """Serialize state to a dictionary for caching."""
+        # Serialize files with analysis results and content hash
+        files_data = []
+        for f in self.files:
+            file_path = f.get("path")
+            file_data = {
+                "path": str(file_path) if file_path else "",
+                "name": f.get("name", ""),
+                "extension": f.get("extension", ""),
+                # File analysis results from LLM
+                "suggested_purpose": f.get("suggested_purpose", ""),
+                "suggested_role": f.get("suggested_role", ""),
+                "role_reason": f.get("role_reason", ""),
+                # Content hash for cache invalidation
+                "content_hash": f.get("content_hash", ""),
+            }
+            files_data.append(file_data)
+
+        # Serialize domain analysis if available
+        domain_data = None
+        if self.domain_analysis:
+            domain_data = {
+                "domain": self.domain_analysis.domain,
+                "description": self.domain_analysis.description,
+                "terminology": self.domain_analysis.terminology,
+                "quality_signals": self.domain_analysis.quality_signals,
+                "common_issues": self.domain_analysis.common_issues,
+                "suggested_persona": self.domain_analysis.suggested_persona,
+                "data_purpose": self.domain_analysis.data_purpose,
+            }
+
+        return {
+            "task": {
+                "description": self.task.description,
+                "system_prompt": self.task.system_prompt,
+            },
+            "inputs": {
+                "format": self.inputs.format,
+                "samples": self.inputs.samples,
+                "source_column": self.inputs.source_column,
+            },
+            "outputs": {
+                "criteria": self.outputs.criteria,
+                "example": self.outputs.example,
+            },
+            "files": files_data,
+            "domain_analysis": domain_data,
+            "completed_steps": self.completed_steps,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "WizardState":
+        """Deserialize state from a dictionary."""
+        state = cls()
+
+        # Restore task
+        task_data = data.get("task", {})
+        state.task = TaskSpec(
+            description=task_data.get("description", ""),
+            system_prompt=task_data.get("system_prompt", ""),
+        )
+
+        # Restore inputs
+        inputs_data = data.get("inputs", {})
+        state.inputs = InputSpec(
+            format=inputs_data.get("format", "single_turn"),
+            samples=inputs_data.get("samples", []),
+            source_column=inputs_data.get("source_column", ""),
+        )
+
+        # Restore outputs
+        outputs_data = data.get("outputs", {})
+        state.outputs = OutputSpec(
+            criteria=outputs_data.get("criteria", []),
+            example=outputs_data.get("example", ""),
+        )
+
+        # Restore files with analysis results
+        state.files = [
+            {
+                "path": Path(f.get("path", "")) if f.get("path") else None,
+                "name": f.get("name", ""),
+                "extension": f.get("extension", ""),
+                # Restore file analysis results
+                "suggested_purpose": f.get("suggested_purpose", ""),
+                "suggested_role": f.get("suggested_role", ""),
+                "role_reason": f.get("role_reason", ""),
+                "content_hash": f.get("content_hash", ""),
+            }
+            for f in data.get("files", [])
+        ]
+
+        # Restore domain analysis if available
+        domain_data = data.get("domain_analysis")
+        if domain_data:
+            from oumi.onboarding.llm_analyzer import DomainAnalysis
+
+            state.domain_analysis = DomainAnalysis(
+                domain=domain_data.get("domain", "unknown"),
+                description=domain_data.get("description", ""),
+                terminology=domain_data.get("terminology", []),
+                quality_signals=domain_data.get("quality_signals", []),
+                common_issues=domain_data.get("common_issues", []),
+                suggested_persona=domain_data.get("suggested_persona", ""),
+                data_purpose=domain_data.get("data_purpose", ""),
+            )
+
+        # Restore completed steps
+        state.completed_steps = data.get("completed_steps", [])
+
+        return state
+
+
+# Cache file name
+WIZARD_CACHE_FILE = ".wizard_cache.yaml"
+
+
+def _compute_file_hash(file_path: Path) -> str:
+    """Compute a hash of the file content for cache invalidation.
+
+    Args:
+        file_path: Path to the file.
+
+    Returns:
+        SHA256 hash of the file content as hex string.
+    """
+    import hashlib
+
+    hasher = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            # Read in chunks for large files
+            for chunk in iter(lambda: f.read(65536), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+    except Exception:
+        # If we can't read the file, return empty string (will force re-analysis)
+        return ""
+
+
+def _get_cache_path(output_dir: Path) -> Path:
+    """Get the path to the wizard cache file."""
+    return output_dir / WIZARD_CACHE_FILE
+
+
+def _save_wizard_cache(state: WizardState, output_dir: Path, step_name: str) -> None:
+    """Save wizard state to cache file after completing a step.
+
+    Args:
+        state: Current wizard state.
+        output_dir: Output directory for cache file.
+        step_name: Name of the step just completed.
+    """
+    import yaml
+
+    # Add step to completed list if not already there
+    if step_name not in state.completed_steps:
+        state.completed_steps.append(step_name)
+
+    cache_path = _get_cache_path(output_dir)
+    cache_data = state.to_dict()
+
+    # Add metadata
+    cache_data["_metadata"] = {
+        "last_updated": str(Path()),  # Will be set by file system
+        "cache_version": "1.0",
+        "description": "Oumi wizard state cache. You can edit this file to modify wizard settings.",
+    }
+
+    with open(cache_path, "w") as f:
+        yaml.dump(cache_data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+    cli_utils.CONSOLE.print(f"[dim]Cache saved: {cache_path}[/dim]")
+
+
+def _load_wizard_cache(output_dir: Path) -> Optional[WizardState]:
+    """Load wizard state from cache file if it exists.
+
+    Args:
+        output_dir: Output directory containing cache file.
+
+    Returns:
+        WizardState if cache exists and is valid, None otherwise.
+    """
+    import yaml
+
+    cache_path = _get_cache_path(output_dir)
+    if not cache_path.exists():
+        return None
+
+    try:
+        with open(cache_path) as f:
+            cache_data = yaml.safe_load(f)
+
+        if not cache_data or not isinstance(cache_data, dict):
+            return None
+
+        # Remove metadata before deserializing
+        cache_data.pop("_metadata", None)
+
+        return WizardState.from_dict(cache_data)
+    except Exception as e:
+        cli_utils.CONSOLE.print(f"[yellow]Warning: Could not load cache: {e}[/yellow]")
+        return None
+
+
+def _display_cache_summary(state: WizardState, cache_path: Path) -> None:
+    """Display a summary of the cached wizard state.
+
+    Args:
+        state: Loaded wizard state.
+        cache_path: Path to the cache file.
+    """
+    completed = state.completed_steps
+
+    step_status = []
+    all_steps = [
+        ("task", "Task"),
+        ("inputs", "Inputs"),
+        ("outputs", "Outputs"),
+        ("generate", "Generate"),
+    ]
+
+    for step_id, step_name in all_steps:
+        if step_id in completed:
+            step_status.append(f"  [green]✓[/green] {step_name}")
+        else:
+            step_status.append(f"  [dim]○[/dim] {step_name}")
+
+    # Build summary with new field names
+    task_preview = state.task.description[:50] + "..." if state.task.description else "[not set]"
+    prompt_preview = state.task.system_prompt[:50] + "..." if state.task.system_prompt else "[not set]"
+    input_preview = INPUT_FORMATS.get(state.inputs.format, state.inputs.format) if state.inputs.format else "[not set]"
+    criteria_preview = ", ".join(state.outputs.criteria[:3]) if state.outputs.criteria else "[not set]"
+
+    summary_parts = [
+        f"[bold]Task:[/bold] {task_preview}",
+        f"[bold]System Prompt:[/bold] {prompt_preview}",
+        f"[bold]Input Format:[/bold] {input_preview}",
+        f"[bold]Quality Criteria:[/bold] {criteria_preview}",
+        "",
+        "[bold]Steps Completed:[/bold]",
+        *step_status,
+    ]
+
+    cli_utils.CONSOLE.print(
+        Panel(
+            "\n".join(summary_parts),
+            title=f"[cyan]Cached State: {cache_path}[/cyan]",
+            border_style="cyan",
+        )
+    )
+
+
+def _prompt_cache_action(cache_path: Path) -> str:
+    """Prompt user for what to do with existing cache.
+
+    Args:
+        cache_path: Path to the cache file.
+
+    Returns:
+        One of: "resume", "edit", "restart"
+    """
+    cli_utils.CONSOLE.print(
+        "\n[bold]Options:[/bold]\n"
+        "  [cyan][1][/cyan] Resume from where you left off\n"
+        "  [cyan][2][/cyan] Edit the cache file first (opens in editor)\n"
+        "  [cyan][3][/cyan] Start fresh (delete cache)\n"
+    )
+
+    choice = Prompt.ask("Your choice", choices=["1", "2", "3"], default="1")
+
+    if choice == "1":
+        return "resume"
+    elif choice == "2":
+        return "edit"
+    else:
+        return "restart"
+
+
+def _open_cache_for_editing(cache_path: Path) -> None:
+    """Open the cache file in the user's default editor.
+
+    Args:
+        cache_path: Path to the cache file.
+    """
+    import os
+    import subprocess
+
+    editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "nano"))
+
+    cli_utils.CONSOLE.print(f"\n[dim]Opening {cache_path} in {editor}...[/dim]")
+    cli_utils.CONSOLE.print("[dim]Save and close the editor when done.[/dim]\n")
+
+    try:
+        subprocess.run([editor, str(cache_path)], check=True)
+        cli_utils.CONSOLE.print("[green]Cache file updated.[/green]")
+    except FileNotFoundError:
+        cli_utils.CONSOLE.print(
+            f"[yellow]Could not open editor '{editor}'.[/yellow]\n"
+            f"[dim]Please edit the file manually: {cache_path}[/dim]\n"
+        )
+        Prompt.ask("Press Enter when done editing")
+    except subprocess.CalledProcessError:
+        cli_utils.CONSOLE.print("[yellow]Editor closed without saving changes.[/yellow]")
+
+
 # Tabular file extensions that support column selection
 TABULAR_EXTENSIONS = {".csv", ".tsv", ".xlsx", ".xls", ".json", ".jsonl"}
+
+
+# ============================================================================
+# SIMPLIFIED WIZARD FLOW: Step functions (Occam's Razor)
+# ============================================================================
+
+
+def _wizard_step_task(state: WizardState, verbose: bool = False) -> WizardState:
+    """Step 1: Define task and generate system prompt.
+
+    Single question: "What do you want your model to do?"
+    Then auto-generates system prompt for confirmation.
+
+    Args:
+        state: Current wizard state.
+        verbose: Show detailed output.
+
+    Returns:
+        Updated state with task description and system prompt.
+    """
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]━━━ Step 1/4: Define Your Task ━━━[/bold cyan]\n"
+    )
+
+    # Try to infer from files first
+    suggested_desc = ""
+    if state.llm_analyzer and state.files:
+        with cli_utils.CONSOLE.status("[dim]Analyzing your files...[/dim]", spinner="dots"):
+            analysis = _analyze_task_from_files(state.files, state.llm_analyzer)
+            suggested_desc = analysis.get("task_description", "")
+
+        if suggested_desc:
+            cli_utils.CONSOLE.print(
+                Panel(
+                    suggested_desc,
+                    title="[green]Detected Task[/green]",
+                    border_style="green",
+                )
+            )
+            if Confirm.ask("Is this correct?", default=True):
+                state.task.description = suggested_desc
+            else:
+                state.task.description = Prompt.ask(
+                    "What should your model do?",
+                    default=suggested_desc,
+                )
+        else:
+            state.task.description = Prompt.ask("What should your model do?")
+    else:
+        state.task.description = Prompt.ask("What should your model do?")
+
+    # Auto-generate system prompt
+    if state.llm_analyzer:
+        with cli_utils.CONSOLE.status("[dim]Generating system prompt...[/dim]", spinner="dots"):
+            state.task.system_prompt = _generate_system_prompt(state, state.llm_analyzer)
+
+        cli_utils.CONSOLE.print(
+            Panel(
+                state.task.system_prompt,
+                title="[green]Generated System Prompt[/green]",
+                border_style="green",
+            )
+        )
+
+        if not Confirm.ask("Accept this prompt?", default=True):
+            feedback = Prompt.ask("What should change?")
+            with cli_utils.CONSOLE.status("[dim]Updating...[/dim]", spinner="dots"):
+                state.task.system_prompt = _refine_system_prompt(
+                    state.task.system_prompt, feedback, state.llm_analyzer
+                )
+            cli_utils.CONSOLE.print(
+                Panel(state.task.system_prompt, title="[green]Updated[/green]", border_style="green")
+            )
+    else:
+        state.task.system_prompt = Prompt.ask(
+            "System prompt for the model",
+            default=f"You are a helpful assistant. {state.task.description}",
+        )
+
+    cli_utils.CONSOLE.print("[green]✓ Task defined[/green]")
+    return state
+
+
+def _wizard_step_inputs(state: WizardState, verbose: bool = False) -> WizardState:
+    """Step 2: Define input distribution.
+
+    Auto-detects format and samples from data, user just confirms.
+
+    Args:
+        state: Current wizard state.
+        verbose: Show detailed output.
+
+    Returns:
+        Updated state with input spec.
+    """
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]━━━ Step 2/4: Input Distribution ━━━[/bold cyan]\n"
+    )
+
+    # Auto-detect from schema
+    if state.primary_schema:
+        # Find likely input column
+        input_col = None
+        for col in state.primary_schema.columns or []:
+            name_lower = col.name.lower()
+            if any(kw in name_lower for kw in ["question", "input", "query", "prompt", "text", "content"]):
+                input_col = col.name
+                break
+
+        if not input_col and state.primary_schema.columns:
+            input_col = state.primary_schema.columns[0].name
+
+        state.inputs.source_column = input_col or ""
+
+        # Get samples
+        if state.primary_schema.sample_rows and input_col:
+            samples = [
+                str(row.get(input_col, ""))[:200]
+                for row in state.primary_schema.sample_rows[:3]
+                if row.get(input_col)
+            ]
+            state.inputs.samples = samples
+
+    # Detect format
+    if state.llm_analyzer and state.inputs.samples:
+        with cli_utils.CONSOLE.status("[dim]Detecting input format...[/dim]", spinner="dots"):
+            state.inputs.format = _detect_input_format(state, state.llm_analyzer)
+    else:
+        state.inputs.format = "single_turn"
+
+    # Show what we found
+    format_name = INPUT_FORMATS.get(state.inputs.format, state.inputs.format)
+    cli_utils.CONSOLE.print(f"[bold]Format:[/bold] {format_name}")
+    if state.inputs.source_column:
+        cli_utils.CONSOLE.print(f"[bold]Source column:[/bold] {state.inputs.source_column}")
+
+    if state.inputs.samples:
+        cli_utils.CONSOLE.print("\n[bold]Sample inputs:[/bold]")
+        for i, sample in enumerate(state.inputs.samples[:3], 1):
+            cli_utils.CONSOLE.print(f"  {i}. {sample[:100]}{'...' if len(sample) > 100 else ''}")
+
+    if not Confirm.ask("\nIs this correct?", default=True):
+        # Let user specify column
+        if state.primary_schema and state.primary_schema.columns:
+            cols = [c.name for c in state.primary_schema.columns]
+            cli_utils.CONSOLE.print(f"[dim]Available columns: {', '.join(cols)}[/dim]")
+        state.inputs.source_column = Prompt.ask("Input column name", default=state.inputs.source_column)
+
+    cli_utils.CONSOLE.print("[green]✓ Inputs configured[/green]")
+    return state
+
+
+def _wizard_step_outputs(state: WizardState, verbose: bool = False) -> WizardState:
+    """Step 3: Define output quality criteria.
+
+    Single question: "What makes a good response?"
+
+    Args:
+        state: Current wizard state.
+        verbose: Show detailed output.
+
+    Returns:
+        Updated state with output criteria.
+    """
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]━━━ Step 3/4: Output Quality ━━━[/bold cyan]\n"
+    )
+
+    # Try to infer criteria
+    suggested_criteria = []
+    if state.llm_analyzer:
+        with cli_utils.CONSOLE.status("[dim]Suggesting quality criteria...[/dim]", spinner="dots"):
+            suggested_criteria = _suggest_quality_criteria(state, state.llm_analyzer)
+
+    if suggested_criteria:
+        cli_utils.CONSOLE.print("[bold]Suggested criteria:[/bold]")
+        for i, c in enumerate(suggested_criteria, 1):
+            cli_utils.CONSOLE.print(f"  {i}. {c}")
+
+        if Confirm.ask("\nAccept these criteria?", default=True):
+            state.outputs.criteria = suggested_criteria
+        else:
+            criteria_input = Prompt.ask(
+                "What makes a good response? (comma-separated)",
+                default=", ".join(suggested_criteria[:3]),
+            )
+            state.outputs.criteria = [c.strip() for c in criteria_input.split(",") if c.strip()]
+    else:
+        criteria_input = Prompt.ask(
+            "What makes a good response? (comma-separated)",
+            default="accurate, helpful, clear",
+        )
+        state.outputs.criteria = [c.strip() for c in criteria_input.split(",") if c.strip()]
+
+    # Optional: get one example
+    if Confirm.ask("Add an example of a good response?", default=False):
+        state.outputs.example = Prompt.ask("Example good response")
+
+    cli_utils.CONSOLE.print("[green]✓ Quality criteria defined[/green]")
+    return state
+
+
+def _wizard_step_generate(
+    state: WizardState, output_path: Path, verbose: bool = False
+) -> tuple[str, list[str]]:
+    """Step 4: Generate synthesis config and judges.
+
+    Auto-generates both based on previous steps.
+
+    Args:
+        state: Current wizard state.
+        output_path: Directory to save configs.
+        verbose: Show detailed output.
+
+    Returns:
+        Tuple of (synthesis_config_path, list of judge_config_paths).
+    """
+    from oumi.onboarding import SynthConfigBuilder, JudgeConfigBuilder
+
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]━━━ Step 4/4: Generate Configs ━━━[/bold cyan]\n"
+    )
+
+    # Generate synthesis config
+    cli_utils.CONSOLE.print("[dim]Generating synthesis config...[/dim]")
+    synth_builder = SynthConfigBuilder()
+
+    if state.primary_schema:
+        synth_config = synth_builder.from_schema(
+            state.primary_schema,
+            synth_type="qa",
+            output_path=str(output_path / "synth_output.jsonl"),
+        )
+    else:
+        synth_config = synth_builder.from_template(
+            "qa_generation",
+            output_path=str(output_path / "synth_output.jsonl"),
+        )
+
+    # Update with task info
+    if state.task.system_prompt:
+        synth_config.generation.system_prompt = state.task.system_prompt
+
+    synth_path = output_path / "synth_config.yaml"
+    synth_config.to_yaml(str(synth_path))
+    cli_utils.CONSOLE.print(f"[green]✓ Synthesis config:[/green] {synth_path}")
+
+    # Generate judges from criteria
+    judge_paths = []
+    if state.outputs.criteria:
+        cli_utils.CONSOLE.print("[dim]Generating judge configs...[/dim]")
+        judge_builder = JudgeConfigBuilder()
+
+        for criterion in state.outputs.criteria[:3]:  # Max 3 judges
+            judge_name = criterion.lower().replace(" ", "_")[:20]
+            judge_config = judge_builder.from_custom_criteria(
+                schema=state.primary_schema,
+                judge_name=judge_name,
+                criteria=f"Evaluate whether the response is {criterion}",
+                description=f"Judge for: {criterion}",
+            )
+            judge_path = output_path / f"judge_{judge_name}.yaml"
+            judge_config.to_yaml(str(judge_path))
+            judge_paths.append(str(judge_path))
+            cli_utils.CONSOLE.print(f"[green]✓ Judge config:[/green] {judge_path}")
+
+    # Summary
+    cli_utils.CONSOLE.print(
+        Panel(
+            f"[bold]Task:[/bold] {state.task.description[:100]}...\n"
+            f"[bold]Input format:[/bold] {INPUT_FORMATS.get(state.inputs.format, state.inputs.format)}\n"
+            f"[bold]Quality criteria:[/bold] {', '.join(state.outputs.criteria)}\n\n"
+            f"[bold]Generated:[/bold]\n"
+            f"  • Synthesis config: {synth_path}\n"
+            f"  • Judge configs: {len(judge_paths)}",
+            title="[green]Setup Complete[/green]",
+            border_style="green",
+        )
+    )
+
+    return str(synth_path), judge_paths
+
+
+# ============================================================================
+# Helper functions for wizard steps
+# ============================================================================
+
+
+def _analyze_task_from_files(files: list[dict], llm_analyzer) -> dict:
+    """Analyze files to suggest what task the user is trying to accomplish.
+
+    Args:
+        files: List of file info dicts with analysis.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Dict with task analysis.
+    """
+    import json
+
+    # Build file summaries
+    file_summaries = []
+    for f in files:
+        summary = f"- {f['name']} ({f['extension']})"
+        if f.get("suggested_purpose"):
+            summary += f": {f['suggested_purpose']}"
+        if f.get("schema") and f["schema"].columns:
+            cols = [c.name for c in f["schema"].columns[:8]]
+            summary += f" [columns: {', '.join(cols)}]"
+        if f.get("schema") and f["schema"].sample_rows:
+            sample = json.dumps(f["schema"].sample_rows[0], indent=2)[:300]
+            summary += f"\n    Sample: {sample}"
+        file_summaries.append(summary)
+
+    prompt = f"""Analyze these files to understand what ML task the user is trying to build.
+
+FILES:
+{chr(10).join(file_summaries)}
+
+Based on the file contents, column names, and sample data:
+
+1. What task is the user trying to accomplish?
+2. What would typical inputs look like?
+3. What would ideal outputs look like?
+
+Return JSON:
+{{
+    "primary_task": "Short descriptive name (e.g., 'Q&A System', 'Customer Support Bot')",
+    "task_description": "Clear description of what the model will do (2-3 sentences)",
+    "example_input": "A realistic example of what users will send",
+    "example_output": "What the model should respond with",
+    "reasoning": "Why you concluded this based on the file contents"
+}}
+
+Return ONLY the JSON object."""
+
+    try:
+        return llm_analyzer._invoke_json(prompt)
+    except Exception as e:
+        return {
+            "primary_task": "Custom Task",
+            "task_description": "Unable to determine - please describe your task",
+            "example_input": "",
+            "example_output": "",
+            "reasoning": f"Analysis failed: {str(e)[:100]}",
+        }
+
+
+def _generate_system_prompt(state: WizardState, llm_analyzer) -> str:
+    """Generate a system prompt based on task description.
+
+    Args:
+        state: Wizard state with task description.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Generated system prompt string.
+    """
+    import json
+
+    # Gather context
+    context_parts = [f"Task: {state.task.description}"]
+
+    if state.domain_analysis:
+        context_parts.append(f"Domain: {state.domain_analysis.domain}")
+
+    # Add sample from files
+    if state.primary_schema and state.primary_schema.sample_rows:
+        sample = json.dumps(state.primary_schema.sample_rows[0], indent=2)[:500]
+        context_parts.append(f"Sample data:\n{sample}")
+
+    prompt = f"""Create a concise system prompt for an AI assistant.
+
+Context:
+{chr(10).join(context_parts)}
+
+The system prompt should:
+1. Define the AI's role clearly
+2. Set expectations for response style
+3. Be 2-4 sentences maximum
+
+Return ONLY the system prompt text, nothing else."""
+
+    try:
+        return llm_analyzer._invoke(prompt).strip()
+    except Exception:
+        return f"You are a helpful assistant. {state.task.description}"
+
+
+def _refine_system_prompt(current: str, feedback: str, llm_analyzer) -> str:
+    """Refine a system prompt based on feedback.
+
+    Args:
+        current: Current system prompt.
+        feedback: User feedback on what to change.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Refined system prompt.
+    """
+    prompt = f"""Refine this system prompt based on the feedback.
+
+Current prompt:
+{current}
+
+Feedback: {feedback}
+
+Return ONLY the refined prompt text."""
+
+    try:
+        return llm_analyzer._invoke(prompt).strip()
+    except Exception:
+        return current
+
+
+def _detect_input_format(samples: list[str], llm_analyzer) -> str:
+    """Detect input format from samples.
+
+    Args:
+        samples: List of sample inputs.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Format type: single_turn, multi_turn, document, or structured.
+    """
+    samples_text = "\n".join(f"- {s[:200]}" for s in samples[:3])
+
+    prompt = f"""Classify the format of these inputs:
+
+{samples_text}
+
+Choose ONE format:
+- single_turn: Single questions or requests
+- multi_turn: Conversation with multiple turns
+- document: Long text/documents to process
+- structured: JSON or structured data
+
+Return ONLY the format name."""
+
+    try:
+        result = llm_analyzer._invoke(prompt).strip().lower()
+        if result in ["single_turn", "multi_turn", "document", "structured"]:
+            return result
+    except Exception:
+        pass
+    return "single_turn"
+
+
+def _suggest_quality_criteria(state: WizardState, llm_analyzer) -> list[str]:
+    """Suggest quality criteria based on task.
+
+    Args:
+        state: Wizard state with task description.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        List of suggested criteria strings.
+    """
+    prompt = f"""For this task, suggest 3-5 quality criteria for evaluating responses.
+
+Task: {state.task.description}
+
+Return a JSON array of short criteria, e.g.:
+["accurate", "helpful", "clear", "complete"]
+
+Return ONLY the JSON array."""
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        if isinstance(result, list):
+            return [str(c) for c in result[:5]]
+    except Exception:
+        pass
+    return ["accurate", "helpful", "clear"]
+
+
+def _wizard_step_build_system_prompt_legacy(state: WizardState, verbose: bool = False) -> WizardState:
+    """LEGACY - NOT USED. Kept for reference only.
+
+    Args:
+        state: Current wizard state with task definition.
+        verbose: Show detailed output.
+
+    Returns:
+        Updated state with system prompt spec.
+    """
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]━━━ Step 2/6: Build System Prompt ━━━[/bold cyan]\n"
+    )
+
+    if verbose:
+        cli_utils.CONSOLE.print(
+            "[dim]The system prompt defines your model's persona, capabilities,\n"
+            "and constraints. We'll use your files to suggest one.[/dim]\n"
+        )
+
+    if state.llm_analyzer:
+        # Generate initial system prompt from file content
+        with cli_utils.CONSOLE.status(
+            "[dim]Generating system prompt from your files...[/dim]", spinner="dots"
+        ):
+            prompt_spec = _generate_system_prompt_from_files(state, state.llm_analyzer)
+
+        state.system_prompt = prompt_spec
+
+        # Display generated prompt
+        cli_utils.CONSOLE.print(
+            Panel(
+                state.system_prompt.full_prompt,
+                title="[green]Generated System Prompt[/green]",
+                border_style="green",
+            )
+        )
+
+        # Iterative refinement
+        iteration = 0
+        max_iterations = 5
+
+        while iteration < max_iterations:
+            cli_utils.CONSOLE.print(
+                "\n[bold]Options:[/bold]\n"
+                "  [cyan][1][/cyan] Accept this prompt\n"
+                "  [cyan][2][/cyan] Make it more formal/professional\n"
+                "  [cyan][3][/cyan] Make it more conversational/friendly\n"
+                "  [cyan][4][/cyan] Add specific constraints or capabilities\n"
+                "  [cyan][5][/cyan] Custom feedback\n"
+            )
+
+            choice = Prompt.ask("Your choice", choices=["1", "2", "3", "4", "5"], default="1")
+
+            if choice == "1":
+                break
+
+            feedback = ""
+            if choice == "2":
+                feedback = "Make this more formal and professional in tone."
+            elif choice == "3":
+                feedback = "Make this more conversational and approachable."
+            elif choice == "4":
+                addition = Prompt.ask("What should be added?")
+                feedback = f"Add this to the prompt: {addition}"
+            elif choice == "5":
+                feedback = Prompt.ask("Describe what changes you'd like")
+
+            # Refine the prompt
+            with cli_utils.CONSOLE.status(
+                "[dim]Refining prompt...[/dim]", spinner="dots"
+            ):
+                refined = _refine_system_prompt(
+                    state.system_prompt.full_prompt, feedback, state.llm_analyzer
+                )
+                state.system_prompt.full_prompt = refined
+
+            cli_utils.CONSOLE.print(
+                Panel(
+                    state.system_prompt.full_prompt,
+                    title=f"[green]Revised System Prompt (v{iteration + 2})[/green]",
+                    border_style="green",
+                )
+            )
+            iteration += 1
+    else:
+        # Manual system prompt creation
+        cli_utils.CONSOLE.print(
+            "[bold]Let's build your system prompt:[/bold]\n"
+        )
+
+        persona = Prompt.ask(
+            "Describe the AI's role/persona",
+            default=f"You are an expert assistant for {state.task.name}",
+        )
+        tone = Prompt.ask(
+            "What tone should it use?",
+            default="professional and helpful",
+        )
+        constraints = Prompt.ask(
+            "Any constraints? (e.g., 'never make up information')",
+            default="Be accurate and helpful",
+        )
+
+        state.system_prompt.persona = persona
+        state.system_prompt.tone = tone
+        state.system_prompt.constraints = [constraints]
+        state.system_prompt.full_prompt = f"{persona} Use a {tone} tone. {constraints}"
+
+    cli_utils.CONSOLE.print(
+        "\n[green]✓ System prompt defined[/green]"
+    )
+
+    return state
+
+
+def _generate_system_prompt_from_files(state: WizardState, llm_analyzer) -> SystemPromptSpec:
+    """Generate a system prompt based on file content.
+
+    Args:
+        state: Wizard state with file analysis.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        SystemPromptSpec with generated prompt.
+    """
+    import json
+
+    # Gather context from files
+    context_parts = []
+
+    # Add task info
+    context_parts.append(f"Task: {state.task.name}")
+    context_parts.append(f"Description: {state.task.description}")
+
+    # Add domain info
+    if state.domain_analysis:
+        context_parts.append(f"Domain: {state.domain_analysis.domain}")
+        if state.domain_analysis.terminology:
+            context_parts.append(f"Key terms: {', '.join(state.domain_analysis.terminology[:10])}")
+
+    # Add content from rules/guidelines files
+    for f in state.files:
+        if f.get("extension") in {".docx", ".doc", ".txt", ".md"}:
+            if f.get("schema") and f["schema"].raw_text:
+                text_preview = f["schema"].raw_text[:1500]
+                context_parts.append(f"\nFrom {f['name']}:\n{text_preview}")
+
+    # Add sample data
+    if state.primary_schema and state.primary_schema.sample_rows:
+        sample = json.dumps(state.primary_schema.sample_rows[0], indent=2)[:500]
+        context_parts.append(f"\nSample data:\n{sample}")
+
+    prompt = f"""Create a system prompt for an AI model based on this context:
+
+{chr(10).join(context_parts)}
+
+The system prompt should:
+1. Define a clear expert persona for the "{state.task.name}" task
+2. Set expectations for output quality
+3. Include relevant domain terminology
+4. Be 3-5 sentences
+
+Return JSON:
+{{
+    "full_prompt": "The complete system prompt text",
+    "persona": "Brief description of the AI's role",
+    "tone": "Communication style",
+    "capabilities": ["what the AI can do"],
+    "constraints": ["what the AI should not do"]
+}}
+
+Return ONLY the JSON object."""
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        return SystemPromptSpec(
+            full_prompt=result.get("full_prompt", "You are a helpful assistant."),
+            persona=result.get("persona", ""),
+            tone=result.get("tone", "professional"),
+            capabilities=result.get("capabilities", []),
+            constraints=result.get("constraints", []),
+        )
+    except Exception as e:
+        return SystemPromptSpec(
+            full_prompt=f"You are an expert assistant for {state.task.name}. {state.task.description}",
+            persona=f"Expert in {state.task.name}",
+            tone="professional",
+        )
+
+
+def _refine_system_prompt(current_prompt: str, feedback: str, llm_analyzer) -> str:
+    """Refine a system prompt based on user feedback.
+
+    Args:
+        current_prompt: The current system prompt text.
+        feedback: User's feedback for improvement.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Refined system prompt text.
+    """
+    prompt = f"""Revise this system prompt based on the feedback.
+
+CURRENT PROMPT:
+{current_prompt}
+
+FEEDBACK: {feedback}
+
+Return ONLY the revised system prompt text, no JSON or formatting."""
+
+    try:
+        return llm_analyzer._invoke(prompt).strip()
+    except Exception:
+        return current_prompt
+
+
+def _wizard_step_define_input_distribution(state: WizardState, verbose: bool = False) -> WizardState:
+    """Step 3: Define user inputs distribution using file content.
+
+    Analyzes existing data to understand input patterns and helps
+    user define what types of inputs to generate.
+
+    Args:
+        state: Current wizard state.
+        verbose: Show detailed output.
+
+    Returns:
+        Updated state with input distribution spec.
+    """
+    import json
+
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]━━━ Step 3/6: Define User Inputs Distribution ━━━[/bold cyan]\n"
+    )
+
+    if verbose:
+        cli_utils.CONSOLE.print(
+            "[dim]Define what kinds of inputs users will send.\n"
+            "This determines the diversity of your training data.[/dim]\n"
+        )
+
+    # =========================================================================
+    # STEP 3a: Determine input format type
+    # =========================================================================
+
+    # Try to detect format from data
+    detected_format = "single_turn"
+    if state.llm_analyzer:
+        with cli_utils.CONSOLE.status(
+            "[dim]Detecting input format from your data...[/dim]", spinner="dots"
+        ):
+            detected_format = _detect_input_format(state, state.llm_analyzer)
+
+    # Display format options
+    cli_utils.CONSOLE.print("[bold]What format is your input data?[/bold]\n")
+
+    format_choices = list(INPUT_FORMAT_TYPES.keys())
+    for i, fmt_key in enumerate(format_choices, 1):
+        fmt = INPUT_FORMAT_TYPES[fmt_key]
+        is_detected = fmt_key == detected_format
+        marker = " [green](detected)[/green]" if is_detected else ""
+        cli_utils.CONSOLE.print(
+            f"  [cyan][{i}][/cyan] {fmt['name']}{marker}\n"
+            f"      [dim]{fmt['description']}[/dim]"
+        )
+
+    # Find default choice
+    default_idx = format_choices.index(detected_format) + 1 if detected_format in format_choices else 1
+    format_choice = Prompt.ask(
+        "\nSelect input format",
+        choices=[str(i) for i in range(1, len(format_choices) + 1)],
+        default=str(default_idx),
+    )
+    state.input_distribution.input_format = format_choices[int(format_choice) - 1]
+
+    # Format-specific options
+    if state.input_distribution.input_format == "multi_turn":
+        state.input_distribution.num_turns = IntPrompt.ask(
+            "Average number of conversation turns",
+            default=3,
+        )
+    elif state.input_distribution.input_format == "document":
+        doc_types = ["article", "report", "code", "email", "transcript", "other"]
+        cli_utils.CONSOLE.print("\n[bold]Document type:[/bold]")
+        for i, dt in enumerate(doc_types, 1):
+            cli_utils.CONSOLE.print(f"  [{i}] {dt}")
+        doc_choice = Prompt.ask(
+            "Select",
+            choices=[str(i) for i in range(1, len(doc_types) + 1)],
+            default="1",
+        )
+        state.input_distribution.document_type = doc_types[int(doc_choice) - 1]
+
+    cli_utils.CONSOLE.print(
+        f"\n[green]✓ Input format:[/green] {INPUT_FORMAT_TYPES[state.input_distribution.input_format]['name']}"
+    )
+
+    # =========================================================================
+    # STEP 3b: Analyze input patterns based on format
+    # =========================================================================
+
+    # Find input-like columns from data
+    input_columns = []
+    if state.primary_schema and state.primary_schema.columns:
+        for col in state.primary_schema.columns:
+            col_name_lower = col.name.lower()
+            if any(kw in col_name_lower for kw in ["question", "query", "input", "request", "prompt", "message", "text", "content", "document"]):
+                input_columns.append(col)
+            elif col.is_text and (col.avg_length or 0) > 20:
+                input_columns.append(col)
+
+    if state.llm_analyzer:
+        # Analyze input distribution from files with format context
+        with cli_utils.CONSOLE.status(
+            "[dim]Analyzing input patterns from your data...[/dim]", spinner="dots"
+        ):
+            input_analysis = _analyze_input_distribution(state, state.llm_analyzer)
+
+        input_types = input_analysis.get("input_types", [])
+        sample_inputs = input_analysis.get("sample_inputs", [])
+        source_column = input_analysis.get("source_column", "")
+        variation_strategies = input_analysis.get("variation_strategies", [])
+
+        # Ensure lists contain strings
+        if not isinstance(input_types, list):
+            input_types = [str(input_types)] if input_types else []
+        input_types = [str(t) for t in input_types]
+
+        if not isinstance(sample_inputs, list):
+            sample_inputs = [str(sample_inputs)] if sample_inputs else []
+        sample_inputs = [str(s) for s in sample_inputs]
+
+        if not isinstance(variation_strategies, list):
+            variation_strategies = [str(variation_strategies)] if variation_strategies else []
+        variation_strategies = [str(v) for v in variation_strategies]
+
+        source_column = str(source_column) if source_column else ""
+
+        # Display analysis
+        cli_utils.CONSOLE.print(
+            Panel(
+                f"[bold]Input Types Found:[/bold]\n"
+                + "\n".join(f"  • {t}" for t in input_types[:5])
+                + f"\n\n[bold]Sample Inputs:[/bold]\n"
+                + "\n".join(f"  \"{s[:100]}{'...' if len(s) > 100 else ''}\"" for s in sample_inputs[:3])
+                + (f"\n\n[bold]Source Column:[/bold] {source_column}" if source_column else "")
+                + f"\n\n[bold]Variation Strategies:[/bold]\n"
+                + "\n".join(f"  • {v}" for v in variation_strategies[:4]),
+                title="[green]Input Distribution Analysis[/green]",
+                border_style="green",
+            )
+        )
+
+        # Let user confirm or modify
+        use_analysis = Confirm.ask("\nUse this input distribution?", default=True)
+
+        if use_analysis:
+            state.input_distribution.input_types = input_types
+            state.input_distribution.sample_inputs = sample_inputs
+            state.input_distribution.source_column = source_column
+            state.input_distribution.variation_strategies = variation_strategies
+        else:
+            # Manual definition
+            state.input_distribution = _manual_input_distribution(state, input_columns)
+
+        # Generate input template
+        with cli_utils.CONSOLE.status(
+            "[dim]Creating input generation template...[/dim]", spinner="dots"
+        ):
+            template = _generate_input_template(state, state.llm_analyzer)
+            state.input_distribution.input_template = template
+
+        cli_utils.CONSOLE.print(
+            Panel(
+                state.input_distribution.input_template,
+                title="[yellow]Input Generation Template[/yellow]",
+                border_style="yellow",
+            )
+        )
+
+        # Refinement loop for input template
+        if Confirm.ask("\nWould you like to refine this template?", default=False):
+            feedback = Prompt.ask("What should be different?")
+            refined = _refine_input_template(
+                state.input_distribution.input_template, feedback, state.llm_analyzer
+            )
+            state.input_distribution.input_template = refined
+            cli_utils.CONSOLE.print(
+                Panel(
+                    refined,
+                    title="[yellow]Revised Input Template[/yellow]",
+                    border_style="yellow",
+                )
+            )
+    else:
+        # Manual input distribution
+        state.input_distribution = _manual_input_distribution(state, input_columns)
+
+    cli_utils.CONSOLE.print(
+        "\n[green]✓ Input distribution defined[/green]"
+    )
+
+    return state
+
+
+def _detect_input_format(state: WizardState, llm_analyzer) -> str:
+    """Detect the input format from the data.
+
+    Args:
+        state: Wizard state with file analysis.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        One of: single_turn, multi_turn, document, structured, instruction
+    """
+    import json
+
+    # Build context
+    context_parts = []
+    context_parts.append(f"Task: {state.task.name}")
+    context_parts.append(f"Description: {state.task.description}")
+    context_parts.append(f"Example input: {state.task.example_input}")
+
+    # Add column info
+    if state.primary_schema and state.primary_schema.columns:
+        cols_info = []
+        for col in state.primary_schema.columns[:10]:
+            col_info = f"{col.name} ({col.dtype})"
+            if col.avg_length:
+                col_info += f" [avg_len={col.avg_length}]"
+            cols_info.append(col_info)
+        context_parts.append(f"Columns: {', '.join(cols_info)}")
+
+    # Add sample rows
+    if state.primary_schema and state.primary_schema.sample_rows:
+        samples = json.dumps(state.primary_schema.sample_rows[:2], indent=2)[:800]
+        context_parts.append(f"Sample data:\n{samples}")
+
+    prompt = f"""Analyze this data to determine the input format type.
+
+{chr(10).join(context_parts)}
+
+Determine which format best describes the INPUT data:
+
+1. single_turn - Simple question/answer pairs, one input one output
+2. multi_turn - Conversation with multiple back-and-forth exchanges
+3. document - Long-form text like articles, reports, code, emails
+4. structured - JSON objects, database records, structured data
+5. instruction - Task instructions with separate input data
+
+Look for clues like:
+- Column names (messages, conversation, turns → multi_turn)
+- Text length (very long → document)
+- JSON/dict-like content → structured
+- Short questions → single_turn
+- "instruction" + "input" columns → instruction
+
+Return JSON:
+{{
+    "format": "single_turn|multi_turn|document|structured|instruction",
+    "confidence": "high|medium|low",
+    "reasoning": "brief explanation"
+}}
+
+Return ONLY the JSON object."""
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        fmt = result.get("format", "single_turn")
+        if fmt in INPUT_FORMAT_TYPES:
+            return fmt
+        return "single_turn"
+    except Exception:
+        # Fallback: heuristic detection
+        if state.primary_schema and state.primary_schema.columns:
+            col_names = [c.name.lower() for c in state.primary_schema.columns]
+
+            # Check for conversation indicators
+            if any(kw in " ".join(col_names) for kw in ["message", "conversation", "turn", "dialogue"]):
+                return "multi_turn"
+
+            # Check for document indicators
+            if any(kw in " ".join(col_names) for kw in ["document", "article", "content", "body", "text"]):
+                # Check average length
+                for col in state.primary_schema.columns:
+                    if col.is_text and col.avg_length and col.avg_length > 500:
+                        return "document"
+
+            # Check for instruction indicators
+            if any(kw in " ".join(col_names) for kw in ["instruction", "task"]):
+                return "instruction"
+
+            # Check for structured data
+            if state.primary_schema.sample_rows:
+                sample = state.primary_schema.sample_rows[0]
+                if any(isinstance(v, (dict, list)) for v in sample.values()):
+                    return "structured"
+
+        return "single_turn"
+
+
+def _analyze_input_distribution(state: WizardState, llm_analyzer) -> dict:
+    """Analyze files to understand input distribution.
+
+    Args:
+        state: Wizard state with file analysis.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Dict with input distribution analysis.
+    """
+    import json
+
+    input_format = state.input_distribution.input_format
+
+    # Build context
+    context_parts = []
+    context_parts.append(f"Task: {state.task.name}")
+    context_parts.append(f"Description: {state.task.description}")
+    context_parts.append(f"Example input: {state.task.example_input}")
+    context_parts.append(f"Input format: {input_format} - {INPUT_FORMAT_TYPES.get(input_format, {}).get('description', '')}")
+
+    # Add column info
+    if state.primary_schema and state.primary_schema.columns:
+        cols_info = []
+        for col in state.primary_schema.columns[:10]:
+            col_info = f"{col.name} ({col.dtype})"
+            if col.sample_values:
+                col_info += f" e.g., '{str(col.sample_values[0])[:50]}'"
+            cols_info.append(col_info)
+        context_parts.append(f"Columns: {', '.join(cols_info)}")
+
+    # Add sample rows
+    if state.primary_schema and state.primary_schema.sample_rows:
+        samples = json.dumps(state.primary_schema.sample_rows[:3], indent=2)[:1000]
+        context_parts.append(f"Sample data:\n{samples}")
+
+    # Format-specific analysis prompt
+    format_guidance = {
+        "single_turn": "Focus on the types of questions/requests users will ask.",
+        "multi_turn": "Identify conversation patterns, typical turn sequences, and dialogue styles.",
+        "document": "Identify document types, typical lengths, and content patterns.",
+        "structured": "Identify the schema structure, required fields, and data patterns.",
+        "instruction": "Identify instruction types and input data patterns.",
+    }
+
+    prompt = f"""Analyze this data to understand the input distribution for ML training.
+
+{chr(10).join(context_parts)}
+
+{format_guidance.get(input_format, '')}
+
+Based on the data:
+1. What types of inputs will users send?
+2. What are representative examples from the data?
+3. Which column contains user inputs (if any)?
+4. How should we vary inputs for diversity?
+
+Return JSON:
+{{
+    "input_types": ["type1", "type2", "type3"],
+    "sample_inputs": ["example input 1", "example input 2", "example input 3"],
+    "source_column": "column_name or empty string if none",
+    "variation_strategies": ["strategy1", "strategy2"]
+}}
+
+Return ONLY the JSON object."""
+
+    try:
+        return llm_analyzer._invoke_json(prompt)
+    except Exception:
+        return {
+            "input_types": ["General questions", "Specific requests"],
+            "sample_inputs": [state.task.example_input],
+            "source_column": "",
+            "variation_strategies": ["Rephrase", "Change topic"],
+        }
+
+
+def _manual_input_distribution(state: WizardState, input_columns: list) -> InputDistributionSpec:
+    """Manually define input distribution.
+
+    Args:
+        state: Wizard state.
+        input_columns: Candidate input columns from data.
+
+    Returns:
+        InputDistributionSpec with manual definition.
+    """
+    spec = InputDistributionSpec()
+
+    # Select source column if available
+    if input_columns:
+        cli_utils.CONSOLE.print("\n[bold]Potential input columns found:[/bold]")
+        for i, col in enumerate(input_columns[:5], 1):
+            sample = col.sample_values[0] if col.sample_values else ""
+            cli_utils.CONSOLE.print(f"  [{i}] {col.name}: \"{str(sample)[:50]}...\"")
+
+        if Confirm.ask("\nUse one of these as input source?", default=True):
+            col_choice = Prompt.ask(
+                "Select column",
+                choices=[str(i) for i in range(1, len(input_columns[:5]) + 1)],
+                default="1",
+            )
+            spec.source_column = input_columns[int(col_choice) - 1].name
+
+    # Define input types
+    cli_utils.CONSOLE.print("\n[bold]What types of inputs will users send?[/bold]")
+    input_types = []
+    for i in range(1, 4):
+        inp_type = Prompt.ask(f"Input type {i} (or 'done')", default="done" if i > 1 else "")
+        if inp_type.lower() == "done":
+            break
+        input_types.append(inp_type)
+    spec.input_types = input_types or ["General questions"]
+
+    # Add sample inputs
+    spec.sample_inputs = [state.task.example_input] if state.task.example_input else []
+
+    return spec
+
+
+def _generate_input_template(state: WizardState, llm_analyzer) -> str:
+    """Generate a template for creating diverse inputs.
+
+    Args:
+        state: Wizard state.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Input generation template string.
+    """
+    import json
+
+    columns = []
+    if state.primary_schema and state.primary_schema.columns:
+        columns = [c.name for c in state.primary_schema.columns]
+
+    input_format = state.input_distribution.input_format
+    format_info = INPUT_FORMAT_TYPES.get(input_format, {})
+
+    # Format-specific instructions
+    format_instructions = {
+        "single_turn": """Create a template for generating single questions/requests.
+The template should produce one-off queries that users might ask.""",
+
+        "multi_turn": f"""Create a template for generating multi-turn conversations with {state.input_distribution.num_turns} turns.
+The template should produce a dialogue with multiple exchanges.
+Use format:
+User: <message>
+Assistant: <response>
+User: <follow-up>
+...""",
+
+        "document": f"""Create a template for generating {state.input_distribution.document_type or 'document'} inputs.
+The template should produce long-form text content to be processed.
+Documents should be realistic and varied in structure.""",
+
+        "structured": """Create a template for generating structured/JSON inputs.
+The template should produce valid JSON objects or structured records.
+Use format: {"field1": "<value>", "field2": "<value>", ...}""",
+
+        "instruction": """Create a template for generating instruction+input pairs.
+Format should be:
+Instruction: <what to do>
+Input: <data to process>""",
+    }
+
+    prompt = f"""Create a template for generating diverse inputs for this task.
+
+Task: {state.task.name}
+Description: {state.task.description}
+Input format: {format_info.get('name', input_format)} - {format_info.get('description', '')}
+Input types: {state.input_distribution.input_types}
+Sample inputs: {state.input_distribution.sample_inputs[:2]}
+Available columns: {columns}
+
+{format_instructions.get(input_format, '')}
+
+Use {{column_name}} placeholders where data from columns should be inserted.
+
+The template should:
+1. Generate diverse variations matching the {input_format} format
+2. Cover different scenarios and edge cases
+3. Be realistic and natural
+
+Return ONLY the template text, no JSON."""
+
+    try:
+        return llm_analyzer._invoke(prompt).strip()
+    except Exception:
+        # Fallback templates based on format
+        fallbacks = {
+            "single_turn": "Generate a question about {context} that a user might ask.",
+            "multi_turn": "Generate a conversation about {context} with 3 turns.\n\nUser: <question>\nAssistant: <response>\nUser: <follow-up>",
+            "document": "Generate a {document_type} about {context}.",
+            "structured": 'Generate a JSON object with fields from {context}:\n{{"field1": "value", "field2": "value"}}',
+            "instruction": "Instruction: Process the following {context}\nInput: {input_data}",
+        }
+        return fallbacks.get(input_format, "Generate an input based on {context}.")
+
+
+def _refine_input_template(current: str, feedback: str, llm_analyzer) -> str:
+    """Refine input template based on feedback.
+
+    Args:
+        current: Current template.
+        feedback: User feedback.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Refined template.
+    """
+    prompt = f"""Revise this input generation template based on feedback.
+
+CURRENT TEMPLATE:
+{current}
+
+FEEDBACK: {feedback}
+
+Return ONLY the revised template text."""
+
+    try:
+        return llm_analyzer._invoke(prompt).strip()
+    except Exception:
+        return current
+
+
+def _wizard_step_define_output_quality(state: WizardState, verbose: bool = False) -> WizardState:
+    """Step 4: Define model output quality criteria and formats.
+
+    Guides the user to specify what good outputs look like,
+    using examples from their data.
+
+    Args:
+        state: Current wizard state.
+        verbose: Show detailed output.
+
+    Returns:
+        Updated state with output quality spec.
+    """
+    import json
+
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]━━━ Step 4/6: Define Output Quality & Format ━━━[/bold cyan]\n"
+    )
+
+    if verbose:
+        cli_utils.CONSOLE.print(
+            "[dim]Define what high-quality outputs look like.\n"
+            "This guides both generation and evaluation.[/dim]\n"
+        )
+
+    # Find output-like columns
+    output_columns = []
+    if state.primary_schema and state.primary_schema.columns:
+        for col in state.primary_schema.columns:
+            col_name_lower = col.name.lower()
+            if any(kw in col_name_lower for kw in ["answer", "response", "output", "reply", "result"]):
+                output_columns.append(col)
+            elif col.is_text and (col.avg_length or 0) > 100:
+                output_columns.append(col)
+
+    if state.llm_analyzer:
+        # Analyze output quality from files
+        with cli_utils.CONSOLE.status(
+            "[dim]Analyzing output patterns from your data...[/dim]", spinner="dots"
+        ):
+            output_analysis = _analyze_output_quality(state, state.llm_analyzer)
+
+        format_type = output_analysis.get("format_type", "text")
+        format_template = output_analysis.get("format_template", "")
+        quality_criteria = output_analysis.get("quality_criteria", [])
+        good_examples = output_analysis.get("good_examples", [])
+        output_prefix = output_analysis.get("output_prefix", "Answer:")
+
+        # Ensure quality_criteria and good_examples are lists of strings
+        if not isinstance(quality_criteria, list):
+            quality_criteria = [str(quality_criteria)] if quality_criteria else []
+        quality_criteria = [str(c) for c in quality_criteria]
+
+        if not isinstance(good_examples, list):
+            good_examples = [str(good_examples)] if good_examples else []
+        good_examples = [str(e) for e in good_examples]
+
+        # Format example output for display
+        example_output_str = ""
+        if good_examples and len(good_examples) > 0:
+            example_text = str(good_examples[0])[:200]
+            example_output_str = f"\n\n[bold]Example Output:[/bold]\n  {example_text}..."
+
+        # Display analysis
+        cli_utils.CONSOLE.print(
+            Panel(
+                f"[bold]Output Format:[/bold] {format_type}\n\n"
+                f"[bold]Quality Criteria:[/bold]\n"
+                + "\n".join(f"  • {c}" for c in quality_criteria[:5])
+                + f"\n\n[bold]Output Prefix:[/bold] {output_prefix}"
+                + example_output_str,
+                title="[green]Output Quality Analysis[/green]",
+                border_style="green",
+            )
+        )
+
+        # Let user confirm or modify
+        use_analysis = Confirm.ask("\nUse these quality criteria?", default=True)
+
+        if use_analysis:
+            state.output_quality.format_type = format_type
+            state.output_quality.format_template = format_template
+            state.output_quality.quality_criteria = quality_criteria
+            state.output_quality.good_examples = good_examples
+            state.output_quality.output_prefix = output_prefix
+        else:
+            # Manual definition
+            state.output_quality = _manual_output_quality(state, output_columns)
+
+        # Generate output template
+        with cli_utils.CONSOLE.status(
+            "[dim]Creating output generation template...[/dim]", spinner="dots"
+        ):
+            template = _generate_output_template(state, state.llm_analyzer)
+            state.output_quality.format_template = template
+
+        cli_utils.CONSOLE.print(
+            Panel(
+                state.output_quality.format_template,
+                title="[magenta]Output Generation Template[/magenta]",
+                border_style="magenta",
+            )
+        )
+
+        # Refinement loop
+        if Confirm.ask("\nWould you like to refine this template?", default=False):
+            feedback = Prompt.ask("What should be different?")
+            refined = _refine_output_template(
+                state.output_quality.format_template, feedback, state.llm_analyzer
+            )
+            state.output_quality.format_template = refined
+            cli_utils.CONSOLE.print(
+                Panel(
+                    refined,
+                    title="[magenta]Revised Output Template[/magenta]",
+                    border_style="magenta",
+                )
+            )
+    else:
+        state.output_quality = _manual_output_quality(state, output_columns)
+
+    cli_utils.CONSOLE.print(
+        "\n[green]✓ Output quality criteria defined[/green]"
+    )
+
+    return state
+
+
+def _analyze_output_quality(state: WizardState, llm_analyzer) -> dict:
+    """Analyze files to understand output quality patterns.
+
+    Args:
+        state: Wizard state.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Dict with output quality analysis.
+    """
+    import json
+
+    context_parts = []
+    context_parts.append(f"Task: {state.task.name}")
+    context_parts.append(f"Description: {state.task.description}")
+    context_parts.append(f"Example output: {state.task.example_output}")
+
+    # Add sample data
+    if state.primary_schema and state.primary_schema.sample_rows:
+        samples = json.dumps(state.primary_schema.sample_rows[:2], indent=2)[:800]
+        context_parts.append(f"Sample data:\n{samples}")
+
+    # Add domain analysis
+    if state.domain_analysis:
+        context_parts.append(f"Quality signals: {state.domain_analysis.quality_signals}")
+        context_parts.append(f"Common issues: {state.domain_analysis.common_issues}")
+
+    prompt = f"""Analyze this to define output quality criteria for ML training.
+
+{chr(10).join(context_parts)}
+
+Define:
+1. What format should outputs be in?
+2. What makes a high-quality output?
+3. What prefix should outputs have (e.g., "Answer:")?
+4. Example of good output
+
+Return JSON:
+{{
+    "format_type": "text|json|structured|list",
+    "format_template": "template showing output structure",
+    "quality_criteria": ["criterion1", "criterion2", "criterion3"],
+    "good_examples": ["example good output"],
+    "output_prefix": "prefix like 'Answer:' or empty"
+}}
+
+Return ONLY the JSON object."""
+
+    try:
+        return llm_analyzer._invoke_json(prompt)
+    except Exception:
+        return {
+            "format_type": "text",
+            "format_template": "Provide a clear, helpful response.",
+            "quality_criteria": ["Accurate", "Clear", "Complete"],
+            "good_examples": [state.task.example_output],
+            "output_prefix": "Answer:",
+        }
+
+
+def _manual_output_quality(state: WizardState, output_columns: list) -> OutputQualitySpec:
+    """Manually define output quality criteria.
+
+    Args:
+        state: Wizard state.
+        output_columns: Candidate output columns.
+
+    Returns:
+        OutputQualitySpec with manual definition.
+    """
+    spec = OutputQualitySpec()
+
+    # Format type
+    cli_utils.CONSOLE.print(
+        "\n[bold]Output Format:[/bold]\n"
+        "  [1] Text - Free-form text response\n"
+        "  [2] JSON - Structured JSON output\n"
+        "  [3] List - Bulleted or numbered list\n"
+    )
+    format_choice = Prompt.ask("Select format", choices=["1", "2", "3"], default="1")
+    format_types = {"1": "text", "2": "json", "3": "list"}
+    spec.format_type = format_types[format_choice]
+
+    # Output prefix
+    spec.output_prefix = Prompt.ask(
+        "Output prefix (e.g., 'Answer:')",
+        default="Answer:" if spec.format_type == "text" else "",
+    )
+
+    # Quality criteria
+    cli_utils.CONSOLE.print("\n[bold]Quality Criteria (what makes a good output?):[/bold]")
+    criteria = []
+    default_criteria = ["Accurate", "Clear", "Complete"]
+    for i, default in enumerate(default_criteria, 1):
+        criterion = Prompt.ask(f"Criterion {i}", default=default)
+        criteria.append(criterion)
+    spec.quality_criteria = criteria
+
+    # Good example
+    spec.good_examples = [state.task.example_output] if state.task.example_output else []
+
+    return spec
+
+
+def _generate_output_template(state: WizardState, llm_analyzer) -> str:
+    """Generate a template for creating outputs.
+
+    Args:
+        state: Wizard state.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Output generation template string.
+    """
+    prompt = f"""Create an instruction template for generating high-quality outputs.
+
+Task: {state.task.name}
+System prompt: {state.system_prompt.full_prompt[:200]}...
+Output format: {state.output_quality.format_type}
+Quality criteria: {state.output_quality.quality_criteria}
+Output prefix: {state.output_quality.output_prefix}
+
+Create an instruction that tells the model how to generate good outputs.
+It should reference {{question}} for the user's input.
+
+The template should:
+1. Guide the model to produce {state.output_quality.format_type} format
+2. Ensure the quality criteria are met
+3. Use the output prefix {state.output_quality.output_prefix}
+
+Return ONLY the template text, no JSON."""
+
+    try:
+        return llm_analyzer._invoke(prompt).strip()
+    except Exception:
+        return f"Provide a helpful response to: {{question}}\n\nFormat as: {state.output_quality.output_prefix} <your response>"
+
+
+def _refine_output_template(current: str, feedback: str, llm_analyzer) -> str:
+    """Refine output template based on feedback."""
+    prompt = f"""Revise this output template based on feedback.
+
+CURRENT:
+{current}
+
+FEEDBACK: {feedback}
+
+Return ONLY the revised template text."""
+
+    try:
+        return llm_analyzer._invoke(prompt).strip()
+    except Exception:
+        return current
+
+
+def _wizard_step_generate_synthesis_config(state: WizardState, output_path: Path, verbose: bool = False) -> str:
+    """Step 5: Generate synthesis config for (input, output) pairs.
+
+    Creates a synthesis configuration that generates training data
+    matching the problem definition and covering the input distribution.
+
+    Args:
+        state: Wizard state with all specifications.
+        output_path: Output directory.
+        verbose: Show detailed output.
+
+    Returns:
+        Path to the generated config file.
+    """
+    from oumi.onboarding.config_builder import SynthConfigBuilder
+
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]━━━ Step 5/6: Generate Synthesis Config ━━━[/bold cyan]\n"
+    )
+
+    if verbose:
+        cli_utils.CONSOLE.print(
+            "[dim]Creating a synthesis config that generates (input, output) pairs\n"
+            "matching your task definition and covering the input distribution.[/dim]\n"
+        )
+
+    # Ask for number of samples
+    cli_utils.CONSOLE.print(
+        "[dim]Tip: Start small (10-50) to verify quality, then scale up.[/dim]"
+    )
+    num_samples = IntPrompt.ask("Number of samples to generate", default=100)
+
+    # Build the config using the wizard state
+    builder = SynthConfigBuilder()
+
+    # Build attribute map from source column if available
+    attribute_map = None
+    if state.input_distribution.source_column:
+        attribute_map = {state.input_distribution.source_column: "context"}
+
+    # Create config with custom prompts from wizard state
+    config = builder.from_schema_with_custom_prompts(
+        state.primary_schema,
+        goal="qa",  # Default to Q&A, the most common
+        num_samples=num_samples,
+        output_path=str(output_path / "synth_output.jsonl"),
+        system_prompt=state.system_prompt.full_prompt,
+        question_template=state.input_distribution.input_template,
+        answer_template=state.output_quality.format_template,
+        postprocessing={
+            "cut_prefix": state.output_quality.output_prefix,
+            "strip_whitespace": True,
+        },
+        attribute_map=attribute_map,
+    )
+
+    # Save config
+    config_path = output_path / "synth_config.yaml"
+    config.to_yaml(str(config_path))
+
+    cli_utils.CONSOLE.print(f"\n[green]✓ Synthesis config saved: {config_path}[/green]")
+
+    # Display summary
+    cli_utils.CONSOLE.print(
+        Panel(
+            f"[bold]Samples to generate:[/bold] {num_samples}\n"
+            f"[bold]Output file:[/bold] {output_path / 'synth_output.jsonl'}\n"
+            f"[bold]Model:[/bold] {config.inference_config.model.model_name}\n\n"
+            f"[bold]System Prompt:[/bold]\n{state.system_prompt.full_prompt[:200]}...\n\n"
+            f"[bold]Input Template:[/bold]\n{state.input_distribution.input_template[:150]}...\n\n"
+            f"[bold]Output Template:[/bold]\n{state.output_quality.format_template[:150]}...",
+            title="[green]Synthesis Configuration[/green]",
+            border_style="green",
+        )
+    )
+
+    return str(config_path)
+
+
+def _wizard_step_define_judges(state: WizardState, output_path: Path, verbose: bool = False) -> str:
+    """Step 6: Define judges based on quality criteria.
+
+    Creates judge configurations to evaluate generated data
+    based on the output quality criteria defined earlier.
+    Suggests custom judges tailored to the specific criteria.
+
+    Args:
+        state: Wizard state with output quality spec.
+        output_path: Output directory.
+        verbose: Show detailed output.
+
+    Returns:
+        Path to the generated judge config file.
+    """
+    from oumi.onboarding.config_builder import JudgeConfigBuilder
+
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]━━━ Step 6/6: Define Judges ━━━[/bold cyan]\n"
+    )
+
+    if verbose:
+        cli_utils.CONSOLE.print(
+            "[dim]Create judges to automatically evaluate the quality of generated data.\n"
+            "We'll suggest judges based on your quality criteria from Step 4.[/dim]\n"
+        )
+
+    # Show quality criteria from earlier
+    cli_utils.CONSOLE.print(
+        Panel(
+            "[bold]Your Quality Criteria:[/bold]\n"
+            + "\n".join(f"  • {c}" for c in state.output_quality.quality_criteria),
+            title="From Step 4",
+            border_style="cyan",
+        )
+    )
+
+    # Use LLM to suggest custom judges based on criteria
+    suggested_judges = []
+    if state.llm_analyzer:
+        with cli_utils.CONSOLE.status(
+            "[dim]Analyzing criteria to suggest judges...[/dim]", spinner="dots"
+        ):
+            suggested_judges = _suggest_judges_from_criteria(state, state.llm_analyzer)
+
+    if suggested_judges:
+        cli_utils.CONSOLE.print(
+            "\n[bold]Suggested Judges Based on Your Criteria:[/bold]\n"
+        )
+        for i, judge in enumerate(suggested_judges, 1):
+            name = judge.get("name", f"Judge {i}")
+            description = judge.get("description", "")
+            criteria = judge.get("criteria", "")
+            cli_utils.CONSOLE.print(
+                f"  [cyan][{i}][/cyan] [bold]{name}[/bold]\n"
+                f"      [dim]{description}[/dim]\n"
+                f"      [dim]Evaluates: {criteria}[/dim]\n"
+            )
+
+        # Let user select which judges to use
+        cli_utils.CONSOLE.print(
+            f"  [cyan][{len(suggested_judges) + 1}][/cyan] [bold]Add custom judge[/bold]\n"
+            f"      [dim]Define your own evaluation criteria[/dim]\n"
+        )
+
+        selected = Prompt.ask(
+            "\nSelect judges (comma-separated, e.g., '1,2' or 'all')",
+            default="all",
+        )
+
+        if selected.lower() == "all":
+            selected_judges = suggested_judges
+        else:
+            selected_indices = [int(x.strip()) - 1 for x in selected.split(",") if x.strip().isdigit()]
+            selected_judges = []
+            for idx in selected_indices:
+                if 0 <= idx < len(suggested_judges):
+                    selected_judges.append(suggested_judges[idx])
+                elif idx == len(suggested_judges):
+                    # Custom judge
+                    custom = _prompt_custom_judge()
+                    if custom:
+                        selected_judges.append(custom)
+    else:
+        # No LLM or suggestion failed - manual judge definition
+        cli_utils.CONSOLE.print(
+            "\n[bold]Define your judges:[/bold]\n"
+            "[dim]Judges evaluate output quality based on specific criteria.[/dim]\n"
+        )
+        selected_judges = []
+
+        # Suggest based on keywords in criteria
+        criteria_text = " ".join(state.output_quality.quality_criteria).lower()
+
+        default_judges = []
+        if any(kw in criteria_text for kw in ["accurate", "factual", "correct", "true"]):
+            default_judges.append({
+                "name": "Accuracy Judge",
+                "description": "Evaluates factual correctness",
+                "criteria": "Is the response factually accurate and correct?",
+                "type": "accuracy",
+            })
+        if any(kw in criteria_text for kw in ["relevant", "address", "answer", "helpful"]):
+            default_judges.append({
+                "name": "Relevance Judge",
+                "description": "Evaluates if response addresses the query",
+                "criteria": "Does the response directly address the user's question?",
+                "type": "relevance",
+            })
+        if any(kw in criteria_text for kw in ["clear", "readable", "understand", "coherent"]):
+            default_judges.append({
+                "name": "Clarity Judge",
+                "description": "Evaluates clarity and readability",
+                "criteria": "Is the response clear, well-organized, and easy to understand?",
+                "type": "clarity",
+            })
+        if any(kw in criteria_text for kw in ["complete", "thorough", "comprehensive"]):
+            default_judges.append({
+                "name": "Completeness Judge",
+                "description": "Evaluates completeness of response",
+                "criteria": "Does the response fully address all aspects of the query?",
+                "type": "completeness",
+            })
+        if any(kw in criteria_text for kw in ["safe", "appropriate", "harmful", "toxic"]):
+            default_judges.append({
+                "name": "Safety Judge",
+                "description": "Evaluates content safety",
+                "criteria": "Is the response safe, appropriate, and free of harmful content?",
+                "type": "safety",
+            })
+        if any(kw in criteria_text for kw in ["format", "structure", "json", "style"]):
+            default_judges.append({
+                "name": "Format Judge",
+                "description": "Evaluates format compliance",
+                "criteria": "Does the response follow the expected format and structure?",
+                "type": "format",
+            })
+
+        # If no specific judges found, add a generic one
+        if not default_judges:
+            default_judges.append({
+                "name": "Quality Judge",
+                "description": "Overall quality assessment",
+                "criteria": "; ".join(state.output_quality.quality_criteria),
+                "type": "generic",
+            })
+
+        # Show default judges and let user modify
+        for i, judge in enumerate(default_judges, 1):
+            cli_utils.CONSOLE.print(
+                f"  [cyan][{i}][/cyan] {judge['name']}: {judge['description']}"
+            )
+
+        use_defaults = Confirm.ask("\nUse these judges?", default=True)
+        if use_defaults:
+            selected_judges = default_judges
+        else:
+            # Let user define custom judges
+            selected_judges = []
+            while True:
+                custom = _prompt_custom_judge()
+                if custom:
+                    selected_judges.append(custom)
+                if not Confirm.ask("Add another judge?", default=False):
+                    break
+
+    # Ensure at least one judge
+    if not selected_judges:
+        selected_judges = [{
+            "name": "Quality Judge",
+            "description": "Overall quality assessment",
+            "criteria": "; ".join(state.output_quality.quality_criteria),
+            "type": "generic",
+        }]
+
+    # Build and save judge configs
+    builder = JudgeConfigBuilder()
+    config_paths = []
+
+    for i, judge in enumerate(selected_judges):
+        judge_name = judge.get("name", f"judge_{i+1}").lower().replace(" ", "_")
+        judge_criteria = judge.get("criteria", "")
+        judge_type = judge.get("type", "custom")
+
+        # Create config
+        config = builder.from_custom_criteria(
+            schema=state.primary_schema,
+            judge_name=judge_name,
+            criteria=judge_criteria,
+            description=judge.get("description", ""),
+        )
+
+        # Save config
+        config_filename = f"judge_{judge_name}.yaml" if len(selected_judges) > 1 else "judge_config.yaml"
+        config_path = output_path / config_filename
+        config.to_yaml(str(config_path))
+        config_paths.append(str(config_path))
+
+    cli_utils.CONSOLE.print(f"\n[green]✓ {len(selected_judges)} judge config(s) saved[/green]")
+
+    # Display summary
+    judges_summary = "\n".join(
+        f"  • [bold]{j.get('name', 'Judge')}[/bold]: {j.get('criteria', '')[:60]}..."
+        for j in selected_judges
+    )
+    cli_utils.CONSOLE.print(
+        Panel(
+            f"[bold]Judges Configured:[/bold] {len(selected_judges)}\n\n"
+            f"{judges_summary}\n\n"
+            f"[bold]Config Files:[/bold]\n"
+            + "\n".join(f"  • {p}" for p in config_paths),
+            title="[green]Judge Configuration[/green]",
+            border_style="green",
+        )
+    )
+
+    return config_paths[0] if config_paths else str(output_path / "judge_config.yaml")
+
+
+def _suggest_judges_from_criteria(state: WizardState, llm_analyzer) -> list:
+    """Use LLM to suggest custom judges based on quality criteria.
+
+    Args:
+        state: Wizard state with quality criteria.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        List of suggested judge dicts with name, description, criteria.
+    """
+    criteria_list = state.output_quality.quality_criteria
+    task_name = state.task.name
+    task_desc = state.task.description
+
+    prompt = f"""Based on these quality criteria for a "{task_name}" task, suggest specific judges to evaluate outputs.
+
+Task: {task_name}
+Description: {task_desc}
+
+Quality Criteria:
+{chr(10).join(f"- {c}" for c in criteria_list)}
+
+For each criterion (or group of related criteria), suggest a specialized judge.
+Each judge should have a clear, specific evaluation focus.
+
+Examples of good judges:
+- "Domain Accuracy Judge" - checks domain-specific facts are correct
+- "Tone Consistency Judge" - ensures response matches expected tone
+- "Completeness Judge" - verifies all parts of query are addressed
+- "Format Compliance Judge" - checks output follows required structure
+
+Return JSON array:
+[
+    {{
+        "name": "Descriptive Judge Name",
+        "description": "What this judge evaluates",
+        "criteria": "Specific evaluation criteria as a question or checklist",
+        "type": "category (accuracy/relevance/safety/format/tone/completeness/custom)"
+    }},
+    ...
+]
+
+Suggest 2-4 judges that together cover all the quality criteria.
+Return ONLY the JSON array."""
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        if isinstance(result, list):
+            return result
+        return []
+    except Exception:
+        return []
+
+
+def _prompt_custom_judge() -> Optional[dict]:
+    """Prompt user to define a custom judge.
+
+    Returns:
+        Dict with judge definition or None if cancelled.
+    """
+    cli_utils.CONSOLE.print("\n[bold]Define Custom Judge:[/bold]")
+
+    name = Prompt.ask("Judge name", default="Custom Judge")
+    if not name:
+        return None
+
+    description = Prompt.ask("What does this judge evaluate?", default="Overall quality")
+    criteria = Prompt.ask(
+        "Evaluation criteria (question or checklist)",
+        default="Is the response high quality?",
+    )
+
+    return {
+        "name": name,
+        "description": description,
+        "criteria": criteria,
+        "type": "custom",
+    }
+
 
 
 def _detect_files_in_directory(dir_path: Path) -> list[dict]:
@@ -258,6 +2528,100 @@ def _display_columns_for_file(file_info: dict, schema=None) -> list[str]:
         cli_utils.CONSOLE.print(table)
 
     return columns
+
+
+def _identify_task_from_files(files: list[dict], llm_analyzer) -> dict:
+    """Use AI to identify what task the user is trying to accomplish.
+
+    Args:
+        files: List of file info dicts with analysis results.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Dict with task suggestions: {
+            "primary_task": str,
+            "task_description": str,
+            "alternatives": [{"task": str, "description": str}, ...],
+            "reasoning": str
+        }
+    """
+    # Build context from analyzed files
+    file_summaries = []
+    for f in files:
+        summary = f"- {f['name']} ({f['extension']})"
+        if f.get("suggested_purpose"):
+            summary += f": {f['suggested_purpose']}"
+        if f.get("schema") and f["schema"].columns:
+            cols = [c.name for c in f["schema"].columns[:10]]
+            summary += f" [columns: {', '.join(cols)}]"
+        file_summaries.append(summary)
+
+    prompt = f"""Based on these files, identify what ML task the user is likely trying to accomplish.
+
+FILES:
+{chr(10).join(file_summaries)}
+
+Common ML data tasks (with examples):
+
+1. **Q&A System** - Model answers questions using knowledge base
+   Example: "What is the return policy?" → Model looks up docs and answers
+   Input: question | Output: answer grounded in documents
+
+2. **Customer Support Bot** - Handle support tickets and inquiries
+   Example: "My order hasn't arrived" → Empathetic response + next steps
+   Input: customer message | Output: helpful response following guidelines
+
+3. **Content Classification** - Categorize text into predefined labels
+   Example: Email → "urgent" / "billing" / "general inquiry"
+   Input: text | Output: category label
+
+4. **Data Extraction** - Pull structured fields from unstructured text
+   Example: Invoice PDF → {{vendor, amount, date, line_items}}
+   Input: document | Output: structured JSON
+
+5. **Content Generation** - Create content matching style/format
+   Example: Product specs → Marketing description
+   Input: seed data | Output: generated content
+
+6. **Conversation Agent** - Multi-turn dialogue with memory
+   Example: Back-and-forth troubleshooting session
+   Input: conversation history | Output: next response
+
+7. **Compliance Checker** - Verify content follows rules
+   Example: Response text → Does it follow brand guidelines? (yes/no + issues)
+   Input: content to check | Output: pass/fail + reasoning
+
+8. **Summarization** - Condense long content
+   Example: 10-page report → 3-bullet executive summary
+   Input: long text | Output: concise summary
+
+Analyze the files and suggest the most likely task and 2-3 alternatives.
+
+Return a JSON object:
+{{
+    "primary_task": "Short task name",
+    "task_description": "What the model will do (1-2 sentences)",
+    "example_input": "A concrete example of what users will send",
+    "example_output": "What the model should respond with",
+    "alternatives": [
+        {{"task": "Alternative name", "description": "Why this might fit", "example": "Brief example"}},
+        {{"task": "Another alternative", "description": "Why this might fit", "example": "Brief example"}}
+    ],
+    "reasoning": "Why you chose this task based on file contents (cite specific files/columns)"
+}}
+
+Return ONLY the JSON object."""
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        return result
+    except Exception as e:
+        return {
+            "primary_task": "Custom Task",
+            "task_description": "Unable to determine - please describe your task",
+            "alternatives": [],
+            "reasoning": f"Analysis failed: {str(e)[:100]}"
+        }
 
 
 def _analyze_column_roles(all_columns: list[dict], llm_analyzer) -> list[dict]:
@@ -429,40 +2793,44 @@ def _prompt_column_roles(
     if verbose:
         cli_utils.CONSOLE.print(
             Panel(
-                "[bold]Column-Level Role Assignment[/bold]\n\n"
-                "[dim]The AI has analyzed your columns and suggested roles.\n"
-                "You can accept these suggestions or customize them.[/dim]",
+                "[bold]How your columns map to training data[/bold]\n\n"
+                "[dim]The AI analyzed your columns and suggested how each\n"
+                "contributes to generating training examples.[/dim]",
                 border_style="cyan",
             )
         )
         # Full table with all details
-        table = Table(title="Available Columns", show_edge=False, expand=True)
+        table = Table(title="Column Mappings", show_edge=False, expand=True)
         table.add_column("#", style="cyan", width=4)
         table.add_column("File", style="green", no_wrap=True)
         table.add_column("Column", style="yellow", no_wrap=True)
         table.add_column("Type", style="dim", no_wrap=True)
-        table.add_column("AI Role", style="magenta", no_wrap=True)
+        table.add_column("Maps To", style="magenta", no_wrap=True)
         table.add_column("Why?", style="dim")
 
         for i, col_data in enumerate(all_columns, 1):
-            suggested_role = col_data.get("suggested_role", "").upper()
+            role_key = col_data.get("suggested_role", "").lower()
+            role_info = COLUMN_ROLE_GUIDANCE.get(role_key, {})
+            role_title = role_info.get("title", role_key.upper())
             role_reason = col_data.get("role_reason", "")
             table.add_row(
                 str(i),
                 col_data["file"]["name"],
                 col_data["column"],
                 col_data["col_info"].dtype,
-                suggested_role,
+                role_title,
                 role_reason,
             )
         cli_utils.CONSOLE.print(table)
     else:
         # Compact display
-        cli_utils.CONSOLE.print("\n[bold]Column Roles:[/bold]")
+        cli_utils.CONSOLE.print("\n[bold]Column mappings:[/bold]")
         for i, col_data in enumerate(all_columns, 1):
-            suggested_role = col_data.get("suggested_role", "").upper()
+            role_key = col_data.get("suggested_role", "").lower()
+            role_info = COLUMN_ROLE_GUIDANCE.get(role_key, {})
+            role_title = role_info.get("title", role_key.upper())
             cli_utils.CONSOLE.print(
-                f"  [{i}] [yellow]{col_data['column']}[/yellow] → [magenta]{suggested_role}[/magenta]"
+                f"  [{i}] [yellow]{col_data['column']}[/yellow] → [magenta]{role_title}[/magenta]"
             )
 
     # Ask if user wants to use AI suggestions or customize
@@ -1671,50 +4039,47 @@ def wizard(
 ):
     """Interactive wizard to guide you through Oumi setup.
 
-    This wizard analyzes your data and helps you create configurations
-    for synthesis, evaluation, and training.
+    This wizard helps you build training data through 4 simple steps:
+    1. Task - What should your model do?
+    2. Inputs - What data will it receive?
+    3. Outputs - What makes a good response?
+    4. Generate - Create configs for synthesis and evaluation
 
     Examples:
         # Single file
         oumi onboard wizard --data ./my_data.csv
 
-        # Directory with multiple files
-        oumi onboard wizard --data ./customer_data/
-
-        # With AI analysis using different engines
-        oumi onboard wizard --data ./data/ --llm --engine ANTHROPIC
-        oumi onboard wizard --data ./data/ --llm --engine OPENAI --model gpt-4o
+        # With AI analysis (recommended)
+        oumi onboard wizard --data ./data/ --llm
 
         # Show detailed output
         oumi onboard wizard --data ./data/ --llm --verbose
     """
     # Delayed imports
-    from oumi.onboarding import DataAnalyzer, FieldMapper
-    from oumi.onboarding.config_builder import (
-        JudgeConfigBuilder,
-        SynthConfigBuilder,
-        TrainConfigBuilder,
-    )
+    from oumi.onboarding import DataAnalyzer
 
-    # Welcome message - concise by default
+    # Initialize wizard state
+    state = WizardState()
+
+    # Welcome message
     if verbose:
         cli_utils.CONSOLE.print(
             Panel(
                 "[bold green]Welcome to the Oumi Onboarding Wizard![/bold green]\n\n"
-                "This wizard will help you create configurations for:\n"
-                "  [cyan]oumi synth[/cyan]  - Generate synthetic training data\n"
-                "  [cyan]oumi judge[/cyan]  - Evaluate and score data quality\n"
-                "  [cyan]oumi train[/cyan]  - Fine-tune language models\n\n"
-                "[dim]The wizard will analyze your data and suggest the best options.\n"
-                "You can accept defaults or customize each setting.[/dim]",
+                "4 simple steps to build training data:\n\n"
+                "  [cyan]1.[/cyan] Task    - What should your model do?\n"
+                "  [cyan]2.[/cyan] Inputs  - What data will it receive?\n"
+                "  [cyan]3.[/cyan] Outputs - What makes a good response?\n"
+                "  [cyan]4.[/cyan] Generate - Create synthesis & judge configs\n\n"
+                "[dim]The wizard suggests options based on your data.[/dim]",
                 title="Oumi Onboard",
                 border_style="green",
             )
         )
     else:
         cli_utils.CONSOLE.print(
-            "[bold green]Oumi Onboarding Wizard[/bold green] "
-            "[dim](use --verbose for detailed output)[/dim]\n"
+            "[bold green]Oumi Onboarding Wizard[/bold green]\n"
+            "[dim]4 steps: Task → Inputs → Outputs → Generate[/dim]\n"
         )
 
     # Check if input is a directory or file
@@ -1724,14 +4089,9 @@ def wizard(
         raise typer.Exit(1)
 
     analyzer = DataAnalyzer()
-    file_roles = {}
-    multi_file_analysis = None
-    column_assignments = None  # For column-level role assignment
 
-    # Initialize LLM analyzer early if needed
-    llm_analyzer_instance = None
+    # Initialize LLM analyzer if requested
     if use_llm:
-        # Validate engine choice
         valid_engines = ["ANTHROPIC", "OPENAI", "DEEPSEEK", "TOGETHER"]
         engine_upper = engine.upper()
         if engine_upper not in valid_engines:
@@ -1742,12 +4102,9 @@ def wizard(
             engine_upper = "ANTHROPIC"
 
         try:
-            from oumi.onboarding.llm_analyzer import FileContext, LLMAnalyzer
+            from oumi.onboarding.llm_analyzer import LLMAnalyzer
 
-            llm_analyzer_instance = LLMAnalyzer(
-                engine=engine_upper,
-                model=model,
-            )
+            state.llm_analyzer = LLMAnalyzer(engine=engine_upper, model=model)
             cli_utils.CONSOLE.print(
                 f"[dim]Using {engine_upper} engine"
                 f"{f' with model {model}' if model else ''}[/dim]\n"
@@ -1764,12 +4121,53 @@ def wizard(
             )
             use_llm = False
 
-    # Handle directory input (multi-file mode)
-    if data_path.is_dir():
-        cli_utils.CONSOLE.print(
-            "\n[bold cyan]Step 1/5: Scanning directory...[/bold cyan]"
-        )
+    # Create output directory
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
 
+    # =========================================================================
+    # CACHE: Check for existing wizard state BEFORE analyzing files
+    # =========================================================================
+
+    cache_path = _get_cache_path(output_path)
+    cached_state = _load_wizard_cache(output_path)
+    use_cached_analysis = False
+
+    if cached_state:
+        cli_utils.CONSOLE.print(
+            "\n[bold cyan]Found existing wizard cache![/bold cyan]"
+        )
+        _display_cache_summary(cached_state, cache_path)
+
+        action = _prompt_cache_action(cache_path)
+
+        if action == "edit":
+            _open_cache_for_editing(cache_path)
+            # Reload after editing
+            cached_state = _load_wizard_cache(output_path)
+            if not cached_state:
+                cli_utils.CONSOLE.print("[yellow]Could not reload cache. Starting fresh.[/yellow]")
+
+        if action == "restart":
+            cli_utils.CONSOLE.print("[dim]Starting fresh...[/dim]")
+            cache_path.unlink(missing_ok=True)
+            cached_state = None
+
+        if cached_state and action in ("resume", "edit"):
+            # Restore state from cache
+            state.task = cached_state.task
+            state.inputs = cached_state.inputs
+            state.outputs = cached_state.outputs
+            state.completed_steps = cached_state.completed_steps
+            use_cached_analysis = True
+            cli_utils.CONSOLE.print(
+                f"[green]Resuming from step {len(state.completed_steps) + 1}...[/green]\n"
+            )
+
+    # Scan and analyze files
+    cli_utils.CONSOLE.print("[dim]Scanning files...[/dim]")
+
+    if data_path.is_dir():
         files = _detect_files_in_directory(data_path)
         if not files:
             cli_utils.CONSOLE.print(
@@ -1777,336 +4175,196 @@ def wizard(
                 f"[dim]Supported formats: {', '.join(SUPPORTED_EXTENSIONS)}[/dim]"
             )
             raise typer.Exit(1)
-
         cli_utils.CONSOLE.print(f"[green]Found {len(files)} file(s)[/green]")
-
-        # AI analysis of each file if LLM enabled
-        if use_llm and llm_analyzer_instance:
-            with cli_utils.CONSOLE.status(
-                "[dim]Analyzing files with AI...[/dim]", spinner="dots"
-            ):
-                files = _analyze_file_purposes(files, analyzer, llm_analyzer_instance)
-
-            # Display files with AI analysis - verbose shows full table
-            if verbose:
-                _display_file_listing(files, analyzer, show_ai_analysis=True)
-
-            # Show AI-suggested role assignments
-            cli_utils.CONSOLE.print("\n[bold]File Roles:[/bold]")
-            for f in files:
-                role = f.get("suggested_role", "unknown").upper()
-                reason = f.get("role_reason") or ""
-                if verbose:
-                    cli_utils.CONSOLE.print(
-                        f"  [cyan]{f['name']}[/cyan] → [magenta]{role}[/magenta]"
-                    )
-                    if reason:
-                        cli_utils.CONSOLE.print(f"    [dim]{reason}[/dim]")
-                else:
-                    cli_utils.CONSOLE.print(
-                        f"  [cyan]{f['name']}[/cyan] → [magenta]{role}[/magenta]"
-                    )
-
-            # Check if we have tabular files for column-level assignment
-            has_tabular_files = any(
-                f["extension"] in TABULAR_EXTENSIONS for f in files
-            )
-
-            # Ask what level of assignment - simplified prompt
-            cli_utils.CONSOLE.print("")
-            if has_tabular_files:
-                assignment_mode = Prompt.ask(
-                    "Assignment mode",
-                    choices=["ai", "file", "column"],
-                    default="ai",
-                )
-                if verbose:
-                    cli_utils.CONSOLE.print(
-                        "[dim]  ai     = Use AI-suggested file roles\n"
-                        "  file   = Manually assign entire files to roles\n"
-                        "  column = Pick specific columns from tabular files[/dim]"
-                    )
-            else:
-                use_ai_roles = Confirm.ask(
-                    "Use AI-suggested file roles?",
-                    default=True,
-                )
-                assignment_mode = "ai" if use_ai_roles else "file"
-
-            column_assignments = None
-
-            if assignment_mode == "ai":
-                # Build file_roles from AI suggestions
-                file_roles = {}
-                for f in files:
-                    role = f.get("suggested_role", "context")
-                    if role == "primary" and "primary" not in file_roles:
-                        file_roles["primary"] = f["path"]
-                    elif role == "reference" and "reference" not in file_roles:
-                        file_roles["reference"] = f["path"]
-                    elif role == "rules" and "rules" not in file_roles:
-                        file_roles["rules"] = f["path"]
-                    elif role == "examples" and "examples" not in file_roles:
-                        file_roles["examples"] = f["path"]
-
-                # Ensure we have a primary
-                if "primary" not in file_roles and files:
-                    file_roles["primary"] = files[0]["path"]
-
-            elif assignment_mode == "column":
-                # Column-level assignment for tabular files
-                column_assignments = _prompt_column_roles(
-                    files, analyzer, llm_analyzer_instance, verbose=verbose
-                )
-                # Extract file_roles from column_assignments
-                file_roles = {}
-                if "primary" in column_assignments:
-                    file_roles["primary"] = column_assignments["primary"]["path"]
-                if "rules" in column_assignments:
-                    file_roles["rules"] = column_assignments["rules"]["path"]
-
-            else:
-                # Manual file-level role assignment
-                cli_utils.CONSOLE.print(
-                    "\n[bold cyan]Manual File Role Assignment[/bold cyan]\n"
-                )
-                file_roles = _prompt_file_roles(files)
-        else:
-            # No LLM - display basic listing and manual assignment
-            with cli_utils.CONSOLE.status(
-                "[green]Analyzing files...[/green]", spinner="dots"
-            ):
-                _display_file_listing(files, analyzer)
-
-            # Check if we have tabular files for column-level assignment
-            has_tabular_files = any(
-                f["extension"] in TABULAR_EXTENSIONS for f in files
-            )
-
-            column_assignments = None
-
-            if has_tabular_files:
-                cli_utils.CONSOLE.print(
-                    "\n[bold cyan]Assignment Mode[/bold cyan]\n"
-                    "[dim]You can assign entire files to roles, or pick specific columns.[/dim]\n"
-                )
-                assignment_mode = Prompt.ask(
-                    "How would you like to assign data?",
-                    choices=["file", "column"],
-                    default="file",
-                )
-                cli_utils.CONSOLE.print(
-                    "[dim]  file   = Assign entire files to roles\n"
-                    "  column = Pick specific columns from tabular files[/dim]\n"
-                )
-
-                if assignment_mode == "column":
-                    column_assignments = _prompt_column_roles(
-                        files, analyzer, None, verbose=verbose
-                    )
-                    # Extract file_roles from column_assignments
-                    file_roles = {}
-                    if "primary" in column_assignments:
-                        file_roles["primary"] = column_assignments["primary"]["path"]
-                    if "rules" in column_assignments:
-                        file_roles["rules"] = column_assignments["rules"]["path"]
-                else:
-                    cli_utils.CONSOLE.print(
-                        "\n[bold cyan]Identify File Roles[/bold cyan]\n"
-                        "[dim]Help us understand how each file should be used.[/dim]\n"
-                    )
-                    file_roles = _prompt_file_roles(files)
-            else:
-                cli_utils.CONSOLE.print(
-                    "\n[bold cyan]Identify File Roles[/bold cyan]\n"
-                    "[dim]Help us understand how each file should be used.[/dim]\n"
-                )
-                file_roles = _prompt_file_roles(files)
-
-        # Use primary file as the main schema
-        primary_path = file_roles["primary"]
-        with cli_utils.CONSOLE.status(
-            "[green]Analyzing primary data...[/green]", spinner="dots"
-        ):
-            try:
-                schema = analyzer.analyze(primary_path)
-            except Exception as e:
-                cli_utils.CONSOLE.print(f"[red]Error analyzing primary data: {e}[/red]")
-                raise typer.Exit(1)
-
-        # Display schema info for primary file
-        _display_schema_info(schema)
-
-        # Multi-file LLM analysis if enabled and multiple roles assigned
-        if use_llm and llm_analyzer_instance and len(file_roles) > 1:
-            cli_utils.CONSOLE.print(
-                "\n[bold cyan]AI Analysis: Analyzing file relationships...[/bold cyan]"
-            )
-            try:
-                from oumi.onboarding.llm_analyzer import FileContext
-
-                # Build file contexts
-                file_contexts = []
-                for role, path in file_roles.items():
-                    ctx_schema = None
-                    try:
-                        ctx_schema = analyzer.analyze(path)
-                    except Exception:
-                        pass
-
-                    file_contexts.append(
-                        FileContext(
-                            path=str(path),
-                            role=role,
-                            schema=ctx_schema,
-                            summary=f"{role} data file",
-                        )
-                    )
-
-                with cli_utils.CONSOLE.status(
-                    "[green]Analyzing relationships between files...[/green]",
-                    spinner="dots",
-                ):
-                    multi_file_analysis = llm_analyzer_instance.analyze_multi_file(file_contexts)
-
-                _display_multi_file_analysis(multi_file_analysis)
-
-            except Exception as e:
-                cli_utils.CONSOLE.print(
-                    f"[yellow]Warning: Multi-file analysis failed: {e}[/yellow]\n"
-                    "[dim]Continuing with single-file config generation.[/dim]"
-                )
-
     else:
-        # Single file mode (original behavior)
-        cli_utils.CONSOLE.print(
-            "\n[bold cyan]Step 1/5: Analyzing your data...[/bold cyan]"
-        )
+        files = [{
+            "path": data_path,
+            "name": data_path.name,
+            "extension": data_path.suffix.lower(),
+        }]
 
-        with cli_utils.CONSOLE.status("[green]Analyzing...[/green]", spinner="dots"):
-            try:
-                schema = analyzer.analyze(data_path)
-            except Exception as e:
-                cli_utils.CONSOLE.print(f"[red]Error analyzing data: {e}[/red]")
-                raise typer.Exit(1)
+    # Compute content hashes for all files
+    for f in files:
+        f["content_hash"] = _compute_file_hash(f["path"])
 
-        # Display schema info
-        _display_schema_info(schema)
+    # Build lookup of cached file analysis by path and hash
+    cached_file_analysis = {}
+    if cached_state and cached_state.files:
+        for cf in cached_state.files:
+            if cf.get("path") and cf.get("content_hash"):
+                cached_file_analysis[str(cf["path"])] = cf
 
-    # Optional: LLM-based domain analysis (reuse llm_analyzer_instance if available)
-    domain = None
-    llm_analyzer = llm_analyzer_instance  # Use the instance created earlier if any
-    if use_llm and llm_analyzer is not None:
-        cli_utils.CONSOLE.print(
-            "\n[bold cyan]AI Analysis: Analyzing your data with Claude...[/bold cyan]"
-        )
-        try:
-            with cli_utils.CONSOLE.status(
-                "[green]Analyzing domain and terminology...[/green]", spinner="dots"
+    # Analyze files and store in state, using cache when content unchanged
+    files_needing_llm_analysis = []
+    with cli_utils.CONSOLE.status("[dim]Analyzing files...[/dim]", spinner="dots"):
+        for f in files:
+            file_path_str = str(f["path"])
+            cached_info = cached_file_analysis.get(file_path_str)
+
+            # Check if we can use cached analysis (same content hash)
+            if (
+                use_cached_analysis
+                and cached_info
+                and cached_info.get("content_hash") == f["content_hash"]
+                and cached_info.get("suggested_purpose")
             ):
-                domain = llm_analyzer.analyze(schema)
+                # Use cached file analysis
+                f["suggested_purpose"] = cached_info.get("suggested_purpose", "")
+                f["suggested_role"] = cached_info.get("suggested_role", "")
+                f["role_reason"] = cached_info.get("role_reason", "")
+                if verbose:
+                    cli_utils.CONSOLE.print(
+                        f"[dim]Using cached analysis for {f['name']}[/dim]"
+                    )
+            else:
+                # Need fresh analysis
+                files_needing_llm_analysis.append(f)
 
-            # Display domain analysis results
-            _display_domain_analysis(domain)
+            # Always analyze schema (it's fast and needed for the wizard)
+            try:
+                schema = analyzer.analyze(f["path"])
+                f["schema"] = schema
+                state.schemas[str(f["path"])] = schema
+            except Exception as e:
+                f["schema"] = None
+                if verbose:
+                    cli_utils.CONSOLE.print(f"[yellow]Warning: Could not analyze {f['name']}: {e}[/yellow]")
 
-        except Exception as e:
+    # Run LLM analysis only for files that need it
+    if use_llm and state.llm_analyzer and files_needing_llm_analysis:
+        if verbose:
             cli_utils.CONSOLE.print(
-                f"[yellow]Warning: LLM analysis failed: {e}[/yellow]\n"
-                "[dim]Continuing with template-based config generation.[/dim]"
+                f"[dim]Running LLM analysis for {len(files_needing_llm_analysis)} file(s)...[/dim]"
             )
+        files_needing_llm_analysis = _analyze_file_purposes(
+            files_needing_llm_analysis, analyzer, state.llm_analyzer
+        )
+        # Update the original files list with analysis results
+        analyzed_by_path = {str(f["path"]): f for f in files_needing_llm_analysis}
+        for f in files:
+            if str(f["path"]) in analyzed_by_path:
+                analyzed = analyzed_by_path[str(f["path"])]
+                f["suggested_purpose"] = analyzed.get("suggested_purpose", "")
+                f["suggested_role"] = analyzed.get("suggested_role", "")
+                f["role_reason"] = analyzed.get("role_reason", "")
+    elif use_llm and state.llm_analyzer and not files_needing_llm_analysis:
+        cli_utils.CONSOLE.print("[dim]All file analyses loaded from cache[/dim]")
 
-    # Step 2: Select goal
-    cli_utils.CONSOLE.print("\n[bold cyan]Step 2/5: What would you like to do?[/bold cyan]")
+    state.files = files
+
+    # Set primary schema (use first tabular file or first file)
+    for f in files:
+        if f.get("schema") and f["schema"].columns:
+            state.primary_schema = f["schema"]
+            break
+    if not state.primary_schema and files and files[0].get("schema"):
+        state.primary_schema = files[0]["schema"]
+
+    # Run domain analysis if LLM enabled
+    # Use cached domain analysis if available and no files needed re-analysis
+    if use_llm and state.llm_analyzer and state.primary_schema:
+        if (
+            use_cached_analysis
+            and cached_state
+            and cached_state.domain_analysis
+            and not files_needing_llm_analysis
+        ):
+            # Use cached domain analysis
+            state.domain_analysis = cached_state.domain_analysis
+            if verbose:
+                cli_utils.CONSOLE.print("[dim]Using cached domain analysis[/dim]")
+        else:
+            # Run fresh domain analysis
+            try:
+                with cli_utils.CONSOLE.status(
+                    "[dim]Analyzing domain...[/dim]", spinner="dots"
+                ):
+                    state.domain_analysis = state.llm_analyzer.analyze(state.primary_schema)
+            except Exception as e:
+                if verbose:
+                    cli_utils.CONSOLE.print(f"[yellow]Warning: Domain analysis failed: {e}[/yellow]")
+
+    # =========================================================================
+    # SIMPLIFIED WIZARD FLOW: 4-step process with caching
+    # =========================================================================
+
+    # Step 1: Define Task (includes system prompt)
+    if "task" not in state.completed_steps:
+        state = _wizard_step_task(state, verbose=verbose)
+        _save_wizard_cache(state, output_path, "task")
+    else:
+        desc_preview = state.task.description[:50] + "..." if state.task.description else "defined"
+        cli_utils.CONSOLE.print(
+            f"\n[dim]Step 1/4: Task[/dim] [green]✓[/green] {desc_preview}"
+        )
+
+    # Step 2: Define Inputs
+    if "inputs" not in state.completed_steps:
+        state = _wizard_step_inputs(state, verbose=verbose)
+        _save_wizard_cache(state, output_path, "inputs")
+    else:
+        input_preview = INPUT_FORMATS.get(state.inputs.format, state.inputs.format)
+        cli_utils.CONSOLE.print(
+            f"\n[dim]Step 2/4: Inputs[/dim] [green]✓[/green] {input_preview}"
+        )
+
+    # Step 3: Define Output Quality
+    if "outputs" not in state.completed_steps:
+        state = _wizard_step_outputs(state, verbose=verbose)
+        _save_wizard_cache(state, output_path, "outputs")
+    else:
+        quality_preview = ", ".join(state.outputs.criteria[:2]) or "defined"
+        cli_utils.CONSOLE.print(
+            f"\n[dim]Step 3/4: Outputs[/dim] [green]✓[/green] {quality_preview}"
+        )
+
+    # Step 4: Generate Configs (synthesis + judges)
+    if "generate" not in state.completed_steps:
+        synth_config_path, judge_config_paths = _wizard_step_generate(state, output_path, verbose=verbose)
+        _save_wizard_cache(state, output_path, "generate")
+    else:
+        synth_config_path = str(output_path / "synth_config.yaml")
+        judge_config_paths = []
+        cli_utils.CONSOLE.print(
+            f"\n[dim]Step 4/4: Generate[/dim] [green]✓[/green] configs generated"
+        )
+
+    # =========================================================================
+    # Summary and next steps
+    # =========================================================================
+
+    cli_utils.CONSOLE.print(
+        "\n[bold green]━━━ Complete! ━━━[/bold green]\n"
+    )
+
+    # Build command list
+    commands = [f"oumi synth -c {synth_config_path}"]
+    if judge_config_paths:
+        judge_path = judge_config_paths[0] if judge_config_paths else str(output_path / "judge_config.yaml")
+        commands.append(f"oumi judge dataset -c {judge_path} --input {output_path / 'synth_output.jsonl'}")
+
     cli_utils.CONSOLE.print(
         Panel(
-            "[bold white][1] Generate synthetic training data[/bold white] (oumi synth)\n"
-            "    [dim]Create new training examples from your data using an LLM.\n"
-            "    Best for: Expanding small datasets, creating Q&A pairs, augmenting conversations.[/dim]\n\n"
-            "[bold white][2] Evaluate/judge data quality[/bold white] (oumi judge)\n"
-            "    [dim]Score and filter your data based on quality criteria.\n"
-            "    Best for: Quality control, compliance checking, filtering bad examples.[/dim]\n\n"
-            "[bold white][3] Train a model[/bold white] (oumi train)\n"
-            "    [dim]Fine-tune a language model on your data.\n"
-            "    Best for: Creating a custom model for your specific use case.[/dim]\n\n"
-            "[bold white][4] Full pipeline: synth -> judge -> train[/bold white]\n"
-            "    [dim]Run all three steps in sequence.\n"
-            "    Best for: End-to-end workflow from raw data to trained model.[/dim]",
-            title="Choose your goal",
-            border_style="blue",
+            "\n".join(f"[bold white]{i+1}. {cmd}[/bold white]" for i, cmd in enumerate(commands)),
+            title="[green]Run these commands in order[/green]",
+            border_style="green",
+            padding=(1, 2),
         )
     )
 
-    choice = IntPrompt.ask("\nSelect an option", choices=["1", "2", "3", "4"], default="1")
-
-    # Create output directory
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    # Step 3-4: Configure based on choice
-    if choice == 1:
-        commands = _wizard_synth(
-            schema, output_path, analyzer, domain, llm_analyzer, file_roles,
-            column_assignments=column_assignments, verbose=verbose,
-        )
-    elif choice == 2:
-        commands = _wizard_judge(schema, output_path, domain, llm_analyzer, verbose=verbose)
-    elif choice == 3:
-        commands = _wizard_train(schema, output_path, verbose=verbose)
-    elif choice == 4:
-        commands = _wizard_pipeline(
-            schema, output_path, analyzer, domain, llm_analyzer, file_roles,
-            column_assignments=column_assignments, verbose=verbose,
-        )
-
-    # Step 5: Show runnable command(s)
-    cli_utils.CONSOLE.print("\n[bold cyan]Step 5/5: Ready to run![/bold cyan]")
-
-    if len(commands) == 1:
-        cli_utils.CONSOLE.print(
-            Panel(
-                f"[bold white]{commands[0]}[/bold white]",
-                title="[green]Run this command[/green]",
-                border_style="green",
-                padding=(1, 2),
-            )
-        )
-    else:
-        commands_text = "\n".join(
-            f"[bold white]{i+1}. {cmd}[/bold white]" for i, cmd in enumerate(commands)
-        )
-        cli_utils.CONSOLE.print(
-            Panel(
-                commands_text,
-                title="[green]Run these commands in order[/green]",
-                border_style="green",
-                padding=(1, 2),
-            )
-        )
-
     cli_utils.CONSOLE.print(f"\n[dim]Configs saved to: {output_path}[/dim]")
 
-    # Show prerequisites based on what was configured
-    prereqs = []
-    if choice in [1, 2, 4]:  # synth, judge, or pipeline
-        prereqs.append(
-            "[yellow]Synth/Judge:[/yellow] Set ANTHROPIC_API_KEY or OPENAI_API_KEY env var"
+    # Show prerequisites
+    cli_utils.CONSOLE.print(
+        Panel(
+            "[yellow]API Key:[/yellow] Set ANTHROPIC_API_KEY or OPENAI_API_KEY env var\n\n"
+            "[dim]To use a local model, edit the config and change:\n"
+            "  inference_config.engine: VLLM\n"
+            "  inference_config.model.model_name: <local-model-path>[/dim]",
+            title="Prerequisites",
+            border_style="yellow",
         )
-    if choice in [3, 4]:  # train or pipeline
-        prereqs.append(
-            "[yellow]Training:[/yellow] Requires GPU with sufficient VRAM (see model selection)"
-        )
-
-    if prereqs:
-        cli_utils.CONSOLE.print(
-            Panel(
-                "\n".join(prereqs) + "\n\n"
-                "[dim]To use a local model for synth, edit the config and change:\n"
-                "  inference_config.engine: VLLM\n"
-                "  inference_config.model.model_name: <local-model-path>[/dim]",
-                title="Prerequisites",
-                border_style="yellow",
-            )
-        )
+    )
 
 
 def _display_domain_analysis(domain):
@@ -2196,30 +4454,39 @@ def _wizard_synth(
 
     # Suggest goal based on data
     suggested_goal = analyzer.suggest_goal(schema)
-    cli_utils.CONSOLE.print(
-        Panel(
-            f"[bold]Recommended: [green]{suggested_goal}[/green][/bold] "
-            f"(based on your data structure)\n\n"
-            "[bold white][1] qa[/bold white] - Generate Question-Answer Pairs\n"
-            "    [dim]Reads your content and creates questions about it,\n"
-            "    then generates accurate answers based on the source material.\n"
-            "    Output: {question, answer, context}[/dim]\n\n"
-            "[bold white][2] conversation[/bold white] - Generate Multi-Turn Dialogues\n"
-            "    [dim]Creates realistic back-and-forth conversations\n"
-            "    with multiple turns between user and assistant.\n"
-            "    Output: {messages: [{role, content}, ...]}[/dim]\n\n"
-            "[bold white][3] augmentation[/bold white] - Create Variations of Existing Data\n"
-            "    [dim]Takes your existing examples and creates new variations\n"
-            "    that preserve meaning but change wording, style, or perspective.\n"
-            "    Output: Same format as input, with variations[/dim]\n\n"
-            "[bold white][4] instruction[/bold white] - Generate Instruction-Following Data\n"
-            "    [dim]Creates task instructions paired with correct outputs,\n"
-            "    teaching the model to follow specific guidelines or procedures.\n"
-            "    Output: {instruction, input, output}[/dim]",
-            title="Synthesis Goal - What should the LLM generate?",
-            border_style="blue",
+    if verbose:
+        cli_utils.CONSOLE.print(
+            Panel(
+                f"[bold]Recommended: [green]{suggested_goal}[/green][/bold] "
+                f"(based on your data structure)\n\n"
+                "[bold white][1] qa[/bold white] - Question-Answer Pairs\n"
+                "    [dim]Input: Questions about your content\n"
+                "    Output: Accurate answers grounded in source material\n"
+                "    Format: {question, answer, context}[/dim]\n\n"
+                "[bold white][2] conversation[/bold white] - Multi-Turn Dialogues\n"
+                "    [dim]Input: Conversation starters or scenarios\n"
+                "    Output: Natural back-and-forth exchanges\n"
+                "    Format: {messages: [{role, content}, ...]}[/dim]\n\n"
+                "[bold white][3] augmentation[/bold white] - Variations of Existing Data\n"
+                "    [dim]Input: Your existing examples\n"
+                "    Output: Paraphrased versions preserving meaning\n"
+                "    Format: Same as input[/dim]\n\n"
+                "[bold white][4] instruction[/bold white] - Instruction-Following Data\n"
+                "    [dim]Input: Task instructions or commands\n"
+                "    Output: Correct task completions\n"
+                "    Format: {instruction, input, output}[/dim]",
+                title="What type of training data do you want to generate?",
+                border_style="blue",
+            )
         )
-    )
+    else:
+        cli_utils.CONSOLE.print(
+            f"[bold]Data type to generate[/bold] [dim](recommended: {suggested_goal})[/dim]\n"
+            "  [white][1][/white] qa           - Question-answer pairs\n"
+            "  [white][2][/white] conversation - Multi-turn dialogues\n"
+            "  [white][3][/white] augmentation - Variations of existing data\n"
+            "  [white][4][/white] instruction  - Instruction-following examples"
+        )
 
     goal_map = {"1": "qa", "2": "conversation", "3": "augmentation", "4": "instruction"}
     goal_choice = Prompt.ask(
@@ -2268,13 +4535,14 @@ def _wizard_synth(
         # Offer interactive prompt building
         cli_utils.CONSOLE.print(
             Panel(
-                "[bold]Configuration Mode[/bold]\n\n"
-                "[cyan][1][/cyan] [bold]Quick[/bold] - Auto-generate prompts based on your data\n"
-                "    [dim]AI creates everything automatically. Good for fast iteration.[/dim]\n\n"
-                "[cyan][2][/cyan] [bold]Interactive[/bold] - Build prompts step by step with AI\n"
-                "    [dim]You'll refine system prompt, questions, and answers together.\n"
-                "    Best for high-quality, customized outputs.[/dim]",
-                title="Choose Configuration Mode",
+                "[bold]How would you like to define your task?[/bold]\n\n"
+                "[cyan][1][/cyan] [bold]Quick[/bold] - AI auto-generates based on your data\n"
+                "    [dim]System prompt, inputs, and outputs are inferred automatically.\n"
+                "    Good for: Fast iteration, exploring what's possible.[/dim]\n\n"
+                "[cyan][2][/cyan] [bold]Interactive[/bold] - Define each component step by step\n"
+                "    [dim]You'll specify: system prompt → input distribution → output quality.\n"
+                "    Good for: Production use, high-quality customized data.[/dim]",
+                title="Task Definition Mode",
                 border_style="magenta",
             )
         )
@@ -2288,21 +4556,36 @@ def _wizard_synth(
         if mode_choice == "2":
             # Interactive prompt building mode
             cli_utils.CONSOLE.print(
-                "\n[bold magenta]Interactive Prompt Building[/bold magenta]\n"
-                "[dim]We'll work together to create the perfect prompts for your use case.[/dim]"
+                "\n[bold magenta]Interactive Task Definition[/bold magenta]\n"
+                "[dim]We'll define your task in 3 steps:[/dim]\n"
+                "  [cyan]1.[/cyan] System Prompt - How should your model behave?\n"
+                "  [cyan]2.[/cyan] Input Distribution - What questions/requests will users make?\n"
+                "  [cyan]3.[/cyan] Output Quality - What does a good answer look like?\n"
             )
 
             # Step 1: Build system prompt interactively
+            cli_utils.CONSOLE.print(
+                "\n[bold cyan]─── Step 1: System Prompt ───[/bold cyan]\n"
+                "[dim]Define your model's persona, capabilities, and constraints.[/dim]"
+            )
             system_prompt = _iterative_system_prompt_builder(
                 schema, domain, llm_analyzer, file_roles
             )
 
             # Step 2: Build question template interactively
+            cli_utils.CONSOLE.print(
+                "\n[bold cyan]─── Step 2: Input Distribution ───[/bold cyan]\n"
+                "[dim]Define the types of questions or requests users will make.[/dim]"
+            )
             question_template = _iterative_question_template_builder(
                 schema, domain, system_prompt, llm_analyzer
             )
 
             # Step 3: Build answer template interactively
+            cli_utils.CONSOLE.print(
+                "\n[bold cyan]─── Step 3: Output Quality ───[/bold cyan]\n"
+                "[dim]Define what a high-quality answer looks like.[/dim]"
+            )
             answer_template, postprocessing = _iterative_answer_template_builder(
                 schema, domain, system_prompt, question_template, llm_analyzer
             )
@@ -2360,29 +4643,45 @@ def _wizard_judge(schema, output_path: Path, domain=None, llm_analyzer=None, ver
     """Configure judge."""
     from oumi.onboarding.config_builder import JudgeConfigBuilder
 
-    cli_utils.CONSOLE.print("\n[bold cyan]Step 3/5: Configuring evaluation...[/bold cyan]")
+    cli_utils.CONSOLE.print("\n[bold cyan]Step 3/5: Defining output quality criteria...[/bold cyan]")
 
-    cli_utils.CONSOLE.print(
-        Panel(
-            "[bold white][1] generic[/bold white] - General quality evaluation\n"
-            "    [dim]Evaluates overall quality: coherence, helpfulness, and clarity.\n"
-            "    Use when you want a broad quality score without specific criteria.[/dim]\n\n"
-            "[bold white][2] compliance[/bold white] - Check guideline adherence\n"
-            "    [dim]Verifies responses follow specific rules or guidelines.\n"
-            "    Example: \"Does the agent follow the refund policy?\"[/dim]\n\n"
-            "[bold white][3] relevance[/bold white] - Check answer relevance\n"
-            "    [dim]Measures how well answers address the question asked.\n"
-            "    Useful for Q&A systems and search result evaluation.[/dim]\n\n"
-            "[bold white][4] safety[/bold white] - Check content safety\n"
-            "    [dim]Detects harmful, biased, or inappropriate content.\n"
-            "    Essential for production deployments and content moderation.[/dim]\n\n"
-            "[bold white][5] groundedness[/bold white] - Check factual accuracy\n"
-            "    [dim]Verifies claims are supported by provided context.\n"
-            "    Critical for RAG systems to detect hallucinations.[/dim]",
-            title="Judge Type",
-            border_style="blue",
+    if verbose:
+        cli_utils.CONSOLE.print(
+            "[dim]A judge evaluates: \"What does a good answer look like?\"\n"
+            "It scores your data so you can filter low-quality examples.[/dim]\n"
         )
-    )
+
+    if verbose:
+        cli_utils.CONSOLE.print(
+            Panel(
+                "[bold white][1] generic[/bold white] - General quality evaluation\n"
+                "    [dim]Evaluates overall quality: coherence, helpfulness, and clarity.\n"
+                "    Use when you want a broad quality score without specific criteria.[/dim]\n\n"
+                "[bold white][2] compliance[/bold white] - Check guideline adherence\n"
+                "    [dim]Verifies responses follow specific rules or guidelines.\n"
+                "    Example: \"Does the agent follow the refund policy?\"[/dim]\n\n"
+                "[bold white][3] relevance[/bold white] - Check answer relevance\n"
+                "    [dim]Measures how well answers address the question asked.\n"
+                "    Useful for Q&A systems and search result evaluation.[/dim]\n\n"
+                "[bold white][4] safety[/bold white] - Check content safety\n"
+                "    [dim]Detects harmful, biased, or inappropriate content.\n"
+                "    Essential for production deployments and content moderation.[/dim]\n\n"
+                "[bold white][5] groundedness[/bold white] - Check factual accuracy\n"
+                "    [dim]Verifies claims are supported by provided context.\n"
+                "    Critical for RAG systems to detect hallucinations.[/dim]",
+                title="What quality criteria should we evaluate?",
+                border_style="blue",
+            )
+        )
+    else:
+        cli_utils.CONSOLE.print(
+            "[bold]Quality criteria to evaluate:[/bold]\n"
+            "  [white][1][/white] generic      - Overall quality, coherence, helpfulness\n"
+            "  [white][2][/white] compliance   - Follows rules and guidelines\n"
+            "  [white][3][/white] relevance    - Addresses the question asked\n"
+            "  [white][4][/white] safety       - Free from harmful content\n"
+            "  [white][5][/white] groundedness - Claims supported by context"
+        )
 
     type_map = {
         "1": "generic",

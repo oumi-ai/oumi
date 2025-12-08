@@ -122,7 +122,7 @@ def _convert_to_supported_format(file_path: str, output_dir: Optional[str] = Non
 class BuilderOptions:
     """Common options for config builders."""
 
-    model_name: str = "claude-3-5-sonnet-20240620"
+    model_name: str = "claude-haiku-4-5"
     engine: str = "ANTHROPIC"
     temperature: float = 0.7
     max_new_tokens: int = 8192
@@ -748,8 +748,12 @@ Generate an appropriate response.""",
                 # User provided explicit column assignments
                 final_attribute_map = attribute_map
             elif inferred.field_mappings:
-                # Use LLM-inferred field mappings
-                final_attribute_map = inferred.field_mappings
+                # Use LLM-inferred field mappings, stripping any braces from values
+                # LLM sometimes returns {col} instead of col
+                final_attribute_map = {
+                    k: v.strip("{}") if isinstance(v, str) else v
+                    for k, v in inferred.field_mappings.items()
+                }
             else:
                 # Fallback to auto-detect
                 final_attribute_map = None
@@ -1172,6 +1176,80 @@ Provide your evaluation."""
         judgment_type = self.JUDGE_TEMPLATES.get(
             judge_type, self.JUDGE_TEMPLATES["generic"]
         )["judgment_type"]
+
+        judge_params = JudgeParams(
+            system_instruction=system_instruction,
+            prompt_template=prompt_template,
+            response_format=JudgeResponseFormat.XML,
+            judgment_type=judgment_type,
+            include_explanation=True,
+        )
+
+        return JudgeConfig(
+            judge_params=judge_params,
+            inference_config=self._create_inference_config(),
+        )
+
+    def from_custom_criteria(
+        self,
+        schema: DataSchema,
+        judge_name: str,
+        criteria: str,
+        description: str = "",
+        judgment_type: JudgeOutputType = JudgeOutputType.FLOAT,
+    ) -> JudgeConfig:
+        """Build a JudgeConfig from custom evaluation criteria.
+
+        This method creates a judge configuration based on user-defined criteria,
+        allowing for flexible evaluation beyond the predefined judge templates.
+
+        Args:
+            schema: The analyzed data schema.
+            judge_name: A short name for this judge (e.g., "accuracy", "helpfulness").
+            criteria: The specific evaluation criteria as a detailed description.
+            description: Optional additional context about what this judge evaluates.
+            judgment_type: The type of judgment output (FLOAT, BOOL, or LIKERT).
+
+        Returns:
+            A configured JudgeConfig with custom evaluation criteria.
+
+        Example:
+            >>> builder = JudgeConfigBuilder()
+            >>> config = builder.from_custom_criteria(
+            ...     schema=schema,
+            ...     judge_name="domain_expertise",
+            ...     criteria="Evaluate whether the response demonstrates deep knowledge "
+            ...              "of machine learning concepts and uses correct terminology.",
+            ...     description="Assesses ML domain expertise in responses",
+            ...     judgment_type=JudgeOutputType.LIKERT,
+            ... )
+        """
+        # Build system instruction based on the judge name and description
+        system_instruction = f"""You are an expert evaluator assessing '{judge_name}'.
+{description}
+
+Your task is to objectively evaluate content based on the following criteria:
+{criteria}
+
+Be thorough, fair, and consistent in your evaluations. Provide clear explanations for your judgments."""
+
+        # Build prompt template that can handle various input formats
+        prompt_template = f"""Evaluate the following content for '{judge_name}':
+
+**Criteria**: {criteria}
+
+**Content to evaluate**:
+{{context}}
+
+{{{{#if response}}}}
+**Response**: {{response}}
+{{{{/if}}}}
+
+{{{{#if question}}}}
+**Question**: {{question}}
+{{{{/if}}}}
+
+Provide your evaluation based on the criteria above."""
 
         judge_params = JudgeParams(
             system_instruction=system_instruction,
