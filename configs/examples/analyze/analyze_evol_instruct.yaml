@@ -26,7 +26,7 @@
 # Dataset configuration
 dataset_name: "tatsu-lab/alpaca"
 split: "train"
-sample_count: 100  # Start small due to API costs, increase for full analysis
+sample_count: 100 # Start small due to API costs, increase for full analysis
 
 # Output configuration
 output_path: "./analysis_output/evol_instruct"
@@ -58,7 +58,7 @@ analyzers:
       # Model configuration - Anthropic (recommended)
       model_type: api
       api_provider: anthropic
-      api_model: claude-3-5-haiku-20241022  # Cost-effective
+      api_model: claude-4-5-haiku # Cost-effective
       # api_model: claude-sonnet-4-5-20250514  # Higher quality
 
       # Alternative: OpenAI
@@ -73,19 +73,19 @@ analyzers:
       #   engine: vllm
 
       # Evolution configuration
-      num_evolutions: 3  # Number of complex variants (1-6, higher = more accurate but costly)
+      num_evolutions: 3 # Number of complex variants (1-6, higher = more accurate but costly)
       evolution_operators:
         - add_constraints
         - require_reasoning
         - increase_depth
 
       # Analysis scope
-      analyze_role: user  # Analyze user instructions
+      analyze_role: user # Analyze user instructions
 
       # Performance settings
       temperature: 0.7
       max_retries: 2
-      cache_responses: true  # Cache to avoid re-processing
+      cache_responses: true # Cache to avoid re-processing
       show_progress: true
 
   # ==========================================================================
@@ -108,7 +108,7 @@ analyzers:
     params:
       model_type: api
       api_provider: anthropic
-      api_model: claude-3-5-haiku-20241022
+      api_model: claude-4-5-haiku
 
       # Quality dimensions to improve
       num_evolutions: 3
@@ -122,7 +122,7 @@ analyzers:
       use_conversation_context: true
 
       # Analysis scope
-      analyze_role: assistant  # Analyze assistant responses
+      analyze_role: assistant # Analyze assistant responses
 
       # Performance settings
       temperature: 0.7
@@ -144,11 +144,11 @@ analyzers:
   # ==========================================================================
   - id: repr_diversity
     params:
-      model_name: sentence-transformers/all-MiniLM-L6-v2  # Fast, 384 dims
+      model_name: sentence-transformers/all-MiniLM-L6-v2 # Fast, 384 dims
       # model_name: sentence-transformers/all-mpnet-base-v2  # Better quality, slower
-      k_neighbors: 5  # Number of neighbors for diversity calculation
-      diversity_threshold: 0.3  # Samples below this are flagged as redundant
-      embed_field: all  # "all" (full conv), "user", or "assistant"
+      k_neighbors: 5 # Number of neighbors for diversity calculation
+      diversity_threshold: 0.3 # Samples below this are flagged as redundant
+      embed_field: all # "all" (full conv), "user", or "assistant"
       batch_size: 32
       show_progress_bar: true
 
@@ -189,7 +189,6 @@ analyzers:
       detect_pii: true
       detect_encoding_issues: true
       detect_repetition: true
-
 # ==========================================================================
 # DEITA-STYLE DATA SELECTION
 # ==========================================================================

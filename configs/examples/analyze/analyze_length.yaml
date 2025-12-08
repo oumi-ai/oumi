@@ -1,5 +1,5 @@
 # Dataset Analysis Configuration (Minimal Starter)
-# Usage: oumi analyze --config configs/examples/analyze/analyze.yaml
+# Usage: oumi analyze --config configs/examples/analyze/analyze_length.yaml
 #
 # This is a minimal config with just the length analyzer.
 # For more analyzers, see analyze_comprehensive.yaml and uncomment what you need.
