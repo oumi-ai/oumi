@@ -58,6 +58,7 @@ def view(
     - Oumi format: {"messages": [{"role": "...", "content": "..."}]}
     - Alpaca format: {"instruction": "...", "input": "...", "output": "..."}
     - DPO format: {"prompt": "...", "chosen": [...], "rejected": [...]}
+    - Pre-training format: {"text": "..."}
 
     For YAML config files, displays an interactive browser with:
     - Config type detection (TrainingConfig, EvaluationConfig, etc.)

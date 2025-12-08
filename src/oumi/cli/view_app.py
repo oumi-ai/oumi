@@ -287,7 +287,11 @@ class MessageWidget(Container):
             yield Label(f"[{self.role.upper()}]", classes="role-label")
 
         # Format and display content
-        content = self._format_tool_content() if self.role.lower() == "tool" else self.message_content
+        content = (
+            self._format_tool_content()
+            if self.role.lower() == "tool"
+            else self.message_content
+        )
 
         if self.raw_mode:
             highlighted = self._highlight_search(content)
@@ -405,9 +409,7 @@ class ConversationPanel(VerticalScroll):
                 elif item.is_image():
                     # Skip images here if show_images is enabled (rendered separately)
                     if not self.show_images:
-                        images.append(
-                            self._format_image_content(item, self.raw_mode)
-                        )
+                        images.append(self._format_image_content(item, self.raw_mode))
 
             parts = []
             # Show images first, then text
@@ -752,16 +754,16 @@ class StatsScreen(ModalScreen):
                 f"Avg messages/conversation: {stats['avg_messages']:.1f}",
                 classes="stats-item",
             )
-            yield Label(
-                f"Min messages: {stats['min_messages']}", classes="stats-item"
-            )
-            yield Label(
-                f"Max messages: {stats['max_messages']}", classes="stats-item"
-            )
+            yield Label(f"Min messages: {stats['min_messages']}", classes="stats-item")
+            yield Label(f"Max messages: {stats['max_messages']}", classes="stats-item")
 
             yield Label("Messages by Role", classes="stats-section")
             for role, count in sorted(stats["role_counts"].items()):
-                pct = (count / stats["total_messages"] * 100) if stats["total_messages"] > 0 else 0
+                pct = (
+                    (count / stats["total_messages"] * 100)
+                    if stats["total_messages"] > 0
+                    else 0
+                )
                 yield Label(f"{role}: {count} ({pct:.1f}%)", classes="stats-item")
 
             yield Label("Content Statistics", classes="stats-section")
@@ -782,7 +784,11 @@ class StatsScreen(ModalScreen):
                     f"Conversations with images: {stats['conversations_with_images']}",
                     classes="stats-item",
                 )
-                avg_images = stats["total_images"] / stats["conversations_with_images"] if stats["conversations_with_images"] > 0 else 0
+                avg_images = (
+                    stats["total_images"] / stats["conversations_with_images"]
+                    if stats["conversations_with_images"] > 0
+                    else 0
+                )
                 yield Label(
                     f"Avg images/conversation: {avg_images:.1f}", classes="stats-item"
                 )
@@ -841,9 +847,7 @@ class StatsScreen(ModalScreen):
             "total_conversations": len(self.conversations),
             "total_messages": total_messages,
             "avg_messages": (
-                total_messages / len(self.conversations)
-                if self.conversations
-                else 0
+                total_messages / len(self.conversations) if self.conversations else 0
             ),
             "min_messages": min(message_counts) if message_counts else 0,
             "max_messages": max(message_counts) if message_counts else 0,
@@ -1145,6 +1149,9 @@ class ConversationViewerApp(App):
         if "prompt" in data and "chosen" in data and "rejected" in data:
             return self._convert_dpo_to_conversation(data)
 
+        if "text" in data and isinstance(data["text"], str):
+            return self._convert_pretraining_to_conversation(data)
+
         return None
 
     def _convert_alpaca_to_conversation(self, data: dict) -> dict:
@@ -1227,6 +1234,25 @@ class ConversationViewerApp(App):
 
         return {"messages": messages, "metadata": metadata}
 
+    def _convert_pretraining_to_conversation(self, data: dict) -> dict:
+        """Convert pre-training format to conversation format.
+
+        Pre-training format: {"text": "..."}
+        Converts to a single assistant message displaying the text.
+        """
+        text = data.get("text", "")
+
+        # Display as a single assistant message (pre-training data is raw text)
+        messages = [{"role": "assistant", "content": text}]
+
+        # Preserve any additional fields as metadata
+        metadata = {"format": "pretraining"}
+        for key, value in data.items():
+            if key != "text":
+                metadata[key] = value
+
+        return {"messages": messages, "metadata": metadata}
+
     def show_conversation(self, index: int):
         """Display a specific conversation."""
         if not self.conversations:
@@ -1266,7 +1292,9 @@ class ConversationViewerApp(App):
             msg += " [IMG]"
         msg += f" {display_path}"
         if self.search_term:
-            msg += f" | Search: '{self.search_term}' ({len(self.search_matches)} matches)"
+            msg += (
+                f" | Search: '{self.search_term}' ({len(self.search_matches)} matches)"
+            )
         status.update(msg)
 
     def action_next_conversation(self):
@@ -1477,9 +1505,7 @@ class ConversationViewerApp(App):
 
             if sys.platform == "darwin":
                 # macOS
-                process = subprocess.Popen(
-                    ["pbcopy"], stdin=subprocess.PIPE, text=True
-                )
+                process = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE, text=True)
                 process.communicate(input=text)
                 self.notify("Conversation copied to clipboard")
             elif sys.platform.startswith("linux"):
@@ -1518,8 +1544,6 @@ class ConversationViewerApp(App):
 
     def _save_to_temp_file(self, text: str):
         """Save text to a temp file as fallback for clipboard."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write(text)
             self.notify(f"Saved to {f.name}")
