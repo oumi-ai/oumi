@@ -399,7 +399,7 @@ class HelpScreen(ModalScreen):
             yield Rule()
 
             yield Static("Navigation", classes="section")
-            yield Static("  1-6        Switch to tab", classes="keybinding")
+            yield Static("  1-5        Switch to tab", classes="keybinding")
             yield Static("  Tab        Next tab", classes="keybinding")
             yield Static("  Shift+Tab  Previous tab", classes="keybinding")
             yield Static("  j/k        Scroll up/down", classes="keybinding")
@@ -1695,6 +1695,19 @@ class TrainingViewerApp(App):
         Binding("5", "tab_5", "Files", show=False),
         Binding("t", "copy_tensorboard", "Copy TB cmd"),
         Binding("o", "open_folder", "Open folder"),
+        # Vim-style navigation
+        Binding("j", "scroll_down", "Scroll ↓", show=False),
+        Binding("k", "scroll_up", "Scroll ↑", show=False),
+        Binding("g", "goto_top", "Top", show=False),
+        Binding("G", "goto_bottom", "Bottom", show=False),
+        # Search
+        Binding("/", "focus_search", "Search", show=False),
+        Binding("escape", "clear_search", "Clear", show=False),
+        # Log filters
+        Binding("w", "filter_warnings", "Warnings", show=False),
+        Binding("e", "filter_errors", "Errors", show=False),
+        # Copy
+        Binding("y", "copy_item", "Copy", show=False),
     ]
 
     DEFAULT_CSS = """
@@ -1814,3 +1827,155 @@ class TrainingViewerApp(App):
                 subprocess.run(["explorer", str(self.folder_path)])
         except Exception:
             self.notify("Failed to open folder", severity="error")
+
+    def action_scroll_down(self) -> None:
+        """Scroll down in the current panel."""
+        try:
+            # Find the focused scrollable widget
+            focused = self.focused
+            if focused and hasattr(focused, "scroll_down"):
+                focused.scroll_down()
+            else:
+                # Try to scroll the active tab's panel
+                tabs = self.query_one(TabbedContent)
+                active_pane = tabs.get_pane(tabs.active)
+                if active_pane:
+                    for child in active_pane.walk_children():
+                        if hasattr(child, "scroll_down"):
+                            child.scroll_down()
+                            break
+        except Exception:
+            pass
+
+    def action_scroll_up(self) -> None:
+        """Scroll up in the current panel."""
+        try:
+            focused = self.focused
+            if focused and hasattr(focused, "scroll_up"):
+                focused.scroll_up()
+            else:
+                tabs = self.query_one(TabbedContent)
+                active_pane = tabs.get_pane(tabs.active)
+                if active_pane:
+                    for child in active_pane.walk_children():
+                        if hasattr(child, "scroll_up"):
+                            child.scroll_up()
+                            break
+        except Exception:
+            pass
+
+    def action_goto_top(self) -> None:
+        """Scroll to the top of the current panel."""
+        try:
+            focused = self.focused
+            if focused and hasattr(focused, "scroll_home"):
+                focused.scroll_home()
+            else:
+                tabs = self.query_one(TabbedContent)
+                active_pane = tabs.get_pane(tabs.active)
+                if active_pane:
+                    for child in active_pane.walk_children():
+                        if hasattr(child, "scroll_home"):
+                            child.scroll_home()
+                            break
+        except Exception:
+            pass
+
+    def action_goto_bottom(self) -> None:
+        """Scroll to the bottom of the current panel."""
+        try:
+            focused = self.focused
+            if focused and hasattr(focused, "scroll_end"):
+                focused.scroll_end()
+            else:
+                tabs = self.query_one(TabbedContent)
+                active_pane = tabs.get_pane(tabs.active)
+                if active_pane:
+                    for child in active_pane.walk_children():
+                        if hasattr(child, "scroll_end"):
+                            child.scroll_end()
+                            break
+        except Exception:
+            pass
+
+    def action_focus_search(self) -> None:
+        """Focus the search input in the Logs panel."""
+        try:
+            # Switch to logs tab and focus search
+            self.query_one(TabbedContent).active = "tab-logs"
+            logs_panel = self.query_one(LogsPanel)
+            search_input = logs_panel.query_one("#log-search", Input)
+            search_input.focus()
+        except Exception:
+            pass
+
+    def action_clear_search(self) -> None:
+        """Clear the search in the Logs panel."""
+        try:
+            logs_panel = self.query_one(LogsPanel)
+            search_input = logs_panel.query_one("#log-search", Input)
+            search_input.value = ""
+            logs_panel.search_term = ""
+            logs_panel._refresh_logs()
+        except Exception:
+            pass
+
+    def action_filter_warnings(self) -> None:
+        """Filter logs to show only warnings."""
+        try:
+            self.query_one(TabbedContent).active = "tab-logs"
+            logs_panel = self.query_one(LogsPanel)
+            if logs_panel.filter_level == "WARNING":
+                logs_panel.filter_level = None  # Toggle off
+            else:
+                logs_panel.filter_level = "WARNING"
+            logs_panel._update_button_states()
+            logs_panel._refresh_logs()
+            self.notify("Showing warnings only" if logs_panel.filter_level else "Showing all logs")
+        except Exception:
+            pass
+
+    def action_filter_errors(self) -> None:
+        """Filter logs to show only errors."""
+        try:
+            self.query_one(TabbedContent).active = "tab-logs"
+            logs_panel = self.query_one(LogsPanel)
+            if logs_panel.filter_level == "ERROR":
+                logs_panel.filter_level = None  # Toggle off
+            else:
+                logs_panel.filter_level = "ERROR"
+            logs_panel._update_button_states()
+            logs_panel._refresh_logs()
+            self.notify("Showing errors only" if logs_panel.filter_level else "Showing all logs")
+        except Exception:
+            pass
+
+    def action_copy_item(self) -> None:
+        """Copy the current item to clipboard."""
+        try:
+            # Get the active tab
+            tabs = self.query_one(TabbedContent)
+            active_tab = tabs.active
+
+            if active_tab == "tab-summary" and self.data:
+                # Copy summary info
+                info = f"Training: {self.folder_path.name}\n"
+                info += f"Steps: {self.data.global_step}/{self.data.max_steps}\n"
+                if self.data.log_history:
+                    losses = [e.get("loss") for e in self.data.log_history if "loss" in e and "train_loss" not in e]
+                    if losses:
+                        info += f"Loss: {losses[-1]:.4f}\n"
+                if copy_to_clipboard(info):
+                    self.notify("Summary copied to clipboard")
+                else:
+                    self.notify("Failed to copy", severity="error")
+            elif active_tab == "tab-files":
+                # Copy folder path
+                if copy_to_clipboard(str(self.folder_path)):
+                    self.notify("Folder path copied to clipboard")
+                else:
+                    self.notify("Failed to copy", severity="error")
+            else:
+                self.notify("Nothing to copy in this tab", severity="warning")
+        except Exception:
+            self.notify("Failed to copy", severity="error")

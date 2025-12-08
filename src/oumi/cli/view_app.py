@@ -364,7 +364,7 @@ class HelpScreen(ModalScreen):
     HelpScreen .help-section {
         text-style: bold;
         margin-top: 1;
-        color: $warning;
+        color: $primary;
     }
 
     HelpScreen .help-item {
@@ -408,7 +408,7 @@ class HelpScreen(ModalScreen):
 
             yield Label("Other", classes="help-section")
             yield Label("r        Toggle raw/markdown", classes="help-item")
-            yield Label("c        Copy conversation", classes="help-item")
+            yield Label("c/y      Copy conversation", classes="help-item")
             yield Label("s        Show statistics", classes="help-item")
             yield Label("?        Show this help", classes="help-item")
             yield Label("q        Quit", classes="help-item")
@@ -447,7 +447,7 @@ class StatsScreen(ModalScreen):
     StatsScreen .stats-section {
         text-style: bold;
         margin-top: 1;
-        color: $warning;
+        color: $primary;
     }
 
     StatsScreen .stats-item {
@@ -655,8 +655,7 @@ class ConversationViewerApp(App):
         dock: bottom;
         width: 100%;
         height: 1;
-        background: $primary;
-        color: $text;
+        background: $primary-background;
         padding: 0 1;
     }
 
@@ -691,6 +690,7 @@ class ConversationViewerApp(App):
         Binding("colon", "goto_conversation", "Go to #", show=True, priority=True),
         Binding("question_mark", "show_help", "Help", show=True, priority=True),
         Binding("c", "copy_conversation", "Copy", show=True, priority=True),
+        Binding("y", "copy_conversation", "Copy", show=False),  # Vim-style yank alias
         Binding("s", "show_stats", "Stats", show=True, priority=True),
     ]
 

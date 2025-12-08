@@ -499,8 +499,7 @@ class ConfigViewerApp(App):
     #loading-indicator {
         dock: bottom;
         height: 1;
-        background: $primary;
-        color: $text;
+        background: $primary-background;
         text-align: center;
     }
 
