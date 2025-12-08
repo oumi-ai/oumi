@@ -30,10 +30,9 @@ class QualityAnalyzer(SampleAnalyzer):
     """Analyzer for detecting quality and safety issues in text content.
 
     This analyzer identifies potential data quality and safety issues including:
-        - PII detection (emails, phone numbers, SSNs, credit cards, IP addresses)
+        - PII detection (emails, phone numbers, SSNs, credit cards, API keys)
         - Language detection (requires optional langdetect package)
         - Encoding issues (invalid UTF-8, mojibake patterns)
-        - Special token leakage (common LLM special tokens in content)
         - Repetition detection (repeated phrases or patterns)
 
     Quality metrics computed:
@@ -43,9 +42,8 @@ class QualityAnalyzer(SampleAnalyzer):
         - detected_language: ISO 639-1 language code (if language detection enabled)
         - language_confidence: Confidence score for language detection
         - has_encoding_issues: Boolean for potential encoding problems
-        - has_special_tokens: Boolean for leaked special tokens
         - repetition_ratio: Ratio of repeated n-grams to total n-grams
-        - quality_score: Composite quality score (0-1, higher is better)
+        - has_high_repetition: Boolean for high repetition detected
     """
 
     # PII detection patterns
@@ -61,9 +59,6 @@ class QualityAnalyzer(SampleAnalyzer):
     _CREDIT_CARD_PATTERN = re.compile(
         r"\b(?:\d{4}[-\s]?){3}\d{4}\b"
     )
-    _IP_ADDRESS_PATTERN = re.compile(
-        r"\b(?:\d{1,3}\.){3}\d{1,3}\b"
-    )
     _API_KEY_PATTERN = re.compile(
         r"(?:api[_-]?key|secret|token|password|auth)[\"']?\s*[:=]\s*[\"']?[\w-]{16,}",
         re.IGNORECASE,
@@ -78,17 +73,6 @@ class QualityAnalyzer(SampleAnalyzer):
         re.compile(r"\ufffd"),  # Unicode replacement character
     ]
 
-    # Common LLM special tokens that shouldn't appear in content
-    _SPECIAL_TOKEN_PATTERNS = [
-        re.compile(r"<\|(?:endoftext|im_start|im_end|pad|unk|sep|cls)\|>", re.IGNORECASE),
-        re.compile(r"\[/?(?:INST|SYS|/INST)\]", re.IGNORECASE),
-        re.compile(r"</?s>"),
-        re.compile(r"<<SYS>>|<</SYS>>"),
-        re.compile(r"\[/INST\]"),
-        re.compile(r"<\|(?:system|user|assistant|begin_of_text|end_of_text)\|>"),
-        re.compile(r"<\|eot_id\|>"),
-    ]
-
     def __init__(
         self,
         *,
@@ -97,15 +81,12 @@ class QualityAnalyzer(SampleAnalyzer):
         detect_phones: bool = True,
         detect_ssn: bool = True,
         detect_credit_cards: bool = True,
-        detect_ip_addresses: bool = False,
         detect_api_keys: bool = True,
         detect_language: bool = False,
         detect_encoding_issues: bool = True,
-        detect_special_tokens: bool = True,
         detect_repetition: bool = True,
         repetition_ngram_size: int = 3,
         repetition_threshold: float = 0.3,
-        compute_quality_score: bool = True,
     ):
         """Initialize the QualityAnalyzer.
 
@@ -115,30 +96,24 @@ class QualityAnalyzer(SampleAnalyzer):
             detect_phones: Whether to detect phone numbers.
             detect_ssn: Whether to detect Social Security Numbers.
             detect_credit_cards: Whether to detect credit card numbers.
-            detect_ip_addresses: Whether to detect IP addresses.
             detect_api_keys: Whether to detect API keys and secrets.
             detect_language: Whether to detect language (requires langdetect).
             detect_encoding_issues: Whether to detect encoding problems.
-            detect_special_tokens: Whether to detect leaked special tokens.
             detect_repetition: Whether to detect repetitive content.
             repetition_ngram_size: Size of n-grams for repetition detection.
             repetition_threshold: Threshold above which repetition is flagged.
-            compute_quality_score: Whether to compute composite quality score.
         """
         self.detect_pii = detect_pii
         self.detect_emails = detect_emails
         self.detect_phones = detect_phones
         self.detect_ssn = detect_ssn
         self.detect_credit_cards = detect_credit_cards
-        self.detect_ip_addresses = detect_ip_addresses
         self.detect_api_keys = detect_api_keys
         self.detect_language = detect_language
         self.detect_encoding_issues = detect_encoding_issues
-        self.detect_special_tokens = detect_special_tokens
         self.detect_repetition = detect_repetition
         self.repetition_ngram_size = repetition_ngram_size
         self.repetition_threshold = repetition_threshold
-        self.compute_quality_score = compute_quality_score
 
         # Check if langdetect is available
         self._langdetect_available = False
@@ -188,12 +163,6 @@ class QualityAnalyzer(SampleAnalyzer):
             matches = self._CREDIT_CARD_PATTERN.findall(text)
             if matches:
                 pii_types.append("credit_card")
-                pii_count += len(matches)
-
-        if self.detect_ip_addresses:
-            matches = self._IP_ADDRESS_PATTERN.findall(text)
-            if matches:
-                pii_types.append("ip_address")
                 pii_count += len(matches)
 
         if self.detect_api_keys:
@@ -255,20 +224,6 @@ class QualityAnalyzer(SampleAnalyzer):
                 return True
         return False
 
-    def _detect_special_tokens(self, text: str) -> bool:
-        """Detect leaked special tokens in text.
-
-        Args:
-            text: Input text to analyze.
-
-        Returns:
-            True if special tokens are detected.
-        """
-        for pattern in self._SPECIAL_TOKEN_PATTERNS:
-            if pattern.search(text):
-                return True
-        return False
-
     def _compute_repetition_ratio(self, text: str) -> float:
         """Compute the ratio of repeated n-grams in text.
 
@@ -297,41 +252,6 @@ class QualityAnalyzer(SampleAnalyzer):
 
         return round(repetition_ratio, 3)
 
-    def _compute_quality_score(
-        self,
-        has_pii: bool,
-        has_encoding_issues: bool,
-        has_special_tokens: bool,
-        repetition_ratio: float,
-    ) -> float:
-        """Compute a composite quality score.
-
-        Higher scores indicate better quality (fewer issues detected).
-
-        Args:
-            has_pii: Whether PII was detected.
-            has_encoding_issues: Whether encoding issues were detected.
-            has_special_tokens: Whether special tokens were detected.
-            repetition_ratio: Ratio of repeated content.
-
-        Returns:
-            Quality score between 0 and 1.
-        """
-        score = 1.0
-
-        # Deduct for issues
-        if has_pii:
-            score -= 0.3  # PII is a significant issue
-        if has_encoding_issues:
-            score -= 0.2
-        if has_special_tokens:
-            score -= 0.2
-        if repetition_ratio > self.repetition_threshold:
-            # Scale deduction based on repetition severity
-            score -= min(0.3, repetition_ratio * 0.5)
-
-        return max(0.0, round(score, 3))
-
     def _analyze_text(self, text: str) -> dict[str, Any]:
         """Analyze a single text sample for quality issues.
 
@@ -344,11 +264,9 @@ class QualityAnalyzer(SampleAnalyzer):
         results = {}
 
         # PII detection
-        has_pii = False
         if self.detect_pii:
             pii_results = self._detect_pii(text)
             results.update(pii_results)
-            has_pii = pii_results["has_pii"]
 
         # Language detection
         if self.detect_language:
@@ -356,32 +274,14 @@ class QualityAnalyzer(SampleAnalyzer):
             results.update(lang_results)
 
         # Encoding issues
-        has_encoding_issues = False
         if self.detect_encoding_issues:
-            has_encoding_issues = self._detect_encoding_issues(text)
-            results["has_encoding_issues"] = has_encoding_issues
-
-        # Special tokens
-        has_special_tokens = False
-        if self.detect_special_tokens:
-            has_special_tokens = self._detect_special_tokens(text)
-            results["has_special_tokens"] = has_special_tokens
+            results["has_encoding_issues"] = self._detect_encoding_issues(text)
 
         # Repetition
-        repetition_ratio = 0.0
         if self.detect_repetition:
             repetition_ratio = self._compute_repetition_ratio(text)
             results["repetition_ratio"] = repetition_ratio
             results["has_high_repetition"] = repetition_ratio > self.repetition_threshold
-
-        # Quality score
-        if self.compute_quality_score:
-            results["quality_score"] = self._compute_quality_score(
-                has_pii=has_pii,
-                has_encoding_issues=has_encoding_issues,
-                has_special_tokens=has_special_tokens,
-                repetition_ratio=repetition_ratio,
-            )
 
         return results
 
@@ -448,11 +348,6 @@ class QualityAnalyzer(SampleAnalyzer):
                     f"{column}_{analyzer_id}_has_encoding_issues"
                 ] = analysis_results.apply(lambda r: r["has_encoding_issues"])
 
-            if self.detect_special_tokens:
-                result_df[
-                    f"{column}_{analyzer_id}_has_special_tokens"
-                ] = analysis_results.apply(lambda r: r["has_special_tokens"])
-
             if self.detect_repetition:
                 result_df[
                     f"{column}_{analyzer_id}_repetition_ratio"
@@ -460,10 +355,5 @@ class QualityAnalyzer(SampleAnalyzer):
                 result_df[
                     f"{column}_{analyzer_id}_has_high_repetition"
                 ] = analysis_results.apply(lambda r: r["has_high_repetition"])
-
-            if self.compute_quality_score:
-                result_df[
-                    f"{column}_{analyzer_id}_quality_score"
-                ] = analysis_results.apply(lambda r: r["quality_score"])
 
         return result_df

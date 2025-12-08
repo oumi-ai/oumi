@@ -1,0 +1,45 @@
+# Streamlined Alpaca Quality Analysis
+# Uses only high-signal metrics after empirical testing
+#
+# Usage: oumi analyze --config configs/examples/analyze/analyze_alpaca_streamlined.yaml
+
+dataset_name: tatsu-lab/alpaca
+split: train
+# sample_count: 1000  # Uncomment to test on subset
+
+output_path: ./analysis_output/alpaca_streamlined
+generate_report: true
+report_title: "Alpaca Dataset Streamlined Analysis"
+generate_recommendations: true
+
+analyzers:
+  # Length analyzer - token count only
+  - id: length
+    params:
+      token_count: true
+
+  # Content pattern analyzer - detect quality issues
+  - id: content_pattern
+    params:
+      detect_placeholders: true
+      detect_hallucinated_experiences: true
+      detect_nooutput: true
+      detect_refusals: true
+
+  # Quality analyzer - PII, encoding, repetition
+  - id: quality
+    params:
+      detect_pii: true
+      detect_encoding_issues: true
+      detect_repetition: true
+      repetition_threshold: 0.3
+
+  # Diversity analyzer - unique words ratio
+  - id: diversity
+    params:
+      unique_words_ratio: true
+
+  # Training quality - response completeness
+  - id: training_quality
+    params:
+      compute_response_completeness: true

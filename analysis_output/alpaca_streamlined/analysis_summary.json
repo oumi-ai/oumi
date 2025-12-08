@@ -1,0 +1,586 @@
+{
+  "dataset_overview": {
+    "dataset_name": "tatsu-lab/alpaca",
+    "total_conversations": 10000,
+    "conversations_analyzed": 1000,
+    "dataset_coverage_percentage": 10.0,
+    "total_messages": 3000,
+    "analyzers_used": [
+      "length",
+      "content_pattern",
+      "quality",
+      "diversity",
+      "training_quality"
+    ]
+  },
+  "message_level_summary": {
+    "length": {
+      "text_content_token_count": {
+        "count": 3000,
+        "mean": 30.23,
+        "std": 33.67,
+        "min": 0.0,
+        "max": 378.0,
+        "median": 18.0,
+        "distribution_type": "multimodal",
+        "num_modes": 4,
+        "mode_separation_confidence": 0.476,
+        "mode_statistics": [
+          {
+            "mode_id": 0,
+            "mean": 9.15,
+            "std": 3.37,
+            "count": 847,
+            "weight": 0.291
+          },
+          {
+            "mode_id": 3,
+            "mean": 22.36,
+            "std": 5.42,
+            "count": 1632,
+            "weight": 0.52
+          },
+          {
+            "mode_id": 2,
+            "mean": 78.53,
+            "std": 26.67,
+            "count": 474,
+            "weight": 0.163
+          },
+          {
+            "mode_id": 1,
+            "mean": 196.32,
+            "std": 51.73,
+            "count": 47,
+            "weight": 0.026
+          }
+        ]
+      }
+    },
+    "content_pattern": {
+      "text_content_placeholder_count": {
+        "count": 3000,
+        "mean": 0.0,
+        "std": 0.03,
+        "min": 0.0,
+        "max": 1.0,
+        "median": 0.0
+      }
+    },
+    "quality": {
+      "text_content_pii_count": {
+        "count": 3000,
+        "mean": 0.0,
+        "std": 0.02,
+        "min": 0.0,
+        "max": 1.0,
+        "median": 0.0
+      },
+      "text_content_repetition_ratio": {
+        "count": 3000,
+        "mean": 0.0,
+        "std": 0.01,
+        "min": 0.0,
+        "max": 0.35,
+        "median": 0.0
+      }
+    },
+    "diversity_unique": {
+      "text_content_words_ratio": {
+        "count": 3000,
+        "mean": 0.88,
+        "std": 0.1,
+        "min": 0.0,
+        "max": 1.0,
+        "median": 0.88
+      }
+    },
+    "training_quality_response": {
+      "text_content_completeness_score": {
+        "count": 1000,
+        "mean": 0.88,
+        "std": 0.27,
+        "min": 0.0,
+        "max": 1.0,
+        "median": 1.0
+      }
+    },
+    "training": {
+      "text_content_quality_response_word_count": {
+        "count": 1000,
+        "mean": 40.9,
+        "std": 42.79,
+        "min": 0.0,
+        "max": 322.0,
+        "median": 23.0,
+        "distribution_type": "multimodal",
+        "num_modes": 3,
+        "mode_separation_confidence": 0.436,
+        "mode_statistics": [
+          {
+            "mode_id": 0,
+            "mean": 8.26,
+            "std": 5.3,
+            "count": 484,
+            "weight": 0.455
+          },
+          {
+            "mode_id": 2,
+            "mean": 64.65,
+            "std": 27.38,
+            "count": 485,
+            "weight": 0.49
+          },
+          {
+            "mode_id": 1,
+            "mean": 179.0,
+            "std": 48.09,
+            "count": 31,
+            "weight": 0.055
+          }
+        ]
+      }
+    }
+  },
+  "conversation_level_summary": {},
+  "conversation_turns": {
+    "count": 1000,
+    "mean": 3.0,
+    "std": 0.0,
+    "min": 3.0,
+    "max": 3.0,
+    "median": 3.0
+  },
+  "recommendations": [
+    {
+      "category": "warning",
+      "severity": "high",
+      "title": "Truncated responses detected",
+      "description": "Found 158 assistant responses (15.8%) that appear to be truncated (ending mid-sentence or with incomplete punctuation). Training on truncated responses may cause the model to generate incomplete outputs. Consider completing or removing these samples.",
+      "affected_samples": 158,
+      "metric_name": "text_content_training_quality_has_proper_ending",
+      "threshold": null,
+      "details": {
+        "truncated_count": 158
+      },
+      "sample_indices": [
+        17,
+        38,
+        44,
+        53,
+        125,
+        158,
+        161,
+        164,
+        245,
+        266,
+        284,
+        308,
+        311,
+        332,
+        368,
+        401,
+        449,
+        452,
+        458,
+        461
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "medium",
+      "title": "Outliers detected in diversity unique words ratio",
+      "description": "Found 39 samples (1.3%) with values outside 3.0 standard deviations from the mean. High outliers: 0, Low outliers: 39. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": 39,
+      "metric_name": "text_content_diversity_unique_words_ratio",
+      "threshold": 3.0,
+      "details": {
+        "distribution_type": "unimodal",
+        "mean": 0.88,
+        "std": 0.1,
+        "upper_threshold": 1.18,
+        "lower_threshold": 0.58,
+        "high_outliers": 0,
+        "low_outliers": 39
+      },
+      "sample_indices": [
+        14,
+        65,
+        71,
+        77,
+        83,
+        233,
+        257,
+        284,
+        449,
+        452,
+        476,
+        653,
+        794,
+        854,
+        1010,
+        1016,
+        1070,
+        1313,
+        1388,
+        1424
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "medium",
+      "title": "Empty or near-empty messages detected",
+      "description": "Found 32 messages (1.1%) with 5 or fewer characters. These may indicate data quality issues or placeholder content that should be reviewed.",
+      "affected_samples": 32,
+      "metric_name": "text_content",
+      "threshold": 5.0,
+      "details": {
+        "empty_count": 32
+      },
+      "sample_indices": [
+        245,
+        299,
+        368,
+        464,
+        467,
+        473,
+        542,
+        629,
+        635,
+        680,
+        692,
+        800,
+        812,
+        854,
+        863,
+        1199,
+        1211,
+        1232,
+        1280,
+        1475
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "medium",
+      "title": "Inconsistent instruction formatting detected",
+      "description": "Found multiple instruction format patterns in the dataset: alpaca: 441, vicuna: 1. Mixing formats may confuse the model and reduce training effectiveness. Consider standardizing to a single format.",
+      "affected_samples": 442,
+      "metric_name": "text_content",
+      "threshold": null,
+      "details": {
+        "format_distribution": {
+          "alpaca": 441,
+          "vicuna": 1
+        }
+      },
+      "sample_indices": []
+    },
+    {
+      "category": "insight",
+      "severity": "low",
+      "title": "Multimodal distribution in length token count",
+      "description": "Detected 4 distinct modes in the distribution (confidence: 48%). Mode 1: 847 samples (29.1%), mean=9.15, std=3.37; Mode 4: 1632 samples (52.0%), mean=22.36, std=5.42; Mode 3: 474 samples (16.3%), mean=78.53, std=26.67; Mode 2: 47 samples (2.6%), mean=196.32, std=51.73. This may indicate different types of content (e.g., short questions vs long explanations). Outlier detection uses per-mode statistics to avoid false positives.",
+      "affected_samples": 3000,
+      "metric_name": "text_content_length_token_count",
+      "threshold": null,
+      "details": {
+        "distribution_type": "multimodal",
+        "num_modes": 4,
+        "confidence": 0.476,
+        "mode_statistics": [
+          {
+            "mode_id": 0,
+            "mean": 9.15,
+            "std": 3.37,
+            "count": 847,
+            "weight": 0.291
+          },
+          {
+            "mode_id": 3,
+            "mean": 22.36,
+            "std": 5.42,
+            "count": 1632,
+            "weight": 0.52
+          },
+          {
+            "mode_id": 2,
+            "mean": 78.53,
+            "std": 26.67,
+            "count": 474,
+            "weight": 0.163
+          },
+          {
+            "mode_id": 1,
+            "mean": 196.32,
+            "std": 51.73,
+            "count": 47,
+            "weight": 0.026
+          }
+        ]
+      },
+      "sample_indices": []
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Outliers detected in length token count",
+      "description": "Found 15 samples (0.5%) that are outliers within their respective modes. Distribution has 4 modes (mode 0: \u03bc=9.15, \u03c3=3.37, mode 3: \u03bc=22.36, \u03c3=5.42, mode 2: \u03bc=78.53, \u03c3=26.67, mode 1: \u03bc=196.32, \u03c3=51.73). Outliers are samples more than 3.0 std from mode mean.",
+      "affected_samples": 15,
+      "metric_name": "text_content_length_token_count",
+      "threshold": 3.0,
+      "details": {
+        "distribution_type": "multimodal",
+        "num_modes": 4,
+        "mode_statistics": [
+          {
+            "mode_id": 0,
+            "mean": 9.15,
+            "std": 3.37,
+            "count": 847
+          },
+          {
+            "mode_id": 3,
+            "mean": 22.36,
+            "std": 5.42,
+            "count": 1632
+          },
+          {
+            "mode_id": 2,
+            "mean": 78.53,
+            "std": 26.67,
+            "count": 474
+          },
+          {
+            "mode_id": 1,
+            "mean": 196.32,
+            "std": 51.73,
+            "count": 47
+          }
+        ],
+        "outliers_per_mode": {
+          "0": 0,
+          "3": 13,
+          "2": 0,
+          "1": 2
+        }
+      },
+      "sample_indices": [
+        794,
+        1054,
+        1424,
+        1871,
+        1879,
+        1934,
+        2123,
+        2270,
+        2294,
+        2324,
+        2494,
+        2500,
+        2572,
+        2609,
+        2642
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Outliers detected in content pattern placeholder count",
+      "description": "Found 3 samples (0.1%) with values outside 3.0 standard deviations from the mean. High outliers: 3, Low outliers: 0. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": 3,
+      "metric_name": "text_content_content_pattern_placeholder_count",
+      "threshold": 3.0,
+      "details": {
+        "distribution_type": "unimodal",
+        "mean": 0.0,
+        "std": 0.03,
+        "upper_threshold": 0.09,
+        "lower_threshold": -0.09,
+        "high_outliers": 3,
+        "low_outliers": 0
+      },
+      "sample_indices": [
+        926,
+        1469,
+        2606
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Outliers detected in quality pii count",
+      "description": "Found 1 samples (0.0%) with values outside 3.0 standard deviations from the mean. High outliers: 1, Low outliers: 0. Consider reviewing these samples for potential data quality issues.",
+      "affected_samples": 1,
+      "metric_name": "text_content_quality_pii_count",
+      "threshold": 3.0,
+      "details": {
+        "distribution_type": "unimodal",
+        "mean": 0.0,
+        "std": 0.02,
+        "upper_threshold": 0.06,
+        "lower_threshold": -0.06,
+        "high_outliers": 1,
+        "low_outliers": 0
+      },
+      "sample_indices": [
+        2311
+      ]
+    },
+    {
+      "category": "insight",
+      "severity": "low",
+      "title": "Multimodal distribution in training quality response word count",
+      "description": "Detected 3 distinct modes in the distribution (confidence: 44%). Mode 1: 484 samples (45.5%), mean=8.26, std=5.3; Mode 3: 485 samples (49.0%), mean=64.65, std=27.38; Mode 2: 31 samples (5.5%), mean=179.0, std=48.09. This may indicate different types of content (e.g., short questions vs long explanations). Outlier detection uses per-mode statistics to avoid false positives.",
+      "affected_samples": 1000,
+      "metric_name": "text_content_training_quality_response_word_count",
+      "threshold": null,
+      "details": {
+        "distribution_type": "multimodal",
+        "num_modes": 3,
+        "confidence": 0.436,
+        "mode_statistics": [
+          {
+            "mode_id": 0,
+            "mean": 8.26,
+            "std": 5.3,
+            "count": 484,
+            "weight": 0.455
+          },
+          {
+            "mode_id": 2,
+            "mean": 64.65,
+            "std": 27.38,
+            "count": 485,
+            "weight": 0.49
+          },
+          {
+            "mode_id": 1,
+            "mean": 179.0,
+            "std": 48.09,
+            "count": 31,
+            "weight": 0.055
+          }
+        ]
+      },
+      "sample_indices": []
+    },
+    {
+      "category": "insight",
+      "severity": "low",
+      "title": "Highly repetitive content detected",
+      "description": "Found 1 messages (0.0%) with high repetition ratios. Repetitive content may cause the model to learn repetitive patterns. Consider reviewing or filtering these samples.",
+      "affected_samples": 1,
+      "metric_name": "text_content_quality_has_high_repetition",
+      "threshold": null,
+      "details": {
+        "repetitive_count": 1
+      },
+      "sample_indices": [
+        2924
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Incomplete responses detected",
+      "description": "Found 90 assistant responses (9.0%) with low completeness scores (below 0.5). Average completeness score: 0.88. Incomplete responses may teach the model to generate truncated or minimal outputs. Consider expanding short responses or removing low-quality samples.",
+      "affected_samples": 90,
+      "metric_name": "text_content_training_quality_response_completeness_score",
+      "threshold": 0.5,
+      "details": {
+        "incomplete_count": 90,
+        "average_score": 0.881,
+        "min_score": 0.0
+      },
+      "sample_indices": [
+        17,
+        158,
+        245,
+        269,
+        299,
+        311,
+        368,
+        464,
+        467,
+        473,
+        542,
+        560,
+        629,
+        632,
+        635,
+        656,
+        671,
+        680,
+        692,
+        698
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Placeholder text detected",
+      "description": "Found 3 messages (0.1%) containing placeholder text (e.g., [Name], [Company Name], [Your...], [Insert...]). These indicate incomplete or template responses that should be filled in or removed before training.",
+      "affected_samples": 3,
+      "metric_name": "text_content_content_pattern_has_placeholder",
+      "threshold": null,
+      "details": {
+        "placeholder_count": 3
+      },
+      "sample_indices": [
+        926,
+        1469,
+        2606
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "AI hallucinated experiences detected",
+      "description": "Found 3 messages (0.1%) containing fabricated first-person experiences (e.g., 'When I was working as a project manager...'). Training on these may cause the model to generate similar hallucinations. Consider removing or rewriting these samples.",
+      "affected_samples": 3,
+      "metric_name": "text_content_content_pattern_has_hallucinated_experience",
+      "threshold": null,
+      "details": {
+        "hallucination_count": 3
+      },
+      "sample_indices": [
+        14,
+        1310,
+        2450
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "Nooutput/NA markers detected",
+      "description": "Found 2 messages (0.1%) containing nooutput markers (e.g., <nooutput>, N/A, None). These are unusable training samples and should be removed.",
+      "affected_samples": 2,
+      "metric_name": "text_content_content_pattern_has_nooutput",
+      "threshold": null,
+      "details": {
+        "nooutput_count": 2
+      },
+      "sample_indices": [
+        26,
+        920
+      ]
+    },
+    {
+      "category": "warning",
+      "severity": "low",
+      "title": "AI refusal patterns detected",
+      "description": "Found 2 messages (0.1%) containing AI refusal patterns (e.g., 'I cannot provide...', 'I'm unable to help...'). These indicate the model refused to complete the task. Consider reviewing or removing these samples unless training for appropriate refusals.",
+      "affected_samples": 2,
+      "metric_name": "text_content_content_pattern_has_refusal",
+      "threshold": null,
+      "details": {
+        "refusal_count": 2
+      },
+      "sample_indices": [
+        26,
+        1472
+      ]
+    }
+  ]
+}

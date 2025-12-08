@@ -244,21 +244,11 @@ class HealthScoreCalculator:
 
         # Check for diversity metrics
         diversity_cols = [col for col in df.columns if "diversity" in col.lower()]
-        ttr_cols = [col for col in df.columns if "type_token_ratio" in col.lower()]
         unique_ratio_cols = [
             col for col in df.columns if "unique_words_ratio" in col.lower()
         ]
 
-        if ttr_cols:
-            col = ttr_cols[0]
-            avg_ttr = df[col].dropna().mean()
-            if avg_ttr > 0:
-                # TTR typically ranges from 0.1 to 0.9
-                # Scale to 0-100
-                score = min(100, avg_ttr * 120)
-                details["avg_type_token_ratio"] = round(avg_ttr, 3)
-
-        elif unique_ratio_cols:
+        if unique_ratio_cols:
             col = unique_ratio_cols[0]
             avg_ratio = df[col].dropna().mean()
             if avg_ratio > 0:
@@ -362,19 +352,10 @@ class HealthScoreCalculator:
         score = 85.0  # Default baseline (optimistic)
         details = {}
 
-        # Check for quality score from quality analyzer
-        quality_cols = [col for col in df.columns if "quality_score" in col]
-        if quality_cols:
-            col = quality_cols[0]
-            avg_quality = df[col].dropna().mean()
-            score = avg_quality * 100  # Assuming 0-1 scale
-            details["avg_quality_score"] = round(avg_quality, 3)
-
         # Penalize for issues
         issue_penalties = [
             ("has_pii", 15),
             ("has_encoding_issues", 10),
-            ("has_special_tokens", 8),
             ("has_high_repetition", 5),
         ]
 
@@ -586,23 +567,6 @@ class HealthScoreCalculator:
         """
         score = 75.0  # Default baseline
         details = {}
-        metrics_found = 0
-
-        # Check instruction clarity score
-        clarity_cols = [
-            col for col in df.columns if "instruction_clarity_score" in col
-        ]
-        if clarity_cols:
-            col = clarity_cols[0]
-            scores = df[col].dropna()
-            if len(scores) > 0:
-                avg_clarity = scores.mean()
-                # Scale 0-1 to 0-100
-                clarity_score = avg_clarity * 100
-                details["avg_instruction_clarity"] = round(avg_clarity, 3)
-                details["low_clarity_ratio"] = round((scores < 0.5).mean(), 3)
-                score = clarity_score
-                metrics_found += 1
 
         # Check response completeness score
         completeness_cols = [
@@ -616,28 +580,7 @@ class HealthScoreCalculator:
                 completeness_score = avg_completeness * 100
                 details["avg_response_completeness"] = round(avg_completeness, 3)
                 details["incomplete_ratio"] = round((scores < 0.5).mean(), 3)
-
-                if metrics_found > 0:
-                    score = (score + completeness_score) / 2
-                else:
-                    score = completeness_score
-                metrics_found += 1
-
-        # Check turn quality score
-        turn_cols = [col for col in df.columns if "turn_quality_score" in col]
-        if turn_cols:
-            col = turn_cols[0]
-            scores = df[col].dropna()
-            if len(scores) > 0:
-                avg_turn = scores.mean()
-                turn_score = avg_turn * 100
-                details["avg_turn_quality"] = round(avg_turn, 3)
-
-                if metrics_found > 0:
-                    score = (score * metrics_found + turn_score) / (metrics_found + 1)
-                else:
-                    score = turn_score
-                metrics_found += 1
+                score = completeness_score
 
         # Check for truncated responses (penalize)
         ending_cols = [col for col in df.columns if "has_proper_ending" in col]
@@ -692,16 +635,6 @@ class HealthScoreCalculator:
                 near_dup_penalty = min(30, near_dup_ratio * 150)
                 score = max(0, score - near_dup_penalty)
                 details["near_duplicate_ratio"] = round(near_dup_ratio, 3)
-
-        # Check for special token leakage
-        token_cols = [col for col in df.columns if "has_special_tokens" in col]
-        if token_cols:
-            col = token_cols[0]
-            leakage_ratio = df[col].mean()
-            if leakage_ratio > 0:
-                leakage_penalty = min(20, leakage_ratio * 100)
-                score = max(0, score - leakage_penalty)
-                details["special_token_leakage_ratio"] = round(leakage_ratio, 3)
 
         # Check for encoding issues
         encoding_cols = [col for col in df.columns if "has_encoding_issues" in col]

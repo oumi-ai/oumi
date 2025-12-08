@@ -154,7 +154,6 @@ class RecommendationsEngine:
         token_warn_thresholds: Optional[list[int]] = None,
         language_consistency_threshold: float = 0.9,
         pii_warn_threshold: float = 0.01,
-        quality_score_threshold: float = 0.5,
     ):
         """Initialize the RecommendationsEngine.
 
@@ -177,8 +176,6 @@ class RecommendationsEngine:
                 in the dominant language. Default is 0.9 (90%).
             pii_warn_threshold: Fraction of samples with PII to trigger warning.
                 Default is 0.01 (1%).
-            quality_score_threshold: Quality score below which to warn.
-                Default is 0.5.
         """
         self.outlier_std_threshold = outlier_std_threshold
         self.duplicate_warn_threshold = duplicate_warn_threshold
@@ -188,10 +185,8 @@ class RecommendationsEngine:
         self.token_warn_thresholds = token_warn_thresholds or [4096, 8192, 16384]
         self.language_consistency_threshold = language_consistency_threshold
         self.pii_warn_threshold = pii_warn_threshold
-        self.quality_score_threshold = quality_score_threshold
 
         # Training quality thresholds
-        self.instruction_clarity_threshold = 0.5
         self.response_completeness_threshold = 0.5
 
     def generate_recommendations(
@@ -228,12 +223,10 @@ class RecommendationsEngine:
         recommendations.extend(self._check_special_token_leakage(message_df))
         recommendations.extend(self._check_instruction_format_consistency(message_df))
         recommendations.extend(self._check_pii_detected(message_df))
-        recommendations.extend(self._check_quality_scores(message_df))
         recommendations.extend(self._check_encoding_issues(message_df))
         recommendations.extend(self._check_high_repetition(message_df))
 
         # Training quality checks
-        recommendations.extend(self._check_instruction_clarity(message_df))
         recommendations.extend(self._check_response_completeness(message_df))
         recommendations.extend(self._check_truncated_responses(message_df))
 
@@ -1166,74 +1159,6 @@ class RecommendationsEngine:
 
         return recommendations
 
-    def _check_quality_scores(self, df: pd.DataFrame) -> list[Recommendation]:
-        """Check for low quality scores.
-
-        Args:
-            df: DataFrame with message data.
-
-        Returns:
-            List of recommendations for quality score issues.
-        """
-        recommendations = []
-
-        # Look for quality score columns
-        quality_cols = [col for col in df.columns if "quality_score" in col]
-
-        for col in quality_cols:
-            if col not in df.columns:
-                continue
-
-            scores = df[col].dropna()
-            if len(scores) == 0:
-                continue
-
-            low_quality_mask = scores < self.quality_score_threshold
-            low_quality_count = low_quality_mask.sum()
-            if low_quality_count > 0:
-                low_quality_pct = (low_quality_count / len(scores)) * 100
-                avg_score = scores.mean()
-
-                severity = (
-                    RecommendationSeverity.HIGH
-                    if low_quality_pct > 20
-                    else (
-                        RecommendationSeverity.MEDIUM
-                        if low_quality_pct > 10
-                        else RecommendationSeverity.LOW
-                    )
-                )
-
-                # Get indices of low quality samples (limit to 20)
-                low_quality_indices = scores[low_quality_mask].index.tolist()[:20]
-
-                recommendations.append(
-                    Recommendation(
-                        category=RecommendationCategory.WARNING,
-                        severity=severity,
-                        title="Low quality samples detected",
-                        description=(
-                            f"Found {low_quality_count} messages ({low_quality_pct:.1f}%) "
-                            f"with quality scores below {self.quality_score_threshold}. "
-                            f"Average quality score: {avg_score:.2f}. Consider filtering "
-                            f"or reviewing low-quality samples before training."
-                        ),
-                        affected_samples=int(low_quality_count),
-                        metric_name=col,
-                        threshold=self.quality_score_threshold,
-                        details={
-                            "low_quality_count": int(low_quality_count),
-                            "average_score": round(avg_score, 3),
-                            "min_score": round(scores.min(), 3),
-                            "max_score": round(scores.max(), 3),
-                        },
-                        sample_indices=low_quality_indices,
-                    )
-                )
-            break  # Only report once
-
-        return recommendations
-
     def _check_encoding_issues(self, df: pd.DataFrame) -> list[Recommendation]:
         """Check for encoding issues in content.
 
@@ -1339,78 +1264,6 @@ class RecommendationsEngine:
                         metric_name=col,
                         details={"repetitive_count": int(repetitive_count)},
                         sample_indices=repetitive_indices,
-                    )
-                )
-            break  # Only report once
-
-        return recommendations
-
-    def _check_instruction_clarity(self, df: pd.DataFrame) -> list[Recommendation]:
-        """Check for unclear instructions in user messages.
-
-        Args:
-            df: DataFrame with message data.
-
-        Returns:
-            List of recommendations for instruction clarity issues.
-        """
-        recommendations = []
-
-        # Look for instruction clarity score columns from training quality analyzer
-        clarity_cols = [col for col in df.columns if "instruction_clarity_score" in col]
-
-        for col in clarity_cols:
-            if col not in df.columns:
-                continue
-
-            # Only consider non-null values (user messages)
-            scores = df[col].dropna()
-            if len(scores) == 0:
-                continue
-
-            low_clarity_mask = scores < self.instruction_clarity_threshold
-            low_clarity_count = low_clarity_mask.sum()
-
-            if low_clarity_count > 0:
-                low_clarity_pct = (low_clarity_count / len(scores)) * 100
-                avg_score = scores.mean()
-
-                severity = (
-                    RecommendationSeverity.HIGH
-                    if low_clarity_pct > 30
-                    else (
-                        RecommendationSeverity.MEDIUM
-                        if low_clarity_pct > 15
-                        else RecommendationSeverity.LOW
-                    )
-                )
-
-                # Get indices of low clarity samples (limit to 20)
-                low_clarity_indices = scores[low_clarity_mask].index.tolist()[:20]
-
-                recommendations.append(
-                    Recommendation(
-                        category=RecommendationCategory.WARNING,
-                        severity=severity,
-                        title="Unclear instructions detected",
-                        description=(
-                            f"Found {low_clarity_count} user instructions "
-                            f"({low_clarity_pct:.1f}%) with low clarity scores "
-                            f"(below {self.instruction_clarity_threshold}). "
-                            f"Average clarity score: {avg_score:.2f}. "
-                            f"Unclear instructions may lead to inconsistent model "
-                            f"behavior. Consider making instructions more specific "
-                            f"with clear action verbs and concrete details."
-                        ),
-                        affected_samples=int(low_clarity_count),
-                        metric_name=col,
-                        threshold=self.instruction_clarity_threshold,
-                        details={
-                            "low_clarity_count": int(low_clarity_count),
-                            "average_score": round(avg_score, 3),
-                            "min_score": round(scores.min(), 3),
-                        },
-                        sample_indices=low_clarity_indices,
                     )
                 )
             break  # Only report once

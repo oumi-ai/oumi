@@ -18,7 +18,6 @@ This analyzer identifies quality issues commonly found in AI-generated training 
 - Placeholder text ([Name], [Product Name], etc.)
 - AI hallucinated personal experiences
 - Nooutput tags and AI refusals
-- Suspicious/potentially fake URLs
 """
 
 import re
@@ -40,7 +39,6 @@ class ContentPatternAnalyzer(SampleAnalyzer):
         - AI hallucinated experiences: Fabricated first-person stories
         - Nooutput markers: <nooutput>, N/A, and similar non-responses
         - AI refusals: "I cannot provide...", "I'm unable to..."
-        - Suspicious URLs: Potentially hallucinated/fake URLs
 
     Quality metrics computed:
         - has_placeholder: Boolean indicating placeholder text detected
@@ -49,8 +47,6 @@ class ContentPatternAnalyzer(SampleAnalyzer):
         - has_hallucinated_experience: Boolean for AI fabricated stories
         - has_nooutput: Boolean for nooutput/NA markers
         - has_refusal: Boolean for AI refusal patterns
-        - has_suspicious_url: Boolean for potentially fake URLs
-        - content_pattern_score: Composite quality score (0-1, higher is cleaner)
     """
 
     # Bracketed placeholders: [Name], [Product Name], [Your Name], etc.
@@ -143,24 +139,6 @@ class ContentPatternAnalyzer(SampleAnalyzer):
         ),
     ]
 
-    # Suspicious URL patterns (potentially hallucinated)
-    _SUSPICIOUS_URL_PATTERN = re.compile(
-        r"https?://(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:/[^\s]*)?",
-        re.IGNORECASE,
-    )
-
-    # Known fake/commonly hallucinated domains
-    _HALLUCINATED_DOMAINS = {
-        "diversityintech.com",
-        "aiethics.org",
-        "techforgood.com",
-        "example-company.com",
-        "samplewebsite.com",
-        "yourwebsite.com",
-        "mycompany.com",
-        "testsite.com",
-    }
-
     def __init__(
         self,
         *,
@@ -168,10 +146,8 @@ class ContentPatternAnalyzer(SampleAnalyzer):
         detect_hallucinated_experiences: bool = True,
         detect_nooutput: bool = True,
         detect_refusals: bool = True,
-        detect_suspicious_urls: bool = False,
         placeholder_whitelist: Optional[list[str]] = None,
         check_output_only: bool = False,
-        compute_content_pattern_score: bool = True,
     ):
         """Initialize the ContentPatternAnalyzer.
 
@@ -180,19 +156,15 @@ class ContentPatternAnalyzer(SampleAnalyzer):
             detect_hallucinated_experiences: Whether to detect AI fabricated stories.
             detect_nooutput: Whether to detect nooutput/NA markers.
             detect_refusals: Whether to detect AI refusal patterns.
-            detect_suspicious_urls: Whether to detect potentially fake URLs.
             placeholder_whitelist: List of placeholder patterns to ignore.
             check_output_only: If True, only analyze assistant/output messages.
-            compute_content_pattern_score: Whether to compute composite score.
         """
         self.detect_placeholders = detect_placeholders
         self.detect_hallucinated_experiences = detect_hallucinated_experiences
         self.detect_nooutput = detect_nooutput
         self.detect_refusals = detect_refusals
-        self.detect_suspicious_urls = detect_suspicious_urls
         self.placeholder_whitelist = set(placeholder_whitelist or [])
         self.check_output_only = check_output_only
-        self.compute_content_pattern_score = compute_content_pattern_score
 
     def _detect_placeholders(self, text: str) -> dict[str, Any]:
         """Detect placeholder text in content.
@@ -279,73 +251,6 @@ class ContentPatternAnalyzer(SampleAnalyzer):
                 return True
         return False
 
-    def _detect_suspicious_urls(self, text: str) -> dict[str, Any]:
-        """Detect potentially fake/hallucinated URLs.
-
-        Args:
-            text: Input text to analyze.
-
-        Returns:
-            Dictionary with URL detection results.
-        """
-        urls = self._SUSPICIOUS_URL_PATTERN.findall(text)
-        suspicious_count = 0
-
-        for url in urls:
-            # Extract domain from URL
-            domain_match = re.search(
-                r"https?://(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})", url
-            )
-            if domain_match:
-                domain = domain_match.group(1).lower()
-                if domain in self._HALLUCINATED_DOMAINS:
-                    suspicious_count += 1
-
-        return {
-            "has_suspicious_url": suspicious_count > 0,
-            "suspicious_url_count": suspicious_count,
-        }
-
-    def _compute_content_pattern_score(
-        self,
-        has_placeholder: bool,
-        placeholder_count: int,
-        has_hallucinated_experience: bool,
-        has_nooutput: bool,
-        has_refusal: bool,
-        has_suspicious_url: bool,
-    ) -> float:
-        """Compute a composite content quality score.
-
-        Higher scores indicate cleaner content (fewer issues).
-
-        Args:
-            has_placeholder: Whether placeholders were detected.
-            placeholder_count: Number of placeholders found.
-            has_hallucinated_experience: Whether AI fabrication detected.
-            has_nooutput: Whether nooutput marker detected.
-            has_refusal: Whether AI refusal detected.
-            has_suspicious_url: Whether suspicious URL detected.
-
-        Returns:
-            Quality score between 0 and 1.
-        """
-        score = 1.0
-
-        # Deductions (severity-weighted)
-        if has_nooutput:
-            score -= 0.5  # Most severe - unusable sample
-        if has_refusal:
-            score -= 0.4  # Severe - indicates incomplete response
-        if has_placeholder:
-            score -= min(0.3, placeholder_count * 0.1)  # Scale by count
-        if has_hallucinated_experience:
-            score -= 0.2
-        if has_suspicious_url:
-            score -= 0.1
-
-        return max(0.0, round(score, 3))
-
     def _analyze_text(self, text: str) -> dict[str, Any]:
         """Analyze a single text sample for content pattern issues.
 
@@ -358,49 +263,23 @@ class ContentPatternAnalyzer(SampleAnalyzer):
         results = {}
 
         # Placeholder detection
-        has_placeholder = False
-        placeholder_count = 0
         if self.detect_placeholders:
             placeholder_results = self._detect_placeholders(text)
             results.update(placeholder_results)
-            has_placeholder = placeholder_results["has_placeholder"]
-            placeholder_count = placeholder_results["placeholder_count"]
 
         # Hallucinated experience detection
-        has_hallucinated_experience = False
         if self.detect_hallucinated_experiences:
-            has_hallucinated_experience = self._detect_hallucinated_experience(text)
-            results["has_hallucinated_experience"] = has_hallucinated_experience
+            results["has_hallucinated_experience"] = self._detect_hallucinated_experience(
+                text
+            )
 
         # Nooutput detection
-        has_nooutput = False
         if self.detect_nooutput:
-            has_nooutput = self._detect_nooutput(text)
-            results["has_nooutput"] = has_nooutput
+            results["has_nooutput"] = self._detect_nooutput(text)
 
         # Refusal detection
-        has_refusal = False
         if self.detect_refusals:
-            has_refusal = self._detect_refusal(text)
-            results["has_refusal"] = has_refusal
-
-        # Suspicious URL detection
-        has_suspicious_url = False
-        if self.detect_suspicious_urls:
-            url_results = self._detect_suspicious_urls(text)
-            results.update(url_results)
-            has_suspicious_url = url_results["has_suspicious_url"]
-
-        # Composite score
-        if self.compute_content_pattern_score:
-            results["content_pattern_score"] = self._compute_content_pattern_score(
-                has_placeholder=has_placeholder,
-                placeholder_count=placeholder_count,
-                has_hallucinated_experience=has_hallucinated_experience,
-                has_nooutput=has_nooutput,
-                has_refusal=has_refusal,
-                has_suspicious_url=has_suspicious_url,
-            )
+            results["has_refusal"] = self._detect_refusal(text)
 
         return results
 
@@ -493,23 +372,6 @@ class ContentPatternAnalyzer(SampleAnalyzer):
             if self.detect_refusals:
                 result_df[f"{column}_{analyzer_id}_has_refusal"] = (
                     analysis_results.apply(lambda r: r.get("has_refusal", None))
-                )
-
-            if self.detect_suspicious_urls:
-                result_df[f"{column}_{analyzer_id}_has_suspicious_url"] = (
-                    analysis_results.apply(lambda r: r.get("has_suspicious_url", None))
-                )
-                result_df[f"{column}_{analyzer_id}_suspicious_url_count"] = (
-                    analysis_results.apply(
-                        lambda r: r.get("suspicious_url_count", None)
-                    )
-                )
-
-            if self.compute_content_pattern_score:
-                result_df[f"{column}_{analyzer_id}_content_pattern_score"] = (
-                    analysis_results.apply(
-                        lambda r: r.get("content_pattern_score", None)
-                    )
                 )
 
         return result_df
