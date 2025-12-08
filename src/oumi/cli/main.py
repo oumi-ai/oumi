@@ -44,6 +44,7 @@ from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
 from oumi.cli.tune import tune
+from oumi.cli.view import view
 from oumi.utils.logging import should_use_rich_logging
 
 _ASCII_LOGO = r"""
@@ -223,6 +224,12 @@ def get_app() -> typer.Typer:
         help="Quick setup: analyze data and generate configs.",
         rich_help_panel="Tools",
     )
+
+    # View command
+    app.command(
+        help="Browse conversations in a JSONL file using an interactive TUI.",
+        rich_help_panel="Tools",
+    )(view)
 
     return app
 

@@ -254,6 +254,8 @@ Generate an appropriate response.""",
         attribute_map: Optional[dict[str, str]] = None,
         system_prompt: Optional[str] = None,
         task_description: Optional[str] = None,
+        task_type: Optional[str] = None,
+        output_format: Optional[str] = None,
     ) -> SynthesisConfig:
         """Build a SynthesisConfig from analyzed data.
 
@@ -268,6 +270,8 @@ Generate an appropriate response.""",
                 Takes precedence over auto-detected mappings.
             system_prompt: Optional custom system prompt for the task.
             task_description: Optional task description to customize prompts.
+            task_type: Optional task type (extraction, classification, generation, etc.).
+            output_format: Optional description of expected output format.
 
         Returns:
             A configured SynthesisConfig.
@@ -281,7 +285,8 @@ Generate an appropriate response.""",
         # Build strategy params based on goal
         strategy_params = self._build_strategy_params(
             schema, goal, mappings, attribute_map=attribute_map,
-            system_prompt=system_prompt, task_description=task_description
+            system_prompt=system_prompt, task_description=task_description,
+            task_type=task_type, output_format=output_format
         )
 
         # Create output path if not provided
@@ -304,6 +309,8 @@ Generate an appropriate response.""",
         attribute_map: Optional[dict[str, str]] = None,
         system_prompt: Optional[str] = None,
         task_description: Optional[str] = None,
+        task_type: Optional[str] = None,
+        output_format: Optional[str] = None,
     ) -> GeneralSynthesisParams:
         """Build strategy params based on the goal.
 
@@ -315,30 +322,47 @@ Generate an appropriate response.""",
                 precedence over auto-detected mappings.
             system_prompt: Optional custom system prompt for the task.
             task_description: Optional task description to customize prompts.
+            task_type: Optional task type (extraction, classification, etc.).
+            output_format: Optional description of expected output format.
         """
-        params = GeneralSynthesisParams()
+        from oumi.core.configs.params.synthesis_params import ExampleSource
 
-        # Add input data source if schema has data
+        params = GeneralSynthesisParams()
+        has_data_source = False
+
+        # Add input data source if schema has tabular data
         if schema.source_path and schema.detected_format in ("csv", "excel", "json", "jsonl"):
             # Use provided attribute_map or build from mappings
             if attribute_map:
                 # Explicit column assignments provided - use directly
-                final_attribute_map = attribute_map
+                final_attribute_map = dict(attribute_map)
             else:
                 # Build attribute map from auto-detected mappings
                 final_attribute_map = self._build_attribute_map(mappings)
 
-                # If no mappings, try to find a good context column
-                if not final_attribute_map and schema.columns:
-                    # Find the best text column to use as context
+            # Ensure we have a "context" mapping (required by prompts)
+            if "context" not in final_attribute_map.values() and schema.columns:
+                # Find columns not yet mapped
+                mapped_cols = set(final_attribute_map.keys())
+                unmapped_cols = [c for c in schema.columns if c.name not in mapped_cols]
+
+                # Prefer text columns for context
+                text_cols = [c for c in unmapped_cols if c.is_text]
+                if text_cols:
+                    best_col = max(text_cols, key=lambda c: c.avg_length or 0)
+                    final_attribute_map[best_col.name] = "context"
+                elif unmapped_cols:
+                    # Use first unmapped column
+                    final_attribute_map[unmapped_cols[0].name] = "context"
+                elif schema.columns:
+                    # Last resort: use first column (even if already mapped)
+                    # Combine multiple columns into context
                     text_cols = [c for c in schema.columns if c.is_text]
                     if text_cols:
-                        # Use the longest text column as context
                         best_col = max(text_cols, key=lambda c: c.avg_length or 0)
-                        final_attribute_map = {best_col.name: "context"}
-                    elif schema.columns:
-                        # Fallback: use first column as context
-                        final_attribute_map = {schema.columns[0].name: "context"}
+                        final_attribute_map[best_col.name] = "context"
+                    else:
+                        final_attribute_map[schema.columns[0].name] = "context"
 
             params.input_data = [
                 DatasetSource(
@@ -346,14 +370,37 @@ Generate an appropriate response.""",
                     attribute_map=final_attribute_map if final_attribute_map else None,
                 )
             ]
+            has_data_source = True
+
+        # Fallback: if no tabular data, use inline examples from sample_rows or raw_text
+        if not has_data_source:
+            examples = []
+            if schema.sample_rows:
+                # Use sample rows as examples
+                for row in schema.sample_rows[:5]:
+                    # Combine all text values as context
+                    text_parts = [str(v) for v in row.values() if v and str(v).strip()]
+                    if text_parts:
+                        examples.append({"context": " | ".join(text_parts)})
+            elif schema.raw_text:
+                # Use chunks of raw text as examples
+                text = schema.raw_text[:2000]
+                examples.append({"context": text})
+
+            # If we still have no examples, create a placeholder
+            if not examples:
+                examples.append({"context": task_description or "Generate a sample input"})
+
+            params.input_examples = [ExampleSource(examples=examples)]
 
         # Build generated attributes based on goal
         if goal == "qa":
             params.generated_attributes = self._build_qa_attributes(
-                mappings, system_prompt=system_prompt, task_description=task_description
+                mappings, system_prompt=system_prompt, task_description=task_description,
+                task_type=task_type, output_format=output_format
             )
-            params.transformed_attributes = self._build_qa_transform()
-            params.passthrough_attributes = ["conversation", "question", "answer"]
+            params.transformed_attributes = self._build_qa_transform(system_prompt=system_prompt)
+            params.passthrough_attributes = ["synth_conversation", "synth_question", "synth_answer"]
         elif goal == "conversation":
             params.generated_attributes = self._build_conversation_attributes(mappings)
             params.passthrough_attributes = ["conversation"]
@@ -375,6 +422,8 @@ Generate an appropriate response.""",
         mappings: list[FieldMapping],
         system_prompt: Optional[str] = None,
         task_description: Optional[str] = None,
+        task_type: Optional[str] = None,
+        output_format: Optional[str] = None,
     ) -> list[GeneratedAttribute]:
         """Build generated attributes for Q&A synthesis.
 
@@ -382,6 +431,8 @@ Generate an appropriate response.""",
             mappings: Field mappings from auto-detection.
             system_prompt: Optional custom system prompt for the task.
             task_description: Optional task description to customize prompts.
+            task_type: Optional task type (extraction, classification, etc.).
+            output_format: Optional description of expected output format.
         """
         templates = self.GOAL_TEMPLATES["qa"]
 
@@ -395,17 +446,39 @@ Generate an appropriate response.""",
                 context_placeholder = m.oumi_placeholder
                 break
 
+        # Build task type specific instructions
+        task_type_instruction = ""
+        if task_type == "extraction":
+            task_type_instruction = "This is a structured extraction task. The model extracts specific information into a structured format."
+        elif task_type == "classification":
+            task_type_instruction = "This is a classification task. The model categorizes input into predefined labels."
+        elif task_type == "transformation":
+            task_type_instruction = "This is a transformation task. The model transforms input from one format to another."
+        elif task_type == "qa":
+            task_type_instruction = "This is a question answering task. The model answers questions based on context."
+        else:
+            task_type_instruction = "This is a text generation task."
+
+        # Build output format instruction
+        output_instruction = ""
+        if output_format:
+            output_instruction = f"\n\nExpected output format:\n{output_format}"
+
         # Build question prompt - customize if task description provided
         if task_description:
-            question_prompt = f"""Based on the following information, generate a question relevant to this task:
+            question_prompt = f"""You are generating training data for an AI model.
+
+{task_type_instruction}
 
 Task: {task_description}
 
-Context:
+Based on this context from real data:
 {{{context_placeholder}}}
 
+Generate a realistic INPUT that someone might submit for this task. The input should be similar to the context but varied.
+
 Format your response as:
-Question: <your question>"""
+Question: <the input for the model to process>"""
         else:
             question_prompt = templates["question_prompt"].replace(
                 "{context}", f"{{{context_placeholder}}}"
@@ -413,38 +486,44 @@ Question: <your question>"""
 
         # Build answer prompt - customize if task description provided
         if task_description:
-            answer_prompt = f"""Provide a response to this question according to the task requirements.
+            answer_prompt = f"""You are generating training data for an AI model.
 
-Task: {task_description}
+{task_type_instruction}
 
-Question: {{question}}
+Task: {task_description}{output_instruction}
+
+Given this input:
+{{synth_question}}
+
+Generate the expected OUTPUT that a well-trained model should produce for this task. Follow the expected output format exactly.
 
 Format your response as:
-Answer: <your answer>"""
+Answer: <the expected model output>"""
         else:
-            answer_prompt = templates["answer_prompt"]
+            answer_prompt = templates["answer_prompt"].replace("{question}", "{synth_question}")
 
+        # Use unique IDs to avoid conflicts with input data columns
         question_attr = GeneratedAttribute(
-            id="question_raw",
+            id="synth_question_raw",
             instruction_messages=[
                 TextMessage(role=Role.SYSTEM, content=final_system_prompt),
                 TextMessage(role=Role.USER, content=question_prompt),
             ],
             postprocessing_params=GeneratedAttributePostprocessingParams(
-                id="question",
+                id="synth_question",
                 cut_prefix="Question:",
                 strip_whitespace=True,
             ),
         )
 
         answer_attr = GeneratedAttribute(
-            id="answer_raw",
+            id="synth_answer_raw",
             instruction_messages=[
                 TextMessage(role=Role.SYSTEM, content=final_system_prompt),
                 TextMessage(role=Role.USER, content=answer_prompt),
             ],
             postprocessing_params=GeneratedAttributePostprocessingParams(
-                id="answer",
+                id="synth_answer",
                 cut_prefix="Answer:",
                 strip_whitespace=True,
             ),
@@ -452,19 +531,30 @@ Answer: <your answer>"""
 
         return [question_attr, answer_attr]
 
-    def _build_qa_transform(self) -> list[TransformedAttribute]:
-        """Build transformation for Q&A to conversation format."""
+    def _build_qa_transform(
+        self, system_prompt: Optional[str] = None
+    ) -> list[TransformedAttribute]:
+        """Build transformation for Q&A to conversation format.
+
+        Args:
+            system_prompt: Optional system prompt to include in conversation.
+        """
+        messages = []
+
+        # Add system message if provided
+        if system_prompt:
+            messages.append(TextMessage(role=Role.SYSTEM, content=system_prompt))
+
+        # Add user and assistant messages (use synth_ prefixed IDs)
+        messages.append(TextMessage(role=Role.USER, content="{synth_question}"))
+        messages.append(TextMessage(role=Role.ASSISTANT, content="{synth_answer}"))
+
         return [
             TransformedAttribute(
-                id="conversation",
+                id="synth_conversation",
                 transformation_strategy=TransformationStrategy(
                     type=TransformationType.CHAT,
-                    chat_transform=TextConversation(
-                        messages=[
-                            TextMessage(role=Role.USER, content="{question}"),
-                            TextMessage(role=Role.ASSISTANT, content="{answer}"),
-                        ]
-                    ),
+                    chat_transform=TextConversation(messages=messages),
                 ),
             )
         ]

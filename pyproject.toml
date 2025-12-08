@@ -173,6 +173,8 @@ file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
 
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
+view = ["textual>=0.89,<2.0"]  # TUI for viewing JSONL conversations
+
 # torchdata provides StatefulDataLoader and DataPipes for advanced data loading
 # torchdata 0.10 drops support for datapipes which we currently use
 # also, torchdata does not provide a py3.13 wheel for version 0.9.0.

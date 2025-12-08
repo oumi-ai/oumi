@@ -121,6 +121,36 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+# Task types for synthesis
+TASK_TYPES = {
+    "extraction": {
+        "name": "Structured Extraction",
+        "description": "Extract specific information into a structured format (JSON, fields, entities)",
+        "output_instruction": "Generate the extracted structured data in the expected format",
+    },
+    "classification": {
+        "name": "Classification",
+        "description": "Classify or categorize input into predefined labels/categories",
+        "output_instruction": "Provide the classification label with a brief explanation",
+    },
+    "generation": {
+        "name": "Text Generation",
+        "description": "Generate new text content (summaries, responses, creative writing)",
+        "output_instruction": "Generate the expected text output",
+    },
+    "transformation": {
+        "name": "Transformation",
+        "description": "Transform input from one format/style to another",
+        "output_instruction": "Generate the transformed output",
+    },
+    "qa": {
+        "name": "Question Answering",
+        "description": "Answer questions based on provided context or knowledge",
+        "output_instruction": "Provide a clear, accurate answer to the question",
+    },
+}
+
+
 @dataclass
 class TaskSpec:
     """Minimal task specification - just what's essential."""
@@ -131,8 +161,14 @@ class TaskSpec:
     description: str = ""
     """What the model should do (free-form description from user)."""
 
+    task_type: str = "generation"
+    """Type of task: extraction, classification, generation, transformation, qa."""
+
     example_input: str = ""
     """Example input for the task."""
+
+    example_output: str = ""
+    """Example output for the task (helps define expected format)."""
 
     system_prompt: str = ""
     """The complete system prompt (auto-generated, user can edit)."""
@@ -556,6 +592,57 @@ def _derive_task_name(description: str) -> str:
     return truncated + "..."
 
 
+def _infer_task_type(description: str, system_prompt: str, llm_analyzer) -> tuple[str, str]:
+    """Infer the task type from description and system prompt.
+
+    Args:
+        description: Task description.
+        system_prompt: Generated system prompt.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Tuple of (task_type, example_output_format).
+    """
+    task_types_str = "\n".join([
+        f"- {key}: {info['description']}"
+        for key, info in TASK_TYPES.items()
+    ])
+
+    prompt = f"""Analyze this task and determine its type.
+
+Task description: {description}
+
+System prompt: {system_prompt}
+
+Available task types:
+{task_types_str}
+
+Based on the task, determine:
+1. Which task type best fits
+2. What format the OUTPUT should be in (e.g., JSON schema, label format, text format)
+
+Return JSON:
+{{
+    "task_type": "<one of: extraction, classification, generation, transformation, qa>",
+    "output_format": "<brief description of expected output format, e.g., 'JSON with fields: title, description, category' or 'VALID/INVALID with explanation'>"
+}}
+
+Return ONLY the JSON object."""
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        task_type = result.get("task_type", "generation")
+        output_format = result.get("output_format", "")
+
+        # Validate task type
+        if task_type not in TASK_TYPES:
+            task_type = "generation"
+
+        return task_type, output_format
+    except Exception:
+        return "generation", ""
+
+
 def _wizard_step_task(state: WizardState, verbose: bool = False) -> WizardState:
     """Step 1: Define task and generate system prompt.
 
@@ -630,6 +717,63 @@ def _wizard_step_task(state: WizardState, verbose: bool = False) -> WizardState:
             "System prompt for the model",
             default=f"You are a helpful assistant. {state.task.description}",
         )
+
+    # Infer task type and output format
+    if state.llm_analyzer:
+        with cli_utils.CONSOLE.status("[dim]Detecting task type...[/dim]", spinner="dots"):
+            task_type, output_format = _infer_task_type(
+                state.task.description, state.task.system_prompt, state.llm_analyzer
+            )
+
+        state.task.task_type = task_type
+        state.task.example_output = output_format
+
+        # Show inferred type and ask for confirmation
+        type_info = TASK_TYPES.get(task_type, {})
+        cli_utils.CONSOLE.print(f"\n[bold]Detected task type:[/bold] {type_info.get('name', task_type)}")
+        cli_utils.CONSOLE.print(f"[dim]{type_info.get('description', '')}[/dim]")
+        if output_format:
+            cli_utils.CONSOLE.print(f"\n[bold]Expected output format:[/bold]\n{output_format}")
+
+        if not Confirm.ask("\nIs this correct?", default=True):
+            # Let user choose task type
+            cli_utils.CONSOLE.print("\n[bold]Available task types:[/bold]")
+            type_keys = list(TASK_TYPES.keys())
+            for i, key in enumerate(type_keys, 1):
+                info = TASK_TYPES[key]
+                cli_utils.CONSOLE.print(f"  {i}. [cyan]{info['name']}[/cyan] - {info['description']}")
+
+            choice = Prompt.ask(
+                "Select task type (1-5)",
+                default=str(type_keys.index(task_type) + 1)
+            )
+            try:
+                idx = int(choice) - 1
+                if 0 <= idx < len(type_keys):
+                    state.task.task_type = type_keys[idx]
+            except ValueError:
+                pass  # Keep the inferred type
+
+            # Let user describe output format
+            state.task.example_output = Prompt.ask(
+                "Describe expected output format",
+                default=output_format
+            )
+    else:
+        # Manual selection without LLM
+        cli_utils.CONSOLE.print("\n[bold]Select task type:[/bold]")
+        type_keys = list(TASK_TYPES.keys())
+        for i, key in enumerate(type_keys, 1):
+            info = TASK_TYPES[key]
+            cli_utils.CONSOLE.print(f"  {i}. [cyan]{info['name']}[/cyan] - {info['description']}")
+
+        choice = Prompt.ask("Select task type (1-5)", default="3")
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(type_keys):
+                state.task.task_type = type_keys[idx]
+        except ValueError:
+            state.task.task_type = "generation"
 
     cli_utils.CONSOLE.print("[green]✓ Task defined[/green]")
     return state
@@ -898,7 +1042,7 @@ def _wizard_step_outputs(state: WizardState, verbose: bool = False) -> WizardSta
 
 
 def _wizard_step_generate(
-    state: WizardState, output_path: Path, verbose: bool = False
+    state: WizardState, output_path: Path, verbose: bool = False, num_samples: int = 10
 ) -> tuple[str, list[str]]:
     """Step 4: Generate synthesis config and judges.
 
@@ -908,6 +1052,7 @@ def _wizard_step_generate(
         state: Current wizard state.
         output_path: Directory to save configs.
         verbose: Show detailed output.
+        num_samples: Number of samples to generate.
 
     Returns:
         Tuple of (synthesis_config_path, list of judge_config_paths).
@@ -926,13 +1071,17 @@ def _wizard_step_generate(
         synth_config = synth_builder.from_schema(
             state.primary_schema,
             goal="qa",
+            num_samples=num_samples,
             output_path=str(output_path / "synth_output.jsonl"),
             system_prompt=state.task.system_prompt,
             task_description=state.task.description,
+            task_type=state.task.task_type,
+            output_format=state.task.example_output,
         )
     else:
         synth_config = synth_builder.from_template(
             "qa_generation",
+            num_samples=num_samples,
             output_path=str(output_path / "synth_output.jsonl"),
         )
 
@@ -4212,6 +4361,14 @@ def wizard(
             help="Show detailed output including AI explanations and extra context.",
         ),
     ] = False,
+    num_samples: Annotated[
+        int,
+        typer.Option(
+            "--num-samples",
+            "-n",
+            help="Number of samples to generate in synthesis config.",
+        ),
+    ] = 10,
 ):
     """Interactive wizard to guide you through Oumi setup.
 
@@ -4496,7 +4653,9 @@ def wizard(
 
     # Step 4: Generate Configs (synthesis + judges)
     if "generate" not in state.completed_steps:
-        synth_config_path, judge_config_paths = _wizard_step_generate(state, output_path, verbose=verbose)
+        synth_config_path, judge_config_paths = _wizard_step_generate(
+            state, output_path, verbose=verbose, num_samples=num_samples
+        )
         _save_wizard_cache(state, output_path, "generate")
     else:
         synth_config_path = str(output_path / "synth_config.yaml")
@@ -5241,7 +5400,7 @@ def generate(
             "-n",
             help="Number of samples to generate (for synth).",
         ),
-    ] = 100,
+    ] = 10,
     base_model: Annotated[
         str,
         typer.Option(
