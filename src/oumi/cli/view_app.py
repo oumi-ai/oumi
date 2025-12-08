@@ -54,7 +54,7 @@ class MessageWidget(Container):
 
     MessageWidget.system {
         background: $surface;
-        border-left: thick yellow;
+        border-left: thick $warning;
     }
 
     MessageWidget.user {
@@ -64,12 +64,12 @@ class MessageWidget(Container):
 
     MessageWidget.assistant {
         background: $surface;
-        border-left: thick green;
+        border-left: thick $success;
     }
 
     MessageWidget.tool {
         background: $surface;
-        border-left: thick magenta;
+        border-left: thick $secondary;
     }
 
     MessageWidget .role-label {
@@ -79,7 +79,7 @@ class MessageWidget(Container):
     }
 
     MessageWidget.system .role-label {
-        color: yellow;
+        color: $warning;
     }
 
     MessageWidget.user .role-label {
@@ -87,11 +87,11 @@ class MessageWidget(Container):
     }
 
     MessageWidget.assistant .role-label {
-        color: green;
+        color: $success;
     }
 
     MessageWidget.tool .role-label {
-        color: magenta;
+        color: $secondary;
     }
 
     MessageWidget Static {
@@ -364,7 +364,7 @@ class HelpScreen(ModalScreen):
     HelpScreen .help-section {
         text-style: bold;
         margin-top: 1;
-        color: yellow;
+        color: $warning;
     }
 
     HelpScreen .help-item {
@@ -447,7 +447,7 @@ class StatsScreen(ModalScreen):
     StatsScreen .stats-section {
         text-style: bold;
         margin-top: 1;
-        color: yellow;
+        color: $warning;
     }
 
     StatsScreen .stats-item {
@@ -696,6 +696,7 @@ class ConversationViewerApp(App):
 
     def __init__(self, file_path: str, start_index: int = 0, from_stdin: bool = False):
         super().__init__()
+        self.theme = "flexoki"
         self.file_path = file_path
         self.from_stdin = from_stdin
         self.conversations: list[Conversation] = []

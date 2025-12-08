@@ -1732,6 +1732,7 @@ class TrainingViewerApp(App):
 
     def __init__(self, folder_path: Path, **kwargs):
         super().__init__(**kwargs)
+        self.theme = "flexoki"
         self.folder_path = folder_path
         self.data: Optional[TrainingData] = None
 
