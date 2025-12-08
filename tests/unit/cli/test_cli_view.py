@@ -415,3 +415,184 @@ class TestSearchHighlight:
             assert "[reverse](foo)[/reverse]" in result
         except ImportError:
             pytest.skip("textual not installed")
+
+
+# =============================================================================
+# Training Viewer Tests
+# =============================================================================
+
+
+class TestTrainingFolderDetection:
+    """Tests for training folder detection."""
+
+    def test_detects_training_folder_with_trainer_state(self, tmp_path):
+        """Test that a folder with trainer_state.json is detected as training folder."""
+        from oumi.cli.view import _is_training_folder
+
+        # Create trainer_state.json
+        trainer_state = {"global_step": 10, "max_steps": 100}
+        (tmp_path / "trainer_state.json").write_text(json.dumps(trainer_state))
+
+        assert _is_training_folder(tmp_path) is True
+
+    def test_rejects_folder_without_trainer_state(self, tmp_path):
+        """Test that a folder without trainer_state.json is not detected."""
+        from oumi.cli.view import _is_training_folder
+
+        # Create some other file
+        (tmp_path / "some_file.txt").write_text("hello")
+
+        assert _is_training_folder(tmp_path) is False
+
+    def test_rejects_regular_file(self, tmp_path):
+        """Test that a regular file is not detected as training folder."""
+        from oumi.cli.view import _is_training_folder
+
+        file_path = tmp_path / "not_a_folder.txt"
+        file_path.write_text("hello")
+
+        assert _is_training_folder(file_path) is False
+
+
+class TestTrainingDataLoader:
+    """Tests for training data loading."""
+
+    @pytest.fixture
+    def sample_training_folder(self, tmp_path):
+        """Create a sample training folder with minimal data."""
+        # Create trainer_state.json
+        trainer_state = {
+            "global_step": 10,
+            "max_steps": 10,
+            "epoch": 0.5,
+            "total_flos": 1e12,
+            "num_input_tokens_seen": 50000,
+            "train_batch_size": 4,
+            "log_history": [
+                {"step": 5, "loss": 2.0, "learning_rate": 1e-4},
+                {"step": 10, "loss": 1.5, "learning_rate": 5e-5},
+            ],
+        }
+        (tmp_path / "trainer_state.json").write_text(json.dumps(trainer_state))
+
+        return tmp_path
+
+    def test_loads_basic_training_data(self, sample_training_folder):
+        """Test loading basic training data from trainer_state.json."""
+        from oumi.cli.view_training_app import load_training_data
+
+        data = load_training_data(sample_training_folder)
+
+        assert data.global_step == 10
+        assert data.max_steps == 10
+        assert data.epoch == 0.5
+        assert data.num_input_tokens_seen == 50000
+        assert len(data.log_history) == 2
+
+    def test_handles_missing_optional_files(self, sample_training_folder):
+        """Test that missing optional files are handled gracefully."""
+        from oumi.cli.view_training_app import load_training_data
+
+        data = load_training_data(sample_training_folder)
+
+        # Optional files should be None
+        assert data.telemetry is None
+        assert data.metrics_summary is None
+        assert data.training_config is None
+        assert data.model_config is None
+
+    def test_raises_on_missing_trainer_state(self, tmp_path):
+        """Test that missing trainer_state.json raises an error."""
+        from oumi.cli.view_training_app import load_training_data
+
+        with pytest.raises(FileNotFoundError):
+            load_training_data(tmp_path)
+
+    def test_discovers_checkpoints(self, sample_training_folder):
+        """Test that checkpoint directories are discovered."""
+        from oumi.cli.view_training_app import load_training_data
+
+        # Create a checkpoint directory
+        checkpoint_dir = sample_training_folder / "checkpoint-5"
+        checkpoint_dir.mkdir()
+        (checkpoint_dir / "model.safetensors").write_text("model data")
+        (checkpoint_dir / "optimizer.pt").write_text("optimizer data")
+
+        data = load_training_data(sample_training_folder)
+
+        assert len(data.checkpoints) == 1
+        assert data.checkpoints[0].step == 5
+        assert data.checkpoints[0].has_model is True
+        assert data.checkpoints[0].has_optimizer is True
+
+    def test_determines_training_complete(self, sample_training_folder):
+        """Test that is_complete is determined correctly."""
+        from oumi.cli.view_training_app import load_training_data
+
+        data = load_training_data(sample_training_folder)
+
+        # global_step == max_steps means complete
+        assert data.is_complete is True
+
+
+class TestLogParsing:
+    """Tests for log file parsing."""
+
+    def test_parses_standard_log_line(self):
+        """Test parsing a standard log line."""
+        from oumi.cli.view_training_app import _parse_log_line
+
+        line = (
+            "[2025-11-21 09:59:33,027][oumi][rank0][pid:30141][MainThread][INFO]]"
+            "[train.py:165] Starting training..."
+        )
+        entry = _parse_log_line(line)
+
+        assert entry is not None
+        assert entry.level == "INFO"
+        assert entry.source == "train.py:165"
+        assert "Starting training" in entry.message
+
+    def test_parses_warning_log_line(self):
+        """Test parsing a warning log line."""
+        from oumi.cli.view_training_app import _parse_log_line
+
+        line = (
+            "[2025-11-21 09:59:36,311][oumi][rank0][pid:30141][MainThread][WARNING]]"
+            "[callbacks.py:66] MFU logging is only supported on GPU."
+        )
+        entry = _parse_log_line(line)
+
+        assert entry is not None
+        assert entry.level == "WARNING"
+        assert "MFU" in entry.message
+
+    def test_returns_none_for_invalid_line(self):
+        """Test that invalid lines return None."""
+        from oumi.cli.view_training_app import _parse_log_line
+
+        entry = _parse_log_line("This is not a valid log line")
+        assert entry is None
+
+
+class TestUtilityFunctions:
+    """Tests for utility functions."""
+
+    def test_format_size(self):
+        """Test size formatting."""
+        from oumi.cli.view_training_app import format_size
+
+        assert "B" in format_size(100)
+        assert "KB" in format_size(1024)
+        assert "MB" in format_size(1024 * 1024)
+        assert "GB" in format_size(1024 * 1024 * 1024)
+
+    def test_format_number(self):
+        """Test number formatting with suffixes."""
+        from oumi.cli.view_training_app import format_number
+
+        assert format_number(500) == "500"
+        assert "K" in format_number(1500)
+        assert "M" in format_number(1_500_000)
+        assert "B" in format_number(1_500_000_000)
+        assert "T" in format_number(1_500_000_000_000)

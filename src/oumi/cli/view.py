@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Interactive TUI viewer for JSONL conversations and YAML config files."""
+"""Interactive TUI viewer for JSONL conversations, YAML configs, and training outputs."""
 
 import sys
 import tempfile
@@ -29,7 +29,8 @@ def view(
         str,
         typer.Argument(
             help=(
-                "Path to file to view. Supports JSONL conversations and YAML configs. "
+                "Path to file or folder to view. Supports JSONL conversations, "
+                "YAML configs, and training output folders. "
                 "Use '-' to read from stdin (JSONL only)."
             )
         ),
@@ -43,7 +44,7 @@ def view(
     level: cli_utils.LOG_LEVEL_TYPE = None,
     verbose: cli_utils.VERBOSE_TYPE = False,
 ):
-    """Browse JSONL conversations or YAML configs with an interactive TUI.
+    """Browse JSONL conversations, YAML configs, or training outputs with an interactive TUI.
 
     For JSONL files, displays conversations in an interactive TUI with:
     - Navigation between conversations using arrow keys or j/k
@@ -58,10 +59,19 @@ def view(
     - Field docstrings from Oumi config classes
     - Raw YAML toggle with 'r' key
 
+    For training output folders (containing trainer_state.json), displays a dashboard with:
+    - Training summary with status and key metrics
+    - Timeline of training events
+    - Metrics charts (loss, learning rate, accuracy)
+    - Searchable training logs
+    - Configuration tree view
+    - Checkpoint and output file listing
+
     Examples:
         oumi view data/conversations.jsonl
         oumi view data/conversations.jsonl --start 10
         oumi view configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml
+        oumi view output/my_training_run/  # Training folder
         cat data/conversations.jsonl | oumi view
         oumi view -  # Read from stdin (JSONL)
     """
@@ -75,8 +85,20 @@ def view(
 
     path = Path(file_path)
     if not path.exists():
-        cli_utils.CONSOLE.print(f"[red]Error:[/red] File not found: {file_path}")
+        cli_utils.CONSOLE.print(f"[red]Error:[/red] Path not found: {file_path}")
         raise typer.Exit(code=1)
+
+    # Check if it's a training output folder
+    if path.is_dir():
+        if _is_training_folder(path):
+            _view_training(path)
+        else:
+            cli_utils.CONSOLE.print(
+                f"[red]Error:[/red] Directory '{file_path}' is not a training output folder. "
+                "Training folders must contain a trainer_state.json file."
+            )
+            raise typer.Exit(code=1)
+        return
 
     # Route based on file extension
     suffix = path.suffix.lower()
@@ -103,6 +125,29 @@ def view(
                 f"[red]Error:[/red] Could not determine file type for: {file_path}"
             )
             raise typer.Exit(code=1)
+
+
+def _is_training_folder(path: Path) -> bool:
+    """Check if the path is a training output folder.
+
+    A training output folder is identified by the presence of trainer_state.json.
+    """
+    return (path / "trainer_state.json").exists()
+
+
+def _view_training(folder_path: Path) -> None:
+    """View a training output folder."""
+    try:
+        from oumi.cli.view_training_app import TrainingViewerApp
+    except ImportError as e:
+        cli_utils.CONSOLE.print(
+            "[red]Error:[/red] The 'textual' package is required for viewing training outputs."
+        )
+        cli_utils.CONSOLE.print("Install it with: [cyan]pip install textual[/cyan]")
+        raise typer.Exit(code=1) from e
+
+    app = TrainingViewerApp(folder_path=folder_path)
+    app.run()
 
 
 def _view_config(file_path: Path) -> None:
