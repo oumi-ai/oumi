@@ -27,6 +27,7 @@ The DEITA paper ("What Makes Good Data for Alignment?", Liu et al., 2023) demons
 ### Concept
 
 Instruction complexity measures how sophisticated/challenging a task is. A complex instruction requires:
+
 - Multi-step reasoning
 - Handling constraints and edge cases
 - Domain-specific knowledge
@@ -77,7 +78,7 @@ analyzer = EvolComplexityAnalyzer(
     # Model configuration
     model_type="api",
     api_provider="anthropic",
-    api_model="claude-3-5-haiku-20241022",
+    api_model="claude-4-5-haiku",
 
     # Evolution configuration
     num_evolutions=3,  # Generate 3 more complex variants
@@ -94,6 +95,7 @@ analyzer = EvolComplexityAnalyzer(
 ```
 
 **Interpretation**:
+
 - Score ≈ 0: Simple instruction (lots of room for complexity evolution)
 - Score ≈ 1: Already very complex (comparable to evolved versions)
 
@@ -104,6 +106,7 @@ analyzer = EvolComplexityAnalyzer(
 ### Concept
 
 Response quality measures how helpful, accurate, and complete an answer is. A high-quality response:
+
 - Directly addresses the question
 - Provides accurate information
 - Has appropriate depth and structure
@@ -155,7 +158,7 @@ analyzer = EvolQualityAnalyzer(
     # Model configuration
     model_type="api",
     api_provider="anthropic",
-    api_model="claude-3-5-haiku-20241022",
+    api_model="claude-4-5-haiku",
 
     # Evolution configuration
     num_evolutions=3,
@@ -176,6 +179,7 @@ analyzer = EvolQualityAnalyzer(
 ```
 
 **Interpretation**:
+
 - Score ≈ 0: Low quality response (much room for improvement)
 - Score ≈ 1: High quality response (comparable to best evolved versions)
 
@@ -241,6 +245,7 @@ analyzer = ReprDiversityAnalyzer(
 ```
 
 **Interpretation**:
+
 - Score ≈ 0: Highly similar to other samples (redundant)
 - Score ≈ 1: Unique, unlike other samples (diverse)
 
@@ -255,6 +260,7 @@ DEITA_score = complexity_score × quality_score
 ```
 
 **Why multiplication?**
+
 - Ensures both dimensions are reasonably high
 - A brilliant but low-quality response (0.9 × 0.1 = 0.09) ranks below a decent, quality response (0.5 × 0.5 = 0.25)
 - Prevents gaming by optimizing only one dimension
@@ -308,7 +314,7 @@ analyzers:
     params:
       model_type: "api"
       api_provider: "anthropic"
-      api_model: "claude-3-5-haiku-20241022"
+      api_model: "claude-4-5-haiku"
       num_evolutions: 3
       analyze_role: "user"
 
@@ -317,7 +323,7 @@ analyzers:
     params:
       model_type: "api"
       api_provider: "anthropic"
-      api_model: "claude-3-5-haiku-20241022"
+      api_model: "claude-4-5-haiku"
       num_evolutions: 3
       analyze_role: "assistant"
 
@@ -434,10 +440,12 @@ The Evol analyzers support multiple inference backends:
 ### Cost
 
 Each sample requires 2 LLM calls per Evol analyzer:
+
 1. Generate evolved variants
 2. Rank original among variants
 
 For 1000 samples with both complexity and quality analysis:
+
 - ~4000 LLM calls total
 - With Claude 3.5 Haiku: ~$0.50-1.00 (depending on text length)
 

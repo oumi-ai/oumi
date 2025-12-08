@@ -1,0 +1,25 @@
+# Dataset Analysis Configuration (Minimal Starter)
+# Usage: oumi analyze --config configs/examples/analyze/analyze.yaml
+#
+# This is a minimal config with just the length analyzer.
+# For more analyzers, see analyze_comprehensive.yaml and uncomment what you need.
+#
+#
+# Output files:
+#   - message_analysis.csv: Per-message metrics
+#   - conversation_analysis.csv: Per-conversation aggregated metrics
+#   - analysis_summary.json: Statistical summary
+
+dataset_name: tatsu-lab/alpaca
+split: train
+sample_count: 100
+
+# Or use a local file:
+# dataset_path: ./my_dataset.jsonl
+
+output_path: ./analysis_output
+
+analyzers:
+  - id: length
+    params:
+      token_count: true # Uses tiktoken o200k_base (GPT-4o/GPT-5 encoding)

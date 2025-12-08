@@ -76,7 +76,7 @@ class EvolComplexityAnalyzer(EvolBaseAnalyzer):
         # Model configuration
         model_type: str = "api",
         api_provider: str = "anthropic",
-        api_model: str = "claude-3-5-haiku-20241022",
+        api_model: str = "claude-4-5-haiku",
         local_model: Optional[str] = None,
         inference_config: Optional[dict[str, Any]] = None,
         # Evolution configuration

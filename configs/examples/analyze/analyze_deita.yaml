@@ -20,7 +20,7 @@
 # Dataset configuration
 dataset_name: "tatsu-lab/alpaca"
 split: "train"
-sample_count: 100  # Start small for testing, increase for full analysis
+sample_count: 100 # Start small for testing, increase for full analysis
 
 # Output configuration
 output_path: "./analysis_output/deita"
@@ -40,8 +40,8 @@ analyzers:
     params:
       model_name: "sentence-transformers/all-MiniLM-L6-v2"
       k_neighbors: 5
-      diversity_threshold: 0.3  # Samples below this are flagged as redundant
-      embed_field: "all"  # "all", "user", or "assistant"
+      diversity_threshold: 0.3 # Samples below this are flagged as redundant
+      embed_field: "all" # "all", "user", or "assistant"
       batch_size: 32
       show_progress_bar: true
 
@@ -53,7 +53,7 @@ analyzers:
       # Option 1: Use Anthropic API (default)
       model_type: "api"
       api_provider: "anthropic"
-      api_model: "claude-3-5-haiku-20241022"  # Cost-effective, try "claude-sonnet-4-5-20250514" for higher quality
+      api_model: "claude-3-5-haiku-20241022"  # Cost-effective
 
       # Option 2: Use OpenAI API
       # model_type: "api"
@@ -67,14 +67,14 @@ analyzers:
       #   engine: "vllm"
 
       # Evolution configuration
-      num_evolutions: 3  # Number of more complex variants to generate (1-6)
+      num_evolutions: 3 # Number of more complex variants to generate (1-6)
       evolution_operators:
         - "add_constraints"
         - "require_reasoning"
         - "increase_depth"
 
       # Analysis scope
-      analyze_role: "user"  # Analyze user instructions
+      analyze_role: "user" # Analyze user instructions
 
       # Performance
       temperature: 0.7
@@ -99,10 +99,10 @@ analyzers:
         - "structure"
 
       # Context configuration
-      use_conversation_context: true  # Try to find instruction for context
+      use_conversation_context: true # Try to find instruction for context
 
       # Analysis scope
-      analyze_role: "assistant"  # Analyze assistant responses
+      analyze_role: "assistant" # Analyze assistant responses
 
       # Performance
       temperature: 0.7

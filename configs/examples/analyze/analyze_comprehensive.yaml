@@ -262,3 +262,70 @@ analyzers:
   #     use_conversation_context: true
   #     temperature: 0.7
   #     cache_responses: true
+
+  # ---------------------------------------------------------------------------
+  # TASK CATEGORY ANALYZER - Instruction type classification
+  # Categorizes instructions by task type (math, coding, creative, etc.)
+  # ---------------------------------------------------------------------------
+  # - id: task_category
+  #   params:
+  #     min_confidence: 0.3  # Minimum confidence for classification
+  #     default_category: other  # Category when no patterns match
+  #     analyze_user_only: true  # Only analyze user messages
+
+  # ---------------------------------------------------------------------------
+  # SAFETY ANALYZER - Safety and risk classification
+  # Detects potentially harmful content (violence, hate, etc.)
+  # ---------------------------------------------------------------------------
+  # - id: safety
+  #   params:
+  #     strict_mode: false  # If true, flag any pattern match
+  #     include_categories: true  # Include detailed category flags
+
+  # ---------------------------------------------------------------------------
+  # DIFFICULTY ANALYZER - Instruction complexity estimation
+  # Estimates how difficult instructions are to complete
+  # ---------------------------------------------------------------------------
+  # - id: difficulty
+  #   params:
+  #     analyze_user_only: true  # Only analyze user messages
+  #     include_component_scores: true  # Include individual difficulty components
+
+  # ---------------------------------------------------------------------------
+  # INSTRUCT REWARD ANALYZER - Response quality scoring (Magpie framework)
+  # Scores responses on helpfulness, completeness, clarity, safety
+  # ---------------------------------------------------------------------------
+  # - id: instruct_reward
+  #   params:
+  #     min_response_words: 10
+  #     max_response_words: 2000
+  #     analyze_assistant_only: true
+  #     include_component_scores: true
+
+  # ---------------------------------------------------------------------------
+  # INPUT QUALITY ANALYZER - Instruction quality rating (Magpie framework)
+  # Rates instruction quality from very_poor to excellent
+  # ---------------------------------------------------------------------------
+  # - id: input_quality
+  #   params:
+  #     analyze_user_only: true
+  #     include_component_flags: true
+
+  # ---------------------------------------------------------------------------
+  # CONVERSATION STRUCTURE ANALYZER - Turn pattern analysis
+  # Analyzes single-turn vs multi-turn conversation patterns
+  # ---------------------------------------------------------------------------
+  # - id: conversation_structure
+  #   params:
+  #     single_turn_threshold: 2
+  #     compute_length_stats: true
+
+  # ---------------------------------------------------------------------------
+  # RESPONSE COMPLETENESS ANALYZER - Truncation detection
+  # Detects incomplete/truncated responses
+  # ---------------------------------------------------------------------------
+  # - id: response_completeness
+  #   params:
+  #     analyze_assistant_only: true
+  #     strict_mode: false
+  #     include_truncation_type: true

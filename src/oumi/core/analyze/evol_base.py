@@ -54,7 +54,7 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
         # Model configuration
         model_type: str = "api",
         api_provider: str = "anthropic",
-        api_model: str = "claude-3-5-haiku-20241022",
+        api_model: str = "claude-4-5-haiku",
         local_model: Optional[str] = None,
         inference_config: Optional[dict[str, Any]] = None,
         # Evolution configuration
@@ -101,7 +101,9 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
         """
         # Validate parameters
         if model_type not in ("api", "local"):
-            raise ValueError(f"Invalid model_type: '{model_type}'. Must be 'api' or 'local'.")
+            raise ValueError(
+                f"Invalid model_type: '{model_type}'. Must be 'api' or 'local'."
+            )
 
         if model_type == "api" and api_provider not in ("openai", "anthropic"):
             raise ValueError(
@@ -182,7 +184,9 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
             if self.model_type == "api":
                 remote_params = RemoteParams(
                     api_url=self.inference_config.get("api_base"),
-                    api_key_env_varname=self.inference_config.get("api_key_env", api_key_env),
+                    api_key_env_varname=self.inference_config.get(
+                        "api_key_env", api_key_env
+                    ),
                 )
 
             # Build inference config
@@ -251,9 +255,7 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
 
         from oumi.core.types.conversation import Conversation, Message, Role
 
-        conversation = Conversation(
-            messages=[Message(role=Role.USER, content=prompt)]
-        )
+        conversation = Conversation(messages=[Message(role=Role.USER, content=prompt)])
 
         # Retry logic
         last_error = None
@@ -284,7 +286,9 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
                     continue
                 break
 
-        raise RuntimeError(f"LLM call failed after {self.max_retries + 1} attempts: {last_error}")
+        raise RuntimeError(
+            f"LLM call failed after {self.max_retries + 1} attempts: {last_error}"
+        )
 
     def _parse_json_list(self, response: str) -> list[str]:
         """Parse a JSON list from LLM response.
@@ -298,7 +302,7 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
         # Try to find JSON array in response
         try:
             # Look for JSON array
-            json_match = re.search(r'\[[\s\S]*\]', response)
+            json_match = re.search(r"\[[\s\S]*\]", response)
             if json_match:
                 json_str = json_match.group()
                 parsed = json.loads(json_str)
@@ -309,10 +313,10 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
 
         # Fallback: try to extract numbered items
         items = []
-        for line in response.split('\n'):
+        for line in response.split("\n"):
             line = line.strip()
             # Match numbered items like "1. ...", "1) ...", "- ..."
-            match = re.match(r'^(?:\d+[\.\)]\s*|-\s*|•\s*)(.+)$', line)
+            match = re.match(r"^(?:\d+[\.\)]\s*|-\s*|•\s*)(.+)$", line)
             if match:
                 items.append(match.group(1).strip())
 
@@ -329,7 +333,7 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
         """
         try:
             # Look for JSON object
-            json_match = re.search(r'\{[\s\S]*\}', response)
+            json_match = re.search(r"\{[\s\S]*\}", response)
             if json_match:
                 json_str = json_match.group()
                 parsed = json.loads(json_str)
@@ -362,7 +366,7 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
             while len(variants) < self.num_evolutions:
                 variants.append(variants[-1] if variants else text)
 
-        return variants[:self.num_evolutions]
+        return variants[: self.num_evolutions]
 
     def _rank_variants(self, original: str, variants: list[str]) -> dict[str, int]:
         """Rank the original text among evolved variants.

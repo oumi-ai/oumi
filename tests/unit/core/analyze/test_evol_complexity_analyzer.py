@@ -32,7 +32,7 @@ class TestEvolComplexityAnalyzerInit:
         analyzer = EvolComplexityAnalyzer()
         assert analyzer.model_type == "api"
         assert analyzer.api_provider == "anthropic"
-        assert analyzer.api_model == "claude-3-5-haiku-20241022"
+        assert analyzer.api_model == "claude-4-5-haiku"
         assert analyzer.num_evolutions == 3
         assert analyzer.analyze_role == "user"
 
