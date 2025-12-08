@@ -15,6 +15,7 @@
 """Textual TUI application for viewing JSONL conversations."""
 
 import json
+import random
 import re
 import tempfile
 from collections import Counter
@@ -38,6 +39,140 @@ from textual.widgets import (
 )
 
 from oumi.core.types.conversation import Conversation
+
+
+class ImageWidget(Container):
+    """Widget to display an image using rich-pixels with loading indicator."""
+
+    DEFAULT_CSS = """
+    ImageWidget {
+        width: 100%;
+        height: auto;
+        padding: 1;
+        margin: 0 0 1 0;
+        background: $surface;
+    }
+
+    ImageWidget .image-label {
+        color: $text-muted;
+        text-style: italic;
+        margin-top: 1;
+    }
+
+    ImageWidget .loading-text {
+        color: $text-muted;
+        text-style: italic;
+    }
+
+    ImageWidget LoadingIndicator {
+        width: auto;
+        height: 1;
+    }
+    """
+
+    def __init__(self, image_item, **kwargs):
+        super().__init__(**kwargs)
+        self.image_item = image_item
+        self._pixels = None
+        self._label = "Loading..."
+        self._loaded = False
+
+    def compose(self) -> ComposeResult:
+        yield LoadingIndicator()
+        yield Label("Loading image...", classes="loading-text", id="loading-label")
+
+    def on_mount(self):
+        """Start loading image when mounted."""
+        self._load_image_async()
+
+    @work(thread=True)
+    def _load_image_async(self):
+        """Load image in background thread."""
+        import shutil
+
+        from oumi.core.types.conversation import Type
+
+        # Get terminal width for sizing
+        term_size = shutil.get_terminal_size((80, 24))
+        # Use 70% of terminal width, max 80 chars
+        max_width = min(int(term_size.columns * 0.7), 80)
+
+        try:
+            from rich_pixels import Pixels
+        except ImportError:
+            self._label = "🖼️ (Install rich-pixels: pip install rich-pixels)"
+            self.app.call_from_thread(self._update_display)
+            return
+
+        item = self.image_item
+        try:
+            if item.type == Type.IMAGE_PATH:
+                path = item.content or ""
+                filename = Path(path).name if path else "unknown"
+                from PIL import Image
+
+                img = Image.open(path)
+                w, h = img.size
+                img = self._resize_for_terminal(img, max_width)
+                self._pixels = Pixels.from_image(img)
+                self._label = f"🖼️ {filename} ({w}x{h})"
+
+            elif item.type == Type.IMAGE_URL:
+                url = item.content or ""
+                filename = url.split("/")[-1] if "/" in url else url[:30]
+                import io
+
+                import requests
+                from PIL import Image
+
+                response = requests.get(url, timeout=10, stream=True)
+                response.raise_for_status()
+                img = Image.open(io.BytesIO(response.content))
+                w, h = img.size
+                img = self._resize_for_terminal(img, max_width)
+                self._pixels = Pixels.from_image(img)
+                self._label = f"🖼️ {filename} ({w}x{h})"
+
+            elif item.type == Type.IMAGE_BINARY:
+                if item.binary:
+                    import io
+
+                    from PIL import Image
+
+                    img = Image.open(io.BytesIO(item.binary))
+                    w, h = img.size
+                    size_kb = len(item.binary) / 1024
+                    img = self._resize_for_terminal(img, max_width)
+                    self._pixels = Pixels.from_image(img)
+                    self._label = f"🖼️ embedded ({w}x{h}, {size_kb:.1f} KB)"
+                else:
+                    self._label = "🖼️ (no binary data)"
+            else:
+                self._label = "🖼️ (unknown image type)"
+
+        except Exception as e:
+            self._label = f"🖼️ (Failed to load: {e})"
+
+        self._loaded = True
+        self.app.call_from_thread(self._update_display)
+
+    def _update_display(self):
+        """Update the widget display after loading."""
+        self.remove_children()
+        if self._pixels:
+            self.mount(Static(self._pixels))
+        self.mount(Label(self._label, classes="image-label"))
+
+    def _resize_for_terminal(self, img, max_width: int = 60):
+        """Resize image to fit terminal width."""
+        from PIL import Image
+
+        w, h = img.size
+        if w > max_width:
+            ratio = max_width / w
+            new_h = int(h * ratio)
+            img = img.resize((max_width, new_h), Image.Resampling.LANCZOS)
+        return img
 
 
 class MessageWidget(Container):
@@ -78,6 +213,13 @@ class MessageWidget(Container):
         height: auto;
     }
 
+    MessageWidget .message-id {
+        text-style: italic;
+        color: $text-muted;
+        margin-bottom: 1;
+        height: auto;
+    }
+
     MessageWidget.system .role-label {
         color: $warning;
     }
@@ -113,6 +255,7 @@ class MessageWidget(Container):
         content: str,
         raw_mode: bool = False,
         search_term: str = "",
+        message_id: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -120,6 +263,7 @@ class MessageWidget(Container):
         self.message_content = content
         self.raw_mode = raw_mode
         self.search_term = search_term
+        self.message_id = message_id
         self.add_class(role.lower())
 
     def _highlight_search(self, text: str) -> str:
@@ -133,14 +277,43 @@ class MessageWidget(Container):
         return pattern.sub(r"[reverse]\1[/reverse]", text)
 
     def compose(self) -> ComposeResult:
-        yield Label(f"[{self.role.upper()}]", classes="role-label")
+        # Display role label with tool-specific formatting
+        if self.role.lower() == "tool" and self.message_id:
+            yield Label(f"[{self.role.upper()}] 🔧", classes="role-label")
+            yield Label(f"tool_call_id: {self.message_id}", classes="message-id")
+        elif self.role.lower() == "tool":
+            yield Label(f"[{self.role.upper()}] 🔧", classes="role-label")
+        else:
+            yield Label(f"[{self.role.upper()}]", classes="role-label")
+
+        # Format and display content
+        content = self._format_tool_content() if self.role.lower() == "tool" else self.message_content
+
         if self.raw_mode:
-            highlighted = self._highlight_search(self.message_content)
+            highlighted = self._highlight_search(content)
             yield Static(highlighted, markup=True)
         else:
             # For markdown mode, highlight in the source
-            highlighted = self._highlight_search(self.message_content)
+            highlighted = self._highlight_search(content)
             yield Markdown(highlighted)
+
+    def _format_tool_content(self) -> str:
+        """Format tool message content for better readability."""
+        content = self.message_content
+
+        # Try to pretty-print JSON content for tool responses
+        try:
+            # Check if content looks like JSON
+            stripped = content.strip()
+            if stripped.startswith("{") or stripped.startswith("["):
+                parsed = json.loads(stripped)
+                # Format as code block with pretty-printed JSON
+                formatted = json.dumps(parsed, indent=2, ensure_ascii=False)
+                return f"```json\n{formatted}\n```"
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        return content
 
 
 class ConversationPanel(VerticalScroll):
@@ -158,20 +331,31 @@ class ConversationPanel(VerticalScroll):
         super().__init__(**kwargs)
         self.conversation: Optional[Conversation] = None
         self.raw_mode: bool = False
+        self.show_images: bool = False
         self.search_term: str = ""
 
     def set_conversation(
-        self, conversation: Conversation, raw_mode: bool = False, search_term: str = ""
+        self,
+        conversation: Conversation,
+        raw_mode: bool = False,
+        search_term: str = "",
+        show_images: bool = False,
     ):
         """Set the conversation to display."""
         self.conversation = conversation
         self.raw_mode = raw_mode
+        self.show_images = show_images
         self.search_term = search_term
         self.refresh_messages()
 
     def set_raw_mode(self, raw_mode: bool):
         """Set raw mode and refresh display."""
         self.raw_mode = raw_mode
+        self.refresh_messages()
+
+    def set_show_images(self, show_images: bool):
+        """Set show images mode and refresh display."""
+        self.show_images = show_images
         self.refresh_messages()
 
     def set_search_term(self, search_term: str):
@@ -187,28 +371,87 @@ class ConversationPanel(VerticalScroll):
             return
 
         for msg in self.conversation.messages:
+            # Extract images separately if show_images is enabled
+            image_items = []
+            if self.show_images and isinstance(msg.content, list):
+                image_items = [item for item in msg.content if item.is_image()]
+
             content = self._get_message_content(msg)
             widget = MessageWidget(
                 role=str(msg.role),
                 content=content,
                 raw_mode=self.raw_mode,
                 search_term=self.search_term,
+                message_id=msg.id,  # Pass message ID for tool_call_id display
             )
             self.mount(widget)
+
+            # Mount image widgets for rendered images
+            if self.show_images and image_items:
+                for item in image_items:
+                    self.mount(ImageWidget(item))
 
     def _get_message_content(self, msg) -> str:
         """Extract text content from a message."""
         if isinstance(msg.content, str):
             return msg.content
         elif isinstance(msg.content, list):
-            parts = []
+            # Separate images and text for cleaner display
+            images = []
+            texts = []
             for item in msg.content:
                 if item.is_text():
-                    parts.append(item.content or "")
+                    texts.append(item.content or "")
                 elif item.is_image():
-                    parts.append(f"[{item.type.upper()}: {item.content or 'embedded'}]")
-            return "\n".join(parts)
+                    # Skip images here if show_images is enabled (rendered separately)
+                    if not self.show_images:
+                        images.append(
+                            self._format_image_content(item, self.raw_mode)
+                        )
+
+            parts = []
+            # Show images first, then text
+            if images:
+                parts.extend(images)
+            if texts:
+                parts.extend(texts)
+            return "\n\n".join(parts)
         return str(msg.content)
+
+    def _format_image_content(self, item, raw_mode: bool = False) -> str:
+        """Format image content item for display (text placeholder)."""
+        from oumi.core.types.conversation import Type
+
+        if item.type == Type.IMAGE_PATH:
+            path = item.content or ""
+            filename = Path(path).name if path else "unknown"
+            if raw_mode:
+                return f"🖼️ IMAGE: {path}"
+            return f"```\n🖼️ IMAGE: {filename}\n```"
+        elif item.type == Type.IMAGE_URL:
+            url = item.content or ""
+            try:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(url)
+                filename = parsed.path.split("/")[-1] if parsed.path else ""
+            except Exception:
+                filename = ""
+            if raw_mode:
+                return f"🖼️ IMAGE: {url}"
+            if filename:
+                return f"```\n🖼️ IMAGE: {filename}\n```"
+            return f"```\n🖼️ IMAGE: {url[:60]}{'...' if len(url) > 60 else ''}\n```"
+        elif item.type == Type.IMAGE_BINARY:
+            size_info = ""
+            if item.binary:
+                size_kb = len(item.binary) / 1024
+                size_info = f" ({size_kb:.1f} KB)"
+            if raw_mode:
+                return f"🖼️ IMAGE: <binary data{size_info}>"
+            return f"```\n🖼️ IMAGE: embedded{size_info}\n```"
+        else:
+            return f"```\n🖼️ IMAGE: {item.content or 'embedded'}\n```"
 
 
 class MetadataPanel(Static):
@@ -247,13 +490,23 @@ class MetadataPanel(Static):
 
         lines.append(f"Messages: {len(self.conversation.messages)}")
 
-        # Count by role
+        # Count by role and count images
         role_counts: dict[str, int] = {}
+        image_count = 0
         for msg in self.conversation.messages:
             role = str(msg.role)
             role_counts[role] = role_counts.get(role, 0) + 1
+            # Count images in this message
+            if isinstance(msg.content, list):
+                for item in msg.content:
+                    if item.is_image():
+                        image_count += 1
         role_str = " | ".join(f"{r}: {c}" for r, c in sorted(role_counts.items()))
         lines.append(f"Roles: {role_str}")
+
+        # Show image count if there are images (vision-language dataset)
+        if image_count > 0:
+            lines.append(f"Images: {image_count} 🖼️")
 
         if self.conversation.metadata:
             # Skip synth_question/synth_answer as they're shown in conversation
@@ -408,10 +661,12 @@ class HelpScreen(ModalScreen):
 
             yield Label("Other", classes="help-section")
             yield Label("r        Toggle raw/markdown", classes="help-item")
+            yield Label("i        Toggle image details", classes="help-item")
+            yield Label("R        Random conversation", classes="help-item")
             yield Label("c/y      Copy conversation", classes="help-item")
             yield Label("s        Show statistics", classes="help-item")
             yield Label("?        Show this help", classes="help-item")
-            yield Label("q        Quit", classes="help-item")
+            yield Label("q/Esc    Quit", classes="help-item")
 
             yield Button("Close", variant="primary", id="help-close")
 
@@ -517,6 +772,21 @@ class StatsScreen(ModalScreen):
                 f"Avg chars/message: {stats['avg_chars']:.0f}", classes="stats-item"
             )
 
+            # Image statistics for vision-language datasets
+            if stats["total_images"] > 0:
+                yield Label("Vision-Language Statistics", classes="stats-section")
+                yield Label(
+                    f"Total images: {stats['total_images']}", classes="stats-item"
+                )
+                yield Label(
+                    f"Conversations with images: {stats['conversations_with_images']}",
+                    classes="stats-item",
+                )
+                avg_images = stats["total_images"] / stats["conversations_with_images"] if stats["conversations_with_images"] > 0 else 0
+                yield Label(
+                    f"Avg images/conversation: {avg_images:.1f}", classes="stats-item"
+                )
+
             if stats["conversations_with_metadata"] > 0:
                 yield Label("Metadata", classes="stats-section")
                 yield Label(
@@ -535,6 +805,8 @@ class StatsScreen(ModalScreen):
         """Compute statistics from conversations."""
         total_messages = 0
         total_chars = 0
+        total_images = 0
+        conversations_with_images = 0
         role_counts: Counter[str] = Counter()
         message_counts = []
         conversations_with_metadata = 0
@@ -544,6 +816,7 @@ class StatsScreen(ModalScreen):
             msg_count = len(conv.messages)
             message_counts.append(msg_count)
             total_messages += msg_count
+            conv_has_images = False
 
             if conv.metadata:
                 conversations_with_metadata += 1
@@ -557,6 +830,12 @@ class StatsScreen(ModalScreen):
                     for item in msg.content:
                         if item.is_text() and item.content:
                             total_chars += len(item.content)
+                        elif item.is_image():
+                            total_images += 1
+                            conv_has_images = True
+
+            if conv_has_images:
+                conversations_with_images += 1
 
         return {
             "total_conversations": len(self.conversations),
@@ -571,6 +850,8 @@ class StatsScreen(ModalScreen):
             "role_counts": dict(role_counts),
             "total_chars": total_chars,
             "avg_chars": total_chars / total_messages if total_messages else 0,
+            "total_images": total_images,
+            "conversations_with_images": conversations_with_images,
             "conversations_with_metadata": conversations_with_metadata,
             "metadata_keys": metadata_keys,
         }
@@ -582,6 +863,15 @@ class StatsScreen(ModalScreen):
 
 class LoadingScreen(ModalScreen):
     """Modal screen shown while loading conversations."""
+
+    BINDINGS = [
+        Binding("escape", "quit_app", "Quit"),
+        Binding("q", "quit_app", "Quit"),
+    ]
+
+    def action_quit_app(self) -> None:
+        """Quit the application."""
+        self.app.exit()
 
     DEFAULT_CSS = """
     LoadingScreen {
@@ -672,29 +962,36 @@ class ConversationViewerApp(App):
         Binding("q", "quit", "Quit", priority=True),
         Binding("right", "next_conversation", "Next", show=True, priority=True),
         Binding("left", "prev_conversation", "Prev", show=True, priority=True),
-        Binding("j", "scroll_down", "Scroll ↓"),
-        Binding("k", "scroll_up", "Scroll ↑"),
-        Binding("down", "scroll_down", "Scroll ↓"),
-        Binding("up", "scroll_up", "Scroll ↑"),
-        Binding("l", "next_conversation", "Next"),
-        Binding("h", "prev_conversation", "Previous"),
+        Binding("j", "scroll_down", "Scroll ↓", priority=True),
+        Binding("k", "scroll_up", "Scroll ↑", priority=True),
+        Binding("down", "scroll_down", "Scroll ↓", priority=True),
+        Binding("up", "scroll_up", "Scroll ↑", priority=True),
+        Binding("l", "next_conversation", "Next", priority=True),
+        Binding("h", "prev_conversation", "Previous", priority=True),
         Binding("g", "first_conversation", "First", priority=True),
         Binding("G", "last_conversation", "Last", priority=True),
-        Binding("pageup", "page_up", "Page Up"),
-        Binding("pagedown", "page_down", "Page Down"),
+        Binding("pageup", "page_up", "Page Up", priority=True),
+        Binding("pagedown", "page_down", "Page Down", priority=True),
         Binding("/", "search", "Search", show=True, priority=True),
-        Binding("n", "search_next", "Next Match"),
-        Binding("N", "search_prev", "Previous Match"),
+        Binding("n", "search_next", "Next Match", priority=True),
+        Binding("N", "search_prev", "Previous Match", priority=True),
         Binding("escape", "cancel_search", "Cancel", priority=True),
         Binding("r", "toggle_raw_mode", "Raw", show=True, priority=True),
         Binding("colon", "goto_conversation", "Go to #", show=True, priority=True),
         Binding("question_mark", "show_help", "Help", show=True, priority=True),
         Binding("c", "copy_conversation", "Copy", show=True, priority=True),
-        Binding("y", "copy_conversation", "Copy", show=False),  # Vim-style yank alias
+        Binding("y", "copy_conversation", "Copy", priority=True),
         Binding("s", "show_stats", "Stats", show=True, priority=True),
+        Binding("R", "random_conversation", "Random", show=True, priority=True),
+        Binding("i", "toggle_show_images", "Images", show=True, priority=True),
     ]
 
-    def __init__(self, file_path: str, start_index: int = 0, from_stdin: bool = False):
+    def __init__(
+        self,
+        file_path: str,
+        start_index: int = 0,
+        from_stdin: bool = False,
+    ):
         super().__init__()
         self.theme = "flexoki"
         self.file_path = file_path
@@ -705,6 +1002,7 @@ class ConversationViewerApp(App):
         self.search_matches: list[int] = []
         self.search_match_index = 0
         self.raw_mode = False
+        self.show_images = False
         self._loading_screen: Optional[LoadingScreen] = None
 
     def compose(self) -> ComposeResult:
@@ -739,6 +1037,13 @@ class ConversationViewerApp(App):
                 self.current_index = len(self.conversations) - 1
             self.show_conversation(self.current_index)
         self.update_status()
+
+        # Set focus to conversation panel so key bindings work
+        try:
+            panel = self.query_one("#conversation-panel", ConversationPanel)
+            panel.focus()
+        except Exception:
+            pass
 
     def _update_loading_status(self, status: str):
         """Update loading screen status from any thread."""
@@ -805,6 +1110,7 @@ class ConversationViewerApp(App):
         - Direct format: {"messages": [...], "metadata": {...}}
         - Synth format: {"synth_conversation": {"messages": [...]}, ...}
         - Nested conversation field: {"conversation": {"messages": [...]}}
+        - Alpaca format: {"instruction": "...", "input": "...", "output": "..."}
         """
         # Direct format with messages at top level
         if "messages" in data:
@@ -831,7 +1137,95 @@ class ConversationViewerApp(App):
         if "role" in data and "content" in data:
             return {"messages": [data]}
 
+        # Alpaca format: instruction, input, output
+        if "instruction" in data and "output" in data:
+            return self._convert_alpaca_to_conversation(data)
+
+        # DPO format: prompt, chosen, rejected
+        if "prompt" in data and "chosen" in data and "rejected" in data:
+            return self._convert_dpo_to_conversation(data)
+
         return None
+
+    def _convert_alpaca_to_conversation(self, data: dict) -> dict:
+        """Convert Alpaca format to conversation format.
+
+        Alpaca format: {"instruction": "...", "input": "...", "output": "..."}
+        Converts to: {"messages": [{"role": "user", ...}, {"role": "assistant", ...}]}
+        """
+        instruction = data.get("instruction", "")
+        input_text = data.get("input", "")
+        output = data.get("output", "")
+
+        # Combine instruction and input for user message
+        if input_text:
+            user_content = f"{instruction}\n\n{input_text}"
+        else:
+            user_content = instruction
+
+        messages = [
+            {"role": "user", "content": user_content},
+            {"role": "assistant", "content": output},
+        ]
+
+        # Preserve any additional fields as metadata
+        metadata = {}
+        for key, value in data.items():
+            if key not in ("instruction", "input", "output"):
+                metadata[key] = value
+
+        result: dict = {"messages": messages}
+        if metadata:
+            result["metadata"] = metadata
+
+        return result
+
+    def _convert_dpo_to_conversation(self, data: dict) -> dict:
+        """Convert DPO format to conversation format.
+
+        DPO format: {"prompt": "...", "chosen": [...], "rejected": [...], "images": [...]}
+        Converts to a conversation showing the prompt, chosen response, and rejected response.
+        """
+        prompt = data.get("prompt", "")
+        chosen = data.get("chosen", [])
+        rejected = data.get("rejected", [])
+        images = data.get("images", [])
+
+        messages = []
+
+        # Build user message content
+        user_content: list | str
+        if images:
+            # Vision-language DPO: include images in the user message
+            content_items = []
+            for img_url in images:
+                content_items.append({"type": "image_url", "content": img_url})
+            content_items.append({"type": "text", "content": prompt})
+            user_content = content_items
+        else:
+            user_content = prompt
+
+        messages.append({"role": "user", "content": user_content})
+
+        # Add chosen response(s) with label
+        for msg in chosen:
+            content = msg.get("content", "")
+            labeled_content = f"✅ **[CHOSEN]**\n\n{content}"
+            messages.append({"role": "assistant", "content": labeled_content})
+
+        # Add rejected response(s) with label
+        for msg in rejected:
+            content = msg.get("content", "")
+            labeled_content = f"❌ **[REJECTED]**\n\n{content}"
+            messages.append({"role": "assistant", "content": labeled_content})
+
+        # Preserve any additional fields as metadata
+        metadata = {"format": "dpo"}
+        for key, value in data.items():
+            if key not in ("prompt", "chosen", "rejected", "images"):
+                metadata[key] = value
+
+        return {"messages": messages, "metadata": metadata}
 
     def show_conversation(self, index: int):
         """Display a specific conversation."""
@@ -844,7 +1238,10 @@ class ConversationViewerApp(App):
         conv = self.conversations[index]
         panel = self.query_one("#conversation-panel", ConversationPanel)
         panel.set_conversation(
-            conv, raw_mode=self.raw_mode, search_term=self.search_term
+            conv,
+            raw_mode=self.raw_mode,
+            search_term=self.search_term,
+            show_images=self.show_images,
         )
 
         metadata = self.query_one("#metadata-panel", MetadataPanel)
@@ -864,7 +1261,10 @@ class ConversationViewerApp(App):
 
         mode = "RAW" if self.raw_mode else "MD"
         display_path = "<stdin>" if self.from_stdin else self.file_path
-        msg = f"[{self.current_index + 1}/{len(self.conversations)}] [{mode}] {display_path}"
+        msg = f"[{self.current_index + 1}/{len(self.conversations)}] [{mode}]"
+        if self.show_images:
+            msg += " [IMG]"
+        msg += f" {display_path}"
         if self.search_term:
             msg += f" | Search: '{self.search_term}' ({len(self.search_matches)} matches)"
         status.update(msg)
@@ -886,6 +1286,15 @@ class ConversationViewerApp(App):
     def action_last_conversation(self):
         """Go to the last conversation."""
         self.show_conversation(len(self.conversations) - 1)
+
+    def action_random_conversation(self):
+        """Go to a random conversation."""
+        if len(self.conversations) > 1:
+            # Avoid selecting the same conversation
+            new_index = self.current_index
+            while new_index == self.current_index:
+                new_index = random.randint(0, len(self.conversations) - 1)
+            self.show_conversation(new_index)
 
     def action_scroll_down(self):
         """Scroll down in the conversation panel."""
@@ -913,8 +1322,13 @@ class ConversationViewerApp(App):
         panel = self.query_one("#conversation-panel", ConversationPanel)
         panel.set_raw_mode(self.raw_mode)
         self.update_status()
-        mode_name = "raw text" if self.raw_mode else "markdown"
-        self.notify(f"Switched to {mode_name} mode")
+
+    def action_toggle_show_images(self):
+        """Toggle image info display (loads images to show dimensions)."""
+        self.show_images = not self.show_images
+        panel = self.query_one("#conversation-panel", ConversationPanel)
+        panel.set_show_images(self.show_images)
+        self.update_status()
 
     def action_search(self):
         """Show the search bar."""
@@ -928,17 +1342,23 @@ class ConversationViewerApp(App):
         search_input.focus()
 
     def action_cancel_search(self):
-        """Hide the search bar and goto bar."""
+        """Hide the search bar and goto bar, or quit if nothing is active."""
         search_bar = self.query_one("#search-bar", SearchBar)
-        search_bar.remove_class("visible")
         goto_bar = self.query_one("#goto-bar", GotoBar)
-        goto_bar.remove_class("visible")
-        self.search_term = ""
-        self.search_matches = []
-        # Clear highlighting
-        panel = self.query_one("#conversation-panel", ConversationPanel)
-        panel.set_search_term("")
-        self.update_status()
+
+        # If search or goto bar is visible, close them
+        if search_bar.has_class("visible") or goto_bar.has_class("visible"):
+            search_bar.remove_class("visible")
+            goto_bar.remove_class("visible")
+            self.search_term = ""
+            self.search_matches = []
+            # Clear highlighting
+            panel = self.query_one("#conversation-panel", ConversationPanel)
+            panel.set_search_term("")
+            self.update_status()
+        else:
+            # Nothing active, quit the app
+            self.exit()
 
     @on(Input.Submitted, "#search-input")
     def on_search_submitted(self, event: Input.Submitted):

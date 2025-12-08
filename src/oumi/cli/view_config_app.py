@@ -920,12 +920,15 @@ class ConfigViewerApp(App):
         search_input.focus()
 
     def action_close_search(self) -> None:
-        """Close search bar."""
+        """Close search bar, or quit if nothing is active."""
         search_bar = self.query_one("#search-bar")
         if search_bar.has_class("visible"):
             search_bar.remove_class("visible")
             self.search_term = ""
             self._build_tree()
+        else:
+            # Nothing active, quit the app
+            self.exit()
 
     def action_copy_path(self) -> None:
         """Copy the current field path to clipboard."""
@@ -1057,7 +1060,7 @@ class ConfigViewerApp(App):
   Y       Copy field value
 
 [cyan]Other:[/cyan]
-  q       Quit
+  q/Esc   Quit
   ?       Show this help
 
 [cyan]Legend:[/cyan]

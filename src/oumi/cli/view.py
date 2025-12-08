@@ -14,6 +14,7 @@
 
 """Interactive TUI viewer for JSONL conversations, YAML configs, and training outputs."""
 
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -53,6 +54,11 @@ def view(
     - Search functionality with /
     - Metadata display for each conversation
 
+    Supported JSONL formats:
+    - Oumi format: {"messages": [{"role": "...", "content": "..."}]}
+    - Alpaca format: {"instruction": "...", "input": "...", "output": "..."}
+    - DPO format: {"prompt": "...", "chosen": [...], "rejected": [...]}
+
     For YAML config files, displays an interactive browser with:
     - Config type detection (TrainingConfig, EvaluationConfig, etc.)
     - Hierarchical tree navigation of all settings
@@ -69,6 +75,7 @@ def view(
 
     Examples:
         oumi view data/conversations.jsonl
+        oumi view data/alpaca_format.jsonl  # Alpaca format also supported
         oumi view data/conversations.jsonl --start 10
         oumi view configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml
         oumi view output/my_training_run/  # Training folder
@@ -203,6 +210,19 @@ def _view_conversations(file_path: str, start_index: int) -> None:
         temp_file.write(stdin_content)
         temp_file.close()
         actual_path = temp_file.name
+
+        # Reconnect stdin to the terminal so Textual can receive keyboard input
+        # This is necessary because stdin was consumed by the piped data
+        try:
+            tty_fd = os.open("/dev/tty", os.O_RDONLY)
+            os.dup2(tty_fd, 0)
+            os.close(tty_fd)
+            sys.stdin = open(0, "r", closefd=False)
+        except OSError:
+            cli_utils.CONSOLE.print(
+                "[yellow]Warning:[/yellow] Cannot reconnect to terminal. "
+                "Interactive controls may not work."
+            )
     else:
         path = Path(file_path)
         if path.suffix.lower() not in (".jsonl", ".json"):
@@ -211,7 +231,9 @@ def _view_conversations(file_path: str, start_index: int) -> None:
             )
 
     app = ConversationViewerApp(
-        file_path=actual_path, start_index=start_index, from_stdin=from_stdin
+        file_path=actual_path,
+        start_index=start_index,
+        from_stdin=from_stdin,
     )
     app.run()
 

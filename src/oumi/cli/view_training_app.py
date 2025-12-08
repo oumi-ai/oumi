@@ -419,7 +419,7 @@ class HelpScreen(ModalScreen):
 
             yield Static("General", classes="section")
             yield Static("  ?          Show this help", classes="keybinding")
-            yield Static("  q          Quit", classes="keybinding")
+            yield Static("  q/Esc      Quit", classes="keybinding")
 
             yield Rule()
             yield Static("Press Escape or q to close", classes="keybinding")
@@ -1922,15 +1922,22 @@ class TrainingViewerApp(App):
             pass
 
     def action_clear_search(self) -> None:
-        """Clear the search in the Logs panel."""
+        """Clear the search in the Logs panel, or quit if nothing is active."""
         try:
             logs_panel = self.query_one(LogsPanel)
             search_input = logs_panel.query_one("#log-search", Input)
-            search_input.value = ""
-            logs_panel.search_term = ""
-            logs_panel._refresh_logs()
+
+            # If search has content or is focused, clear it
+            if search_input.value or search_input.has_focus:
+                search_input.value = ""
+                logs_panel.search_term = ""
+                logs_panel._refresh_logs()
+            else:
+                # Nothing active, quit the app
+                self.exit()
         except Exception:
-            pass
+            # If we can't find the logs panel, just quit
+            self.exit()
 
     def action_filter_warnings(self) -> None:
         """Filter logs to show only warnings."""
