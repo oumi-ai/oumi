@@ -7,9 +7,9 @@ dataset_name: tatsu-lab/alpaca
 split: train
 # sample_count: 1000  # Uncomment to test on subset
 
-output_path: ./analysis_output/alpaca_streamlined
+output_path: ./analysis_output/alpaca
 generate_report: true
-report_title: "Alpaca Dataset Streamlined Analysis"
+report_title: "Alpaca Dataset Analysis"
 generate_recommendations: true
 
 analyzers:

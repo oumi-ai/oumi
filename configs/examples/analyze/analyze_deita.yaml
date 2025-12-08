@@ -25,7 +25,7 @@ sample_count: 100 # Start small for testing, increase for full analysis
 # Output configuration
 output_path: "./analysis_output/deita"
 generate_report: true
-report_title: "DEITA Data Quality Analysis Report"
+report_title: "DEITA Data Quality Analysis"
 
 # Analyzers
 analyzers:

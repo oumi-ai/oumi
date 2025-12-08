@@ -17,7 +17,9 @@ sample_count: 100
 # Or use a local file:
 # dataset_path: ./my_dataset.jsonl
 
-output_path: ./analysis_output
+output_path: ./analysis_output/length
+generate_report: true
+report_title: "Length Analysis"
 
 analyzers:
   - id: length
