@@ -22,7 +22,7 @@
 # =============================================================================
 # DATASET CONFIGURATION
 # =============================================================================
-dataset_name: yahma/alpaca-cleaned
+dataset_name: tatsu-lab/alpaca
 split: train
 sample_count: 1000
 
@@ -38,7 +38,7 @@ sample_count: 1000
 # =============================================================================
 # OUTPUT CONFIGURATION
 # =============================================================================
-output_path: ./analysis_output
+output_path: ./analysis_output/analyze
 generate_report: true
 report_title: "Dataset Analysis Report"
 generate_recommendations: true

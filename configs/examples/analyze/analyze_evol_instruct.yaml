@@ -31,7 +31,7 @@ sample_count: 100 # Start small due to API costs, increase for full analysis
 # Output configuration
 output_path: "./analysis_output/evol_instruct"
 generate_report: true
-report_title: "Evol-Instruct / DEITA Quality Analysis Report"
+report_title: "Evol-Instruct Analysis Report"
 generate_recommendations: true
 
 analyzers:
