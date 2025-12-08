@@ -1,49 +1,37 @@
-# Dataset Analysis Configuration
+# Dataset Analysis Configuration (Minimal Starter)
 # Usage: oumi analyze --config configs/examples/analyze/analyze.yaml
+#
+# This is a minimal config with just the length analyzer.
+# For more analyzers, see analyze_comprehensive.yaml and uncomment what you need.
+#
+# Available configs:
+#   - analyze.yaml: This file (minimal starter)
+#   - analyze_comprehensive.yaml: ALL analyzers (uncomment what you need)
+#   - analyze_dedup.yaml: Alpaca dataset with dedup + content pattern detection
+#   - analyze_deita.yaml: DEITA-style quality scoring
+#   - analyze_code_dataset.yaml: Code-specific analysis
+#   - analyze_local_file.yaml: Local file example
+#
+# Programmatic presets: from oumi.core.analyze.presets import get_preset
+#   - get_preset("sft_quality"): Length, diversity, format, quality
+#   - get_preset("sft_comprehensive"): Above + training_quality + cost
+#   - get_preset("sft_fast"): Fast heuristic-only analysis
 #
 # Output files:
 #   - message_analysis.csv: Per-message metrics
 #   - conversation_analysis.csv: Per-conversation aggregated metrics
-#   - analysis_summary.json: Statistical summary (mean, std, min, max, median)
-# Use a HuggingFace dataset
+#   - analysis_summary.json: Statistical summary
+
 dataset_name: yahma/alpaca-cleaned
 split: train
-sample_count: 100  # Limit samples for quick analysis
+sample_count: 100
 
-# Or, use a local file in Oumi or Alpaca format
-# dataset_path: data/dataset_examples/oumi_format.jsonl
-
-# Tokenizer for token_count metric (use same tokenizer as your target model)
-# tokenizer_name: openai-community/gpt2
-# tokenizer_kwargs: {}
-
-# For multimodal (vision-language) datasets, specify a processor
-# Presence of processor_name automatically enables multimodal mode
-# processor_name: llava-hf/llava-1.5-7b-hf
-# processor_kwargs: {}
-
-# trust_remote_code: false
+# Or use a local file:
+# dataset_path: ./my_dataset.jsonl
 
 output_path: ./analysis_output
 
-# Built-in analyzers:
-#   - "length": token counts (uses tiktoken o200k_base/GPT-5 encoding by default)
-#   - "diversity": vocabulary richness metrics (unique_words_ratio, type_token_ratio)
-#   - "format": structured content detection (markdown, JSON, code blocks, URLs)
-#   - "embedding": semantic analysis (requires oumi[analyze])
-#
-# See also:
-#   - analyze_diversity.yaml: Vocabulary diversity analysis
-#   - analyze_format.yaml: Format detection analysis
-#   - analyze_embedding.yaml: Semantic duplicate detection and clustering
-#   - analyze_full.yaml: All analyzers with HTML report generation
 analyzers:
   - id: length
     params:
-      char_count: false # Character count per text field
-      word_count: false # Word count (whitespace-separated)
-      sentence_count: false # Sentence count (split on .!?)
-      token_count: true # Token count (uses tiktoken o200k_base by default)
-      # tiktoken_encoding: o200k_base  # GPT-4o/GPT-5 encoding (default)
-      # tiktoken_encoding: cl100k_base  # GPT-4/GPT-3.5-turbo encoding
-      # tiktoken_encoding: null  # Disable tiktoken (use tokenizer_name instead)
+      token_count: true  # Uses tiktoken o200k_base (GPT-4o/GPT-5 encoding)

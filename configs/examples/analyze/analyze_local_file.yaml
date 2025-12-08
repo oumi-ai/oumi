@@ -15,6 +15,8 @@
 #
 # Usage:
 #   oumi analyze --config configs/examples/analyze/analyze_local_file.yaml
+#
+# For comprehensive analysis, copy analyzers from analyze_comprehensive.yaml
 
 # Local file path (takes precedence over dataset_name)
 dataset_path: "./my_dataset.jsonl"
@@ -28,43 +30,12 @@ sample_count: null  # Analyze all samples
 # Output configuration
 output_path: "./analysis_output/local"
 
-# Recommendation settings
-generate_recommendations: true
-outlier_threshold: 3.0
-
 # Report generation
 generate_report: true
 report_title: "Local Dataset Analysis"
 
-# SFT Quality preset analyzers
+# Minimal analyzer set - add more from analyze_comprehensive.yaml as needed
 analyzers:
-  # Length analyzer (uses tiktoken o200k_base by default)
   - id: "length"
     params:
-      char_count: false
-      word_count: false
-      sentence_count: false
       token_count: true  # Uses tiktoken o200k_base (GPT-4o/GPT-5 encoding)
-
-  - id: "diversity"
-    params:
-      unique_words_ratio: true
-      type_token_ratio: true
-      vocabulary_richness: true
-      case_sensitive: false
-
-  - id: "format"
-    params:
-      detect_markdown: true
-      detect_json: true
-      detect_code_blocks: true
-      detect_urls: true
-      compute_complexity: true
-
-  - id: "quality"
-    params:
-      detect_pii: true
-      detect_encoding_issues: true
-      detect_special_tokens: true
-      detect_repetition: true
-      compute_quality_score: true
