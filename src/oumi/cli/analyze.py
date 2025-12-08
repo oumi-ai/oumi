@@ -27,6 +27,138 @@ from oumi.utils.logging import logger
 # Valid output formats for analysis results
 _VALID_OUTPUT_FORMATS = ("csv", "json", "parquet")
 
+# Metric descriptions with range and interpretation guidance
+# Format: (description, range, better_direction)
+# better_direction: "higher", "lower", "context", or None (for informational metrics)
+_METRIC_DESCRIPTIONS: dict[str, tuple[str, str, Optional[str]]] = {
+    # Length metrics
+    "token_count": (
+        "Number of tokens after tokenization",
+        "0 to ∞",
+        "context",
+    ),
+    # Diversity metrics
+    "unique_words_ratio": (
+        "Ratio of unique words to total words (vocabulary diversity)",
+        "0.0 to 1.0",
+        "higher",
+    ),
+    "words_ratio": (  # Alternate key for unique_words_ratio
+        "Ratio of unique words to total words (vocabulary diversity)",
+        "0.0 to 1.0",
+        "higher",
+    ),
+    # Format metrics
+    "has_markdown": (
+        "Whether text contains markdown formatting (headers, lists, etc.)",
+        "0 or 1",
+        "context",
+    ),
+    "has_json": (
+        "Whether text contains JSON content",
+        "0 or 1",
+        "context",
+    ),
+    "has_code_blocks": (
+        "Whether text contains fenced code blocks (```)",
+        "0 or 1",
+        "context",
+    ),
+    "code_block_count": (
+        "Number of fenced code blocks in text",
+        "0 to ∞",
+        "context",
+    ),
+    "block_count": (  # Alternate key for code_block_count
+        "Number of fenced code blocks in text",
+        "0 to ∞",
+        "context",
+    ),
+    "has_urls": (
+        "Whether text contains URLs",
+        "0 or 1",
+        "context",
+    ),
+    "has_emails": (
+        "Whether text contains email addresses",
+        "0 or 1",
+        "context",
+    ),
+    "format_complexity_score": (
+        "Weighted score of formatting elements (markdown, code, JSON, URLs)",
+        "0.0 to 1.0",
+        "context",
+    ),
+    "complexity_score": (  # Alternate key for format_complexity_score
+        "Weighted score of formatting elements (markdown, code, JSON, URLs)",
+        "0.0 to 1.0",
+        "context",
+    ),
+    # Quality metrics
+    "has_pii": (
+        "Whether text contains personally identifiable information",
+        "0 or 1",
+        "lower",
+    ),
+    "pii_count": (
+        "Count of PII instances detected (emails, phones, SSNs, etc.)",
+        "0 to ∞",
+        "lower",
+    ),
+    "has_encoding_issues": (
+        "Whether text has encoding problems (mojibake, invalid UTF-8)",
+        "0 or 1",
+        "lower",
+    ),
+    "repetition_ratio": (
+        "Ratio of repeated n-grams to total n-grams",
+        "0.0 to 1.0",
+        "lower",
+    ),
+    "has_high_repetition": (
+        "Whether text has high repetitive content",
+        "0 or 1",
+        "lower",
+    ),
+    "language_confidence": (
+        "Confidence score for detected language",
+        "0.0 to 1.0",
+        "higher",
+    ),
+    # Embedding metrics
+    "has_semantic_duplicate": (
+        "Whether sample has semantically similar duplicates",
+        "0 or 1",
+        "lower",
+    ),
+    "has_fuzzy_duplicate": (
+        "Whether sample has near-duplicates (MinHash LSH)",
+        "0 or 1",
+        "lower",
+    ),
+    "fuzzy_jaccard_score": (
+        "Jaccard similarity to nearest fuzzy duplicate",
+        "0.0 to 1.0",
+        "lower",
+    ),
+    "cluster": (
+        "Cluster assignment ID for semantic grouping",
+        "integer",
+        None,
+    ),
+    "duplicate_group": (
+        "Group ID for samples that are duplicates of each other",
+        "integer",
+        None,
+    ),
+    # Conversation metrics
+    "messages_per_conversation": (
+        "Number of messages (turns) in each conversation",
+        "1 to ∞",
+        "context",
+    ),
+}
+
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -73,6 +205,21 @@ def analyze(
             help="Custom title for the HTML report.",
         ),
     ] = None,
+    skip_llm: Annotated[
+        bool,
+        typer.Option(
+            "--skip-llm",
+            help="Skip analyzers that require LLM inference (e.g., llm_judge, evol_*).",
+        ),
+    ] = False,
+    skip_remote_llm: Annotated[
+        bool,
+        typer.Option(
+            "--skip-remote-llm",
+            help="Skip analyzers that require remote LLM APIs (e.g., llm_judge, evol_*). "
+            "Local model analyzers like IFD are still allowed.",
+        ),
+    ] = False,
     level: cli_utils.LOG_LEVEL_TYPE = None,
     verbose: cli_utils.VERBOSE_TYPE = False,
 ):
@@ -85,6 +232,8 @@ def analyze(
         output_format: Output format (csv, json, parquet). Case-insensitive.
         report: Whether to generate an interactive HTML report with charts.
         report_title: Custom title for the HTML report.
+        skip_llm: Skip analyzers that require LLM inference.
+        skip_remote_llm: Skip analyzers that require remote LLM APIs.
         level: The logging level for the specified command.
         verbose: Enable verbose logging with additional debug information.
     """
@@ -133,7 +282,11 @@ def analyze(
         with cli_utils.CONSOLE.status(
             "[green]Loading dataset...[/green]", spinner="dots"
         ):
-            analyzer = DatasetAnalyzer(parsed_config)
+            analyzer = DatasetAnalyzer(
+                parsed_config,
+                skip_llm_analyzers=skip_llm,
+                skip_remote_llm_analyzers=skip_remote_llm,
+            )
 
         # Run analysis
         with cli_utils.CONSOLE.status(
@@ -180,6 +333,46 @@ def analyze(
         raise typer.Exit(code=1)
 
 
+def _get_metric_key(metric_name: str) -> str:
+    """Extract the base metric key from a full metric name.
+
+    Args:
+        metric_name: Full metric name (e.g., 'text_content_length_token_count')
+
+    Returns:
+        Base metric key for lookup in _METRIC_DESCRIPTIONS
+    """
+    # Remove common prefixes
+    key = metric_name
+    for prefix in ["text_content_", "content_"]:
+        if key.startswith(prefix):
+            key = key[len(prefix) :]
+
+    # Remove analyzer prefixes (e.g., 'length_', 'format_', 'diversity_')
+    known_analyzers = ["length", "format", "diversity", "embedding", "quality"]
+    for analyzer in known_analyzers:
+        if key.startswith(f"{analyzer}_"):
+            key = key[len(analyzer) + 1 :]
+            break
+
+    return key
+
+
+def _get_metric_description(
+    metric_name: str,
+) -> Optional[tuple[str, str, Optional[str]]]:
+    """Get the description, range, and better direction for a metric.
+
+    Args:
+        metric_name: The metric name to look up.
+
+    Returns:
+        Tuple of (description, range, better_direction) or None if not found.
+    """
+    metric_key = _get_metric_key(metric_name)
+    return _METRIC_DESCRIPTIONS.get(metric_key)
+
+
 def _clean_metric_name(name: str, analyzer_id: str = "") -> str:
     """Clean up metric name for display.
 
@@ -217,6 +410,69 @@ def _get_analyzer_id_from_group(group_name: str) -> str:
     return group_name
 
 
+def _display_metric_legend(metrics_shown: list[str]) -> None:
+    """Display a legend explaining the metrics in the table.
+
+    Args:
+        metrics_shown: List of metric names that were displayed in the table.
+    """
+    from rich.panel import Panel
+    from rich.text import Text
+
+    # Collect unique metric descriptions for displayed metrics
+    seen_keys: set[str] = set()
+    legend_items: list[tuple[str, str, str, Optional[str]]] = []
+
+    for metric_name in metrics_shown:
+        metric_key = _get_metric_key(metric_name)
+        if metric_key in seen_keys:
+            continue
+
+        desc_info = _METRIC_DESCRIPTIONS.get(metric_key)
+        if desc_info:
+            seen_keys.add(metric_key)
+            description, value_range, better = desc_info
+            # Convert metric key to display name
+            display_name = metric_key.replace("_", " ").title()
+            legend_items.append((display_name, description, value_range, better))
+
+    if not legend_items:
+        return
+
+    # Build the legend text
+    legend_text = Text()
+
+    for i, (name, description, value_range, better) in enumerate(legend_items):
+        if i > 0:
+            legend_text.append("\n")
+
+        # Metric name
+        legend_text.append(f"{name}: ", style="cyan bold")
+        # Description
+        legend_text.append(f"{description} ", style="white")
+        # Range
+        legend_text.append(f"[{value_range}]", style="dim")
+
+        # Better direction indicator
+        if better == "higher":
+            legend_text.append(" (", style="dim")
+            legend_text.append("higher is better", style="green")
+            legend_text.append(")", style="dim")
+        elif better == "lower":
+            legend_text.append(" (", style="dim")
+            legend_text.append("lower is better", style="yellow")
+            legend_text.append(")", style="dim")
+        elif better == "context":
+            legend_text.append(" (", style="dim")
+            legend_text.append("depends on use case", style="blue")
+            legend_text.append(")", style="dim")
+
+    cli_utils.CONSOLE.print(
+        Panel(legend_text, title="Metric Descriptions", border_style="dim")
+    )
+    cli_utils.CONSOLE.print()
+
+
 def _display_analysis_summary(
     analyzer: "DatasetAnalyzer", verbose: bool = False
 ) -> None:
@@ -231,6 +487,7 @@ def _display_analysis_summary(
     from rich.text import Text
 
     summary = analyzer.analysis_summary
+    metrics_shown: list[str] = []  # Track metrics for legend
 
     # Dataset overview - compact header panel
     overview = summary.get("dataset_overview", {})
@@ -319,6 +576,9 @@ def _display_analysis_summary(
                     # Show analyzer name only on first row of each group
                     analyzer_label = analyzer_id.title() if first_metric else ""
 
+                    # Track metric for legend display
+                    metrics_shown.append(metric_name)
+
                     if verbose:
                         std_val = stats.get("std", 0)
                         min_val = stats.get("min", 0)
@@ -355,6 +615,9 @@ def _display_analysis_summary(
             mean_val = turns_summary.get("mean", 0)
             count_val = turns_summary.get("count", 0)
 
+            # Track metric for legend display
+            metrics_shown.append("messages_per_conversation")
+
             if verbose:
                 std_val = turns_summary.get("std", 0)
                 min_val = turns_summary.get("min", 0)
@@ -380,6 +643,12 @@ def _display_analysis_summary(
 
         cli_utils.CONSOLE.print(table)
         cli_utils.CONSOLE.print()
+
+        # Display metric legend/descriptions
+        _display_metric_legend(metrics_shown)
+
+    # Display observations (key findings)
+    _display_observations(summary)
 
     # Display recommendations
     _display_recommendations(summary)
@@ -413,6 +682,55 @@ def _format_number(value: Any) -> str:
             return f"{value:,}"
         return str(value)
     return str(value)
+
+
+def _display_observations(summary: dict) -> None:
+    """Display observations (key findings) from the analysis.
+
+    Args:
+        summary: The analysis summary containing observations.
+    """
+    observations = summary.get("observations", [])
+    if not observations:
+        return
+
+    # Category icons and colors
+    category_styles = {
+        "distribution": ("[blue]◆[/blue]", "blue"),
+        "composition": ("[green]◆[/green]", "green"),
+        "content": ("[cyan]◆[/cyan]", "cyan"),
+        "quality": ("[yellow]◆[/yellow]", "yellow"),
+        "structure": ("[magenta]◆[/magenta]", "magenta"),
+    }
+
+    table = Table(
+        title=f"Observations ({len(observations)})",
+        title_style="bold green",
+        box=ROUNDED,
+        show_header=False,
+        padding=(0, 1),
+    )
+    table.add_column("", style="white", overflow="fold")
+
+    for obs in observations[:8]:  # Show top 8 observations
+        category = obs.get("category", "content")
+        icon, style = category_styles.get(category, category_styles["content"])
+        title = obs.get("title", "")
+        description = obs.get("description", "")
+
+        # Format: ◆ Title
+        table.add_row(f"{icon} [bold]{title}[/bold]")
+        if description:
+            table.add_row(f"   [{style}]{description}[/{style}]")
+
+    cli_utils.CONSOLE.print(table)
+
+    if len(observations) > 8:
+        cli_utils.CONSOLE.print(
+            f"[dim]  ... and {len(observations) - 8} more observations "
+            "(see analysis_summary.json)[/dim]"
+        )
+    cli_utils.CONSOLE.print()
 
 
 def _display_recommendations(summary: dict) -> None:

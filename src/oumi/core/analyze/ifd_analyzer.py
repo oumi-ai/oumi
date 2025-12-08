@@ -62,6 +62,8 @@ class IFDAnalyzer(SampleAnalyzer):
         >>> result_df = analyzer.analyze_sample(df, schema)
     """
 
+    requires_llm: bool = True
+
     def __init__(
         self,
         *,
