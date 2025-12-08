@@ -227,7 +227,7 @@ def get_app() -> typer.Typer:
 
     # View command
     app.command(
-        help="Browse conversations in a JSONL file using an interactive TUI.",
+        help="Browse JSONL conversations or YAML configs with an interactive TUI.",
         rich_help_panel="Tools",
     )(view)
 
