@@ -402,7 +402,8 @@ class HelpScreen(ModalScreen):
             yield Static("  1-5        Switch to tab", classes="keybinding")
             yield Static("  Tab        Next tab", classes="keybinding")
             yield Static("  Shift+Tab  Previous tab", classes="keybinding")
-            yield Static("  j/k        Scroll up/down", classes="keybinding")
+            yield Static("  j/k/↑/↓    Scroll up/down", classes="keybinding")
+            yield Static("  PgUp/PgDn  Page up/down", classes="keybinding")
             yield Static("  g/G        Go to top/bottom", classes="keybinding")
 
             yield Static("Search & Filter", classes="section")
@@ -1514,6 +1515,22 @@ class ConfigPanel(VerticalScroll):
         text-align: center;
         color: $text-muted;
     }
+
+    ConfigPanel Tree {
+        background: transparent;
+    }
+
+    ConfigPanel Tree:focus {
+        background: transparent;
+    }
+
+    ConfigPanel Tree > .tree--cursor {
+        background: $primary 20%;
+    }
+
+    ConfigPanel Tree:focus > .tree--cursor {
+        background: $primary 30%;
+    }
     """
 
     def __init__(self, data: TrainingData, **kwargs):
@@ -1695,11 +1712,15 @@ class TrainingViewerApp(App):
         Binding("5", "tab_5", "Files", show=False),
         Binding("t", "copy_tensorboard", "Copy TB cmd"),
         Binding("o", "open_folder", "Open folder"),
-        # Vim-style navigation
-        Binding("j", "scroll_down", "Scroll ↓", show=False),
-        Binding("k", "scroll_up", "Scroll ↑", show=False),
-        Binding("g", "goto_top", "Top", show=False),
-        Binding("G", "goto_bottom", "Bottom", show=False),
+        # Vim-style navigation (priority=True to override widget bindings)
+        Binding("j", "scroll_down", "Scroll ↓", show=False, priority=True),
+        Binding("k", "scroll_up", "Scroll ↑", show=False, priority=True),
+        Binding("down", "scroll_down", "Scroll ↓", show=False, priority=True),
+        Binding("up", "scroll_up", "Scroll ↑", show=False, priority=True),
+        Binding("g", "goto_top", "Top", show=False, priority=True),
+        Binding("G", "goto_bottom", "Bottom", show=False, priority=True),
+        Binding("pagedown", "page_down", "Page Down", show=False, priority=True),
+        Binding("pageup", "page_up", "Page Up", show=False, priority=True),
         # Search
         Binding("/", "focus_search", "Search", show=False),
         Binding("escape", "clear_search", "Clear", show=False),
@@ -1828,75 +1849,66 @@ class TrainingViewerApp(App):
         except Exception:
             self.notify("Failed to open folder", severity="error")
 
-    def action_scroll_down(self) -> None:
-        """Scroll down in the current panel."""
+    def _get_active_scrollable(self):
+        """Get the scrollable widget in the active tab."""
         try:
-            # Find the focused scrollable widget
-            focused = self.focused
-            if focused and hasattr(focused, "scroll_down"):
-                focused.scroll_down()
+            tabs = self.query_one(TabbedContent)
+            active_tab = tabs.active
+
+            # Handle each tab specifically for best scrolling behavior
+            if active_tab == "tab-logs":
+                # LogsPanel contains a RichLog that should be scrolled
+                return self.query_one("#log-viewer", RichLog)
+            elif active_tab == "tab-config":
+                # Config tab has a Tree widget - scroll the tree directly
+                return self.query_one("#config-tree", Tree)
             else:
-                # Try to scroll the active tab's panel
-                tabs = self.query_one(TabbedContent)
-                active_pane = tabs.get_pane(tabs.active)
+                # For other tabs (Summary, Metrics, Files, Timeline),
+                # find the VerticalScroll panel
+                active_pane = tabs.get_pane(active_tab)
                 if active_pane:
                     for child in active_pane.walk_children():
-                        if hasattr(child, "scroll_down"):
-                            child.scroll_down()
-                            break
+                        if isinstance(child, VerticalScroll):
+                            return child
         except Exception:
             pass
+        return None
+
+    def action_scroll_down(self) -> None:
+        """Scroll down in the current panel."""
+        scrollable = self._get_active_scrollable()
+        if scrollable:
+            scrollable.scroll_down()
 
     def action_scroll_up(self) -> None:
         """Scroll up in the current panel."""
-        try:
-            focused = self.focused
-            if focused and hasattr(focused, "scroll_up"):
-                focused.scroll_up()
-            else:
-                tabs = self.query_one(TabbedContent)
-                active_pane = tabs.get_pane(tabs.active)
-                if active_pane:
-                    for child in active_pane.walk_children():
-                        if hasattr(child, "scroll_up"):
-                            child.scroll_up()
-                            break
-        except Exception:
-            pass
+        scrollable = self._get_active_scrollable()
+        if scrollable:
+            scrollable.scroll_up()
 
     def action_goto_top(self) -> None:
         """Scroll to the top of the current panel."""
-        try:
-            focused = self.focused
-            if focused and hasattr(focused, "scroll_home"):
-                focused.scroll_home()
-            else:
-                tabs = self.query_one(TabbedContent)
-                active_pane = tabs.get_pane(tabs.active)
-                if active_pane:
-                    for child in active_pane.walk_children():
-                        if hasattr(child, "scroll_home"):
-                            child.scroll_home()
-                            break
-        except Exception:
-            pass
+        scrollable = self._get_active_scrollable()
+        if scrollable and hasattr(scrollable, "scroll_home"):
+            scrollable.scroll_home()
 
     def action_goto_bottom(self) -> None:
         """Scroll to the bottom of the current panel."""
-        try:
-            focused = self.focused
-            if focused and hasattr(focused, "scroll_end"):
-                focused.scroll_end()
-            else:
-                tabs = self.query_one(TabbedContent)
-                active_pane = tabs.get_pane(tabs.active)
-                if active_pane:
-                    for child in active_pane.walk_children():
-                        if hasattr(child, "scroll_end"):
-                            child.scroll_end()
-                            break
-        except Exception:
-            pass
+        scrollable = self._get_active_scrollable()
+        if scrollable and hasattr(scrollable, "scroll_end"):
+            scrollable.scroll_end()
+
+    def action_page_down(self) -> None:
+        """Page down in the current panel."""
+        scrollable = self._get_active_scrollable()
+        if scrollable and hasattr(scrollable, "scroll_page_down"):
+            scrollable.scroll_page_down()
+
+    def action_page_up(self) -> None:
+        """Page up in the current panel."""
+        scrollable = self._get_active_scrollable()
+        if scrollable and hasattr(scrollable, "scroll_page_up"):
+            scrollable.scroll_page_up()
 
     def action_focus_search(self) -> None:
         """Focus the search input in the Logs panel."""
