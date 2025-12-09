@@ -71,7 +71,9 @@ SynthGoal = Literal["qa", "conversation", "augmentation", "instruction"]
 JudgeType = Literal["generic", "compliance", "relevance", "safety", "groundedness"]
 
 
-def _convert_to_supported_format(file_path: str, output_dir: Optional[str] = None) -> str:
+def _convert_to_supported_format(
+    file_path: str, output_dir: Optional[str] = None
+) -> str:
     """Convert unsupported file types to CSV for use with DatasetSource.
 
     Args:
@@ -113,8 +115,7 @@ def _convert_to_supported_format(file_path: str, output_dir: Optional[str] = Non
 
     # Unsupported format
     raise ValueError(
-        f"Unsupported file type: {ext}. "
-        f"Supported types: {SUPPORTED_DATASET_EXTENSIONS}"
+        f"Unsupported file type: {ext}. Supported types: {SUPPORTED_DATASET_EXTENSIONS}"
     )
 
 
@@ -124,7 +125,7 @@ class BuilderOptions:
 
     model_name: str = "claude-haiku-4-5"
     engine: str = "ANTHROPIC"
-    temperature: float = 0.7
+    temperature: float = 1.0
     max_new_tokens: int = 8192
     num_workers: int = 50
 
@@ -172,7 +173,7 @@ class ConfigBuilder(ABC):
             generation=GenerationParams(
                 max_new_tokens=self.options.max_new_tokens,
                 temperature=self.options.temperature,
-                top_p=0.9,
+                # top_p=0.9,
             ),
             remote_params=RemoteParams(
                 num_workers=self.options.num_workers,
@@ -284,9 +285,14 @@ Generate an appropriate response.""",
 
         # Build strategy params based on goal
         strategy_params = self._build_strategy_params(
-            schema, goal, mappings, attribute_map=attribute_map,
-            system_prompt=system_prompt, task_description=task_description,
-            task_type=task_type, output_format=output_format
+            schema,
+            goal,
+            mappings,
+            attribute_map=attribute_map,
+            system_prompt=system_prompt,
+            task_description=task_description,
+            task_type=task_type,
+            output_format=output_format,
         )
 
         # Create output path if not provided
@@ -331,7 +337,12 @@ Generate an appropriate response.""",
         has_data_source = False
 
         # Add input data source if schema has tabular data
-        if schema.source_path and schema.detected_format in ("csv", "excel", "json", "jsonl"):
+        if schema.source_path and schema.detected_format in (
+            "csv",
+            "excel",
+            "json",
+            "jsonl",
+        ):
             # Use provided attribute_map or build from mappings
             if attribute_map:
                 # Explicit column assignments provided - use directly
@@ -389,18 +400,29 @@ Generate an appropriate response.""",
 
             # If we still have no examples, create a placeholder
             if not examples:
-                examples.append({"context": task_description or "Generate a sample input"})
+                examples.append(
+                    {"context": task_description or "Generate a sample input"}
+                )
 
             params.input_examples = [ExampleSource(examples=examples)]
 
         # Build generated attributes based on goal
         if goal == "qa":
             params.generated_attributes = self._build_qa_attributes(
-                mappings, system_prompt=system_prompt, task_description=task_description,
-                task_type=task_type, output_format=output_format
+                mappings,
+                system_prompt=system_prompt,
+                task_description=task_description,
+                task_type=task_type,
+                output_format=output_format,
             )
-            params.transformed_attributes = self._build_qa_transform(system_prompt=system_prompt)
-            params.passthrough_attributes = ["synth_conversation", "synth_question", "synth_answer"]
+            params.transformed_attributes = self._build_qa_transform(
+                system_prompt=system_prompt
+            )
+            params.passthrough_attributes = [
+                "synth_conversation",
+                "synth_question",
+                "synth_answer",
+            ]
         elif goal == "conversation":
             params.generated_attributes = self._build_conversation_attributes(mappings)
             params.passthrough_attributes = ["conversation"]
@@ -408,7 +430,9 @@ Generate an appropriate response.""",
             params.generated_attributes = self._build_augmentation_attributes(mappings)
             params.passthrough_attributes = ["augmented"]
         elif goal == "instruction":
-            params.generated_attributes = self._build_instruction_attributes(mappings, schema)
+            params.generated_attributes = self._build_instruction_attributes(
+                mappings, schema
+            )
             params.passthrough_attributes = ["output"]
 
         return params
@@ -500,7 +524,9 @@ Generate the expected OUTPUT that a well-trained model should produce for this t
 Format your response as:
 Answer: <the expected model output>"""
         else:
-            answer_prompt = templates["answer_prompt"].replace("{question}", "{synth_question}")
+            answer_prompt = templates["answer_prompt"].replace(
+                "{question}", "{synth_question}"
+            )
 
         # Use unique IDs to avoid conflicts with input data columns
         question_attr = GeneratedAttribute(
@@ -945,7 +971,9 @@ Answer: <the expected model output>"""
         # Use inferred instruction template or build from domain knowledge
         question_template = inferred.instruction_template
         if not question_template:
-            terminology_str = ", ".join(domain.terminology[:5]) if domain.terminology else ""
+            terminology_str = (
+                ", ".join(domain.terminology[:5]) if domain.terminology else ""
+            )
             question_template = f"""Based on the following information about {domain.domain}, generate a thoughtful question.
 
 Domain terminology to use: {terminology_str}
@@ -1039,7 +1067,9 @@ Generate diverse variations that preserve the core meaning while varying style a
 
         instruction = inferred.instruction_template
         if not instruction:
-            terminology_str = ", ".join(domain.terminology[:5]) if domain.terminology else ""
+            terminology_str = (
+                ", ".join(domain.terminology[:5]) if domain.terminology else ""
+            )
             instruction = f"""Create a variation of the following {domain.domain} content:
 
 {{context}}
@@ -1105,7 +1135,13 @@ Follow the provided instructions precisely and generate high-quality outputs."""
             A configured SynthesisConfig.
         """
         # Load template from configs/templates/synth/{template_name}.yaml
-        template_path = Path(__file__).parent.parent.parent.parent / "configs" / "templates" / "synth" / f"{template_name}.yaml"
+        template_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "configs"
+            / "templates"
+            / "synth"
+            / f"{template_name}.yaml"
+        )
 
         if template_path.exists():
             config = SynthesisConfig.from_yaml(str(template_path))
@@ -1297,7 +1333,11 @@ Is the response grounded in and supported by the context?""",
 
         prompt_template = inferred.instruction_template
         if not prompt_template:
-            quality_signals = ", ".join(domain.quality_signals[:3]) if domain.quality_signals else "accuracy, clarity, completeness"
+            quality_signals = (
+                ", ".join(domain.quality_signals[:3])
+                if domain.quality_signals
+                else "accuracy, clarity, completeness"
+            )
             prompt_template = f"""Evaluate the following {domain.domain} content:
 
 {{context}}

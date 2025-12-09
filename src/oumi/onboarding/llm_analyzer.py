@@ -222,7 +222,7 @@ class LLMAnalyzer:
             model_params = ModelParams(model_name=self.model)
             generation_params = GenerationParams(
                 max_new_tokens=4096,
-                temperature=0.7,
+                temperature=1.0,
             )
             remote_params = RemoteParams(
                 api_key=self._api_key,
@@ -258,12 +258,14 @@ class LLMAnalyzer:
 
         conversation = Conversation(messages=messages)
 
+        logger.debug(f"LLM Request: {conversation}")
+
         # Create inference config
         inference_config = InferenceConfig(
             model=ModelParams(model_name=self.model),
             generation=GenerationParams(
                 max_new_tokens=4096,
-                temperature=0.7,
+                temperature=1.0,
             ),
             engine=self._get_engine_type(),
         )
@@ -274,6 +276,8 @@ class LLMAnalyzer:
                 input=[conversation],
                 inference_config=inference_config,
             )
+
+            logger.debug(f"LLM Response: {results}")
 
             # Extract response text from the last message
             if results and results[0].messages:
@@ -421,18 +425,18 @@ Return ONLY the JSON object, no other text."""
             prompt = f"""Analyze this data sample to understand the semantic domain.
 
 DATA OVERVIEW:
-- Format: {samples['format']}
-- Row count: {samples['row_count']}
-- Columns: {json.dumps(samples['columns'], indent=2)}
+- Format: {samples["format"]}
+- Row count: {samples["row_count"]}
+- Columns: {json.dumps(samples["columns"], indent=2)}
 
 EXAMPLE ROWS:
-{json.dumps(samples['example_rows'], indent=2)}
+{json.dumps(samples["example_rows"], indent=2)}
 
 TEXT SAMPLES (longest text columns):
-{json.dumps(samples['text_samples'], indent=2)}
+{json.dumps(samples["text_samples"], indent=2)}
 
 CATEGORICAL VALUES:
-{json.dumps(samples['categories'], indent=2)}
+{json.dumps(samples["categories"], indent=2)}
 
 Analyze this data and return a JSON object with:
 {{
@@ -500,7 +504,7 @@ DOMAIN CONTEXT:
 
 DATA STRUCTURE:
 - Columns: {column_names}
-- Example row: {json.dumps(samples['example_rows'][0] if samples['example_rows'] else {}, indent=2)}
+- Example row: {json.dumps(samples["example_rows"][0] if samples["example_rows"] else {}, indent=2)}
 
 SYNTHESIS GOAL: {goal}
 - qa: Generate question-answer pairs
@@ -581,7 +585,7 @@ DOMAIN CONTEXT:
 - Common issues: {domain.common_issues}
 
 EXAMPLE DATA:
-{json.dumps(samples['example_rows'][0] if samples['example_rows'] else {}, indent=2)}
+{json.dumps(samples["example_rows"][0] if samples["example_rows"] else {}, indent=2)}
 
 JUDGE TYPE: {judge_type}
 - generic: General quality assessment
@@ -634,9 +638,7 @@ Return ONLY the JSON object, no other text."""
             postprocessing={},
         )
 
-    def analyze_multi_file(
-        self, file_contexts: list[FileContext]
-    ) -> MultiFileAnalysis:
+    def analyze_multi_file(self, file_contexts: list[FileContext]) -> MultiFileAnalysis:
         """Analyze relationships between multiple files.
 
         Examines multiple files together to understand how they relate
@@ -760,7 +762,7 @@ CURRENT CONFIGURATION:
 {json.dumps(current_config, indent=2)}
 
 DATA SAMPLE:
-{json.dumps(self._prepare_samples(schema)['example_rows'][0] if self._prepare_samples(schema)['example_rows'] else {}, indent=2)}
+{json.dumps(self._prepare_samples(schema)["example_rows"][0] if self._prepare_samples(schema)["example_rows"] else {}, indent=2)}
 
 Suggest improvements to make this configuration more effective for the {domain.domain} domain.
 

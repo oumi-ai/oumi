@@ -15,6 +15,7 @@
 import os
 import sys
 import traceback
+from typing import Optional
 
 import typer
 
@@ -63,21 +64,38 @@ def experimental_features_enabled():
     return is_enabled.lower() in ("1", "true", "yes", "on")
 
 
-def _oumi_welcome(ctx: typer.Context):
-    if ctx.invoked_subcommand == "distributed":
-        return
-    # Skip logo for rank>0 for multi-GPU jobs to reduce noise in logs.
-    if int(os.environ.get("RANK", 0)) > 0:
-        return
-    CONSOLE.print(_ASCII_LOGO, style="green", highlight=False)
-
-
 def get_app() -> typer.Typer:
     """Create the Typer CLI app."""
     app = typer.Typer(pretty_exceptions_enable=False)
-    app.callback(context_settings={"help_option_names": ["-h", "--help"]})(
-        _oumi_welcome
-    )
+
+    @app.callback(context_settings={"help_option_names": ["-h", "--help"]})
+    def main_callback(
+        ctx: typer.Context,
+        log_level: Optional[str] = typer.Option(
+            None,
+            "--log-level",
+            "-l",
+            help=(
+                "Set the log level (e.g., 'debug', 'info', 'warning'). "
+                "Defaults to 'debug' for 'oumi onboard' and 'info' otherwise."
+            ),
+            show_default=False,
+        ),
+    ):
+        """
+        Oumi CLI
+        """
+        from oumi.utils.logging import update_logger_level
+
+        default_log_level = "debug" if ctx.invoked_subcommand == "onboard" else "info"
+        update_logger_level("oumi", log_level or default_log_level)
+
+        if ctx.invoked_subcommand == "distributed":
+            return
+        # Skip logo for rank>0 for multi-GPU jobs to reduce noise in logs.
+        if int(os.environ.get("RANK", 0)) > 0:
+            return
+        CONSOLE.print(_ASCII_LOGO, style="green", highlight=False)
 
     # Model
     app.command(
