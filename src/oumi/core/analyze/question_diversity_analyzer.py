@@ -23,6 +23,7 @@ assistant responses. System prompts are expected to be similar/identical.
 """
 
 from typing import Any, Optional
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -228,12 +229,30 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
         else:  # kmeans
             from sklearn.cluster import KMeans
 
-            clustering = KMeans(
-                n_clusters=min(self.n_clusters, len(embeddings)),
-                random_state=42,
-                n_init=10,
-            )
-            labels = clustering.fit_predict(embeddings)
+            n_clusters_to_use = min(self.n_clusters, len(embeddings))
+
+            # Suppress ConvergenceWarning when n_clusters >= n_samples
+            # This is an expected edge case for small datasets
+            if n_clusters_to_use >= len(embeddings):
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        'ignore',
+                        message='.*Number of distinct clusters.*',
+                        category=Warning
+                    )
+                    clustering = KMeans(
+                        n_clusters=n_clusters_to_use,
+                        random_state=42,
+                        n_init=10,
+                    )
+                    labels = clustering.fit_predict(embeddings)
+            else:
+                clustering = KMeans(
+                    n_clusters=n_clusters_to_use,
+                    random_state=42,
+                    n_init=10,
+                )
+                labels = clustering.fit_predict(embeddings)
 
         return labels
 
@@ -378,8 +397,13 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
         Returns:
             DataFrame with added question diversity columns:
             - question_cluster_id: Which cluster this question belongs to
+              For DBSCAN clustering, -1 indicates "noise" points - questions
+              that are unique/diverse and don't match any cluster. This is
+              a positive indicator of diversity, not an error.
             - question_cluster_size: Number of questions in same cluster
             - is_in_concentrated_cluster: True if in a cluster with >threshold samples
+              Note: Noise points (cluster_id=-1) are flagged as NOT concentrated
+              because they represent unique, diverse questions.
         """
         result_df = df.copy()
 

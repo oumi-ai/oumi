@@ -1519,7 +1519,8 @@ class RecommendationsEngine:
                 continue
 
             # Count samples in concentrated clusters
-            concentrated_mask = df[col] == True  # noqa: E712
+            # Fill NaN values with False to handle excluded roles properly
+            concentrated_mask = df[col].fillna(False) == True  # noqa: E712
             concentrated_count = concentrated_mask.sum()
 
             # Get total user messages (non-null concentration values)
@@ -1541,7 +1542,8 @@ class RecommendationsEngine:
             )
 
             # Get indices of concentrated samples (limit to 20)
-            concentrated_indices = df[concentrated_mask].index.tolist()[:20]
+            # Use .loc to ensure index alignment
+            concentrated_indices = df.loc[concentrated_mask].index.tolist()[:20]
 
             # Get cluster size info for better context
             cluster_col = col.replace("_is_concentrated", "_cluster_size")

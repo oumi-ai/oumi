@@ -340,13 +340,26 @@ JSON response:""",
             if engine_type in (
                 InferenceEngineType.REMOTE,
                 InferenceEngineType.ANTHROPIC,
+                InferenceEngineType.OPENAI,
             ):
-                remote_params = RemoteParams(
-                    api_url=self.inference_config.get("api_base"),
-                    api_key_env_varname=self.inference_config.get(
-                        "api_key_env", "OPENAI_API_KEY"
-                    ),
-                )
+                # Extract nested remote_params config
+                remote_params_config = self.inference_config.get("remote_params", {})
+                remote_params_kwargs = {**remote_params_config}
+
+                # Allow top-level overrides for backward compatibility
+                if "api_base" in self.inference_config:
+                    remote_params_kwargs["api_url"] = self.inference_config["api_base"]
+                if "api_key_env" in self.inference_config:
+                    remote_params_kwargs["api_key_env_varname"] = self.inference_config[
+                        "api_key_env"
+                    ]
+                else:
+                    # Set default if not specified
+                    remote_params_kwargs.setdefault(
+                        "api_key_env_varname", "OPENAI_API_KEY"
+                    )
+
+                remote_params = RemoteParams(**remote_params_kwargs)
 
             # Build inference config
             self._inference_config_obj = InferenceConfig(

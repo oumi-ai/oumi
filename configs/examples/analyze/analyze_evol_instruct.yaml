@@ -26,7 +26,7 @@
 # Dataset configuration
 dataset_name: "tatsu-lab/alpaca"
 split: "train"
-sample_count: 100 # Start small due to API costs, increase for full analysis
+sample_count: 10 # Testing with small sample to verify performance optimization
 
 # Output configuration
 output_path: "./analysis_output/evol_instruct"
@@ -56,15 +56,15 @@ analyzers:
   - id: evol_complexity
     params:
       # Model configuration - Anthropic (recommended)
-      model_type: api
-      api_provider: anthropic
-      api_model: claude-4-5-haiku # Cost-effective
+      # model_type: api
+      # api_provider: anthropic
+      # api_model: claude-4-5-haiku # Cost-effective
       # api_model: claude-sonnet-4-5-20250514  # Higher quality
 
       # Alternative: OpenAI
-      # model_type: api
-      # api_provider: openai
-      # api_model: gpt-4o-mini
+      model_type: api
+      api_provider: openai
+      api_model: gpt-5-mini
 
       # Alternative: Local model (no API cost)
       # model_type: local
@@ -87,6 +87,15 @@ analyzers:
       max_retries: 2
       cache_responses: true # Cache to avoid re-processing
       show_progress: true
+
+      # Inference performance optimization
+      inference_config:
+        remote_params:
+          num_workers: 10           # Parallel API requests
+          politeness_policy: 6.0    # 10 RPM per worker = 100 RPM total
+          use_adaptive_concurrency: false  # Predictable dev performance
+          max_retries: 2            # Fast failure
+          connection_timeout: 120.0 # 2 minutes max per request
 
   # ==========================================================================
   # EVOL QUALITY ANALYZER (DEITA)
@@ -130,6 +139,15 @@ analyzers:
       cache_responses: true
       show_progress: true
 
+      # Inference performance optimization
+      inference_config:
+        remote_params:
+          num_workers: 10
+          politeness_policy: 6.0
+          use_adaptive_concurrency: false
+          max_retries: 2
+          connection_timeout: 120.0
+
   # ==========================================================================
   # REPR DIVERSITY ANALYZER (DEITA Repr Filter)
   # Measures how unique each sample is relative to the dataset
@@ -163,15 +181,15 @@ analyzers:
   #
   # Requires: transformers, torch
   # ==========================================================================
-  # - id: ifd
-  #   params:
-  #     model_name: Qwen/Qwen3-0.6B  # Fast, good quality
-  #     # model_name: gpt2  # Smallest, fastest
-  #     instruction_column: instruction
-  #     response_column: output
-  #     batch_size: 4
-  #     max_length: 2048
-  #     trust_remote_code: true
+  - id: ifd
+    params:
+      model_name: Qwen/Qwen3-0.6B # Fast, good quality
+      # model_name: gpt2  # Smallest, fastest
+      instruction_column: instruction
+      response_column: output
+      batch_size: 4
+      max_length: 2048
+      trust_remote_code: true
 
   # ==========================================================================
   # SUPPORTING ANALYZERS

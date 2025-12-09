@@ -875,8 +875,9 @@ class HTMLReportGenerator:
                 concentrated_col = cluster_col.replace("_cluster_id", "_is_concentrated")
                 concentrated_count = 0
                 if concentrated_col in message_df.columns:
+                    # Cast to boolean explicitly to avoid pandas downcasting warning
                     concentrated_count = int(
-                        message_df[concentrated_col].fillna(False).sum()
+                        message_df[concentrated_col].astype('boolean').fillna(False).sum()
                     )
 
                 result["question_diversity_clusters"] = {

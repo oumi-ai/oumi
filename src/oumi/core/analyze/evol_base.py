@@ -161,7 +161,7 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
                     engine_type = InferenceEngineType.ANTHROPIC
                     api_key_env = "ANTHROPIC_API_KEY"
                 else:  # openai
-                    engine_type = InferenceEngineType.REMOTE
+                    engine_type = InferenceEngineType.OPENAI
                     api_key_env = "OPENAI_API_KEY"
             else:  # local
                 model_name = self.local_model
@@ -185,12 +185,22 @@ class EvolBaseAnalyzer(SampleAnalyzer, ABC):
             # Build remote params for API models
             remote_params = None
             if self.model_type == "api":
-                remote_params = RemoteParams(
-                    api_url=self.inference_config.get("api_base"),
-                    api_key_env_varname=self.inference_config.get(
-                        "api_key_env", api_key_env
-                    ),
-                )
+                # Extract nested remote_params config
+                remote_params_config = self.inference_config.get("remote_params", {})
+                remote_params_kwargs = {**remote_params_config}
+
+                # Allow top-level overrides for backward compatibility
+                if "api_base" in self.inference_config:
+                    remote_params_kwargs["api_url"] = self.inference_config["api_base"]
+                if "api_key_env" in self.inference_config:
+                    remote_params_kwargs["api_key_env_varname"] = self.inference_config[
+                        "api_key_env"
+                    ]
+                else:
+                    # Set default if not specified
+                    remote_params_kwargs.setdefault("api_key_env_varname", api_key_env)
+
+                remote_params = RemoteParams(**remote_params_kwargs)
 
             # Build inference config
             self._inference_config_obj = InferenceConfig(

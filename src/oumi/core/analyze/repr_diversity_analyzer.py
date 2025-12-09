@@ -63,6 +63,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
         model_name: str = "all-MiniLM-L6-v2",
         k_neighbors: int = 5,
         diversity_threshold: float = 0.3,
+        role_specific_thresholds: Optional[dict[str, Optional[float]]] = None,
         embed_field: str = "all",
         batch_size: int = 32,
         device: Optional[str] = None,
@@ -83,6 +84,13 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 redundant (too similar to existing samples). Default 0.3 means
                 samples with average neighbor distance < 0.3 are flagged.
                 Value is in distance space (1 - cosine_similarity).
+                Ignored if role_specific_thresholds is provided.
+            role_specific_thresholds: Optional dict mapping role names to thresholds.
+                If provided, different thresholds are applied to different roles.
+                Use None as threshold value to exclude that role from diversity analysis.
+                Example: {"system": None, "user": 0.25, "assistant": 0.3}
+                This is useful for datasets where some roles (e.g., system prompts)
+                are intentionally identical and should not be analyzed for diversity.
             embed_field: Which field(s) to embed for diversity analysis:
                 - "all": Embed all text columns (default)
                 - "user": Only embed user messages (requires role column)
@@ -109,6 +117,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
         self.model_name = model_name
         self.k_neighbors = k_neighbors
         self.diversity_threshold = diversity_threshold
+        self.role_specific_thresholds = role_specific_thresholds or {}
         self.embed_field = embed_field
         self.batch_size = batch_size
         self.device = device
@@ -365,20 +374,50 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                     np.sum(diversity_scores <= score) / len(diversity_scores) * 100
                 )
 
-            # Determine redundancy
-            is_redundant = diversity_scores < self.diversity_threshold
+            # Determine redundancy - apply role-specific thresholds if configured
+            if self.role_specific_thresholds and role_column:
+                # Role-specific threshold mode
+                is_redundant = np.zeros(len(diversity_scores), dtype=bool)
+                for local_idx, global_idx in enumerate(analyze_indices):
+                    role = df.loc[global_idx, role_column].lower() if isinstance(df.loc[global_idx, role_column], str) else str(df.loc[global_idx, role_column]).lower()
+                    threshold = self.role_specific_thresholds.get(
+                        role,
+                        self.diversity_threshold  # Fall back to default
+                    )
+                    if threshold is not None:
+                        is_redundant[local_idx] = diversity_scores[local_idx] < threshold
+            else:
+                # Single threshold mode (original behavior)
+                is_redundant = diversity_scores < self.diversity_threshold
 
-            # Create result arrays for all rows (None for non-analyzed rows)
-            all_nn_distances = [None] * n_samples
-            all_diversity_scores = [None] * n_samples
+            # Create result arrays for all rows
+            # Use np.nan for numerical columns to avoid negative near-zero values in CSV
+            # Use None for boolean columns (proper null representation)
+            all_nn_distances = [np.nan] * n_samples
+            all_diversity_scores = [np.nan] * n_samples
             all_is_redundant = [None] * n_samples
-            all_percentiles = [None] * n_samples
+            all_percentiles = [np.nan] * n_samples
 
             # Fill in values for analyzed rows
             for local_idx, global_idx in enumerate(analyze_indices):
                 all_nn_distances[global_idx] = float(nn_distances[local_idx])
                 all_diversity_scores[global_idx] = float(diversity_scores[local_idx])
-                all_is_redundant[global_idx] = bool(is_redundant[local_idx])
+
+                # Handle role-specific exclusion (threshold = None)
+                if self.role_specific_thresholds and role_column:
+                    role = df.loc[global_idx, role_column].lower() if isinstance(df.loc[global_idx, role_column], str) else str(df.loc[global_idx, role_column]).lower()
+                    threshold = self.role_specific_thresholds.get(
+                        role,
+                        self.diversity_threshold
+                    )
+                    if threshold is None:
+                        # Exclude this role from redundancy analysis
+                        all_is_redundant[global_idx] = None
+                    else:
+                        all_is_redundant[global_idx] = bool(is_redundant[local_idx])
+                else:
+                    all_is_redundant[global_idx] = bool(is_redundant[local_idx])
+
                 all_percentiles[global_idx] = float(diversity_percentiles[local_idx])
 
             # Add columns to result DataFrame
@@ -396,7 +435,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
 
             # Store dataset-level metrics
             redundant_count = int(np.sum(is_redundant))
-            self._dataset_metrics[column] = {
+            metrics = {
                 "total_samples": len(texts_to_embed),
                 "redundant_samples": redundant_count,
                 "redundant_ratio": round(redundant_count / len(texts_to_embed), 4),
@@ -410,10 +449,51 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 "k_neighbors": self.k_neighbors,
             }
 
+            # Add role-specific metrics if role_specific_thresholds is used
+            if self.role_specific_thresholds and role_column:
+                role_metrics = {}
+                for role_name, threshold in self.role_specific_thresholds.items():
+                    role_indices = [
+                        local_idx for local_idx, global_idx in enumerate(analyze_indices)
+                        if (df.loc[global_idx, role_column].lower() if isinstance(df.loc[global_idx, role_column], str) else str(df.loc[global_idx, role_column]).lower()) == role_name
+                    ]
+                    if role_indices and threshold is not None:
+                        role_scores = diversity_scores[role_indices]
+                        role_redundant = np.sum(role_scores < threshold)
+                        role_metrics[role_name] = {
+                            "threshold": threshold,
+                            "total_samples": len(role_indices),
+                            "redundant_samples": int(role_redundant),
+                            "redundant_ratio": round(float(role_redundant / len(role_indices)), 4),
+                            "mean_score": round(float(np.mean(role_scores)), 4),
+                            "median_score": round(float(np.median(role_scores)), 4),
+                        }
+                    elif threshold is None:
+                        # Count excluded samples
+                        excluded_count = len([
+                            local_idx for local_idx, global_idx in enumerate(analyze_indices)
+                            if (df.loc[global_idx, role_column].lower() if isinstance(df.loc[global_idx, role_column], str) else str(df.loc[global_idx, role_column]).lower()) == role_name
+                        ])
+                        role_metrics[role_name] = {
+                            "threshold": None,
+                            "total_samples": excluded_count,
+                            "excluded": True,
+                        }
+                metrics["role_specific_metrics"] = role_metrics
+
+            # Add threshold appropriateness warning
+            redundant_ratio = redundant_count / len(texts_to_embed)
+            if redundant_ratio > 0.5:
+                metrics["threshold_warning"] = (
+                    f"High redundancy rate ({redundant_ratio*100:.1f}%). "
+                    f"Consider increasing threshold or using role-specific thresholds."
+                )
+
+            self._dataset_metrics[column] = metrics
+
             logger.info(
                 f"Column '{column}': {redundant_count}/{len(texts_to_embed)} samples "
-                f"({redundant_count/len(texts_to_embed)*100:.1f}%) are redundant "
-                f"(diversity score < {self.diversity_threshold})"
+                f"({redundant_count/len(texts_to_embed)*100:.1f}%) are redundant"
             )
 
         return result_df
