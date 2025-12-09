@@ -29,10 +29,18 @@ envs:
   ENABLE_OUMI_INTEGRATION_TESTS: "false"
   ENABLE_OUMI_E2E_TESTS: "true"
   CUDA_LAUNCH_BLOCKING: 1
+  IAP_CLIENT_ID: ${env:IAP_CLIENT_ID}
+  BACKEND_URL: ${env:BACKEND_URL}
+  TARGET_SERVICE_ACCOUNT: ${env:TARGET_SERVICE_ACCOUNT}
+  RP_API_KEY: ${env:RP_API_KEY}
+  TEST_LAUNCH_NAME: ${env:TEST_LAUNCH_NAME}
 
 run: |
   set -xe  # Exit if any command failed.
   source "./configs/examples/misc/sky_init.sh"
+
+  pip install git+https://github.com/oumi-ai/test-proxy.git
+  pip install pytest-reportportal
 
   pip install -e ".[ci_gpu]" hf_transfer
   pip install -U flash-attn --no-build-isolation
@@ -53,22 +61,25 @@ run: |
 
   ROOT_DIR="$(pwd)"
 
+  python -m test-proxy.main &
+  sleep 2
+
   if "${ENABLE_OUMI_UNIT_TESTS}"; then
     cd "${ROOT_DIR}/tests/unit/"
     echo "Running all unit tests..."
-    pytest -s -vv --durations=50 --timeout=300
+    pytest -s -vv --durations=50 --timeout=300 -o rp_endpoint=http://localhost:8080 -o rp_project=oumi -o rp_launch_attributes="test_type:unit" -o rp_launch="${TEST_LAUNCH_NAME}_unit" --reportportal
   fi
 
   if "${ENABLE_OUMI_INTEGRATION_TESTS}"; then
     cd "${ROOT_DIR}/tests/integration/"
     echo "Running all integration tests..."
-    pytest -s -vv --durations=50 --timeout=300
+    pytest -s -vv --durations=50 --timeout=300 -o rp_endpoint=http://localhost:8080 -o rp_project=oumi -o rp_launch_attributes="test_type:integration" -o rp_launch="${TEST_LAUNCH_NAME}_integration" --reportportal
   fi
 
   if "${ENABLE_OUMI_E2E_TESTS}"; then
     cd "${ROOT_DIR}/tests/"
     echo "Running all tests: e2e and ${GPU_MULTIPLICITY_MARKER}..."
-    pytest -s -vv -m "e2e and ${GPU_MULTIPLICITY_MARKER}" --durations=50 --timeout=1200
+    pytest -s -vv -m "e2e and ${GPU_MULTIPLICITY_MARKER}" --durations=50 --timeout=1200 -o rp_endpoint=http://localhost:8080 -o rp_project=oumi -o rp_launch_attributes="test_type:e2e" -o rp_launch="${TEST_LAUNCH_NAME}_e2e" --reportportal
   fi
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
