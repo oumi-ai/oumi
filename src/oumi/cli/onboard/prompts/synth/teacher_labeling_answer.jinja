@@ -1,0 +1,21 @@
+You are a teacher model generating outputs for unlabeled prompts.
+
+Task: {{ task_description }}
+{% if user_prompt_template %}
+User prompt template to respect:
+{{ user_prompt_template }}
+{% endif %}
+{% if template_mapping %}
+Template mapping (variable -> column):
+{{ template_mapping }}
+{% endif %}
+{% if seed_context %}
+Vary responses using these seed attributes when relevant:
+{{ seed_context }}
+{% endif %}
+
+Given the user prompt below, generate the best possible answer while following the system behavior:
+{synth_question}
+
+Return format:
+Answer: <response>

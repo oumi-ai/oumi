@@ -11,6 +11,11 @@ Example data from the dataset:
 - {{ row | tojson(indent=2) | truncate(300) }}
 {% endfor %}
 {% endif %}
+{% if seed_context %}
+
+Use these seed attributes for diversity (placeholders will be filled per sample):
+{{ seed_context }}
+{% endif %}
 
 Given this context from real data:
 {context}

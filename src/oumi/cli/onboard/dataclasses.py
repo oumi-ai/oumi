@@ -160,6 +160,15 @@ class DetectionResult:
     seed_columns: list = field(default_factory=list)
     """Column names usable as seed data for diversity."""
 
+    input_column: Optional[str] = None
+    """Detected input column for labeled examples."""
+
+    output_column: Optional[str] = None
+    """Detected output/label column for labeled examples."""
+
+    prompt_column: Optional[str] = None
+    """Detected prompt column for unlabeled prompts."""
+
     # Confidence scores (0.0 - 1.0)
     task_confidence: float = 0.0
     """Confidence in task definition detection."""
@@ -194,6 +203,9 @@ class DetectionResult:
             "unlabeled_prompts": self.unlabeled_prompts,
             "eval_criteria": self.eval_criteria,
             "seed_columns": self.seed_columns,
+            "input_column": self.input_column,
+            "output_column": self.output_column,
+            "prompt_column": self.prompt_column,
             "task_confidence": self.task_confidence,
             "template_confidence": self.template_confidence,
             "labels_confidence": self.labels_confidence,
@@ -220,6 +232,9 @@ class DetectionResult:
             unlabeled_prompts=data.get("unlabeled_prompts", []),
             eval_criteria=data.get("eval_criteria", []),
             seed_columns=data.get("seed_columns", []),
+            input_column=data.get("input_column"),
+            output_column=data.get("output_column"),
+            prompt_column=data.get("prompt_column"),
             task_confidence=data.get("task_confidence", 0.0),
             template_confidence=data.get("template_confidence", 0.0),
             labels_confidence=data.get("labels_confidence", 0.0),

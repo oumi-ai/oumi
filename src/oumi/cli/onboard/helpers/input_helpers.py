@@ -52,7 +52,7 @@ def detect_input_source(state: "WizardState", llm_analyzer) -> dict:
             col_info["avg_length"] = col.avg_length
         if state.primary_schema.sample_rows:
             sample_vals = [
-                str(row.get(col.name, ""))[:100]
+                str(row.get(col.name, ""))
                 for row in state.primary_schema.sample_rows[:3]
                 if row.get(col.name)
             ]
@@ -78,11 +78,11 @@ def detect_input_source(state: "WizardState", llm_analyzer) -> dict:
                 if len(cols_to_use) == 1:
                     val = row.get(cols_to_use[0], "")
                     if val:
-                        samples.append(str(val)[:200])
+                        samples.append(str(val))
                 else:
                     parts = [str(row.get(c, "")) for c in cols_to_use if row.get(c)]
                     if parts:
-                        samples.append(" | ".join(parts)[:200])
+                        samples.append(" | ".join(parts))
 
         return {
             "source_column": source_col,
@@ -128,7 +128,7 @@ def fallback_input_detection(state: "WizardState") -> dict:
     samples = []
     if input_col and state.primary_schema.sample_rows:
         samples = [
-            str(row.get(input_col, ""))[:200]
+            str(row.get(input_col, ""))
             for row in state.primary_schema.sample_rows[:3]
             if row.get(input_col)
         ]
@@ -139,3 +139,41 @@ def fallback_input_detection(state: "WizardState") -> dict:
         "samples": samples,
         "reasoning": "Selected using keyword heuristics",
     }
+
+
+def clarify_template_variables(
+    template: str,
+    variables: list[str],
+    schema,
+    llm_analyzer,
+) -> dict[str, str]:
+    """Suggest mappings between template variables and schema columns.
+
+    Uses simple name similarity heuristics to align placeholders to columns.
+    Falls back to empty mapping when no schema or matches are found.
+    """
+    if not schema or not getattr(schema, "columns", None):
+        return {}
+
+    column_names = [col.name for col in schema.columns]
+    mapping: dict[str, str] = {}
+
+    for var in variables:
+        var_lower = var.lower()
+        best_match = ""
+        # Exact or substring matches
+        for col_name in column_names:
+            col_lower = col_name.lower()
+            if var_lower == col_lower or var_lower in col_lower or col_lower in var_lower:
+                best_match = col_name
+                break
+        # Fallback to first text-like column if nothing matched
+        if not best_match:
+            text_cols = [c.name for c in schema.columns if getattr(c, "is_text", False)]
+            if text_cols:
+                best_match = text_cols[0]
+            else:
+                best_match = column_names[0]
+        mapping[var] = best_match
+
+    return mapping

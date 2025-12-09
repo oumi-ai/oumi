@@ -28,14 +28,79 @@ import oumi.cli.cli_utils as cli_utils
 from .dataclasses import INPUT_FORMATS, TASK_TYPES, WizardState
 from .helpers import (
     analyze_task_from_files,
+    clarify_template_variables,
     detect_all_elements,
     detect_input_source,
     extract_use_case_from_documents,
     fallback_input_detection,
     generate_system_prompt,
     infer_task_type,
+    merge_criteria,
     suggest_quality_criteria,
 )
+
+
+# =============================================================================
+# Shared flow display helper
+# =============================================================================
+
+
+def _print_flow(current_step: str, state: WizardState, template_applicable: bool = True):
+    """Render a richer flow diagram with conditional branches."""
+
+    def fmt(label: str, key: str, applicable: bool = True) -> str:
+        if not applicable:
+            return f"[dim]{label} (skip)[/dim]"
+        if key == current_step:
+            return f"[bold cyan]{label}[/bold cyan]"
+        if key in (state.completed_steps or []):
+            return f"[green]{label}[/green]"
+        return label
+
+    has_template = state.detection.has_user_prompt_template if state.detection else False
+    template_label = fmt("Template", "template", applicable=has_template and template_applicable)
+
+    # Determine generation mode preview
+    if state.detection and state.detection.has_labeled_examples:
+        mode = "augmentation (labeled examples)"
+    elif state.detection and state.detection.has_unlabeled_prompts:
+        mode = "teacher_labeling (unlabeled prompts)"
+    else:
+        mode = "synthesis (from scratch)"
+
+    detection_flag = fmt("Detection", "detection")
+    confirm_flag = fmt("Confirm", "confirm")
+    task_flag = fmt("Task", "task")
+    inputs_flag = fmt("Inputs", "inputs")
+    outputs_flag = fmt("Outputs", "outputs")
+    generate_flag = fmt("Generate", "generate")
+
+    # Build multi-line diagram
+    line1 = f"{detection_flag} ──> {confirm_flag} ──> {task_flag}"
+    if has_template and template_applicable:
+        line2 = f"{' ' * 26}└─> {template_label}"
+    else:
+        line2 = f"{' ' * 26}└─> [dim]Template (n/a)[/dim]"
+    line3 = f"{inputs_flag} ──> {outputs_flag} ──> {generate_flag}"
+    line4 = f"Mode: {mode}"
+
+    # Detection summary hints
+    det = state.detection or None
+    det_bits = []
+    if det:
+        det_bits.append(f"task={bool(det.has_task_definition)}")
+        det_bits.append(f"template={bool(det.has_user_prompt_template)}")
+        det_bits.append(f"labeled={len(det.labeled_examples) if det.labeled_examples else 0}")
+        det_bits.append(f"prompts={len(det.unlabeled_prompts) if det.unlabeled_prompts else 0}")
+        det_bits.append(f"eval={bool(det.has_eval_criteria)}")
+    line5 = f"Detection: {', '.join(det_bits)}" if det_bits else "Detection: pending"
+
+    cli_utils.CONSOLE.print("\n[dim]Flow:[/dim]")
+    cli_utils.CONSOLE.print(line1)
+    cli_utils.CONSOLE.print(line2)
+    cli_utils.CONSOLE.print(line3)
+    cli_utils.CONSOLE.print(line4)
+    cli_utils.CONSOLE.print(line5 + "\n")
 
 
 # =============================================================================
@@ -54,6 +119,7 @@ def wizard_step_detect(state: WizardState) -> WizardState:
     Returns:
         Updated state with detection results populated.
     """
+    _print_flow("detection", state, template_applicable=True)
     with cli_utils.CONSOLE.status(
         "[dim]Analyzing your files to detect provided elements...[/dim]",
         spinner="dots",
@@ -83,6 +149,7 @@ def wizard_step_confirm_detection(
     Returns:
         Updated state with confirmed detection results.
     """
+    _print_flow("confirm", state, template_applicable=state.detection.has_user_prompt_template)
     cli_utils.CONSOLE.print(
         "\n[bold cyan]--- Detection Summary ---[/bold cyan]\n"
     )
@@ -97,27 +164,20 @@ def wizard_step_confirm_detection(
 
     # Task definition
     if detection.has_task_definition:
-        task_preview = (detection.task_definition or "")[:50]
-        if len(detection.task_definition or "") > 50:
-            task_preview += "..."
-        table.add_row("Task Definition", "[green]Found[/green]", task_preview)
+        table.add_row("Task Definition", "[green]Found[/green]", detection.task_definition or "")
     else:
         table.add_row("Task Definition", "[yellow]Not found[/yellow]", "Will generate suggestions")
 
     # System prompt
     if detection.system_prompt:
-        prompt_preview = detection.system_prompt[:50]
-        if len(detection.system_prompt) > 50:
-            prompt_preview += "..."
-        table.add_row("System Prompt", "[green]Found[/green]", prompt_preview)
+        table.add_row("System Prompt", "[green]Found[/green]", detection.system_prompt)
     else:
         table.add_row("System Prompt", "[yellow]Not found[/yellow]", "Will generate")
 
     # User prompt template
     if detection.has_user_prompt_template:
-        template_preview = (detection.user_prompt_template or "")[:50]
-        vars_str = f"Variables: {', '.join(detection.template_variables[:3])}"
-        table.add_row("Prompt Template", "[green]Found[/green]", vars_str)
+        vars_str = f"Variables: {', '.join(detection.template_variables)}" if detection.template_variables else ""
+        table.add_row("Prompt Template", "[green]Found[/green]", vars_str or (detection.user_prompt_template or ""))
     else:
         table.add_row("Prompt Template", "[dim]None[/dim]", "")
 
@@ -145,14 +205,14 @@ def wizard_step_confirm_detection(
 
     # Evaluation criteria
     if detection.has_eval_criteria:
-        criteria_str = ", ".join(detection.eval_criteria[:3])
+        criteria_str = ", ".join(detection.eval_criteria)
         table.add_row("Eval Criteria", "[green]Found[/green]", criteria_str)
     else:
         table.add_row("Eval Criteria", "[yellow]Not found[/yellow]", "Will generate suggestions")
 
     # Seed data
     if detection.has_seed_data:
-        cols_str = ", ".join(detection.seed_columns[:3])
+        cols_str = ", ".join(detection.seed_columns)
         table.add_row("Seed Data", "[green]Found[/green]", f"Columns: {cols_str}")
     else:
         table.add_row("Seed Data", "[dim]None[/dim]", "")
@@ -185,6 +245,11 @@ def wizard_step_confirm_detection(
             state.detection.has_labeled_examples = False
             state.detection.has_unlabeled_prompts = False
             state.detection.has_eval_criteria = False
+            state.detection.has_user_prompt_template = False
+            state.detection.user_prompt_template = None
+            state.detection.template_variables = []
+            state.detection.template_mapping = {}
+            state.detection.has_seed_data = False
 
     cli_utils.CONSOLE.print("[green]v Detection confirmed[/green]")
     return state
@@ -196,7 +261,8 @@ def wizard_step_template(
     """Step for clarifying user prompt template mappings.
 
     Only runs if a user prompt template was detected.
-    Shows the template and asks user to confirm variable-to-column mappings.
+    Shows the template and surfaces inferred variable-to-column mappings
+    without requiring additional user input.
 
     Args:
         state: Current wizard state with detected template.
@@ -208,6 +274,7 @@ def wizard_step_template(
     if not state.detection.has_user_prompt_template:
         return state
 
+    _print_flow("template", state, template_applicable=True)
     cli_utils.CONSOLE.print(
         "\n[bold cyan]--- Template Configuration ---[/bold cyan]\n"
     )
@@ -232,40 +299,33 @@ def wizard_step_template(
     if state.primary_schema and state.primary_schema.columns:
         available_columns = [col.name for col in state.primary_schema.columns]
 
-    # Show suggested mappings and get confirmation
-    cli_utils.CONSOLE.print("\n[bold]Variable Mappings:[/bold]")
+    # Show suggested mappings (no user input)
+    cli_utils.CONSOLE.print("\n[bold]Suggested Variable Mappings:[/bold]")
 
     mapping = state.detection.template_mapping.copy()
+    inferred_mapping = clarify_template_variables(
+        template, variables, state.primary_schema, state.llm_analyzer
+    )
+    if not mapping:
+        mapping = inferred_mapping
+    else:
+        # fill any missing variables using inferred mapping
+        for var, col in inferred_mapping.items():
+            mapping.setdefault(var, col)
 
     for var in variables:
         suggested = mapping.get(var, "")
-
-        # If no suggestion, try to find a matching column
-        if not suggested and available_columns:
-            # Simple matching: look for columns with similar names
-            for col in available_columns:
-                if var.lower() in col.lower() or col.lower() in var.lower():
-                    suggested = col
-                    break
-
-        if auto_accept and suggested:
-            mapping[var] = suggested
-            cli_utils.CONSOLE.print(f"  {{{var}}} -> [green]{suggested}[/green]")
-        else:
-            # Show available columns
-            if available_columns:
-                cols_str = ", ".join(available_columns[:10])
-                cli_utils.CONSOLE.print(f"\n  Available columns: {cols_str}")
-
-            col_choice = Prompt.ask(
-                f"  Map {{{var}}} to column",
-                default=suggested if suggested else "",
-            )
-            mapping[var] = col_choice
-            cli_utils.CONSOLE.print(f"  {{{var}}} -> [green]{col_choice}[/green]")
+        cli_utils.CONSOLE.print(f"  {{{var}}} -> [green]{suggested or 'n/a'}[/green]")
 
     state.detection.template_mapping = mapping
-    cli_utils.CONSOLE.print("\n[green]v Template mappings configured[/green]")
+    cli_utils.CONSOLE.print(
+        "\n[dim]Mappings are inferred from column names. Edit the cache file later if a mapping looks off.[/dim]"
+    )
+    if not any(mapping.values()):
+        cli_utils.CONSOLE.print(
+            "[yellow]No column mappings found. The template will be kept as-is and placeholders remain user-provided at runtime; generation will not auto-fill these variables.[/yellow]"
+        )
+    cli_utils.CONSOLE.print("\n[green]v Template mappings recorded[/green]")
     return state
 
 
@@ -287,8 +347,9 @@ def wizard_step_task(state: WizardState, auto_accept: bool = False) -> WizardSta
     Returns:
         Updated state with task description, system prompt, and task type.
     """
+    _print_flow("task", state, template_applicable=state.detection.has_user_prompt_template)
     cli_utils.CONSOLE.print(
-        "\n[bold cyan]--- Step 1/4: Define Your Task ---[/bold cyan]\n"
+        "\n[bold cyan]--- Task Definition ---[/bold cyan]\n"
     )
 
     # Check if detection already found task definition
@@ -303,10 +364,7 @@ def wizard_step_task(state: WizardState, auto_accept: bool = False) -> WizardSta
             f"[bold]Task:[/bold] {state.detection.task_definition}"
         )
         if state.detection.system_prompt:
-            prompt_preview = state.detection.system_prompt[:300]
-            if len(state.detection.system_prompt) > 300:
-                prompt_preview += "..."
-            detected_parts.append(f"[bold]System Prompt:[/bold]\n{prompt_preview}")
+            detected_parts.append(f"[bold]System Prompt:[/bold]\n{state.detection.system_prompt}")
 
         cli_utils.CONSOLE.print(
             Panel(
@@ -362,13 +420,10 @@ def wizard_step_task(state: WizardState, auto_accept: bool = False) -> WizardSta
             )
         if extracted_use_case.system_prompt:
             # Truncate for display
-            prompt_preview = extracted_use_case.system_prompt[:300]
-            if len(extracted_use_case.system_prompt) > 300:
-                prompt_preview += "..."
-            extracted_parts.append(f"[bold]System Prompt:[/bold]\n{prompt_preview}")
+            extracted_parts.append(f"[bold]System Prompt:[/bold]\n{extracted_use_case.system_prompt}")
         if extracted_use_case.output_schema:
             extracted_parts.append(
-                f"[bold]Output Schema:[/bold] {extracted_use_case.output_schema[:200]}"
+                f"[bold]Output Schema:[/bold] {extracted_use_case.output_schema}"
             )
         if extracted_use_case.input_fields:
             extracted_parts.append(
@@ -512,20 +567,49 @@ def wizard_step_inputs(state: WizardState, auto_accept: bool = False) -> WizardS
     Returns:
         Updated state with input spec.
     """
+    _print_flow("inputs", state, template_applicable=state.detection.has_user_prompt_template)
     cli_utils.CONSOLE.print(
-        "\n[bold cyan]--- Step 2/4: Input Distribution ---[/bold cyan]\n"
+        "\n[bold cyan]--- Inputs & Distribution ---[/bold cyan]\n"
     )
 
-    # Detect input source
-    if state.primary_schema:
-        with cli_utils.CONSOLE.status("[dim]Analyzing data for best input columns...[/dim]", spinner="dots"):
-            detection = detect_input_source(state, state.llm_analyzer)
-    else:
-        detection = fallback_input_detection(state)
+    detection_result = state.detection
+    used_detection = False
 
-    state.inputs.source_column = detection["source_column"]
-    state.inputs.format = detection["format"]
-    state.inputs.samples = detection["samples"]
+    # Prefer detected examples/prompts when available
+    if detection_result.has_labeled_examples and detection_result.labeled_examples:
+        cli_utils.CONSOLE.print(
+            "[green]Detected labeled examples - using them to shape inputs.[/green]\n"
+        )
+        state.inputs.format = "single_turn"
+        state.inputs.source_column = detection_result.input_column or "detected_examples"
+        state.inputs.samples = [
+            str(ex.get("input", ""))
+            for ex in detection_result.labeled_examples[:3]
+            if ex.get("input")
+        ]
+        used_detection = True
+    elif detection_result.has_unlabeled_prompts and detection_result.unlabeled_prompts:
+        cli_utils.CONSOLE.print(
+            "[green]Detected unlabeled prompts - using them as input seeds.[/green]\n"
+        )
+        state.inputs.format = "single_turn"
+        state.inputs.source_column = detection_result.prompt_column or "prompt"
+        state.inputs.samples = [
+            str(p) for p in detection_result.unlabeled_prompts[:3] if p
+        ]
+        used_detection = True
+
+    # Otherwise detect input source from schema
+    if not used_detection:
+        if state.primary_schema:
+            with cli_utils.CONSOLE.status("[dim]Analyzing data for best input columns...[/dim]", spinner="dots"):
+                detected_source = detect_input_source(state, state.llm_analyzer)
+        else:
+            detected_source = fallback_input_detection(state)
+
+        state.inputs.source_column = detected_source["source_column"]
+        state.inputs.format = detected_source["format"]
+        state.inputs.samples = detected_source["samples"]
 
     # Display summary
     format_name = INPUT_FORMATS.get(state.inputs.format, state.inputs.format)
@@ -535,8 +619,7 @@ def wizard_step_inputs(state: WizardState, auto_accept: bool = False) -> WizardS
     if state.inputs.samples:
         summary_parts.append("\n[bold]Sample inputs:[/bold]")
         for i, sample in enumerate(state.inputs.samples[:3], 1):
-            truncated = sample[:100] + "..." if len(sample) > 100 else sample
-            summary_parts.append(f"  {i}. {truncated}")
+            summary_parts.append(f"  {i}. {sample}")
 
     cli_utils.CONSOLE.print(
         Panel("\n".join(summary_parts), title="[green]Input Configuration[/green]", border_style="green")
@@ -558,7 +641,7 @@ def wizard_step_inputs(state: WizardState, auto_accept: bool = False) -> WizardS
         # Update samples for new column
         if state.inputs.source_column and state.primary_schema and state.primary_schema.sample_rows:
             state.inputs.samples = [
-                str(row.get(state.inputs.source_column, ""))[:200]
+                str(row.get(state.inputs.source_column, ""))
                 for row in state.primary_schema.sample_rows[:3]
                 if row.get(state.inputs.source_column)
             ]
@@ -571,8 +654,7 @@ def wizard_step_inputs(state: WizardState, auto_accept: bool = False) -> WizardS
         if state.inputs.samples:
             summary_parts.append("\n[bold]Sample inputs:[/bold]")
             for i, sample in enumerate(state.inputs.samples[:3], 1):
-                truncated = sample[:100] + "..." if len(sample) > 100 else sample
-                summary_parts.append(f"  {i}. {truncated}")
+                summary_parts.append(f"  {i}. {sample}")
 
         cli_utils.CONSOLE.print(
             Panel("\n".join(summary_parts), title="[green]Updated Input Configuration[/green]", border_style="green")
@@ -595,8 +677,9 @@ def wizard_step_outputs(state: WizardState, auto_accept: bool = False) -> Wizard
     Returns:
         Updated state with output criteria.
     """
+    _print_flow("outputs", state, template_applicable=state.detection.has_user_prompt_template)
     cli_utils.CONSOLE.print(
-        "\n[bold cyan]--- Step 3/4: Output Quality ---[/bold cyan]\n"
+        "\n[bold cyan]--- Output Quality ---[/bold cyan]\n"
     )
 
     extracted_criteria = []
@@ -604,7 +687,7 @@ def wizard_step_outputs(state: WizardState, auto_accept: bool = False) -> Wizard
 
     # Check for extracted criteria from detection
     if state.detection.has_eval_criteria and state.detection.eval_criteria:
-        extracted_criteria = state.detection.eval_criteria[:5]
+        extracted_criteria = state.detection.eval_criteria
         cli_utils.CONSOLE.print(
             f"[green]Found {len(extracted_criteria)} criteria in your documents[/green]\n"
         )
@@ -613,29 +696,14 @@ def wizard_step_outputs(state: WizardState, auto_accept: bool = False) -> Wizard
     with cli_utils.CONSOLE.status("[dim]Generating additional quality criteria...[/dim]", spinner="dots"):
         generated_criteria = suggest_quality_criteria(state, state.llm_analyzer)
 
-    # Merge criteria, removing duplicates (case-insensitive)
-    merged_criteria = []
-    criteria_sources = {}
-    seen_lower = set()
-
-    # Add extracted criteria first (they take priority)
-    for c in extracted_criteria:
-        c_lower = c.lower().strip()
-        if c_lower not in seen_lower:
-            merged_criteria.append(c)
-            criteria_sources[c] = "extracted"
-            seen_lower.add(c_lower)
-
-    # Add generated criteria that aren't duplicates
-    for c in generated_criteria:
-        c_lower = c.lower().strip()
-        if c_lower not in seen_lower:
-            merged_criteria.append(c)
-            criteria_sources[c] = "generated"
-            seen_lower.add(c_lower)
+    merged_criteria, criteria_sources = merge_criteria(
+        extracted_criteria, generated_criteria
+    )
 
     state.outputs.criteria = merged_criteria[:7]  # Limit to 7 criteria
-    state.outputs.criteria_sources = criteria_sources
+    state.outputs.criteria_sources = {
+        c: source for c, source in criteria_sources.items() if c in state.outputs.criteria
+    }
 
     # Display summary with sources
     cli_utils.CONSOLE.print("[bold]Quality criteria:[/bold]")
@@ -650,7 +718,7 @@ def wizard_step_outputs(state: WizardState, auto_accept: bool = False) -> Wizard
     while not Confirm.ask("\nAccept these criteria?", default=auto_accept):
         criteria_input = Prompt.ask(
             "What makes a good response? (comma-separated)",
-            default=", ".join(state.outputs.criteria[:3]),
+            default=", ".join(state.outputs.criteria),
         )
         state.outputs.criteria = [c.strip() for c in criteria_input.split(",") if c.strip()]
         # Mark user-edited criteria as "user"
@@ -682,15 +750,30 @@ def wizard_step_generate(
     """
     from oumi.onboarding import JudgeConfigBuilder, SynthConfigBuilder
 
+    _print_flow("generate", state, template_applicable=state.detection.has_user_prompt_template)
     cli_utils.CONSOLE.print(
-        "\n[bold cyan]--- Step 4/4: Generate Configs ---[/bold cyan]\n"
+        "\n[bold cyan]--- Generate Configs ---[/bold cyan]\n"
     )
 
-    # Generate synthesis config
+    detection = state.detection
+
+    # Decide generation mode based on detection
+    if detection.has_labeled_examples:
+        generation_mode = "augmentation"
+        mode_desc = "Augmenting labeled examples"
+    elif detection.has_unlabeled_prompts:
+        generation_mode = "teacher_labeling"
+        mode_desc = "Generating outputs for your prompts"
+    else:
+        generation_mode = "synthesis"
+        mode_desc = "Full synthesis from scratch"
+
+    cli_utils.CONSOLE.print(f"[bold]Mode:[/bold] {generation_mode} ({mode_desc})")
     cli_utils.CONSOLE.print("[dim]Generating synthesis config...[/dim]")
     synth_builder = SynthConfigBuilder()
 
-    # Build synthesis config with task-specific prompts
+    seed_data = _extract_seed_data(state)
+
     synth_config = synth_builder.build(
         schema=state.primary_schema,
         goal="qa",
@@ -700,6 +783,16 @@ def wizard_step_generate(
         domain=state.domain_analysis,
         num_samples=num_samples,
         output_path=str(output_path / "synth_output.jsonl"),
+        generation_mode=generation_mode,
+        labeled_examples=detection.labeled_examples
+        if detection.has_labeled_examples
+        else None,
+        unlabeled_prompts=detection.unlabeled_prompts
+        if detection.has_unlabeled_prompts
+        else None,
+        seed_data=seed_data or None,
+        user_prompt_template=detection.user_prompt_template,
+        template_mapping=detection.template_mapping,
     )
 
     synth_path = output_path / "synth_config.yaml"
@@ -730,8 +823,9 @@ def wizard_step_generate(
     # Summary
     cli_utils.CONSOLE.print(
         Panel(
-            f"[bold]Task:[/bold] {state.task.description[:100]}...\n"
+            f"[bold]Task:[/bold] {state.task.description}\n"
             f"[bold]Input format:[/bold] {INPUT_FORMATS.get(state.inputs.format, state.inputs.format)}\n"
+            f"[bold]Generation mode:[/bold] {generation_mode}\n"
             f"[bold]Quality criteria:[/bold] {', '.join(state.outputs.criteria)}\n\n"
             f"[bold]Generated:[/bold]\n"
             f"  - Synthesis config: {synth_path}\n"
@@ -742,3 +836,29 @@ def wizard_step_generate(
     )
 
     return str(synth_path), judge_paths
+
+
+def _extract_seed_data(state: WizardState) -> dict[str, list[str]]:
+    """Extract seed column samples for diversity."""
+    seed_data: dict[str, list[str]] = {}
+
+    if (
+        not state.detection.seed_columns
+        or not state.primary_schema
+        or not getattr(state.primary_schema, "sample_rows", None)
+    ):
+        return seed_data
+
+    for col_name in state.detection.seed_columns:
+        values: list[str] = []
+        for row in state.primary_schema.sample_rows[:20]:
+            if col_name in row and row[col_name] is not None:
+                val = str(row[col_name])
+                if val and val not in values:
+                    values.append(val[:100])
+            if len(values) >= 8:
+                break
+        if values:
+            seed_data[col_name] = values
+
+    return seed_data

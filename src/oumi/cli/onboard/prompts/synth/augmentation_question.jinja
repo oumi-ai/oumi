@@ -1,0 +1,20 @@
+You are augmenting labeled examples for this task:
+{{ task_description }}
+
+Reference examples (input -> output):
+{{ examples_json }}
+{% if seed_context %}
+
+Vary across these seed attributes when possible:
+{{ seed_context }}
+{% endif %}
+{% if user_prompt_template %}
+
+User prompt template to stay consistent with:
+{{ user_prompt_template }}
+{% endif %}
+
+Generate a new user prompt that reflects the same intent but uses different wording or attributes. Keep it realistic and aligned with the examples.
+
+Format your response as:
+Question: <augmented prompt>

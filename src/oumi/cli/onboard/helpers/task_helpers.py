@@ -335,6 +335,8 @@ def detect_all_elements(
         result.has_labeled_examples = labeled_result.get("has_labeled_examples", False)
         result.labels_confidence = labeled_result.get("confidence", 0.0)
         result.labeled_examples = labeled_result.get("examples", [])
+        result.input_column = labeled_result.get("input_column")
+        result.output_column = labeled_result.get("output_column")
 
     # 2. Detect unlabeled prompts (inputs without outputs)
     # Only check if no labeled examples found
@@ -346,6 +348,7 @@ def detect_all_elements(
             )
             result.prompts_confidence = unlabeled_result.get("confidence", 0.0)
             result.unlabeled_prompts = unlabeled_result.get("prompts", [])
+            result.prompt_column = unlabeled_result.get("prompt_column")
 
     # 3. Extract use case (task definition, system prompt, template)
     use_case = extract_use_case_from_documents(files, llm_analyzer)

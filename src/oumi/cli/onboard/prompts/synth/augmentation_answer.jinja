@@ -1,0 +1,22 @@
+You are generating an answer for an augmented prompt.
+
+Task: {{ task_description }}
+{% if domain and domain.terminology %}
+Domain terminology: {{ domain.terminology[:8] | join(', ') }}
+{% endif %}
+{% if user_prompt_template %}
+Follow this user prompt template style when relevant:
+{{ user_prompt_template }}
+{% endif %}
+{% if seed_context %}
+Incorporate variation using these seed attributes when applicable:
+{{ seed_context }}
+{% endif %}
+
+Provide a high-quality answer that matches the style and quality of the reference outputs.
+
+Prompt to answer:
+{synth_question}
+
+Return format:
+Answer: <augmented answer>

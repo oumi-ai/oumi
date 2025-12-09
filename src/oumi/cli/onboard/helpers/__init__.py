@@ -15,8 +15,12 @@
 """Helper functions for the onboard wizard."""
 
 from .file_helpers import detect_files_in_directory, analyze_file_purposes
-from .input_helpers import detect_input_source, fallback_input_detection
-from .output_helpers import suggest_quality_criteria
+from .input_helpers import (
+    clarify_template_variables,
+    detect_input_source,
+    fallback_input_detection,
+)
+from .output_helpers import merge_criteria, suggest_quality_criteria
 from .task_helpers import (
     ExtractedUseCase,
     analyze_task_from_files,
@@ -46,8 +50,10 @@ __all__ = [
     "extract_user_prompt_template",
     "ExtractedUseCase",
     "fallback_input_detection",
+    "clarify_template_variables",
     "generate_system_prompt",
     "identify_seed_columns",
     "infer_task_type",
+    "merge_criteria",
     "suggest_quality_criteria",
 ]

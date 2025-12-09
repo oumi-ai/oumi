@@ -138,7 +138,7 @@ def wizard(
 
     cli_utils.CONSOLE.print(
         "[bold green]Oumi Onboarding Wizard[/bold green]\n"
-        "[dim]4 steps: Task -> Inputs -> Outputs -> Generate[/dim]\n"
+        "[dim]Flow: Detect -> Confirm -> Task -> Template -> Inputs -> Outputs -> Generate[/dim]\n"
     )
 
     data_path = Path(data)
@@ -198,6 +198,10 @@ def wizard(
             state.task = cached_state.task
             state.inputs = cached_state.inputs
             state.outputs = cached_state.outputs
+            state.detection = cached_state.detection
+            state.files = cached_state.files
+            state.primary_schema = cached_state.primary_schema
+            state.domain_analysis = cached_state.domain_analysis
             state.completed_steps = cached_state.completed_steps
             use_cached_analysis = True
             cli_utils.CONSOLE.print(
@@ -324,26 +328,47 @@ def wizard(
             except Exception:
                 pass
 
+    # Phase 0: Detection (silent)
+    if "detection" not in state.completed_steps:
+        state = wizard_step_detect(state)
+        save_wizard_cache(state, output_path, "detection", model, engine_upper)
+    else:
+        cli_utils.CONSOLE.print(f"\n[dim]Detection[/dim] [green]v[/green]")
+
+    # Phase 1: Confirmation
+    if "confirm" not in state.completed_steps:
+        state = wizard_step_confirm_detection(state, auto_accept=auto_accept)
+        save_wizard_cache(state, output_path, "confirm", model, engine_upper)
+    else:
+        cli_utils.CONSOLE.print(f"\n[dim]Detection summary[/dim] [green]v[/green]")
+
     if "task" not in state.completed_steps:
         state = wizard_step_task(state, auto_accept=auto_accept)
         save_wizard_cache(state, output_path, "task", model, engine_upper)
     else:
-        desc_preview = state.task.description[:50] + "..." if state.task.description else "defined"
-        cli_utils.CONSOLE.print(f"\n[dim]Step 1/4: Task[/dim] [green]v[/green] {desc_preview}")
+        desc_preview = state.task.description or "defined"
+        cli_utils.CONSOLE.print(f"\n[dim]Task[/dim] [green]v[/green] {desc_preview}")
+
+    # Template clarification (conditional)
+    if state.detection.has_user_prompt_template and "template" not in state.completed_steps:
+        state = wizard_step_template(state, auto_accept=auto_accept)
+        save_wizard_cache(state, output_path, "template", model, engine_upper)
+    elif "template" in state.completed_steps:
+        cli_utils.CONSOLE.print(f"\n[dim]Template[/dim] [green]v[/green]")
 
     if "inputs" not in state.completed_steps:
         state = wizard_step_inputs(state, auto_accept=auto_accept)
         save_wizard_cache(state, output_path, "inputs", model, engine_upper)
     else:
         input_preview = INPUT_FORMATS.get(state.inputs.format, state.inputs.format)
-        cli_utils.CONSOLE.print(f"\n[dim]Step 2/4: Inputs[/dim] [green]v[/green] {input_preview}")
+        cli_utils.CONSOLE.print(f"\n[dim]Inputs[/dim] [green]v[/green] {input_preview}")
 
     if "outputs" not in state.completed_steps:
         state = wizard_step_outputs(state, auto_accept=auto_accept)
         save_wizard_cache(state, output_path, "outputs", model, engine_upper)
     else:
-        quality_preview = ", ".join(state.outputs.criteria[:2]) or "defined"
-        cli_utils.CONSOLE.print(f"\n[dim]Step 3/4: Outputs[/dim] [green]v[/green] {quality_preview}")
+        quality_preview = ", ".join(state.outputs.criteria) or "defined"
+        cli_utils.CONSOLE.print(f"\n[dim]Outputs[/dim] [green]v[/green] {quality_preview}")
 
     if "generate" not in state.completed_steps:
         synth_config_path, judge_config_paths = wizard_step_generate(
@@ -353,7 +378,7 @@ def wizard(
     else:
         synth_config_path = str(output_path / "synth_config.yaml")
         judge_config_paths = []
-        cli_utils.CONSOLE.print(f"\n[dim]Step 4/4: Generate[/dim] [green]v[/green] configs generated")
+        cli_utils.CONSOLE.print(f"\n[dim]Generate[/dim] [green]v[/green] configs generated")
 
     cli_utils.CONSOLE.print("\n[bold green]--- Complete! ---[/bold green]\n")
 
@@ -652,9 +677,9 @@ def _display_schema_info(schema):
     if schema.conversation_columns:
         table.add_row("Conversation cols", ", ".join(schema.conversation_columns))
     if schema.text_columns:
-        table.add_row("Text cols", ", ".join(schema.text_columns[:5]))
+        table.add_row("Text cols", ", ".join(schema.text_columns))
     if schema.categorical_columns:
-        table.add_row("Categorical cols", ", ".join(schema.categorical_columns[:5]))
+        table.add_row("Categorical cols", ", ".join(schema.categorical_columns))
 
     cli_utils.CONSOLE.print(table)
 

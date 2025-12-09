@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+import json
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
@@ -44,6 +46,8 @@ from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
     GeneratedAttributePostprocessingParams,
+    SampledAttribute,
+    SampledAttributeValue,
     TextConversation,
     TextMessage,
     TransformationStrategy,
@@ -212,6 +216,12 @@ class SynthConfigBuilder(ConfigBuilder):
         num_samples: int = 100,
         output_path: Optional[str] = None,
         attribute_map: Optional[dict[str, str]] = None,
+        generation_mode: str = "synthesis",
+        labeled_examples: Optional[list[dict]] = None,
+        unlabeled_prompts: Optional[list[str]] = None,
+        seed_data: Optional[dict[str, list[str]]] = None,
+        user_prompt_template: Optional[str] = None,
+        template_mapping: Optional[dict[str, str]] = None,
     ) -> SynthesisConfig:
         """Build a SynthesisConfig with task-specific prompts.
 
@@ -222,15 +232,34 @@ class SynthConfigBuilder(ConfigBuilder):
             task_description: User's task description from wizard.
             system_prompt: Generated system prompt from wizard.
             output_format: Description of expected output format.
-            domain: Optional DomainAnalysis for domain-specific terminology.
-            num_samples: Number of samples to generate.
-            output_path: Optional output path for generated data.
-            attribute_map: Optional explicit column-to-role mapping.
+        domain: Optional DomainAnalysis for domain-specific terminology.
+        num_samples: Number of samples to generate.
+        output_path: Optional output path for generated data.
+        attribute_map: Optional explicit column-to-role mapping.
+        generation_mode: "synthesis" | "augmentation" | "teacher_labeling".
+        labeled_examples: Labeled input/output pairs when augmenting.
+        unlabeled_prompts: Prompts without outputs when teacher labeling.
+        seed_data: Optional seed values for diversity sampling.
+        user_prompt_template: Optional user prompt template to follow.
+        template_mapping: Mapping of template variables to columns.
 
         Returns:
             A configured SynthesisConfig with task-specific prompts.
         """
         from oumi.core.configs.synthesis_config import SynthesisStrategy
+
+        labeled_examples = labeled_examples or []
+        unlabeled_prompts = unlabeled_prompts or []
+        seed_data = seed_data or {}
+
+        valid_modes = {"synthesis", "augmentation", "teacher_labeling"}
+        generation_mode_normalized = generation_mode or "synthesis"
+        if generation_mode_normalized not in valid_modes:
+            logger.warning(
+                f"Unknown generation_mode '{generation_mode_normalized}', defaulting to 'synthesis'. "
+                f"Valid modes: {', '.join(sorted(valid_modes))}"
+            )
+            generation_mode_normalized = "synthesis"
 
         strategy_params = self._build_strategy_params(
             schema=schema,
@@ -241,6 +270,12 @@ class SynthConfigBuilder(ConfigBuilder):
             output_format=output_format,
             domain=domain,
             attribute_map=attribute_map,
+            generation_mode=generation_mode_normalized,
+            labeled_examples=labeled_examples,
+            unlabeled_prompts=unlabeled_prompts,
+            seed_data=seed_data,
+            user_prompt_template=user_prompt_template,
+            template_mapping=template_mapping,
         )
 
         if output_path is None:
@@ -264,35 +299,102 @@ class SynthConfigBuilder(ConfigBuilder):
         output_format: Optional[str],
         domain: Optional["DomainAnalysis"],
         attribute_map: Optional[dict[str, str]],
+        generation_mode: str,
+        labeled_examples: list[dict],
+        unlabeled_prompts: list[str],
+        seed_data: dict[str, list[str]],
+        user_prompt_template: Optional[str],
+        template_mapping: Optional[dict[str, str]],
     ) -> GeneralSynthesisParams:
-        """Build strategy params with task-specific prompts from Jinja templates."""
+        """Build strategy params with task-specific prompts from Jinja templates.
+
+        Supports three modes:
+        - synthesis: generate both inputs and outputs
+        - augmentation: augment existing labeled examples
+        - teacher_labeling: generate outputs for unlabeled prompts
+        """
         from oumi.core.configs.params.synthesis_params import ExampleSource
 
         params = GeneralSynthesisParams()
 
-        # Build input data source
-        if schema and schema.source_path and schema.detected_format in TABULAR_FORMATS:
-            final_attribute_map = self._build_attribute_map(schema, attribute_map)
-            params.input_data = [
-                DatasetSource(
-                    path=_convert_to_supported_format(schema.source_path),
-                    attribute_map=final_attribute_map if final_attribute_map else None,
-                )
-            ]
-        else:
-            # Fallback to inline examples
-            examples = self._build_inline_examples(schema, task_description)
-            params.input_examples = [ExampleSource(examples=examples)]
+        seed_attributes = self._build_seed_sampled_attributes(seed_data)
+        if seed_attributes:
+            params.sampled_attributes = seed_attributes
 
-        # Build generated attributes using Jinja templates
-        params.generated_attributes = self._build_generated_attributes(
-            task_type=task_type,
-            task_description=task_description,
-            system_prompt=system_prompt,
-            domain=domain,
-            schema=schema,
-            output_format=output_format,
-        )
+        if generation_mode == "augmentation":
+            examples = [
+                {
+                    "seed_question": ex.get("input", ""),
+                    "seed_answer": ex.get("output", ""),
+                }
+                for ex in labeled_examples
+                if ex.get("input") and ex.get("output")
+            ]
+            if not examples:
+                examples = self._build_inline_examples(schema, task_description)
+
+            params.input_examples = [ExampleSource(examples=examples)]
+            params.generated_attributes = self._build_augmentation_attributes(
+                task_description=task_description,
+                system_prompt=system_prompt,
+                domain=domain,
+                labeled_examples=labeled_examples,
+                seed_data=seed_data,
+                user_prompt_template=user_prompt_template,
+            )
+        elif generation_mode == "teacher_labeling":
+            prompt_examples = [
+                {SynthPlaceholder.QUESTION: prompt}
+                for prompt in unlabeled_prompts
+                if prompt
+            ]
+            if not prompt_examples:
+                inline_examples = self._build_inline_examples(schema, task_description)
+                prompt_examples = [
+                    {SynthPlaceholder.QUESTION: example.get(SynthPlaceholder.CONTEXT, "")}
+                    for example in inline_examples
+                ]
+                if not prompt_examples:
+                    prompt_examples = [
+                        {SynthPlaceholder.QUESTION: task_description or "Generate a prompt"}
+                    ]
+
+            params.input_examples = [ExampleSource(examples=prompt_examples)]
+            params.generated_attributes = self._build_teacher_labeling_attributes(
+                task_description=task_description,
+                system_prompt=system_prompt,
+                domain=domain,
+                user_prompt_template=user_prompt_template,
+                template_mapping=template_mapping,
+                seed_data=seed_data,
+            )
+        else:
+            # Build input data source
+            if schema and schema.source_path and schema.detected_format in TABULAR_FORMATS:
+                final_attribute_map = self._build_attribute_map(schema, attribute_map)
+                params.input_data = [
+                    DatasetSource(
+                        path=_convert_to_supported_format(schema.source_path),
+                        attribute_map=final_attribute_map if final_attribute_map else None,
+                    )
+                ]
+            else:
+                # Fallback to inline examples
+                examples = self._build_inline_examples(schema, task_description)
+                params.input_examples = [ExampleSource(examples=examples)]
+
+            # Build generated attributes using Jinja templates
+            params.generated_attributes = self._build_generated_attributes(
+                task_type=task_type,
+                task_description=task_description,
+                system_prompt=system_prompt,
+                domain=domain,
+                schema=schema,
+                output_format=output_format,
+                seed_data=seed_data,
+                user_prompt_template=user_prompt_template,
+                template_mapping=template_mapping,
+            )
 
         # Build transformation to conversation format
         params.transformed_attributes = self._build_conversation_transform(system_prompt)
@@ -360,14 +462,21 @@ class SynthConfigBuilder(ConfigBuilder):
         domain: Optional["DomainAnalysis"],
         schema: DataSchema,
         output_format: Optional[str],
+        seed_data: dict[str, list[str]],
+        user_prompt_template: Optional[str],
+        template_mapping: Optional[dict[str, str]],
     ) -> list[GeneratedAttribute]:
         """Build generated attributes using task-specific Jinja templates."""
+        seed_context = self._format_seed_context(seed_data)
         template_vars = {
             "task_description": task_description,
             "system_prompt": system_prompt,
             "domain": domain,
             "sample_rows": schema.sample_rows[:3] if schema and schema.sample_rows else [],
             "output_format": output_format,
+            "seed_context": seed_context,
+            "user_prompt_template": user_prompt_template or "",
+            "template_mapping": template_mapping or {},
         }
 
         # Map task_type to template name (default to generation if unknown)
@@ -410,6 +519,145 @@ class SynthConfigBuilder(ConfigBuilder):
         )
 
         return [question_attr, answer_attr]
+
+    def _build_augmentation_attributes(
+        self,
+        task_description: str,
+        system_prompt: str,
+        domain: Optional["DomainAnalysis"],
+        labeled_examples: list[dict],
+        seed_data: dict[str, list[str]],
+        user_prompt_template: Optional[str],
+    ) -> list[GeneratedAttribute]:
+        """Build generated attributes for augmentation mode."""
+        seed_context = self._format_seed_context(seed_data)
+        template_vars = {
+            "task_description": task_description,
+            "system_prompt": system_prompt,
+            "domain": domain,
+            "examples_json": json.dumps(labeled_examples[:5], indent=2),
+            "seed_context": seed_context,
+            "user_prompt_template": user_prompt_template or "",
+        }
+
+        question_prompt = load_prompt("synth/augmentation_question", **template_vars)
+        answer_prompt = load_prompt("synth/augmentation_answer", **template_vars)
+
+        question_attr = GeneratedAttribute(
+            id=f"{SynthPlaceholder.QUESTION}_raw",
+            instruction_messages=[
+                TextMessage(role=Role.SYSTEM, content=system_prompt),
+                TextMessage(role=Role.USER, content=question_prompt),
+            ],
+            postprocessing_params=GeneratedAttributePostprocessingParams(
+                id=SynthPlaceholder.QUESTION,
+                cut_prefix="Question:",
+                strip_whitespace=True,
+            ),
+        )
+
+        answer_attr = GeneratedAttribute(
+            id=f"{SynthPlaceholder.ANSWER}_raw",
+            instruction_messages=[
+                TextMessage(role=Role.SYSTEM, content=system_prompt),
+                TextMessage(role=Role.USER, content=answer_prompt),
+            ],
+            postprocessing_params=GeneratedAttributePostprocessingParams(
+                id=SynthPlaceholder.ANSWER,
+                cut_prefix="Answer:",
+                strip_whitespace=True,
+            ),
+        )
+
+        return [question_attr, answer_attr]
+
+    def _build_teacher_labeling_attributes(
+        self,
+        task_description: str,
+        system_prompt: str,
+        domain: Optional["DomainAnalysis"],
+        user_prompt_template: Optional[str],
+        template_mapping: Optional[dict[str, str]],
+        seed_data: dict[str, list[str]],
+    ) -> list[GeneratedAttribute]:
+        """Build generated attributes for teacher labeling mode (answers only)."""
+        seed_context = self._format_seed_context(seed_data)
+        template_vars = {
+            "task_description": task_description,
+            "system_prompt": system_prompt,
+            "domain": domain,
+            "user_prompt_template": user_prompt_template or "",
+            "template_mapping": template_mapping or {},
+            "seed_context": seed_context,
+        }
+
+        answer_prompt = load_prompt("synth/teacher_labeling_answer", **template_vars)
+
+        answer_attr = GeneratedAttribute(
+            id=f"{SynthPlaceholder.ANSWER}_raw",
+            instruction_messages=[
+                TextMessage(role=Role.SYSTEM, content=system_prompt),
+                TextMessage(role=Role.USER, content=answer_prompt),
+            ],
+            postprocessing_params=GeneratedAttributePostprocessingParams(
+                id=SynthPlaceholder.ANSWER,
+                cut_prefix="Answer:",
+                strip_whitespace=True,
+            ),
+        )
+
+        return [answer_attr]
+
+    def _build_seed_sampled_attributes(
+        self, seed_data: dict[str, list[str]]
+    ) -> list[SampledAttribute]:
+        """Convert seed data into sampled attributes for diversity."""
+        sampled: list[SampledAttribute] = []
+
+        for col, values in seed_data.items():
+            if not values:
+                continue
+            seed_id = self._normalize_seed_id(col)
+            possible_values = []
+            for idx, val in enumerate(values[:8]):
+                val_str = str(val)
+                possible_values.append(
+                    SampledAttributeValue(
+                        id=f"{seed_id}_value_{idx}",
+                        name=val_str,
+                        description=val_str,
+                    )
+                )
+
+            sampled.append(
+                SampledAttribute(
+                    id=seed_id,
+                    name=col,
+                    description=f"Seed attribute from column '{col}'",
+                    possible_values=possible_values,
+                )
+            )
+
+        return sampled
+
+    def _format_seed_context(self, seed_data: dict[str, list[str]]) -> str:
+        """Format seed data into a readable string for prompts."""
+        if not seed_data:
+            return ""
+
+        lines = []
+        for col, values in seed_data.items():
+            preview = ", ".join(str(v) for v in values[:5])
+            seed_id = self._normalize_seed_id(col)
+            lines.append(f"{col} ({{{seed_id}}}): {preview}")
+
+        return "\n".join(lines)
+
+    def _normalize_seed_id(self, name: str) -> str:
+        """Normalize a seed column name into a safe attribute id."""
+        safe = re.sub(r"[^a-zA-Z0-9]+", "_", name.strip())
+        safe = safe.strip("_") or "seed"
+        return f"seed_{safe}"
 
     def _build_conversation_transform(
         self,

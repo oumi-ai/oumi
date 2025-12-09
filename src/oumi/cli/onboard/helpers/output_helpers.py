@@ -44,3 +44,28 @@ def suggest_quality_criteria(state: "WizardState", llm_analyzer) -> list[str]:
     except Exception:
         pass
     return ["accurate", "helpful", "clear"]
+
+
+def merge_criteria(extracted: list[str], generated: list[str]) -> tuple[list[str], dict]:
+    """Merge extracted and generated criteria, deduplicating case-insensitively."""
+    merged: list[str] = []
+    sources: dict[str, str] = {}
+    seen_lower = set()
+
+    for criterion in extracted:
+        crit_lower = criterion.lower().strip()
+        if crit_lower in seen_lower:
+            continue
+        merged.append(criterion)
+        sources[criterion] = "extracted"
+        seen_lower.add(crit_lower)
+
+    for criterion in generated:
+        crit_lower = criterion.lower().strip()
+        if crit_lower in seen_lower:
+            continue
+        merged.append(criterion)
+        sources[criterion] = "generated"
+        seen_lower.add(crit_lower)
+
+    return merged, sources
