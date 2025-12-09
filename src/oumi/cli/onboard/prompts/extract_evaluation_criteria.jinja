@@ -1,0 +1,55 @@
+Analyze these documents to extract any evaluation criteria or quality rubrics.
+
+Customers often define what makes a good response in their documentation.
+This includes quality criteria, evaluation rubrics, scoring guidelines, or success metrics.
+
+## Document Content
+{{ document_content }}
+
+## Task Context
+{{ task_context }}
+
+## What to Look For
+
+1. **Explicit criteria**: "Responses should be...", "Evaluate based on...", "Quality metrics:"
+2. **Rubrics**: Scoring guidelines, rating scales, evaluation dimensions
+3. **Requirements**: "Must be accurate", "Should be concise", "Avoid hallucination"
+4. **Success metrics**: What defines a good vs bad response
+5. **Edge cases**: What to avoid, common mistakes, failure modes
+
+Common criteria categories:
+- Accuracy/Correctness
+- Relevance
+- Completeness
+- Conciseness
+- Helpfulness
+- Safety
+- Format compliance
+- Tone/Style
+
+## Response Format
+
+Return a JSON object:
+
+{
+    "has_eval_criteria": true/false,
+    "confidence": 0.0-1.0,
+    "criteria": [
+        {
+            "name": "criterion_name",
+            "description": "What this criterion evaluates",
+            "source": "extracted"
+        }
+    ],
+    "raw_excerpts": ["Relevant text excerpts from the documents"],
+    "reasoning": "Brief explanation of the extraction"
+}
+
+## Guidelines
+- Extract criteria that are EXPLICITLY stated, don't infer unstated ones
+- Use short, clear names (1-3 words) for each criterion
+- Include the original text in raw_excerpts for reference
+- Set has_eval_criteria to true only if clear criteria are found
+- Maximum 5 criteria - prioritize the most important ones
+
+Return ONLY the JSON object.

@@ -1,0 +1,43 @@
+Analyze this data to detect if it contains labeled training examples (input-output pairs).
+
+Labeled examples are rows where there's a clear input column and a corresponding output/answer/response column.
+
+## Data Schema
+{{ schema_info }}
+
+## Sample Rows
+{{ sample_rows }}
+
+## What to Look For
+
+1. **Input columns**: Questions, queries, prompts, context, instructions
+2. **Output columns**: Answers, responses, completions, labels, results
+3. **Paired structure**: Each row has both input and output values
+
+Common patterns:
+- question/answer pairs
+- prompt/completion pairs
+- input/output pairs
+- context + query/response pairs
+- text/label pairs for classification
+
+## Response Format
+
+Return a JSON object:
+
+{
+    "has_labeled_examples": true/false,
+    "confidence": 0.0-1.0,
+    "input_column": "name of the input column, or null",
+    "output_column": "name of the output column, or null",
+    "example_count": number of rows that appear to be complete examples,
+    "reasoning": "Brief explanation of why this is/isn't labeled data"
+}
+
+## Guidelines
+- Set has_labeled_examples to true ONLY if there are clear input-output pairs
+- A dataset with just inputs (no outputs) is NOT labeled
+- A dataset with just text content (no structure) is NOT labeled
+- Confidence should reflect certainty: 0.9+ for clear pairs, lower if ambiguous
+
+Return ONLY the JSON object.

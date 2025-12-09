@@ -47,10 +47,13 @@ from .dataclasses import (
 )
 from .helpers import analyze_file_purposes, detect_files_in_directory
 from .wizard_steps import (
+    wizard_step_confirm_detection,
+    wizard_step_detect,
     wizard_step_generate,
     wizard_step_inputs,
     wizard_step_outputs,
     wizard_step_task,
+    wizard_step_template,
 )
 
 
@@ -107,11 +110,14 @@ def wizard(
 ):
     """Interactive wizard to guide you through Oumi setup.
 
-    This wizard helps you build training data through 4 simple steps:
-    1. Task - What should your model do?
-    2. Inputs - What data will it receive?
-    3. Outputs - What makes a good response?
-    4. Generate - Create configs for synthesis and evaluation
+    This wizard helps you build training data through a detection-first flow:
+    1. Detection - Auto-analyze files for task, template, examples, evals
+    2. Confirmation - Review and confirm detected elements
+    3. Task - What should your model do? (uses detection if available)
+    4. Template - Clarify user prompt template (if detected)
+    5. Inputs - What data will it receive?
+    6. Outputs - What makes a good response? (merges extracted + generated)
+    7. Generate - Create configs with appropriate mode (augmentation/synthesis)
 
     LLM analysis is required for intelligent suggestions.
 

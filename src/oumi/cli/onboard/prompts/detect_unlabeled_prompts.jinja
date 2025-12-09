@@ -1,0 +1,40 @@
+Analyze this data to detect if it contains unlabeled prompts (inputs without corresponding outputs).
+
+Unlabeled prompts are rows that have input/query content but NO output/answer/response column.
+
+## Data Schema
+{{ schema_info }}
+
+## Sample Rows
+{{ sample_rows }}
+
+## What to Look For
+
+1. **Prompt-like columns**: Questions, queries, prompts, instructions, requests
+2. **Missing output columns**: No answers, responses, completions, or labels
+3. **Usable for teacher labeling**: Content that could be sent to a model to generate outputs
+
+This is different from labeled data:
+- Labeled data has BOTH input AND output columns
+- Unlabeled prompts have ONLY input columns (outputs need to be generated)
+
+## Response Format
+
+Return a JSON object:
+
+{
+    "has_unlabeled_prompts": true/false,
+    "confidence": 0.0-1.0,
+    "prompt_column": "name of the column containing prompts, or null",
+    "prompt_count": number of usable prompts,
+    "sample_prompts": ["first 3 prompts truncated to 100 chars"],
+    "reasoning": "Brief explanation of the detection"
+}
+
+## Guidelines
+- Only set has_unlabeled_prompts to true if there are clear prompt-like inputs
+- If the data has BOTH input and output columns, this is labeled data, not unlabeled
+- Raw text documents without structure are NOT prompts
+- Context/reference documents are NOT prompts
+
+Return ONLY the JSON object.

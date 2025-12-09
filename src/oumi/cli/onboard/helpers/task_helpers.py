@@ -15,13 +15,14 @@
 """Task analysis helper functions for the onboard wizard."""
 
 import json
+import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..dataclasses import WizardState
 
-from ..dataclasses import TASK_TYPES
+from ..dataclasses import TASK_TYPES, DetectionResult
 from ..prompts import load_prompt
 
 
@@ -299,3 +300,377 @@ def generate_system_prompt(state: "WizardState", llm_analyzer) -> str:
         return llm_analyzer._invoke(prompt).strip()
     except Exception:
         return f"You are a helpful assistant. {state.task.description}"
+
+
+# =============================================================================
+# Detection Functions for the new wizard flow
+# =============================================================================
+
+
+def detect_all_elements(
+    files: list[dict],
+    primary_schema: Any,
+    llm_analyzer,
+    domain_analysis: Any = None,
+) -> DetectionResult:
+    """Run all detection passes to identify what the customer has provided.
+
+    This is the main detection function that orchestrates all individual
+    detection functions and returns a comprehensive DetectionResult.
+
+    Args:
+        files: List of file info dicts with schemas.
+        primary_schema: The primary data schema.
+        llm_analyzer: LLMAnalyzer instance.
+        domain_analysis: Optional domain analysis for context.
+
+    Returns:
+        DetectionResult with all detected elements.
+    """
+    result = DetectionResult()
+
+    # 1. Detect labeled examples (input-output pairs)
+    labeled_result = detect_labeled_examples(files, primary_schema, llm_analyzer)
+    if labeled_result:
+        result.has_labeled_examples = labeled_result.get("has_labeled_examples", False)
+        result.labels_confidence = labeled_result.get("confidence", 0.0)
+        result.labeled_examples = labeled_result.get("examples", [])
+
+    # 2. Detect unlabeled prompts (inputs without outputs)
+    # Only check if no labeled examples found
+    if not result.has_labeled_examples:
+        unlabeled_result = detect_unlabeled_prompts(files, primary_schema, llm_analyzer)
+        if unlabeled_result:
+            result.has_unlabeled_prompts = unlabeled_result.get(
+                "has_unlabeled_prompts", False
+            )
+            result.prompts_confidence = unlabeled_result.get("confidence", 0.0)
+            result.unlabeled_prompts = unlabeled_result.get("prompts", [])
+
+    # 3. Extract use case (task definition, system prompt, template)
+    use_case = extract_use_case_from_documents(files, llm_analyzer)
+    if use_case and use_case.has_explicit_use_case:
+        if use_case.task_description:
+            result.has_task_definition = True
+            result.task_definition = use_case.task_description
+            result.task_confidence = 0.8
+
+        if use_case.system_prompt:
+            result.system_prompt = use_case.system_prompt
+            result.task_confidence = max(result.task_confidence, 0.9)
+
+        if use_case.user_prompt_template:
+            result.has_user_prompt_template = True
+            result.user_prompt_template = use_case.user_prompt_template
+            result.template_variables = _extract_template_variables(
+                use_case.user_prompt_template
+            )
+            result.template_confidence = 0.8
+
+    # 4. Extract user prompt template from documents (if not found in use case)
+    if not result.has_user_prompt_template:
+        template_result = extract_user_prompt_template(files, primary_schema, llm_analyzer)
+        if template_result:
+            result.has_user_prompt_template = template_result.get("has_template", False)
+            result.user_prompt_template = template_result.get("template")
+            result.template_variables = template_result.get("variables", [])
+            result.template_mapping = template_result.get("suggested_mapping", {})
+            result.template_confidence = template_result.get("confidence", 0.0)
+
+    # 5. Extract evaluation criteria
+    eval_result = extract_evaluation_criteria(
+        files, llm_analyzer, task_context=result.task_definition
+    )
+    if eval_result:
+        result.has_eval_criteria = eval_result.get("has_eval_criteria", False)
+        result.eval_criteria = [
+            c.get("name", c) if isinstance(c, dict) else c
+            for c in eval_result.get("criteria", [])
+        ]
+        result.eval_confidence = eval_result.get("confidence", 0.0)
+
+    # 6. Identify seed columns for diversity
+    seed_result = identify_seed_columns(
+        primary_schema, llm_analyzer, task_context=result.task_definition
+    )
+    if seed_result:
+        result.has_seed_data = seed_result.get("has_seed_data", False)
+        result.seed_columns = [
+            c.get("column", c) if isinstance(c, dict) else c
+            for c in seed_result.get("seed_columns", [])
+        ]
+
+    return result
+
+
+def detect_labeled_examples(
+    files: list[dict], primary_schema: Any, llm_analyzer
+) -> Optional[dict]:
+    """Detect if the data contains labeled training examples (input-output pairs).
+
+    Args:
+        files: List of file info dicts.
+        primary_schema: Primary data schema.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Dict with detection results, or None if detection fails.
+    """
+    if not primary_schema or not primary_schema.columns:
+        return None
+
+    # Build schema info for the prompt
+    schema_info = _build_schema_info(primary_schema)
+    sample_rows = json.dumps(primary_schema.sample_rows[:5], indent=2, default=str)
+
+    prompt = load_prompt(
+        "detect_labeled_examples",
+        schema_info=schema_info,
+        sample_rows=sample_rows,
+    )
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+
+        if result.get("has_labeled_examples", False):
+            # Extract actual examples from the data
+            input_col = result.get("input_column")
+            output_col = result.get("output_column")
+            examples = []
+
+            if input_col and output_col and primary_schema.sample_rows:
+                for row in primary_schema.sample_rows[:10]:
+                    if input_col in row and output_col in row:
+                        examples.append({
+                            "input": str(row[input_col])[:500],
+                            "output": str(row[output_col])[:500],
+                        })
+
+            result["examples"] = examples
+
+        return result
+    except Exception:
+        return None
+
+
+def detect_unlabeled_prompts(
+    files: list[dict], primary_schema: Any, llm_analyzer
+) -> Optional[dict]:
+    """Detect if the data contains unlabeled prompts (inputs without outputs).
+
+    Args:
+        files: List of file info dicts.
+        primary_schema: Primary data schema.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Dict with detection results, or None if detection fails.
+    """
+    if not primary_schema or not primary_schema.columns:
+        return None
+
+    schema_info = _build_schema_info(primary_schema)
+    sample_rows = json.dumps(primary_schema.sample_rows[:5], indent=2, default=str)
+
+    prompt = load_prompt(
+        "detect_unlabeled_prompts",
+        schema_info=schema_info,
+        sample_rows=sample_rows,
+    )
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+
+        if result.get("has_unlabeled_prompts", False):
+            # Extract prompts from the data
+            prompt_col = result.get("prompt_column")
+            prompts = []
+
+            if prompt_col and primary_schema.sample_rows:
+                for row in primary_schema.sample_rows[:20]:
+                    if prompt_col in row and row[prompt_col]:
+                        prompts.append(str(row[prompt_col])[:500])
+
+            result["prompts"] = prompts
+
+        return result
+    except Exception:
+        return None
+
+
+def extract_user_prompt_template(
+    files: list[dict], primary_schema: Any, llm_analyzer
+) -> Optional[dict]:
+    """Extract user prompt template with placeholders from documents.
+
+    Args:
+        files: List of file info dicts.
+        primary_schema: Primary data schema for column names.
+        llm_analyzer: LLMAnalyzer instance.
+
+    Returns:
+        Dict with template info, or None if not found.
+    """
+    # Collect document content
+    document_contents = []
+    for f in files:
+        schema = f.get("schema")
+        if schema and hasattr(schema, "raw_text") and schema.raw_text:
+            document_contents.append(schema.raw_text[:5000])
+
+    if not document_contents:
+        return None
+
+    # Get column names for mapping
+    column_names = []
+    if primary_schema and primary_schema.columns:
+        column_names = [col.name for col in primary_schema.columns]
+
+    prompt = load_prompt(
+        "extract_user_prompt_template",
+        document_content="\n\n---\n\n".join(document_contents),
+        column_names=", ".join(column_names) if column_names else "No columns available",
+    )
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        return result
+    except Exception:
+        return None
+
+
+def extract_evaluation_criteria(
+    files: list[dict], llm_analyzer, task_context: Optional[str] = None
+) -> Optional[dict]:
+    """Extract evaluation criteria from customer documents.
+
+    Args:
+        files: List of file info dicts.
+        llm_analyzer: LLMAnalyzer instance.
+        task_context: Optional task description for context.
+
+    Returns:
+        Dict with criteria info, or None if not found.
+    """
+    # Collect document content
+    document_contents = []
+    for f in files:
+        schema = f.get("schema")
+        if schema and hasattr(schema, "raw_text") and schema.raw_text:
+            document_contents.append(schema.raw_text[:5000])
+
+    if not document_contents:
+        return None
+
+    prompt = load_prompt(
+        "extract_evaluation_criteria",
+        document_content="\n\n---\n\n".join(document_contents),
+        task_context=task_context or "Not yet defined",
+    )
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        return result
+    except Exception:
+        return None
+
+
+def identify_seed_columns(
+    primary_schema: Any, llm_analyzer, task_context: Optional[str] = None
+) -> Optional[dict]:
+    """Identify columns that can be used as seed data for diversity.
+
+    Args:
+        primary_schema: Primary data schema.
+        llm_analyzer: LLMAnalyzer instance.
+        task_context: Optional task description for context.
+
+    Returns:
+        Dict with seed column info, or None if not found.
+    """
+    if not primary_schema or not primary_schema.columns:
+        return None
+
+    schema_info = _build_schema_info(primary_schema)
+
+    # Build sample values for each column
+    sample_values = {}
+    if primary_schema.sample_rows:
+        for col in primary_schema.columns:
+            values = []
+            for row in primary_schema.sample_rows[:10]:
+                if col.name in row and row[col.name] is not None:
+                    val = str(row[col.name])[:100]
+                    if val not in values:
+                        values.append(val)
+            if values:
+                sample_values[col.name] = values[:5]
+
+    prompt = load_prompt(
+        "identify_seed_columns",
+        schema_info=schema_info,
+        sample_values=json.dumps(sample_values, indent=2, default=str),
+        task_context=task_context or "Not yet defined",
+    )
+
+    try:
+        result = llm_analyzer._invoke_json(prompt)
+        return result
+    except Exception:
+        return None
+
+
+def _build_schema_info(schema: Any) -> str:
+    """Build a schema info string for prompts.
+
+    Args:
+        schema: DataSchema instance.
+
+    Returns:
+        Formatted schema info string.
+    """
+    if not schema or not schema.columns:
+        return "No schema available"
+
+    lines = [f"Row count: {schema.row_count}"]
+    lines.append("Columns:")
+    for col in schema.columns:
+        col_info = f"  - {col.name} ({col.dtype})"
+        if col.is_text:
+            col_info += " [TEXT]"
+        if col.is_categorical:
+            col_info += " [CATEGORICAL]"
+        if col.is_conversation:
+            col_info += " [CONVERSATION]"
+        if col.unique_count:
+            col_info += f" - {col.unique_count} unique values"
+        lines.append(col_info)
+
+    return "\n".join(lines)
+
+
+def _extract_template_variables(template: str) -> list[str]:
+    """Extract variable names from a template string.
+
+    Supports {var}, {{var}}, and $var syntax.
+
+    Args:
+        template: Template string with placeholders.
+
+    Returns:
+        List of variable names found.
+    """
+    if not template:
+        return []
+
+    variables = set()
+
+    # Match {variable} or {{variable}}
+    for match in re.finditer(r"\{+(\w+)\}+", template):
+        variables.add(match.group(1))
+
+    # Match $variable
+    for match in re.finditer(r"\$(\w+)", template):
+        variables.add(match.group(1))
+
+    return list(variables)

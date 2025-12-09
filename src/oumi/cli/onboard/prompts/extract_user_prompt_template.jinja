@@ -1,0 +1,45 @@
+Analyze these documents to extract any user prompt template with placeholders.
+
+A user prompt template is a pattern that shows how inputs should be formatted before sending to the model.
+Templates often contain {placeholders} or similar markers that get replaced with actual data.
+
+## Document Content
+{{ document_content }}
+
+## Data Columns Available
+{{ column_names }}
+
+## What to Look For
+
+1. **Template patterns**: Text with {placeholder} markers like:
+   - "Answer the following question: {question}"
+   - "Based on this context: {context}\n\nQuestion: {query}"
+   - "Classify this text: {text}\nCategories: {categories}"
+
+2. **Variable references**: {curly_braces}, {{double_braces}}, or $variable markers
+
+3. **Structured prompts**: Instructions that reference input fields
+
+## Response Format
+
+Return a JSON object:
+
+{
+    "has_template": true/false,
+    "confidence": 0.0-1.0,
+    "template": "The full template text with {placeholders}, or null",
+    "variables": ["list", "of", "placeholder", "names"],
+    "suggested_mapping": {
+        "variable_name": "suggested_column_name"
+    },
+    "reasoning": "Brief explanation of the extraction"
+}
+
+## Guidelines
+- Extract the template VERBATIM - do not modify or paraphrase
+- Preserve the exact placeholder syntax used ({}, {{}}, etc.)
+- For suggested_mapping, match variable names to similar column names
+- Set has_template to false if no clear template pattern is found
+- If multiple templates exist, extract the most complete/primary one
+
+Return ONLY the JSON object.

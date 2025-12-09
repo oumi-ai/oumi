@@ -101,6 +101,132 @@ class OutputSpec:
     criteria: list = field(default_factory=list)
     """What makes a good response (user-provided list)."""
 
+    criteria_sources: dict = field(default_factory=dict)
+    """Source of each criterion: {"accurate": "extracted", "helpful": "generated"}."""
+
+
+@dataclass
+class DetectionResult:
+    """Results from auto-detection phase.
+
+    Captures what elements the customer has provided in their files,
+    enabling conditional wizard flow based on available information.
+    """
+
+    # Detection flags
+    has_task_definition: bool = False
+    """Whether a task definition (system prompt, instructions) was found."""
+
+    has_user_prompt_template: bool = False
+    """Whether a user prompt template with {placeholders} was found."""
+
+    has_labeled_examples: bool = False
+    """Whether input-output training pairs were found."""
+
+    has_unlabeled_prompts: bool = False
+    """Whether user prompts without outputs were found."""
+
+    has_eval_criteria: bool = False
+    """Whether evaluation criteria/rubrics were found in documents."""
+
+    has_seed_data: bool = False
+    """Whether raw data columns can be used to seed diversity."""
+
+    # Extracted content
+    task_definition: Optional[str] = None
+    """Extracted task definition/description."""
+
+    system_prompt: Optional[str] = None
+    """Extracted system prompt."""
+
+    user_prompt_template: Optional[str] = None
+    """Extracted template with {placeholders} like 'Answer {question} based on {context}'."""
+
+    template_variables: list = field(default_factory=list)
+    """Variables found in template, e.g. ['context', 'question']."""
+
+    template_mapping: dict = field(default_factory=dict)
+    """Mapping of template variables to data columns, e.g. {'question': 'query_text'}."""
+
+    labeled_examples: list = field(default_factory=list)
+    """Extracted input-output pairs, e.g. [{'input': ..., 'output': ...}]."""
+
+    unlabeled_prompts: list = field(default_factory=list)
+    """Extracted inputs without outputs."""
+
+    eval_criteria: list = field(default_factory=list)
+    """Extracted evaluation criteria from documents."""
+
+    seed_columns: list = field(default_factory=list)
+    """Column names usable as seed data for diversity."""
+
+    # Confidence scores (0.0 - 1.0)
+    task_confidence: float = 0.0
+    """Confidence in task definition detection."""
+
+    template_confidence: float = 0.0
+    """Confidence in template detection."""
+
+    labels_confidence: float = 0.0
+    """Confidence in labeled examples detection."""
+
+    prompts_confidence: float = 0.0
+    """Confidence in unlabeled prompts detection."""
+
+    eval_confidence: float = 0.0
+    """Confidence in evaluation criteria detection."""
+
+    def to_dict(self) -> dict:
+        """Serialize to dictionary for caching."""
+        return {
+            "has_task_definition": self.has_task_definition,
+            "has_user_prompt_template": self.has_user_prompt_template,
+            "has_labeled_examples": self.has_labeled_examples,
+            "has_unlabeled_prompts": self.has_unlabeled_prompts,
+            "has_eval_criteria": self.has_eval_criteria,
+            "has_seed_data": self.has_seed_data,
+            "task_definition": self.task_definition,
+            "system_prompt": self.system_prompt,
+            "user_prompt_template": self.user_prompt_template,
+            "template_variables": self.template_variables,
+            "template_mapping": self.template_mapping,
+            "labeled_examples": self.labeled_examples,
+            "unlabeled_prompts": self.unlabeled_prompts,
+            "eval_criteria": self.eval_criteria,
+            "seed_columns": self.seed_columns,
+            "task_confidence": self.task_confidence,
+            "template_confidence": self.template_confidence,
+            "labels_confidence": self.labels_confidence,
+            "prompts_confidence": self.prompts_confidence,
+            "eval_confidence": self.eval_confidence,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "DetectionResult":
+        """Deserialize from dictionary."""
+        return cls(
+            has_task_definition=data.get("has_task_definition", False),
+            has_user_prompt_template=data.get("has_user_prompt_template", False),
+            has_labeled_examples=data.get("has_labeled_examples", False),
+            has_unlabeled_prompts=data.get("has_unlabeled_prompts", False),
+            has_eval_criteria=data.get("has_eval_criteria", False),
+            has_seed_data=data.get("has_seed_data", False),
+            task_definition=data.get("task_definition"),
+            system_prompt=data.get("system_prompt"),
+            user_prompt_template=data.get("user_prompt_template"),
+            template_variables=data.get("template_variables", []),
+            template_mapping=data.get("template_mapping", {}),
+            labeled_examples=data.get("labeled_examples", []),
+            unlabeled_prompts=data.get("unlabeled_prompts", []),
+            eval_criteria=data.get("eval_criteria", []),
+            seed_columns=data.get("seed_columns", []),
+            task_confidence=data.get("task_confidence", 0.0),
+            template_confidence=data.get("template_confidence", 0.0),
+            labels_confidence=data.get("labels_confidence", 0.0),
+            prompts_confidence=data.get("prompts_confidence", 0.0),
+            eval_confidence=data.get("eval_confidence", 0.0),
+        )
+
 
 @dataclass
 class WizardState:
@@ -109,6 +235,9 @@ class WizardState:
     task: TaskSpec = field(default_factory=TaskSpec)
     inputs: InputSpec = field(default_factory=InputSpec)
     outputs: OutputSpec = field(default_factory=OutputSpec)
+
+    # Detection results from auto-analysis phase
+    detection: DetectionResult = field(default_factory=DetectionResult)
 
     # File analysis results
     files: list = field(default_factory=list)
@@ -166,7 +295,9 @@ class WizardState:
             },
             "outputs": {
                 "criteria": self.outputs.criteria,
+                "criteria_sources": self.outputs.criteria_sources,
             },
+            "detection": self.detection.to_dict(),
             "files": files_data,
             "domain_analysis": domain_data,
             "completed_steps": self.completed_steps,
@@ -194,7 +325,11 @@ class WizardState:
         outputs_data = data.get("outputs", {})
         state.outputs = OutputSpec(
             criteria=outputs_data.get("criteria", []),
+            criteria_sources=outputs_data.get("criteria_sources", {}),
         )
+
+        detection_data = data.get("detection", {})
+        state.detection = DetectionResult.from_dict(detection_data)
 
         state.files = [
             {

@@ -1,0 +1,58 @@
+Analyze this data schema to identify columns that can be used as seed data for diversity.
+
+Seed columns contain varied values that can be sampled to generate diverse synthetic data.
+Good seed columns have multiple distinct values that represent different scenarios or categories.
+
+## Data Schema
+{{ schema_info }}
+
+## Sample Values
+{{ sample_values }}
+
+## Task Context
+{{ task_context }}
+
+## What Makes a Good Seed Column
+
+1. **Categorical diversity**: Categories, types, topics, domains
+2. **Attribute variation**: Difficulty levels, tone, style, format
+3. **Domain specifics**: Industries, departments, use cases
+4. **Contextual variety**: Different scenarios, situations, contexts
+
+Poor seed columns:
+- IDs or sequential numbers
+- Timestamps or dates
+- Constant/single values
+- Very long text (use as context instead)
+- Unique values per row (no sampling benefit)
+
+## Response Format
+
+Return a JSON object:
+
+{
+    "has_seed_data": true/false,
+    "seed_columns": [
+        {
+            "column": "column_name",
+            "role": "category|attribute|context",
+            "unique_values": ["sample", "distinct", "values"],
+            "diversity_score": 0.0-1.0,
+            "reasoning": "Why this column is useful for diversity"
+        }
+    ],
+    "recommended_sampling": {
+        "column_name": {
+            "strategy": "uniform|weighted",
+            "description": "How to sample from this column"
+        }
+    }
+}
+
+## Guidelines
+- Only include columns with meaningful diversity (3+ distinct values)
+- Diversity score: 1.0 for highly varied, 0.5 for moderate, lower for limited
+- Maximum 5 seed columns - prioritize most useful for diversity
+- Consider how the column would help generate varied training data
+
+Return ONLY the JSON object.
