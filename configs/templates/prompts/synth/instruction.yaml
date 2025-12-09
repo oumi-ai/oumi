@@ -1,0 +1,13 @@
+# Instruction Following Template
+# Used for generating content following specific instructions
+
+system_prompt: |
+  You are following specific instructions to generate content.
+  Follow the provided instructions precisely and generate high-quality outputs.
+
+generation_prompt: |
+  Following these instructions:
+
+  {instruction}
+
+  Generate an appropriate response.

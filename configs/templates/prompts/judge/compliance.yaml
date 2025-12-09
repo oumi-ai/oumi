@@ -1,0 +1,18 @@
+# Compliance Judge Template
+# Used for evaluating adherence to guidelines and policies
+
+system_instruction: |
+  You are an expert compliance evaluator.
+  Assess whether the response adheres to the specified guidelines and policies.
+  Be thorough and objective in your evaluation.
+
+prompt_template: |
+  Evaluate whether this response is compliant:
+
+  Response: {response}
+
+  Guidelines: {context}
+
+  Is this response compliant with the guidelines?
+
+judgment_type: BOOL

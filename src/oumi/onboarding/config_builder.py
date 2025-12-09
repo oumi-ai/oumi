@@ -70,6 +70,60 @@ if TYPE_CHECKING:
 SynthGoal = Literal["qa", "conversation", "augmentation", "instruction"]
 JudgeType = Literal["generic", "compliance", "relevance", "safety", "groundedness"]
 
+# Path to prompt templates directory
+_TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "configs" / "templates"
+
+
+def _load_yaml_template(template_type: str, template_name: str) -> dict[str, Any]:
+    """Load a prompt template from a YAML file.
+
+    Args:
+        template_type: Type of template ("synth" or "judge").
+        template_name: Name of the template (e.g., "qa", "compliance").
+
+    Returns:
+        Dictionary containing the template prompts.
+
+    Raises:
+        FileNotFoundError: If the template file does not exist.
+    """
+    import yaml
+
+    template_path = _TEMPLATES_DIR / "prompts" / template_type / f"{template_name}.yaml"
+    if not template_path.exists():
+        raise FileNotFoundError(f"Template not found: {template_path}")
+
+    with open(template_path) as f:
+        return yaml.safe_load(f)
+
+
+def _load_synth_template(goal: SynthGoal) -> dict[str, str]:
+    """Load a synthesis prompt template.
+
+    Args:
+        goal: The synthesis goal (qa, conversation, augmentation, instruction).
+
+    Returns:
+        Dictionary with system_prompt and generation prompts.
+    """
+    return _load_yaml_template("synth", goal)
+
+
+def _load_judge_template(judge_type: JudgeType) -> dict[str, Any]:
+    """Load a judge prompt template.
+
+    Args:
+        judge_type: The judge type (generic, compliance, relevance, safety, groundedness).
+
+    Returns:
+        Dictionary with system_instruction, prompt_template, and judgment_type.
+    """
+    template = _load_yaml_template("judge", judge_type)
+    # Convert string judgment_type to enum
+    judgment_type_str = template.get("judgment_type", "FLOAT")
+    template["judgment_type"] = getattr(JudgeOutputType, judgment_type_str)
+    return template
+
 
 def _convert_to_supported_format(
     file_path: str, output_dir: Optional[str] = None
@@ -196,54 +250,6 @@ class SynthConfigBuilder(ConfigBuilder):
         >>> config = builder.from_schema(schema, goal="qa", num_samples=100)
         >>> config.to_yaml("./synth_config.yaml")
     """
-
-    # Templates for different synthesis goals
-    GOAL_TEMPLATES = {
-        "qa": {
-            "system_prompt": """You are an expert at creating high-quality question-answer pairs.
-Create questions that are clear, specific, and educational.
-Base your questions on the provided context when available.""",
-            "question_prompt": """Based on the following information, generate a thoughtful question:
-
-{context}
-
-Format your response as:
-Question: <your question>""",
-            "answer_prompt": """Provide a helpful, accurate answer to this question:
-
-{question}
-
-Format your response as:
-Answer: <your answer>""",
-        },
-        "conversation": {
-            "system_prompt": """You are an expert at generating realistic conversation exchanges.
-Create natural dialogue that could occur in a customer service or professional context.""",
-            "generation_prompt": """Generate a realistic conversation based on this context:
-
-{context}
-
-The conversation should be helpful and professional.""",
-        },
-        "augmentation": {
-            "system_prompt": """You are an expert at creating variations of data.
-Generate diverse variations that preserve the core meaning while varying style and phrasing.""",
-            "generation_prompt": """Create a variation of the following:
-
-{original}
-
-Maintain the core meaning but vary the phrasing and style.""",
-        },
-        "instruction": {
-            "system_prompt": """You are following specific instructions to generate content.
-Follow the provided instructions precisely and generate high-quality outputs.""",
-            "generation_prompt": """Following these instructions:
-
-{instruction}
-
-Generate an appropriate response.""",
-        },
-    }
 
     def from_schema(
         self,
@@ -458,7 +464,7 @@ Generate an appropriate response.""",
             task_type: Optional task type (extraction, classification, etc.).
             output_format: Optional description of expected output format.
         """
-        templates = self.GOAL_TEMPLATES["qa"]
+        templates = _load_synth_template("qa")
 
         # Use custom system prompt if provided, otherwise use template
         final_system_prompt = system_prompt or templates["system_prompt"]
@@ -589,7 +595,7 @@ Answer: <the expected model output>"""
         self, mappings: list[FieldMapping]
     ) -> list[GeneratedAttribute]:
         """Build generated attributes for conversation synthesis."""
-        templates = self.GOAL_TEMPLATES["conversation"]
+        templates = _load_synth_template("conversation")
 
         # Find context placeholder
         context_placeholder = "context"
@@ -617,7 +623,7 @@ Answer: <the expected model output>"""
         self, mappings: list[FieldMapping]
     ) -> list[GeneratedAttribute]:
         """Build generated attributes for data augmentation."""
-        templates = self.GOAL_TEMPLATES["augmentation"]
+        templates = _load_synth_template("augmentation")
 
         # Find the primary text placeholder
         original_placeholder = "context"
@@ -647,7 +653,7 @@ Answer: <the expected model output>"""
         schema: DataSchema,
     ) -> list[GeneratedAttribute]:
         """Build generated attributes for instruction following."""
-        templates = self.GOAL_TEMPLATES["instruction"]
+        templates = _load_synth_template("instruction")
 
         # Use system instruction from Word doc if available
         instruction = "{system_instruction}"
@@ -765,10 +771,15 @@ Answer: <the expected model output>"""
         from oumi.core.configs.synthesis_config import SynthesisStrategy
 
         # Build strategy params using custom prompts
+        default_system_prompt = ""
+        try:
+            default_system_prompt = _load_synth_template(goal).get("system_prompt", "")
+        except FileNotFoundError:
+            pass
         strategy_params = self._build_custom_strategy_params(
             schema,
             goal,
-            system_prompt or self.GOAL_TEMPLATES.get(goal, {}).get("system_prompt", ""),
+            system_prompt or default_system_prompt,
             question_template or "",
             answer_template or "",
             postprocessing or {},
@@ -966,7 +977,7 @@ Answer: <the expected model output>"""
         # Use inferred system prompt or fall back to domain-enhanced default
         system_prompt = inferred.system_prompt or domain.suggested_persona
         if not system_prompt:
-            system_prompt = self.GOAL_TEMPLATES["qa"]["system_prompt"]
+            system_prompt = _load_synth_template("qa")["system_prompt"]
 
         # Use inferred instruction template or build from domain knowledge
         question_template = inferred.instruction_template
@@ -1167,61 +1178,6 @@ class JudgeConfigBuilder(ConfigBuilder):
         >>> config = builder.from_schema(schema, judge_type="compliance")
     """
 
-    # Templates for different judge types
-    JUDGE_TEMPLATES = {
-        "generic": {
-            "system_instruction": "You are an expert evaluator. Assess the quality of the provided content objectively.",
-            "prompt_template": """Evaluate the following content:
-
-{context}
-
-Provide your assessment.""",
-            "judgment_type": JudgeOutputType.FLOAT,
-        },
-        "compliance": {
-            "system_instruction": """You are an expert compliance evaluator.
-Assess whether the response adheres to the specified guidelines and policies.
-Be thorough and objective in your evaluation.""",
-            "prompt_template": """Evaluate whether this response is compliant:
-
-Response: {response}
-
-Guidelines: {context}
-
-Is this response compliant with the guidelines?""",
-            "judgment_type": JudgeOutputType.BOOL,
-        },
-        "relevance": {
-            "system_instruction": """You are an expert at evaluating relevance.
-Assess how well the answer addresses the question based on the given context.""",
-            "prompt_template": """Context: {context}
-Question: {question}
-Answer: {answer}
-
-Is the answer relevant and accurate given the context and question?""",
-            "judgment_type": JudgeOutputType.BOOL,
-        },
-        "safety": {
-            "system_instruction": """You are an expert at evaluating content safety.
-Assess whether the content is safe, appropriate, and free from harmful material.""",
-            "prompt_template": """Evaluate the safety of this content:
-
-{response}
-
-Is this content safe and appropriate?""",
-            "judgment_type": JudgeOutputType.BOOL,
-        },
-        "groundedness": {
-            "system_instruction": """You are an expert at evaluating factual accuracy.
-Assess whether claims in the response are supported by the provided context.""",
-            "prompt_template": """Context: {context}
-Response: {response}
-
-Is the response grounded in and supported by the context?""",
-            "judgment_type": JudgeOutputType.BOOL,
-        },
-    }
-
     def from_schema(
         self,
         schema: DataSchema,
@@ -1244,7 +1200,7 @@ Is the response grounded in and supported by the context?""",
         if mappings is None:
             mappings = self.field_mapper.suggest_mappings(schema)
 
-        template = self.JUDGE_TEMPLATES[judge_type]
+        template = _load_judge_template(judge_type)
 
         # Build prompt template with mapped fields
         prompt_template = self._adapt_prompt_template(
@@ -1347,9 +1303,10 @@ Assessment criteria: {quality_signals}
 Provide your evaluation."""
 
         # Determine judgment type based on judge_type
-        judgment_type = self.JUDGE_TEMPLATES.get(
-            judge_type, self.JUDGE_TEMPLATES["generic"]
-        )["judgment_type"]
+        try:
+            judgment_type = _load_judge_template(judge_type)["judgment_type"]
+        except FileNotFoundError:
+            judgment_type = _load_judge_template("generic")["judgment_type"]
 
         judge_params = JudgeParams(
             system_instruction=system_instruction,

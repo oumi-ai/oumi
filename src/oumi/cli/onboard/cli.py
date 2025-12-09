@@ -1,0 +1,675 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""CLI commands for customer onboarding.
+
+This module provides interactive wizard and config generation commands
+to help customers quickly set up Oumi for their use cases.
+"""
+
+from pathlib import Path
+from typing import Annotated, Optional
+
+import typer
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.table import Table
+
+import oumi.cli.cli_utils as cli_utils
+
+from .cache import (
+    compute_file_hash,
+    display_cache_summary,
+    get_cache_path,
+    load_wizard_cache,
+    open_cache_for_editing,
+    prompt_cache_action,
+    save_wizard_cache,
+)
+from .dataclasses import (
+    GOAL_CHOICES,
+    INPUT_FORMATS,
+    SUPPORTED_EXTENSIONS,
+    WizardState,
+)
+from .helpers import analyze_file_purposes, detect_files_in_directory
+from .wizard_steps import (
+    wizard_step_generate,
+    wizard_step_inputs,
+    wizard_step_outputs,
+    wizard_step_task,
+)
+
+
+def wizard(
+    ctx: typer.Context,
+    data: Annotated[
+        str,
+        typer.Option(
+            "--data",
+            "-d",
+            help="Path to your data file or directory (CSV, JSON, Excel, or Word).",
+        ),
+    ],
+    output_dir: Annotated[
+        str,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Directory to save generated configs.",
+        ),
+    ] = "./oumi_configs",
+    engine: Annotated[
+        str,
+        typer.Option(
+            "--engine",
+            "-e",
+            help="LLM inference engine (ANTHROPIC, OPENAI, DEEPSEEK, TOGETHER).",
+        ),
+    ] = "ANTHROPIC",
+    model: Annotated[
+        Optional[str],
+        typer.Option(
+            "--model",
+            "-m",
+            help="Model name to use. If not specified, uses default for the engine.",
+        ),
+    ] = None,
+    num_samples: Annotated[
+        int,
+        typer.Option(
+            "--num-samples",
+            "-n",
+            help="Number of samples to generate in synthesis config.",
+        ),
+    ] = 10,
+    auto_accept: Annotated[
+        bool,
+        typer.Option(
+            "--auto-accept/--no-auto-accept",
+            "-y",
+            help="Auto-accept suggestions (press Enter to continue).",
+        ),
+    ] = True,
+):
+    """Interactive wizard to guide you through Oumi setup.
+
+    This wizard helps you build training data through 4 simple steps:
+    1. Task - What should your model do?
+    2. Inputs - What data will it receive?
+    3. Outputs - What makes a good response?
+    4. Generate - Create configs for synthesis and evaluation
+
+    LLM analysis is required for intelligent suggestions.
+
+    Examples:
+        # Basic usage (uses ANTHROPIC by default)
+        oumi onboard wizard --data ./my_data.csv
+
+        # Use OpenAI
+        oumi onboard wizard --data ./data/ --engine OPENAI
+
+        # Specify model
+        oumi onboard wizard --data ./data/ --model claude-sonnet-4-20250514
+    """
+    from oumi.onboarding import DataAnalyzer
+    from oumi.onboarding.llm_analyzer import LLMAnalyzer
+
+    state = WizardState()
+
+    cli_utils.CONSOLE.print(
+        "[bold green]Oumi Onboarding Wizard[/bold green]\n"
+        "[dim]4 steps: Task -> Inputs -> Outputs -> Generate[/dim]\n"
+    )
+
+    data_path = Path(data)
+    if not data_path.exists():
+        cli_utils.CONSOLE.print(f"[red]Error: Path not found: {data}[/red]")
+        raise typer.Exit(1)
+
+    valid_engines = ["ANTHROPIC", "OPENAI", "DEEPSEEK", "TOGETHER"]
+    engine_upper = engine.upper()
+    if engine_upper not in valid_engines:
+        cli_utils.CONSOLE.print(
+            f"[yellow]Warning: Unknown engine '{engine}'. "
+            f"Valid options: {', '.join(valid_engines)}. Using ANTHROPIC.[/yellow]"
+        )
+        engine_upper = "ANTHROPIC"
+
+    try:
+        state.llm_analyzer = LLMAnalyzer(engine=engine_upper, model=model)
+        cli_utils.CONSOLE.print(
+            f"[dim]Using {engine_upper} engine"
+            f"{f' with model {model}' if model else ''}[/dim]\n"
+        )
+    except Exception as e:
+        cli_utils.CONSOLE.print(
+            f"[red]Error: Could not initialize LLM analyzer: {e}[/red]\n"
+            "[dim]Make sure you have the required API key set (e.g., ANTHROPIC_API_KEY).[/dim]"
+        )
+        raise typer.Exit(1)
+
+    analyzer = DataAnalyzer()
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    cache_path = get_cache_path(output_path)
+    cached_state = load_wizard_cache(output_path)
+    use_cached_analysis = False
+
+    if cached_state:
+        cli_utils.CONSOLE.print("\n[bold cyan]Found existing wizard cache![/bold cyan]")
+        display_cache_summary(cached_state, cache_path)
+
+        action = prompt_cache_action(cache_path)
+
+        if action == "edit":
+            open_cache_for_editing(cache_path)
+            cached_state = load_wizard_cache(output_path)
+            if not cached_state:
+                cli_utils.CONSOLE.print("[yellow]Could not reload cache. Starting fresh.[/yellow]")
+
+        if action == "restart":
+            cli_utils.CONSOLE.print("[dim]Starting fresh...[/dim]")
+            cache_path.unlink(missing_ok=True)
+            cached_state = None
+
+        if cached_state and action in ("resume", "edit"):
+            state.task = cached_state.task
+            state.inputs = cached_state.inputs
+            state.outputs = cached_state.outputs
+            state.completed_steps = cached_state.completed_steps
+            use_cached_analysis = True
+            cli_utils.CONSOLE.print(
+                f"[green]Resuming from step {len(state.completed_steps) + 1}...[/green]\n"
+            )
+
+    cli_utils.CONSOLE.print("[dim]Scanning files...[/dim]")
+
+    if data_path.is_dir():
+        files = detect_files_in_directory(data_path)
+        if not files:
+            cli_utils.CONSOLE.print(
+                f"[red]Error: No supported files found in {data_path}[/red]\n"
+                f"[dim]Supported formats: {', '.join(SUPPORTED_EXTENSIONS)}[/dim]"
+            )
+            raise typer.Exit(1)
+        cli_utils.CONSOLE.print(f"[green]Found {len(files)} file(s)[/green]")
+    else:
+        files = [{
+            "path": data_path,
+            "name": data_path.name,
+            "extension": data_path.suffix.lower(),
+        }]
+
+    for f in files:
+        f["content_hash"] = compute_file_hash(f["path"])
+
+    cached_file_analysis = {}
+    if cached_state and cached_state.files:
+        for cf in cached_state.files:
+            if cf.get("path") and cf.get("content_hash"):
+                cached_file_analysis[str(cf["path"])] = cf
+
+    files_needing_llm_analysis = []
+    cache_hits = 0
+    total_files = len(files)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TextColumn("[dim]({task.completed}/{task.total})[/dim]"),
+        console=cli_utils.CONSOLE,
+        transient=True,
+    ) as progress:
+        scan_task = progress.add_task("[dim]Scanning files...[/dim]", total=total_files)
+        for idx, f in enumerate(files, 1):
+            file_path_str = str(f["path"])
+            cached_info = cached_file_analysis.get(file_path_str)
+            used_cache = False
+
+            if (
+                use_cached_analysis
+                and cached_info
+                and cached_info.get("content_hash") == f["content_hash"]
+                and cached_info.get("suggested_purpose")
+            ):
+                f["suggested_purpose"] = cached_info.get("suggested_purpose", "")
+                f["suggested_role"] = cached_info.get("suggested_role", "")
+                f["role_reason"] = cached_info.get("role_reason", "")
+                used_cache = True
+            else:
+                files_needing_llm_analysis.append(f)
+
+            # Check for cached schema
+            if (
+                use_cached_analysis
+                and cached_info
+                and cached_info.get("content_hash") == f["content_hash"]
+                and cached_info.get("schema_cache")
+            ):
+                f["schema"] = cached_info.get("schema_cache")
+                used_cache = True
+            else:
+                try:
+                    schema = analyzer.analyze(f["path"])
+                    f["schema"] = schema
+                except Exception:
+                    f["schema"] = None
+
+            if used_cache:
+                cache_hits += 1
+                status = "[green](cached)[/green]"
+            else:
+                status = "[yellow](new)[/yellow]"
+
+            progress.update(
+                scan_task,
+                advance=1,
+                description=f"[dim]Analyzing {f['name']}[/dim] {status}",
+            )
+
+    if cache_hits > 0:
+        cli_utils.CONSOLE.print(f"[dim]Used cache for {cache_hits}/{total_files} files[/dim]")
+
+    if files_needing_llm_analysis:
+        files_needing_llm_analysis = analyze_file_purposes(
+            files_needing_llm_analysis, analyzer, state.llm_analyzer
+        )
+        analyzed_by_path = {str(f["path"]): f for f in files_needing_llm_analysis}
+        for f in files:
+            if str(f["path"]) in analyzed_by_path:
+                analyzed = analyzed_by_path[str(f["path"])]
+                f["suggested_purpose"] = analyzed.get("suggested_purpose", "")
+                f["suggested_role"] = analyzed.get("suggested_role", "")
+                f["role_reason"] = analyzed.get("role_reason", "")
+
+    state.files = files
+
+    for f in files:
+        if f.get("schema") and f["schema"].columns:
+            state.primary_schema = f["schema"]
+            break
+    if not state.primary_schema and files and files[0].get("schema"):
+        state.primary_schema = files[0]["schema"]
+
+    if state.primary_schema:
+        if use_cached_analysis and cached_state and cached_state.domain_analysis:
+            state.domain_analysis = cached_state.domain_analysis
+        else:
+            try:
+                with cli_utils.CONSOLE.status("[dim]Analyzing domain...[/dim]", spinner="dots"):
+                    state.domain_analysis = state.llm_analyzer.analyze(state.primary_schema)
+            except Exception:
+                pass
+
+    if "task" not in state.completed_steps:
+        state = wizard_step_task(state, auto_accept=auto_accept)
+        save_wizard_cache(state, output_path, "task")
+    else:
+        desc_preview = state.task.description[:50] + "..." if state.task.description else "defined"
+        cli_utils.CONSOLE.print(f"\n[dim]Step 1/4: Task[/dim] [green]v[/green] {desc_preview}")
+
+    if "inputs" not in state.completed_steps:
+        state = wizard_step_inputs(state, auto_accept=auto_accept)
+        save_wizard_cache(state, output_path, "inputs")
+    else:
+        input_preview = INPUT_FORMATS.get(state.inputs.format, state.inputs.format)
+        cli_utils.CONSOLE.print(f"\n[dim]Step 2/4: Inputs[/dim] [green]v[/green] {input_preview}")
+
+    if "outputs" not in state.completed_steps:
+        state = wizard_step_outputs(state, auto_accept=auto_accept)
+        save_wizard_cache(state, output_path, "outputs")
+    else:
+        quality_preview = ", ".join(state.outputs.criteria[:2]) or "defined"
+        cli_utils.CONSOLE.print(f"\n[dim]Step 3/4: Outputs[/dim] [green]v[/green] {quality_preview}")
+
+    if "generate" not in state.completed_steps:
+        synth_config_path, judge_config_paths = wizard_step_generate(
+            state, output_path, num_samples=num_samples
+        )
+        save_wizard_cache(state, output_path, "generate")
+    else:
+        synth_config_path = str(output_path / "synth_config.yaml")
+        judge_config_paths = []
+        cli_utils.CONSOLE.print(f"\n[dim]Step 4/4: Generate[/dim] [green]v[/green] configs generated")
+
+    cli_utils.CONSOLE.print("\n[bold green]--- Complete! ---[/bold green]\n")
+
+    commands = [f"oumi synth -c {synth_config_path}"]
+    if judge_config_paths:
+        judge_path = judge_config_paths[0]
+        commands.append(f"oumi judge dataset -c {judge_path} --input {output_path / 'synth_output.jsonl'}")
+
+    cli_utils.CONSOLE.print(
+        Panel(
+            "\n".join(f"[bold white]{i+1}. {cmd}[/bold white]" for i, cmd in enumerate(commands)),
+            title="[green]Run these commands in order[/green]",
+            border_style="green",
+            padding=(1, 2),
+        )
+    )
+
+    cli_utils.CONSOLE.print(f"\n[dim]Configs saved to: {output_path}[/dim]")
+
+    cli_utils.CONSOLE.print(
+        Panel(
+            "[yellow]API Key:[/yellow] Set ANTHROPIC_API_KEY or OPENAI_API_KEY env var\n\n"
+            "[dim]To use a local model, edit the config and change:\n"
+            "  inference_config.engine: VLLM\n"
+            "  inference_config.model.model_name: <local-model-path>[/dim]",
+            title="Prerequisites",
+            border_style="yellow",
+        )
+    )
+
+
+def generate(
+    ctx: typer.Context,
+    data: Annotated[
+        str,
+        typer.Option(
+            "--data",
+            "-d",
+            help="Path to your data file.",
+        ),
+    ],
+    goal: Annotated[
+        str,
+        typer.Option(
+            "--goal",
+            "-g",
+            help="Goal: synth, judge, train, or pipeline.",
+        ),
+    ],
+    output: Annotated[
+        str,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output path for generated config(s).",
+        ),
+    ] = "./oumi_config.yaml",
+    synth_goal: Annotated[
+        Optional[str],
+        typer.Option(
+            "--synth-goal",
+            help="Synthesis goal: qa, conversation, augmentation, instruction.",
+        ),
+    ] = None,
+    judge_type: Annotated[
+        Optional[str],
+        typer.Option(
+            "--judge-type",
+            help="Judge type: generic, compliance, relevance, safety, groundedness.",
+        ),
+    ] = None,
+    num_samples: Annotated[
+        int,
+        typer.Option(
+            "--num-samples",
+            "-n",
+            help="Number of samples to generate (for synth).",
+        ),
+    ] = 10,
+    base_model: Annotated[
+        str,
+        typer.Option(
+            "--model",
+            "-m",
+            help="Base model for training.",
+        ),
+    ] = "meta-llama/Llama-3.2-1B-Instruct",
+    use_lora: Annotated[
+        bool,
+        typer.Option(
+            "--lora/--no-lora",
+            help="Use LoRA for training.",
+        ),
+    ] = True,
+):
+    """Generate Oumi config from your data automatically.
+
+    This command analyzes your data and generates configuration files
+    without interactive prompts.
+
+    Examples:
+        # Generate synth config
+        oumi onboard generate --data ./data.csv --goal synth -o ./synth.yaml
+
+        # Generate judge config
+        oumi onboard generate --data ./data.json --goal judge --judge-type compliance
+
+        # Generate full pipeline configs
+        oumi onboard generate --data ./data.csv --goal pipeline -o ./configs/
+    """
+    from oumi.onboarding import DataAnalyzer
+    from oumi.onboarding.config_builder import (
+        JudgeConfigBuilder,
+        SynthConfigBuilder,
+        TrainConfigBuilder,
+    )
+
+    if goal not in GOAL_CHOICES:
+        cli_utils.CONSOLE.print(
+            f"[red]Invalid goal: {goal}. Choose from: {GOAL_CHOICES}[/red]"
+        )
+        raise typer.Exit(1)
+
+    data_path = Path(data)
+    if not data_path.exists():
+        cli_utils.CONSOLE.print(f"[red]Error: File not found: {data}[/red]")
+        raise typer.Exit(1)
+
+    with cli_utils.CONSOLE.status("[green]Analyzing data...[/green]", spinner="dots"):
+        analyzer = DataAnalyzer()
+        schema = analyzer.analyze(data_path)
+
+    cli_utils.CONSOLE.print(
+        f"[green]Analyzed: {schema.row_count} rows, {len(schema.columns)} columns[/green]"
+    )
+
+    output_path = Path(output)
+
+    if goal == "synth":
+        sg = synth_goal or analyzer.suggest_goal(schema)
+        builder = SynthConfigBuilder()
+        config = builder.from_schema(schema, goal=sg, num_samples=num_samples)
+
+        if output_path.suffix != ".yaml":
+            output_path = output_path / "synth_config.yaml"
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        config.to_yaml(str(output_path))
+        cli_utils.CONSOLE.print(f"[green]Synth config saved to: {output_path}[/green]")
+
+    elif goal == "judge":
+        jt = judge_type or "generic"
+        builder = JudgeConfigBuilder()
+        config = builder.from_schema(schema, judge_type=jt)
+
+        if output_path.suffix != ".yaml":
+            output_path = output_path / "judge_config.yaml"
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        config.to_yaml(str(output_path))
+        cli_utils.CONSOLE.print(f"[green]Judge config saved to: {output_path}[/green]")
+
+    elif goal == "train":
+        builder = TrainConfigBuilder()
+        config = builder.from_data_path(
+            data,
+            base_model=base_model,
+            use_lora=use_lora,
+        )
+
+        if output_path.suffix != ".yaml":
+            output_path = output_path / "train_config.yaml"
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        config.to_yaml(str(output_path))
+        cli_utils.CONSOLE.print(f"[green]Train config saved to: {output_path}[/green]")
+
+    elif goal == "pipeline":
+        if output_path.suffix == ".yaml":
+            output_path = output_path.parent / "configs"
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        sg = synth_goal or analyzer.suggest_goal(schema)
+        jt = judge_type or "generic"
+
+        synth_builder = SynthConfigBuilder()
+        synth_config = synth_builder.from_schema(
+            schema,
+            goal=sg,
+            num_samples=num_samples,
+            output_path=str(output_path / "synth_output.jsonl"),
+        )
+
+        judge_builder = JudgeConfigBuilder()
+        judge_config = judge_builder.from_schema(schema, judge_type=jt)
+
+        train_builder = TrainConfigBuilder()
+        train_config = train_builder.from_data_path(
+            str(output_path / "synth_output.jsonl"),
+            base_model=base_model,
+            use_lora=use_lora,
+            output_dir=str(output_path / "model_output"),
+        )
+
+        synth_config.to_yaml(str(output_path / "synth_config.yaml"))
+        judge_config.to_yaml(str(output_path / "judge_config.yaml"))
+        train_config.to_yaml(str(output_path / "train_config.yaml"))
+
+        cli_utils.CONSOLE.print(f"[green]Pipeline configs saved to: {output_path}/[/green]")
+        cli_utils.CONSOLE.print("  - synth_config.yaml")
+        cli_utils.CONSOLE.print("  - judge_config.yaml")
+        cli_utils.CONSOLE.print("  - train_config.yaml")
+
+
+def templates(
+    ctx: typer.Context,
+    config_type: Annotated[
+        Optional[str],
+        typer.Option(
+            "--type",
+            "-t",
+            help="Filter by config type: synth, judge, train.",
+        ),
+    ] = None,
+):
+    """List available configuration templates.
+
+    Example:
+        oumi onboard templates --type synth
+    """
+    table = Table(title="Available Templates", show_edge=False)
+    table.add_column("Template", style="cyan")
+    table.add_column("Type", style="yellow")
+    table.add_column("Description", style="green")
+
+    templates_list = [
+        ("qa_generation", "synth", "Generate Q&A pairs from context"),
+        ("conversation_augmentation", "synth", "Augment conversation data"),
+        ("data_augmentation", "synth", "Create variations of existing data"),
+        ("instruction_following", "synth", "Generate instruction-following data"),
+        ("compliance_judge", "judge", "Evaluate compliance with guidelines"),
+        ("relevance_judge", "judge", "Evaluate answer relevance"),
+        ("safety_judge", "judge", "Evaluate content safety"),
+        ("groundedness_judge", "judge", "Evaluate factual accuracy"),
+        ("lora_sft", "train", "LoRA fine-tuning configuration"),
+        ("full_sft", "train", "Full fine-tuning configuration"),
+    ]
+
+    for name, ttype, desc in templates_list:
+        if config_type is None or ttype == config_type:
+            table.add_row(name, ttype, desc)
+
+    cli_utils.CONSOLE.print(table)
+    cli_utils.CONSOLE.print(
+        "\n[dim]Use templates with: oumi onboard generate --template <name>[/dim]"
+    )
+
+
+def analyze(
+    ctx: typer.Context,
+    data: Annotated[
+        str,
+        typer.Option(
+            "--data",
+            "-d",
+            help="Path to your data file.",
+        ),
+    ],
+):
+    """Analyze a data file and show suggested configurations.
+
+    Example:
+        oumi onboard analyze --data ./my_data.csv
+    """
+    from oumi.onboarding import DataAnalyzer, FieldMapper
+
+    data_path = Path(data)
+    if not data_path.exists():
+        cli_utils.CONSOLE.print(f"[red]Error: File not found: {data}[/red]")
+        raise typer.Exit(1)
+
+    with cli_utils.CONSOLE.status("[green]Analyzing...[/green]", spinner="dots"):
+        analyzer = DataAnalyzer()
+        schema = analyzer.analyze(data_path)
+        mapper = FieldMapper()
+        mappings = mapper.suggest_mappings(schema)
+
+    _display_schema_info(schema)
+
+    if mappings:
+        mapping_table = Table(title="Suggested Field Mappings", show_edge=False)
+        mapping_table.add_column("Your Column", style="cyan")
+        mapping_table.add_column("Oumi Placeholder", style="green")
+        mapping_table.add_column("Confidence", style="yellow")
+
+        for m in mappings:
+            conf_str = f"{m.confidence:.0%}"
+            mapping_table.add_row(m.customer_column, f"{{{m.oumi_placeholder}}}", conf_str)
+
+        cli_utils.CONSOLE.print(mapping_table)
+
+    suggested_goal = analyzer.suggest_goal(schema)
+    cli_utils.CONSOLE.print(f"\n[bold]Suggested synthesis goal:[/bold] [green]{suggested_goal}[/green]")
+
+    cli_utils.CONSOLE.print(
+        f"\n[dim]To generate configs: oumi onboard generate --data {data} --goal synth[/dim]"
+    )
+
+
+def _display_schema_info(schema):
+    """Display analyzed schema information."""
+    table = Table(title=f"Data Analysis: {schema.source_path}", show_edge=False)
+    table.add_column("Property", style="cyan")
+    table.add_column("Value", style="green")
+
+    table.add_row("Format", schema.detected_format)
+    table.add_row("Rows", str(schema.row_count))
+    table.add_row("Columns", str(len(schema.columns)))
+
+    if schema.conversation_columns:
+        table.add_row("Conversation cols", ", ".join(schema.conversation_columns))
+    if schema.text_columns:
+        table.add_row("Text cols", ", ".join(schema.text_columns[:5]))
+    if schema.categorical_columns:
+        table.add_row("Categorical cols", ", ".join(schema.categorical_columns[:5]))
+
+    cli_utils.CONSOLE.print(table)
