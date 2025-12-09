@@ -98,33 +98,33 @@ analyzers:
   # TRAINING QUALITY ANALYZER - SFT effectiveness metrics
   # Uncomment for instruction tuning datasets
   # ---------------------------------------------------------------------------
-  # - id: training_quality
-  #   params:
-  #     compute_response_completeness: true
-  #     min_response_words: 5
+  - id: training_quality
+    params:
+      compute_response_completeness: true
+      min_response_words: 5
 
   # ---------------------------------------------------------------------------
   # COST ANALYZER - Context window utilization
   # Uncomment for training cost estimation
   # ---------------------------------------------------------------------------
-  # - id: cost
-  #   params:
-  #     target_context_windows: [4096, 8192, 16384, 32768]
-  #     compute_packing_efficiency: true
-  #     packing_overhead_tokens: 10
+  - id: cost
+    params:
+      target_context_windows: [4096, 8192, 16384, 32768]
+      compute_packing_efficiency: true
+      packing_overhead_tokens: 10
 
   # ---------------------------------------------------------------------------
   # CONTENT PATTERN ANALYZER - AI-specific quality issues
   # Detects placeholders, hallucinated experiences, refusals, nooutput markers
   # Uncomment for AI-generated dataset quality checks
   # ---------------------------------------------------------------------------
-  # - id: content_pattern
-  #   params:
-  #     detect_placeholders: true        # [Name], [Company], etc.
-  #     detect_hallucinated_experiences: true  # Fabricated first-person stories
-  #     detect_nooutput: true            # <nooutput>, N/A, etc.
-  #     detect_refusals: true            # "I cannot provide..."
-  #     check_output_only: false         # Only check assistant messages
+  - id: content_pattern
+    params:
+      detect_placeholders: true # [Name], [Company], etc.
+      detect_hallucinated_experiences: true # Fabricated first-person stories
+      detect_nooutput: true # <nooutput>, N/A, etc.
+      detect_refusals: true # "I cannot provide..."
+      check_output_only: false # Only check assistant messages
 
   # ---------------------------------------------------------------------------
   # EMBEDDING ANALYZER - Semantic duplicate detection and clustering
@@ -149,31 +149,31 @@ analyzers:
   # Measures if user questions are too similar to each other
   # Requires: pip install 'oumi[analyze_advanced]'
   # ---------------------------------------------------------------------------
-  # - id: question_diversity
-  #   params:
-  #     cluster_questions: true
-  #     clustering_method: dbscan
-  #     eps: 0.15  # ~99% cosine similarity
-  #     min_samples: 2
-  #     model_name: all-MiniLM-L6-v2
-  #     batch_size: 32
-  #     compute_entropy: true
-  #     compute_concentration: true
-  #     flag_concentrated_clusters: true
-  #     concentration_threshold: 0.5
+  - id: question_diversity
+    params:
+      cluster_questions: true
+      clustering_method: dbscan
+      eps: 0.15 # ~99% cosine similarity
+      min_samples: 2
+      model_name: all-MiniLM-L6-v2
+      batch_size: 32
+      compute_entropy: true
+      compute_concentration: true
+      flag_concentrated_clusters: true
+      concentration_threshold: 0.5
 
   # ---------------------------------------------------------------------------
   # FASTTEXT ANALYZER - Language detection (176+ languages)
   # 80x faster than langdetect, works offline
   # Requires: pip install 'oumi[analyze]'
   # ---------------------------------------------------------------------------
-  # - id: fasttext
-  #   params:
-  #     detect_language: true
-  #     detect_script: true  # latin, cyrillic, cjk, etc.
-  #     detect_multilingual: true
-  #     min_confidence: 0.0
-  #     low_confidence_threshold: 0.5
+  - id: fasttext
+    params:
+      detect_language: true
+      detect_script: true # latin, cyrillic, cjk, etc.
+      detect_multilingual: true
+      min_confidence: 0.0
+      low_confidence_threshold: 0.5
 
   # ---------------------------------------------------------------------------
   # LLM JUDGE ANALYZER - LLM-based sample evaluation
@@ -205,29 +205,39 @@ analyzers:
   # IFD > 1 = instruction helps (valuable), IFD < 1 = may be confusing
   # Requires: pip install 'oumi[analyze]' transformers torch
   # ---------------------------------------------------------------------------
-  # - id: ifd
-  #   params:
-  #     model_name: Qwen/Qwen3-0.6B  # Fast, good quality
-  #     # model_name: gpt2  # Smallest, fastest
-  #     # model_name: meta-llama/Llama-3.2-1B  # Alternative
-  #     instruction_column: instruction
-  #     response_column: output
-  #     batch_size: 4
-  #     max_length: 2048
-  #     trust_remote_code: true
+  - id: ifd
+    params:
+      model_name: Qwen/Qwen3-0.6B # Fast, good quality
+      # model_name: gpt2  # Smallest, fastest
+      # model_name: meta-llama/Llama-3.2-1B  # Alternative
+      instruction_column: instruction
+      response_column: output
+      batch_size: 4
+      max_length: 2048
+      trust_remote_code: true
 
   # ---------------------------------------------------------------------------
   # REPR DIVERSITY ANALYZER - DEITA-style embedding diversity
   # Measures how unique each sample is relative to dataset
   # Requires: pip install 'oumi[analyze_advanced]'
   # ---------------------------------------------------------------------------
-  # - id: repr_diversity
-  #   params:
-  #     model_name: sentence-transformers/all-MiniLM-L6-v2
-  #     k_neighbors: 5
-  #     diversity_threshold: 0.3
-  #     embed_field: all  # "all", "user", or "assistant"
-  #     batch_size: 32
+  - id: repr_diversity
+    params:
+      model_name: sentence-transformers/all-MiniLM-L6-v2
+      k_neighbors: 5
+      diversity_threshold: 0.3
+
+      # RECOMMENDED: Use role-specific thresholds for instruction datasets
+      # This prevents system prompts from inflating redundancy metrics
+      # Uncomment the following to use role-specific thresholds:
+      # role_specific_thresholds:
+      #   system: null      # Exclude system prompts (typically identical)
+      #   user: 0.25        # Strict diversity for instructions
+      #   assistant: 0.30   # Standard diversity for responses
+      # Note: diversity_threshold is ignored if role_specific_thresholds is set
+
+      embed_field: all # "all", "user", or "assistant"
+      batch_size: 32
 
   # ---------------------------------------------------------------------------
   # EVOL COMPLEXITY ANALYZER - DEITA instruction complexity scoring
@@ -266,65 +276,65 @@ analyzers:
   # TASK CATEGORY ANALYZER - Instruction type classification
   # Categorizes instructions by task type (math, coding, creative, etc.)
   # ---------------------------------------------------------------------------
-  # - id: task_category
-  #   params:
-  #     min_confidence: 0.3  # Minimum confidence for classification
-  #     default_category: other  # Category when no patterns match
-  #     analyze_user_only: true  # Only analyze user messages
+  - id: task_category
+    params:
+      min_confidence: 0.3 # Minimum confidence for classification
+      default_category: other # Category when no patterns match
+      analyze_user_only: true # Only analyze user messages
 
   # ---------------------------------------------------------------------------
   # SAFETY ANALYZER - Safety and risk classification
   # Detects potentially harmful content (violence, hate, etc.)
   # ---------------------------------------------------------------------------
-  # - id: safety
-  #   params:
-  #     strict_mode: false  # If true, flag any pattern match
-  #     include_categories: true  # Include detailed category flags
+  - id: safety
+    params:
+      strict_mode: false # If true, flag any pattern match
+      include_categories: true # Include detailed category flags
 
   # ---------------------------------------------------------------------------
   # DIFFICULTY ANALYZER - Instruction complexity estimation
   # Estimates how difficult instructions are to complete
   # ---------------------------------------------------------------------------
-  # - id: difficulty
-  #   params:
-  #     analyze_user_only: true  # Only analyze user messages
-  #     include_component_scores: true  # Include individual difficulty components
+  - id: difficulty
+    params:
+      analyze_user_only: true # Only analyze user messages
+      include_component_scores: true # Include individual difficulty components
 
   # ---------------------------------------------------------------------------
   # INSTRUCT REWARD ANALYZER - Response quality scoring (Magpie framework)
   # Scores responses on helpfulness, completeness, clarity, safety
   # ---------------------------------------------------------------------------
-  # - id: instruct_reward
-  #   params:
-  #     min_response_words: 10
-  #     max_response_words: 2000
-  #     analyze_assistant_only: true
-  #     include_component_scores: true
+  - id: instruct_reward
+    params:
+      min_response_words: 10
+      max_response_words: 2000
+      analyze_assistant_only: true
+      include_component_scores: true
 
   # ---------------------------------------------------------------------------
   # INPUT QUALITY ANALYZER - Instruction quality rating (Magpie framework)
   # Rates instruction quality from very_poor to excellent
   # ---------------------------------------------------------------------------
-  # - id: input_quality
-  #   params:
-  #     analyze_user_only: true
-  #     include_component_flags: true
+  - id: input_quality
+    params:
+      analyze_user_only: true
+      include_component_flags: true
 
   # ---------------------------------------------------------------------------
   # CONVERSATION STRUCTURE ANALYZER - Turn pattern analysis
   # Analyzes single-turn vs multi-turn conversation patterns
   # ---------------------------------------------------------------------------
-  # - id: conversation_structure
-  #   params:
-  #     single_turn_threshold: 2
-  #     compute_length_stats: true
+  - id: conversation_structure
+    params:
+      single_turn_threshold: 2
+      compute_length_stats: true
 
   # ---------------------------------------------------------------------------
   # RESPONSE COMPLETENESS ANALYZER - Truncation detection
   # Detects incomplete/truncated responses
   # ---------------------------------------------------------------------------
-  # - id: response_completeness
-  #   params:
-  #     analyze_assistant_only: true
-  #     strict_mode: false
-  #     include_truncation_type: true
+  - id: response_completeness
+    params:
+      analyze_assistant_only: true
+      strict_mode: false
+      include_truncation_type: true

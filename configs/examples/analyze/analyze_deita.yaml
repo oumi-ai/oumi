@@ -29,18 +29,20 @@ report_title: "DEITA Data Quality Analysis"
 
 # Analyzers
 analyzers:
-  # Basic metrics (fast, no external dependencies)
-  - id: "length"
-    params:
-      token_count: true
-
   # Embedding-based diversity scoring (DEITA Repr Filter)
   # Measures how unique each sample is relative to the dataset
   - id: "repr_diversity"
     params:
       model_name: "sentence-transformers/all-MiniLM-L6-v2"
       k_neighbors: 5
-      diversity_threshold: 0.3 # Samples below this are flagged as redundant
+
+      # Use role-specific thresholds for accurate diversity measurement
+      # System prompts are typically identical and should be excluded
+      role_specific_thresholds:
+        system: null # Exclude system prompts from diversity analysis
+        user: 0.25 # Strict diversity for instructions (keep top 90%)
+        assistant: 0.30 # Standard diversity for responses
+
       embed_field: "all" # "all", "user", or "assistant"
       batch_size: 32
       show_progress_bar: true
@@ -51,14 +53,22 @@ analyzers:
     params:
       # Model configuration - choose one:
       # Option 1: Use Anthropic API (default)
-      model_type: "api"
-      api_provider: "anthropic"
-      api_model: "claude-4-5-haiku" # Cost-effective
+      # model_type: "api"
+      # api_provider: "anthropic"
+      # api_model: "claude-4-5-haiku" # Cost-effective
 
       # Option 2: Use OpenAI API
-      # model_type: "api"
-      # api_provider: "openai"
-      # api_model: "gpt-4o-mini"
+      model_type: "api"
+      api_provider: "openai"
+      api_model: "gpt-5-mini"
+
+      inference_config:
+        remote_params:
+          num_workers: 10 # Parallel API requests
+          politeness_policy: 6.0 # 10 RPM per worker = 100 RPM total
+          use_adaptive_concurrency: false # Predictable dev performance
+          max_retries: 2 # Fast failure
+          connection_timeout: 120.0 # 2 minutes max per request
 
       # Option 3: Use local model
       # model_type: "local"
@@ -77,7 +87,7 @@ analyzers:
       analyze_role: "user" # Analyze user instructions
 
       # Performance
-      temperature: 0.7
+      # temperature: 0.7
       max_retries: 2
       cache_responses: true
       show_progress: true
@@ -87,8 +97,8 @@ analyzers:
   - id: "evol_quality"
     params:
       model_type: "api"
-      api_provider: "anthropic"
-      api_model: "claude-4-5-haiku"
+      api_provider: "openai"
+      api_model: "gpt-5-mini"
 
       # Quality aspects to improve
       num_evolutions: 3
@@ -105,10 +115,18 @@ analyzers:
       analyze_role: "assistant" # Analyze assistant responses
 
       # Performance
-      temperature: 0.7
+      # temperature: 0.7
       max_retries: 2
       cache_responses: true
       show_progress: true
+
+      inference_config:
+        remote_params:
+          num_workers: 10 # Parallel API requests
+          politeness_policy: 6.0 # 10 RPM per worker = 100 RPM total
+          use_adaptive_concurrency: false # Predictable dev performance
+          max_retries: 2 # Fast failure
+          connection_timeout: 120.0 # 2 minutes max per request
 
 # Recommendations configuration
 generate_recommendations: true
