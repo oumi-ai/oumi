@@ -404,20 +404,30 @@ class LLMAnalyzer:
 
         # Handle word documents differently
         if schema.detected_format == "word" and schema.raw_text:
-            prompt = f"""Analyze this document content to understand the domain and purpose.
+            doc_size = len(schema.raw_text)
+            prompt = f"""Analyze this document to understand what the customer wants to build.
 
-DOCUMENT CONTENT (first 3000 chars):
-{schema.raw_text[:3000]}
+DOCUMENT INFO:
+- Size: {doc_size:,} characters
+- Sections/paragraphs: {schema.row_count}
+
+DOCUMENT CONTENT:
+{schema.raw_text}
+
+This document may be one of:
+1. **Use case specification**: Contains system prompts, output schemas, prompt templates, or examples of what the customer wants their model to do
+2. **Reference material**: Background knowledge, FAQs, or documentation the model should use
+3. **Training data**: Examples of inputs and outputs for training
 
 Analyze this document and return a JSON object with:
 {{
-    "domain": "the industry or field this document relates to",
-    "description": "brief description of what this document is about",
+    "domain": "the industry or field (e.g., 'B2B sales', 'customer support', 'healthcare')",
+    "description": "what this document is about and what the customer wants to achieve",
     "terminology": ["key", "domain", "specific", "terms"],
-    "quality_signals": ["what makes this type of content good"],
-    "common_issues": ["problems to watch for"],
-    "suggested_persona": "A system prompt persona for working with this content",
-    "data_purpose": "what this data/document appears to be used for"
+    "quality_signals": ["what indicates a good output for this use case"],
+    "common_issues": ["potential problems or edge cases to handle"],
+    "suggested_persona": "A system prompt persona based on what the document describes",
+    "data_purpose": "specification/reference/training - what role this document plays"
 }}
 
 Return ONLY the JSON object, no other text."""
@@ -451,11 +461,19 @@ Analyze this data and return a JSON object with:
 
 Return ONLY the JSON object, no other text."""
 
-        system = (
-            "You are a data analysis expert. Analyze the provided data samples "
-            "to understand the semantic domain, terminology, and data quality patterns. "
-            "Be specific and practical in your analysis."
-        )
+        # Use appropriate system prompt based on content type
+        if schema.detected_format == "word" and schema.raw_text:
+            system = (
+                "You are an ML engineer helping customers build AI models. "
+                "Analyze customer-provided documents to understand what they want to build. "
+                "Look for explicit specifications like system prompts, output schemas, and examples."
+            )
+        else:
+            system = (
+                "You are a data analysis expert. Analyze the provided data samples "
+                "to understand the semantic domain, terminology, and data quality patterns. "
+                "Be specific and practical in your analysis."
+            )
 
         result = self._invoke_json(prompt, system)
 

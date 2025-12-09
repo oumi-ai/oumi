@@ -15,15 +15,17 @@
 """Onboard wizard module for customer onboarding."""
 
 from .cache import (
+    clear_cache,
     compute_file_hash,
     display_cache_summary,
     get_cache_path,
+    list_cache_files,
     load_wizard_cache,
     open_cache_for_editing,
     prompt_cache_action,
     save_wizard_cache,
 )
-from .cli import analyze, generate, templates, wizard
+from .cli import analyze, cache_clear, generate, wizard
 from .dataclasses import (
     GOAL_CHOICES,
     INPUT_FORMATS,
@@ -55,8 +57,8 @@ from .wizard_steps import (
 __all__ = [
     # CLI commands
     "analyze",
+    "cache_clear",
     "generate",
-    "templates",
     "wizard",
     # Dataclasses
     "InputSpec",
@@ -71,9 +73,11 @@ __all__ = [
     "SYNTH_GOAL_CHOICES",
     "TASK_TYPES",
     # Cache functions
+    "clear_cache",
     "compute_file_hash",
     "display_cache_summary",
     "get_cache_path",
+    "list_cache_files",
     "load_wizard_cache",
     "open_cache_for_editing",
     "prompt_cache_action",

@@ -1,0 +1,16 @@
+Extract the requested information from this input.
+
+Task: {{ task_description }}
+{% if output_format %}
+
+Expected output format:
+{{ output_format }}
+{% endif %}
+
+Input to process:
+{synth_question}
+
+Extract all relevant information and return it in the expected format. Be precise and include only information present in the input.
+
+Format your response as:
+Answer: <extracted structured data>

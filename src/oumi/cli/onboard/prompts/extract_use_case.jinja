@@ -1,0 +1,44 @@
+Analyze this document to extract the customer's ML/AI use case specification.
+
+Customers often provide documentation that describes what they want their model to do.
+This may include system prompts, user prompt templates, output schemas, or examples.
+
+## Document Info
+{{ document_info }}
+
+## Document Content
+{{ document_content }}
+
+## What to Extract
+
+Look for ANY of these elements that the customer has explicitly defined:
+
+1. **System Prompt**: Instructions for how the AI should behave (often starts with "You are...")
+2. **User Prompt Template**: Template for user inputs, may contain {placeholders}
+3. **Output Schema**: Expected output structure (JSON schema, Pydantic models, field definitions)
+4. **Task Description**: What the model should do (extract, classify, generate, etc.)
+5. **Examples**: Input/output examples showing desired behavior
+
+## Response Format
+
+Return a JSON object with these fields (use null if not found in the document):
+
+{
+    "has_explicit_use_case": true/false,
+    "task_description": "One sentence describing the task, or null",
+    "system_prompt": "The system prompt from the document, or null",
+    "user_prompt_template": "The user prompt template with {placeholders}, or null",
+    "output_schema": "Description of expected output format/structure, or null",
+    "output_example": "An example output if provided, or null",
+    "input_fields": ["list", "of", "input", "field", "names"],
+    "output_fields": ["list", "of", "output", "field", "names"]
+}
+
+## Important Guidelines
+- Extract EXACTLY what the customer wrote, do not paraphrase or modify
+- If the document contains a system prompt, copy it verbatim
+- If there's a Pydantic model or JSON schema, describe its structure
+- Set has_explicit_use_case to true if ANY of the above elements are found
+- Preserve {placeholder} syntax in templates
+
+Return ONLY the JSON object.

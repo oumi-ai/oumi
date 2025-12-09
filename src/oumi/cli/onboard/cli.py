@@ -29,9 +29,11 @@ from rich.table import Table
 import oumi.cli.cli_utils as cli_utils
 
 from .cache import (
+    clear_cache,
     compute_file_hash,
     display_cache_summary,
     get_cache_path,
+    list_cache_files,
     load_wizard_cache,
     open_cache_for_editing,
     prompt_cache_action,
@@ -165,8 +167,8 @@ def wizard(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    cache_path = get_cache_path(output_path)
-    cached_state = load_wizard_cache(output_path)
+    cache_path = get_cache_path(output_path, model, engine_upper)
+    cached_state = load_wizard_cache(output_path, model, engine_upper)
     use_cached_analysis = False
 
     if cached_state:
@@ -177,7 +179,7 @@ def wizard(
 
         if action == "edit":
             open_cache_for_editing(cache_path)
-            cached_state = load_wizard_cache(output_path)
+            cached_state = load_wizard_cache(output_path, model, engine_upper)
             if not cached_state:
                 cli_utils.CONSOLE.print("[yellow]Could not reload cache. Starting fresh.[/yellow]")
 
@@ -318,21 +320,21 @@ def wizard(
 
     if "task" not in state.completed_steps:
         state = wizard_step_task(state, auto_accept=auto_accept)
-        save_wizard_cache(state, output_path, "task")
+        save_wizard_cache(state, output_path, "task", model, engine_upper)
     else:
         desc_preview = state.task.description[:50] + "..." if state.task.description else "defined"
         cli_utils.CONSOLE.print(f"\n[dim]Step 1/4: Task[/dim] [green]v[/green] {desc_preview}")
 
     if "inputs" not in state.completed_steps:
         state = wizard_step_inputs(state, auto_accept=auto_accept)
-        save_wizard_cache(state, output_path, "inputs")
+        save_wizard_cache(state, output_path, "inputs", model, engine_upper)
     else:
         input_preview = INPUT_FORMATS.get(state.inputs.format, state.inputs.format)
         cli_utils.CONSOLE.print(f"\n[dim]Step 2/4: Inputs[/dim] [green]v[/green] {input_preview}")
 
     if "outputs" not in state.completed_steps:
         state = wizard_step_outputs(state, auto_accept=auto_accept)
-        save_wizard_cache(state, output_path, "outputs")
+        save_wizard_cache(state, output_path, "outputs", model, engine_upper)
     else:
         quality_preview = ", ".join(state.outputs.criteria[:2]) or "defined"
         cli_utils.CONSOLE.print(f"\n[dim]Step 3/4: Outputs[/dim] [green]v[/green] {quality_preview}")
@@ -341,7 +343,7 @@ def wizard(
         synth_config_path, judge_config_paths = wizard_step_generate(
             state, output_path, num_samples=num_samples
         )
-        save_wizard_cache(state, output_path, "generate")
+        save_wizard_cache(state, output_path, "generate", model, engine_upper)
     else:
         synth_config_path = str(output_path / "synth_config.yaml")
         judge_config_paths = []
@@ -487,25 +489,37 @@ def generate(
     if goal == "synth":
         sg = synth_goal or analyzer.suggest_goal(schema)
         builder = SynthConfigBuilder()
-        config = builder.from_schema(schema, goal=sg, num_samples=num_samples)
+        config = builder.build(
+            schema=schema,
+            goal=sg,
+            num_samples=num_samples,
+            task_description=f"Generate {sg} data from the provided dataset",
+            system_prompt="You are a helpful AI assistant.",
+        )
 
         if output_path.suffix != ".yaml":
             output_path = output_path / "synth_config.yaml"
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        config.to_yaml(str(output_path))
+        config.to_yaml(str(output_path), exclude_defaults=True)
         cli_utils.CONSOLE.print(f"[green]Synth config saved to: {output_path}[/green]")
 
     elif goal == "judge":
         jt = judge_type or "generic"
         builder = JudgeConfigBuilder()
-        config = builder.from_schema(schema, judge_type=jt)
+        config = builder.build(
+            schema=schema,
+            judge_name=jt,
+            criteria=f"Evaluate the quality of the response for {jt} criteria",
+            task_type="generation",
+            task_description="Evaluate model outputs",
+        )
 
         if output_path.suffix != ".yaml":
             output_path = output_path / "judge_config.yaml"
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        config.to_yaml(str(output_path))
+        config.to_yaml(str(output_path), exclude_defaults=True)
         cli_utils.CONSOLE.print(f"[green]Judge config saved to: {output_path}[/green]")
 
     elif goal == "train":
@@ -520,7 +534,7 @@ def generate(
             output_path = output_path / "train_config.yaml"
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        config.to_yaml(str(output_path))
+        config.to_yaml(str(output_path), exclude_defaults=True)
         cli_utils.CONSOLE.print(f"[green]Train config saved to: {output_path}[/green]")
 
     elif goal == "pipeline":
@@ -532,15 +546,23 @@ def generate(
         jt = judge_type or "generic"
 
         synth_builder = SynthConfigBuilder()
-        synth_config = synth_builder.from_schema(
-            schema,
+        synth_config = synth_builder.build(
+            schema=schema,
             goal=sg,
             num_samples=num_samples,
             output_path=str(output_path / "synth_output.jsonl"),
+            task_description=f"Generate {sg} data from the provided dataset",
+            system_prompt="You are a helpful AI assistant.",
         )
 
         judge_builder = JudgeConfigBuilder()
-        judge_config = judge_builder.from_schema(schema, judge_type=jt)
+        judge_config = judge_builder.build(
+            schema=schema,
+            judge_name=jt,
+            criteria=f"Evaluate the quality of the response for {jt} criteria",
+            task_type="generation",
+            task_description="Evaluate model outputs",
+        )
 
         train_builder = TrainConfigBuilder()
         train_config = train_builder.from_data_path(
@@ -550,58 +572,14 @@ def generate(
             output_dir=str(output_path / "model_output"),
         )
 
-        synth_config.to_yaml(str(output_path / "synth_config.yaml"))
-        judge_config.to_yaml(str(output_path / "judge_config.yaml"))
-        train_config.to_yaml(str(output_path / "train_config.yaml"))
+        synth_config.to_yaml(str(output_path / "synth_config.yaml"), exclude_defaults=True)
+        judge_config.to_yaml(str(output_path / "judge_config.yaml"), exclude_defaults=True)
+        train_config.to_yaml(str(output_path / "train_config.yaml"), exclude_defaults=True)
 
         cli_utils.CONSOLE.print(f"[green]Pipeline configs saved to: {output_path}/[/green]")
         cli_utils.CONSOLE.print("  - synth_config.yaml")
         cli_utils.CONSOLE.print("  - judge_config.yaml")
         cli_utils.CONSOLE.print("  - train_config.yaml")
-
-
-def templates(
-    ctx: typer.Context,
-    config_type: Annotated[
-        Optional[str],
-        typer.Option(
-            "--type",
-            "-t",
-            help="Filter by config type: synth, judge, train.",
-        ),
-    ] = None,
-):
-    """List available configuration templates.
-
-    Example:
-        oumi onboard templates --type synth
-    """
-    table = Table(title="Available Templates", show_edge=False)
-    table.add_column("Template", style="cyan")
-    table.add_column("Type", style="yellow")
-    table.add_column("Description", style="green")
-
-    templates_list = [
-        ("qa_generation", "synth", "Generate Q&A pairs from context"),
-        ("conversation_augmentation", "synth", "Augment conversation data"),
-        ("data_augmentation", "synth", "Create variations of existing data"),
-        ("instruction_following", "synth", "Generate instruction-following data"),
-        ("compliance_judge", "judge", "Evaluate compliance with guidelines"),
-        ("relevance_judge", "judge", "Evaluate answer relevance"),
-        ("safety_judge", "judge", "Evaluate content safety"),
-        ("groundedness_judge", "judge", "Evaluate factual accuracy"),
-        ("lora_sft", "train", "LoRA fine-tuning configuration"),
-        ("full_sft", "train", "Full fine-tuning configuration"),
-    ]
-
-    for name, ttype, desc in templates_list:
-        if config_type is None or ttype == config_type:
-            table.add_row(name, ttype, desc)
-
-    cli_utils.CONSOLE.print(table)
-    cli_utils.CONSOLE.print(
-        "\n[dim]Use templates with: oumi onboard generate --template <name>[/dim]"
-    )
 
 
 def analyze(
@@ -673,3 +651,129 @@ def _display_schema_info(schema):
         table.add_row("Categorical cols", ", ".join(schema.categorical_columns[:5]))
 
     cli_utils.CONSOLE.print(table)
+
+
+def cache_clear(
+    ctx: typer.Context,
+    output_dir: Annotated[
+        str,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Directory containing wizard cache files.",
+        ),
+    ] = "./oumi_configs",
+    model: Annotated[
+        Optional[str],
+        typer.Option(
+            "--model",
+            "-m",
+            help="Only clear cache for this specific model. Requires --engine.",
+        ),
+    ] = None,
+    engine: Annotated[
+        Optional[str],
+        typer.Option(
+            "--engine",
+            "-e",
+            help="Engine used with the model. Required if --model is specified.",
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            "-f",
+            help="Skip confirmation prompt.",
+        ),
+    ] = False,
+    list_only: Annotated[
+        bool,
+        typer.Option(
+            "--list",
+            "-l",
+            help="Only list cache files, don't delete them.",
+        ),
+    ] = False,
+):
+    """Clear wizard cache files.
+
+    By default, clears all cache files in the output directory.
+    Use --model and --engine to clear only a specific model's cache.
+
+    Examples:
+        # List all cache files
+        oumi onboard clear-cache --list
+
+        # Clear all caches
+        oumi onboard clear-cache
+
+        # Clear cache for a specific model
+        oumi onboard clear-cache --model claude-sonnet-4-20250514 --engine ANTHROPIC
+
+        # Clear all caches without confirmation
+        oumi onboard clear-cache --force
+    """
+    output_path = Path(output_dir)
+
+    if not output_path.exists():
+        cli_utils.CONSOLE.print(f"[yellow]Directory does not exist: {output_dir}[/yellow]")
+        raise typer.Exit(0)
+
+    # Validate model/engine combination
+    if model and not engine:
+        cli_utils.CONSOLE.print(
+            "[red]Error: --engine is required when --model is specified.[/red]"
+        )
+        raise typer.Exit(1)
+    if engine and not model:
+        cli_utils.CONSOLE.print(
+            "[red]Error: --model is required when --engine is specified.[/red]"
+        )
+        raise typer.Exit(1)
+
+    # List cache files
+    cache_files = list_cache_files(output_path)
+
+    if not cache_files:
+        cli_utils.CONSOLE.print(f"[dim]No cache files found in {output_dir}[/dim]")
+        raise typer.Exit(0)
+
+    # Display cache files
+    table = Table(title="Wizard Cache Files", show_edge=False)
+    table.add_column("File", style="cyan")
+    table.add_column("Size", style="green")
+    table.add_column("Modified", style="yellow")
+
+    for cache_file in cache_files:
+        stat = cache_file.stat()
+        size_kb = stat.st_size / 1024
+        from datetime import datetime
+        modified = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+        table.add_row(cache_file.name, f"{size_kb:.1f} KB", modified)
+
+    cli_utils.CONSOLE.print(table)
+    cli_utils.CONSOLE.print(f"\n[dim]Found {len(cache_files)} cache file(s) in {output_dir}[/dim]")
+
+    if list_only:
+        raise typer.Exit(0)
+
+    # Confirm deletion
+    if model and engine:
+        target_desc = f"cache for model '{model}' (engine: {engine})"
+    else:
+        target_desc = f"all {len(cache_files)} cache file(s)"
+
+    if not force:
+        from rich.prompt import Confirm
+        if not Confirm.ask(f"\n[yellow]Delete {target_desc}?[/yellow]"):
+            cli_utils.CONSOLE.print("[dim]Cancelled.[/dim]")
+            raise typer.Exit(0)
+
+    # Clear cache
+    deleted_count = clear_cache(output_path, model, engine)
+
+    if deleted_count > 0:
+        cli_utils.CONSOLE.print(f"[green]Deleted {deleted_count} cache file(s).[/green]")
+    else:
+        cli_utils.CONSOLE.print("[yellow]No matching cache files found to delete.[/yellow]")

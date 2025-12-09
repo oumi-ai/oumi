@@ -1,0 +1,24 @@
+You are evaluating a classification task.
+
+Task: {{ task_description }}
+{% if criteria %}
+
+Custom evaluation criteria:
+{{ criteria }}
+{% endif %}
+
+## Evaluation Criteria
+1. **Correct Label**: Is the assigned classification accurate?
+2. **Valid Label**: Is it from the expected set of labels?
+3. **Reasoning Quality**: Is the explanation sound and logical?
+4. **Confidence Calibration**: Does confidence match correctness?
+{% if output_format %}
+
+Expected labels/format: {{ output_format }}
+{% endif %}
+
+## Content to Evaluate
+Input: {input}
+Classification: {output}
+
+Evaluate the classification quality based on the criteria above.

@@ -119,6 +119,54 @@ def _filter_ignored_args(arg_list: list[str]) -> list[str]:
     ]
 
 
+def _remove_defaults_and_nulls(config: Any) -> Optional[Any]:
+    """Recursively remove null values and empty collections.
+
+    Args:
+        config: The config dictionary to process.
+
+    Returns:
+        The filtered config, or None if the entire config should be removed.
+    """
+    if config is None:
+        return None
+
+    if isinstance(config, list):
+        # Filter list items, removing nulls
+        filtered = [_remove_defaults_and_nulls(item) for item in config]
+        filtered = [item for item in filtered if item is not None]
+        return filtered if filtered else None
+
+    if isinstance(config, dict):
+        result = {}
+        for key, value in config.items():
+            # Skip null values
+            if value is None:
+                continue
+
+            # Skip empty dicts/lists
+            if isinstance(value, (dict, list)) and not value:
+                continue
+
+            # Recursively process nested structures
+            if isinstance(value, dict):
+                processed = _remove_defaults_and_nulls(value)
+                if processed:  # Only add non-empty dicts
+                    result[key] = processed
+            elif isinstance(value, list):
+                processed = _remove_defaults_and_nulls(value)
+                if processed:  # Only add non-empty lists
+                    result[key] = processed
+            else:
+                # Include primitive values
+                result[key] = value
+
+        return result if result else None
+
+    # Return primitives as-is
+    return config
+
+
 def _read_config_without_interpolation(config_path: str) -> str:
     """Reads a configuration file without interpolating variables.
 
@@ -137,13 +185,19 @@ def _read_config_without_interpolation(config_path: str) -> str:
 
 @dataclasses.dataclass(eq=False)
 class BaseConfig:
-    def to_yaml(self, config_path: Union[str, Path, StringIO]) -> None:
+    def to_yaml(
+        self,
+        config_path: Union[str, Path, StringIO],
+        exclude_defaults: bool = False,
+    ) -> None:
         """Saves the configuration to a YAML file.
 
         Non-primitive values are removed and warnings are logged.
 
         Args:
-            config_path: Path to save the config to
+            config_path: Path to save the config to.
+            exclude_defaults: If True, exclude null values and empty collections
+                from the output for a cleaner, more readable YAML file.
         """
         # Convert dataclass fields to a dictionary first
         config_dict = {}
@@ -164,6 +218,10 @@ class BaseConfig:
                 "as they cannot be saved to YAML:\n"
                 + "\n".join(f"- {path}" for path in sorted(removed_paths))
             )
+
+        # Optionally remove defaults and null values for cleaner output
+        if exclude_defaults:
+            processed_config = _remove_defaults_and_nulls(processed_config)
 
         OmegaConf.save(config=processed_config, f=config_path)
 

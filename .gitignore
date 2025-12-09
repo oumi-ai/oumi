@@ -1,3 +1,12 @@
+proposals/
+devrel/
+customers/
+.claude/
+test_pipeline_output/
+test_wizard_output/
+diff.sh
+oumi_configs/
+
 # Local experiments
 tmp/
 wandb/

@@ -16,6 +16,7 @@
 
 import hashlib
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -26,7 +27,32 @@ from rich.prompt import Prompt
 
 import oumi.cli.cli_utils as cli_utils
 
-from .dataclasses import INPUT_FORMATS, WIZARD_CACHE_FILE, WizardState
+from .dataclasses import INPUT_FORMATS, WizardState
+
+# Cache file pattern: .wizard_cache_{model_id}.yaml
+CACHE_FILE_PATTERN = ".wizard_cache_{model_id}.yaml"
+CACHE_FILE_GLOB = ".wizard_cache_*.yaml"
+
+
+def _sanitize_model_id(model: Optional[str], engine: str) -> str:
+    """Sanitize model identifier for use in filenames.
+
+    Args:
+        model: Model name (can contain slashes, colons, etc.).
+        engine: Engine name used for inference.
+
+    Returns:
+        Sanitized model identifier safe for filenames.
+    """
+    if model:
+        # Replace path separators and special chars with underscores
+        sanitized = re.sub(r"[/\\:*?\"<>|]", "_", model)
+        # Collapse multiple underscores
+        sanitized = re.sub(r"_+", "_", sanitized)
+        # Remove leading/trailing underscores
+        sanitized = sanitized.strip("_")
+        return f"{engine.lower()}_{sanitized}"
+    return engine.lower()
 
 
 def compute_file_hash(file_path: Path) -> str:
@@ -48,28 +74,93 @@ def compute_file_hash(file_path: Path) -> str:
         return ""
 
 
-def get_cache_path(output_dir: Path) -> Path:
-    """Get the path to the wizard cache file."""
-    return output_dir / WIZARD_CACHE_FILE
+def get_cache_path(
+    output_dir: Path,
+    model: Optional[str] = None,
+    engine: str = "ANTHROPIC",
+) -> Path:
+    """Get the path to the wizard cache file for a specific model.
+
+    Args:
+        output_dir: Directory containing cache files.
+        model: Model name used for analysis.
+        engine: Engine name used for inference.
+
+    Returns:
+        Path to the model-specific cache file.
+    """
+    model_id = _sanitize_model_id(model, engine)
+    cache_filename = CACHE_FILE_PATTERN.format(model_id=model_id)
+    return output_dir / cache_filename
 
 
-def save_wizard_cache(state: WizardState, output_dir: Path, step_name: str) -> None:
+def list_cache_files(output_dir: Path) -> list[Path]:
+    """List all wizard cache files in a directory.
+
+    Args:
+        output_dir: Directory to search for cache files.
+
+    Returns:
+        List of paths to cache files.
+    """
+    if not output_dir.exists():
+        return []
+    return sorted(output_dir.glob(CACHE_FILE_GLOB))
+
+
+def clear_cache(output_dir: Path, model: Optional[str] = None, engine: Optional[str] = None) -> int:
+    """Clear wizard cache files.
+
+    Args:
+        output_dir: Directory containing cache files.
+        model: If specified with engine, only clear cache for this model.
+        engine: If specified with model, only clear cache for this model.
+
+    Returns:
+        Number of cache files deleted.
+    """
+    if model is not None and engine is not None:
+        # Clear specific model cache
+        cache_path = get_cache_path(output_dir, model, engine)
+        if cache_path.exists():
+            cache_path.unlink()
+            return 1
+        return 0
+    else:
+        # Clear all caches
+        cache_files = list_cache_files(output_dir)
+        for cache_file in cache_files:
+            cache_file.unlink()
+        return len(cache_files)
+
+
+def save_wizard_cache(
+    state: WizardState,
+    output_dir: Path,
+    step_name: str,
+    model: Optional[str] = None,
+    engine: str = "ANTHROPIC",
+) -> None:
     """Save wizard state to cache file after completing a step.
 
     Args:
         state: Current wizard state.
         output_dir: Output directory for cache file.
         step_name: Name of the step just completed.
+        model: Model name used for analysis.
+        engine: Engine name used for inference.
     """
     if step_name not in state.completed_steps:
         state.completed_steps.append(step_name)
 
-    cache_path = get_cache_path(output_dir)
+    cache_path = get_cache_path(output_dir, model, engine)
     cache_data = state.to_dict()
 
     cache_data["_metadata"] = {
-        "cache_version": "1.0",
+        "cache_version": "2.0",
         "description": "Oumi wizard state cache. You can edit this file to modify wizard settings.",
+        "model": model,
+        "engine": engine,
     }
 
     with open(cache_path, "w") as f:
@@ -78,16 +169,22 @@ def save_wizard_cache(state: WizardState, output_dir: Path, step_name: str) -> N
     cli_utils.CONSOLE.print(f"[dim]Cache saved: {cache_path}[/dim]")
 
 
-def load_wizard_cache(output_dir: Path) -> Optional[WizardState]:
+def load_wizard_cache(
+    output_dir: Path,
+    model: Optional[str] = None,
+    engine: str = "ANTHROPIC",
+) -> Optional[WizardState]:
     """Load wizard state from cache file if it exists.
 
     Args:
         output_dir: Output directory containing cache file.
+        model: Model name used for analysis.
+        engine: Engine name used for inference.
 
     Returns:
         WizardState if cache exists and is valid, None otherwise.
     """
-    cache_path = get_cache_path(output_dir)
+    cache_path = get_cache_path(output_dir, model, engine)
     if not cache_path.exists():
         return None
 

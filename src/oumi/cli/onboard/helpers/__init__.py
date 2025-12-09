@@ -18,8 +18,10 @@ from .file_helpers import detect_files_in_directory, analyze_file_purposes
 from .input_helpers import detect_input_source, fallback_input_detection
 from .output_helpers import suggest_quality_criteria
 from .task_helpers import (
+    ExtractedUseCase,
     analyze_task_from_files,
     derive_task_name,
+    extract_use_case_from_documents,
     generate_system_prompt,
     infer_task_type,
 )
@@ -30,6 +32,8 @@ __all__ = [
     "derive_task_name",
     "detect_files_in_directory",
     "detect_input_source",
+    "extract_use_case_from_documents",
+    "ExtractedUseCase",
     "fallback_input_detection",
     "generate_system_prompt",
     "infer_task_type",

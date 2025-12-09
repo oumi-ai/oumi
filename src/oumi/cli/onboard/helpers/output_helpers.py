@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..dataclasses import WizardState
 
+from ..prompts import load_prompt
+
 
 def suggest_quality_criteria(state: "WizardState", llm_analyzer) -> list[str]:
     """Suggest quality criteria based on task.
@@ -30,14 +32,10 @@ def suggest_quality_criteria(state: "WizardState", llm_analyzer) -> list[str]:
     Returns:
         List of suggested criteria strings.
     """
-    prompt = f"""For this task, suggest 3-5 quality criteria for evaluating responses.
-
-Task: {state.task.description}
-
-Return a JSON array of short criteria, e.g.:
-["accurate", "helpful", "clear", "complete"]
-
-Return ONLY the JSON array."""
+    prompt = load_prompt(
+        "suggest_quality_criteria",
+        task_description=state.task.description,
+    )
 
     try:
         result = llm_analyzer._invoke_json(prompt)

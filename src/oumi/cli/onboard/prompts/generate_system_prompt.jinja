@@ -1,0 +1,30 @@
+Create a system prompt for an AI assistant based on this context.
+
+## Context
+{{ context }}
+
+## CRITICAL Requirements
+1. EXACTLY 2-3 sentences maximum - no more
+2. MUST be generic and reusable (no specific file names, column names, or company names)
+3. MUST work at inference time without any reference to the training data source
+
+## Good System Prompt Characteristics
+- Starts with "You are..." to establish identity
+- Specifies the task type and expected behavior
+- Mentions output format only if critical (e.g., JSON for extraction)
+- Uses active, directive language
+
+## Examples (note the brevity)
+For extraction: "You are a data extraction specialist. Extract the requested structured information from the input and return it as JSON. Include key schema fields when the output structure is critical to the task."
+
+For classification: "You are a text classifier. Analyze the input and return the appropriate category with a brief explanation."
+
+For Q&A: "You are a knowledgeable assistant. Answer questions accurately based on the provided context."
+
+## What NOT to include
+- File names (e.g., "data.csv", "report.docx")
+- Column names from the data
+- Company or customer names
+- References to "training data" or "the dataset"
+
+Return ONLY the system prompt text (2-3 sentences), nothing else.

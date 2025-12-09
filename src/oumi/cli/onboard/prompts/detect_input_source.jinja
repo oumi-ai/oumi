@@ -1,0 +1,34 @@
+Identify the best input column(s) for this ML task.
+
+## Task
+{{ task_description }}
+
+## Available Columns
+{{ cols_info }}
+
+## Column Selection Guidelines
+1. Choose column(s) containing the data the model needs to perform the task
+2. EXCLUDE meaningless columns: IDs, UUIDs, timestamps, row numbers, internal identifiers
+3. PREFER columns with: text content, questions, documents, or structured data relevant to the task
+4. If multiple columns are needed (e.g., "title" + "body"), list them comma-separated
+
+## Format Definitions
+- single_turn: Simple request/response pairs (questions, single prompts)
+- multi_turn: Conversational data with multiple exchanges (chat history, dialogues)
+- document: Long-form text for processing (articles, documents, reports)
+- structured: Structured records or JSON data (forms, database rows, API responses)
+
+## Examples
+- Customer questions column → source_column: "question", format: "single_turn"
+- Chat history with messages → source_column: "messages", format: "multi_turn"
+- Article text for summarization → source_column: "content", format: "document"
+- Support ticket with title and description → source_column: "title, description", format: "single_turn"
+
+Return JSON:
+{
+    "source_column": "<column name or comma-separated column names>",
+    "format": "<single_turn|multi_turn|document|structured>",
+    "reasoning": "<1-2 sentence explanation>"
+}
+
+Return ONLY the JSON object.

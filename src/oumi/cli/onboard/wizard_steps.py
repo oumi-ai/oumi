@@ -28,6 +28,7 @@ from .dataclasses import INPUT_FORMATS, TASK_TYPES, WizardState
 from .helpers import (
     analyze_task_from_files,
     detect_input_source,
+    extract_use_case_from_documents,
     fallback_input_detection,
     generate_system_prompt,
     infer_task_type,
@@ -38,7 +39,8 @@ from .helpers import (
 def wizard_step_task(state: WizardState, auto_accept: bool = False) -> WizardState:
     """Step 1: Define task and generate system prompt.
 
-    Requires explicit user confirmation before proceeding.
+    First attempts to extract explicit use case from customer documents.
+    Falls back to generating task suggestions if no explicit use case found.
 
     Args:
         state: Current wizard state.
@@ -51,33 +53,117 @@ def wizard_step_task(state: WizardState, auto_accept: bool = False) -> WizardSta
         "\n[bold cyan]--- Step 1/4: Define Your Task ---[/bold cyan]\n"
     )
 
-    # Analyze files to suggest task
-    with cli_utils.CONSOLE.status("[dim]Analyzing your files...[/dim]", spinner="dots"):
-        analysis = analyze_task_from_files(state.files, state.llm_analyzer)
-        state.task.description = analysis.get("task_description", "")
-
-    # Display task description and ask for confirmation
-    cli_utils.CONSOLE.print(
-        Panel(
-            f"[bold]Task:[/bold] {state.task.description}",
-            title="[green]Suggested Task[/green]",
-            border_style="green",
+    # First, try to extract explicit use case from customer documents
+    extracted_use_case = None
+    with cli_utils.CONSOLE.status(
+        "[dim]Analyzing your files for use case specification...[/dim]", spinner="dots"
+    ):
+        extracted_use_case = extract_use_case_from_documents(
+            state.files, state.llm_analyzer
         )
-    )
 
-    # Confirm task description first
-    while not Confirm.ask("Accept this task description?", default=auto_accept):
-        state.task.description = Prompt.ask(
-            "What should your model do?",
-            default=state.task.description,
+    if extracted_use_case and extracted_use_case.has_explicit_use_case:
+        # Customer provided explicit use case - show what we extracted
+        cli_utils.CONSOLE.print(
+            "[bold green]Found explicit use case in your documents![/bold green]\n"
         )
+
+        # Build summary of extracted elements
+        extracted_parts = []
+        if extracted_use_case.task_description:
+            extracted_parts.append(
+                f"[bold]Task:[/bold] {extracted_use_case.task_description}"
+            )
+        if extracted_use_case.system_prompt:
+            # Truncate for display
+            prompt_preview = extracted_use_case.system_prompt[:300]
+            if len(extracted_use_case.system_prompt) > 300:
+                prompt_preview += "..."
+            extracted_parts.append(f"[bold]System Prompt:[/bold]\n{prompt_preview}")
+        if extracted_use_case.output_schema:
+            extracted_parts.append(
+                f"[bold]Output Schema:[/bold] {extracted_use_case.output_schema[:200]}"
+            )
+        if extracted_use_case.input_fields:
+            extracted_parts.append(
+                f"[bold]Input Fields:[/bold] {', '.join(extracted_use_case.input_fields)}"
+            )
+        if extracted_use_case.output_fields:
+            extracted_parts.append(
+                f"[bold]Output Fields:[/bold] {', '.join(extracted_use_case.output_fields)}"
+            )
+
         cli_utils.CONSOLE.print(
             Panel(
-                f"[bold]Task:[/bold] {state.task.description}",
-                title="[green]Updated Task[/green]",
+                "\n\n".join(extracted_parts),
+                title="[green]Extracted Use Case[/green]",
                 border_style="green",
             )
         )
+
+        # Ask if user wants to use extracted use case
+        if Confirm.ask("Use this extracted use case?", default=auto_accept or True):
+            # Use extracted values
+            state.task.description = (
+                extracted_use_case.task_description
+                or "Process input according to the provided specification"
+            )
+            state.task.system_prompt = (
+                extracted_use_case.system_prompt
+                or generate_system_prompt(state, state.llm_analyzer)
+            )
+
+            # Store additional extracted info for later use
+            state.extracted_use_case = extracted_use_case
+
+            # Infer task type
+            with cli_utils.CONSOLE.status(
+                "[dim]Detecting task type...[/dim]", spinner="dots"
+            ):
+                task_type, _ = infer_task_type(
+                    state.task.description,
+                    state.task.system_prompt,
+                    state.llm_analyzer,
+                )
+                state.task.task_type = task_type
+
+            cli_utils.CONSOLE.print("[green]v Task defined from your documentation[/green]")
+            return state
+
+    # Fall back to generating task suggestions
+    with cli_utils.CONSOLE.status("[dim]Generating task suggestions...[/dim]", spinner="dots"):
+        analysis = analyze_task_from_files(
+            state.files, state.llm_analyzer, state.domain_analysis
+        )
+        task_options = analysis.get("task_options", [])
+
+    # Display task options
+    cli_utils.CONSOLE.print("[bold]Select a task for your model:[/bold]\n")
+    for i, task in enumerate(task_options, 1):
+        cli_utils.CONSOLE.print(f"  [cyan][{i}][/cyan] {task}")
+    cli_utils.CONSOLE.print(f"  [cyan][{len(task_options) + 1}][/cyan] Enter custom task\n")
+
+    # Get user selection
+    valid_choices = [str(i) for i in range(1, len(task_options) + 2)]
+    choice = Prompt.ask(
+        "Your choice",
+        choices=valid_choices,
+        default="1" if auto_accept else None,
+    )
+
+    choice_idx = int(choice) - 1
+    if choice_idx < len(task_options):
+        state.task.description = task_options[choice_idx]
+    else:
+        state.task.description = Prompt.ask("What should your model do?")
+
+    cli_utils.CONSOLE.print(
+        Panel(
+            f"[bold]Task:[/bold] {state.task.description}",
+            title="[green]Selected Task[/green]",
+            border_style="green",
+        )
+    )
 
     cli_utils.CONSOLE.print("[green]v Task description confirmed[/green]\n")
 
@@ -279,25 +365,20 @@ def wizard_step_generate(
     cli_utils.CONSOLE.print("[dim]Generating synthesis config...[/dim]")
     synth_builder = SynthConfigBuilder()
 
-    if state.primary_schema:
-        synth_config = synth_builder.from_schema(
-            state.primary_schema,
-            goal="qa",
-            num_samples=num_samples,
-            output_path=str(output_path / "synth_output.jsonl"),
-            system_prompt=state.task.system_prompt,
-            task_description=state.task.description,
-            task_type=state.task.task_type,
-        )
-    else:
-        synth_config = synth_builder.from_template(
-            "qa_generation",
-            num_samples=num_samples,
-            output_path=str(output_path / "synth_output.jsonl"),
-        )
+    # Build synthesis config with task-specific prompts
+    synth_config = synth_builder.build(
+        schema=state.primary_schema,
+        goal="qa",
+        task_type=state.task.task_type if state.task else "generation",
+        task_description=state.task.description if state.task else "",
+        system_prompt=state.task.system_prompt if state.task else "",
+        domain=state.domain_analysis,
+        num_samples=num_samples,
+        output_path=str(output_path / "synth_output.jsonl"),
+    )
 
     synth_path = output_path / "synth_config.yaml"
-    synth_config.to_yaml(str(synth_path))
+    synth_config.to_yaml(str(synth_path), exclude_defaults=True)
     cli_utils.CONSOLE.print(f"[green]v Synthesis config:[/green] {synth_path}")
 
     # Generate judges from criteria
@@ -308,14 +389,16 @@ def wizard_step_generate(
 
         for criterion in state.outputs.criteria[:3]:
             judge_name = criterion.lower().replace(" ", "_")[:20]
-            judge_config = judge_builder.from_custom_criteria(
+            judge_config = judge_builder.build(
                 schema=state.primary_schema,
                 judge_name=judge_name,
                 criteria=f"Evaluate whether the response is {criterion}",
-                description=f"Judge for: {criterion}",
+                task_type=state.task.task_type if state.task else "generation",
+                task_description=state.task.description if state.task else "",
+                domain=state.domain_analysis,
             )
             judge_path = output_path / f"judge_{judge_name}.yaml"
-            judge_config.to_yaml(str(judge_path))
+            judge_config.to_yaml(str(judge_path), exclude_defaults=True)
             judge_paths.append(str(judge_path))
             cli_utils.CONSOLE.print(f"[green]v Judge config:[/green] {judge_path}")
 

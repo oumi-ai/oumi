@@ -1,0 +1,29 @@
+Classify this ML task and determine the expected output format.
+
+## Task Description
+{{ description }}
+
+## System Prompt
+{{ system_prompt }}
+
+## Available Task Types
+{{ task_types_str }}
+
+## Instructions
+1. Select the task type that best matches the task's primary objective
+2. Describe the expected output format based on the task (be specific)
+
+## Output Format Guidelines
+- For extraction tasks: specify the schema/fields (e.g., "JSON with 'name', 'date', 'amount' fields")
+- For classification: specify the label format (e.g., "single label from: positive, negative, neutral")
+- For generation: describe the text type (e.g., "2-3 paragraph summary" or "formal email response")
+- For transformation: describe the target format (e.g., "simplified English at 6th grade reading level")
+- For qa: describe answer style (e.g., "concise factual answer with source citation")
+
+Return JSON:
+{
+    "task_type": "<task type key from the list above>",
+    "output_format": "<specific description of expected output format>"
+}
+
+Return ONLY the JSON object.

@@ -1,0 +1,31 @@
+Suggest 3-5 quality criteria for evaluating model responses on this task.
+
+## Task
+{{ task_description }}
+
+## Guidelines for Good Criteria
+1. Be specific to the task (avoid generic criteria like "good" or "nice")
+2. Focus on measurable or observable qualities
+3. Cover different aspects: correctness, format, style, completeness
+4. Use single words or short phrases (1-3 words each)
+
+## Task-Specific Criteria Examples
+- Extraction tasks: accurate, complete, properly_formatted, no_hallucination
+- Classification tasks: correct_label, confident, well_reasoned
+- Generation tasks: fluent, relevant, coherent, on_topic, appropriate_length
+- QA tasks: factually_correct, well_sourced, concise, directly_answers_question
+- Summarization: captures_key_points, concise, no_fabrication, readable
+- Customer support: professional_tone, actionable, empathetic, solution_oriented
+
+## Common Quality Dimensions
+- Correctness: accurate, factual, correct, truthful
+- Completeness: thorough, comprehensive, complete, addresses_all_parts
+- Clarity: clear, readable, well_structured, coherent
+- Relevance: on_topic, relevant, focused, directly_addresses_task
+- Format: properly_formatted, follows_instructions, appropriate_length
+- Tone: professional, friendly, appropriate_formality
+
+Return a JSON array with 3-5 criteria most relevant to this specific task:
+["criterion1", "criterion2", "criterion3"]
+
+Return ONLY the JSON array.

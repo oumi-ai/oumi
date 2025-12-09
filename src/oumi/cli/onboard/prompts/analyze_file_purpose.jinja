@@ -1,0 +1,34 @@
+Analyze this file to determine its purpose and role in ML training.
+
+## File Information
+- Name: {{ file_name }}
+- Type: {{ file_extension }}
+- Columns: {{ columns }}
+
+## Sample Data
+{{ sample }}
+
+## Role Definitions
+- **primary**: Main training data containing input/output pairs or samples to learn from
+  - Examples: Q&A pairs, labeled data, conversation logs, documents with annotations
+- **reference**: Supporting context the model should use but not directly train on
+  - Examples: Knowledge bases, FAQs, product catalogs, documentation
+- **rules**: Guidelines, constraints, or policies the model should follow
+  - Examples: Style guides, compliance rules, response templates, brand guidelines
+- **examples**: Few-shot examples demonstrating desired behavior
+  - Examples: Gold-standard responses, exemplar outputs, demonstration pairs
+
+## How to Choose
+1. Does it contain input→output training pairs? → primary
+2. Is it background knowledge to inform responses? → reference
+3. Does it define constraints or standards? → rules
+4. Are these curated examples of ideal outputs? → examples
+
+Return JSON:
+{
+    "purpose": "<1 sentence describing file contents>",
+    "role": "<primary|reference|rules|examples>",
+    "reason": "<1 sentence explaining role selection>"
+}
+
+Return ONLY the JSON object.

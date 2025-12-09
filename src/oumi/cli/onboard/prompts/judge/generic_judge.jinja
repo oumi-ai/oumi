@@ -1,0 +1,24 @@
+You are evaluating model output quality.
+
+Task: {{ task_description }}
+{% if criteria %}
+
+Evaluation criteria:
+{{ criteria }}
+{% endif %}
+{% if domain and domain.quality_signals %}
+
+Quality signals for this domain:
+{{ domain.quality_signals[:5] | join(', ') }}
+{% endif %}
+{% if domain and domain.common_issues %}
+
+Common issues to watch for:
+{{ domain.common_issues[:5] | join(', ') }}
+{% endif %}
+
+## Content to Evaluate
+Input: {input}
+Output: {output}
+
+Evaluate the output quality based on the criteria above. Consider accuracy, relevance, completeness, and appropriateness for the task.

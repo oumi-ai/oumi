@@ -324,8 +324,6 @@ def _format_value(value: Any, is_default: bool = False) -> str:
     elif isinstance(value, str):
         if value.startswith("${"):
             return f"{dim_start}[magenta]{value}[/magenta]{dim_end}"
-        elif len(value) > 50:
-            return f'{dim_start}[green]"{value[:47]}..."[/green]{dim_end}'
         return f'{dim_start}[green]"{value}"[/green]{dim_end}'
     elif isinstance(value, (int, float)):
         return f"{dim_start}[yellow]{value}[/yellow]{dim_end}"

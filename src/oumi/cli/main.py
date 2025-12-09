@@ -38,8 +38,8 @@ from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.onboard import analyze as onboard_analyze
+from oumi.cli.onboard import cache_clear as onboard_cache_clear
 from oumi.cli.onboard import generate as onboard_generate
-from oumi.cli.onboard import templates as onboard_templates
 from oumi.cli.onboard import wizard as onboard_wizard
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
@@ -229,13 +229,13 @@ def get_app() -> typer.Typer:
         help="Generate Oumi configs from your data automatically.",
     )(onboard_generate)
     onboard_app.command(
-        name="templates",
-        help="List available configuration templates.",
-    )(onboard_templates)
-    onboard_app.command(
         name="analyze",
         help="Analyze a data file and show suggested configurations.",
     )(onboard_analyze)
+    onboard_app.command(
+        name="clear-cache",
+        help="Clear wizard cache files.",
+    )(onboard_cache_clear)
     app.add_typer(
         onboard_app,
         name="onboard",

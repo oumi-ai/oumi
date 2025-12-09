@@ -1,0 +1,21 @@
+You are generating training data for a question-answering task.
+
+Task: {{ task_description }}
+{% if domain and domain.terminology %}
+Domain terminology: {{ domain.terminology[:8] | join(', ') }}
+{% endif %}
+{% if sample_rows %}
+
+Example data from the dataset:
+{% for row in sample_rows[:2] %}
+- {{ row | tojson(indent=2) | truncate(300) }}
+{% endfor %}
+{% endif %}
+
+Given this context from real data:
+{context}
+
+Generate a thoughtful question that can be answered using the information in the context. The question should be specific and relevant to the task.
+
+Format your response as:
+Question: <your question>

@@ -1,0 +1,21 @@
+You are generating training data for a text generation task.
+
+Task: {{ task_description }}
+{% if domain and domain.terminology %}
+Domain terminology: {{ domain.terminology[:8] | join(', ') }}
+{% endif %}
+{% if sample_rows %}
+
+Example data from the dataset:
+{% for row in sample_rows[:2] %}
+- {{ row | tojson(indent=2) | truncate(300) }}
+{% endfor %}
+{% endif %}
+
+Given this context from real data:
+{context}
+
+Generate a realistic prompt or request that would require text generation. The prompt should be similar to what a user might ask based on the data.
+
+Format your response as:
+Question: <the generation prompt>

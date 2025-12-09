@@ -1,0 +1,16 @@
+Generate a response to this prompt.
+
+Task: {{ task_description }}
+{% if output_format %}
+
+Expected output style:
+{{ output_format }}
+{% endif %}
+
+Prompt:
+{synth_question}
+
+Generate a high-quality response that fulfills the request. Be helpful, accurate, and appropriately detailed.
+
+Format your response as:
+Answer: <generated response>

@@ -1,0 +1,16 @@
+Classify this input according to the task.
+
+Task: {{ task_description }}
+{% if output_format %}
+
+Expected output format:
+{{ output_format }}
+{% endif %}
+
+Input to classify:
+{synth_question}
+
+Provide the classification with a brief explanation of your reasoning.
+
+Format your response as:
+Answer: <classification label and reasoning>

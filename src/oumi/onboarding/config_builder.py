@@ -15,22 +15,17 @@
 """Configuration builders for customer onboarding.
 
 This module provides builders that generate Oumi configurations from
-analyzed customer data schemas.
+analyzed customer data schemas using LLM-powered prompt generation.
 """
 
 from __future__ import annotations
 
-import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
-from oumi.utils.logging import logger
-
-# Supported file types for DatasetSource
-SUPPORTED_DATASET_EXTENSIONS = {".csv", ".json", ".jsonl", ".tsv", ".parquet"}
-
+from oumi.cli.onboard.prompts import load_prompt
 from oumi.core.configs import (
     InferenceConfig,
     JudgeConfig,
@@ -49,8 +44,6 @@ from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
     GeneratedAttributePostprocessingParams,
-    SampledAttribute,
-    SampledAttributeValue,
     TextConversation,
     TextMessage,
     TransformationStrategy,
@@ -59,70 +52,27 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.types.conversation import Role
 from oumi.onboarding.data_analyzer import DataSchema
-from oumi.onboarding.field_mapper import FieldMapper, FieldMapping
-
-# Import TYPE_CHECKING to avoid circular imports
-from typing import TYPE_CHECKING
+from oumi.utils.logging import logger
 
 if TYPE_CHECKING:
-    from oumi.onboarding.llm_analyzer import DomainAnalysis, InferredConfig, LLMAnalyzer
+    from oumi.onboarding.llm_analyzer import DomainAnalysis
 
+# Type aliases
 SynthGoal = Literal["qa", "conversation", "augmentation", "instruction"]
 JudgeType = Literal["generic", "compliance", "relevance", "safety", "groundedness"]
 
-# Path to prompt templates directory
-_TEMPLATES_DIR = Path(__file__).parent.parent.parent.parent / "configs" / "templates"
+# Constants
+TABULAR_FORMATS = frozenset({"csv", "excel", "json", "jsonl"})
+SUPPORTED_DATASET_EXTENSIONS = {".csv", ".json", ".jsonl", ".tsv", ".parquet"}
 
 
-def _load_yaml_template(template_type: str, template_name: str) -> dict[str, Any]:
-    """Load a prompt template from a YAML file.
+class SynthPlaceholder:
+    """Standard placeholder names for synthesis configs."""
 
-    Args:
-        template_type: Type of template ("synth" or "judge").
-        template_name: Name of the template (e.g., "qa", "compliance").
-
-    Returns:
-        Dictionary containing the template prompts.
-
-    Raises:
-        FileNotFoundError: If the template file does not exist.
-    """
-    import yaml
-
-    template_path = _TEMPLATES_DIR / "prompts" / template_type / f"{template_name}.yaml"
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template not found: {template_path}")
-
-    with open(template_path) as f:
-        return yaml.safe_load(f)
-
-
-def _load_synth_template(goal: SynthGoal) -> dict[str, str]:
-    """Load a synthesis prompt template.
-
-    Args:
-        goal: The synthesis goal (qa, conversation, augmentation, instruction).
-
-    Returns:
-        Dictionary with system_prompt and generation prompts.
-    """
-    return _load_yaml_template("synth", goal)
-
-
-def _load_judge_template(judge_type: JudgeType) -> dict[str, Any]:
-    """Load a judge prompt template.
-
-    Args:
-        judge_type: The judge type (generic, compliance, relevance, safety, groundedness).
-
-    Returns:
-        Dictionary with system_instruction, prompt_template, and judgment_type.
-    """
-    template = _load_yaml_template("judge", judge_type)
-    # Convert string judgment_type to enum
-    judgment_type_str = template.get("judgment_type", "FLOAT")
-    template["judgment_type"] = getattr(JudgeOutputType, judgment_type_str)
-    return template
+    QUESTION = "synth_question"
+    ANSWER = "synth_answer"
+    CONVERSATION = "synth_conversation"
+    CONTEXT = "context"
 
 
 def _convert_to_supported_format(
@@ -140,17 +90,14 @@ def _convert_to_supported_format(
     path = Path(file_path)
     ext = path.suffix.lower()
 
-    # Already supported - return as-is
     if ext in SUPPORTED_DATASET_EXTENSIONS:
         return file_path
 
-    # Determine output path
     if output_dir:
         out_path = Path(output_dir) / f"{path.stem}.csv"
     else:
         out_path = path.with_suffix(".csv")
 
-    # Convert Excel files
     if ext in {".xlsx", ".xls"}:
         try:
             import pandas as pd
@@ -167,7 +114,6 @@ def _convert_to_supported_format(
         except Exception as e:
             raise ValueError(f"Failed to convert Excel file {file_path}: {e}")
 
-    # Unsupported format
     raise ValueError(
         f"Unsupported file type: {ext}. Supported types: {SUPPORTED_DATASET_EXTENSIONS}"
     )
@@ -177,7 +123,7 @@ def _convert_to_supported_format(
 class BuilderOptions:
     """Common options for config builders."""
 
-    model_name: str = "claude-haiku-4-5"
+    model_name: str = "claude-sonnet-4-20250514"
     engine: str = "ANTHROPIC"
     temperature: float = 1.0
     max_new_tokens: int = 8192
@@ -194,10 +140,9 @@ class ConfigBuilder(ABC):
             options: Builder options for model, engine, etc.
         """
         self.options = options or BuilderOptions()
-        self.field_mapper = FieldMapper()
 
     @abstractmethod
-    def from_schema(self, schema: DataSchema, **kwargs) -> Any:
+    def build(self, schema: DataSchema, **kwargs) -> Any:
         """Build a configuration from an analyzed data schema.
 
         Args:
@@ -227,7 +172,6 @@ class ConfigBuilder(ABC):
             generation=GenerationParams(
                 max_new_tokens=self.options.max_new_tokens,
                 temperature=self.options.temperature,
-                # top_p=0.9,
             ),
             remote_params=RemoteParams(
                 num_workers=self.options.num_workers,
@@ -237,71 +181,68 @@ class ConfigBuilder(ABC):
 
 
 class SynthConfigBuilder(ConfigBuilder):
-    """Build SynthesisConfig from customer data.
+    """Build SynthesisConfig from customer data using LLM-powered prompts.
 
     This builder analyzes customer data and generates a synthesis configuration
-    that can create synthetic training data based on the patterns found.
+    with task-specific prompts based on domain analysis and wizard inputs.
 
     Example:
         >>> from oumi.onboarding import DataAnalyzer, SynthConfigBuilder
         >>> analyzer = DataAnalyzer()
         >>> schema = analyzer.analyze("./customer_data.csv")
         >>> builder = SynthConfigBuilder()
-        >>> config = builder.from_schema(schema, goal="qa", num_samples=100)
+        >>> config = builder.build(
+        ...     schema,
+        ...     task_type="extraction",
+        ...     task_description="Extract product info from reviews",
+        ...     system_prompt="You are a product data extractor.",
+        ... )
         >>> config.to_yaml("./synth_config.yaml")
     """
 
-    def from_schema(
+    def build(
         self,
         schema: DataSchema,
         goal: SynthGoal = "qa",
+        task_type: str = "generation",
+        task_description: str = "",
+        system_prompt: str = "",
+        output_format: Optional[str] = None,
+        domain: Optional["DomainAnalysis"] = None,
         num_samples: int = 100,
         output_path: Optional[str] = None,
-        mappings: Optional[list[FieldMapping]] = None,
         attribute_map: Optional[dict[str, str]] = None,
-        system_prompt: Optional[str] = None,
-        task_description: Optional[str] = None,
-        task_type: Optional[str] = None,
-        output_format: Optional[str] = None,
     ) -> SynthesisConfig:
-        """Build a SynthesisConfig from analyzed data.
+        """Build a SynthesisConfig with task-specific prompts.
 
         Args:
             schema: The analyzed data schema.
             goal: Synthesis goal ("qa", "conversation", "augmentation", "instruction").
+            task_type: Task type from wizard (extraction, classification, generation, etc.).
+            task_description: User's task description from wizard.
+            system_prompt: Generated system prompt from wizard.
+            output_format: Description of expected output format.
+            domain: Optional DomainAnalysis for domain-specific terminology.
             num_samples: Number of samples to generate.
             output_path: Optional output path for generated data.
-            mappings: Optional pre-computed field mappings.
-            attribute_map: Optional explicit column-to-role mapping (e.g.,
-                {"context": "description_col", "question": "query_col"}).
-                Takes precedence over auto-detected mappings.
-            system_prompt: Optional custom system prompt for the task.
-            task_description: Optional task description to customize prompts.
-            task_type: Optional task type (extraction, classification, generation, etc.).
-            output_format: Optional description of expected output format.
+            attribute_map: Optional explicit column-to-role mapping.
 
         Returns:
-            A configured SynthesisConfig.
+            A configured SynthesisConfig with task-specific prompts.
         """
         from oumi.core.configs.synthesis_config import SynthesisStrategy
 
-        # Get field mappings if not provided
-        if mappings is None:
-            mappings = self.field_mapper.suggest_mappings(schema, goal)
-
-        # Build strategy params based on goal
         strategy_params = self._build_strategy_params(
-            schema,
-            goal,
-            mappings,
-            attribute_map=attribute_map,
-            system_prompt=system_prompt,
-            task_description=task_description,
+            schema=schema,
+            goal=goal,
             task_type=task_type,
+            task_description=task_description,
+            system_prompt=system_prompt,
             output_format=output_format,
+            domain=domain,
+            attribute_map=attribute_map,
         )
 
-        # Create output path if not provided
         if output_path is None:
             output_path = f"synth_{goal}_output.jsonl"
 
@@ -317,245 +258,152 @@ class SynthConfigBuilder(ConfigBuilder):
         self,
         schema: DataSchema,
         goal: SynthGoal,
-        mappings: list[FieldMapping],
-        attribute_map: Optional[dict[str, str]] = None,
-        system_prompt: Optional[str] = None,
-        task_description: Optional[str] = None,
-        task_type: Optional[str] = None,
-        output_format: Optional[str] = None,
+        task_type: str,
+        task_description: str,
+        system_prompt: str,
+        output_format: Optional[str],
+        domain: Optional["DomainAnalysis"],
+        attribute_map: Optional[dict[str, str]],
     ) -> GeneralSynthesisParams:
-        """Build strategy params based on the goal.
-
-        Args:
-            schema: The analyzed data schema.
-            goal: Synthesis goal.
-            mappings: Field mappings from auto-detection.
-            attribute_map: Optional explicit column-to-role mapping that takes
-                precedence over auto-detected mappings.
-            system_prompt: Optional custom system prompt for the task.
-            task_description: Optional task description to customize prompts.
-            task_type: Optional task type (extraction, classification, etc.).
-            output_format: Optional description of expected output format.
-        """
+        """Build strategy params with task-specific prompts from Jinja templates."""
         from oumi.core.configs.params.synthesis_params import ExampleSource
 
         params = GeneralSynthesisParams()
-        has_data_source = False
 
-        # Add input data source if schema has tabular data
-        if schema.source_path and schema.detected_format in (
-            "csv",
-            "excel",
-            "json",
-            "jsonl",
-        ):
-            # Use provided attribute_map or build from mappings
-            if attribute_map:
-                # Explicit column assignments provided - use directly
-                final_attribute_map = dict(attribute_map)
-            else:
-                # Build attribute map from auto-detected mappings
-                final_attribute_map = self._build_attribute_map(mappings)
-
-            # Ensure we have a "context" mapping (required by prompts)
-            if "context" not in final_attribute_map.values() and schema.columns:
-                # Find columns not yet mapped
-                mapped_cols = set(final_attribute_map.keys())
-                unmapped_cols = [c for c in schema.columns if c.name not in mapped_cols]
-
-                # Prefer text columns for context
-                text_cols = [c for c in unmapped_cols if c.is_text]
-                if text_cols:
-                    best_col = max(text_cols, key=lambda c: c.avg_length or 0)
-                    final_attribute_map[best_col.name] = "context"
-                elif unmapped_cols:
-                    # Use first unmapped column
-                    final_attribute_map[unmapped_cols[0].name] = "context"
-                elif schema.columns:
-                    # Last resort: use first column (even if already mapped)
-                    # Combine multiple columns into context
-                    text_cols = [c for c in schema.columns if c.is_text]
-                    if text_cols:
-                        best_col = max(text_cols, key=lambda c: c.avg_length or 0)
-                        final_attribute_map[best_col.name] = "context"
-                    else:
-                        final_attribute_map[schema.columns[0].name] = "context"
-
+        # Build input data source
+        if schema and schema.source_path and schema.detected_format in TABULAR_FORMATS:
+            final_attribute_map = self._build_attribute_map(schema, attribute_map)
             params.input_data = [
                 DatasetSource(
                     path=_convert_to_supported_format(schema.source_path),
                     attribute_map=final_attribute_map if final_attribute_map else None,
                 )
             ]
-            has_data_source = True
-
-        # Fallback: if no tabular data, use inline examples from sample_rows or raw_text
-        if not has_data_source:
-            examples = []
-            if schema.sample_rows:
-                # Use sample rows as examples
-                for row in schema.sample_rows[:5]:
-                    # Combine all text values as context
-                    text_parts = [str(v) for v in row.values() if v and str(v).strip()]
-                    if text_parts:
-                        examples.append({"context": " | ".join(text_parts)})
-            elif schema.raw_text:
-                # Use chunks of raw text as examples
-                text = schema.raw_text[:2000]
-                examples.append({"context": text})
-
-            # If we still have no examples, create a placeholder
-            if not examples:
-                examples.append(
-                    {"context": task_description or "Generate a sample input"}
-                )
-
+        else:
+            # Fallback to inline examples
+            examples = self._build_inline_examples(schema, task_description)
             params.input_examples = [ExampleSource(examples=examples)]
 
-        # Build generated attributes based on goal
-        if goal == "qa":
-            params.generated_attributes = self._build_qa_attributes(
-                mappings,
-                system_prompt=system_prompt,
-                task_description=task_description,
-                task_type=task_type,
-                output_format=output_format,
-            )
-            params.transformed_attributes = self._build_qa_transform(
-                system_prompt=system_prompt
-            )
-            params.passthrough_attributes = [
-                "synth_conversation",
-                "synth_question",
-                "synth_answer",
-            ]
-        elif goal == "conversation":
-            params.generated_attributes = self._build_conversation_attributes(mappings)
-            params.passthrough_attributes = ["conversation"]
-        elif goal == "augmentation":
-            params.generated_attributes = self._build_augmentation_attributes(mappings)
-            params.passthrough_attributes = ["augmented"]
-        elif goal == "instruction":
-            params.generated_attributes = self._build_instruction_attributes(
-                mappings, schema
-            )
-            params.passthrough_attributes = ["output"]
+        # Build generated attributes using Jinja templates
+        params.generated_attributes = self._build_generated_attributes(
+            task_type=task_type,
+            task_description=task_description,
+            system_prompt=system_prompt,
+            domain=domain,
+            schema=schema,
+            output_format=output_format,
+        )
+
+        # Build transformation to conversation format
+        params.transformed_attributes = self._build_conversation_transform(system_prompt)
+
+        # Set passthrough attributes
+        params.passthrough_attributes = [
+            SynthPlaceholder.CONVERSATION,
+            SynthPlaceholder.QUESTION,
+            SynthPlaceholder.ANSWER,
+        ]
 
         return params
 
-    def _build_attribute_map(self, mappings: list[FieldMapping]) -> dict[str, str]:
-        """Build attribute map from field mappings."""
-        return {m.customer_column: m.oumi_placeholder for m in mappings}
-
-    def _build_qa_attributes(
+    def _build_attribute_map(
         self,
-        mappings: list[FieldMapping],
-        system_prompt: Optional[str] = None,
-        task_description: Optional[str] = None,
-        task_type: Optional[str] = None,
-        output_format: Optional[str] = None,
+        schema: DataSchema,
+        attribute_map: Optional[dict[str, str]],
+    ) -> dict[str, str]:
+        """Build attribute map, ensuring context mapping exists."""
+        if attribute_map:
+            final_map = dict(attribute_map)
+        else:
+            final_map = {}
+
+        # Ensure we have a context mapping
+        if SynthPlaceholder.CONTEXT not in final_map.values() and schema.columns:
+            # Find best column for context
+            text_cols = [c for c in schema.columns if c.is_text]
+            if text_cols:
+                best_col = max(text_cols, key=lambda c: c.avg_length or 0)
+                final_map[best_col.name] = SynthPlaceholder.CONTEXT
+            elif schema.columns:
+                final_map[schema.columns[0].name] = SynthPlaceholder.CONTEXT
+
+        return final_map
+
+    def _build_inline_examples(
+        self,
+        schema: DataSchema,
+        task_description: str,
+    ) -> list[dict]:
+        """Build inline examples when no tabular data source is available."""
+        examples = []
+
+        if schema and schema.sample_rows:
+            for row in schema.sample_rows[:5]:
+                text_parts = [str(v) for v in row.values() if v and str(v).strip()]
+                if text_parts:
+                    examples.append({SynthPlaceholder.CONTEXT: " | ".join(text_parts)})
+        elif schema and schema.raw_text:
+            examples.append({SynthPlaceholder.CONTEXT: schema.raw_text[:2000]})
+
+        if not examples:
+            examples.append(
+                {SynthPlaceholder.CONTEXT: task_description or "Generate a sample input"}
+            )
+
+        return examples
+
+    def _build_generated_attributes(
+        self,
+        task_type: str,
+        task_description: str,
+        system_prompt: str,
+        domain: Optional["DomainAnalysis"],
+        schema: DataSchema,
+        output_format: Optional[str],
     ) -> list[GeneratedAttribute]:
-        """Build generated attributes for Q&A synthesis.
+        """Build generated attributes using task-specific Jinja templates."""
+        template_vars = {
+            "task_description": task_description,
+            "system_prompt": system_prompt,
+            "domain": domain,
+            "sample_rows": schema.sample_rows[:3] if schema and schema.sample_rows else [],
+            "output_format": output_format,
+        }
 
-        Args:
-            mappings: Field mappings from auto-detection.
-            system_prompt: Optional custom system prompt for the task.
-            task_description: Optional task description to customize prompts.
-            task_type: Optional task type (extraction, classification, etc.).
-            output_format: Optional description of expected output format.
-        """
-        templates = _load_synth_template("qa")
-
-        # Use custom system prompt if provided, otherwise use template
-        final_system_prompt = system_prompt or templates["system_prompt"]
-
-        # Find the context placeholder
-        context_placeholder = "context"
-        for m in mappings:
-            if m.oumi_placeholder == "context":
-                context_placeholder = m.oumi_placeholder
-                break
-
-        # Build task type specific instructions
-        task_type_instruction = ""
-        if task_type == "extraction":
-            task_type_instruction = "This is a structured extraction task. The model extracts specific information into a structured format."
-        elif task_type == "classification":
-            task_type_instruction = "This is a classification task. The model categorizes input into predefined labels."
-        elif task_type == "transformation":
-            task_type_instruction = "This is a transformation task. The model transforms input from one format to another."
-        elif task_type == "qa":
-            task_type_instruction = "This is a question answering task. The model answers questions based on context."
-        else:
-            task_type_instruction = "This is a text generation task."
-
-        # Build output format instruction
-        output_instruction = ""
-        if output_format:
-            output_instruction = f"\n\nExpected output format:\n{output_format}"
-
-        # Build question prompt - customize if task description provided
-        if task_description:
-            question_prompt = f"""You are generating training data for an AI model.
-
-{task_type_instruction}
-
-Task: {task_description}
-
-Based on this context from real data:
-{{{context_placeholder}}}
-
-Generate a realistic INPUT that someone might submit for this task. The input should be similar to the context but varied.
-
-Format your response as:
-Question: <the input for the model to process>"""
-        else:
-            question_prompt = templates["question_prompt"].replace(
-                "{context}", f"{{{context_placeholder}}}"
+        # Map task_type to template name (default to generation if unknown)
+        valid_types = {"extraction", "classification", "qa", "transformation", "generation"}
+        if task_type not in valid_types:
+            logger.warning(
+                f"Unknown task_type '{task_type}', defaulting to 'generation'. "
+                f"Valid types: {', '.join(sorted(valid_types))}"
             )
+        template_type = task_type if task_type in valid_types else "generation"
 
-        # Build answer prompt - customize if task description provided
-        if task_description:
-            answer_prompt = f"""You are generating training data for an AI model.
+        # Load question and answer templates
+        question_prompt = load_prompt(f"synth/{template_type}_question", **template_vars)
+        answer_prompt = load_prompt(f"synth/{template_type}_answer", **template_vars)
 
-{task_type_instruction}
-
-Task: {task_description}{output_instruction}
-
-Given this input:
-{{synth_question}}
-
-Generate the expected OUTPUT that a well-trained model should produce for this task. Follow the expected output format exactly.
-
-Format your response as:
-Answer: <the expected model output>"""
-        else:
-            answer_prompt = templates["answer_prompt"].replace(
-                "{question}", "{synth_question}"
-            )
-
-        # Use unique IDs to avoid conflicts with input data columns
         question_attr = GeneratedAttribute(
-            id="synth_question_raw",
+            id=f"{SynthPlaceholder.QUESTION}_raw",
             instruction_messages=[
-                TextMessage(role=Role.SYSTEM, content=final_system_prompt),
+                TextMessage(role=Role.SYSTEM, content=system_prompt),
                 TextMessage(role=Role.USER, content=question_prompt),
             ],
             postprocessing_params=GeneratedAttributePostprocessingParams(
-                id="synth_question",
+                id=SynthPlaceholder.QUESTION,
                 cut_prefix="Question:",
                 strip_whitespace=True,
             ),
         )
 
         answer_attr = GeneratedAttribute(
-            id="synth_answer_raw",
+            id=f"{SynthPlaceholder.ANSWER}_raw",
             instruction_messages=[
-                TextMessage(role=Role.SYSTEM, content=final_system_prompt),
+                TextMessage(role=Role.SYSTEM, content=system_prompt),
                 TextMessage(role=Role.USER, content=answer_prompt),
             ],
             postprocessing_params=GeneratedAttributePostprocessingParams(
-                id="synth_answer",
+                id=SynthPlaceholder.ANSWER,
                 cut_prefix="Answer:",
                 strip_whitespace=True,
             ),
@@ -563,27 +411,26 @@ Answer: <the expected model output>"""
 
         return [question_attr, answer_attr]
 
-    def _build_qa_transform(
-        self, system_prompt: Optional[str] = None
+    def _build_conversation_transform(
+        self,
+        system_prompt: Optional[str] = None,
     ) -> list[TransformedAttribute]:
-        """Build transformation for Q&A to conversation format.
-
-        Args:
-            system_prompt: Optional system prompt to include in conversation.
-        """
+        """Build transformation for Q&A to conversation format."""
         messages = []
 
-        # Add system message if provided
         if system_prompt:
             messages.append(TextMessage(role=Role.SYSTEM, content=system_prompt))
 
-        # Add user and assistant messages (use synth_ prefixed IDs)
-        messages.append(TextMessage(role=Role.USER, content="{synth_question}"))
-        messages.append(TextMessage(role=Role.ASSISTANT, content="{synth_answer}"))
+        messages.append(
+            TextMessage(role=Role.USER, content=f"{{{SynthPlaceholder.QUESTION}}}")
+        )
+        messages.append(
+            TextMessage(role=Role.ASSISTANT, content=f"{{{SynthPlaceholder.ANSWER}}}")
+        )
 
         return [
             TransformedAttribute(
-                id="synth_conversation",
+                id=SynthPlaceholder.CONVERSATION,
                 transformation_strategy=TransformationStrategy(
                     type=TransformationType.CHAT,
                     chat_transform=TextConversation(messages=messages),
@@ -591,796 +438,73 @@ Answer: <the expected model output>"""
             )
         ]
 
-    def _build_conversation_attributes(
-        self, mappings: list[FieldMapping]
-    ) -> list[GeneratedAttribute]:
-        """Build generated attributes for conversation synthesis."""
-        templates = _load_synth_template("conversation")
-
-        # Find context placeholder
-        context_placeholder = "context"
-        for m in mappings:
-            if m.oumi_placeholder in ("context", "conversation"):
-                context_placeholder = m.oumi_placeholder
-                break
-
-        return [
-            GeneratedAttribute(
-                id="conversation",
-                instruction_messages=[
-                    TextMessage(role=Role.SYSTEM, content=templates["system_prompt"]),
-                    TextMessage(
-                        role=Role.USER,
-                        content=templates["generation_prompt"].replace(
-                            "{context}", f"{{{context_placeholder}}}"
-                        ),
-                    ),
-                ],
-            )
-        ]
-
-    def _build_augmentation_attributes(
-        self, mappings: list[FieldMapping]
-    ) -> list[GeneratedAttribute]:
-        """Build generated attributes for data augmentation."""
-        templates = _load_synth_template("augmentation")
-
-        # Find the primary text placeholder
-        original_placeholder = "context"
-        for m in mappings:
-            if m.oumi_placeholder in ("context", "question", "answer"):
-                original_placeholder = m.oumi_placeholder
-                break
-
-        return [
-            GeneratedAttribute(
-                id="augmented",
-                instruction_messages=[
-                    TextMessage(role=Role.SYSTEM, content=templates["system_prompt"]),
-                    TextMessage(
-                        role=Role.USER,
-                        content=templates["generation_prompt"].replace(
-                            "{original}", f"{{{original_placeholder}}}"
-                        ),
-                    ),
-                ],
-            )
-        ]
-
-    def _build_instruction_attributes(
-        self,
-        mappings: list[FieldMapping],
-        schema: DataSchema,
-    ) -> list[GeneratedAttribute]:
-        """Build generated attributes for instruction following."""
-        templates = _load_synth_template("instruction")
-
-        # Use system instruction from Word doc if available
-        instruction = "{system_instruction}"
-        if schema.raw_text:
-            instruction = schema.raw_text[:2000]  # Truncate long instructions
-
-        return [
-            GeneratedAttribute(
-                id="output",
-                instruction_messages=[
-                    TextMessage(role=Role.SYSTEM, content=templates["system_prompt"]),
-                    TextMessage(
-                        role=Role.USER,
-                        content=templates["generation_prompt"].replace(
-                            "{instruction}", instruction
-                        ),
-                    ),
-                ],
-            )
-        ]
-
-    def from_schema_with_inference(
-        self,
-        schema: DataSchema,
-        goal: SynthGoal = "qa",
-        num_samples: int = 100,
-        output_path: Optional[str] = None,
-        domain: Optional["DomainAnalysis"] = None,
-        llm_analyzer: Optional["LLMAnalyzer"] = None,
-        attribute_map: Optional[dict[str, str]] = None,
-    ) -> SynthesisConfig:
-        """Build a SynthesisConfig using LLM-inferred domain knowledge.
-
-        This method uses an LLM to analyze the data and generate domain-specific
-        prompts and configuration, rather than using generic templates.
-
-        Args:
-            schema: The analyzed data schema.
-            goal: Synthesis goal ("qa", "conversation", "augmentation", "instruction").
-            num_samples: Number of samples to generate.
-            output_path: Optional output path for generated data.
-            domain: Optional pre-computed DomainAnalysis. If not provided,
-                will be computed using the LLM analyzer.
-            llm_analyzer: Optional LLMAnalyzer instance. If not provided,
-                a new one will be created.
-            attribute_map: Optional explicit column-to-role mapping (e.g.,
-                {"context": "description_col", "question": "query_col"}).
-
-        Returns:
-            A configured SynthesisConfig with domain-specific prompts.
-        """
-        from oumi.core.configs.synthesis_config import SynthesisStrategy
-        from oumi.onboarding.llm_analyzer import LLMAnalyzer as LLMAnalyzerClass
-
-        # Create LLM analyzer if not provided
-        if llm_analyzer is None:
-            llm_analyzer = LLMAnalyzerClass()
-
-        # Get domain analysis if not provided
-        if domain is None:
-            domain = llm_analyzer.analyze(schema)
-
-        # Get LLM-inferred config
-        inferred = llm_analyzer.infer_synth_config(schema, goal, domain)
-
-        # Build strategy params using inferred config
-        strategy_params = self._build_inferred_strategy_params(
-            schema, goal, domain, inferred, attribute_map=attribute_map
-        )
-
-        # Create output path if not provided
-        if output_path is None:
-            output_path = f"synth_{goal}_output.jsonl"
-
-        return SynthesisConfig(
-            strategy=SynthesisStrategy.GENERAL,
-            num_samples=num_samples,
-            output_path=output_path,
-            strategy_params=strategy_params,
-            inference_config=self._create_inference_config(),
-        )
-
-    def from_schema_with_custom_prompts(
-        self,
-        schema: DataSchema,
-        goal: SynthGoal = "qa",
-        num_samples: int = 100,
-        output_path: Optional[str] = None,
-        system_prompt: Optional[str] = None,
-        question_template: Optional[str] = None,
-        answer_template: Optional[str] = None,
-        postprocessing: Optional[dict] = None,
-        attribute_map: Optional[dict[str, str]] = None,
-    ) -> SynthesisConfig:
-        """Build a SynthesisConfig using custom prompts provided by the user.
-
-        This method allows for iteratively refined prompts from the wizard
-        to be used directly in the config.
-
-        Args:
-            schema: The analyzed data schema.
-            goal: Synthesis goal ("qa", "conversation", "augmentation", "instruction").
-            num_samples: Number of samples to generate.
-            output_path: Optional output path for generated data.
-            system_prompt: Custom system prompt for the AI persona.
-            question_template: Custom question/instruction template with {placeholders}.
-            answer_template: Custom answer generation template.
-            postprocessing: Postprocessing config dict (cut_prefix, strip_whitespace).
-            attribute_map: Optional explicit column-to-role mapping (e.g.,
-                {"context": "description_col", "question": "query_col"}).
-
-        Returns:
-            A configured SynthesisConfig with custom prompts.
-        """
-        from oumi.core.configs.synthesis_config import SynthesisStrategy
-
-        # Build strategy params using custom prompts
-        default_system_prompt = ""
-        try:
-            default_system_prompt = _load_synth_template(goal).get("system_prompt", "")
-        except FileNotFoundError:
-            pass
-        strategy_params = self._build_custom_strategy_params(
-            schema,
-            goal,
-            system_prompt or default_system_prompt,
-            question_template or "",
-            answer_template or "",
-            postprocessing or {},
-            attribute_map=attribute_map,
-        )
-
-        # Create output path if not provided
-        if output_path is None:
-            output_path = f"synth_{goal}_output.jsonl"
-
-        return SynthesisConfig(
-            strategy=SynthesisStrategy.GENERAL,
-            num_samples=num_samples,
-            output_path=output_path,
-            strategy_params=strategy_params,
-            inference_config=self._create_inference_config(),
-        )
-
-    def _build_custom_strategy_params(
-        self,
-        schema: DataSchema,
-        goal: SynthGoal,
-        system_prompt: str,
-        question_template: str,
-        answer_template: str,
-        postprocessing: dict,
-        attribute_map: Optional[dict[str, str]] = None,
-    ) -> GeneralSynthesisParams:
-        """Build strategy params using custom prompts.
-
-        Args:
-            schema: The analyzed data schema.
-            goal: Synthesis goal.
-            system_prompt: Custom system prompt.
-            question_template: Question/instruction template.
-            answer_template: Answer generation template.
-            postprocessing: Postprocessing config dict.
-            attribute_map: Optional explicit column-to-role mapping that takes
-                precedence over auto-detected mappings.
-        """
-        params = GeneralSynthesisParams()
-
-        # Add input data source if schema has data
-        if schema.source_path and schema.detected_format in (
-            "csv",
-            "excel",
-            "json",
-            "jsonl",
-        ):
-            # Use provided attribute_map or build from columns
-            if attribute_map:
-                # Explicit column assignments provided - use directly
-                final_attribute_map = attribute_map
-            else:
-                # Build attribute map from columns
-                final_attribute_map = {}
-                if schema.columns:
-                    text_cols = [c for c in schema.columns if c.is_text]
-                    if text_cols:
-                        best_col = max(text_cols, key=lambda c: c.avg_length or 0)
-                        final_attribute_map = {best_col.name: "context"}
-                    elif schema.columns:
-                        final_attribute_map = {schema.columns[0].name: "context"}
-
-            params.input_data = [
-                DatasetSource(
-                    path=_convert_to_supported_format(schema.source_path),
-                    attribute_map=final_attribute_map if final_attribute_map else None,
-                )
-            ]
-
-        # Build generated attributes using custom prompts
-        cut_prefix = postprocessing.get("cut_prefix", "Answer:")
-        strip_ws = postprocessing.get("strip_whitespace", True)
-
-        question_attr = GeneratedAttribute(
-            id="question_raw",
-            instruction_messages=[
-                TextMessage(role=Role.SYSTEM, content=system_prompt),
-                TextMessage(role=Role.USER, content=question_template),
-            ],
-            postprocessing_params=GeneratedAttributePostprocessingParams(
-                id="question",
-                cut_prefix="Question:",
-                strip_whitespace=True,
-            ),
-        )
-
-        answer_attr = GeneratedAttribute(
-            id="answer_raw",
-            instruction_messages=[
-                TextMessage(role=Role.SYSTEM, content=system_prompt),
-                TextMessage(role=Role.USER, content=answer_template),
-            ],
-            postprocessing_params=GeneratedAttributePostprocessingParams(
-                id="answer",
-                cut_prefix=cut_prefix,
-                strip_whitespace=strip_ws,
-            ),
-        )
-
-        params.generated_attributes = [question_attr, answer_attr]
-        params.transformed_attributes = self._build_qa_transform()
-        params.passthrough_attributes = ["conversation", "question", "answer"]
-
-        return params
-
-    def _build_inferred_strategy_params(
-        self,
-        schema: DataSchema,
-        goal: SynthGoal,
-        domain: "DomainAnalysis",
-        inferred: "InferredConfig",
-        attribute_map: Optional[dict[str, str]] = None,
-    ) -> GeneralSynthesisParams:
-        """Build strategy params using LLM-inferred configuration.
-
-        Args:
-            schema: The analyzed data schema.
-            goal: Synthesis goal.
-            domain: Domain analysis from LLM.
-            inferred: Inferred config from LLM.
-            attribute_map: Optional explicit column-to-role mapping that takes
-                precedence over both inferred and auto-detected mappings.
-        """
-        params = GeneralSynthesisParams()
-
-        # Add input data source if schema has data
-        if schema.source_path and schema.detected_format in (
-            "csv",
-            "excel",
-            "json",
-            "jsonl",
-        ):
-            # Priority: explicit attribute_map > inferred mappings > auto-detect
-            if attribute_map:
-                # User provided explicit column assignments
-                final_attribute_map = attribute_map
-            elif inferred.field_mappings:
-                # Use LLM-inferred field mappings, stripping any braces from values
-                # LLM sometimes returns {col} instead of col
-                final_attribute_map = {
-                    k: v.strip("{}") if isinstance(v, str) else v
-                    for k, v in inferred.field_mappings.items()
-                }
-            else:
-                # Fallback to auto-detect
-                final_attribute_map = None
-                if schema.columns:
-                    text_cols = [c for c in schema.columns if c.is_text]
-                    if text_cols:
-                        best_col = max(text_cols, key=lambda c: c.avg_length or 0)
-                        final_attribute_map = {best_col.name: "context"}
-                    elif schema.columns:
-                        final_attribute_map = {schema.columns[0].name: "context"}
-
-            params.input_data = [
-                DatasetSource(
-                    path=_convert_to_supported_format(schema.source_path),
-                    attribute_map=final_attribute_map if final_attribute_map else None,
-                )
-            ]
-
-        # Build generated attributes using inferred prompts
-        if goal == "qa":
-            params.generated_attributes = self._build_inferred_qa_attributes(
-                domain, inferred
-            )
-            params.transformed_attributes = self._build_qa_transform()
-            params.passthrough_attributes = ["conversation", "question", "answer"]
-        elif goal == "conversation":
-            params.generated_attributes = self._build_inferred_conversation_attributes(
-                domain, inferred
-            )
-            params.passthrough_attributes = ["conversation"]
-        elif goal == "augmentation":
-            params.generated_attributes = self._build_inferred_augmentation_attributes(
-                domain, inferred
-            )
-            params.passthrough_attributes = ["augmented"]
-        elif goal == "instruction":
-            params.generated_attributes = self._build_inferred_instruction_attributes(
-                domain, inferred, schema
-            )
-            params.passthrough_attributes = ["output"]
-
-        return params
-
-    def _build_inferred_qa_attributes(
-        self,
-        domain: "DomainAnalysis",
-        inferred: "InferredConfig",
-    ) -> list[GeneratedAttribute]:
-        """Build Q&A attributes using LLM-inferred prompts."""
-        # Use inferred system prompt or fall back to domain-enhanced default
-        system_prompt = inferred.system_prompt or domain.suggested_persona
-        if not system_prompt:
-            system_prompt = _load_synth_template("qa")["system_prompt"]
-
-        # Use inferred instruction template or build from domain knowledge
-        question_template = inferred.instruction_template
-        if not question_template:
-            terminology_str = (
-                ", ".join(domain.terminology[:5]) if domain.terminology else ""
-            )
-            question_template = f"""Based on the following information about {domain.domain}, generate a thoughtful question.
-
-Domain terminology to use: {terminology_str}
-
-{{context}}
-
-Format your response as:
-Question: <your question>"""
-
-        # Build postprocessing params from inferred config
-        postproc = inferred.postprocessing or {}
-        cut_prefix = postproc.get("cut_prefix", "Question:")
-
-        question_attr = GeneratedAttribute(
-            id="question_raw",
-            instruction_messages=[
-                TextMessage(role=Role.SYSTEM, content=system_prompt),
-                TextMessage(role=Role.USER, content=question_template),
-            ],
-            postprocessing_params=GeneratedAttributePostprocessingParams(
-                id="question",
-                cut_prefix=cut_prefix,
-                strip_whitespace=postproc.get("strip_whitespace", True),
-            ),
-        )
-
-        # Build answer attribute
-        answer_template = f"""Provide a helpful, accurate answer to this question about {domain.domain}:
-
-{{question}}
-
-Use appropriate domain terminology and be specific.
-
-Format your response as:
-Answer: <your answer>"""
-
-        answer_attr = GeneratedAttribute(
-            id="answer_raw",
-            instruction_messages=[
-                TextMessage(role=Role.SYSTEM, content=system_prompt),
-                TextMessage(role=Role.USER, content=answer_template),
-            ],
-            postprocessing_params=GeneratedAttributePostprocessingParams(
-                id="answer",
-                cut_prefix="Answer:",
-                strip_whitespace=True,
-            ),
-        )
-
-        return [question_attr, answer_attr]
-
-    def _build_inferred_conversation_attributes(
-        self,
-        domain: "DomainAnalysis",
-        inferred: "InferredConfig",
-    ) -> list[GeneratedAttribute]:
-        """Build conversation attributes using LLM-inferred prompts."""
-        system_prompt = inferred.system_prompt or domain.suggested_persona
-        if not system_prompt:
-            system_prompt = f"""You are an expert at generating realistic conversation exchanges in {domain.domain}.
-Create natural dialogue that demonstrates expertise and helpfulness."""
-
-        instruction = inferred.instruction_template
-        if not instruction:
-            instruction = f"""Generate a realistic conversation based on this context about {domain.domain}:
-
-{{context}}
-
-The conversation should be professional and demonstrate domain knowledge."""
-
-        return [
-            GeneratedAttribute(
-                id="conversation",
-                instruction_messages=[
-                    TextMessage(role=Role.SYSTEM, content=system_prompt),
-                    TextMessage(role=Role.USER, content=instruction),
-                ],
-            )
-        ]
-
-    def _build_inferred_augmentation_attributes(
-        self,
-        domain: "DomainAnalysis",
-        inferred: "InferredConfig",
-    ) -> list[GeneratedAttribute]:
-        """Build augmentation attributes using LLM-inferred prompts."""
-        system_prompt = inferred.system_prompt or domain.suggested_persona
-        if not system_prompt:
-            system_prompt = f"""You are an expert at creating variations of {domain.domain} content.
-Generate diverse variations that preserve the core meaning while varying style and phrasing."""
-
-        instruction = inferred.instruction_template
-        if not instruction:
-            terminology_str = (
-                ", ".join(domain.terminology[:5]) if domain.terminology else ""
-            )
-            instruction = f"""Create a variation of the following {domain.domain} content:
-
-{{context}}
-
-Maintain the core meaning but vary the phrasing and style.
-Use domain terminology: {terminology_str}"""
-
-        return [
-            GeneratedAttribute(
-                id="augmented",
-                instruction_messages=[
-                    TextMessage(role=Role.SYSTEM, content=system_prompt),
-                    TextMessage(role=Role.USER, content=instruction),
-                ],
-            )
-        ]
-
-    def _build_inferred_instruction_attributes(
-        self,
-        domain: "DomainAnalysis",
-        inferred: "InferredConfig",
-        schema: DataSchema,
-    ) -> list[GeneratedAttribute]:
-        """Build instruction attributes using LLM-inferred prompts."""
-        system_prompt = inferred.system_prompt or domain.suggested_persona
-        if not system_prompt:
-            system_prompt = f"""You are following specific instructions to generate {domain.domain} content.
-Follow the provided instructions precisely and generate high-quality outputs."""
-
-        # Use document content or inferred instruction
-        instruction = "{instruction}"
-        if schema.raw_text:
-            instruction = schema.raw_text[:2000]
-        elif inferred.instruction_template:
-            instruction = inferred.instruction_template
-
-        return [
-            GeneratedAttribute(
-                id="output",
-                instruction_messages=[
-                    TextMessage(role=Role.SYSTEM, content=system_prompt),
-                    TextMessage(role=Role.USER, content=instruction),
-                ],
-            )
-        ]
-
-    def from_template(
-        self,
-        template_name: str,
-        num_samples: int = 100,
-        output_path: Optional[str] = None,
-        **overrides,
-    ) -> SynthesisConfig:
-        """Build a SynthesisConfig from a pre-built template.
-
-        Args:
-            template_name: Name of the template to use.
-            num_samples: Number of samples to generate.
-            output_path: Optional output path.
-            **overrides: Additional overrides for the config.
-
-        Returns:
-            A configured SynthesisConfig.
-        """
-        # Load template from configs/templates/synth/{template_name}.yaml
-        template_path = (
-            Path(__file__).parent.parent.parent.parent
-            / "configs"
-            / "templates"
-            / "synth"
-            / f"{template_name}.yaml"
-        )
-
-        if template_path.exists():
-            config = SynthesisConfig.from_yaml(str(template_path))
-            config.num_samples = num_samples
-            if output_path:
-                config.output_path = output_path
-            return config
-        else:
-            raise ValueError(f"Template not found: {template_name}")
-
 
 class JudgeConfigBuilder(ConfigBuilder):
-    """Build JudgeConfig from customer data.
+    """Build JudgeConfig from customer data using LLM-powered prompts.
 
     This builder creates judge configurations for evaluating data quality,
-    compliance, relevance, and other criteria.
+    with task-specific evaluation criteria loaded from Jinja templates.
 
     Example:
-        >>> from oumi.onboarding import DataAnalyzer, JudgeConfigBuilder
-        >>> analyzer = DataAnalyzer()
-        >>> schema = analyzer.analyze("./conversations.csv")
+        >>> from oumi.onboarding import JudgeConfigBuilder
         >>> builder = JudgeConfigBuilder()
-        >>> config = builder.from_schema(schema, judge_type="compliance")
+        >>> config = builder.build(
+        ...     schema=schema,
+        ...     judge_name="accuracy",
+        ...     criteria="Evaluate factual accuracy",
+        ...     task_type="qa",
+        ...     task_description="Answer customer questions",
+        ... )
     """
 
-    def from_schema(
-        self,
-        schema: DataSchema,
-        judge_type: JudgeType = "generic",
-        custom_criteria: Optional[str] = None,
-        mappings: Optional[list[FieldMapping]] = None,
-    ) -> JudgeConfig:
-        """Build a JudgeConfig from analyzed data.
-
-        Args:
-            schema: The analyzed data schema.
-            judge_type: Type of judge ("generic", "compliance", "relevance", etc.).
-            custom_criteria: Optional custom evaluation criteria.
-            mappings: Optional pre-computed field mappings.
-
-        Returns:
-            A configured JudgeConfig.
-        """
-        # Get field mappings if not provided
-        if mappings is None:
-            mappings = self.field_mapper.suggest_mappings(schema)
-
-        template = _load_judge_template(judge_type)
-
-        # Build prompt template with mapped fields
-        prompt_template = self._adapt_prompt_template(
-            template["prompt_template"],
-            mappings,
-            custom_criteria,
-        )
-
-        judge_params = JudgeParams(
-            system_instruction=template["system_instruction"],
-            prompt_template=prompt_template,
-            response_format=JudgeResponseFormat.XML,
-            judgment_type=template["judgment_type"],
-            include_explanation=True,
-        )
-
-        return JudgeConfig(
-            judge_params=judge_params,
-            inference_config=self._create_inference_config(),
-        )
-
-    def _adapt_prompt_template(
-        self,
-        template: str,
-        mappings: list[FieldMapping],
-        custom_criteria: Optional[str],
-    ) -> str:
-        """Adapt prompt template to use customer column names."""
-        result = template
-
-        # Replace standard placeholders with mapped column names
-        mapping_dict = {m.oumi_placeholder: m.customer_column for m in mappings}
-
-        for placeholder, column in mapping_dict.items():
-            result = result.replace(f"{{{placeholder}}}", f"{{{column}}}")
-
-        # Add custom criteria if provided
-        if custom_criteria:
-            result = f"Evaluation Criteria: {custom_criteria}\n\n{result}"
-
-        return result
-
-    def from_schema_with_inference(
-        self,
-        schema: DataSchema,
-        judge_type: JudgeType = "generic",
-        domain: Optional["DomainAnalysis"] = None,
-        llm_analyzer: Optional["LLMAnalyzer"] = None,
-    ) -> JudgeConfig:
-        """Build a JudgeConfig using LLM-inferred domain knowledge.
-
-        This method uses an LLM to analyze the data and generate domain-specific
-        evaluation criteria and prompts, rather than using generic templates.
-
-        Args:
-            schema: The analyzed data schema.
-            judge_type: Type of judge ("generic", "compliance", "relevance", etc.).
-            domain: Optional pre-computed DomainAnalysis. If not provided,
-                will be computed using the LLM analyzer.
-            llm_analyzer: Optional LLMAnalyzer instance. If not provided,
-                a new one will be created.
-
-        Returns:
-            A configured JudgeConfig with domain-specific evaluation criteria.
-        """
-        from oumi.onboarding.llm_analyzer import LLMAnalyzer as LLMAnalyzerClass
-
-        # Create LLM analyzer if not provided
-        if llm_analyzer is None:
-            llm_analyzer = LLMAnalyzerClass()
-
-        # Get domain analysis if not provided
-        if domain is None:
-            domain = llm_analyzer.analyze(schema)
-
-        # Get LLM-inferred judge config
-        inferred = llm_analyzer.infer_judge_config(schema, judge_type, domain)
-
-        # Build judge params using inferred config
-        system_instruction = inferred.system_prompt
-        if not system_instruction:
-            system_instruction = (
-                f"You are an expert evaluator for {domain.domain} content. "
-                f"Assess the quality objectively, watching for: {', '.join(domain.common_issues[:3])}."
-            )
-
-        prompt_template = inferred.instruction_template
-        if not prompt_template:
-            quality_signals = (
-                ", ".join(domain.quality_signals[:3])
-                if domain.quality_signals
-                else "accuracy, clarity, completeness"
-            )
-            prompt_template = f"""Evaluate the following {domain.domain} content:
-
-{{context}}
-
-Assessment criteria: {quality_signals}
-
-Provide your evaluation."""
-
-        # Determine judgment type based on judge_type
-        try:
-            judgment_type = _load_judge_template(judge_type)["judgment_type"]
-        except FileNotFoundError:
-            judgment_type = _load_judge_template("generic")["judgment_type"]
-
-        judge_params = JudgeParams(
-            system_instruction=system_instruction,
-            prompt_template=prompt_template,
-            response_format=JudgeResponseFormat.XML,
-            judgment_type=judgment_type,
-            include_explanation=True,
-        )
-
-        return JudgeConfig(
-            judge_params=judge_params,
-            inference_config=self._create_inference_config(),
-        )
-
-    def from_custom_criteria(
+    def build(
         self,
         schema: DataSchema,
         judge_name: str,
         criteria: str,
-        description: str = "",
+        task_type: str = "generation",
+        task_description: str = "",
+        domain: Optional["DomainAnalysis"] = None,
+        output_format: Optional[str] = None,
         judgment_type: JudgeOutputType = JudgeOutputType.FLOAT,
     ) -> JudgeConfig:
-        """Build a JudgeConfig from custom evaluation criteria.
-
-        This method creates a judge configuration based on user-defined criteria,
-        allowing for flexible evaluation beyond the predefined judge templates.
+        """Build a JudgeConfig with task-specific evaluation criteria.
 
         Args:
             schema: The analyzed data schema.
             judge_name: A short name for this judge (e.g., "accuracy", "helpfulness").
-            criteria: The specific evaluation criteria as a detailed description.
-            description: Optional additional context about what this judge evaluates.
+            criteria: The specific evaluation criteria.
+            task_type: Task type (extraction, classification, qa, etc.).
+            task_description: User's task description.
+            domain: Optional DomainAnalysis for domain-specific evaluation.
+            output_format: Expected output format for evaluation.
             judgment_type: The type of judgment output (FLOAT, BOOL, or LIKERT).
 
         Returns:
-            A configured JudgeConfig with custom evaluation criteria.
-
-        Example:
-            >>> builder = JudgeConfigBuilder()
-            >>> config = builder.from_custom_criteria(
-            ...     schema=schema,
-            ...     judge_name="domain_expertise",
-            ...     criteria="Evaluate whether the response demonstrates deep knowledge "
-            ...              "of machine learning concepts and uses correct terminology.",
-            ...     description="Assesses ML domain expertise in responses",
-            ...     judgment_type=JudgeOutputType.LIKERT,
-            ... )
+            A configured JudgeConfig with task-specific evaluation prompts.
         """
-        # Build system instruction based on the judge name and description
+        # Map task_type to judge template
+        valid_types = {"extraction", "classification", "qa"}
+        if task_type not in valid_types:
+            logger.warning(
+                f"Unknown task_type '{task_type}' for judge, defaulting to 'generic'. "
+                f"Valid types: {', '.join(sorted(valid_types))}"
+            )
+        template_type = task_type if task_type in valid_types else "generic"
+
+        template_vars = {
+            "task_description": task_description,
+            "criteria": criteria,
+            "domain": domain,
+            "output_format": output_format,
+        }
+
+        prompt_template = load_prompt(f"judge/{template_type}_judge", **template_vars)
+
         system_instruction = f"""You are an expert evaluator assessing '{judge_name}'.
-{description}
 
-Your task is to objectively evaluate content based on the following criteria:
-{criteria}
-
-Be thorough, fair, and consistent in your evaluations. Provide clear explanations for your judgments."""
-
-        # Build prompt template that can handle various input formats
-        prompt_template = f"""Evaluate the following content for '{judge_name}':
-
-**Criteria**: {criteria}
-
-**Content to evaluate**:
-{{context}}
-
-{{{{#if response}}}}
-**Response**: {{response}}
-{{{{/if}}}}
-
-{{{{#if question}}}}
-**Question**: {{question}}
-{{{{/if}}}}
-
-Provide your evaluation based on the criteria above."""
+Your task is to objectively evaluate content based on the provided criteria.
+Be thorough, fair, and consistent in your evaluations."""
 
         judge_params = JudgeParams(
             system_instruction=system_instruction,
@@ -1405,7 +529,7 @@ class TrainConfigBuilder(ConfigBuilder):
     Example:
         >>> from oumi.onboarding import TrainConfigBuilder
         >>> builder = TrainConfigBuilder()
-        >>> config = builder.from_data_path(
+        >>> config = builder.build(
         ...     "./training_data.jsonl",
         ...     base_model="meta-llama/Llama-3.2-1B-Instruct",
         ...     use_lora=True,
@@ -1418,13 +542,14 @@ class TrainConfigBuilder(ConfigBuilder):
         "large": "meta-llama/Llama-3.1-8B-Instruct",
     }
 
-    def from_schema(
+    def build(
         self,
         schema: DataSchema,
         base_model: str = "meta-llama/Llama-3.2-1B-Instruct",
         use_lora: bool = True,
         output_dir: str = "./output/training",
         max_steps: int = 1000,
+        **kwargs,
     ) -> TrainingConfig:
         """Build a TrainingConfig from analyzed data.
 
@@ -1434,16 +559,18 @@ class TrainConfigBuilder(ConfigBuilder):
             use_lora: Whether to use LoRA for efficient fine-tuning.
             output_dir: Directory to save model outputs.
             max_steps: Maximum training steps.
+            **kwargs: Additional training parameters.
 
         Returns:
             A configured TrainingConfig.
         """
         return self.from_data_path(
-            schema.source_path,
+            schema.source_path if schema else kwargs.get("data_path", ""),
             base_model=base_model,
             use_lora=use_lora,
             output_dir=output_dir,
             max_steps=max_steps,
+            **kwargs,
         )
 
     def from_data_path(
@@ -1456,6 +583,7 @@ class TrainConfigBuilder(ConfigBuilder):
         learning_rate: float = 5e-6,
         batch_size: int = 2,
         gradient_accumulation_steps: int = 8,
+        **kwargs,
     ) -> TrainingConfig:
         """Build a TrainingConfig from a data path.
 
@@ -1468,6 +596,7 @@ class TrainConfigBuilder(ConfigBuilder):
             learning_rate: Learning rate.
             batch_size: Per-device batch size.
             gradient_accumulation_steps: Gradient accumulation steps.
+            **kwargs: Additional parameters.
 
         Returns:
             A configured TrainingConfig.
@@ -1483,7 +612,6 @@ class TrainConfigBuilder(ConfigBuilder):
             TrainingParams,
         )
 
-        # Build data params
         data = DataParams(
             train=DatasetSplitParams(
                 datasets=[DatasetParams(dataset_path=data_path)],
@@ -1491,16 +619,13 @@ class TrainConfigBuilder(ConfigBuilder):
             )
         )
 
-        # Build model params
-        # Note: When using mixed precision training, model must be loaded in fp32
         model = ModelParams(
             model_name=base_model,
             model_max_length=4096,
-            torch_dtype_str="float32",  # Required for mixed precision training
+            torch_dtype_str="float32",
             attn_implementation="sdpa",
         )
 
-        # Build training params
         training = TrainingParams(
             trainer_type=TrainerType.TRL_SFT,
             max_steps=max_steps,
@@ -1515,7 +640,6 @@ class TrainConfigBuilder(ConfigBuilder):
             mixed_precision_dtype="bf16",
         )
 
-        # Build PEFT params if using LoRA
         peft = None
         if use_lora:
             peft = PeftParams(

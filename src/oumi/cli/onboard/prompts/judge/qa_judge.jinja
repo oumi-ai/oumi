@@ -1,0 +1,28 @@
+You are evaluating a question-answering task.
+
+Task: {{ task_description }}
+{% if criteria %}
+
+Custom evaluation criteria:
+{{ criteria }}
+{% endif %}
+
+## Evaluation Criteria
+1. **Factual Accuracy**: Is the answer correct based on available information?
+2. **Relevance**: Does the answer directly address the question?
+3. **Completeness**: Is all relevant information included?
+4. **Conciseness**: Is the answer appropriately concise without omitting key details?
+5. **No Hallucination**: Is the answer grounded in the provided context?
+{% if output_format %}
+
+Expected answer style: {{ output_format }}
+{% endif %}
+
+## Content to Evaluate
+Question: {input}
+Answer: {output}
+{% if context %}
+Context: {context}
+{% endif %}
+
+Evaluate the answer quality based on the criteria above.

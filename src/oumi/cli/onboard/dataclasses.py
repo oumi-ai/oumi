@@ -60,9 +60,6 @@ INPUT_FORMATS = {
 SUPPORTED_EXTENSIONS = {".csv", ".json", ".jsonl", ".xlsx", ".xls", ".docx", ".doc"}
 TABULAR_EXTENSIONS = {".csv", ".tsv", ".xlsx", ".xls", ".json", ".jsonl"}
 
-# Cache file name
-WIZARD_CACHE_FILE = ".wizard_cache.yaml"
-
 # Goal and type choices for CLI
 GOAL_CHOICES = ["synth", "judge", "train", "pipeline"]
 SYNTH_GOAL_CHOICES = ["qa", "conversation", "augmentation", "instruction"]
@@ -120,6 +117,9 @@ class WizardState:
     # LLM analyzer (required, not serialized)
     llm_analyzer: Any = None
     domain_analysis: Any = None
+
+    # Extracted use case from customer documents (if found)
+    extracted_use_case: Any = None
 
     # Track completed steps for caching
     completed_steps: list = field(default_factory=list)

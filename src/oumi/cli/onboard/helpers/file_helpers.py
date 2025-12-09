@@ -18,6 +18,7 @@ import json
 from pathlib import Path
 
 from ..dataclasses import SUPPORTED_EXTENSIONS
+from ..prompts import load_prompt
 
 
 def detect_files_in_directory(dir_path: Path) -> list[dict]:
@@ -58,21 +59,13 @@ def analyze_file_purposes(files: list[dict], analyzer, llm_analyzer) -> list[dic
             if f["schema"].sample_rows:
                 sample = json.dumps(f["schema"].sample_rows[0], indent=2)[:500]
 
-            prompt = f"""Analyze this file and determine its purpose for ML training.
-
-File: {f['name']} ({f['extension']})
-Columns: {', '.join(cols)}
-Sample data:
-{sample}
-
-Return JSON:
-{{
-    "purpose": "Brief description of what this file contains",
-    "role": "primary|reference|rules|examples",
-    "reason": "Why this role fits"
-}}
-
-Return ONLY the JSON object."""
+            prompt = load_prompt(
+                "analyze_file_purpose",
+                file_name=f["name"],
+                file_extension=f["extension"],
+                columns=", ".join(cols),
+                sample=sample,
+            )
 
             try:
                 result = llm_analyzer._invoke_json(prompt)

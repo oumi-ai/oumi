@@ -25,7 +25,12 @@ Example:
     >>> analyzer = DataAnalyzer()
     >>> schema = analyzer.analyze("./customer_data.csv")
     >>> builder = SynthConfigBuilder()
-    >>> config = builder.from_schema(schema, goal="qa")
+    >>> config = builder.build(
+    ...     schema,
+    ...     goal="qa",
+    ...     task_description="Generate Q&A pairs",
+    ...     system_prompt="You are a helpful assistant.",
+    ... )
 """
 
 from oumi.onboarding.config_builder import (

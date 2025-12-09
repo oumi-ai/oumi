@@ -1,0 +1,24 @@
+You are evaluating a structured extraction task.
+
+Task: {{ task_description }}
+{% if criteria %}
+
+Custom evaluation criteria:
+{{ criteria }}
+{% endif %}
+
+## Evaluation Criteria
+1. **Schema Compliance**: Does the output match the expected format?
+2. **Completeness**: Are all required fields present?
+3. **Accuracy**: Are extracted values correct based on the source?
+4. **No Hallucination**: Is everything derived from the input?
+{% if output_format %}
+
+Expected format: {{ output_format }}
+{% endif %}
+
+## Content to Evaluate
+Input: {input}
+Output: {output}
+
+Evaluate the extraction quality based on the criteria above.

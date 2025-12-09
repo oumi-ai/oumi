@@ -1,0 +1,48 @@
+Analyze these files and suggest 3 ML tasks a user could train a model to perform.
+
+## Files
+{{ file_summaries }}
+{% if domain_context %}
+
+## Domain Context
+{{ domain_context }}
+{% endif %}
+
+## Requirements
+Generate 3 tasks that:
+1. Are actionable and specific (not vague like "analyze data" or "help users")
+2. Match the data's structure and content
+3. Cover different task categories (e.g., one extraction, one generation, one classification)
+
+## IMPORTANT: Generic Task Descriptions
+Task descriptions MUST be generic and reusable:
+- Do NOT reference specific file names, column names, or company names
+- Do NOT mention "the data" or "the file" - assume any similar data
+- Use generic terms like "input text", "records", "documents"
+
+## Task Description Guidelines
+- Start with an action verb (Extract, Classify, Generate, Summarize, Answer, Transform)
+- Specify the input and expected output clearly
+- Be specific enough to guide model training
+
+## Examples of Good Task Descriptions
+- "Extract product names, prices, and ratings from customer review text"
+- "Classify support tickets into categories: billing, technical, account, other"
+- "Generate a professional response to customer inquiries based on company FAQ"
+- "Summarize long documents into 2-3 key bullet points"
+
+## Examples of Poor Task Descriptions (avoid these)
+- "Help with data" (too vague)
+- "Process the files" (not actionable)
+- "Analyze information" (no clear output)
+
+Return JSON:
+{
+    "tasks": [
+        "First task description",
+        "Second task description",
+        "Third task description"
+    ]
+}
+
+Return ONLY the JSON object.

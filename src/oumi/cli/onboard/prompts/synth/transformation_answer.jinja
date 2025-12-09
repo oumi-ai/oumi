@@ -1,0 +1,16 @@
+Transform this input according to the task requirements.
+
+Task: {{ task_description }}
+{% if output_format %}
+
+Target format:
+{{ output_format }}
+{% endif %}
+
+Input to transform:
+{synth_question}
+
+Transform the input into the expected format while preserving the essential meaning and information.
+
+Format your response as:
+Answer: <transformed output>

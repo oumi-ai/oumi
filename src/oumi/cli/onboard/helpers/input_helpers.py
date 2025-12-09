@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from ..dataclasses import WizardState
 
 from ..dataclasses import INPUT_FORMATS
+from ..prompts import load_prompt
 
 
 def detect_input_source(state: "WizardState", llm_analyzer) -> dict:
@@ -58,27 +59,11 @@ def detect_input_source(state: "WizardState", llm_analyzer) -> dict:
             col_info["sample_values"] = sample_vals
         cols_info.append(col_info)
 
-    prompt = f"""Analyze this data to determine the best INPUT column(s) for a machine learning task.
-
-Task: {state.task.description}
-
-Available columns:
-{json.dumps(cols_info, indent=2)}
-
-Select the column(s) that should be used as INPUT to the model. Consider:
-1. The task description - what data does the model need to perform this task?
-2. Exclude meaningless columns like: UUIDs, IDs, timestamps, row numbers, internal identifiers
-3. Prefer columns with actual text content, questions, or structured data relevant to the task
-4. If multiple columns are needed together (e.g., "title" + "body"), suggest combining them
-
-Return JSON:
-{{
-    "source_column": "column_name",
-    "format": "single_turn|multi_turn|document|structured|instruction",
-    "reasoning": "Brief explanation of why this column makes sense for the task"
-}}
-
-Return ONLY the JSON object."""
+    prompt = load_prompt(
+        "detect_input_source",
+        task_description=state.task.description,
+        cols_info=json.dumps(cols_info, indent=2),
+    )
 
     try:
         result = llm_analyzer._invoke_json(prompt)
