@@ -1,0 +1,121 @@
+# GOLD training with vLLM acceleration (server mode)
+# vLLM runs as a separate server process for flexible deployment
+#
+# Setup:
+#   1. Start vLLM server in a separate terminal:
+#      python -m trl.extras.vllm_server \
+#        --model HuggingFaceTB/SmolLM2-135M-Instruct \
+#        --port 8001
+#
+#   2. Run training (this will connect to the server):
+#      oumi train -c configs/examples/gold/train_vllm_server.yaml
+
+model:
+  # Student model - SmolLM 135M (smallest SmolLM)
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 1024
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: "dict" # required for TRL_GOLD trainer
+
+training:
+  trainer_type: "TRL_GOLD"
+  output_dir: "output/gold_smollm_vllm_server"
+
+  # Minimal training for quick test
+  max_steps: 5
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 1
+
+  # Simple optimization
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-04
+  warmup_steps: 1
+
+  save_steps: 5
+  logging_steps: 1
+
+  enable_gradient_checkpointing: False
+  enable_wandb: False
+  enable_tensorboard: False
+  log_model_summary: False
+
+  # GOLD-specific parameters with vLLM server mode
+  gold:
+    # Teacher model (same tokenizer as student - SmolLM family)
+    teacher_model_name_or_path: "HuggingFaceTB/SmolLM2-360M-Instruct"
+
+    # Teacher model initialization kwargs
+    teacher_model_init_kwargs:
+      attn_implementation: "sdpa"
+
+    # Generation parameters
+    temperature: 0.9
+    max_completion_length: 512
+
+    # Distillation parameters (same as GKD)
+    lmbda: 0.5
+    beta: 0.5
+    disable_dropout: True
+    seq_kd: False
+
+    # Use standard JSD loss (same tokenizer)
+    use_uld_loss: False
+
+    # vLLM acceleration (server mode)
+    # vLLM runs as separate server process
+    use_vllm: True
+    vllm_mode: "server"  # Connect to external vLLM server
+
+    # Server connection settings
+    vllm_server_host: "0.0.0.0"  # Server hostname/IP
+    vllm_server_port: 8001       # Server port (must match server startup)
+
+    # Connection timeout (in seconds)
+    # Increase if server is slow to start or process requests
+    vllm_server_timeout: 240.0
+
+    # Optional: Guided decoding with regex patterns
+    # vllm_guided_decoding_regex: "\\{[^}]*\\}"  # Only generate JSON objects
+
+# Important Notes:
+# ================
+#
+# 1. Server Setup:
+#    Start the vLLM server BEFORE running training:
+#
+#    Terminal 1 (start vLLM server):
+#      python -m trl.extras.vllm_server \
+#        --model HuggingFaceTB/SmolLM2-135M-Instruct \
+#        --port 8001
+#
+#    Terminal 2 (run training):
+#      oumi train -c configs/examples/gold/train_vllm_server.yaml
+#
+# 2. Multi-Node Setup:
+#    Server mode is ideal for multi-node training:
+#    - Run vLLM server on dedicated GPU node
+#    - Training processes connect via network
+#    - Set vllm_server_host to server's IP address
+#
+# 3. Health Check:
+#    Verify server is running:
+#      curl http://localhost:8001/health
+#
+# 4. Advantages:
+#    - Isolation: vLLM crashes don't affect training
+#    - Flexibility: Use different hardware for generation
+#    - Debugging: Easier to debug server issues separately
+#
+# 5. Disadvantages:
+#    - Network overhead: Slightly slower than colocate mode
+#    - Process management: Need to manage separate process
+#    - Port conflicts: Ensure port 8001 is available
