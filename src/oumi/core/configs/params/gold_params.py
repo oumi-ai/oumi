@@ -41,14 +41,14 @@ class GoldParams(BaseParams):
     """
 
     teacher_model_init_kwargs: dict[str, Any] = field(
-        default_factory=lambda: {"dtype": "auto"}
+        default_factory=lambda: {"torch_dtype": "auto"}
     )
     """Keyword arguments for loading the teacher model.
 
     Passed to `AutoModelForCausalLM.from_pretrained(...)` when loading the teacher.
     Common kwargs include `device_map`, `attn_implementation`, etc.
 
-    Defaults to {"dtype": "auto"} to allow the model to use the default dtype
+    Defaults to {"torch_dtype": "auto"} to allow the model to use the default dtype
     of the teacher model.
     """
 
@@ -462,7 +462,7 @@ class GoldParams(BaseParams):
         else:
             result["teacher_model_init_kwargs"] = {}
 
-        if "dtype" not in result["teacher_model_init_kwargs"]:
-            result["teacher_model_init_kwargs"]["dtype"] = "auto"
+        if "torch_dtype" not in result["teacher_model_init_kwargs"]:
+            result["teacher_model_init_kwargs"]["torch_dtype"] = "auto"
 
         return result
