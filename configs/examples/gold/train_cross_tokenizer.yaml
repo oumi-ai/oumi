@@ -1,0 +1,73 @@
+# GOLD cross-tokenizer training config for testing
+# This demonstrates GOLD's unique ability to distill between different tokenizers
+#
+# Usage:
+#   oumi train -c configs/examples/gold/train_cross_tokenizer.yaml
+
+model:
+  # Student model - SmolLM 135M (GPT tokenizer)
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 1024
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: "dict" # required for TRL_GOLD trainer
+
+training:
+  trainer_type: "TRL_GOLD"
+  output_dir: "output/gold_smollm_cross_tokenizer"
+
+  # Minimal training for quick test
+  max_steps: 5
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 1
+
+  # Simple optimization
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-04
+  warmup_steps: 1
+
+  save_steps: 5
+  logging_steps: 1
+
+  enable_gradient_checkpointing: False
+  enable_wandb: False
+  enable_tensorboard: False
+  log_model_summary: False
+
+  # GOLD-specific parameters for cross-tokenizer distillation
+  gold:
+    # Teacher model with DIFFERENT tokenizer family
+    # Using Qwen2 which has a different tokenizer than SmolLM (GPT tokenizer)
+    teacher_model_name_or_path: "Qwen/Qwen2-0.5B-Instruct"
+    teacher_tokenizer_name_or_path: "Qwen/Qwen2-0.5B-Instruct"  # Required for ULD
+
+    # Teacher model initialization kwargs
+    teacher_model_init_kwargs:
+      attn_implementation: "sdpa"
+
+    # Generation parameters
+    temperature: 0.9
+    max_completion_length: 512
+
+    # Distillation parameters
+    lmbda: 0.5
+    beta: 0.5
+    disable_dropout: True
+    seq_kd: False
+
+    # Universal Logit Distillation (ULD) for cross-tokenizer alignment
+    use_uld_loss: True  # REQUIRED for different tokenizers
+    use_extended_uld: True  # Use advanced token alignment
+    uld_use_hybrid_loss: False  # Use pure ULD
+    uld_crossentropy_weight: 0.0
+    uld_distillation_weight: 1.0
+    uld_student_temperature: 1.0
+    uld_teacher_temperature: 1.0
