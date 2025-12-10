@@ -23,9 +23,11 @@ if TYPE_CHECKING:
 
 import transformers
 import trl
+from trl.experimental.gold import GOLDConfig
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.gkd_params import GkdParams
+from oumi.core.configs.params.gold_params import GoldParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
@@ -74,6 +76,18 @@ class TrainerType(Enum):
     Self-Generated Mistakes" (https://arxiv.org/abs/2306.13649).
 
     Warning: GKDTrainer is marked as experimental in TRL and may be subject to
+    changes or removal in future versions.
+    """
+
+    TRL_GOLD = "trl_gold"
+    """General Online Logit Distillation trainer from `trl` library.
+
+    This trainer extends GKD to support cross-tokenizer distillation through
+    Universal Logit Distillation (ULD), enabling knowledge distillation between
+    models with different tokenizers (e.g., Llama → Qwen).
+    Based on the paper "Unlocking On-Policy Distillation for Any Model Family".
+
+    Warning: GOLDTrainer is marked as experimental in TRL and may be subject to
     changes or removal in future versions.
     """
 
@@ -363,6 +377,9 @@ class TrainingParams(BaseParams):
 
     gkd: GkdParams = field(default_factory=GkdParams)
     """Parameters for GKD (Generalized Knowledge Distillation) training."""
+
+    gold: GoldParams = field(default_factory=GoldParams)
+    """Parameters for GOLD (General Online Logit Distillation) training."""
 
     log_level: str = "info"
     """The logging level for the main Oumi logger.
@@ -768,6 +785,8 @@ class TrainingParams(BaseParams):
             config_class = trl.GRPOConfig
         elif self.trainer_type == TrainerType.TRL_GKD:
             config_class = trl.GKDConfig
+        elif self.trainer_type == TrainerType.TRL_GOLD:
+            config_class = GOLDConfig
         else:
             config_class = transformers.TrainingArguments
 
@@ -818,6 +837,19 @@ class TrainingParams(BaseParams):
                     "Use properties of GkdParams instead."
                 )
             trainer_kwargs.update(gkd_kwargs)
+
+        if self.trainer_type == TrainerType.TRL_GOLD:
+            gold_kwargs = self.gold.to_hf_trainer_kwargs()
+            conflicting_keys = set(trainer_kwargs.keys()).intersection(
+                gold_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "trainer_kwargs attempt to override the following "
+                    f"GOLD kwargs: {conflicting_keys}. "
+                    "Use properties of GoldParams instead."
+                )
+            trainer_kwargs.update(gold_kwargs)
 
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
