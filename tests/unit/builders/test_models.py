@@ -10,9 +10,10 @@ from oumi.builders.models import (
     build_chat_template,
     build_huggingface_model,
     build_tokenizer,
+    build_unsloth_model,
     is_image_text_llm,
 )
-from oumi.core.configs import ModelParams
+from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.configs.internal.supported_models import find_model_hf_config
 from oumi.utils.logging import logger
 
@@ -289,4 +290,281 @@ def test_build_huggingface_model_passes_model_kwargs_to_find_model_hf_config():
         )
 
         # Verify the model was built successfully
+        assert result == mock_model
+
+
+# Unsloth tests
+
+
+def test_build_unsloth_model_import_error():
+    """Test that build_unsloth_model raises ImportError when unsloth is not installed."""
+    model_params = ModelParams(
+        model_name="unsloth/Llama-3.2-1B-Instruct",
+        enable_unsloth=True,
+    )
+
+    with patch("oumi.builders.models.FastLanguageModel", None):
+        with pytest.raises(
+            ImportError, match="Unsloth not installed. Please install with"
+        ):
+            build_unsloth_model(model_params)
+
+
+def test_build_unsloth_model_multi_gpu_error():
+    """Test that build_unsloth_model raises error for multi-GPU training."""
+    model_params = ModelParams(
+        model_name="unsloth/Llama-3.2-1B-Instruct",
+        enable_unsloth=True,
+    )
+
+    mock_device_info = Mock()
+    mock_device_info.world_size = 2  # Multi-GPU
+
+    with (
+        patch("oumi.builders.models.FastLanguageModel") as mock_unsloth,
+        patch(
+            "oumi.builders.models.get_device_rank_info", return_value=mock_device_info
+        ),
+    ):
+        with pytest.raises(
+            ValueError, match="Unsloth does not support multi-GPU training"
+        ):
+            build_unsloth_model(model_params)
+
+
+def test_build_unsloth_model_basic_kwargs():
+    """Test that build_unsloth_model correctly maps basic parameters to unsloth kwargs."""
+    model_params = ModelParams(
+        model_name="unsloth/Llama-3.2-1B-Instruct",
+        enable_unsloth=True,
+        model_max_length=2048,
+        trust_remote_code=True,
+        torch_dtype_str="bfloat16",
+        device_map="auto",
+    )
+
+    mock_device_info = Mock()
+    mock_device_info.world_size = 1  # Single GPU
+
+    mock_model = Mock()
+    mock_tokenizer = Mock()
+    mock_unsloth = Mock()
+    mock_unsloth.from_pretrained.return_value = (mock_model, mock_tokenizer)
+
+    with (
+        patch("oumi.builders.models.FastLanguageModel", mock_unsloth),
+        patch(
+            "oumi.builders.models.get_device_rank_info", return_value=mock_device_info
+        ),
+    ):
+        result = build_unsloth_model(model_params)
+
+        # Verify the correct kwargs were passed
+        call_kwargs = mock_unsloth.from_pretrained.call_args[1]
+        assert call_kwargs["model_name"] == "unsloth/Llama-3.2-1B-Instruct"
+        assert call_kwargs["max_seq_length"] == 2048
+        assert call_kwargs["trust_remote_code"] is True
+        assert call_kwargs["device_map"] == "auto"
+        assert call_kwargs["load_in_4bit"] is False
+        assert result == mock_model
+
+
+def test_build_unsloth_model_qlora_4bit():
+    """Test that build_unsloth_model correctly configures 4-bit QLoRA."""
+    model_params = ModelParams(
+        model_name="unsloth/Llama-3.2-1B-Instruct",
+        enable_unsloth=True,
+    )
+
+    peft_params = PeftParams(
+        q_lora=True,
+        q_lora_bits=4,
+    )
+
+    mock_device_info = Mock()
+    mock_device_info.world_size = 1
+
+    mock_model = Mock()
+    mock_tokenizer = Mock()
+    mock_unsloth = Mock()
+    mock_unsloth.from_pretrained.return_value = (mock_model, mock_tokenizer)
+
+    with (
+        patch("oumi.builders.models.FastLanguageModel", mock_unsloth),
+        patch(
+            "oumi.builders.models.get_device_rank_info", return_value=mock_device_info
+        ),
+    ):
+        result = build_unsloth_model(model_params, peft_params)
+
+        # Verify 4-bit quantization is enabled
+        call_kwargs = mock_unsloth.from_pretrained.call_args[1]
+        assert call_kwargs["load_in_4bit"] is True
+        assert call_kwargs["load_in_8bit"] is False
+        assert result == mock_model
+
+
+def test_build_unsloth_model_qlora_8bit():
+    """Test that build_unsloth_model correctly configures 8-bit QLoRA."""
+    model_params = ModelParams(
+        model_name="unsloth/Llama-3.2-1B-Instruct",
+        enable_unsloth=True,
+    )
+
+    peft_params = PeftParams(
+        q_lora=True,
+        q_lora_bits=8,
+    )
+
+    mock_device_info = Mock()
+    mock_device_info.world_size = 1
+
+    mock_model = Mock()
+    mock_tokenizer = Mock()
+    mock_unsloth = Mock()
+    mock_unsloth.from_pretrained.return_value = (mock_model, mock_tokenizer)
+
+    with (
+        patch("oumi.builders.models.FastLanguageModel", mock_unsloth),
+        patch(
+            "oumi.builders.models.get_device_rank_info", return_value=mock_device_info
+        ),
+    ):
+        result = build_unsloth_model(model_params, peft_params)
+
+        # Verify 8-bit quantization is enabled
+        call_kwargs = mock_unsloth.from_pretrained.call_args[1]
+        assert call_kwargs["load_in_4bit"] is False
+        assert call_kwargs["load_in_8bit"] is True
+        assert result == mock_model
+
+
+def test_build_unsloth_model_custom_unsloth_kwargs():
+    """Test that build_unsloth_model respects custom unsloth_kwargs."""
+    model_params = ModelParams(
+        model_name="unsloth/Llama-3.2-1B-Instruct",
+        enable_unsloth=True,
+        unsloth_kwargs={
+            "use_gradient_checkpointing": "unsloth",
+            "fast_inference": True,
+            "rope_scaling": {"type": "linear", "factor": 2.0},
+        },
+    )
+
+    mock_device_info = Mock()
+    mock_device_info.world_size = 1
+
+    mock_model = Mock()
+    mock_tokenizer = Mock()
+    mock_unsloth = Mock()
+    mock_unsloth.from_pretrained.return_value = (mock_model, mock_tokenizer)
+
+    with (
+        patch("oumi.builders.models.FastLanguageModel", mock_unsloth),
+        patch(
+            "oumi.builders.models.get_device_rank_info", return_value=mock_device_info
+        ),
+    ):
+        result = build_unsloth_model(model_params)
+
+        # Verify custom kwargs were passed through
+        call_kwargs = mock_unsloth.from_pretrained.call_args[1]
+        assert call_kwargs["use_gradient_checkpointing"] == "unsloth"
+        assert call_kwargs["fast_inference"] is True
+        assert call_kwargs["rope_scaling"] == {"type": "linear", "factor": 2.0}
+        assert result == mock_model
+
+
+def test_build_unsloth_model_with_adapter():
+    """Test that build_unsloth_model loads PEFT adapter when specified."""
+    model_params = ModelParams(
+        model_name="unsloth/Llama-3.2-1B-Instruct",
+        enable_unsloth=True,
+        adapter_model="path/to/adapter",
+    )
+
+    mock_device_info = Mock()
+    mock_device_info.world_size = 1
+
+    mock_base_model = Mock()
+    mock_tokenizer = Mock()
+    mock_adapted_model = Mock()
+    mock_unsloth = Mock()
+    mock_unsloth.from_pretrained.return_value = (mock_base_model, mock_tokenizer)
+
+    with (
+        patch("oumi.builders.models.FastLanguageModel", mock_unsloth),
+        patch(
+            "oumi.builders.models.get_device_rank_info", return_value=mock_device_info
+        ),
+        patch("oumi.builders.models.PeftModel") as mock_peft,
+    ):
+        mock_peft.from_pretrained.return_value = mock_adapted_model
+
+        result = build_unsloth_model(model_params)
+
+        # Verify adapter was loaded
+        mock_peft.from_pretrained.assert_called_once_with(
+            mock_base_model, "path/to/adapter"
+        )
+        assert result == mock_adapted_model
+
+
+def test_build_unsloth_model_with_model_revision():
+    """Test that build_unsloth_model passes model_revision to unsloth."""
+    model_params = ModelParams(
+        model_name="unsloth/Llama-3.2-1B-Instruct",
+        enable_unsloth=True,
+        model_revision="v1.0.0",
+    )
+
+    mock_device_info = Mock()
+    mock_device_info.world_size = 1
+
+    mock_model = Mock()
+    mock_tokenizer = Mock()
+    mock_unsloth = Mock()
+    mock_unsloth.from_pretrained.return_value = (mock_model, mock_tokenizer)
+
+    with (
+        patch("oumi.builders.models.FastLanguageModel", mock_unsloth),
+        patch(
+            "oumi.builders.models.get_device_rank_info", return_value=mock_device_info
+        ),
+    ):
+        result = build_unsloth_model(model_params)
+
+        # Verify revision was passed
+        call_kwargs = mock_unsloth.from_pretrained.call_args[1]
+        assert call_kwargs["revision"] == "v1.0.0"
+        assert result == mock_model
+
+
+def test_build_unsloth_model_device_map_fallback():
+    """Test that build_unsloth_model uses 'sequential' when device_map is None."""
+    model_params = ModelParams(
+        model_name="unsloth/Llama-3.2-1B-Instruct",
+        enable_unsloth=True,
+        device_map=None,
+    )
+
+    mock_device_info = Mock()
+    mock_device_info.world_size = 1
+
+    mock_model = Mock()
+    mock_tokenizer = Mock()
+    mock_unsloth = Mock()
+    mock_unsloth.from_pretrained.return_value = (mock_model, mock_tokenizer)
+
+    with (
+        patch("oumi.builders.models.FastLanguageModel", mock_unsloth),
+        patch(
+            "oumi.builders.models.get_device_rank_info", return_value=mock_device_info
+        ),
+    ):
+        result = build_unsloth_model(model_params)
+
+        # Verify device_map defaults to 'sequential'
+        call_kwargs = mock_unsloth.from_pretrained.call_args[1]
+        assert call_kwargs["device_map"] == "sequential"
         assert result == mock_model

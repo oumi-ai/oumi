@@ -16,6 +16,14 @@ from typing import Optional, Union, cast
 
 import torch
 import torch.nn as nn
+
+# Import unsloth before transformers, peft, and trl for optimal performance
+# See: https://github.com/unslothai/unsloth
+try:
+    from unsloth import FastLanguageModel  # type: ignore
+except ImportError:
+    FastLanguageModel = None
+
 import transformers
 from peft import PeftModel, get_peft_model, prepare_model_for_kbit_training
 from transformers import Mxfp4Config  # pyright: ignore[reportAttributeAccessIssue]
@@ -48,11 +56,6 @@ try:
     from onebitllms import replace_linear_with_bitnet_linear  # type: ignore
 except ImportError:
     onebitllms = None
-
-try:
-    from unsloth import FastLanguageModel  # type: ignore
-except ImportError:
-    FastLanguageModel = None
 
 
 def build_model(
