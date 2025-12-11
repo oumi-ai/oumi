@@ -60,6 +60,7 @@ dependencies = [
     "pexpect>=4.9,<4.10",      # Used by Polaris client
     "pillow>=11.3,<11.4",      # Used by image datasets
     "protobuf>=6.32",
+    "pycares<5.0.0",
     "pydantic>=2.11,<2.12",
     "responses>=0.25,<0.26",
     "safetensors>=0.6,<0.8",
