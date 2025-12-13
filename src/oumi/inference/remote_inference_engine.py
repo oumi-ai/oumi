@@ -48,6 +48,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.inference.adaptive_concurrency_controller import AdaptiveConcurrencyController
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
+from oumi.inference.token_rate_limiter import TokenRateLimiter
 from oumi.utils.conversation_utils import (
     convert_message_to_json_content_list,
     create_list_of_message_json_dicts,
@@ -262,6 +263,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 politeness_policy=self._remote_params.politeness_policy,
             )
 
+        # Initialize token rate limiter if any token/request limits are set
+        self._token_rate_limiter = TokenRateLimiter(
+            requests_per_minute=self._remote_params.requests_per_minute,
+            input_tokens_per_minute=self._remote_params.input_tokens_per_minute,
+            output_tokens_per_minute=self._remote_params.output_tokens_per_minute,
+        )
+
     def _default_remote_params(self) -> RemoteParams:
         """Returns the default remote parameters."""
         return RemoteParams()
@@ -287,6 +295,27 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """Try to record an error."""
         if self._remote_params.use_adaptive_concurrency:
             await self._adaptive_concurrency_controller.record_error()
+
+    async def _record_token_usage(self, response_json: dict) -> None:
+        """Record token usage from API response for rate limiting.
+
+        Extracts token counts from the standard OpenAI-format "usage" field
+        in the API response and records them with the rate limiter.
+
+        Args:
+            response_json: The JSON response from the API.
+        """
+        if not self._token_rate_limiter.is_enabled():
+            return
+
+        usage = response_json.get("usage", {})
+        input_tokens = usage.get("prompt_tokens", 0)
+        output_tokens = usage.get("completion_tokens", 0)
+
+        await self._token_rate_limiter.record_usage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
 
     @staticmethod
     def _get_list_of_message_json_dicts(
@@ -500,6 +529,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     "Please set the environment variable "
                     f"`{remote_params.api_key_env_varname}`."
                 )
+
+        # Wait if token/request rate limits are being approached
+        if self._token_rate_limiter.is_enabled():
+            await self._token_rate_limiter.wait_if_needed()
+
         semaphore_or_controller = (
             self._adaptive_concurrency_controller
             if self._remote_params.use_adaptive_concurrency
@@ -573,6 +607,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             # Write what we have so far to our scratch directory
                             self._save_conversation_to_scratch(result, output_path)
                             await self._try_record_success()
+                            # Record token usage for rate limiting
+                            await self._record_token_usage(response_json)
                             return result
                         except Exception as e:
                             # Response was successful, but we couldn't process it.
