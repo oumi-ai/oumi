@@ -14,6 +14,8 @@
 
 from typing import Optional
 
+from rich.console import Console
+
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
@@ -25,6 +27,9 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.utils.logging import logger
+
+# Console instance for CLI spinner display
+_CONSOLE = Console()
 
 
 def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
@@ -55,15 +60,17 @@ def infer_interactive(
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
             print("\nExiting...")
             return
-        model_response = infer(
-            config=config,
-            inputs=[
-                input_text,
-            ],
-            system_prompt=system_prompt,
-            input_image_bytes=input_image_bytes,
-            inference_engine=inference_engine,
-        )
+        # Display loading spinner while waiting for model response
+        with _CONSOLE.status("[green]Generating response...[/green]", spinner="dots"):
+            model_response = infer(
+                config=config,
+                inputs=[
+                    input_text,
+                ],
+                system_prompt=system_prompt,
+                input_image_bytes=input_image_bytes,
+                inference_engine=inference_engine,
+            )
         for g in model_response:
             print("------------")
             print(repr(g))
