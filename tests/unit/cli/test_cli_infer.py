@@ -2,7 +2,7 @@ import io
 import logging
 import tempfile
 from pathlib import Path
-from unittest.mock import call, patch
+from unittest.mock import MagicMock, call, patch
 
 import PIL.Image
 import pytest
@@ -10,6 +10,7 @@ import typer
 from typer.testing import CliRunner
 
 import oumi
+import oumi.cli.cli_utils as cli_utils
 from oumi.cli.alias import AliasType
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.infer import infer
@@ -294,3 +295,27 @@ def test_infer_with_oumi_prefix_and_explicit_output_dir(
         mock_infer_interactive.assert_called_once_with(
             config, input_image_bytes=None, system_prompt=None
         )
+
+
+def test_infer_batch_shows_loading_spinner(app, mock_infer, mock_infer_interactive):
+    """Test that batch inference displays a loading spinner."""
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        yaml_path = str(Path(output_temp_dir) / "infer.yaml")
+        config: InferenceConfig = _create_inference_config()
+        config.input_path = "some/path"
+        config.to_yaml(yaml_path)
+
+        # Mock the CONSOLE.status context manager
+        mock_status = MagicMock()
+        mock_status.__enter__ = MagicMock(return_value=None)
+        mock_status.__exit__ = MagicMock(return_value=None)
+
+        with patch.object(cli_utils.CONSOLE, "status", return_value=mock_status):
+            result = runner.invoke(app, ["--config", yaml_path])
+
+        # Verify that CONSOLE.status was called with the spinner message
+        cli_utils.CONSOLE.status.assert_called_once_with(
+            "[green]Running inference...[/green]", spinner="dots"
+        )
+        mock_infer.assert_has_calls([call(config)])
+        assert result.exit_code == 0
