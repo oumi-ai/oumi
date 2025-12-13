@@ -143,6 +143,10 @@ class TokenRateLimiter:
                 wait_time = max(
                     wait_time, oldest_time + self._window_seconds - current_time
                 )
+            else:
+                # All requests are pending (no completed history yet)
+                # Wait for a small interval to allow pending requests to complete
+                wait_time = max(wait_time, 0.1)
 
         # Check input token limit
         if (
@@ -154,6 +158,9 @@ class TokenRateLimiter:
                 wait_time = max(
                     wait_time, oldest_time + self._window_seconds - current_time
                 )
+            else:
+                # All requests are pending, wait briefly
+                wait_time = max(wait_time, 0.1)
 
         # Check output token limit
         if (
@@ -165,6 +172,9 @@ class TokenRateLimiter:
                 wait_time = max(
                     wait_time, oldest_time + self._window_seconds - current_time
                 )
+            else:
+                # All requests are pending, wait briefly
+                wait_time = max(wait_time, 0.1)
 
         return max(0.0, wait_time)
 

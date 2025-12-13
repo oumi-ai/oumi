@@ -284,6 +284,33 @@ class TestTokenRateLimiter:
         summary = await limiter.get_usage_summary()
         assert summary["request_count"] == 4
 
+    @pytest.mark.asyncio
+    async def test_wait_when_limit_reached_with_empty_history(self):
+        """Test that wait is applied when limit is reached by pending requests only.
+
+        This tests the scenario where concurrent requests arrive simultaneously
+        and the limit is reached purely by pending requests (no completed requests
+        in history yet). The rate limiter should still enforce a wait.
+        """
+        limiter = TokenRateLimiter(requests_per_minute=2)
+
+        # First two requests should proceed without waiting
+        wait1 = await limiter.wait_if_needed()
+        wait2 = await limiter.wait_if_needed()
+
+        # At this point, we have 2 pending requests (at limit) but empty history
+        # Third request should be forced to wait
+        wait3 = await limiter.wait_if_needed()
+
+        # The third request should have a non-zero wait time
+        # because the limit was reached (even with empty history)
+        assert wait3 > 0, "Should wait when limit reached by pending requests"
+
+        # Clean up pending requests
+        await limiter.record_usage(input_tokens=0, output_tokens=0)
+        await limiter.record_usage(input_tokens=0, output_tokens=0)
+        await limiter.record_usage(input_tokens=0, output_tokens=0)
+
 
 class TestTokenRateLimiterIntegration:
     """Integration tests for TokenRateLimiter."""
