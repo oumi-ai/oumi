@@ -21,11 +21,41 @@ from oumi.datasets.grpo.rewards.completion_length_rewards import (
 from oumi.datasets.grpo.rewards.count_letters_rewards import compute_letter_count_reward
 from oumi.datasets.grpo.rewards.countdown_rewards import countdown_reward
 from oumi.datasets.grpo.rewards.gsm8k_reward import gsm8k_reward
+from oumi.datasets.grpo.rewards.rubric_reward import (
+    AggregationStrategy,
+    JudgePanelConfig,
+    JudgePanelMember,
+    JudgeStats,
+    RubricRewardStats,
+    clear_panel_config,
+    compute_rubric_reward,
+    compute_rubric_reward_panel,
+    get_rubric_reward_stats,
+    load_panel_config,
+    reset_rubric_reward_stats,
+    rubric_reward,
+    rubric_reward_batch,
+    set_panel_config,
+)
 
 __all__ = [
+    "AggregationStrategy",
+    "clear_panel_config",
     "compute_letter_count_reward",
+    "compute_rubric_reward",
+    "compute_rubric_reward_panel",
     "compute_soft_target_token_length_reward",
     "compute_sharp_target_token_length_reward",
     "countdown_reward",
+    "get_rubric_reward_stats",
     "gsm8k_reward",
+    "JudgePanelConfig",
+    "JudgePanelMember",
+    "JudgeStats",
+    "load_panel_config",
+    "reset_rubric_reward_stats",
+    "rubric_reward",
+    "rubric_reward_batch",
+    "RubricRewardStats",
+    "set_panel_config",
 ]

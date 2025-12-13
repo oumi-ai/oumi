@@ -1,0 +1,19 @@
+{
+  "judges": [
+    {
+      "model": "gpt-5-mini",
+      "weight": 1.0,
+      "name": "gpt-5-mini",
+      "temperature": 0.0
+    },
+    {
+      "model": "gpt-5",
+      "weight": 2.0,
+      "name": "gpt-5",
+      "temperature": 0.0
+    }
+  ],
+  "aggregation": "weighted_mean",
+  "require_unanimous": false,
+  "min_agreement": 0.0
+}
