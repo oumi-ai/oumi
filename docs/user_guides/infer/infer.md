@@ -6,6 +6,7 @@
 :hidden:
 
 inference_engines
+engine_comparison
 common_workflows
 configuration
 inference_cli
@@ -115,6 +116,7 @@ See {py:obj}`~oumi.inference.NativeTextInferenceEngine` for an example of a loca
 See {py:obj}`~oumi.inference.AnthropicInferenceEngine` for an example of an inference engine that requires a remote API.
 
 See {py:obj}`~oumi.inference.SambanovaInferenceEngine` for an example of an inference engine that requires a remote API.
+
 ```python
 from oumi.inference import VLLMInferenceEngine
 from oumi.core.configs import InferenceConfig, ModelParams
@@ -172,6 +174,7 @@ Ensure the selected inference engine supports the specific quantization method u
 ```
 
 (multi-modal-inference)=
+
 ### Multi-modal Inference
 
 For models that support multi-modal inputs (e.g., text and images):
@@ -244,16 +247,19 @@ The inference system automatically saves completed results to **scratch director
 Scratch files are stored in different locations depending on your configuration. All scratch files now include a unique hash in their filename based on your model parameters, generation parameters, and dataset content to ensure cache consistency and prevent conflicts between different inference configurations:
 
 **With Output Path Specified:**
+
 ```
 <output_directory>/scratch/<output_filename>_<hash>.<extension>
 ```
 
 For example, if your output path is `/home/user/results/inference_results.jsonl`, the scratch file will be:
+
 ```
 /home/user/results/scratch/inference_results_a1b2c3d4e5f6.jsonl
 ```
 
 **Without Output Path (Temporary Mode):**
+
 ```
 ~/.cache/oumi/tmp/temp_inference_output_<hash>.jsonl
 ```
