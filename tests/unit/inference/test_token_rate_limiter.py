@@ -246,6 +246,44 @@ class TestTokenRateLimiter:
         # Still 1 request (now recorded, not pending)
         assert summary["request_count"] == 1
 
+    @pytest.mark.asyncio
+    async def test_pending_requests_cleaned_up_on_failure(self):
+        """Test that pending requests are properly decremented even on failure.
+
+        This test ensures that if wait_if_needed() is called but record_usage()
+        is never called (e.g., due to request failure), the pending_requests
+        counter doesn't leak and cause rate limiter to block future requests.
+        """
+        limiter = TokenRateLimiter(requests_per_minute=5)
+
+        # Simulate failed requests: call wait_if_needed() without record_usage()
+        await limiter.wait_if_needed()
+        await limiter.wait_if_needed()
+        await limiter.wait_if_needed()
+
+        # The pending requests counter should have incremented
+        summary = await limiter.get_usage_summary()
+        assert summary["request_count"] == 3
+
+        # In the real implementation, the finally block should call
+        # record_request_without_tokens() to properly decrement the counter.
+        # Simulate that here by calling it manually:
+        await limiter.record_request_without_tokens()
+        await limiter.record_request_without_tokens()
+        await limiter.record_request_without_tokens()
+
+        # After cleanup, usage should show 3 recorded (failed) requests
+        summary = await limiter.get_usage_summary()
+        assert summary["request_count"] == 3
+
+        # Now verify that new requests can still proceed
+        # (if counter leaked, this would be blocked)
+        await limiter.wait_if_needed()
+        await limiter.record_usage(input_tokens=10, output_tokens=5)
+
+        summary = await limiter.get_usage_summary()
+        assert summary["request_count"] == 4
+
 
 class TestTokenRateLimiterIntegration:
     """Integration tests for TokenRateLimiter."""
