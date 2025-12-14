@@ -48,12 +48,28 @@ class RemoteParams(BaseParams):
     num_workers: int = 1
     """Number of workers to use for parallel inference."""
 
-    politeness_policy: float = 0.0
-    """Politeness policy to use when calling an API.
+    requests_per_minute: Optional[int] = None
+    """Maximum number of requests per minute (RPM) allowed by the API.
 
-    If greater than zero, this is the amount of time in seconds a worker will sleep
-    before making a subsequent request.
+    If set, the engine will automatically throttle requests to stay within this limit.
+    This should be set based on the API provider's rate limits.
     """
+
+    input_tokens_per_minute: Optional[int] = None
+    """Maximum number of input tokens per minute (TPM) allowed by the API.
+
+    If set, the engine will track input token usage and throttle requests when
+    approaching this limit. This should be set based on the API provider's rate limits.
+    """
+
+    output_tokens_per_minute: Optional[int] = None
+    """Maximum number of output tokens per minute (TPM) allowed by the API.
+
+    If set, the engine will track output token usage and throttle requests when
+    approaching this limit. This should be set based on the API provider's rate limits.
+    """
+
+    politeness_policy: float = 0.0
 
     batch_completion_window: Optional[str] = "24h"
     """Time window for batch completion. Currently only '24h' is supported.
@@ -69,17 +85,17 @@ class RemoteParams(BaseParams):
     requests will decrease, and as error rate decreases below a threshold, the number of
     concurrent requests will increase.
 
-    When this is enabled, users should set `num_workers` to the requests per minute
-    (RPM/QPM) of the model/API, and the `politeness_policy` to 60s (as most APIs query
-    limits are dictated by the number of requests per minute).
+    When this is enabled, users should set `num_workers` to a reasonable maximum
+    concurrency level and configure `requests_per_minute` to match the API's rate limit.
+    For token-based rate limiting, also set `input_tokens_per_minute` and
+    `output_tokens_per_minute` as appropriate.
 
     The lowest concurrency can be is 1, and the highest concurrency is `num_workers`.
-    Updates to concurrency will happen no sooner than `politeness_policy` seconds after
-    the last update, and at least 10 requests must have been made since the last update.
+    Updates to concurrency will happen based on the configured rate limits and error rates,
+    with at least 10 requests made since the last update.
 
-    In the event that even 1 concurrency causes the error rate to exceed the threshold,
-    it is recommended to increase the `politeness_policy` to allow more time between
-    requests.
+    Note: If using the deprecated `politeness_policy` parameter, the system will still
+    work but it's recommended to migrate to the new rate limiting parameters.
     """
 
     def __post_init__(self):
@@ -88,6 +104,18 @@ class RemoteParams(BaseParams):
             raise ValueError(
                 "Number of num_workers must be greater than or equal to 1."
             )
+        if self.requests_per_minute is not None and self.requests_per_minute <= 0:
+            raise ValueError("Requests per minute must be greater than 0.")
+        if (
+            self.input_tokens_per_minute is not None
+            and self.input_tokens_per_minute <= 0
+        ):
+            raise ValueError("Input tokens per minute must be greater than 0.")
+        if (
+            self.output_tokens_per_minute is not None
+            and self.output_tokens_per_minute <= 0
+        ):
+            raise ValueError("Output tokens per minute must be greater than 0.")
         if self.politeness_policy < 0:
             raise ValueError("Politeness policy must be greater than or equal to 0.")
         if self.connection_timeout < 0:
