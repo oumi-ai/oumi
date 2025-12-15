@@ -123,7 +123,11 @@ class DatasetParams(BaseParams):
     """The size of the shuffle buffer used for shuffling the dataset before sampling."""
 
     trust_remote_code: bool = False
-    """Whether to trust remote code when loading the dataset."""
+    """Whether to trust remote code when loading the dataset.
+
+    Deprecated:
+        This parameter is deprecated and will be removed in the future.
+    """
 
     transform_num_workers: Optional[Union[str, int]] = None
     """Number of subprocesses to use for dataset post-processing (`ds.transform()`).
@@ -175,6 +179,11 @@ class DatasetParams(BaseParams):
                     f"reserved fields: {conflicting_keys}. "
                     "Use properties of DatasetParams instead."
                 )
+
+        if self.trust_remote_code:
+            raise DeprecationWarning(
+                "`trust_remote_code` is deprecated and will be removed in the future."
+            )
 
 
 @dataclass

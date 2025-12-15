@@ -463,7 +463,6 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
             path=self.dataset_name,
             name=self.dataset_subset,
             split=self.split,
-            trust_remote_code=self.trust_remote_code,
         )
 
         if isinstance(
