@@ -476,7 +476,7 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
                 datasets=[
                     DatasetParams(
                         dataset_name="debug_pretraining",
-                        dataset_kwargs={"dataset_size": 50, "seq_length": 128},
+                        dataset_kwargs={"dataset_size": 50},
                     )
                 ],
                 pack=True,
@@ -519,11 +519,11 @@ def test_multiple_pretraining_datasets_with_streaming(stream: bool):
                 datasets=[
                     DatasetParams(
                         dataset_name="debug_pretraining",
-                        dataset_kwargs={"dataset_size": 20, "seq_length": 64},
+                        dataset_kwargs={"dataset_size": 20},
                     ),
                     DatasetParams(
                         dataset_name="debug_pretraining",
-                        dataset_kwargs={"dataset_size": 20, "seq_length": 64},
+                        dataset_kwargs={"dataset_size": 20},
                     ),
                 ],
                 pack=True,
@@ -551,7 +551,10 @@ def test_multiple_pretraining_datasets_with_streaming(stream: bool):
         assert len(item["input_ids"]) == 64
 
     # Should have samples from both datasets combined
-    assert len(items) == 40
+    # Each dataset has 20 docs * 6 tokens + 19 EOS = ~139 tokens
+    # With seq_length=64, that's floor(139/64) = 2 packed samples per dataset
+    # 2 datasets * 2 samples = 4 total
+    assert len(items) == 4
 
 
 @pytest.mark.skip(
