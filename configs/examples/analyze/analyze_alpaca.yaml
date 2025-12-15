@@ -1,7 +1,7 @@
 # Streamlined Alpaca Quality Analysis
 # Uses only high-signal metrics after empirical testing
 #
-# Usage: oumi analyze --config configs/examples/analyze/analyze_alpaca_streamlined.yaml
+# Usage: oumi analyze --config configs/examples/analyze/analyze_alpaca.yaml
 
 dataset_name: tatsu-lab/alpaca
 split: train
