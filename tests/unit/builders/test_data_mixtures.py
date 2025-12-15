@@ -476,7 +476,7 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
                 datasets=[
                     DatasetParams(
                         dataset_name="debug_pretraining",
-                        dataset_kwargs={"dataset_size": 50, "seq_length": 64},
+                        dataset_kwargs={"dataset_size": 50, "seq_length": 128},
                     )
                 ],
                 pack=True,
