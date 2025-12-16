@@ -691,12 +691,109 @@ class DatasetAnalyzer:
             "analyzers_used": list(self.sample_analyzers.keys()),
         }
 
+    def _parse_analyzer_column(
+        self, column_name: str
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Parse a column name to extract analyzer name and metric name.
+
+        Handles column naming patterns:
+        1. text_content_{analyzer}_{metric}
+        2. conversation_text_content_{analyzer}_{metric}
+
+        Args:
+            column_name: The column name to parse
+
+        Returns:
+            Tuple of (analyzer_name, metric_name) or (None, None) if parsing fails
+        """
+        parts = column_name.split("_")
+        metric_suffixes = [
+            "char_count",
+            "word_count",
+            "sentence_count",
+            "token_count",
+        ]
+
+        # Pattern 1: text_content_{analyzer}_{metric}
+        if len(parts) >= 5 and parts[0] == "text" and parts[1] == "content":
+            remaining_parts = parts[2:]
+            prefix = "text_content"
+
+        # Pattern 2: conversation_text_content_{analyzer}_{metric}
+        elif (
+            len(parts) >= 6
+            and parts[0] == "conversation"
+            and parts[1] == "text"
+            and parts[2] == "content"
+        ):
+            remaining_parts = parts[3:]
+            prefix = "conversation_text_content"
+        else:
+            return None, None
+
+        # Try to find a metric suffix
+        for i in range(
+            1, len(remaining_parts)
+        ):  # Start from 1 to ensure analyzer_name is not empty
+            potential_metric = "_".join(remaining_parts[i:])
+            if any(potential_metric.endswith(suffix) for suffix in metric_suffixes):
+                analyzer_name = "_".join(remaining_parts[:i])
+                metric_name = f"{prefix}_{potential_metric}"
+                return analyzer_name, metric_name
+
+        # Fallback: assume last two parts are metric
+        if len(remaining_parts) >= 2:
+            analyzer_name = "_".join(remaining_parts[:-2])
+            metric_name = f"{prefix}_{remaining_parts[-2]}_{remaining_parts[-1]}"
+            return analyzer_name, metric_name
+
+        return None, None
+
+    def _compute_level_summary(
+        self, df: pd.DataFrame, base_columns: set[str]
+    ) -> dict[str, Any]:
+        """Compute summary statistics for analyzer columns in a dataframe.
+
+        Args:
+            df: DataFrame containing analyzer metrics
+            base_columns: Set of column names to exclude from analysis
+
+        Returns:
+            Dictionary mapping analyzer names to their metric statistics
+        """
+        if df is None or df.empty:
+            return {}
+
+        # Get all analyzer columns (columns that are not base columns and are numeric)
+        analyzer_columns = [
+            col
+            for col in df.columns
+            if col not in base_columns and pd.api.types.is_numeric_dtype(df[col])
+        ]
+
+        summary = {}
+
+        for col in analyzer_columns:
+            analyzer_name, metric_name = self._parse_analyzer_column(col)
+
+            if analyzer_name and metric_name:
+                if analyzer_name not in summary:
+                    summary[analyzer_name] = {}
+
+                # Compute statistics for numeric columns
+                values = cast(pd.Series, df[col].dropna())
+                if len(values) > 0:
+                    summary[analyzer_name][metric_name] = compute_statistics(
+                        values, self._decimal_precision
+                    )
+
+        return summary
+
     def _get_message_level_summary(self) -> dict[str, Any]:
         """Get aggregated message-level metrics across all analyzers."""
         if self._message_df is None or self._message_df.empty:
             return {}
 
-        # Get all analyzer columns (columns that are not base message columns)
         base_columns = {
             "conversation_index",
             "conversation_id",
@@ -706,73 +803,7 @@ class DatasetAnalyzer:
             "text_content",
         }
 
-        analyzer_columns = [
-            col
-            for col in self._message_df.columns
-            if col not in base_columns
-            and pd.api.types.is_numeric_dtype(self._message_df[col])
-        ]
-
-        summary = {}
-
-        for col in analyzer_columns:
-            # Extract analyzer name and metric from column
-            # Format: text_content_{analyzer}_{metric}
-            # Example: text_content_length_analyzer_char_count
-            parts = col.split("_")
-            if len(parts) >= 5:  # text_content_analyzer_metric_type
-                if parts[0] == "text" and parts[1] == "content":
-                    # The analyzer name and metric are in the remaining parts
-                    # For "text_content_length_analyzer_char_count":
-                    # parts[2:] = ["length", "analyzer", "char", "count"]
-                    # We need to find where the analyzer name ends and metric begins
-
-                    # Look for known metric suffixes to split correctly
-                    remaining_parts = parts[2:]
-                    metric_suffixes = [
-                        "char_count",
-                        "word_count",
-                        "sentence_count",
-                        "token_count",
-                    ]
-
-                    analyzer_name = None
-                    metric_name = None
-
-                    # Try to find a metric suffix
-                    for i in range(
-                        1, len(remaining_parts)
-                    ):  # Start from 1 to ensure analyzer_name is not empty
-                        potential_metric = "_".join(remaining_parts[i:])
-                        if any(
-                            potential_metric.endswith(suffix)
-                            for suffix in metric_suffixes
-                        ):
-                            analyzer_name = "_".join(remaining_parts[:i])
-                            metric_name = f"text_content_{potential_metric}"
-                            break
-
-                    # Fallback: assume last two parts are metric
-                    if analyzer_name is None:
-                        if len(remaining_parts) >= 2:
-                            analyzer_name = "_".join(remaining_parts[:-2])
-                            metric_name = (
-                                f"text_content_{remaining_parts[-2]}_"
-                                f"{remaining_parts[-1]}"
-                            )
-
-                    if analyzer_name and metric_name:
-                        if analyzer_name not in summary:
-                            summary[analyzer_name] = {}
-
-                        # Compute statistics for numeric columns
-                        values = cast(pd.Series, self._message_df[col].dropna())
-                        if len(values) > 0:
-                            summary[analyzer_name][metric_name] = compute_statistics(
-                                values, self._decimal_precision
-                            )
-
-        return summary
+        return self._compute_level_summary(self._message_df, base_columns)
 
     def _get_conversation_level_summary(self) -> dict[str, Any]:
         """Get aggregated conversation-level metrics across all analyzers.
@@ -784,7 +815,6 @@ class DatasetAnalyzer:
         if self._conversation_df is None or self._conversation_df.empty:
             return {}
 
-        # Get all analyzer columns (columns that are not base conversation columns)
         base_columns = {
             "conversation_index",
             "conversation_id",
@@ -792,94 +822,7 @@ class DatasetAnalyzer:
             "conversation_text_content",
         }
 
-        analyzer_columns = [
-            col
-            for col in self._conversation_df.columns
-            if col not in base_columns
-            and pd.api.types.is_numeric_dtype(self._conversation_df[col])
-        ]
-
-        summary = {}
-
-        for col in analyzer_columns:
-            parts = col.split("_")
-            metric_suffixes = [
-                "char_count",
-                "word_count",
-                "sentence_count",
-                "token_count",
-            ]
-
-            analyzer_name = None
-            metric_name = None
-
-            # Pattern 1: text_content_{analyzer}_{metric} (aggregated message-level)
-            if len(parts) >= 5 and parts[0] == "text" and parts[1] == "content":
-                remaining_parts = parts[2:]
-
-                # Try to find a metric suffix
-                for i in range(
-                    1, len(remaining_parts)
-                ):  # Start from 1 to ensure analyzer_name is not empty
-                    potential_metric = "_".join(remaining_parts[i:])
-                    if any(
-                        potential_metric.endswith(suffix) for suffix in metric_suffixes
-                    ):
-                        analyzer_name = "_".join(remaining_parts[:i])
-                        metric_name = f"text_content_{potential_metric}"
-                        break
-
-                # Fallback: assume last two parts are metric
-                if analyzer_name is None:
-                    if len(remaining_parts) >= 2:
-                        analyzer_name = "_".join(remaining_parts[:-2])
-                        metric_name = (
-                            f"text_content_{remaining_parts[-2]}_{remaining_parts[-1]}"
-                        )
-
-            # Pattern 2: conversation_text_content_{analyzer}_{metric}
-            # (conversation-level)
-            elif (
-                len(parts) >= 6
-                and parts[0] == "conversation"
-                and parts[1] == "text"
-                and parts[2] == "content"
-            ):
-                remaining_parts = parts[3:]
-
-                # Try to find a metric suffix
-                for i in range(
-                    1, len(remaining_parts)
-                ):  # Start from 1 to ensure analyzer_name is not empty
-                    potential_metric = "_".join(remaining_parts[i:])
-                    if any(
-                        potential_metric.endswith(suffix) for suffix in metric_suffixes
-                    ):
-                        analyzer_name = "_".join(remaining_parts[:i])
-                        metric_name = f"conversation_text_content_{potential_metric}"
-                        break
-
-                # Fallback: assume last two parts are metric
-                if analyzer_name is None:
-                    if len(remaining_parts) >= 2:
-                        analyzer_name = "_".join(remaining_parts[:-2])
-                        metric_name = (
-                            f"conversation_text_content_{remaining_parts[-2]}_"
-                            f"{remaining_parts[-1]}"
-                        )
-
-            if analyzer_name and metric_name:
-                if analyzer_name not in summary:
-                    summary[analyzer_name] = {}
-
-                # Compute statistics for numeric columns
-                values = cast(pd.Series, self._conversation_df[col].dropna())
-                if len(values) > 0:
-                    summary[analyzer_name][metric_name] = compute_statistics(
-                        values, self._decimal_precision
-                    )
-
-        return summary
+        return self._compute_level_summary(self._conversation_df, base_columns)
 
     def _get_conversation_turns_summary(self) -> dict[str, Any]:
         """Get conversation turn statistics summary.
