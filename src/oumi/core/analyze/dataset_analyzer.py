@@ -784,6 +784,7 @@ class DatasetAnalyzer:
             "conversation_index",
             "conversation_id",
             "num_messages",
+            "conversation_text_content",
         }
 
         analyzer_columns = [
