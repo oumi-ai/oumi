@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import math
+import warnings
 from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Any, Literal, Optional, Union
@@ -181,9 +182,12 @@ class DatasetParams(BaseParams):
                 )
 
         if self.trust_remote_code:
-            raise DeprecationWarning(
-                "`trust_remote_code` is deprecated and will be removed in the future."
+            warnings.warn(
+                "`trust_remote_code` is deprecated and will be removed in the future.",
+                DeprecationWarning,
+                stacklevel=2,
             )
+            self.trust_remote_code = False
 
 
 @dataclass
@@ -295,8 +299,10 @@ class DatasetSplitParams(BaseParams):
                 f'"{MixtureStrategy.ALL_EXHAUSTED.value}"].'
             )
         if self.target_col is not None:
-            raise DeprecationWarning(
-                "`target_col` is deprecated and will be removed in the future."
+            warnings.warn(
+                "`target_col` is deprecated and will be removed in the future.",
+                DeprecationWarning,
+                stacklevel=2,
             )
 
     def _is_sum_normalized(self, mix_sum) -> bool:
