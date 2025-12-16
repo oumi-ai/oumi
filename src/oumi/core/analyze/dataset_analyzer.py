@@ -150,6 +150,7 @@ class DatasetAnalyzer:
         self._merged_df: Optional[pd.DataFrame] = None
         self._message_df: Optional[pd.DataFrame] = None
         self._conversation_df: Optional[pd.DataFrame] = None
+        self._merged_schema: Optional[dict] = None
         self._analysis_summary: Optional[dict[str, Any]] = None
 
         # Decimal precision for rounding metrics
@@ -341,6 +342,7 @@ class DatasetAnalyzer:
         self._merged_df = analysis_result.merged_df
         self._message_df = analysis_result.messages_df
         self._conversation_df = analysis_result.conversations_df
+        self._merged_schema = analysis_result.merged_schema
 
         self._analysis_results = DatasetAnalysisResult(
             dataset_name=self.dataset_name or "",
@@ -493,6 +495,23 @@ class DatasetAnalyzer:
                 "to access the conversation DataFrame."
             )
         return self._conversation_df
+
+    def get_schema(self) -> dict:
+        """Get the schema for the analysis results.
+
+        Returns:
+            Dictionary containing the schema for the merged DataFrame, combining
+            schemas from all input DataFrames including analyzer-generated columns.
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+        """
+        if self._merged_schema is None:
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the merged schema."
+            )
+        return self._merged_schema
 
     def query_conversations(
         self,
