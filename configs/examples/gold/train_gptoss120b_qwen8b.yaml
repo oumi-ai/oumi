@@ -1,11 +1,11 @@
 # GOLD training - GPT-OSS 120B teacher to Qwen3 8B student
 # Demonstrates on-policy distillation from large teacher (120B) to large student (8B)
+# Uses vLLM colocate mode for accelerated student generation
 #
 # Hardware Requirements:
 #   - Multi-GPU setup with 160GB+ total VRAM (e.g., 4x A100 40GB, 8x RTX 4090)
 #   - Teacher model distributed across GPUs with device_map="auto"
 #   - Student model (8B) requires significant VRAM
-#   - vLLM runs in-process with training
 #   - 128GB+ system RAM
 #
 # Usage:
@@ -35,7 +35,7 @@ data:
 
 training:
   trainer_type: "TRL_GOLD"
-  output_dir: "output/gold_gptoss120b_qwen8b_vllm_100steps"
+  output_dir: "output/gold_gptoss120b_qwen8b"
 
   # 100 steps for verification
   max_steps: 100
