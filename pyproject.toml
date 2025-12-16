@@ -61,7 +61,7 @@ dependencies = [
     "pillow>=11.3,<11.4",      # Used by image datasets
     "protobuf>=6.32",
     "pycares<5.0.0",
-    "pydantic>=2.11,<2.12",
+    "pydantic>=2.11,<2.13",
     "responses>=0.25,<0.26",
     "safetensors>=0.6,<0.8",
     "skypilot>=0.10.2,<0.11",  # 0.10.2 and above is needed
