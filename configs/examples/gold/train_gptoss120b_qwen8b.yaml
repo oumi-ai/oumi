@@ -3,10 +3,22 @@
 # Uses vLLM colocate mode for accelerated student generation
 #
 # Hardware Requirements:
-#   - Multi-GPU setup with 160GB+ total VRAM (e.g., 4x A100 40GB, 8x RTX 4090)
+#   - Multi-GPU setup with 160GB+ total VRAM
+#   - Minimum recommended: 188 GiB total VRAM across all GPUs
 #   - Teacher model distributed across GPUs with device_map="auto"
 #   - Student model (8B) requires significant VRAM
 #   - 128GB+ system RAM
+#
+# Measured Performance (100 steps on 8x H100 80GB):
+#   - Peak GPU Memory: 188.28 GiB total across 8 GPUs
+#     * GPU 0 (primary): 39.30 GiB
+#     * GPUs 1-6: ~21.7 GiB each
+#     * GPU 7: 17.77 GiB
+#   - Training Time: ~13 minutes (777.8 seconds)
+#   - Throughput: 0.257 samples/sec, 0.129 steps/sec
+#   - Final Loss: 0.2706
+#   - Model Parameters: 8.19B student, 120B teacher
+#
 #
 # Usage:
 #   oumi train -c configs/examples/gold/train_gptoss120b_qwen8b.yaml

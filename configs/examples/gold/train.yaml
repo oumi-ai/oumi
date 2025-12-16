@@ -2,8 +2,13 @@
 # Demonstrates on-policy distillation on single GPU
 #
 # Hardware Requirements:
-#   - Single GPU with 12GB+ VRAM (e.g., RTX 3090, RTX 4090)
-#   - 16GB+ system RAM
+#   - Single GPU with 12GB+ VRAM
+#
+# Measured Performance (100 steps on 8x H100 80GB):
+#   - Peak GPU Memory: 10.09 GiB total (4.21 GiB on primary GPU)
+#   - Training Time: ~4.3 minutes (256.8 seconds)
+#   - Throughput: 0.779 samples/sec, 0.389 steps/sec
+#   - Final Loss: 0.0760
 #
 # Usage:
 #   oumi train -c configs/examples/gold/train.yaml

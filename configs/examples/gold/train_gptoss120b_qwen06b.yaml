@@ -3,10 +3,18 @@
 # Uses vLLM colocate mode for accelerated student generation
 #
 # Hardware Requirements:
-#   - Multi-GPU setup with 80GB+ total VRAM (e.g., 2x A100 40GB, 4x RTX 4090)
+#   - Minimum recommended: 186 GiB total VRAM across all GPUs
 #   - Teacher model distributed across GPUs with device_map="auto"
 #   - vLLM runs in-process with training
 #   - 64GB+ system RAM
+#
+# Measured Performance (100 steps on 8x H100 80GB):
+#   - Peak GPU Memory: 186.15 GiB total across 8 GPUs
+#     * GPU 0 (primary): 47.53 GiB
+#     * GPUs 1-7: ~19.5-20.5 GiB each
+#   - Training Time: ~4.2 minutes (254.2 seconds)
+#   - Throughput: 0.787 samples/sec, 0.393 steps/sec
+#   - Final Loss: 0.3269
 #
 # Usage:
 #   oumi train -c configs/examples/gold/train_gptoss120b_qwen06b.yaml
@@ -76,8 +84,8 @@ training:
     max_completion_length: 512
 
     # Distillation parameters
-    lmbda: 0.5  # 50% on-policy, 50% off-policy
-    beta: 0.5   # Symmetric JSD
+    lmbda: 0.5 # 50% on-policy, 50% off-policy
+    beta: 0.5 # Symmetric JSD
     disable_dropout: True
     seq_kd: False
 
@@ -85,5 +93,5 @@ training:
 
     # vLLM colocate mode - runs vLLM in-process (no separate server)
     use_vllm: True
-    vllm_mode: "colocate"  # In-process mode
-    vllm_gpu_memory_utilization: 0.4  # Lower since teacher also needs memory
+    vllm_mode: "colocate" # In-process mode
+    vllm_gpu_memory_utilization: 0.4 # Lower since teacher also needs memory
