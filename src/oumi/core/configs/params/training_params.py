@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 
 import transformers
 import trl
-from trl.experimental.gold import GOLDConfig
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.gkd_params import GkdParams
@@ -786,6 +785,11 @@ class TrainingParams(BaseParams):
         elif self.trainer_type == TrainerType.TRL_GKD:
             config_class = trl.GKDConfig
         elif self.trainer_type == TrainerType.TRL_GOLD:
+            from oumi.utils.packaging import require_gold_trainer
+
+            require_gold_trainer()
+            from trl.experimental.gold import GOLDConfig
+
             config_class = GOLDConfig
         else:
             config_class = transformers.TrainingArguments
