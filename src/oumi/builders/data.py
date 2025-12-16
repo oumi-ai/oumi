@@ -302,7 +302,6 @@ def _load_dataset(
             name=dataset_params.subset,
             split=dataset_params.split,
             streaming=stream,
-            trust_remote_code=dataset_params.trust_remote_code,
             **dataset_params.dataset_kwargs,
         )
 

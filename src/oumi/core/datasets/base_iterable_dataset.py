@@ -17,9 +17,21 @@ from collections.abc import Iterable
 from typing import Any, Optional
 
 import datasets
+import torch
 from torch.utils.data import IterDataPipe
 
 from oumi.utils.logging import logger
+
+
+def _convert_tensors_for_arrow(item: Any) -> Any:
+    """Recursively convert PyTorch tensors to numpy arrays for Arrow compatibility."""
+    if isinstance(item, torch.Tensor):
+        return item.numpy()
+    elif isinstance(item, dict):
+        return {k: _convert_tensors_for_arrow(v) for k, v in item.items()}
+    elif isinstance(item, list):
+        return [_convert_tensors_for_arrow(v) for v in item]
+    return item
 
 
 class BaseIterableDataset(IterDataPipe, abc.ABC):
@@ -85,7 +97,12 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
         """Converts the dataset to a Hugging Face dataset."""
         if not return_iterable:
             raise NotImplementedError("Only returning IterableDataset is supported.")
-        return datasets.IterableDataset.from_generator(self.__iter__)
+
+        def _generator():
+            for item in self:
+                yield _convert_tensors_for_arrow(item)
+
+        return datasets.IterableDataset.from_generator(_generator)
 
     @property
     def data(self) -> Iterable[Any]:
@@ -123,7 +140,6 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
             name=self.dataset_subset,
             split=self.split,
             streaming=self.stream,
-            trust_remote_code=self.trust_remote_code,
         )
 
     def _load_dataset_from_disk(self, path: str) -> Iterable[Any]:
