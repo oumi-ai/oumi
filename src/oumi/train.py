@@ -221,6 +221,13 @@ def _create_optional_training_kwargs(
         if config.training.gkd.teacher_model_name_or_path:
             kwargs["teacher_model"] = config.training.gkd.teacher_model_name_or_path
 
+    # Handle GOLD teacher model - pass the teacher model path to the trainer constructor
+    # TRL's GOLDTrainer will load the teacher model automatically using
+    # teacher_model_init_kwargs from the config
+    if trainer_type == TrainerType.TRL_GOLD:
+        if config.training.gold.teacher_model_name_or_path:
+            kwargs["teacher_model"] = config.training.gold.teacher_model_name_or_path
+
     kwargs.update(additional_trainer_kwargs or {})
     return kwargs
 
