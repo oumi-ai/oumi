@@ -377,20 +377,25 @@ class GoldParams(BaseParams):
                         "GoldParams.uld_hybrid_matched_weight and "
                         "uld_hybrid_unmatched_weight must both be None (for adaptive "
                         "weighting) or both be set to numeric values. "
-                        f"Got uld_hybrid_matched_weight={self.uld_hybrid_matched_weight} "
-                        f"and uld_hybrid_unmatched_weight={self.uld_hybrid_unmatched_weight}."
+                        f"Got uld_hybrid_matched_weight="
+                        f"{self.uld_hybrid_matched_weight} and "
+                        f"uld_hybrid_unmatched_weight="
+                        f"{self.uld_hybrid_unmatched_weight}."
                     )
 
-                if self.uld_hybrid_matched_weight is not None:
+                if (
+                    self.uld_hybrid_matched_weight is not None
+                    and self.uld_hybrid_unmatched_weight is not None
+                ):
                     if self.uld_hybrid_matched_weight < 0.0:
                         raise ValueError(
-                            "GoldParams.uld_hybrid_matched_weight must be non-negative. "
-                            f"Actual: {self.uld_hybrid_matched_weight}"
+                            "GoldParams.uld_hybrid_matched_weight must be "
+                            f"non-negative. Actual: {self.uld_hybrid_matched_weight}"
                         )
                     if self.uld_hybrid_unmatched_weight < 0.0:
                         raise ValueError(
-                            "GoldParams.uld_hybrid_unmatched_weight must be non-negative. "
-                            f"Actual: {self.uld_hybrid_unmatched_weight}"
+                            "GoldParams.uld_hybrid_unmatched_weight must be "
+                            f"non-negative. Actual: {self.uld_hybrid_unmatched_weight}"
                         )
 
         if self.vllm_mode not in ("server", "colocate"):
