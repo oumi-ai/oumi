@@ -60,6 +60,15 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Cache HuggingFace Models
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+          key: hf-models-${{ runner.os }}
+          restore-keys: |
+            hf-models-${{ runner.os }}-
+
       - name: Install oumi with GPU dependencies
         run: |
           uv pip install --system -e '.[gpu,dev,synthesis]'
