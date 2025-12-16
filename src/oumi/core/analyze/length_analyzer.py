@@ -97,11 +97,9 @@ class LengthAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            raise ValueError(
-                "No text fields found in the DataFrame for length analysis. "
-                "Please ensure your schema specifies columns with"
-                "content_type='text'and that those columns exist in the DataFrame."
-            )
+            # No text fields in this DataFrame - this is expected for some DataFrames
+            # (e.g., conversation-level DataFrames). Return unchanged.
+            return result_df, generated_schema
 
         # Get analyzer ID for column naming (defaults to "length")
         analyzer_id = getattr(self, "analyzer_id", "length")
