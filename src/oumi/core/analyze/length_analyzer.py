@@ -20,7 +20,7 @@ from typing import Optional, Union
 import pandas as pd
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -69,7 +69,7 @@ class LengthAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields and return metrics.
 
         Args:
@@ -77,9 +77,11 @@ class LengthAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields
 
         Returns:
-            DataFrame with added field-level analysis columns
+            Tuple of (DataFrame with added field-level analysis columns,
+            generated column schema dict)
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -103,14 +105,25 @@ class LengthAnalyzer(SampleAnalyzer):
 
         # Get analyzer ID for column naming (defaults to "length")
         analyzer_id = getattr(self, "analyzer_id", "length")
+
         for column in text_columns:
             if self.char_count:
                 col_name = f"{column}_{analyzer_id}_char_count"
                 result_df[col_name] = df[column].astype(str).str.len()
+                generated_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Character count for {column}",
+                }
 
             if self.word_count:
                 col_name = f"{column}_{analyzer_id}_word_count"
                 result_df[col_name] = df[column].astype(str).str.split().str.len()
+                generated_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Word count for {column}",
+                }
 
             if self.sentence_count:
                 col_name = f"{column}_{analyzer_id}_sentence_count"
@@ -123,6 +136,11 @@ class LengthAnalyzer(SampleAnalyzer):
                         )
                     )
                 )
+                generated_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Sentence count for {column}",
+                }
 
             if self.token_count and self.tokenizer is not None:
                 tokenizer = self.tokenizer  # Type assertion for pyright
@@ -138,5 +156,10 @@ class LengthAnalyzer(SampleAnalyzer):
                         )
                     )
                 )
+                generated_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Token count for {column}",
+                }
 
-        return result_df
+        return result_df, generated_schema

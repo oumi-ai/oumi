@@ -9,7 +9,7 @@ import jsonlines
 import pandas as pd
 import pytest
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.dataset_analyzer import (
     DatasetAnalyzer,
 )
@@ -47,13 +47,14 @@ class MockSampleAnalyzer:
 
     def analyze_sample(
         self, df: pd.DataFrame, schema: Optional[dict] = None
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """
         Mock analysis that adds analyzer metrics to the DataFrame.
         """
         self.analyze_calls.append(df)
 
         result_df = df.copy()
+        generated_schema = {}
 
         # Add mock analyzer metrics for text content columns
         if schema:
@@ -65,14 +66,23 @@ class MockSampleAnalyzer:
 
             for text_col in text_columns:
                 # Add char_count and word_count metrics for each text column
-                result_df[f"{text_col}_{self.analyzer_id}_char_count"] = (
-                    df[text_col].astype(str).str.len()
-                )
-                result_df[f"{text_col}_{self.analyzer_id}_word_count"] = (
-                    df[text_col].astype(str).str.split().str.len()
-                )
+                char_col = f"{text_col}_{self.analyzer_id}_char_count"
+                word_col = f"{text_col}_{self.analyzer_id}_word_count"
+                result_df[char_col] = df[text_col].astype(str).str.len()
+                result_df[word_col] = df[text_col].astype(str).str.split().str.len()
 
-        return result_df
+                generated_schema[char_col] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Character count for {text_col}",
+                }
+                generated_schema[word_col] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Word count for {text_col}",
+                }
+
+        return result_df, generated_schema
 
 
 class MockFailingAnalyzer:
@@ -83,7 +93,7 @@ class MockFailingAnalyzer:
 
     def analyze_sample(
         self, df: pd.DataFrame, schema: Optional[dict] = None
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         raise ValueError("Analyzer failed")
 
 
