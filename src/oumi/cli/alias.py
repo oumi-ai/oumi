@@ -194,7 +194,7 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     # DeepSeek R1 family.
     "deepseek-r1-distill-llama-8b": {
         AliasType.TRAIN: "oumi://configs/recipes/deepseek_r1/sft/distill_llama_8b/full_train.yaml",
-        AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/distill_llama_8b_infer.yaml",
+        AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/distill_llama_8b/infer.yaml",
         AliasType.EVAL: "oumi://configs/recipes/deepseek_r1/evaluation/distill_llama_8b/eval.yaml",
     },
     "deepseek-r1-distill-llama-8b-lora": {
@@ -205,7 +205,7 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     },
     "deepseek-r1-distill-llama-70b": {
         AliasType.TRAIN: "oumi://configs/recipes/deepseek_r1/sft/distill_llama_70b/full_train.yaml",
-        AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/distill_llama_70b_infer.yaml",
+        AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/distill_llama_70b/infer.yaml",
         AliasType.EVAL: "oumi://configs/recipes/deepseek_r1/evaluation/distill_llama_70b/eval.yaml",
     },
     "deepseek-r1-distill-llama-70b-lora": {
@@ -216,21 +216,21 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     },
     "deepseek-r1-distill-qwen-1.5b": {
         AliasType.TRAIN: "oumi://configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml",
-        AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/distill_qwen_1_5b_infer.yaml",
+        AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/distill_qwen_1_5b/infer.yaml",
         AliasType.EVAL: "oumi://configs/recipes/deepseek_r1/evaluation/distill_qwen_1_5b/eval.yaml",
     },
     "deepseek-r1-distill-qwen-1.5b-lora": {
         AliasType.TRAIN: "oumi://configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/lora_train.yaml",
     },
     "deepseek-r1-distill-qwen-32b": {
-        AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/distill_qwen_32b_infer.yaml",
+        AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/distill_qwen_32b/infer.yaml",
         AliasType.EVAL: "oumi://configs/recipes/deepseek_r1/evaluation/distill_qwen_32b/eval.yaml",
     },
     "deepseek-r1-distill-qwen-32b-lora": {
         AliasType.TRAIN: "oumi://configs/recipes/deepseek_r1/sft/distill_qwen_32b/lora_train.yaml",
     },
     "deepseek-r1-671b": {
-        AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/671b_together_infer.yaml",
+        AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/671b_together/infer.yaml",
     },
     # Llama 3.1 family.
     "llama3.1-8b": {
