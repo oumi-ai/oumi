@@ -88,13 +88,15 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             # "max_completion_tokens": generation_params.max_new_tokens,
             # Future transition instead of `max_tokens`. See https://github.com/vllm-project/vllm/issues/9845
             "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
             "frequency_penalty": generation_params.frequency_penalty,
             "presence_penalty": generation_params.presence_penalty,
             "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_params.seed,
             "logit_bias": generation_params.logit_bias,
         }
+
+        if generation_params.top_p is not None:
+            api_input["top_p"] = generation_params.top_p
 
         if generation_params.guided_decoding:
             if generation_params.guided_decoding.json:

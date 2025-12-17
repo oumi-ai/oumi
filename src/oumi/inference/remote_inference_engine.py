@@ -321,12 +321,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "max_completion_tokens": generation_params.max_new_tokens,
             "seed": generation_params.seed,
             "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
             "frequency_penalty": generation_params.frequency_penalty,
             "presence_penalty": generation_params.presence_penalty,
         }
 
         # Optional generation parameters.
+        if generation_params.top_p is not None:
+            generation_params_dict["top_p"] = generation_params.top_p
         if generation_params.logit_bias:
             generation_params_dict["logit_bias"] = generation_params.logit_bias
         if generation_params.stop_strings:
