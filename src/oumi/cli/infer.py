@@ -275,4 +275,5 @@ def infer(
         parsed_config,
         input_image_bytes=input_image_png_bytes,
         system_prompt=system_prompt,
+        console=cli_utils.CONSOLE,
     )
