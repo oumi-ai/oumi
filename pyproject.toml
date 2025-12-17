@@ -122,7 +122,7 @@ gpu = [
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
-    "vllm>=0.10,<0.11",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    "vllm>=0.10,<0.12",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
 ]
 
 deepspeed = [
@@ -184,7 +184,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp,synthesis,tune,torchdata]",
-    "vllm>=0.10,<0.11",                            # For VLLMInferenceEngine
+    "vllm>=0.10,<0.12",                            # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3,<0.4", # For LlamaCppInferenceEngine
