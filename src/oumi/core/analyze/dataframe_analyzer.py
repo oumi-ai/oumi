@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Optional, Union
 
 import pandas as pd
+from tqdm import tqdm
 
 from oumi.utils.logging import logger
 
@@ -460,21 +461,29 @@ class DataFrameAnalyzer:
                 for chunk in chunks
             }
 
-            for future in as_completed(futures):
-                chunk = futures[future]
-                try:
-                    result = future.result()
-                    results.append(result)
-                except Exception as e:
-                    logger.warning(f"Chunk {chunk.name} failed: {e}")
-                    # Add original chunk as fallback (no analysis applied)
-                    results.append(
-                        DataFrameWithSchema(
-                            dataframe=chunk.dataframe.copy(),
-                            schema=chunk.schema.copy(),
-                            name=chunk.name,
+            # Use tqdm to show progress while processing chunks
+            with tqdm(
+                total=len(chunks),
+                desc="Analyzing chunks",
+                unit="chunk",
+            ) as progress_bar:
+                for future in as_completed(futures):
+                    chunk = futures[future]
+                    try:
+                        result = future.result()
+                        results.append(result)
+                    except Exception as e:
+                        logger.warning(f"Chunk {chunk.name} failed: {e}")
+                        # Add original chunk as fallback (no analysis applied)
+                        results.append(
+                            DataFrameWithSchema(
+                                dataframe=chunk.dataframe.copy(),
+                                schema=chunk.schema.copy(),
+                                name=chunk.name,
+                            )
                         )
-                    )
+                    finally:
+                        progress_bar.update(1)
 
         # Combine results using the helper function
         return self.combine_analysis_results(results)
