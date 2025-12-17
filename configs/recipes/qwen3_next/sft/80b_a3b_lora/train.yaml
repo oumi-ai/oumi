@@ -55,7 +55,7 @@ training:
 
   logging_steps: 100
   empty_device_cache_steps: 50
-  output_dir: "output/qwen3_next_80b_a3b/lora"
+  output_dir: "output/qwen3_next_80b_a3b.lora"
   include_performance_metrics: True
   enable_wandb: True
 

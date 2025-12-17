@@ -1,17 +1,17 @@
-# Inference config for Gemma 3 4B Instruct.
+# Inference config for Gemma 3 12B Instruct.
 #
 # Model highlights:
-#   - 4B parameter multimodal model from Google
+#   - 12B parameter multimodal model from Google
 #   - 128K context length input, 8K output
 #   - Vision-language capable (text + images)
 #   - 140+ language support
 #
 # Requirements:
 #   - transformers >= 4.50.0
-#   - Gemma license acceptance required: https://huggingface.co/google/gemma-3-4b-it
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-3-12b-it
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/gemma3/inference/4b_it_infer.yaml
+#   oumi infer -i -c configs/recipes/gemma3/inference/12b_instruct_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -20,7 +20,7 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  model_name: "google/gemma-3-4b-it"
+  model_name: "google/gemma-3-12b-it"
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"

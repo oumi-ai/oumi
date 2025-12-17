@@ -54,7 +54,7 @@ training:
 
   logging_steps: 100
   empty_device_cache_steps: 50
-  output_dir: "output/olmo3_32b/lora"
+  output_dir: "output/olmo3_32b.lora"
   include_performance_metrics: True
   enable_wandb: True
 

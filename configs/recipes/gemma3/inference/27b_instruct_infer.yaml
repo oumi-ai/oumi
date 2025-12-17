@@ -11,7 +11,7 @@
 #   - Gemma license acceptance required: https://huggingface.co/google/gemma-3-27b-it
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/gemma3/inference/27b_it_infer.yaml
+#   oumi infer -i -c configs/recipes/gemma3/inference/27b_instruct_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html

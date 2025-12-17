@@ -46,6 +46,6 @@ tasks:
 
 enable_wandb: True
 
-inference_engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.
+inference_engine: NATIVE
 
 output_dir: "output/qwen3_next_80b_a3b/evaluation"

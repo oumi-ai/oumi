@@ -35,4 +35,4 @@ generation:
   use_sampling: True
   presence_penalty: 0.0
 
-engine: NATIVE # Can also use `VLLM` (>=0.10.2) or `SGLANG` (>=0.5.2) for faster inference.
+engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.
