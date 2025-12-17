@@ -205,7 +205,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 messages=llama_input,  # type: ignore
                 max_tokens=generation_params.max_new_tokens,
                 temperature=generation_params.temperature,
-                top_p=generation_params.top_p,
+                top_p=generation_params.top_p
+                if generation_params.top_p is not None
+                else 1.0,  # default to 1.0 if top_p is not set
                 frequency_penalty=generation_params.frequency_penalty,
                 presence_penalty=generation_params.presence_penalty,
                 stop=generation_params.stop_strings,

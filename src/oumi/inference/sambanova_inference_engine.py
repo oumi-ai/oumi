@@ -72,9 +72,11 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
             ),
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
             "stream": False,  # We don't support streaming yet
         }
+
+        if generation_params.top_p is not None:
+            body["top_p"] = generation_params.top_p
 
         if generation_params.stop_strings:
             body["stop"] = generation_params.stop_strings
