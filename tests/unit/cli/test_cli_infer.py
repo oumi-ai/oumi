@@ -79,7 +79,14 @@ def test_infer_runs(app, mock_infer, mock_infer_interactive):
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["-i", "--config", yaml_path])
         mock_infer_interactive.assert_has_calls(
-            [call(config, input_image_bytes=None, system_prompt=None)]
+            [
+                call(
+                    config,
+                    input_image_bytes=None,
+                    system_prompt=None,
+                    console=cli_utils.CONSOLE,
+                )
+            ]
         )
 
 
@@ -92,7 +99,14 @@ def test_infer_with_alias_runs(app, mock_infer, mock_infer_interactive, mock_ali
         _ = runner.invoke(app, ["-i", "--config", "random_alias"])
         mock_alias.assert_called_once_with("random_alias", AliasType.INFER)
         mock_infer_interactive.assert_has_calls(
-            [call(config, input_image_bytes=None, system_prompt=None)]
+            [
+                call(
+                    config,
+                    input_image_bytes=None,
+                    system_prompt=None,
+                    console=cli_utils.CONSOLE,
+                )
+            ]
         )
 
 
@@ -103,7 +117,14 @@ def test_infer_runs_interactive_by_default(app, mock_infer, mock_infer_interacti
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["--config", yaml_path])
         mock_infer_interactive.assert_has_calls(
-            [call(config, input_image_bytes=None, system_prompt=None)]
+            [
+                call(
+                    config,
+                    input_image_bytes=None,
+                    system_prompt=None,
+                    console=cli_utils.CONSOLE,
+                )
+            ]
         )
 
 
@@ -141,7 +162,14 @@ def test_infer_with_overrides(app, mock_infer, mock_infer_interactive):
         expected_config.generation.max_new_tokens = 5
         expected_config.engine = InferenceEngineType.VLLM
         mock_infer_interactive.assert_has_calls(
-            [call(expected_config, input_image_bytes=None, system_prompt=None)]
+            [
+                call(
+                    expected_config,
+                    input_image_bytes=None,
+                    system_prompt=None,
+                    console=cli_utils.CONSOLE,
+                )
+            ]
         )
 
 
@@ -164,7 +192,14 @@ def test_infer_runs_with_image(app, mock_infer, mock_infer_interactive):
             app, ["-i", "--config", yaml_path, "--image", str(image_path)]
         )
         mock_infer_interactive.assert_has_calls(
-            [call(config, input_image_bytes=[image_bytes], system_prompt=None)]
+            [
+                call(
+                    config,
+                    input_image_bytes=[image_bytes],
+                    system_prompt=None,
+                    console=cli_utils.CONSOLE,
+                )
+            ]
         )
 
 
@@ -233,7 +268,10 @@ def test_infer_with_system_prompt(app, mock_infer_interactive):
         )
         assert result.exit_code == 0
         mock_infer_interactive.assert_called_once_with(
-            config, system_prompt="You are a mighty assistant", input_image_bytes=None
+            config,
+            system_prompt="You are a mighty assistant",
+            input_image_bytes=None,
+            console=cli_utils.CONSOLE,
         )
         mock_infer_interactive.reset_mock()
 
@@ -271,6 +309,7 @@ def test_infer_with_system_prompt_and_image(app, mock_infer_interactive):
             config,
             system_prompt="You are not an average assistant",
             input_image_bytes=[image_bytes],
+            console=cli_utils.CONSOLE,
         )
 
 
@@ -293,7 +332,10 @@ def test_infer_with_oumi_prefix_and_explicit_output_dir(
         assert result.exit_code == 0
         mock_fetch.assert_called_once_with(config_path)
         mock_infer_interactive.assert_called_once_with(
-            config, input_image_bytes=None, system_prompt=None
+            config,
+            input_image_bytes=None,
+            system_prompt=None,
+            console=cli_utils.CONSOLE,
         )
 
 
