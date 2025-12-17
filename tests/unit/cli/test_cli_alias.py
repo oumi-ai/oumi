@@ -1,4 +1,8 @@
 from oumi.cli.alias import _ALIASES, AliasType, try_get_config_name_for_alias
+from oumi.utils.io_utils import get_oumi_root_directory
+
+_REPO_ROOT = get_oumi_root_directory()
+_OUMI_PREFIX = "oumi://"
 
 
 def test_alias_all_entries():
@@ -25,4 +29,28 @@ def test_alias_type_not_found():
     config_path = try_get_config_name_for_alias(alias, AliasType.EVAL)
     assert config_path == alias, (
         f"Expected the original alias '{alias}' to be returned."
+    )
+
+
+def test_alias_configs_exist():
+    """Verify all aliased config files actually exist on disk."""
+    missing_configs = []
+
+    for alias in _ALIASES:
+        for alias_type in _ALIASES[alias]:
+            config_path = _ALIASES[alias][alias_type]
+
+            # Convert oumi:// path to actual file path
+            if config_path.startswith(_OUMI_PREFIX):
+                relative_path = config_path[len(_OUMI_PREFIX) :]
+                actual_path = _REPO_ROOT / relative_path
+
+                if not actual_path.exists():
+                    missing_configs.append(
+                        f"  - {alias} ({alias_type.value}): {config_path}"
+                    )
+
+    assert not missing_configs, (
+        "The following aliased config files do not exist:\n"
+        + "\n".join(missing_configs)
     )
