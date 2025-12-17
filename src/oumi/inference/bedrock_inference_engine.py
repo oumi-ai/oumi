@@ -136,10 +136,12 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
             "inferenceConfig": {
                 "maxTokens": generation_params.max_new_tokens,
                 "temperature": generation_params.temperature,
-                "topP": generation_params.top_p,
             },
             "messages": self._to_bedrock_messages(messages),
         }
+
+        if generation_params.top_p is not None:
+            body["inferenceConfig"]["topP"] = generation_params.top_p
 
         if system_message:
             body["system"] = [{"text": system_message}]
