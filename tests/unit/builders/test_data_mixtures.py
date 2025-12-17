@@ -508,6 +508,55 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
     assert len(items) == 2  # number of packed samples in the dataset
 
 
+def test_multiple_pretraining_datasets_with_streaming(stream: bool):
+    """Test that multiple pretraining datasets can be concatenated when streaming."""
+    if not stream:
+        pytest.skip("Iterable datasets must be streamed")
+
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                datasets=[
+                    DatasetParams(
+                        dataset_name="debug_pretraining",
+                        dataset_kwargs={"dataset_size": 20, "seq_length": 64},
+                    ),
+                    DatasetParams(
+                        dataset_name="debug_pretraining",
+                        dataset_kwargs={"dataset_size": 20, "seq_length": 64},
+                    ),
+                ],
+                pack=True,
+                stream=stream,
+            )
+        ),
+        model=ModelParams(model_name="openai-community/gpt2", model_max_length=64),
+    )
+
+    tokenizer = build_tokenizer(config.model)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+        seq_length=config.model.model_max_length,
+    )
+
+    assert isinstance(dataset, IterableDataset)
+
+    items = []
+    for idx, item in enumerate(dataset):
+        items.append(item)
+        assert isinstance(item, dict)
+        assert "input_ids" in item
+        assert len(item["input_ids"]) == 64
+
+    # Should have samples from both datasets combined
+    # Each dataset has 20 docs * 6 tokens + 19 EOS = ~139 tokens
+    # With seq_length=64, that's floor(139/64) = 2 packed samples per dataset
+    # 2 datasets * 2 samples = 4 total
+    assert len(items) == 4
+
+
 @pytest.mark.skip(
     reason="FIXME: this test is inconsistent, and fails depending on cache state"
 )

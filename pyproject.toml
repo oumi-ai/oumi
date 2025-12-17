@@ -20,7 +20,7 @@ prerelease = "allow"
 name = "oumi"
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.9,<3.14"
 description = "Oumi - Modeling Platform"
 authors = [{ name = "Oumi Team", email = "contact@oumi.ai" }]
 license = { file = "LICENSE" }
@@ -30,6 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -43,7 +44,7 @@ dependencies = [
     "aioresponses>=0.7,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
     "click<8.3.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
-    "datasets>=3.2,<3.3",         # breaking change for 4.0
+    "datasets>=3.2,<5",
     "hdrhistogram>=0.10,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4,<0.5.0",
@@ -60,10 +61,11 @@ dependencies = [
     "pexpect>=4.9,<4.10",      # Used by Polaris client
     "pillow>=11.3,<11.4",      # Used by image datasets
     "protobuf>=6.32",
-    "pydantic>=2.11,<2.12",
+    "pycares<5.0.0",
+    "pydantic>=2.11,<2.13",
     "responses>=0.25,<0.26",
     "safetensors>=0.6,<0.8",
-    "skypilot>=0.10.2,<0.11",  # 0.10.2 and above is needed
+    "skypilot>=0.10.2,<0.12",  # 0.10.2 and above is needed
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "torch>=2.6,<2.9.0",       # vllm only supports up to torch==2.7
     "torchao>=0.12,<0.15",     # Used by transformers
@@ -72,7 +74,7 @@ dependencies = [
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
     "transformers>=4.57,<4.58",
-    "trl>=0.24,<0.26",
+    "trl>=0.24,<0.27",
     "typer",                    # Used by CLI
     "typing_extensions",        # Backports of typing updates to python 3.9
     "uvicorn<0.36.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
@@ -115,7 +117,7 @@ docs = [
 # Useful dependencies when running on GPU
 gpu = [
     "liger-kernel>=0.6,<0.7",
-    "nvidia-ml-py>=13.580,<13.581",
+    "nvidia-ml-py>=13.580,<13.591",
     "bitsandbytes>=0.47,<0.49",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
