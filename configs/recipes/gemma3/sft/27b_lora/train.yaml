@@ -1,0 +1,76 @@
+# LoRA config for Gemma 3 27B Instruct.
+#
+# Model highlights:
+#   - 27B parameter multimodal model from Google
+#   - 128K context length
+#
+# Requirements:
+#   - transformers >= 4.50.0
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-3-27b-it
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi distributed torchrun -m oumi train -c configs/recipes/gemma3/sft/27b_lora/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "google/gemma-3-27b-it"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: True
+  save_steps: 200
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  max_grad_norm: null
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 3.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_steps: 100
+  weight_decay: 0.01
+  compile: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 100
+  empty_device_cache_steps: 50
+  output_dir: "output/gemma3_27b.lora"
+  include_performance_metrics: True
+  enable_wandb: True
+
+peft:
+  lora_r: 16
+  lora_alpha: 32
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+
+fsdp:
+  enable_fsdp: True
+  forward_prefetch: True
+  sharding_strategy: "FULL_SHARD"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Gemma3DecoderLayer"
+  cpu_offload: True
