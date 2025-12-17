@@ -310,12 +310,15 @@ def test_infer_batch_shows_loading_spinner(app, mock_infer, mock_infer_interacti
         mock_status.__enter__ = MagicMock(return_value=None)
         mock_status.__exit__ = MagicMock(return_value=None)
 
-        with patch.object(cli_utils.CONSOLE, "status", return_value=mock_status):
+        with patch.object(
+            cli_utils.CONSOLE, "status", return_value=mock_status
+        ) as mock_console_status:
             result = runner.invoke(app, ["--config", yaml_path])
 
-        # Verify that CONSOLE.status was called with the spinner message
-        cli_utils.CONSOLE.status.assert_called_once_with(
-            "[green]Running inference...[/green]", spinner="dots"
-        )
+            # Verify that CONSOLE.status was called with the spinner message
+            mock_console_status.assert_called_once_with(
+                "[green]Running inference...[/green]", spinner="dots"
+            )
+
         mock_infer.assert_has_calls([call(config)])
         assert result.exit_code == 0
