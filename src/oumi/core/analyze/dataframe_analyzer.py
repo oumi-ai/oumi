@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
@@ -167,15 +168,26 @@ class DataFrameAnalyzer:
         self,
         input_data_list: list[DataFrameWithSchema],
         merge_on: Union[str, list[str]],
+        use_parallel: bool = True,
+        chunk_size: Optional[int] = None,
+        max_workers: Optional[int] = None,
     ) -> AnalysisResult:
         """Apply analyzers to a list of DataFrames with their schemas and merge results.
 
         This is a general method that can handle any number of DataFrames,
         each with its own schema, analyze each one, and then merge them sequentially.
+        Each DataFrame is processed with optional parallel chunk-based processing.
 
         Args:
             input_data_list: List of DataFrameWithSchema objects to analyze and merge
             merge_on: Column(s) to merge on - can be a string or list of strings
+            use_parallel: Whether to use parallel processing for each DataFrame.
+                Defaults to True.
+            chunk_size: Number of rows per chunk for parallel processing.
+                If None, auto-calculates. Only used if use_parallel=True.
+            max_workers: Maximum number of parallel workers per DataFrame.
+                If None, uses a reasonable default. Only used if use_parallel=True.
+
         Returns:
             AnalysisResult with processed DataFrames and final merged result
         """
@@ -187,11 +199,20 @@ class DataFrameAnalyzer:
             )
 
         # Apply analyzers to all DataFrames using their respective schemas
+        # Use parallel processing for better performance on large DataFrames
         processed_results = []
         dataframes_dict = {}
 
         for input_data in input_data_list:
-            processed_result = self.analyze_dataframe(input_data)
+            if use_parallel:
+                processed_result = self.analyze_dataframe_parallel(
+                    input_data,
+                    chunk_size=chunk_size,
+                    max_workers=max_workers,
+                    use_parallel=True,
+                )
+            else:
+                processed_result = self.analyze_dataframe(input_data)
             processed_results.append(processed_result)
 
             # Store in dictionary with name if provided
@@ -267,3 +288,193 @@ class DataFrameAnalyzer:
                 result_df = pd.concat([result_df, df], ignore_index=True)
 
         return result_df
+
+    @staticmethod
+    def combine_analysis_results(
+        results: list[DataFrameWithSchema],
+        merge_on: Optional[Union[str, list[str]]] = None,
+    ) -> DataFrameWithSchema:
+        """Combine analysis results from multiple batches/chunks.
+
+        This is useful for parallel processing where different batches are analyzed
+        separately and need to be combined.
+
+        Args:
+            results: List of DataFrameWithSchema objects from different batches
+            merge_on: Optional column(s) to merge on. If None, concatenates instead.
+
+        Returns:
+            DataFrameWithSchema with combined DataFrame and merged schema
+        """
+        if not results:
+            return DataFrameWithSchema(
+                dataframe=pd.DataFrame(),
+                schema={},
+            )
+
+        # Filter out empty results
+        non_empty_results = [r for r in results if not r.dataframe.empty]
+
+        if not non_empty_results:
+            # Return first result's schema even if empty
+            return DataFrameWithSchema(
+                dataframe=pd.DataFrame(),
+                schema=results[0].schema.copy() if results else {},
+            )
+
+        if len(non_empty_results) == 1:
+            return DataFrameWithSchema(
+                dataframe=non_empty_results[0].dataframe.copy(),
+                schema=non_empty_results[0].schema.copy(),
+                name=non_empty_results[0].name,
+            )
+
+        # Combine DataFrames
+        if merge_on is not None:
+            # Merge on specified columns
+            merge_columns = [merge_on] if isinstance(merge_on, str) else merge_on
+            combined_df = non_empty_results[0].dataframe.copy()
+
+            for result in non_empty_results[1:]:
+                result_df = result.dataframe
+                if all(col in combined_df.columns for col in merge_columns) and all(
+                    col in result_df.columns for col in merge_columns
+                ):
+                    combined_df = combined_df.merge(
+                        result_df, on=merge_columns, how="outer"
+                    )
+                else:
+                    # Fallback to concatenation if merge columns missing
+                    combined_df = pd.concat([combined_df, result_df], ignore_index=True)
+        else:
+            # Simple concatenation
+            combined_df = pd.concat(
+                [r.dataframe for r in non_empty_results], ignore_index=True
+            )
+
+        # Merge schemas from all results
+        schemas = [r.schema for r in non_empty_results]
+        merged_schema = DataFrameAnalyzer._merge_schema_list(schemas)
+
+        # Filter schema to only include columns that exist in combined_df
+        merged_schema = {
+            col: config
+            for col, config in merged_schema.items()
+            if col in combined_df.columns
+        }
+
+        return DataFrameWithSchema(
+            dataframe=combined_df,
+            schema=merged_schema,
+            name=non_empty_results[0].name,  # Use first name if available
+        )
+
+    def analyze_dataframe_parallel(
+        self,
+        input_data: DataFrameWithSchema,
+        chunk_size: Optional[int] = None,
+        max_workers: Optional[int] = None,
+        use_parallel: bool = True,
+    ) -> DataFrameWithSchema:
+        """Apply analyzers to a DataFrame with optional parallel chunk-based processing.
+
+        This method can process the DataFrame in parallel chunks for better performance
+        on large datasets. If the DataFrame is small or parallel processing is disabled,
+        it falls back to the standard sequential processing.
+
+        Args:
+            input_data: DataFrameWithSchema containing DataFrame and its schema
+            chunk_size: Number of rows per chunk. If None, auto-calculates based on
+                DataFrame size and number of workers. If DataFrame is small, uses
+                sequential processing.
+            max_workers: Maximum number of parallel workers. If None, uses a reasonable
+                default based on system capabilities.
+            use_parallel: Whether to use parallel processing. Set to False to force
+                sequential processing.
+
+        Returns:
+            DataFrameWithSchema with analysis results added and updated schema
+        """
+        if input_data.dataframe.empty:
+            return DataFrameWithSchema(
+                dataframe=input_data.dataframe.copy(),
+                schema=input_data.schema.copy(),
+                name=input_data.name,
+            )
+
+        input_df = input_data.dataframe
+        n_rows = len(input_df)
+
+        # Determine if parallel processing is beneficial
+        # Use parallel if: enabled, DataFrame is large enough,
+        # and we have multiple analyzers
+        should_parallelize = (
+            use_parallel
+            and n_rows > 100  # Minimum rows to benefit from parallelization
+            and len(self.sample_analyzers) > 0
+        )
+
+        if not should_parallelize:
+            # Fall back to standard sequential processing
+            return self.analyze_dataframe(input_data)
+
+        # Calculate chunk size if not provided
+        if chunk_size is None:
+            # Aim for 4-8 chunks per worker, with minimum chunk size of 100
+            estimated_workers = max_workers or min(8, len(self.sample_analyzers) * 2)
+            chunk_size = max(100, n_rows // (estimated_workers * 4))
+
+        # Calculate number of chunks
+        n_chunks = (n_rows + chunk_size - 1) // chunk_size
+
+        # If only one chunk, use sequential processing
+        if n_chunks == 1:
+            return self.analyze_dataframe(input_data)
+
+        # Split into chunks
+        chunks = []
+        for i in range(0, n_rows, chunk_size):
+            chunk_df = input_df.iloc[i : i + chunk_size].copy()
+            chunk_name = (
+                f"{input_data.name}_chunk_{i // chunk_size}"
+                if input_data.name
+                else f"chunk_{i // chunk_size}"
+            )
+            chunks.append(
+                DataFrameWithSchema(
+                    dataframe=chunk_df,
+                    schema=input_data.schema.copy(),
+                    name=chunk_name,
+                )
+            )
+
+        # Process chunks in parallel
+        if max_workers is None:
+            max_workers = min(len(chunks), 8)
+
+        results = []
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(self.analyze_dataframe, chunk): chunk
+                for chunk in chunks
+            }
+
+            for future in as_completed(futures):
+                chunk = futures[future]
+                try:
+                    result = future.result()
+                    results.append(result)
+                except Exception as e:
+                    logger.warning(f"Chunk {chunk.name} failed: {e}")
+                    # Add original chunk as fallback (no analysis applied)
+                    results.append(
+                        DataFrameWithSchema(
+                            dataframe=chunk.dataframe.copy(),
+                            schema=chunk.schema.copy(),
+                            name=chunk.name,
+                        )
+                    )
+
+        # Combine results using the helper function
+        return self.combine_analysis_results(results)

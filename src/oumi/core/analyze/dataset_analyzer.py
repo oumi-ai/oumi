@@ -336,9 +336,14 @@ class DatasetAnalyzer:
             conversations_to_analyze
         )
 
+        # Use parallel processing for better performance on large DataFrames
+        # The parallel processing will automatically fall back to sequential
+        # processing for small DataFrames
+        logger.info("Analyzing DataFrames with parallel chunk-based processing")
         analysis_result = self.dataframe_analyzer.analyze_dataframe_list(
             input_data_list=dataframe_list,
             merge_on=["conversation_index", "conversation_id"],
+            use_parallel=True,  # Enable parallel processing by default
         )
         self._merged_df = analysis_result.merged_df
         self._message_df = analysis_result.messages_df
