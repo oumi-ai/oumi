@@ -148,7 +148,7 @@ def infer_interactive(
     *,
     input_image_bytes: list[bytes] | None = None,
     system_prompt: str | None = None,
-    console: "Console | None" = None,
+    console: Console | None = None,
 ) -> None:
     """Interactively provide the model response for a user-provided input.
 
