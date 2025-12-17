@@ -15,8 +15,10 @@
 import asyncio
 import copy
 import json
+import logging
 import os
 import tempfile
+import time
 import urllib.parse
 import warnings
 from dataclasses import dataclass
@@ -56,6 +58,8 @@ from oumi.utils.http import (
     get_failure_reason_from_response,
     is_non_retriable_status_code,
 )
+
+logger = logging.getLogger(__name__)
 
 _AUTHORIZATION_KEY: str = "Authorization"
 _BATCH_PURPOSE = "batch"
@@ -242,15 +246,53 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self._remote_params.finalize_and_validate()
 
         if self._remote_params.use_adaptive_concurrency:
-            max_concurrency = self._remote_params.num_workers
-            # Lowest concurrency is 1.
-            min_concurrency = 1
-            # Initial concurrency is 1/2 of the range between min and max concurrency.
-            initial_concurrency_factor = 0.5
-            # Step size is 1/8 of the range between min and max concurrency.
-            concurrency_step = max(1, (max_concurrency - min_concurrency) // 8)
-            # Min update time is 1 second less than the politeness policy.
-            min_update_time = max(1, self._remote_params.politeness_policy - 1)
+            if self._remote_params.num_workers == 0:
+                # Special adaptive mode for unknown API limits
+                # Start at ~10 requests per minute and scale exponentially to ~200
+                # in 2 minutes
+                max_concurrency = 10000  # Very high upper bound, no real maximum
+                min_concurrency = 10  # Start at ~10 requests per minute
+
+                # Calculate factor from initial_concurrency if provided
+                if self._remote_params.initial_concurrency is not None:
+                    target_initial = max(
+                        min_concurrency,
+                        min(self._remote_params.initial_concurrency, max_concurrency),
+                    )
+                    # Calculate factor: initial = min + (max - min) * factor
+                    # factor = (initial - min) / (max - min)
+                    initial_concurrency_factor = (target_initial - min_concurrency) / (
+                        max_concurrency - min_concurrency
+                    )
+                else:
+                    initial_concurrency_factor = 0.0  # Start at minimum (10)
+
+                # For exponential growth, we'll use a multiplier approach
+                # The step will be calculated as current_concurrency in the controller
+                concurrency_step = 1  # This will be overridden for exponential growth
+                # Set politeness policy to 60s for per-minute rate limiting if not set
+                if self._remote_params.politeness_policy == 0.0:
+                    self._remote_params.politeness_policy = 60.0
+                min_update_time = self._remote_params.politeness_policy - 1
+                # More aggressive retry strategy
+                self._remote_params.max_retries = max(
+                    5, self._remote_params.max_retries
+                )
+                self._remote_params.retry_backoff_max = max(
+                    60.0, self._remote_params.retry_backoff_max
+                )
+            else:
+                max_concurrency = self._remote_params.num_workers
+                # Lowest concurrency is 1.
+                min_concurrency = 1
+                # Initial concurrency is 1/2 of the range between min and max
+                # concurrency.
+                initial_concurrency_factor = 0.5
+                # Step size is 1/8 of the range between min and max concurrency.
+                concurrency_step = max(1, (max_concurrency - min_concurrency) // 8)
+                # Min update time is 1 second less than the politeness policy.
+                min_update_time = max(1, self._remote_params.politeness_policy - 1)
+
             self._adaptive_concurrency_controller = AdaptiveConcurrencyController(
                 AdaptiveConcurrencyParams(
                     min_concurrency=min_concurrency,
@@ -258,6 +300,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     initial_concurrency_factor=initial_concurrency_factor,
                     concurrency_step=concurrency_step,
                     min_update_time=min_update_time,
+                    use_exponential_scaling=(self._remote_params.num_workers == 0),
+                    exponential_scaling_factor=1.44,
                 ),
                 politeness_policy=self._remote_params.politeness_policy,
             )
@@ -276,7 +320,17 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Maximum number of connections to allow in the connection pool.
         """
-        return _MAX_CONNECTION_LIMIT
+        # Determine the effective max concurrency for HTTP connections
+        if self._remote_params.num_workers == 0:
+            # For adaptive mode with unknown limits, use the adaptive controller's max
+            effective_max_workers = (
+                self._adaptive_concurrency_controller._config.max_concurrency
+                if self._remote_params.use_adaptive_concurrency
+                else 10000  # Fallback, though this shouldn't happen due to validation
+            )
+        else:
+            effective_max_workers = self._remote_params.num_workers
+        return min(effective_max_workers, _MAX_CONNECTION_LIMIT)
 
     async def _try_record_success(self):
         """Try to record a success."""
@@ -505,24 +559,25 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             if self._remote_params.use_adaptive_concurrency
             else semaphore
         )
-        async with semaphore_or_controller:
-            api_input = self._convert_conversation_to_api_input(
-                conversation, generation_params, model_params
-            )
-            headers = self._get_request_headers(remote_params)
-            failure_reason = None
+        api_input = self._convert_conversation_to_api_input(
+            conversation, generation_params, model_params
+        )
+        headers = self._get_request_headers(remote_params)
+        failure_reason = None
 
-            # Retry the request if it fails
-            for attempt in range(remote_params.max_retries + 1):
-                try:
-                    # Calculate exponential backoff delay
-                    if attempt > 0:
-                        delay = min(
-                            remote_params.retry_backoff_base * (2 ** (attempt - 1)),
-                            remote_params.retry_backoff_max,
-                        )
-                        await asyncio.sleep(delay)
+        # Retry the request if it fails
+        for attempt in range(remote_params.max_retries + 1):
+            try:
+                # Calculate exponential backoff delay (without holding permit)
+                if attempt > 0:
+                    delay = min(
+                        remote_params.retry_backoff_base * (2 ** (attempt - 1)),
+                        remote_params.retry_backoff_max,
+                    )
+                    await asyncio.sleep(delay)
 
+                # Acquire permit for this attempt
+                async with semaphore_or_controller:
                     async with session.post(
                         remote_params.api_url,
                         json=api_input,
@@ -533,6 +588,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             await self._try_record_error()
                             failure_reason = await get_failure_reason_from_response(
                                 response
+                            )
+                            logger.error(
+                                "Request error at %s: status=%d, reason=%s",
+                                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                                response.status,
+                                failure_reason,
                             )
 
                             # Check for non-retriable status codes to fail fast.
@@ -580,38 +641,53 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                 f"Failed to process successful response: {str(e)}"
                             )
                             await self._try_record_error()
+                            logger.error(
+                                "Processing error at %s: %s",
+                                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                                failure_reason,
+                            )
                             if attempt >= remote_params.max_retries:
                                 raise RuntimeError(failure_reason) from e
                             continue
 
-                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                    # Connection or timeout errors are retriable.
-                    failure_reason = f"Connection error: {str(e)}"
-                    await self._try_record_error()
-                    if attempt >= remote_params.max_retries:
-                        raise RuntimeError(
-                            f"Failed to query API after {attempt + 1} attempts due to "
-                            f"connection error: {str(e)}"
-                        ) from e
-                    continue
-                except RuntimeError:
-                    # RuntimeError is raised by our code, so we don't need to retry.
-                    raise
-                except Exception as e:
-                    # If we get here, we've hit an unexpected error.
-                    failure_reason = f"Unexpected error: {str(e)}"
-                    await self._try_record_error()
-                    if attempt >= remote_params.max_retries:
-                        raise RuntimeError(
-                            f"Failed to query API after {attempt + 1} attempts due to "
-                            f"unexpected error: {str(e)}"
-                        ) from e
-                    continue
-            # This should only be reached if all retries failed
-            raise RuntimeError(
-                f"Failed to query API after {attempt + 1} attempts. "
-                + (f"Reason: {failure_reason}" if failure_reason else "")
-            )
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                # Connection or timeout errors are retriable.
+                failure_reason = f"Connection error: {str(e)}"
+                await self._try_record_error()
+                logger.error(
+                    "Connection error at %s: %s",
+                    time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                    failure_reason,
+                )
+                if attempt >= remote_params.max_retries:
+                    raise RuntimeError(
+                        f"Failed to query API after {attempt + 1} attempts due to "
+                        f"connection error: {str(e)}"
+                    ) from e
+                continue
+            except RuntimeError:
+                # RuntimeError is raised by our code, so we don't need to retry.
+                raise
+            except Exception as e:
+                # If we get here, we've hit an unexpected error.
+                failure_reason = f"Unexpected error: {str(e)}"
+                await self._try_record_error()
+                logger.error(
+                    "Unexpected error at %s: %s",
+                    time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                    failure_reason,
+                )
+                if attempt >= remote_params.max_retries:
+                    raise RuntimeError(
+                        f"Failed to query API after {attempt + 1} attempts due to "
+                        f"unexpected error: {str(e)}"
+                    ) from e
+                continue
+        # This should only be reached if all retries failed
+        raise RuntimeError(
+            f"Failed to query API after {attempt + 1} attempts. "
+            + (f"Reason: {failure_reason}" if failure_reason else "")
+        )
 
     async def _infer(
         self,
@@ -632,7 +708,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
         # Control the number of concurrent tasks via a semaphore.
         semaphore = PoliteAdaptiveSemaphore(
-            capacity=self._remote_params.num_workers,
+            capacity=self._get_connection_limit(),
             politeness_policy=self._remote_params.politeness_policy,
         )
         async with aiohttp.ClientSession(connector=connector) as session:

@@ -13,8 +13,7 @@
 # limitations under the License.
 
 import asyncio
-from collections import deque
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -34,225 +33,165 @@ def mock_asyncio_sleep():
 
 
 @pytest.mark.asyncio
-async def test_polite_adaptive_semaphore(mock_time, mock_asyncio_sleep):
-    semaphore = PoliteAdaptiveSemaphore(capacity=1, politeness_policy=10)
-    mock_time.time.return_value = 1
-    await semaphore.acquire()
-    assert len(semaphore._queue) == 0
-    semaphore.release()
-    # 11 = 1.0 + politeness_policy  (10.0)
-    assert semaphore._queue == deque([11])
+async def test_polite_adaptive_semaphore_rate_limiting(mock_time, mock_asyncio_sleep):
+    """Test that rate limiting enforces minimum interval between grants."""
+    semaphore = PoliteAdaptiveSemaphore(capacity=10, politeness_policy=60.0)
 
+    # Min interval should be 60 / 10 = 6 seconds per permit
+    assert semaphore._calculate_min_interval() == 6.0
 
-@pytest.mark.asyncio
-async def test_polite_adaptive_semaphore_adjust_capacity(mock_time, mock_asyncio_sleep):
-    semaphore = PoliteAdaptiveSemaphore(capacity=1, politeness_policy=10)
-    mock_time.time.return_value = 0.0
-    # Initially the semaphore has capacity of 1 and is unused, so the queue is [-1].
-    assert semaphore._queue == deque([-1])
-    await semaphore.adjust_capacity(2)
-    # We expanded the capacity to 2, so the queue is padded with -1s.
-    assert semaphore._queue == deque([-1, -1])
-    mock_time.time.return_value = 1.0
-    await semaphore.acquire()
-    semaphore.release()
-    mock_time.time.return_value = 2.0
-    # We acquired the first permit (consumed -1) then released (appended the time +
-    # politeness policy=10.0). The queue is now [-1, 11].
-    assert semaphore._queue == deque([-1, 11])
-    await semaphore.acquire()
-    semaphore.release()
-    mock_time.time.return_value = 3.0
-    # We acquired the second permit (consumed -1) then released (appended the time +
-    # politeness policy=10.0). The queue is now [11, 12].
-    assert semaphore._queue == deque([11, 12])
-    await semaphore.adjust_capacity(1)
-    # We reduced the capacity to 1, so the queue is now [12].
-    # 11 was removed from the queue because it was the oldest entry.
-    assert semaphore._queue == deque([12])
-    await semaphore.acquire()
-    # We acquired the third permit (consumed 12). The queue is now empty.
-    assert semaphore._queue == deque([])
-    await semaphore.adjust_capacity(10)
-    # We expanded the capacity to 10, so the queue is padded with -1s.
-    assert semaphore._queue == deque([-1] * 10)
-
-
-@pytest.mark.asyncio
-async def test_polite_adaptive_semaphore_subsequent_acquires_use_queue(
-    mock_time, mock_asyncio_sleep
-):
-    """Test that subsequent acquires use the queue values for waiting."""
-    semaphore = PoliteAdaptiveSemaphore(capacity=2, politeness_policy=2.0)
-
-    # First acquire - no wait needed since queue is empty
+    # First acquire - no wait needed (last_grant_time is 0)
     mock_time.time.return_value = 10.0
     await semaphore.acquire()
-    assert semaphore._queue == deque([-1])
+    assert semaphore._last_grant_time == 10.0
+    assert semaphore._active_workers == 1
 
-    # Release - adds current time to queue
+    # Second acquire - should wait 6 seconds
+    mock_time.time.return_value = 12.0  # Only 2 seconds passed
+    await semaphore.acquire()
+    # Should have waited: 6 - 2 = 4 seconds
+    mock_asyncio_sleep.assert_called_once_with(4.0)
+
     semaphore.release()
-    assert semaphore._queue == deque([-1, 12.0])
-
-    # Second acquire - should wait based on queue value
-    mock_time.time.return_value = 11.0  # 1 second later
-    await semaphore.acquire()
-
-    assert semaphore._queue == deque([12])
-
-
-@pytest.mark.asyncio
-async def test_polite_adaptive_semaphore_multiple_releases_before_acquire(
-    mock_time, mock_asyncio_sleep
-):
-    """Test that multiple releases create a queue that subsequent acquires respect."""
-    semaphore = PoliteAdaptiveSemaphore(capacity=2, politeness_policy=20)
-
-    mock_time.time.side_effect = [
-        10.0,
-        11.0,
-        12.0,
-        36.0,  # release time for Task 3
-        37.0,
-        38.0,
-    ]
-
-    async def acquire_and_release(semaphore: PoliteAdaptiveSemaphore):
-        await semaphore.acquire()
-        semaphore.release()
-
-    tasks = [acquire_and_release(semaphore) for _ in range(4)]
-
-    # Task 1: Acquires at first available slot and finishes at 10.0. Sets slot to next
-    # allowed start at 10.0 + 20 = 30.0.
-    # Task 2: Acquires the other slot, finishes at 11.0. Sets slot to next allowed start
-    # at 11.0 + 20 = 31.0
-    # Task 3: Starts at 12.0. Both queue slots are now [30.0, 31.0]. Needs to wait for
-    # queue.pop() - current time = 30.0 - 12.0 = 18.0 seconds.
-    # Task 4: Starts at 37.0. The queue slots are now [31.0, 56.0]
-    # (after Task 3’s release). 37.0 is after 31.0, so no sleep needed. Task 4 releases
-    # at 38.0, setting queue to [56.0, 58.0].
-
-    await asyncio.gather(*tasks)
-    mock_time.time.assert_has_calls([call(), call(), call(), call(), call(), call()])
-    mock_asyncio_sleep.assert_has_calls([call(18.0)])
-    assert semaphore._queue == deque([56.0, 58.0])
-
-
-@pytest.mark.asyncio
-async def test_polite_adaptive_semaphore_increments_queue(
-    mock_time, mock_asyncio_sleep
-):
-    """Test that queue is updated with each release and acquire."""
-    semaphore = PoliteAdaptiveSemaphore(capacity=2, politeness_policy=1.0)
-
-    # First acquire and release
-    mock_time.time.return_value = 10.0
-    await semaphore.acquire()
     semaphore.release()
-    assert semaphore._queue == deque([-1, 11.0])
-
-    # Second acquire and release
-    mock_time.time.return_value = 11.0
-    await semaphore.acquire()
-    semaphore.release()
-    assert semaphore._queue == deque([11.0, 12.0])
-
-    mock_time.time.return_value = 12.0
-    await semaphore.acquire()
-    semaphore.release()
-    assert semaphore._queue == deque([12.0, 13.0])
-
-    mock_time.time.return_value = 13.0
-    await semaphore.acquire()
-
-    mock_asyncio_sleep.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_polite_adaptive_semaphore_wait_time_calculation(
-    mock_time, mock_asyncio_sleep
-):
-    """Test specific wait time calculations."""
-    semaphore = PoliteAdaptiveSemaphore(capacity=1, politeness_policy=3.0)
-
-    # First acquire and release
-    mock_time.time.return_value = 100.0
-    await semaphore.acquire()
-    semaphore.release()
-    assert semaphore._queue == deque([103.0])
-
-    # Second acquire - should wait exactly 3 seconds
-    mock_time.time.return_value = 101.0  # 1 second later
-    await semaphore.acquire()
-
-    # Should wait: (100.0 + 3.0) - 101.0 = 2.0 seconds
-    mock_asyncio_sleep.assert_called_once_with(2.0)
 
 
 @pytest.mark.asyncio
 async def test_polite_adaptive_semaphore_no_wait_when_enough_time_passed(
     mock_time, mock_asyncio_sleep
 ):
-    """Test that no wait occurs when enough time has passed since last release."""
-    semaphore = PoliteAdaptiveSemaphore(capacity=1, politeness_policy=2.0)
+    """Test that no wait occurs when enough time has passed."""
+    semaphore = PoliteAdaptiveSemaphore(capacity=5, politeness_policy=10.0)
 
-    # First acquire and release
+    # Min interval = 10 / 5 = 2 seconds per permit
+
+    # First acquire
     mock_time.time.return_value = 10.0
     await semaphore.acquire()
-    semaphore.release()
-    assert semaphore._queue == deque([12.0])
 
-    # Second acquire - wait more than politeness policy
-    mock_time.time.return_value = 13.0  # 3 seconds later (more than 2.0 politeness)
+    # Second acquire - enough time passed
+    mock_time.time.return_value = 13.0  # 3 seconds passed (> 2 second min interval)
     await semaphore.acquire()
 
-    # Should not wait since enough time has passed
+    # Should not have waited
     mock_asyncio_sleep.assert_not_called()
+
+    semaphore.release()
+    semaphore.release()
 
 
 @pytest.mark.asyncio
-async def test_polite_adaptive_semaphore_concurrent_acquires(
+async def test_polite_adaptive_semaphore_capacity_adjustment():
+    """Test that capacity adjustment updates rate calculation."""
+    semaphore = PoliteAdaptiveSemaphore(capacity=10, politeness_policy=60.0)
+
+    # Initial: 60 / 10 = 6 seconds per permit
+    assert semaphore._calculate_min_interval() == 6.0
+
+    # Increase capacity
+    await semaphore.adjust_capacity(20)
+    # New: 60 / 20 = 3 seconds per permit
+    assert semaphore._calculate_min_interval() == 3.0
+
+    # Decrease capacity
+    await semaphore.adjust_capacity(5)
+    # New: 60 / 5 = 12 seconds per permit
+    assert semaphore._calculate_min_interval() == 12.0
+
+
+@pytest.mark.asyncio
+async def test_polite_adaptive_semaphore_active_worker_tracking():
+    """Test that active workers are properly tracked."""
+    semaphore = PoliteAdaptiveSemaphore(capacity=3, politeness_policy=1.0)
+
+    assert semaphore._active_workers == 0
+
+    # Acquire permits
+    await semaphore.acquire()
+    assert semaphore._active_workers == 1
+
+    await semaphore.acquire()
+    assert semaphore._active_workers == 2
+
+    # Release permits
+    semaphore.release()
+    assert semaphore._active_workers == 1
+
+    semaphore.release()
+    assert semaphore._active_workers == 0
+
+
+@pytest.mark.asyncio
+async def test_polite_adaptive_semaphore_concurrent_grants(
     mock_time, mock_asyncio_sleep
 ):
-    """Test that concurrent acquires respect the politeness policy."""
+    """Test that concurrent grants are serialized and rate-limited."""
+    semaphore = PoliteAdaptiveSemaphore(capacity=2, politeness_policy=10.0)
+    # Min interval = 10 / 2 = 5 seconds per permit
+
+    # Simulate concurrent acquires
+    # First acquire: time.time() returns 10.0 twice (before sleep check, after)
+    # Second acquire: time.time() returns 12.0 (before), then 17.0 (after sleep)
+    times = [10.0, 10.0, 12.0, 17.0]
+    time_idx = [0]
+
+    def mock_time_fn():
+        result = times[time_idx[0]]
+        time_idx[0] += 1
+        return result
+
+    mock_time.time.side_effect = mock_time_fn
+
+    # First acquire at t=10
+    # _last_grant_time = 0, so no wait needed
+    await semaphore.acquire()
+    # _last_grant_time is now 10.0
+
+    # Second acquire at t=12 (only 2 seconds after first)
+    # time_since_last = 12.0 - 10.0 = 2.0
+    # min_interval = 5.0
+    # Should wait: 5.0 - 2.0 = 3.0 seconds
+    await semaphore.acquire()
+    mock_asyncio_sleep.assert_called_once_with(3.0)
+
+    semaphore.release()
+    semaphore.release()
+
+
+@pytest.mark.asyncio
+async def test_polite_adaptive_semaphore_respects_capacity_limit():
+    """Test that capacity limiting still works with rate limiting."""
     semaphore = PoliteAdaptiveSemaphore(capacity=2, politeness_policy=1.0)
 
-    # First two acquires should happen immediately
-    mock_time.time.return_value = 10.0
+    # Acquire both permits
     await semaphore.acquire()
     await semaphore.acquire()
+    assert semaphore._current_capacity == 0
 
-    # Release first one
+    # Third acquire should block
+    task = asyncio.create_task(semaphore.acquire())
+    await asyncio.sleep(0.01)
+    assert not task.done()
+    assert len(semaphore._waiters) == 1
+
+    # Release one permit
     semaphore.release()
-    assert semaphore._queue == deque([11.0])
+    await task
 
-    # Release second one
-    mock_time.time.return_value = 11.0
+    # Clean up
     semaphore.release()
-    assert semaphore._queue == deque([11.0, 12.0])
-
-    # Next acquire should wait based on oldest queue value
-    mock_time.time.return_value = 12.0
-    await semaphore.acquire()
-
-    # Should wait: (10.0 + 1.0) - 12.0 = -1.0 (no wait needed)
-    mock_asyncio_sleep.assert_not_called()
+    semaphore.release()
 
 
 @pytest.mark.asyncio
-async def test_polite_adaptive_semaphore_empty_queue_no_wait(
-    mock_time, mock_asyncio_sleep
-):
-    """Test that acquire with empty queue doesn't wait."""
-    semaphore = PoliteAdaptiveSemaphore(capacity=1, politeness_policy=5.0)
+async def test_polite_adaptive_semaphore_initial_state():
+    """Test initial state of rate-limited semaphore."""
+    semaphore = PoliteAdaptiveSemaphore(capacity=5, politeness_policy=30.0)
 
-    # First acquire - no wait needed
-    mock_time.time.return_value = 100.0
-    await semaphore.acquire()
-
-    # Should not sleep since queue is empty
-    mock_asyncio_sleep.assert_not_called()
+    assert semaphore._politeness_policy == 30.0
+    assert semaphore._max_capacity == 5
+    assert semaphore._active_workers == 0
+    assert semaphore._last_grant_time == 0.0
 
 
 class TestAdaptiveSemaphore:
@@ -474,8 +413,9 @@ class TestAdaptiveSemaphore:
         # Decrease capacity below current usage
         await semaphore.adjust_capacity(2)
         assert semaphore._max_capacity == 2
-        # Current count should never go below 0
-        assert semaphore._current_capacity == 0
+        # Current capacity can go negative to track excess active workers
+        # Started with capacity=1, decreased by 3 (from 5 to 2), so: 1 - 3 = -2
+        assert semaphore._current_capacity == -2
 
         # No new acquires should succeed until enough permits are released
         task = asyncio.create_task(semaphore.acquire())
