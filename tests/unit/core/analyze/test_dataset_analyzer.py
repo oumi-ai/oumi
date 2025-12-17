@@ -780,22 +780,16 @@ def test_generate_analysis_summary(test_data_path, mock_config):
     assert "total_messages" in overview
     assert "analyzers_used" in overview
 
-    # Test message level summary - analyzer names with underscores get split
+    # Test message level summary - now flattened structure (metric_name -> stats)
     message_summary = summary["message_level_summary"]
-    # The analyzer names get split on underscores, so check for the actual keys
     assert len(message_summary) > 0
-    # Check that we have some analyzer metrics
-    for analyzer_name, metrics in message_summary.items():
-        assert isinstance(metrics, dict)
-        assert len(metrics) > 0
-        # Verify statistics structure for at least one metric
-        for metric_name, stats in metrics.items():
-            assert isinstance(stats, dict)
-            required_stats = ["count", "mean", "std", "min", "max", "median"]
-            for stat_name in required_stats:
-                assert stat_name in stats
-            break  # Only check first metric
-        break  # Only check first analyzer
+    # Check that we have some metrics
+    for metric_name, stats in message_summary.items():
+        assert isinstance(stats, dict)
+        required_stats = ["count", "mean", "std", "min", "max", "median"]
+        for stat_name in required_stats:
+            assert stat_name in stats
+        break  # Only check first metric
 
     # Test conversation level summary - may be empty if no conversation-level metrics
     conversation_summary = summary["conversation_level_summary"]
