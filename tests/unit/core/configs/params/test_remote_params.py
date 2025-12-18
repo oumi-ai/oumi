@@ -39,3 +39,9 @@ def test_remote_params_accepts_valid_backoff():
     params = RemoteParams(retry_backoff_base=0.5, retry_backoff_max=0.5)
     params.finalize_and_validate()
     # No exception should be raised - equal values are allowed
+
+
+def test_remote_params_valid_api_kwargs():
+    """Test that valid api_kwargs are accepted."""
+    params = RemoteParams(api_kwargs={"reasoning": {"enabled": True}})
+    assert params.api_kwargs == {"reasoning": {"enabled": True}}
