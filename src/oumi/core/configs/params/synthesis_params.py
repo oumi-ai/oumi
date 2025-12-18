@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -22,9 +23,6 @@ from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.conversation import Conversation, Message, Role
 
 _SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv"}
-
-# Tolerance for floating point comparison
-_EPSILON = 1e-6
 
 
 @dataclass
@@ -268,11 +266,13 @@ class SampledAttribute:
             else:
                 undefined_sample_rate_count += 1
 
-            if defined_sample_rate > 1.0 + _EPSILON:
-                raise ValueError("SampledAttribute.possible_values must sum to 1.0.")
+        if defined_sample_rate > 1.0 and not math.isclose(defined_sample_rate, 1.0):
+            raise ValueError(
+                "SampledAttribute.possible_values must sum to at most 1.0."
+            )
 
         # Assign remaining sample rate to undefined sample rates
-        remaining_sample_rate = 1.0 - defined_sample_rate
+        remaining_sample_rate = max(0.0, 1.0 - defined_sample_rate)
         for sample_rate in sample_rates:
             if sample_rate is None:
                 normalized_sample_rates.append(
