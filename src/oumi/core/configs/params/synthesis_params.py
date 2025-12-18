@@ -23,6 +23,9 @@ from oumi.core.types.conversation import Conversation, Message, Role
 
 _SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv"}
 
+# Tolerance for floating point comparison
+_EPSILON = 1e-6
+
 
 @dataclass
 class TextMessage:
@@ -258,13 +261,14 @@ class SampledAttribute:
         normalized_sample_rates = []
         undefined_sample_rate_count = 0
         defined_sample_rate = 0.0
+
         for sample_rate in sample_rates:
             if sample_rate is not None:
                 defined_sample_rate += sample_rate
             else:
                 undefined_sample_rate_count += 1
 
-            if defined_sample_rate > 1.0:
+            if defined_sample_rate > 1.0 + _EPSILON:
                 raise ValueError("SampledAttribute.possible_values must sum to 1.0.")
 
         # Assign remaining sample rate to undefined sample rates
