@@ -19,10 +19,12 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 | ✅ Falcon-H1-Instruct | 0.5B/1.5B/3B/7B/34B | Paper coming soon | [Hub](https://huggingface.co/tiiuae/Falcon-H1-34B-Instruct) | [License](https://falconllm.tii.ae/falcon-terms-and-conditions.html ) | ❌ | |
 | Qwen2.5-Instruct | 0.5B-70B | [Paper](https://arxiv.org/abs/2309.16609) | [Hub](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
 | OLMo 2 Instruct | 7B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-2-1124-7B) | Apache 2.0 | ✅ | |
+| ✅ OLMo 3 Instruct | 7B/32B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-3-7B-Instruct) | Apache 2.0 | ✅ | |
 | MPT-Instruct | 7B | [Blog](https://www.mosaicml.com/blog/mpt-7b) | [Hub](https://huggingface.co/mosaicml/mpt-7b-instruct) | Apache 2.0 | ✅ | |
 | Command R | 35B/104B | [Blog](https://cohere.com/blog/command-r7b) | [Hub](https://huggingface.co/CohereForAI/c4ai-command-r-plus) | [License](https://cohere.com/c4ai-cc-by-nc-license) | ❌ | |
 | Granite-3.1-Instruct | 2B/8B | [Paper](https://github.com/ibm-granite/granite-3.0-language-models/blob/main/paper.pdf) | [Hub](https://huggingface.co/ibm-granite/granite-3.1-8b-instruct) | Apache 2.0 | ❌ | |
 | Gemma 2 Instruct | 2B/9B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma-2-2b-it) | [License](https://ai.google.dev/gemma/terms) | ❌ | |
+| ✅ Gemma 3 Instruct | 4B/12B/27B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma-3-27b-it) | [License](https://ai.google.dev/gemma/terms) | ❌ | |
 | DBRX-Instruct | 130B MoE | [Blog](https://www.databricks.com/blog/introducing-dbrx-new-state-art-open-llm) | [Hub](https://huggingface.co/databricks/dbrx-instruct) | Apache 2.0 | ❌ | |
 | Falcon-Instruct | 7B/40B | [Paper](https://arxiv.org/abs/2306.01116) | [Hub](https://huggingface.co/tiiuae/falcon-7b-instruct) | Apache 2.0 | ❌  | |
 | ✅ Llama 4 Scout Instruct | 17B (Activated) 109B (Total) | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct) | [License](https://llama.meta.com/llama4/license/) | ❌  | |
@@ -37,6 +39,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 | ✅ Phi-3 Vision | 4.2B | [Paper](https://arxiv.org/abs/2404.14219) | [Hub](https://huggingface.co/microsoft/Phi-3-vision-128k-instruct) | [License](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/LICENSE) | ❌ | |
 | ✅ BLIP-2 | 3.6B | [Paper](https://arxiv.org/abs/2301.12597) | [Hub](https://huggingface.co/Salesforce/blip2-opt-2.7b) | MIT | ❌ | |
 | ✅ Qwen2-VL | 2B | [Blog](https://qwenlm.github.io/blog/qwen2-vl/) | [Hub](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
+| ✅ Qwen3-VL | 2B/4B/8B | [Blog](https://qwenlm.github.io/blog/qwen3-vl/) | [Hub](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
 | ✅ SmolVLM-Instruct | 2B | [Blog](https://huggingface.co/blog/smolvlm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolVLM-Instruct) | Apache 2.0 | ✅  | |
 
 ### Base Models
@@ -62,6 +65,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 | Model | Size | Paper | HF Hub | License | Open [^1] | Recommended Parameters |
 |-------|------|-------|---------|----------|------|---------------------|
 | ✅ Qwen3 | 600M/1.7B/4B/8B/14B/32B/30B-A3B/235B-A22B | [Blog](https://qwenlm.github.io/blog/qwen3/) | [Hub](https://huggingface.co/Qwen/Qwen3-235B-A22B) | Apache 2.0 | ❌ | |
+| ✅ Qwen3-Next | 80B-A3B | [Blog](https://qwenlm.github.io/blog/qwen3/) | [Hub](https://huggingface.co/Qwen/Qwen3-Next-80B-A3B) | Apache 2.0 | ❌ | |
 | Qwen QwQ | 32B | [Blog](https://qwenlm.github.io/blog/qwq-32b-preview/) | [Hub](https://huggingface.co/Qwen/QwQ-32B-Preview) | Apache 2.0 | ❌ | |
 | Phi-4-reasoning-plus | 14B | [Blog](https://azure.microsoft.com/en-us/blog/one-year-of-phi-small-language-models-making-big-leaps-in-ai/) | [Hub](https://huggingface.co/microsoft/Phi-4-reasoning-plus) | MIT | ❌ | |
 

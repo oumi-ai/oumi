@@ -1,7 +1,7 @@
 # Inference config for Deepseek R1 Distill Llama 3.3 70B.
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/deepseek_r1/inference/distill_llama_70b_infer.yaml
+#   oumi infer -i -c configs/recipes/deepseek_r1/inference/distill_llama_70b/infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html

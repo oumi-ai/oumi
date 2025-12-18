@@ -195,11 +195,13 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             ),
             "max_completion_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
             "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_params.seed,
             "logit_bias": generation_params.logit_bias,
         }
+
+        if generation_params.top_p is not None:
+            api_input["top_p"] = generation_params.top_p
 
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings
