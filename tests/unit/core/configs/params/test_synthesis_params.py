@@ -292,7 +292,7 @@ def test_permutable_attribute_invalid():
 
     # Test sample rates sum > 1
     with pytest.raises(
-        ValueError, match="SampledAttribute.possible_values must sum to 1.0"
+        ValueError, match="SampledAttribute.possible_values must sum to at most 1.0"
     ):
         SampledAttribute(
             id="test",
