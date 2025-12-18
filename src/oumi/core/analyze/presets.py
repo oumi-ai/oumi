@@ -93,7 +93,7 @@ def _get_sft_quality_preset() -> list[SampleAnalyzerParams]:
     This preset is optimized for analyzing supervised fine-tuning datasets
     in conversation format. It includes:
 
-    1. Length Analyzer: Character, word, sentence, and token counts
+    1. Length Analyzer: Token counts
     2. Diversity Analyzer: Vocabulary richness metrics
     3. Format Analyzer: Markdown, code, JSON detection
     4. Quality Analyzer: PII, encoding issues, special tokens, repetition
@@ -106,9 +106,6 @@ def _get_sft_quality_preset() -> list[SampleAnalyzerParams]:
         SampleAnalyzerParams(
             id="length",
             params={
-                "char_count": True,
-                "word_count": True,
-                "sentence_count": True,
                 "token_count": False,  # Requires tokenizer, disabled by default
             },
         ),
@@ -242,9 +239,6 @@ def _get_sft_comprehensive_preset() -> list[SampleAnalyzerParams]:
         SampleAnalyzerParams(
             id="length",
             params={
-                "char_count": False,
-                "word_count": True,
-                "sentence_count": False,
                 "token_count": True,  # Enabled for cost analysis
             },
         ),
@@ -330,9 +324,6 @@ def _get_sft_fast_preset() -> list[SampleAnalyzerParams]:
         SampleAnalyzerParams(
             id="length",
             params={
-                "char_count": True,
-                "word_count": True,
-                "sentence_count": False,
                 "token_count": True,  # Uses tiktoken by default, fast
             },
         ),
