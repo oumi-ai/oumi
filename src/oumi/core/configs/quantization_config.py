@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.model_params import ModelParams
@@ -49,17 +48,7 @@ class QuantizationConfig(BaseConfig):
     output_format: str = "safetensors"
     """Output format: 'safetensors'."""
 
-    batch_size: Optional[int] = None
-    """Batch size for calibration. Auto-sized if None. Typical: 32, 8-32, 1-8."""
-
-    verbose: bool = False
-    """Enable detailed progress logging."""
-
     # llm_compressor configuration
-    llmc_group_size: int = 128
-    """Weight grouping size for quantization. 128 (balanced), 64 (higher accuracy),
-    256 (faster)."""
-
     llmc_targets: list[str] = field(default_factory=lambda: ["Linear"])
     """Layer types to target for quantization. Default targets Linear layers."""
 

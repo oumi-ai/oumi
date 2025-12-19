@@ -38,25 +38,14 @@ def build_quantizer(method: str) -> BaseQuantization:
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
     from oumi.quantize.llm_compressor_quantizer import LlmCompressorQuantization
 
-    # Determine quantizer based on method prefix
     if method.startswith("llmc_"):
         return LlmCompressorQuantization()
     elif method.startswith("bnb_"):
         return BitsAndBytesQuantization()
     else:
-        # Try all quantizers to find one that supports this method
-        for quantizer_class in [
-            LlmCompressorQuantization,
-            BitsAndBytesQuantization,
-        ]:
-            instance = quantizer_class()
-            if instance.supports_method(method):
-                return instance
-
-        available_methods = get_available_methods()
         raise ValueError(
             f"Unsupported quantization method: {method}. "
-            f"Available methods: {available_methods}"
+            f"Available methods: {list_all_methods()}"
         )
 
 

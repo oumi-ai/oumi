@@ -41,22 +41,18 @@ class MockQuantization(BaseQuantization):
 class TestBaseQuantization:
     """Test cases for BaseQuantization functionality."""
 
-    def test_validate_config_rejects_unsupported_method(self):
-        """Test that validate_config rejects methods not in supported_methods."""
+    def test_quantize_returns_result(self):
+        """Test that quantize returns a QuantizationResult."""
         quantizer = MockQuantization()
         config = QuantizationConfig(
             model=ModelParams(model_name="test/model"),
-            method="bnb_4bit",
+            method="llmc_W4A16_ASYM",
             output_path="test",
         )
-        with pytest.raises(ValueError, match="not supported by"):
-            quantizer.validate_config(config)
-
-    def test_supports_method(self):
-        """Test supports_method returns correct boolean."""
-        quantizer = MockQuantization()
-        assert quantizer.supports_method("llmc_W4A16_ASYM") is True
-        assert quantizer.supports_method("unsupported") is False
+        result = quantizer.quantize(config)
+        assert isinstance(result, QuantizationResult)
+        assert result.quantized_size_bytes == 1000
+        assert result.output_path == "test"
 
 
 class TestQuantizationConfig:

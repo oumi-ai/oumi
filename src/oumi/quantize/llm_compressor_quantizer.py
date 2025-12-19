@@ -77,7 +77,6 @@ class LlmCompressorQuantization(BaseQuantization):
         Returns:
             QuantizationResult containing quantization results
         """
-        self.validate_config(config)
         logger.info("Starting llm_compressor quantization pipeline...")
 
         # Perform quantization using oneshot API

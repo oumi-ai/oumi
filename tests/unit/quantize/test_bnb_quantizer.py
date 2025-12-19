@@ -16,23 +16,16 @@
 
 import pytest
 
-from oumi.core.configs import ModelParams, QuantizationConfig
 from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
 
 
 class TestBitsAndBytesQuantization:
     """Test cases for BitsAndBytes quantization."""
 
-    def test_validate_config_rejects_invalid_method(self):
-        """Test that validate_config rejects non-bnb methods."""
-        quantizer = BitsAndBytesQuantization()
-        config = QuantizationConfig(
-            model=ModelParams(model_name="test/model"),
-            method="llmc_W4A16_ASYM",
-            output_path="test",
-        )
-        with pytest.raises(ValueError, match="not supported by"):
-            quantizer.validate_config(config)
+    def test_supported_methods(self):
+        """Test that BNB quantizer has correct supported methods."""
+        assert "bnb_4bit" in BitsAndBytesQuantization.supported_methods
+        assert "bnb_8bit" in BitsAndBytesQuantization.supported_methods
 
     def test_requirements_not_met_missing_library(self):
         """Test error when bitsandbytes is not installed."""

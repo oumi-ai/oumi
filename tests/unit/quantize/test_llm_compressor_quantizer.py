@@ -18,23 +18,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from oumi.core.configs import ModelParams, QuantizationConfig
 from oumi.quantize.llm_compressor_quantizer import LlmCompressorQuantization
 
 
 class TestLlmCompressorQuantization:
     """Test cases for llm_compressor quantization."""
 
-    def test_validate_config_rejects_invalid_method(self):
-        """Test that validate_config rejects non-llmc methods."""
-        quantizer = LlmCompressorQuantization()
-        config = QuantizationConfig(
-            model=ModelParams(model_name="test/model"),
-            method="bnb_4bit",
-            output_path="test",
-        )
-        with pytest.raises(ValueError, match="not supported by"):
-            quantizer.validate_config(config)
+    def test_supported_methods(self):
+        """Test that llm_compressor quantizer has correct supported methods."""
+        assert "llmc_W4A16" in LlmCompressorQuantization.supported_methods
+        assert "llmc_W4A16_ASYM" in LlmCompressorQuantization.supported_methods
+        assert "llmc_W8A8_INT" in LlmCompressorQuantization.supported_methods
 
     def test_requirements_not_met_missing_library(self):
         """Test error when llmcompressor is not installed."""

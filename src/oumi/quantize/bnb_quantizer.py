@@ -72,12 +72,6 @@ class BitsAndBytesQuantization(BaseQuantization):
         Returns:
             QuantizationResult containing quantization results
         """
-        # Validate configuration for this quantizer
-        self.validate_config(config)
-
-        # Check requirements
-        self.raise_if_requirements_not_met()
-
         logger.info("Starting BitsAndBytes quantization pipeline...")
 
         # Perform quantization
@@ -88,9 +82,9 @@ class BitsAndBytesQuantization(BaseQuantization):
 
         quantized_size = get_directory_size(output_path)
 
-        logger.info("✅ BitsAndBytes quantization successful!")
-        logger.info(f"📊 Quantized size: {format_size(quantized_size)}")
-        logger.info(f"💡 Model saved to: {output_path}")
+        logger.info("BitsAndBytes quantization successful!")
+        logger.info(f"Quantized size: {format_size(quantized_size)}")
+        logger.info(f"Model saved to: {output_path}")
 
         return QuantizationResult(
             quantization_method=config.method,
@@ -104,12 +98,12 @@ class BitsAndBytesQuantization(BaseQuantization):
         logger.info(
             f"Loading model for BitsAndBytes quantization: {config.model.model_name}"
         )
-        logger.info("📥 Loading base model...")
+        logger.info("Loading base model...")
 
         # Configure quantization based on method
         quantization_config = self._get_quantization_config(config.method)
 
-        logger.info(f"🔧 Using {config.method} quantization")
+        logger.info(f"Using {config.method} quantization")
 
         # Load and quantize model
         torch_dtype = config.model.torch_dtype
@@ -155,23 +149,14 @@ class BitsAndBytesQuantization(BaseQuantization):
 
     def _save_model(self, model, tokenizer, config: QuantizationConfig) -> str:
         """Save quantized model based on output format."""
-        # Ensure output directory exists
         output_path = Path(config.output_path)
-        if output_path.suffix:
-            # If output_path has an extension, treat parent as directory
-            output_dir = output_path.parent
-        else:
-            # If no extension, treat as directory
-            output_dir = output_path
+        output_path.mkdir(parents=True, exist_ok=True)
 
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Save based on format
-        logger.info(f"Saving quantized model to: {output_dir}")
+        logger.info(f"Saving quantized model to: {output_path}")
         model.save_pretrained(
-            str(output_dir),
+            str(output_path),
             safe_serialization=True,  # use safetensors
         )
-        tokenizer.save_pretrained(str(output_dir))
+        tokenizer.save_pretrained(str(output_path))
 
-        return str(output_dir)
+        return str(output_path)
