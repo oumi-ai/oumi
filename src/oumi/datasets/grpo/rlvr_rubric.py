@@ -239,6 +239,9 @@ class RlvrRubricDataset(BaseMapDataset):
         Returns:
             The resulting conversation.
         """
+        # Convert dict to Series if needed for transform()
+        if isinstance(sample, dict):
+            sample = pd.Series(sample)
         transformed = self.transform(sample)
         messages = []
 

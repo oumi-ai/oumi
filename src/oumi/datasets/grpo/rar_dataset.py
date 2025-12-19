@@ -23,7 +23,7 @@ datasets from HuggingFace Hub. These datasets are from the paper:
 The datasets contain prompts with structured rubric annotations that include:
 - title: Short criterion name (2-4 words)
 - description: Detailed description of the criterion
-- weight: Importance weight (positive for Essential/Important/Optional, negative for Pitfall)
+- weight: Importance weight (positive for Essential/Important/Optional, -ve for Pitfall)
 
 Weight categories:
 - Essential (weight=5): Core requirements for a correct answer
@@ -40,7 +40,6 @@ from typing_extensions import override
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation
-
 
 # Weight mapping from categorical importance levels to numeric weights
 # Based on the RaR paper's default scheme
@@ -144,8 +143,10 @@ class RaRMedicineDataset(BaseMapDataset):
         question_source = sample.get("question_source", None)
         rubric_count = sample.get("rubric_count", None)
 
-        # Normalize rubrics to our format
-        rubrics = self._normalize_rubrics(rubrics_raw)
+        # Normalize rubrics to our format (handle None case)
+        rubrics = self._normalize_rubrics(
+            rubrics_raw if rubrics_raw is not None else []
+        )
 
         result = {
             "prompt": str(prompt).strip(),
@@ -229,6 +230,9 @@ class RaRMedicineDataset(BaseMapDataset):
         Returns:
             The resulting conversation.
         """
+        # Convert dict to Series if needed for transform()
+        if isinstance(sample, dict):
+            sample = pd.Series(sample)
         transformed = self.transform(sample)
         messages = [
             {
@@ -314,8 +318,10 @@ class RaRScienceDataset(BaseMapDataset):
         question_source = sample.get("question_source", None)
         rubric_count = sample.get("rubric_count", None)
 
-        # Normalize rubrics to our format
-        rubrics = self._normalize_rubrics(rubrics_raw)
+        # Normalize rubrics to our format (handle None case)
+        rubrics = self._normalize_rubrics(
+            rubrics_raw if rubrics_raw is not None else []
+        )
 
         result = {
             "prompt": str(prompt).strip(),
@@ -399,6 +405,9 @@ class RaRScienceDataset(BaseMapDataset):
         Returns:
             The resulting conversation.
         """
+        # Convert dict to Series if needed for transform()
+        if isinstance(sample, dict):
+            sample = pd.Series(sample)
         transformed = self.transform(sample)
         messages = [
             {

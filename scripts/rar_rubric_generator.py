@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""RaR (Rubrics as Rewards) Rubric Generation Pipeline.
+r"""RaR (Rubrics as Rewards) Rubric Generation Pipeline.
 
 This script implements the rubric generation methodology from the paper:
 "Rubrics as Rewards: Reinforcement Learning Beyond Verifiable Domains"
@@ -30,13 +30,15 @@ Usage:
     python scripts/rar_rubric_generator.py --prompt "What causes diabetes?"
 
     # Generate rubrics from a JSONL file
-    python scripts/rar_rubric_generator.py --input data.jsonl --output data_with_rubrics.jsonl
+    python scripts/rar_rubric_generator.py --input data.jsonl \
+        --output data_with_rubrics.jsonl
 
     # Use a specific model
     python scripts/rar_rubric_generator.py --prompt "..." --model gpt-4o
 
     # Use a reference answer
-    python scripts/rar_rubric_generator.py --prompt "..." --reference "Diabetes is caused by..."
+    python scripts/rar_rubric_generator.py --prompt "..." \
+        --reference "Diabetes is caused by..."
 
 Environment:
     OPENAI_API_KEY: Required for OpenAI API access
@@ -57,10 +59,13 @@ except ImportError:
 
 
 # Rubric generation prompt template based on the RaR paper methodology
-RUBRIC_GENERATION_PROMPT = """You are an expert evaluator creating structured rubrics for assessing AI-generated responses.
+RUBRIC_GENERATION_PROMPT = """You are an expert evaluator creating structured \
+rubrics for assessing AI-generated responses.
 
 ## Task
-Generate a comprehensive set of evaluation rubrics for the following question/prompt. The rubrics will be used to train and evaluate language models using reinforcement learning.
+Generate a comprehensive set of evaluation rubrics for the following \
+question/prompt. The rubrics will be used to train and evaluate language \
+models using reinforcement learning.
 
 ## Question/Prompt
 {prompt}
@@ -79,10 +84,10 @@ Create 7-15 rubric items following these principles:
    - Common mistakes to avoid (pitfalls)
 
 2. **Semantic Weighting**: Assign each rubric one of these categories:
-   - **Essential** (weight: 5): Core requirements that MUST be satisfied for a correct answer
+   - **Essential** (weight: 5): Core requirements that MUST be satisfied
    - **Important** (weight: 4): Significant points that should be included
    - **Optional** (weight: 2): Helpful additions that improve quality
-   - **Pitfall** (weight: -1): Common mistakes to AVOID (phrase positively, e.g., "Avoids X")
+   - **Pitfall** (weight: -1): Common mistakes to AVOID (e.g., "Avoids X")
 
 3. **Self-Contained**: Each rubric should be evaluatable without external references
 
@@ -91,16 +96,16 @@ Create 7-15 rubric items following these principles:
 ## Output Format
 Return a JSON array of rubric objects. Each object must have:
 - "title": Short name (2-4 words)
-- "description": One sentence stating exactly what to evaluate (start with the category name)
+- "description": One sentence stating what to evaluate (start with category name)
 - "weight": Numeric weight (5, 4, 2, or -1)
 
 Example format:
 ```json
 [
-  {{"title": "Core Definition", "description": "Essential Criteria: The response correctly defines the main concept.", "weight": 5}},
-  {{"title": "Supporting Evidence", "description": "Important Criteria: The response provides relevant examples or evidence.", "weight": 4}},
-  {{"title": "Clear Structure", "description": "Optional Criteria: The response is well-organized with clear sections.", "weight": 2}},
-  {{"title": "Avoids Misconceptions", "description": "Pitfall Criteria: The response does not include common misconceptions about the topic.", "weight": -1}}
+  {{"title": "Core", "description": "Essential: Defines concept.", "weight": 5}},
+  {{"title": "Evidence", "description": "Important: Has examples.", "weight": 4}},
+  {{"title": "Structure", "description": "Optional: Well-organized.", "weight": 2}},
+  {{"title": "No Errors", "description": "Pitfall: No mistakes.", "weight": -1}}
 ]
 ```
 
@@ -210,13 +215,11 @@ class RubricGenerator:
         # Try to generate rubrics
         for attempt in range(self.max_retries):
             try:
+                sys_msg = "You are an expert at creating evaluation rubrics."
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
-                        {
-                            "role": "system",
-                            "content": "You are an expert at creating evaluation rubrics for AI systems.",
-                        },
+                        {"role": "system", "content": sys_msg},
                         {"role": "user", "content": full_prompt},
                     ],
                     temperature=self.temperature,
@@ -417,7 +420,7 @@ def main():
 
         print(f"Loading prompts from {args.input}...")
         prompts = []
-        with open(args.input, "r") as f:
+        with open(args.input) as f:
             for line in f:
                 line = line.strip()
                 if line:

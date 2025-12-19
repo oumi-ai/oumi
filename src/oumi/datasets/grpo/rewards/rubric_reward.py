@@ -25,6 +25,7 @@ import statistics
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any, Optional
 
 from oumi.core.configs.judge_config import JudgeConfig
@@ -67,7 +68,8 @@ class JudgePanelMember:
     temperature: float = 0.0
     role: Optional[str] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Set default name to model name if not provided."""
         if self.name is None:
             self.name = self.model
 
@@ -241,14 +243,17 @@ class JudgeStats:
 
     @property
     def avg_score(self) -> float:
+        """Average score across successful evaluations."""
         return self.total_score / self.successful if self.successful > 0 else 0.0
 
     @property
     def avg_time_ms(self) -> float:
+        """Average evaluation time in milliseconds."""
         return self.total_time_ms / self.successful if self.successful > 0 else 0.0
 
     @property
     def estimated_cost_usd(self) -> float:
+        """Estimated cost in USD based on token usage."""
         pricing = MODEL_PRICING.get(self.model, MODEL_PRICING["gpt-4o-mini"])
         input_cost = (self.input_tokens / 1_000_000) * pricing["input"]
         output_cost = (self.output_tokens / 1_000_000) * pricing["output"]
@@ -483,7 +488,7 @@ def _get_or_create_judge(
     if _JUDGE_INSTANCE is not None:
         return _JUDGE_INSTANCE
 
-    if judge_config_path and os.path.exists(judge_config_path):
+    if judge_config_path and Path(judge_config_path).exists():
         _JUDGE_INSTANCE = SimpleJudge(judge_config_path)
     else:
         # Create judge config based on rubric type
@@ -498,14 +503,14 @@ def _get_or_create_judge(
                 "For each rubric, determine if it is satisfied (1) or not (0).\n\n"
                 "Return a JSON object with two keys:\n"
                 '- "scores": a dict mapping each rubric name to 0 or 1\n'
-                '- "weighted_score": the weighted average (sum of weight*score / sum of weights)\n\n'
+                '- "weighted_score": weighted avg (sum(weight*score)/sum(weights))\n\n'
                 "Output only valid JSON, no other text."
             )
             system_instruction = (
-                "You are an expert evaluator. Assess responses against weighted rubrics "
-                "fairly and consistently. For each rubric, give 1 if satisfied, 0 if not. "
-                "Calculate the weighted score as sum(weight*score)/sum(weights). "
-                "Return valid JSON only."
+                "You are an expert evaluator. Assess responses against weighted "
+                "rubrics fairly and consistently. For each rubric, give 1 if "
+                "satisfied, 0 if not. Calculate weighted score as "
+                "sum(weight*score)/sum(weights). Return valid JSON only."
             )
             max_tokens = 500  # More tokens for per-rubric JSON response
         else:
@@ -596,14 +601,14 @@ def _create_judge_for_panel(
             "For each rubric, determine if it is satisfied (1) or not (0).\n\n"
             "Return a JSON object with two keys:\n"
             '- "scores": a dict mapping each rubric name to 0 or 1\n'
-            '- "weighted_score": the weighted average (sum of weight*score / sum of weights)\n\n'
+            '- "weighted_score": weighted avg (sum(weight*score)/sum(weights))\n\n'
             "Output only valid JSON, no other text."
         )
         system_instruction = (
-            "You are an expert evaluator. Assess responses against weighted rubrics "
-            "fairly and consistently. For each rubric, give 1 if satisfied, 0 if not. "
-            "Calculate the weighted score as sum(weight*score)/sum(weights). "
-            f"Return valid JSON only.{role_instruction}"
+            "You are an expert evaluator. Assess responses against weighted "
+            "rubrics fairly and consistently. For each rubric, give 1 if "
+            "satisfied, 0 if not. Calculate weighted score as "
+            f"sum(weight*score)/sum(weights). Return valid JSON only.{role_instruction}"
         )
         max_tokens = 500
     else:
@@ -712,7 +717,7 @@ def load_panel_config(config_path: Optional[str] = None) -> Optional[JudgePanelC
     config_data = None
 
     # Priority 1: Explicit path
-    if config_path and os.path.exists(config_path):
+    if config_path and Path(config_path).exists():
         try:
             with open(config_path) as f:
                 config_data = json.load(f)
@@ -723,7 +728,7 @@ def load_panel_config(config_path: Optional[str] = None) -> Optional[JudgePanelC
     # Priority 2: Environment variable path
     if config_data is None:
         env_path = os.environ.get("OUMI_JUDGE_PANEL_CONFIG")
-        if env_path and os.path.exists(env_path):
+        if env_path and Path(env_path).exists():
             try:
                 with open(env_path) as f:
                     config_data = json.load(f)
@@ -894,7 +899,7 @@ def _compute_weighted_score(
             # The weight is negative, so we use its absolute value for normalization
             # and apply the sign based on whether the pitfall was avoided
             abs_weight = abs(weight)
-            # Pitfall avoided (score=1) -> +abs_weight, Pitfall hit (score=0) -> -abs_weight
+            # Pitfall avoided (1) -> +abs_weight, hit (0) -> -abs_weight
             contribution = abs_weight * (2 * raw_score - 1)  # Maps [0,1] to [-1,1]
             weighted_sum += contribution
             total_weight += abs_weight
@@ -1280,7 +1285,7 @@ def _log_reward_example(
     if per_rubric_details:
         logger.info("  Per-rubric scores:")
         for name, details in per_rubric_details.items():
-            # Handle both old format (score, weight) and new format (score, weight, is_pitfall)
+            # Handle old format (score, weight) and new (score, weight, is_pitfall)
             if len(details) == 3:
                 score, weight, is_pitfall = details
                 if is_pitfall:
@@ -1306,7 +1311,7 @@ def rubric_reward(
     completions: list[list[dict[str, Any]]],
     prompts: Optional[list[str]] = None,
     rubrics: Optional[list[list]] = None,
-    **kwargs: dict[str, Any],
+    **kwargs: Any,
 ) -> list[float]:
     """Rubric-based reward function for GRPO training.
 
@@ -1354,14 +1359,15 @@ def rubric_reward(
         rubric_list = kwargs.get("rubrics", [])
 
     # System prompts (optional) for context
-    system_prompts = kwargs.get("system_prompt", [])
+    system_prompts: list[Any] = kwargs.get("system_prompt", [])
 
     # Validate we have the required data
     if not prompt_list or not rubric_list:
+        prompt_count = len(prompt_list) if prompt_list else 0
+        rubric_count = len(rubric_list) if rubric_list else 0
         logger.warning(
-            f"Missing prompts or rubrics. prompts={len(prompt_list) if prompt_list else 0}, "
-            f"rubrics={len(rubric_list) if rubric_list else 0}. "
-            "Returning zero rewards."
+            f"Missing prompts or rubrics. prompts={prompt_count}, "
+            f"rubrics={rubric_count}. Returning zero rewards."
         )
         return [0.0] * len(completions)
 
@@ -1412,11 +1418,13 @@ def rubric_reward(
     batch_size = len(completion_strs)
     batch_start_time = time.time()
     rubric_type = "weighted" if has_weighted else "simple"
-    judge_info = (
-        f"panel of {len(panel_config.judges)} judges" if use_panel else "single judge"
-    )
+    if use_panel and panel_config is not None:
+        judge_info = f"panel of {len(panel_config.judges)} judges"
+    else:
+        judge_info = "single judge"
     logger.info(
-        f"[RLVR] Processing batch of {batch_size} completions ({rubric_type} rubrics, {judge_info})..."
+        f"[RLVR] Processing batch of {batch_size} completions "
+        f"({rubric_type} rubrics, {judge_info})..."
     )
 
     # Compute rewards for each completion
@@ -1430,7 +1438,7 @@ def rubric_reward(
         # Log first example in each batch for visibility
         log_example = i == 0
 
-        if use_panel:
+        if use_panel and panel is not None and panel_config is not None:
             reward = compute_rubric_reward_panel(
                 prompt=full_prompt,
                 completion=comp,
@@ -1439,7 +1447,7 @@ def rubric_reward(
                 panel_config=panel_config,
                 log_example=log_example,
             )
-        else:
+        elif judge is not None:
             reward = compute_rubric_reward(
                 prompt=full_prompt,
                 completion=comp,
@@ -1447,6 +1455,8 @@ def rubric_reward(
                 judge=judge,
                 log_example=log_example,
             )
+        else:
+            reward = 0.0
         rewards.append(reward)
 
     # Log batch summary
@@ -1471,7 +1481,7 @@ def rubric_reward_batch(
     completions: list[list[dict[str, Any]]],
     prompts: Optional[list[str]] = None,
     rubrics: Optional[list[list[str]]] = None,
-    **kwargs: dict[str, Any],
+    **kwargs: Any,
 ) -> list[float]:
     """Batched rubric-based reward function for GRPO training.
 
@@ -1499,10 +1509,11 @@ def rubric_reward_batch(
 
     # Validate we have the required data
     if not prompt_list or not rubric_list:
+        prompt_count = len(prompt_list) if prompt_list else 0
+        rubric_count = len(rubric_list) if rubric_list else 0
         logger.warning(
-            f"Missing prompts or rubrics. prompts={len(prompt_list) if prompt_list else 0}, "
-            f"rubrics={len(rubric_list) if rubric_list else 0}. "
-            "Returning zero rewards."
+            f"Missing prompts or rubrics. prompts={prompt_count}, "
+            f"rubrics={rubric_count}. Returning zero rewards."
         )
         return [0.0] * len(completions)
 
