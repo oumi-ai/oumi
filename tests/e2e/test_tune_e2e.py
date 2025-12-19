@@ -4,7 +4,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import pytest
 
@@ -23,9 +23,9 @@ class TuneTestConfig(NamedTuple):
     skip: bool = False
     interactive_logs: bool = True
 
-    model_max_length: Optional[int] = None
-    batch_size: Optional[int] = None
-    enable_wandb: Optional[bool] = False
+    model_max_length: int | None = None
+    batch_size: int | None = None
+    enable_wandb: bool | None = False
 
 
 def get_tune_test_id_fn(val):

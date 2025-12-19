@@ -14,7 +14,6 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.utils.placeholders import get_placeholders, resolve_placeholders
@@ -83,7 +82,7 @@ class JudgeParams(BaseParams):
     prompt_template: str
     """Template for the judge prompt with placeholders, such as {question}, {answer}."""
 
-    prompt_template_placeholders: Optional[list[str]] = field(default=None)
+    prompt_template_placeholders: list[str] | None = field(default=None)
     """List of placeholder names in `prompt_template`, to be replaced by the dataset.
 
     These placeholders correspond to the keys that are expected to be found in every
@@ -93,7 +92,7 @@ class JudgeParams(BaseParams):
     this list (if defined) should be ["question", "answer"].
     """
 
-    system_instruction: Optional[str] = field(default=None)
+    system_instruction: str | None = field(default=None)
     """Optional system message to guide judge behavior."""
 
     template_variables: dict[str, str] = field(default_factory=dict)
@@ -110,7 +109,7 @@ class JudgeParams(BaseParams):
     judgment_type: JudgeOutputType = field(default=JudgeOutputType.BOOL)
     """The type of output that the judgment should be provided with."""
 
-    judgment_scores: Optional[dict[str, float]] = field(default=None)
+    judgment_scores: dict[str, float] | None = field(default=None)
     """For ENUM judgment_type, the mapping from category names to numeric scores.
 
     Example:

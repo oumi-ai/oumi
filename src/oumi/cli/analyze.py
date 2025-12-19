@@ -14,7 +14,7 @@
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Optional
+from typing import TYPE_CHECKING, Annotated
 
 import pandas as pd
 import typer
@@ -41,7 +41,7 @@ def analyze(
         ),
     ],
     output: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--output",
             "-o",

@@ -16,10 +16,11 @@ import collections
 import socket
 import statistics
 import time
+from collections.abc import Callable
 from contextlib import ContextDecorator
 from functools import wraps
 from pprint import pformat
-from typing import Any, Callable, Optional, Union, cast
+from typing import Any, cast
 
 import numpy as np
 import pydantic
@@ -52,7 +53,7 @@ class TelemetryState(pydantic.BaseModel):
 class TimerContext(ContextDecorator):
     """A context manager and decorator for timing CPU code execution."""
 
-    def __init__(self, name: str, measurements: Optional[list[float]] = None):
+    def __init__(self, name: str, measurements: list[float] | None = None):
         """Initializes a TimerContext object.
 
         Args:
@@ -61,7 +62,7 @@ class TimerContext(ContextDecorator):
         """
         self.name = name
         self.measurements = measurements if measurements is not None else []
-        self.start_time: Optional[float] = None
+        self.start_time: float | None = None
 
         # Enable to accurately time the duration of ops on CUDA.
         # This should only be used for debuggings since it may increase latency.
@@ -88,7 +89,7 @@ class TimerContext(ContextDecorator):
 class CudaTimerContext(ContextDecorator):
     """A context manager and decorator for timing CUDA operations."""
 
-    def __init__(self, name: str, measurements: Optional[list[float]] = None):
+    def __init__(self, name: str, measurements: list[float] | None = None):
         """Initializes a CudaTimerContext object.
 
         Args:
@@ -224,7 +225,7 @@ class TelemetryTracker:
             self.state.cuda_measurements[name] = []
         return CudaTimerContext(name, self.state.cuda_measurements[name])
 
-    def log_gpu_memory(self, custom_logger: Optional[Callable] = None) -> None:
+    def log_gpu_memory(self, custom_logger: Callable | None = None) -> None:
         """Logs the GPU memory usage.
 
         Args:
@@ -361,7 +362,7 @@ class TelemetryTracker:
         self,
         rank_summaries: list[dict[str, Any]],
         *,
-        measurement_names: Union[set[str], dict[str, Any]],
+        measurement_names: set[str] | dict[str, Any],
     ) -> dict[str, Any]:
         """Computes a cross-rank summary from summaries produced by individual ranks.
 
@@ -409,7 +410,7 @@ class TelemetryTracker:
 
         def _aggregate_cross_rank_stats(
             key: str, rank_summaries: list[dict[str, Any]]
-        ) -> Optional[dict[str, float]]:
+        ) -> dict[str, float] | None:
             measurements = []
             for rank_summary in rank_summaries:
                 if key in rank_summary and isinstance(rank_summary[key], (float, int)):
@@ -502,7 +503,7 @@ class TelemetryTracker:
         return stats
 
     def _calculate_timer_stats(
-        self, measurements: list[float], total_time: Optional[float] = None
+        self, measurements: list[float], total_time: float | None = None
     ) -> dict[str, float]:
         """Same as above but also computes `total` and `percentage`."""
         stats: dict[str, float] = self._calculate_basic_stats(measurements)

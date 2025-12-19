@@ -15,7 +15,6 @@
 """Base classes for sample analyzer plugins."""
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import pandas as pd
 
@@ -30,7 +29,7 @@ class SampleAnalyzer(ABC):
     def analyze_sample(
         self,
         df: pd.DataFrame,
-        schema: Optional[dict] = None,
+        schema: dict | None = None,
     ) -> pd.DataFrame:
         """Analyze text fields and return analysis results.
 

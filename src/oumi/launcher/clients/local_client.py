@@ -20,7 +20,6 @@ from enum import Enum
 from pathlib import Path
 from subprocess import PIPE, Popen
 from threading import Lock, Thread
-from typing import Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import JobState, JobStatus
@@ -32,8 +31,8 @@ class _LocalJob:
 
     status: JobStatus
     config: JobConfig
-    stdout: Optional[str] = None
-    stderr: Optional[str] = None
+    stdout: str | None = None
+    stderr: str | None = None
 
 
 class _JobState(Enum):
@@ -87,7 +86,7 @@ class LocalClient:
         is_done = status in (_JobState.COMPLETED, _JobState.FAILED, _JobState.CANCELED)
         self._jobs[job_id].status.done = is_done
 
-    def _worker_run_job(self) -> Optional[_LocalJob]:
+    def _worker_run_job(self) -> _LocalJob | None:
         """Kicks off and returns a new job. Assumes the mutex is already acquired."""
         job = self._get_next_job()
         if job is None:
@@ -176,7 +175,7 @@ class LocalClient:
         self._next_job_id += 1
         return str(job_id)
 
-    def _get_next_job(self) -> Optional[_LocalJob]:
+    def _get_next_job(self) -> _LocalJob | None:
         """Gets the next QUEUED job from the queue."""
         queued_jobs = [
             job
@@ -213,7 +212,7 @@ class LocalClient:
         with self._mutex:
             return [job.status for job in self._jobs.values()]
 
-    def get_job(self, job_id: str) -> Optional[JobStatus]:
+    def get_job(self, job_id: str) -> JobStatus | None:
         """Gets the specified job's status.
 
         Args:
@@ -228,7 +227,7 @@ class LocalClient:
                 return job
         return None
 
-    def cancel(self, job_id) -> Optional[JobStatus]:
+    def cancel(self, job_id) -> JobStatus | None:
         """Cancels the specified job.
 
         Args:

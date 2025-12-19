@@ -17,7 +17,7 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NamedTuple, Optional, TypeVar, Union, cast
+from typing import Any, NamedTuple, TypeVar, cast
 
 import numpy as np
 import torch
@@ -61,7 +61,7 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
         torch.cuda.set_per_process_memory_fraction(percent)
 
 
-def format_cudnn_version(v: Optional[int]) -> str:
+def format_cudnn_version(v: int | None) -> str:
     """Formats the cuDNN version number.
 
     Args:
@@ -93,7 +93,7 @@ def log_versioning_info() -> None:
     )
 
 
-def log_devices_info(filepath: Optional[Path] = None) -> None:
+def log_devices_info(filepath: Path | None = None) -> None:
     """Logs high-level info about all available accelerator devices."""
     if not torch.cuda.is_available():
         return
@@ -150,7 +150,7 @@ def create_model_summary(model: Any) -> str:
     return "\n".join(lines)
 
 
-def log_model_summary(model, filepath: Optional[Path] = None) -> None:
+def log_model_summary(model, filepath: Path | None = None) -> None:
     """Logs a model summary."""
     model_summary = create_model_summary(model)
     logger.info(model_summary)
@@ -314,7 +314,7 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
 
 
 def get_dtype_size_in_bytes(
-    dtype: Union[str, torch.dtype, type[np.generic]],
+    dtype: str | torch.dtype | type[np.generic],
 ) -> int:
     """Returns size of this dtype in bytes."""
     if isinstance(dtype, torch.dtype):
@@ -447,7 +447,7 @@ def pad_sequences_left_side(
 
 
 def pad_sequences(
-    sequences: list[T], *, padding_value: float = 0, padding_side: Optional[str] = None
+    sequences: list[T], *, padding_value: float = 0, padding_side: str | None = None
 ) -> torch.Tensor:
     """Pads a list of variable-length tensors to a single tensor.
 
@@ -615,7 +615,7 @@ def pad_to_max_dim_and_stack(
     *,
     max_variable_sized_dims: int = -1,
     padding_value: float = 0,
-    padding_side: Optional[str] = None,
+    padding_side: str | None = None,
 ) -> torch.Tensor:
     """Stacks variable-length tensors to a single tensor with dimension expansion.
 

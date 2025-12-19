@@ -14,10 +14,11 @@
 
 import functools
 import time
+from collections.abc import Callable
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Final, Optional, Union, cast
+from typing import Any, Final, cast
 
 import datasets as hf_datasets
 import torch
@@ -85,10 +86,10 @@ from oumi.utils.version_utils import is_dev_build
 
 
 def _find_checkpoint_to_resume_from(
-    resume_from_checkpoint: Optional[str],
+    resume_from_checkpoint: str | None,
     try_resume_from_last_checkpoint: bool,
     output_dir: str,
-) -> Optional[str]:
+) -> str | None:
     """Finds and returns the last checkpoint path to be passed to Trainer."""
     checkpoint_path = None
     if resume_from_checkpoint:
@@ -104,7 +105,7 @@ def _find_checkpoint_to_resume_from(
     return None
 
 
-def _ensure_dir_exists(output_dir: Union[str, Path], human_readable_name: str) -> None:
+def _ensure_dir_exists(output_dir: str | Path, human_readable_name: str) -> None:
     if not output_dir:
         raise ValueError(f"{human_readable_name} is not specified!")
     output_dir_path: Path = Path(output_dir)
@@ -190,11 +191,11 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
 def _create_optional_training_kwargs(
     config: TrainingConfig,
     trainer_type: TrainerType,
-    metrics_function: Optional[Callable],
+    metrics_function: Callable | None,
     reward_functions: list[Callable],
-    rollout_function: Optional[Callable],
-    collator: Optional[Callable],
-    additional_trainer_kwargs: Optional[dict[str, Any]] = None,
+    rollout_function: Callable | None,
+    collator: Callable | None,
+    additional_trainer_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     if trainer_type == TrainerType.OUMI:
@@ -280,11 +281,11 @@ def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
 
 def train(
     config: TrainingConfig,
-    additional_model_kwargs: Optional[dict[str, Any]] = None,
-    additional_trainer_kwargs: Optional[dict[str, Any]] = None,
-    additional_tuning_kwargs: Optional[dict[str, Any]] = None,
+    additional_model_kwargs: dict[str, Any] | None = None,
+    additional_trainer_kwargs: dict[str, Any] | None = None,
+    additional_tuning_kwargs: dict[str, Any] | None = None,
     verbose: bool = False,
-) -> Union[None, dict[str, Any]]:
+) -> None | dict[str, Any]:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
@@ -325,14 +326,14 @@ def train(
             logger.info(f"Training config saved to {config_path}")
 
     # Initialize tokenizer and processor.
-    tokenizer: Optional[BaseTokenizer] = None
+    tokenizer: BaseTokenizer | None = None
     if is_custom_model(config.model.model_name) and not config.model.tokenizer_name:
         # Keep tokenizer as None for custom models unless `tokenizer_name` is specified.
         tokenizer = None
     else:
         tokenizer = build_tokenizer(config.model)
 
-    processor: Optional[BaseProcessor] = None
+    processor: BaseProcessor | None = None
     if is_image_text_llm(config.model):
         assert tokenizer is not None, (
             "Tokenizer can't be None because all VLM-s are non-custom currently"
@@ -375,9 +376,9 @@ def train(
         )
 
     trainer_type: Final[TrainerType] = config.training.trainer_type
-    metrics_function: Optional[Callable] = build_metrics_function(config.training)
+    metrics_function: Callable | None = build_metrics_function(config.training)
     reward_functions: list[Callable] = build_reward_functions(config.training)
-    rollout_function: Optional[Callable] = build_rollout_function(config.training)
+    rollout_function: Callable | None = build_rollout_function(config.training)
     if trainer_type == TrainerType.TRL_GRPO:
         if len(reward_functions) == 0:
             logger.warning(f"No reward_function specified for {trainer_type}!")
@@ -394,7 +395,7 @@ def train(
         ):
             eval_dataset = try_prepare_trl_grpo_dataset(eval_dataset)
 
-    collator: Optional[Callable] = build_collator_from_config(
+    collator: Callable | None = build_collator_from_config(
         config, tokenizer, debug=config.training.log_examples
     )
 

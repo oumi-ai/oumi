@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
 
 from transformers import SpecialTokensMixin
 
@@ -50,7 +49,7 @@ special_tokens = {k.lower(): v for k, v in special_tokens.items()}
 
 
 def get_default_special_tokens(
-    tokenizer: Optional[BaseTokenizer],
+    tokenizer: BaseTokenizer | None,
 ) -> SpecialTokensMixin:
     """Returns the default special tokens for the tokenizer that was provided.
 

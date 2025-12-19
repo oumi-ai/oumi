@@ -13,7 +13,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -95,7 +95,7 @@ class CheckpointManager:
         self.temp_results_file = self.output_path / "temp_results.json"
         self.output_path.mkdir(exist_ok=True, parents=True)
 
-    def load_checkpoint(self) -> tuple[int, list[Optional[str]]]:
+    def load_checkpoint(self) -> tuple[int, list[str | None]]:
         """Load checkpoint if it exists. Returns (start_index, existing_artifacts)."""
         if not self.checkpoint_file.exists():
             return 0, []
@@ -114,7 +114,7 @@ class CheckpointManager:
             logger.warning(f"Failed to load checkpoint: {e}. Starting from beginning.")
             return 0, []
 
-    def save_checkpoint(self, index: int, artifacts: list[Optional[str]]):
+    def save_checkpoint(self, index: int, artifacts: list[str | None]):
         """Save current progress to checkpoint file."""
         checkpoint = {
             "last_processed_index": index,
@@ -131,7 +131,7 @@ class CheckpointManager:
         logger.debug(f"Checkpoint saved at index {index}")
 
     def save_temp_results(
-        self, dataset_dict: dict[str, Any], artifacts: list[Optional[str]]
+        self, dataset_dict: dict[str, Any], artifacts: list[str | None]
     ):
         """Save temporary results that can be used to create the final dataset."""
         temp_data = []
@@ -237,7 +237,7 @@ concept?"""
     return prompt
 
 
-def extract_code_artifact(response: str) -> Optional[str]:
+def extract_code_artifact(response: str) -> str | None:
     """Extract Python code artifact from Claude's response."""
     # Look for code blocks marked with ```python
     code_pattern = r"```python\n(.*?)```"
@@ -315,7 +315,7 @@ def create_conversation_from_sample(sample: dict[str, Any]) -> Conversation:
 
 def process_dataset_batch(
     engine, samples: list[dict[str, Any]], generation_params: GenerationParams
-) -> list[Optional[str]]:  # noqa: PLR0915
+) -> list[str | None]:  # noqa: PLR0915
     """Process a batch of dataset samples and return the code artifacts."""
     try:
         # Create conversations for all samples
@@ -390,7 +390,7 @@ def process_dataset_batch(
         return [None] * len(samples)
 
 
-def get_output_path(input_dataset_name: str, output_path: Optional[str]) -> str:
+def get_output_path(input_dataset_name: str, output_path: str | None) -> str:
     """Determine the output path for the dataset."""
     if output_path:
         return output_path

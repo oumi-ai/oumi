@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 
@@ -32,7 +32,7 @@ class DataFrameWithSchema:
 
     dataframe: pd.DataFrame
     schema: dict
-    name: Optional[str] = None
+    name: str | None = None
 
 
 @dataclass
@@ -105,7 +105,7 @@ class DataFrameAnalyzer:
     def analyze_dataframe_list(
         self,
         input_data_list: list[DataFrameWithSchema],
-        merge_on: Union[str, list[str]],
+        merge_on: str | list[str],
     ) -> AnalysisResult:
         """Apply analyzers to a list of DataFrames with their schemas and merge results.
 
@@ -147,7 +147,7 @@ class DataFrameAnalyzer:
     def _merge_dataframe_list(
         self,
         dataframes: list[pd.DataFrame],
-        merge_on: Union[str, list[str]],
+        merge_on: str | list[str],
     ) -> pd.DataFrame:
         """Merge a list of DataFrames sequentially.
 

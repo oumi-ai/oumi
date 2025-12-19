@@ -15,7 +15,6 @@
 """Calls `profiler.step()`  at the end of each training step."""
 
 import sys
-from typing import Optional, Union
 
 import torch
 import transformers
@@ -41,9 +40,9 @@ class ProfilerStepCallback(BaseTrainerCallback):
 
     def on_step_begin(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the beginning of a training step.
@@ -55,9 +54,9 @@ class ProfilerStepCallback(BaseTrainerCallback):
 
     def on_substep_end(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the end of an substep during gradient accumulation."""
@@ -66,9 +65,9 @@ class ProfilerStepCallback(BaseTrainerCallback):
 
     def on_step_end(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the end of each train step.

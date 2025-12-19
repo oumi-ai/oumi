@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
@@ -28,7 +28,7 @@ class GenerationParams(BaseParams):
     Default is 1024 tokens.
     """
 
-    batch_size: Optional[int] = 1
+    batch_size: int | None = 1
     """The number of sequences to generate in parallel.
 
     Larger batch sizes can improve throughput but require more memory. Default is 1.
@@ -43,7 +43,7 @@ class GenerationParams(BaseParams):
     exclude_prompt_from_response: bool = True
     """Whether to trim the model's response and remove the prepended prompt."""
 
-    seed: Optional[int] = None
+    seed: int | None = None
     """Seed to use for random number determinism.
     If specified, APIs may use this parameter to make a best-effort at determinism.
     """
@@ -55,7 +55,7 @@ class GenerationParams(BaseParams):
     make it more focused and deterministic.
     """
 
-    top_p: Optional[float] = None
+    top_p: float | None = None
     """An alternative to temperature, called nucleus sampling.
 
     It sets the cumulative probability threshold for token selection.
@@ -74,10 +74,10 @@ class GenerationParams(BaseParams):
     so far, increasing the model's likelihood to talk about new topics.
     """
 
-    stop_strings: Optional[list[str]] = None
+    stop_strings: list[str] | None = None
     """List of sequences where the API will stop generating further tokens."""
 
-    stop_token_ids: Optional[list[int]] = None
+    stop_token_ids: list[int] | None = None
     """List of token ids for which the API will stop generating further tokens. This
     is only supported in `VLLMInferenceEngine` and `NativeTextInferenceEngine`."""
 
@@ -118,7 +118,7 @@ class GenerationParams(BaseParams):
     decoding.
     Default is False."""
 
-    guided_decoding: Optional[GuidedDecodingParams] = None
+    guided_decoding: GuidedDecodingParams | None = None
     """Parameters for guided decoding."""
 
     skip_special_tokens: bool = True

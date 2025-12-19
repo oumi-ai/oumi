@@ -2,7 +2,6 @@
 
 import tempfile
 from pathlib import Path
-from typing import Optional
 from unittest.mock import patch
 
 import jsonlines
@@ -46,7 +45,7 @@ class MockSampleAnalyzer:
         self.analyzer_id = kwargs.get("analyzer_id", "mock")
 
     def analyze_sample(
-        self, df: pd.DataFrame, schema: Optional[dict] = None
+        self, df: pd.DataFrame, schema: dict | None = None
     ) -> pd.DataFrame:
         """
         Mock analysis that adds analyzer metrics to the DataFrame.
@@ -82,7 +81,7 @@ class MockFailingAnalyzer:
         self.config = kwargs
 
     def analyze_sample(
-        self, df: pd.DataFrame, schema: Optional[dict] = None
+        self, df: pd.DataFrame, schema: dict | None = None
     ) -> pd.DataFrame:
         raise ValueError("Analyzer failed")
 

@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated, Any, Callable, Optional
+from typing import Annotated, Any
 
 import typer
 from rich.table import Table
@@ -34,7 +35,7 @@ def judge_dataset_file(
         str, typer.Option("--input", help="Path to the dataset input file (jsonl)")
     ],
     output_file: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--output", help="Path to the output file (jsonl)"),
     ] = None,
     display_raw_output: bool = False,
@@ -66,7 +67,7 @@ def judge_conversations_file(
         str, typer.Option("--input", help="Path to the dataset input file (jsonl)")
     ],
     output_file: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--output", help="Path to the output file (jsonl)"),
     ] = None,
     display_raw_output: bool = False,
@@ -98,7 +99,7 @@ def judge_file(
         str, typer.Option("--input", help="Path to the dataset input file (jsonl)")
     ],
     output_file: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--output", help="Path to the output file (jsonl)"),
     ] = None,
     display_raw_output: bool = False,

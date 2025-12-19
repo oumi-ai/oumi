@@ -14,7 +14,7 @@
 
 import copy
 from dataclasses import asdict, dataclass
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 import pandas as pd
 
@@ -105,7 +105,7 @@ class DatasetAnalysisResult:
 class DatasetAnalyzer:
     """Orchestrates the analysis of datasets using multiple sample analyzers."""
 
-    def __init__(self, config: AnalyzeConfig, dataset: Optional[BaseMapDataset] = None):
+    def __init__(self, config: AnalyzeConfig, dataset: BaseMapDataset | None = None):
         """Initialize the dataset analyzer with configuration.
 
         Args:
@@ -146,11 +146,11 @@ class DatasetAnalyzer:
         self.dataframe_analyzer = DataFrameAnalyzer(self.sample_analyzers)
 
         # Initialize analysis results as None
-        self._analysis_results: Optional[DatasetAnalysisResult] = None
-        self._merged_df: Optional[pd.DataFrame] = None
-        self._message_df: Optional[pd.DataFrame] = None
-        self._conversation_df: Optional[pd.DataFrame] = None
-        self._analysis_summary: Optional[dict[str, Any]] = None
+        self._analysis_results: DatasetAnalysisResult | None = None
+        self._merged_df: pd.DataFrame | None = None
+        self._message_df: pd.DataFrame | None = None
+        self._conversation_df: pd.DataFrame | None = None
+        self._analysis_summary: dict[str, Any] | None = None
 
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
@@ -352,7 +352,7 @@ class DatasetAnalyzer:
         self._analysis_summary = self._generate_analysis_summary()
 
     def _prepare_dataframe_list(
-        self, max_items: Optional[int] = None
+        self, max_items: int | None = None
     ) -> tuple[list[DataFrameWithSchema], int, int]:
         """Prepare DataFrameWithSchema list from input source with optional limiting.
 
@@ -405,7 +405,7 @@ class DatasetAnalyzer:
             raise ValueError("Either dataframes or dataset must be provided")
 
     @property
-    def analysis_results(self) -> Optional[DatasetAnalysisResult]:
+    def analysis_results(self) -> DatasetAnalysisResult | None:
         """Get the analysis results if available.
 
         Returns:
@@ -443,7 +443,7 @@ class DatasetAnalyzer:
         return filtered_df
 
     @property
-    def analysis_df(self) -> Union[pd.DataFrame, None]:
+    def analysis_df(self) -> pd.DataFrame | None:
         """Get the merged analysis DataFrame with both message and conversation metrics.
 
         Returns:
@@ -461,7 +461,7 @@ class DatasetAnalyzer:
         return self._merged_df
 
     @property
-    def message_df(self) -> Union[pd.DataFrame, None]:
+    def message_df(self) -> pd.DataFrame | None:
         """Get the message-level analysis DataFrame.
 
         Returns:
@@ -478,7 +478,7 @@ class DatasetAnalyzer:
         return self._message_df
 
     @property
-    def conversation_df(self) -> Union[pd.DataFrame, None]:
+    def conversation_df(self) -> pd.DataFrame | None:
         """Get the conversation-level analysis DataFrame.
 
         Returns:
@@ -537,7 +537,7 @@ class DatasetAnalyzer:
     def filter(
         self,
         query_expression: str,
-    ) -> Union[BaseMapDataset, BaseIterableDataset]:
+    ) -> BaseMapDataset | BaseIterableDataset:
         """Filter the original dataset based on analysis results.
 
         This method uses analysis results to filter the original dataset, returning
@@ -591,7 +591,7 @@ class DatasetAnalyzer:
 
     def _create_filtered_dataset(
         self, conversation_indices: list[int]
-    ) -> Union[BaseMapDataset, BaseIterableDataset]:
+    ) -> BaseMapDataset | BaseIterableDataset:
         """Create a new dataset containing only the specified conversations.
 
         Args:

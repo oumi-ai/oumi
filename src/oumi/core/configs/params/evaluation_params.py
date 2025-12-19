@@ -14,7 +14,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 
@@ -78,7 +78,7 @@ class EvaluationTaskParams(BaseParams):
     evaluation_backend: str = ""
     """The evaluation backend to use for the current task."""
 
-    task_name: Optional[str] = None
+    task_name: str | None = None
     """The task to evaluate or the custom evaluation function to use.
 
     For LM Harness evaluations (when the evaluation_backend is set to
@@ -92,7 +92,7 @@ class EvaluationTaskParams(BaseParams):
     `@register_evaluation_function`.
     """
 
-    num_samples: Optional[int] = None
+    num_samples: int | None = None
     """Number of samples/examples to evaluate from this dataset.
 
     Mostly for debugging, in order to reduce the runtime.
@@ -100,7 +100,7 @@ class EvaluationTaskParams(BaseParams):
     If set, this must be a positive integer.
     """
 
-    log_samples: Optional[bool] = False
+    log_samples: bool | None = False
     """Whether to log the samples used for evaluation.
 
     If not set (False): the model samples used for evaluation will not be logged.
@@ -154,7 +154,7 @@ class LMHarnessTaskParams(EvaluationTaskParams):
     across various tasks.
     """
 
-    num_fewshot: Optional[int] = None
+    num_fewshot: int | None = None
     """Number of few-shot examples (with responses) to add in the prompt, in order to
     teach the model how to respond to the specific dataset's prompts.
 
@@ -182,7 +182,7 @@ class AlpacaEvalTaskParams(EvaluationTaskParams):
     The default judge is GPT4 Turbo.
     """
 
-    version: Optional[float] = 2.0
+    version: float | None = 2.0
     """The version of AlpacaEval to use. Options: 1.0 or 2.0 (default)."""
 
     def __post_init__(self):

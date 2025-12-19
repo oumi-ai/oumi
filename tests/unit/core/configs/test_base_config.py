@@ -3,7 +3,7 @@ import tempfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from omegaconf import OmegaConf
 
@@ -21,13 +21,13 @@ class TestConfig(BaseConfig):
     int_value: int
     float_value: float
     bool_value: bool
-    none_value: Optional[Any]
+    none_value: Any | None
     bytes_value: bytes
     path_value: Path
     enum_value: TestEnum
     list_value: list[Any]
     dict_value: dict[str, Any]
-    func_value: Optional[Any] = None
+    func_value: Any | None = None
 
 
 def test_primitive_types():

@@ -6,7 +6,6 @@ Usage:
 
 import argparse
 from dataclasses import dataclass
-from typing import Union
 
 import torch
 from transformers.models.gpt2.configuration_gpt2 import GPT2Config
@@ -47,7 +46,7 @@ class ModelConfig:
     """The number of key value (KV) heads for the attention layer."""
 
 
-def num_bytes_to_str(bytes: Union[int, float]) -> str:
+def num_bytes_to_str(bytes: int | float) -> str:
     """Returns a human-readable string for a number of bytes."""
     if bytes < 1000:
         return f"{bytes} B"

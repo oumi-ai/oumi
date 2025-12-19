@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable
+from collections.abc import Callable
 
 from oumi.core.configs import TrainingParams
 from oumi.core.registry import REGISTRY

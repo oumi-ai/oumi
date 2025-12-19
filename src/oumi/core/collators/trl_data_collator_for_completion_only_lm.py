@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import warnings
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -28,8 +28,8 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
 
     def __init__(
         self,
-        response_template: Union[str, list[int]],
-        instruction_template: Optional[Union[str, list[int]]] = None,
+        response_template: str | list[int],
+        instruction_template: str | list[int] | None = None,
         *args,
         mlm: bool = False,
         ignore_index: int = -100,
@@ -79,7 +79,7 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         self.padding_free = padding_free
 
     def torch_call(
-        self, examples: list[Union[list[int], Any, dict[str, Any]]]
+        self, examples: list[list[int] | Any | dict[str, Any]]
     ) -> dict[str, Any]:
         """Collates a list of examples into a batch."""
         batch = super().torch_call(examples)

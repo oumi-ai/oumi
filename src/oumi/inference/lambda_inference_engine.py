@@ -14,8 +14,6 @@
 
 """Lambda AI inference engine implementation."""
 
-from typing import Optional
-
 from typing_extensions import override
 
 from oumi.core.configs import RemoteParams
@@ -33,13 +31,13 @@ class LambdaInferenceEngine(RemoteInferenceEngine):
 
     @property
     @override
-    def base_url(self) -> Optional[str]:
+    def base_url(self) -> str | None:
         """Return the default base URL for the Lambda AI API."""
         return "https://api.lambda.ai/v1/chat/completions"
 
     @property
     @override
-    def api_key_env_varname(self) -> Optional[str]:
+    def api_key_env_varname(self) -> str | None:
         """Return the default environment variable name for the Lambda AI API key."""
         return "LAMBDA_API_KEY"
 
