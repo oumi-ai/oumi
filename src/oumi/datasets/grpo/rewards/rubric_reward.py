@@ -185,9 +185,7 @@ def _aggregate_scores(
         result = sum(scores) / len(scores)
 
     details["aggregated_score"] = result
-    details["score_variance"] = (
-        statistics.variance(scores) if len(scores) > 1 else 0.0
-    )
+    details["score_variance"] = statistics.variance(scores) if len(scores) > 1 else 0.0
 
     return result, details
 
@@ -314,7 +312,9 @@ class RubricRewardStats:
     ) -> None:
         """Record result from a single judge in a panel."""
         if judge_name not in self.panel_stats:
-            self.panel_stats[judge_name] = JudgeStats(name=judge_name, model=judge_model)
+            self.panel_stats[judge_name] = JudgeStats(
+                name=judge_name, model=judge_model
+            )
 
         stats = self.panel_stats[judge_name]
         stats.calls += 1
@@ -714,7 +714,7 @@ def load_panel_config(config_path: Optional[str] = None) -> Optional[JudgePanelC
     # Priority 1: Explicit path
     if config_path and os.path.exists(config_path):
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config_data = json.load(f)
             logger.info(f"[RLVR] Loaded judge panel config from: {config_path}")
         except Exception as e:
@@ -725,7 +725,7 @@ def load_panel_config(config_path: Optional[str] = None) -> Optional[JudgePanelC
         env_path = os.environ.get("OUMI_JUDGE_PANEL_CONFIG")
         if env_path and os.path.exists(env_path):
             try:
-                with open(env_path, "r") as f:
+                with open(env_path) as f:
                     config_data = json.load(f)
                 logger.info(f"[RLVR] Loaded judge panel config from env: {env_path}")
             except Exception as e:
@@ -737,7 +737,9 @@ def load_panel_config(config_path: Optional[str] = None) -> Optional[JudgePanelC
         if env_json:
             try:
                 config_data = json.loads(env_json)
-                logger.info("[RLVR] Loaded judge panel config from OUMI_JUDGE_PANEL env")
+                logger.info(
+                    "[RLVR] Loaded judge panel config from OUMI_JUDGE_PANEL env"
+                )
             except json.JSONDecodeError as e:
                 logger.warning(f"Failed to parse OUMI_JUDGE_PANEL: {e}")
 
@@ -843,42 +845,75 @@ def _format_simple_rubrics(rubrics: list[str]) -> str:
     Returns:
         Formatted string representation.
     """
-    return "\n".join(f"{i+1}. {r}" for i, r in enumerate(rubrics))
+    return "\n".join(f"{i + 1}. {r}" for i, r in enumerate(rubrics))
 
 
 def _compute_weighted_score(
     rubrics: list[dict[str, Any]],
     per_rubric_scores: dict[str, float],
-) -> tuple[float, dict[str, tuple[float, float]]]:
+) -> tuple[float, dict[str, tuple[float, float, bool]]]:
     """Compute weighted score from per-rubric scores.
 
+    Supports negative weights for Pitfall criteria from the RaR paper.
+    For pitfall criteria (negative weights):
+    - If satisfied (score=1): contributes positively (pitfall was avoided)
+    - If unsatisfied (score=0): contributes negatively (pitfall was hit)
+
+    The formula follows the RaR paper:
+        r(x, ŷ) = Σ(wⱼ · cⱼ(x, ŷ)) / Σ(|wⱼ|)
+
+    Where wⱼ can be negative for pitfall criteria.
+
     Args:
-        rubrics: List of rubric dicts with weights.
+        rubrics: List of rubric dicts with weights. Weights can be:
+            - Positive (1-5): Essential/Important/Optional criteria
+            - Negative (-1 to -2): Pitfall criteria (things to avoid)
         per_rubric_scores: Dict mapping rubric names to scores (0 or 1).
 
     Returns:
         Tuple of (weighted_score, details) where details maps rubric names
-        to (score, weight) tuples.
+        to (score, weight, is_pitfall) tuples.
     """
-    total_weight = 0.0
+    total_weight = 0.0  # Sum of absolute weights for normalization
     weighted_sum = 0.0
     details = {}
 
     for rubric in rubrics:
         name = rubric.get("name", "")
         weight = float(rubric.get("weight", 1.0))
-        # Get score, default to 0 if not found
-        score = float(per_rubric_scores.get(name, 0))
-        score = max(0.0, min(1.0, score))  # Clamp to [0, 1]
+        is_pitfall = weight < 0
 
-        weighted_sum += weight * score
-        total_weight += weight
-        details[name] = (score, weight)
+        # Get score, default to 0 if not found
+        raw_score = float(per_rubric_scores.get(name, 0))
+        raw_score = max(0.0, min(1.0, raw_score))  # Clamp to [0, 1]
+
+        if is_pitfall:
+            # For pitfall criteria:
+            # - score=1 means the pitfall was avoided (good) -> positive contribution
+            # - score=0 means the pitfall was hit (bad) -> negative contribution
+            # The weight is negative, so we use its absolute value for normalization
+            # and apply the sign based on whether the pitfall was avoided
+            abs_weight = abs(weight)
+            # Pitfall avoided (score=1) -> +abs_weight, Pitfall hit (score=0) -> -abs_weight
+            contribution = abs_weight * (2 * raw_score - 1)  # Maps [0,1] to [-1,1]
+            weighted_sum += contribution
+            total_weight += abs_weight
+        else:
+            # For positive criteria, standard weighted sum
+            weighted_sum += weight * raw_score
+            total_weight += weight
+
+        details[name] = (raw_score, weight, is_pitfall)
 
     if total_weight == 0:
         return 0.0, details
 
-    return weighted_sum / total_weight, details
+    # Normalize to [0, 1] range
+    # The raw score is in [-total_weight, total_weight], we map to [0, 1]
+    normalized_score = (weighted_sum + total_weight) / (2 * total_weight)
+    normalized_score = max(0.0, min(1.0, normalized_score))  # Clamp for safety
+
+    return normalized_score, details
 
 
 def _parse_weighted_response(response_text: str) -> dict[str, float]:
@@ -992,7 +1027,9 @@ def compute_rubric_reward_panel(
                     if isinstance(raw_response, str):
                         per_rubric_scores = _parse_weighted_response(raw_response)
                         if per_rubric_scores:
-                            score, _ = _compute_weighted_score(rubrics, per_rubric_scores)
+                            score, _ = _compute_weighted_score(
+                                rubrics, per_rubric_scores
+                            )
                         else:
                             s = output.field_scores.get("judgment")
                             if s is not None:
@@ -1051,7 +1088,10 @@ def compute_rubric_reward_panel(
 
     # Record overall success
     _REWARD_STATS.record_success(
-        reward, total_time_ms, input_tokens=total_input_tokens, output_tokens=total_output_tokens
+        reward,
+        total_time_ms,
+        input_tokens=total_input_tokens,
+        output_tokens=total_output_tokens,
     )
 
     # Log if requested or periodically
@@ -1180,13 +1220,18 @@ def compute_rubric_reward(
                     if value is not None:
                         reward = max(0.0, min(1.0, float(value)))
                     else:
-                        logger.warning("Judge returned no valid score, defaulting to 0.0")
+                        logger.warning(
+                            "Judge returned no valid score, defaulting to 0.0"
+                        )
                         _REWARD_STATS.record_failure(input_tokens=input_tokens)
                         return 0.0
 
             # Record success with token counts
             _REWARD_STATS.record_success(
-                reward, judge_time_ms, input_tokens=input_tokens, output_tokens=output_tokens
+                reward,
+                judge_time_ms,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
             )
 
             # Log example if requested or periodically
@@ -1219,7 +1264,7 @@ def _log_reward_example(
     rubrics: list,
     reward: float,
     judge_time_ms: float,
-    per_rubric_details: Optional[dict[str, tuple[float, float]]] = None,
+    per_rubric_details: Optional[dict[str, tuple[float, float, bool]]] = None,
 ) -> None:
     """Log a detailed example of reward computation."""
     logger.info("=" * 60)
@@ -1234,9 +1279,24 @@ def _log_reward_example(
     # Log per-rubric details if available
     if per_rubric_details:
         logger.info("  Per-rubric scores:")
-        for name, (score, weight) in per_rubric_details.items():
-            status = "✓" if score > 0.5 else "✗"
-            logger.info(f"    {status} {name}: {score:.0f} (weight={weight})")
+        for name, details in per_rubric_details.items():
+            # Handle both old format (score, weight) and new format (score, weight, is_pitfall)
+            if len(details) == 3:
+                score, weight, is_pitfall = details
+                if is_pitfall:
+                    # For pitfall, score=1 means avoided (good), score=0 means hit (bad)
+                    status = "✓ avoided" if score > 0.5 else "✗ HIT"
+                    logger.info(
+                        f"    {status} [PITFALL] {name}: {score:.0f} (weight={weight})"
+                    )
+                else:
+                    status = "✓" if score > 0.5 else "✗"
+                    logger.info(f"    {status} {name}: {score:.0f} (weight={weight})")
+            else:
+                # Old format for backward compatibility
+                score, weight = details[0], details[1]
+                status = "✓" if score > 0.5 else "✗"
+                logger.info(f"    {status} {name}: {score:.0f} (weight={weight})")
 
     logger.info("=" * 60)
 
@@ -1352,8 +1412,12 @@ def rubric_reward(
     batch_size = len(completion_strs)
     batch_start_time = time.time()
     rubric_type = "weighted" if has_weighted else "simple"
-    judge_info = f"panel of {len(panel_config.judges)} judges" if use_panel else "single judge"
-    logger.info(f"[RLVR] Processing batch of {batch_size} completions ({rubric_type} rubrics, {judge_info})...")
+    judge_info = (
+        f"panel of {len(panel_config.judges)} judges" if use_panel else "single judge"
+    )
+    logger.info(
+        f"[RLVR] Processing batch of {batch_size} completions ({rubric_type} rubrics, {judge_info})..."
+    )
 
     # Compute rewards for each completion
     rewards = []
@@ -1364,7 +1428,7 @@ def rubric_reward(
             full_prompt = f"[System: {system_prompts[i]}]\n\n{p}"
 
         # Log first example in each batch for visibility
-        log_example = (i == 0)
+        log_example = i == 0
 
         if use_panel:
             reward = compute_rubric_reward_panel(
@@ -1457,7 +1521,7 @@ def rubric_reward_batch(
     judge_inputs = []
     for comp, p, r in zip(completion_strs, prompt_list, rubric_list):
         r_list = r if isinstance(r, list) else [r]
-        rubrics_text = "\n".join(f"{i+1}. {rb}" for i, rb in enumerate(r_list))
+        rubrics_text = "\n".join(f"{i + 1}. {rb}" for i, rb in enumerate(r_list))
         judge_inputs.append(
             {
                 "prompt": p,

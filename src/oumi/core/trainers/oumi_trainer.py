@@ -29,7 +29,6 @@ import torch
 import torch.amp
 import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
-import wandb
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
     get_state_dict,
@@ -38,6 +37,7 @@ from torch.utils.data import DataLoader, Dataset, DistributedSampler, IterableDa
 from tqdm.auto import tqdm
 from transformers import TrainerCallback
 
+import wandb
 from oumi.core.configs import MixedPrecisionDtype, TrainingConfig, TrainingParams
 from oumi.core.configs.params.fsdp_params import FSDPParams, StateDictType
 from oumi.core.distributed import (

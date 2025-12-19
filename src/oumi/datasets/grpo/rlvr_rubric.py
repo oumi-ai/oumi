@@ -184,28 +184,34 @@ class RlvrRubricDataset(BaseMapDataset):
         for i, rubric in enumerate(rubrics):
             if isinstance(rubric, str):
                 # Simple string format -> convert to weighted format
-                normalized.append({
-                    "name": f"rubric_{i+1}",
-                    "description": rubric,
-                    "weight": 1.0,
-                    "evaluation_type": "binary",
-                })
+                normalized.append(
+                    {
+                        "name": f"rubric_{i + 1}",
+                        "description": rubric,
+                        "weight": 1.0,
+                        "evaluation_type": "binary",
+                    }
+                )
             elif isinstance(rubric, dict):
                 # Already in dict format, ensure required fields
-                normalized.append({
-                    "name": rubric.get("name", f"rubric_{i+1}"),
-                    "description": rubric.get("description", str(rubric)),
-                    "weight": float(rubric.get("weight", 1.0)),
-                    "evaluation_type": rubric.get("evaluation_type", "binary"),
-                })
+                normalized.append(
+                    {
+                        "name": rubric.get("name", f"rubric_{i + 1}"),
+                        "description": rubric.get("description", str(rubric)),
+                        "weight": float(rubric.get("weight", 1.0)),
+                        "evaluation_type": rubric.get("evaluation_type", "binary"),
+                    }
+                )
             else:
                 # Unknown format, convert to string
-                normalized.append({
-                    "name": f"rubric_{i+1}",
-                    "description": str(rubric),
-                    "weight": 1.0,
-                    "evaluation_type": "binary",
-                })
+                normalized.append(
+                    {
+                        "name": f"rubric_{i + 1}",
+                        "description": str(rubric),
+                        "weight": 1.0,
+                        "evaluation_type": "binary",
+                    }
+                )
         return normalized
 
     def conversation(self, idx: int) -> Conversation:
@@ -238,16 +244,20 @@ class RlvrRubricDataset(BaseMapDataset):
 
         # Add system message if present
         if "system_prompt" in transformed:
-            messages.append({
-                "content": transformed["system_prompt"],
-                "role": "system",
-            })
+            messages.append(
+                {
+                    "content": transformed["system_prompt"],
+                    "role": "system",
+                }
+            )
 
         # Add user message
-        messages.append({
-            "content": transformed["prompt"],
-            "role": "user",
-        })
+        messages.append(
+            {
+                "content": transformed["prompt"],
+                "role": "user",
+            }
+        )
 
         conversation_dict = {"messages": messages}
         return Conversation.from_dict(conversation_dict)

@@ -43,6 +43,7 @@ from oumi.datasets.debug import (
 )
 from oumi.datasets.evaluation import AlpacaEvalDataset
 from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
+from oumi.datasets.grpo.rar_dataset import RaRMedicineDataset, RaRScienceDataset
 from oumi.datasets.grpo.rlvr_rubric import RlvrRubricDataset
 from oumi.datasets.grpo.tldr import TldrGrpoDataset
 from oumi.datasets.preference_tuning.orpo_dpo_mix import OrpoDpoMix40kDataset
@@ -137,6 +138,8 @@ __all__ = [
     "PixmoCapDataset",
     "PixmoCapQADataset",
     "PromptResponseDataset",
+    "RaRMedicineDataset",
+    "RaRScienceDataset",
     "RedPajamaDataV1Dataset",
     "RedPajamaDataV2Dataset",
     "RlvrRubricDataset",
