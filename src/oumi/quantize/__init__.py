@@ -15,14 +15,14 @@
 """Quantization module for Oumi.
 
 This module provides comprehensive model quantization capabilities including
-AWQ, BitsAndBytes, and GGUF quantization methods.
+llm_compressor (AWQ, GPTQ, FP8) and BitsAndBytes quantization methods.
 """
 
 from typing import TYPE_CHECKING
 
-from oumi.quantize.awq_quantizer import AwqQuantization
 from oumi.quantize.base import BaseQuantization, QuantizationResult
 from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+from oumi.quantize.llm_compressor_quantizer import LlmCompressorQuantization
 
 if TYPE_CHECKING:
     from oumi.core.configs import QuantizationConfig
@@ -60,7 +60,7 @@ def quantize(config: "QuantizationConfig") -> QuantizationResult:
 __all__ = [
     "BaseQuantization",
     "QuantizationResult",
-    "AwqQuantization",
+    "LlmCompressorQuantization",
     "BitsAndBytesQuantization",
     "quantize",
 ]

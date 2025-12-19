@@ -16,15 +16,51 @@
 
 # Supported quantization methods
 SUPPORTED_METHODS = [
-    # AWQ methods
-    "awq_q4_0",
-    "awq_q4_1",
-    "awq_q8_0",
-    "awq_f16",
+    # llm_compressor methods (replacing AWQ)
+    "llmc_W4A16",
+    "llmc_W4A16_ASYM",
+    "llmc_W8A16",
+    "llmc_W8A8_INT",
+    "llmc_W8A8_FP8",
+    "llmc_FP8_BLOCK",
     # BitsAndBytes methods
     "bnb_4bit",
     "bnb_8bit",
 ]
+
+# Mapping from method to llm_compressor modifier and scheme
+LLMC_METHOD_CONFIG = {
+    "llmc_W4A16": {
+        "modifier": "AWQModifier",
+        "scheme": "W4A16",
+        "requires_smoothquant": False,
+    },
+    "llmc_W4A16_ASYM": {
+        "modifier": "AWQModifier",
+        "scheme": "W4A16_ASYM",
+        "requires_smoothquant": False,
+    },
+    "llmc_W8A16": {
+        "modifier": "GPTQModifier",
+        "scheme": "W8A16",
+        "requires_smoothquant": False,
+    },
+    "llmc_W8A8_INT": {
+        "modifier": "GPTQModifier",
+        "scheme": "W8A8",
+        "requires_smoothquant": True,
+    },
+    "llmc_W8A8_FP8": {
+        "modifier": "QuantizationModifier",
+        "scheme": "FP8_DYNAMIC",
+        "requires_smoothquant": False,
+    },
+    "llmc_FP8_BLOCK": {
+        "modifier": "QuantizationModifier",
+        "scheme": "FP8_BLOCK",
+        "requires_smoothquant": False,
+    },
+}
 
 # Supported output formats
 SUPPORTED_OUTPUT_FORMATS = ["safetensors"]

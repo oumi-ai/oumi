@@ -16,7 +16,7 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest  # type: ignore
+import pytest
 
 from oumi.core.configs import ModelParams, QuantizationConfig
 from oumi.quantize import quantize
@@ -26,163 +26,48 @@ from oumi.quantize.base import QuantizationResult
 class TestQuantizeModule:
     """Test cases for the main quantize function."""
 
-    def setup_method(self):
-        """Set up test fixtures."""
-        self.valid_config = QuantizationConfig(
-            model=ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct"),
-            method="awq_q4_0",
-            output_path="test_model",
-        )
-
-    @patch("oumi.builders.quantizers.build_quantizer")
-    def test_quantize_awq_success(self, mock_build_quantizer):
-        """Test successful quantization with AWQ method."""
-        # Mock quantizer
-        mock_quantizer = MagicMock()
-        mock_quantizer.raise_if_requirements_not_met.return_value = None
-        mock_quantizer.quantize.return_value = QuantizationResult(
-            quantized_size_bytes=1024,
-            output_path="/path/to/model",
-            quantization_method="awq_q4_0",
-            format_type="pytorch",
-            additional_info={"test": "info"},
-        )
-        mock_build_quantizer.return_value = mock_quantizer
-
-        # Run quantization
-        result = quantize(self.valid_config)
-
-        # Verify
-        assert isinstance(result, QuantizationResult)
-        assert result.quantization_method == "awq_q4_0"
-        assert result.format_type == "pytorch"
-        assert result.quantized_size_bytes == 1024
-        assert result.additional_info["test"] == "info"
-
-        # Verify calls
-        mock_build_quantizer.assert_called_once_with("awq_q4_0")
-        mock_quantizer.raise_if_requirements_not_met.assert_called_once()
-        mock_quantizer.quantize.assert_called_once_with(self.valid_config)
-
-    @patch("oumi.builders.quantizers.build_quantizer")
-    def test_quantize_bnb_success(self, mock_build_quantizer):
-        """Test successful quantization with BitsAndBytes method."""
-        # Create BNB config
-        bnb_config = QuantizationConfig(
-            model=ModelParams(model_name="openai-community/gpt2"),
-            method="bnb_4bit",
-            output_path="test_model",
-            output_format="safetensors",
-        )
-
-        # Mock quantizer
-        mock_quantizer = MagicMock()
-        mock_quantizer.raise_if_requirements_not_met.return_value = None
-        mock_quantizer.quantize.return_value = QuantizationResult(
-            quantized_size_bytes=512,
-            output_path="/path/to/bnb_model",
-            quantization_method="bnb_4bit",
-            format_type="safetensors",
-        )
-        mock_build_quantizer.return_value = mock_quantizer
-
-        # Run quantization
-        result = quantize(bnb_config)
-
-        # Verify
-        assert result.quantization_method == "bnb_4bit"
-        assert result.quantized_size_bytes == 512
-
-        # Verify builder was called with correct method
-        mock_build_quantizer.assert_called_once_with("bnb_4bit")
-
-    def test_quantize_invalid_config_type(self):
-        """Test quantize with invalid config type."""
+    def test_rejects_invalid_config_type(self):
+        """Test quantize rejects non-QuantizationConfig input."""
         with pytest.raises(ValueError, match="Expected QuantizationConfig"):
             quantize("not a config")  # type: ignore
 
-    def test_quantize_unsupported_method(self):
-        """Test quantization with unsupported method."""
-        with pytest.raises(ValueError, match="Unsupported quantization method"):
-            QuantizationConfig(
-                model=ModelParams(model_name="test/model"),
-                method="invalid_method",
-                output_path="test",
-            )
-
     @patch("oumi.builders.quantizers.build_quantizer")
-    def test_quantize_requirements_not_met(self, mock_build_quantizer):
-        """Test quantization when requirements are not met."""
-        # Mock quantizer that fails requirements check
+    def test_routes_to_correct_quantizer(self, mock_build_quantizer):
+        """Test that quantize routes to correct quantizer and calls it."""
         mock_quantizer = MagicMock()
-        mock_quantizer.raise_if_requirements_not_met.side_effect = ImportError(
-            "Missing required package"
-        )
-        mock_build_quantizer.return_value = mock_quantizer
-
-        with pytest.raises(ImportError, match="Missing required package"):
-            quantize(self.valid_config)
-
-    @patch("oumi.builders.quantizers.build_quantizer")
-    def test_quantize_quantizer_failure(self, mock_build_quantizer):
-        """Test when quantizer.quantize() fails."""
-        # Mock quantizer that fails during quantization
-        mock_quantizer = MagicMock()
-        mock_quantizer.raise_if_requirements_not_met.return_value = None
-        mock_quantizer.quantize.side_effect = RuntimeError("Quantization failed")
-        mock_build_quantizer.return_value = mock_quantizer
-
-        with pytest.raises(RuntimeError, match="Quantization failed"):
-            quantize(self.valid_config)
-
-    @patch("oumi.builders.quantizers.build_quantizer")
-    def test_quantize_different_output_formats(self, mock_build_quantizer):
-        """Test quantization with different output formats."""
-        # Mock quantizer
-        mock_quantizer = MagicMock()
-        mock_quantizer.raise_if_requirements_not_met.return_value = None
-
-        # Test safetensors format
-        safetensors_config = QuantizationConfig(
-            model=ModelParams(model_name="test/model"),
-            method="awq_q4_0",
-            output_path="test.safetensors",
-            output_format="safetensors",
-        )
-
         mock_quantizer.quantize.return_value = QuantizationResult(
-            quantized_size_bytes=2048,
-            output_path="/path/to/model.safetensors",
-            quantization_method="awq_q4_0",
+            quantized_size_bytes=1024,
+            output_path="/test",
+            quantization_method="llmc_W4A16_ASYM",
             format_type="safetensors",
         )
         mock_build_quantizer.return_value = mock_quantizer
 
-        result = quantize(safetensors_config)
+        config = QuantizationConfig(
+            model=ModelParams(model_name="test/model"),
+            method="llmc_W4A16_ASYM",
+            output_path="test",
+        )
+        result = quantize(config)
 
-        assert result.format_type == "safetensors"
-        assert result.output_path.endswith(".safetensors")
+        mock_build_quantizer.assert_called_once_with("llmc_W4A16_ASYM")
+        mock_quantizer.raise_if_requirements_not_met.assert_called_once()
+        mock_quantizer.quantize.assert_called_once_with(config)
+        assert isinstance(result, QuantizationResult)
 
     @patch("oumi.builders.quantizers.build_quantizer")
-    def test_quantize_return_type(self, mock_build_quantizer):
-        """Test that quantize always returns QuantizationResult."""
-        # Mock quantizer
+    def test_propagates_requirements_error(self, mock_build_quantizer):
+        """Test that requirements errors are propagated."""
         mock_quantizer = MagicMock()
-        mock_quantizer.raise_if_requirements_not_met.return_value = None
-        mock_quantizer.quantize.return_value = QuantizationResult(
-            quantized_size_bytes=100,
-            output_path="/test",
-            quantization_method="test",
-            format_type="test",
+        mock_quantizer.raise_if_requirements_not_met.side_effect = RuntimeError(
+            "Missing GPU"
         )
         mock_build_quantizer.return_value = mock_quantizer
 
-        result = quantize(self.valid_config)
-
-        # Verify return type
-        assert isinstance(result, QuantizationResult)
-        assert hasattr(result, "quantized_size_bytes")
-        assert hasattr(result, "output_path")
-        assert hasattr(result, "quantization_method")
-        assert hasattr(result, "format_type")
-        assert hasattr(result, "additional_info")
+        config = QuantizationConfig(
+            model=ModelParams(model_name="test/model"),
+            method="llmc_W4A16_ASYM",
+            output_path="test",
+        )
+        with pytest.raises(RuntimeError, match="Missing GPU"):
+            quantize(config)

@@ -12,31 +12,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for BitsAndBytes quantization."""
+"""Unit tests for llm_compressor quantization."""
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from oumi.core.configs import ModelParams, QuantizationConfig
-from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+from oumi.quantize.llm_compressor_quantizer import LlmCompressorQuantization
 
 
-class TestBitsAndBytesQuantization:
-    """Test cases for BitsAndBytes quantization."""
+class TestLlmCompressorQuantization:
+    """Test cases for llm_compressor quantization."""
 
     def test_validate_config_rejects_invalid_method(self):
-        """Test that validate_config rejects non-bnb methods."""
-        quantizer = BitsAndBytesQuantization()
+        """Test that validate_config rejects non-llmc methods."""
+        quantizer = LlmCompressorQuantization()
         config = QuantizationConfig(
             model=ModelParams(model_name="test/model"),
-            method="llmc_W4A16_ASYM",
+            method="bnb_4bit",
             output_path="test",
         )
         with pytest.raises(ValueError, match="not supported by"):
             quantizer.validate_config(config)
 
     def test_requirements_not_met_missing_library(self):
-        """Test error when bitsandbytes is not installed."""
-        quantizer = BitsAndBytesQuantization()
-        quantizer._bitsandbytes = None
-        with pytest.raises(RuntimeError, match="requires bitsandbytes library"):
+        """Test error when llmcompressor is not installed."""
+        quantizer = LlmCompressorQuantization()
+        quantizer._llmcompressor = None
+        with pytest.raises(RuntimeError, match="requires llmcompressor library"):
+            quantizer.raise_if_requirements_not_met()
+
+    @patch("torch.cuda.is_available", return_value=False)
+    def test_requirements_not_met_no_gpu(self, mock_cuda):
+        """Test error when no GPU is available."""
+        quantizer = LlmCompressorQuantization()
+        quantizer._llmcompressor = MagicMock()
+        with pytest.raises(RuntimeError, match="requires a GPU"):
             quantizer.raise_if_requirements_not_met()

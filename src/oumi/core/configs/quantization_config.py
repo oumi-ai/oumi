@@ -31,17 +31,17 @@ class QuantizationConfig(BaseConfig):
     Example:
         >>> config = QuantizationConfig(
         ...     model=ModelParams(model_name="meta-llama/Llama-2-7b-hf"),
-        ...     method="awq_q4_0",
-        ...     output_path="llama2-7b-q4.gguf"
+        ...     method="llmc_W4A16_ASYM",
+        ...     output_path="llama2-7b-w4a16"
         ... )
     """
 
     model: ModelParams = field(default_factory=ModelParams)
     """Model to quantize. Supports HuggingFace IDs, local paths, or Oumi models."""
 
-    method: str = "awq_q4_0"
-    """Quantization method. AWQ methods (awq_q4_0, awq_q8_0) provide best quality.
-    Direct GGUF methods (q4_0, q8_0) for llama.cpp. Precision methods (f16, f32)."""
+    method: str = "llmc_W4A16_ASYM"
+    """Quantization method. llm_compressor methods (llmc_W4A16, llmc_W4A16_ASYM,
+    llmc_W8A8_INT, llmc_W8A8_FP8, etc.) or BitsAndBytes (bnb_4bit, bnb_8bit)."""
 
     output_path: str = "quantized_model"
     """Output file path for the quantized model."""
@@ -55,21 +55,30 @@ class QuantizationConfig(BaseConfig):
     verbose: bool = False
     """Enable detailed progress logging."""
 
-    # AWQ-specific configuration
-    awq_group_size: int = 128
-    """AWQ weight grouping size. 128 (balanced), 64 (higher accuracy), 256 (faster)."""
+    # llm_compressor configuration
+    llmc_group_size: int = 128
+    """Weight grouping size for quantization. 128 (balanced), 64 (higher accuracy),
+    256 (faster)."""
 
-    awq_zero_point: bool = True
-    """Enable zero-point quantization for AWQ. Generally recommended."""
+    llmc_targets: list[str] = field(default_factory=lambda: ["Linear"])
+    """Layer types to target for quantization. Default targets Linear layers."""
 
-    awq_version: str = "GEMM"
-    """AWQ kernel version. 'GEMM' (faster, default) or 'GEMV'."""
+    llmc_ignore: list[str] = field(default_factory=lambda: ["lm_head"])
+    """Layers to exclude from quantization. Default ignores lm_head."""
 
-    cleanup_temp: bool = True
-    """Remove temporary AWQ files after conversion."""
+    llmc_smoothing_strength: float = 0.8
+    """SmoothQuant smoothing strength for W8A8 methods. Range 0.0-1.0."""
+
+    # Calibration configuration
+    calibration_dataset: str = "open_platypus"
+    """Calibration dataset from HuggingFace datasets library.
+    Options: 'open_platypus', 'ultrachat-200k', 'wikitext', etc."""
+
+    max_seq_length: int = 2048
+    """Maximum sequence length for calibration tokenization."""
 
     calibration_samples: int = 512
-    """AWQ calibration samples. 512 (balanced), 128 (faster), 1024 (more accurate)."""
+    """Number of calibration samples. 512 (default), 128 (faster), 1024 (more accurate)."""
 
     def __post_init__(self):
         """Post-initialization validation."""
