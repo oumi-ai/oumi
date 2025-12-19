@@ -45,16 +45,15 @@ class EvaluationConfig(BaseConfig):
     """
 
     inference_engine: InferenceEngineType = InferenceEngineType.NATIVE
-    """For evaluation tasks that require an inference step, such as AlpacaEval tasks, an
-    inference engine is required to generate model responses. This parameter specifies
-    the inference engine to use for generation. If not defined, the default is the
-    `NATIVE` inference engine."""
+    """For evaluation tasks that require an inference step, an inference engine is
+    required to generate model responses. This parameter specifies the inference engine
+    to use for generation. If not defined, the default is the `NATIVE` inference
+    engine."""
 
     inference_remote_params: Optional[RemoteParams] = None
-    """For evaluation tasks that require an inference step, such as AlpacaEval tasks, an
-    inference engine is required to generate model responses. If the model is accessed
-    via a remote API, these parameters specify how to run inference against the remote
-    API."""
+    """For evaluation tasks that require an inference step, an inference engine is
+    required to generate model responses. If the model is accessed via a remote API,
+    these parameters specify how to run inference against the remote API."""
 
     run_name: Optional[str] = None
     """A unique identifier for the current training run.

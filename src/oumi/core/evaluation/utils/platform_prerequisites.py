@@ -42,9 +42,6 @@ BACKEND_PREREQUISITES: dict[
             PackagePrerequisites("sentencepiece", "0.1.98"),
         ],
     },
-    EvaluationBackend.ALPACA_EVAL: {
-        ALL_TASK_PREREQUISITES_KEY: [PackagePrerequisites("alpaca_eval")]
-    },
     EvaluationBackend.CUSTOM: {ALL_TASK_PREREQUISITES_KEY: []},
 }
 
