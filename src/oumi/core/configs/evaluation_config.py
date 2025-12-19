@@ -49,7 +49,7 @@ class EvaluationConfig(BaseConfig):
     to use for generation. If not defined, the default is the `NATIVE` inference
     engine."""
 
-    inference_remote_params: Optional[RemoteParams] = None
+    inference_remote_params: RemoteParams | None = None
     """For evaluation tasks that require an inference step, an inference engine is
     required to generate model responses. If the model is accessed via a remote API,
     these parameters specify how to run inference against the remote API."""

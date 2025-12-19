@@ -18,7 +18,7 @@ import time
 from collections.abc import Callable
 from dataclasses import fields
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import (
