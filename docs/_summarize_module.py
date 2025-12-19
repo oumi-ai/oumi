@@ -206,7 +206,7 @@ def _get_object_type(obj) -> str:
         return "property"
     elif inspect.ismethod(obj):
         return "method"
-    elif isinstance(obj, (classmethod, staticmethod)):
+    elif isinstance(obj, classmethod | staticmethod):
         return "method"
     else:
         return "other"

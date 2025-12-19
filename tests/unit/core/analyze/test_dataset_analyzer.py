@@ -22,13 +22,13 @@ def check_no_nans(obj):
     if isinstance(obj, dict):
         for key, value in obj.items():
             # Only check for NaN in numeric values, not lists or strings
-            if isinstance(value, (int, float)) and pd.isna(value):
+            if isinstance(value, int | float) and pd.isna(value):
                 raise AssertionError(f"Found NaN value in key '{key}': {value}")
             check_no_nans(value)
     elif isinstance(obj, list):
         for item in obj:
             check_no_nans(item)
-    elif isinstance(obj, (int, float)) and pd.isna(obj):
+    elif isinstance(obj, int | float) and pd.isna(obj):
         raise AssertionError(f"Found NaN value: {obj}")
     else:
         # Other types (str, bool, None, etc.) are not checked for NaN

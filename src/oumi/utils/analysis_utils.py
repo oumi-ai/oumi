@@ -149,7 +149,7 @@ def load_dataset_from_config(
             dataset = dataset_class(**dataset_kwargs)
 
             # Ensure we return a supported dataset type
-            if isinstance(dataset, (BaseMapDataset, BaseIterableDataset)):
+            if isinstance(dataset, BaseMapDataset | BaseIterableDataset):
                 return dataset
             else:
                 raise NotImplementedError(

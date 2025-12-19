@@ -164,7 +164,7 @@ class JudgeParams(BaseParams):
         # Validate judgment scores are numeric if provided
         if self.judgment_scores:
             if not all(
-                isinstance(score, (int, float))
+                isinstance(score, int | float)
                 for score in self.judgment_scores.values()
             ):
                 raise ValueError("All judgment_scores values must be numeric")

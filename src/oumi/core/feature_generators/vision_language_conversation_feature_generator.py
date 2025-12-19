@@ -347,7 +347,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                 continue
             x = inputs[feature_name]
 
-            if not isinstance(x, (list, torch.Tensor, np.ndarray)):
+            if not isinstance(x, list | torch.Tensor | np.ndarray):
                 raise ValueError(
                     f"Unexpected type of the feature '{feature_name}': {type(x)}"
                 )
@@ -397,7 +397,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             labels = inputs["labels"]
             image_token_id = int(self._special_tokens.image_token_id)
             label_ignore_index = int(self._special_tokens.label_ignore_index)
-            if isinstance(labels, (torch.Tensor, np.ndarray)):
+            if isinstance(labels, torch.Tensor | np.ndarray):
                 # Modify in-place
                 labels[labels == image_token_id] = label_ignore_index
             else:

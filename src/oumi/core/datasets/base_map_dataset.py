@@ -466,7 +466,7 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
         )
 
         if isinstance(
-            splits_or_dataset, (datasets.IterableDataset, datasets.IterableDatasetDict)
+            splits_or_dataset, datasets.IterableDataset | datasets.IterableDatasetDict
         ):
             raise ValueError("IterableDataset is not supported with this class.")
 

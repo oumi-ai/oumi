@@ -170,7 +170,7 @@ class CheckpointManager:
             return {
                 key: self._make_json_serializable(value) for key, value in obj.items()
             }
-        elif isinstance(obj, (list, tuple)):
+        elif isinstance(obj, list | tuple):
             return [self._make_json_serializable(item) for item in obj]
         elif hasattr(obj, "__dict__"):
             # Handle custom objects by converting to dict
@@ -743,7 +743,7 @@ def _convert_to_json_serializable(obj: Any) -> Any:
         return bool(obj)
     elif isinstance(obj, dict):
         return {key: _convert_to_json_serializable(value) for key, value in obj.items()}
-    elif isinstance(obj, (list, tuple)):
+    elif isinstance(obj, list | tuple):
         return [_convert_to_json_serializable(item) for item in obj]
     elif hasattr(obj, "__dict__"):
         # Handle custom objects by converting to dict

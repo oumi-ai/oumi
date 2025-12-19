@@ -413,7 +413,7 @@ class TelemetryTracker:
         ) -> dict[str, float] | None:
             measurements = []
             for rank_summary in rank_summaries:
-                if key in rank_summary and isinstance(rank_summary[key], (float, int)):
+                if key in rank_summary and isinstance(rank_summary[key], float | int):
                     measurements.append(rank_summary[key])
             if not measurements:
                 return None
@@ -421,7 +421,7 @@ class TelemetryTracker:
 
         if isinstance(measurement_names, dict):
             for key in measurement_names:
-                if isinstance(measurement_names[key], (dict, set)):
+                if isinstance(measurement_names[key], dict | set):
                     # If a value associated with this `key` is a dictionary or a set
                     # then recurse (support hierarchical naming).
                     next_level_summaries = []

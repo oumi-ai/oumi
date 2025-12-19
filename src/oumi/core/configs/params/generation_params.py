@@ -145,7 +145,7 @@ class GenerationParams(BaseParams):
             raise ValueError("top_p must be between 0 and 1.")
 
         for token_id, bias in self.logit_bias.items():
-            if not isinstance(token_id, (str, int)):
+            if not isinstance(token_id, str | int):
                 raise ValueError(
                     f"Logit bias token ID {token_id} must be an integer or a string."
                 )

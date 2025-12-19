@@ -311,7 +311,7 @@ class Message(pydantic.BaseModel):
         Raises:
             ValueError: If both content and binary are None.
         """
-        if not isinstance(self.content, (str, list)):
+        if not isinstance(self.content, str | list):
             raise ValueError(
                 f"Unexpected content type: {type(self.content)}. "
                 f"Must by a Python string or a list."

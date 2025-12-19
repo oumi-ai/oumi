@@ -84,11 +84,11 @@ class ArgillaDollyDataset(BaseSftDataset):
 
         if isinstance(value, str):
             return value
-        if isinstance(value, (dict, pd.Series)) and "value" in value:
+        if isinstance(value, dict | pd.Series) and "value" in value:
             return cast(
                 str,
                 value["value"][0]
-                if isinstance(value["value"], (list, np.ndarray))
+                if isinstance(value["value"], list | np.ndarray)
                 else value["value"],
             )
         raise RuntimeError(f"Unable to parse field: {field}")

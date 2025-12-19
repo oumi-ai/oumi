@@ -67,10 +67,7 @@ def _get_dataset_size(
         if pack:
             assert isinstance(
                 dataset,
-                (
-                    BasePretrainingDataset,
-                    PretrainingAsyncTextDataset,
-                ),
+                BasePretrainingDataset | PretrainingAsyncTextDataset,
             )
         else:
             assert isinstance(dataset, (IterableDataset))

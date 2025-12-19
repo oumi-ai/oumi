@@ -332,16 +332,16 @@ def get_dtype_size_in_bytes(
 
 
 def _estimate_item_size_in_bytes(item: Any) -> int:
-    if isinstance(item, (int, float)):
+    if isinstance(item, int | float):
         return 4
-    elif isinstance(item, (np.ndarray, torch.Tensor)):
+    elif isinstance(item, np.ndarray | torch.Tensor):
         num_elements = math.prod(item.shape)
         return num_elements * get_dtype_size_in_bytes(item.dtype)
     elif isinstance(item, list):
         return _estimate_sample_list_size_in_bytes(item)
     elif isinstance(item, str):
         return compute_utf8_len(item)
-    elif isinstance(item, (str, bytes)):
+    elif isinstance(item, str | bytes):
         return len(item)
 
     return 0
@@ -694,7 +694,7 @@ def create_ones_like(
         return cast(T, [])
 
     first_item = values[0]
-    if isinstance(first_item, (int, float)):
+    if isinstance(first_item, int | float):
         result = list(np.ones_like(values))
     else:
         # Nested list
@@ -713,7 +713,7 @@ def create_ones_like(
 
 def get_first_dim_len(x: Any) -> int:
     """Returns length of the first dimension."""
-    if isinstance(x, (torch.Tensor, np.ndarray)):
+    if isinstance(x, torch.Tensor | np.ndarray):
         return int(x.shape[0])
     elif isinstance(x, list):
         return len(x)
@@ -726,7 +726,7 @@ def get_first_dim_len(x: Any) -> int:
 
 def get_shape_as_list(x: Any) -> list[int]:
     """Returns shape of an object (tensor or numpy array) as Python list."""
-    if isinstance(x, (torch.Tensor, np.ndarray)):
+    if isinstance(x, torch.Tensor | np.ndarray):
         return list(x.shape)
 
     raise ValueError(f"Unsupported type: {type(x)}. Must be numpy array, torch tensor.")

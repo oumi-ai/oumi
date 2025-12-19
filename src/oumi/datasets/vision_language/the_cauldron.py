@@ -45,7 +45,7 @@ class TheCauldronDataset(VisionLanguageSftDataset):
                     f"Actual keys: {sorted(example.keys())}"
                 )
 
-            if not (isinstance(example[required_key], (list, np.ndarray))):
+            if not (isinstance(example[required_key], list | np.ndarray)):
                 actual_type = type(example[required_key])
                 raise ValueError(
                     f"Example's '{required_key}' must be a list or np.ndarray. "
