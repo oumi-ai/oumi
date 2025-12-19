@@ -108,8 +108,12 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             ),
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
         }
+
+        # Only include top_p if it's explicitly set (Sonnet 4.5 requires only one of
+        # temperature or top_p to be set, not both)
+        if generation_params.top_p is not None:
+            body["top_p"] = generation_params.top_p
 
         if system_message:
             body["system"] = system_message

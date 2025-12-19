@@ -292,7 +292,7 @@ def test_permutable_attribute_invalid():
 
     # Test sample rates sum > 1
     with pytest.raises(
-        ValueError, match="SampledAttribute.possible_values must sum to 1.0"
+        ValueError, match="SampledAttribute.possible_values must sum to at most 1.0"
     ):
         SampledAttribute(
             id="test",
@@ -307,6 +307,54 @@ def test_permutable_attribute_invalid():
                 ),
             ],
         )
+
+
+def test_sampled_attribute_valid_floating_point_precision():
+    # Test floating point precision - values that sum to 1.0 but might have tiny errors
+    # This should not raise an error due to epsilon tolerance (1e-6)
+    # Using 0.1 which has a known floating point representation error
+    # When added directly: 0.1 + 0.1 + ... (10 times) != 1.0 exactly
+    # The error is ~1.1e-16, which is well within the 1e-6 epsilon tolerance
+    values = [
+        SampledAttributeValue(
+            id="v1", name="value1", description="desc1", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v2", name="value2", description="desc2", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v3", name="value3", description="desc3", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v4", name="value4", description="desc4", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v5", name="value5", description="desc5", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v6", name="value6", description="desc6", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v7", name="value7", description="desc7", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v8", name="value8", description="desc8", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v9", name="value9", description="desc9", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v10", name="value10", description="desc10", sample_rate=0.1
+        ),
+    ]
+    attr = SampledAttribute(
+        id="test",
+        name="test",
+        description="test",
+        possible_values=values,
+    )
+    # Should succeed without raising an error
+    assert len(attr.possible_values) == 10
 
 
 def test_attribute_combination_valid():

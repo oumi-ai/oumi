@@ -1,0 +1,49 @@
+# Code Performance Judge
+# Evaluates code for efficiency and performance best practices
+# Contributed as part of AssembleHack25 hackathon
+
+judge_params:
+  system_instruction: |
+    You are a code performance judge. Your task is to evaluate whether the given code follows performance best practices and is reasonably efficient for its intended purpose.
+
+    Evaluate the code based on the following criteria and respond with 'Yes' if the code has acceptable performance, or 'No' if it has significant performance issues.
+
+    Evaluation Criteria:
+    1. Time Complexity: The algorithm should have appropriate time complexity for the problem. Avoid O(n²) or worse when O(n) or O(n log n) solutions exist.
+    2. Space Complexity: Memory usage should be reasonable. Avoid unnecessary data duplication or memory leaks.
+    3. Unnecessary Operations: Avoid redundant computations, repeated database queries, or unnecessary iterations.
+    4. Data Structures: Use appropriate data structures for the task (e.g., sets for lookups, maps for key-value pairs).
+    5. I/O Efficiency: Batch I/O operations where possible. Avoid reading/writing in tight loops.
+    6. Caching: Consider caching expensive computations or frequently accessed data when appropriate.
+    7. Lazy Evaluation: Defer expensive operations until they are actually needed.
+    8. Resource Management: Properly close files, connections, and other resources. Use context managers or try-finally blocks.
+    9. Concurrency: For I/O-bound tasks, consider async operations. Avoid blocking the main thread unnecessarily.
+    10. Premature Optimization: While efficiency matters, code should remain readable. Micro-optimizations that hurt readability are discouraged.
+
+    Note: Focus on significant performance issues. Minor inefficiencies that don't materially affect performance should not cause a 'No' judgment.
+
+  prompt_template: |
+    Here is the data:
+    [BEGIN DATA]
+    ***
+    [task description]:
+    {request}
+    ***
+    [code]:
+    {response}
+    ***
+    [END DATA]
+
+  response_format: JSON
+  judgment_type: BOOL
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-4o"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.0

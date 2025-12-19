@@ -4,7 +4,7 @@
 #   - Set the `TOGETHER_API_KEY` env var to your Together API key.
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/deepseek_r1/inference/671b_together_infer.yaml
+#   oumi infer -i -c configs/recipes/deepseek_r1/inference/671b_together/infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html

@@ -186,36 +186,68 @@ def _display_analysis_summary(analyzer: "DatasetAnalyzer") -> None:
     # Message-level summary
     msg_summary = summary.get("message_level_summary", {})
     if msg_summary:
-        for analyzer_name, metrics in msg_summary.items():
-            table = Table(
-                title=f"Message-Level Metrics ({analyzer_name})",
-                title_style="bold blue",
-                show_lines=True,
-            )
-            table.add_column("Metric", style="cyan")
-            table.add_column("Mean", style="green")
-            table.add_column("Std", style="yellow")
-            table.add_column("Min", style="dim")
-            table.add_column("Max", style="dim")
-            table.add_column("Median", style="dim")
+        table = Table(
+            title="Message-Level Metrics",
+            title_style="bold blue",
+            show_lines=True,
+        )
+        table.add_column("Metric", style="cyan")
+        table.add_column("Mean", style="green")
+        table.add_column("Std", style="yellow")
+        table.add_column("Min", style="dim")
+        table.add_column("Max", style="dim")
+        table.add_column("Median", style="dim")
 
-            for metric_name, stats in metrics.items():
-                if isinstance(stats, dict):
-                    table.add_row(
-                        metric_name,
-                        f"{stats.get('mean', 'N/A'):.2f}"
-                        if isinstance(stats.get("mean"), (int, float))
-                        else "N/A",
-                        f"{stats.get('std', 'N/A'):.2f}"
-                        if isinstance(stats.get("std"), (int, float))
-                        else "N/A",
-                        str(stats.get("min", "N/A")),
-                        str(stats.get("max", "N/A")),
-                        f"{stats.get('median', 'N/A'):.2f}"
-                        if isinstance(stats.get("median"), (int, float))
-                        else "N/A",
-                    )
-            cli_utils.CONSOLE.print(table)
+        for metric_name, stats in msg_summary.items():
+            if isinstance(stats, dict):
+                table.add_row(
+                    metric_name,
+                    f"{stats.get('mean', 'N/A'):.2f}"
+                    if isinstance(stats.get("mean"), (int, float))
+                    else "N/A",
+                    f"{stats.get('std', 'N/A'):.2f}"
+                    if isinstance(stats.get("std"), (int, float))
+                    else "N/A",
+                    str(stats.get("min", "N/A")),
+                    str(stats.get("max", "N/A")),
+                    f"{stats.get('median', 'N/A'):.2f}"
+                    if isinstance(stats.get("median"), (int, float))
+                    else "N/A",
+                )
+        cli_utils.CONSOLE.print(table)
+
+    # Conversation-level summary
+    conv_summary = summary.get("conversation_level_summary", {})
+    if conv_summary:
+        table = Table(
+            title="Conversation-Level Metrics",
+            title_style="bold green",
+            show_lines=True,
+        )
+        table.add_column("Metric", style="cyan")
+        table.add_column("Mean", style="green")
+        table.add_column("Std", style="yellow")
+        table.add_column("Min", style="dim")
+        table.add_column("Max", style="dim")
+        table.add_column("Median", style="dim")
+
+        for metric_name, stats in conv_summary.items():
+            if isinstance(stats, dict):
+                table.add_row(
+                    metric_name,
+                    f"{stats.get('mean', 'N/A'):.2f}"
+                    if isinstance(stats.get("mean"), (int, float))
+                    else "N/A",
+                    f"{stats.get('std', 'N/A'):.2f}"
+                    if isinstance(stats.get("std"), (int, float))
+                    else "N/A",
+                    str(stats.get("min", "N/A")),
+                    str(stats.get("max", "N/A")),
+                    f"{stats.get('median', 'N/A'):.2f}"
+                    if isinstance(stats.get("median"), (int, float))
+                    else "N/A",
+                )
+        cli_utils.CONSOLE.print(table)
 
     # Conversation turns summary
     turns_summary = summary.get("conversation_turns", {})

@@ -55,12 +55,13 @@ class GenerationParams(BaseParams):
     make it more focused and deterministic.
     """
 
-    top_p: float = 1.0
+    top_p: Optional[float] = None
     """An alternative to temperature, called nucleus sampling.
 
     It sets the cumulative probability threshold for token selection.
     For example, 0.9 means only considering the tokens comprising
-    the top 90% probability mass.
+    the top 90% probability mass. If not specified, defaults to None
+    to allow APIs that only support temperature OR top_p (not both).
     """
 
     frequency_penalty: float = 0.0
@@ -140,7 +141,7 @@ class GenerationParams(BaseParams):
         if self.temperature < 0:
             raise ValueError("Temperature must be non-negative.")
 
-        if not 0 <= self.top_p <= 1:
+        if self.top_p is not None and not 0 <= self.top_p <= 1:
             raise ValueError("top_p must be between 0 and 1.")
 
         for token_id, bias in self.logit_bias.items():

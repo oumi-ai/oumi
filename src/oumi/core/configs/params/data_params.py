@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import math
+import warnings
 from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Any, Literal, Optional, Union
@@ -123,7 +124,11 @@ class DatasetParams(BaseParams):
     """The size of the shuffle buffer used for shuffling the dataset before sampling."""
 
     trust_remote_code: bool = False
-    """Whether to trust remote code when loading the dataset."""
+    """Whether to trust remote code when loading the dataset.
+
+    Deprecated:
+        This parameter is deprecated and will be removed in the future.
+    """
 
     transform_num_workers: Optional[Union[str, int]] = None
     """Number of subprocesses to use for dataset post-processing (`ds.transform()`).
@@ -175,6 +180,14 @@ class DatasetParams(BaseParams):
                     f"reserved fields: {conflicting_keys}. "
                     "Use properties of DatasetParams instead."
                 )
+
+        if self.trust_remote_code:
+            warnings.warn(
+                "`trust_remote_code` is deprecated and will be removed in the future.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.trust_remote_code = False
 
 
 @dataclass
@@ -286,8 +299,10 @@ class DatasetSplitParams(BaseParams):
                 f'"{MixtureStrategy.ALL_EXHAUSTED.value}"].'
             )
         if self.target_col is not None:
-            raise DeprecationWarning(
-                "`target_col` is deprecated and will be removed in the future."
+            warnings.warn(
+                "`target_col` is deprecated and will be removed in the future.",
+                DeprecationWarning,
+                stacklevel=2,
             )
 
     def _is_sum_normalized(self, mix_sum) -> bool:

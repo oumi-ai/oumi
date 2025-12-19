@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         torch-version: ["2.6.0", "2.7.1", "2.8.0"]
 
     steps:
@@ -34,6 +34,15 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+
+      - name: Cache HuggingFace Models
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+          key: hf-models-${{ runner.os }}
+          restore-keys: |
+            hf-models-${{ runner.os }}-
 
       - name: Install oumi
         run: |
