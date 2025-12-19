@@ -1,0 +1,78 @@
+# Enterprise SFT tuning config for Llama-3.1-8B on TAT-QA tabular QA task.
+#
+# Requirements:
+#   - Prepare datasets: python scripts/enterprise/prepare_datasets.py --task tatqa
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `hf auth login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
+# Usage:
+#   oumi tune -c configs/enterprise/tuning/llama31_8b_tatqa.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/tune/tune.html
+#   - Config class: oumi.core.configs.TuningConfig
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: true
+  trust_remote_code: true
+  enable_liger_kernel: true
+
+data:
+  train:
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: data/enterprise/tatqa/train.jsonl
+    collator_name: text_with_padding
+
+  validation:
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: data/enterprise/tatqa/test.jsonl
+    collator_name: text_with_padding
+
+tuning:
+  n_trials: 12
+
+  tunable_training_params:
+    learning_rate:
+      type: categorical
+      choices: [1e-5, 2e-5, 5e-5]
+    num_train_epochs:
+      type: categorical
+      choices: [1, 3]
+    per_device_train_batch_size:
+      type: categorical
+      choices: [2, 4]
+
+  fixed_training_params:
+    trainer_type: TRL_SFT
+    gradient_accumulation_steps: 4
+    optimizer: adamw_torch_fused
+    lr_scheduler_type: cosine
+    warmup_ratio: 0.03
+    weight_decay: 0.01
+    enable_gradient_checkpointing: true
+    gradient_checkpointing_kwargs:
+      use_reentrant: false
+    save_steps: 200
+    logging_steps: 10
+    enable_wandb: true
+    output_dir: output/enterprise/llama31_8b_tatqa
+
+  evaluation_metrics: ["eval_loss"]
+  evaluation_direction: ["minimize"]
+  tuner_type: OPTUNA
+  tuner_sampler: "TPESampler"
+  output_dir: output/enterprise/tuning/llama31_8b_tatqa
+
+fsdp:
+  enable_fsdp: true
+  sharding_strategy: "HYBRID_SHARD"
+  forward_prefetch: true
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

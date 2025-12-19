@@ -1,0 +1,37 @@
+# Task evaluation config for TAT-QA tabular question answering.
+#
+# Usage:
+#   # Evaluate baseline model
+#   oumi evaluate -c configs/enterprise/evaluation/task_tatqa.yaml \
+#     --model.model_name "Qwen/Qwen3-4B-Instruct"
+#
+#   # Evaluate fine-tuned model
+#   oumi evaluate -c configs/enterprise/evaluation/task_tatqa.yaml \
+#     --model.model_name "output/enterprise/qwen3_4b_tatqa/best_checkpoint"
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+
+model:
+  model_name: "Qwen/Qwen3-4B-Instruct"  # Override via CLI
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: true
+
+generation:
+  batch_size: 4
+  max_new_tokens: 256
+  temperature: 0.0
+
+tasks:
+  - evaluation_backend: custom
+    task_name: enterprise_tatqa
+    eval_kwargs:
+      test_data_path: data/enterprise/tatqa/test.jsonl
+
+inference_engine: NATIVE
+enable_wandb: true
+
+output_dir: "output/enterprise/evaluation/tatqa"

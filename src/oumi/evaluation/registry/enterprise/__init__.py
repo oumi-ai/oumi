@@ -12,24 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Evaluation registry module."""
+"""Enterprise evaluation functions for SFT task evaluation.
 
-from oumi.evaluation.registry.berry_bench_task import berry_bench
-from oumi.evaluation.registry.count_letters_task import count_letters
+This module provides custom evaluation functions for enterprise tasks:
+- Banking77: 77-class classification accuracy
+- PubMedQA: 3-class classification accuracy
+- TAT-QA: Exact match and F1 for tabular QA
+- NL2SQL: Edit distance for SQL generation
+- SimpleSafetyTests: Safety evaluation with refusal detection
+"""
 
-# Enterprise evaluation functions
-from oumi.evaluation.registry.enterprise import (
+# Import to register evaluation functions
+from oumi.evaluation.registry.enterprise.classification import (
     enterprise_banking77,
-    enterprise_nl2sql,
     enterprise_pubmedqa,
-    enterprise_tatqa,
-    simple_safety_tests,
 )
+from oumi.evaluation.registry.enterprise.nl2sql import enterprise_nl2sql
+from oumi.evaluation.registry.enterprise.simple_safety_tests import simple_safety_tests
+from oumi.evaluation.registry.enterprise.tatqa import enterprise_tatqa
 
 __all__ = [
-    "berry_bench",
-    "count_letters",
-    # Enterprise evaluations
     "enterprise_banking77",
     "enterprise_pubmedqa",
     "enterprise_tatqa",

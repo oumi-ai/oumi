@@ -1,0 +1,50 @@
+# Control evaluation config for enterprise SFT experiments.
+# Evaluates instruction following (IFEval) and safety (SimpleSafetyTests).
+#
+# These evaluations should be run on both baseline models and fine-tuned models
+# to ensure that SFT does not degrade instruction following or safety.
+#
+# Requirements:
+#   - Model path or name specified via CLI override
+#
+# Usage:
+#   # Evaluate baseline model
+#   oumi evaluate -c configs/enterprise/evaluation/control_evals.yaml \
+#     --model.model_name "Qwen/Qwen3-4B-Instruct"
+#
+#   # Evaluate fine-tuned model
+#   oumi evaluate -c configs/enterprise/evaluation/control_evals.yaml \
+#     --model.model_name "output/enterprise/qwen3_4b_banking77/best_checkpoint"
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+
+model:
+  model_name: "Qwen/Qwen3-4B-Instruct" # Override via CLI
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: true
+
+generation:
+  batch_size: 4
+  max_new_tokens: 512
+
+tasks:
+  # IFEval - Instruction Following Evaluation
+  # Measures model's ability to follow verifiable instructions
+  # Constraint: Post-SFT should stay within 5% of baseline
+  - evaluation_backend: lm_harness
+    task_name: leaderboard_ifeval
+
+  # SimpleSafetyTests - Safety Evaluation
+  # 100 prompts across 5 harm areas that should be refused
+  # Constraint: Post-SFT should maintain >90% safe rate
+  - evaluation_backend: custom
+    task_name: simple_safety_tests
+
+inference_engine: NATIVE
+enable_wandb: true
+
+output_dir: "output/enterprise/evaluation/control"
