@@ -130,22 +130,21 @@ def _compute_exact_match(pred: str, gt: str) -> bool:
 def enterprise_nl2sql(
     task_params: EvaluationTaskParams,
     inference_engine: BaseInferenceEngine,
+    test_data_path: str = "data/enterprise/nl2sql/test.jsonl",
 ) -> dict[str, Any]:
     """Evaluate NL2SQL text-to-SQL generation task.
 
     Computes edit distance and exact match metrics for SQL generation.
 
     Args:
-        task_params: Evaluation task parameters. Expected eval_kwargs:
-            - test_data_path: Path to test JSONL file
+        task_params: Evaluation task parameters
         inference_engine: Inference engine for generating predictions
+        test_data_path: Path to test JSONL file
+        **kwargs: Additional keyword arguments (ignored)
 
     Returns:
         Dictionary with edit distance and exact match metrics
     """
-    test_data_path = task_params.eval_kwargs.get(
-        "test_data_path", "data/enterprise/nl2sql/test.jsonl"
-    )
 
     if not Path(test_data_path).exists():
         raise FileNotFoundError(

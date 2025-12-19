@@ -134,7 +134,9 @@ def prepare_pubmedqa(output_dir: Path) -> None:
         return format_conversation(user_content, answer)
 
     # PubMedQA labeled only has train split, we'll create our own test split
-    full_data = [convert_example(ex) for ex in tqdm(dataset["train"], desc="Converting")]
+    full_data = [
+        convert_example(ex) for ex in tqdm(dataset["train"], desc="Converting")
+    ]
 
     # 90/10 train/test split
     split_idx = int(len(full_data) * 0.9)
@@ -161,9 +163,7 @@ def prepare_tatqa(output_dir: Path) -> None:
     import urllib.request
 
     # Download raw JSON files directly from HuggingFace
-    base_url = (
-        "https://huggingface.co/datasets/next-tat/TAT-QA/resolve/main/"
-    )
+    base_url = "https://huggingface.co/datasets/next-tat/TAT-QA/resolve/main/"
     train_url = base_url + "tatqa_dataset_train.json"
     dev_url = base_url + "tatqa_dataset_dev.json"
 
@@ -196,11 +196,12 @@ def prepare_tatqa(output_dir: Path) -> None:
         conversations = []
 
         table = doc.get("table", {})
-        table_text = format_table(table.get("table", []) if isinstance(table, dict) else table)
+        table_text = format_table(
+            table.get("table", []) if isinstance(table, dict) else table
+        )
         paragraphs = doc.get("paragraphs", [])
         para_text = " ".join(
-            p.get("text", p) if isinstance(p, dict) else str(p)
-            for p in paragraphs
+            p.get("text", p) if isinstance(p, dict) else str(p) for p in paragraphs
         )
 
         # Build context

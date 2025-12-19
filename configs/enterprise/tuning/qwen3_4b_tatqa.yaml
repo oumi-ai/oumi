@@ -24,13 +24,17 @@ data:
     datasets:
       - dataset_name: text_sft
         dataset_path: data/enterprise/tatqa/train.jsonl
-    collator_name: text_with_padding
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
 
   validation:
     datasets:
       - dataset_name: text_sft
         dataset_path: data/enterprise/tatqa/test.jsonl
-    collator_name: text_with_padding
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
 
 tuning:
   n_trials: 12

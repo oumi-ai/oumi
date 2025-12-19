@@ -95,22 +95,21 @@ def _compute_f1(pred: str, gt: str) -> float:
 def enterprise_tatqa(
     task_params: EvaluationTaskParams,
     inference_engine: BaseInferenceEngine,
+    test_data_path: str = "data/enterprise/tatqa/test.jsonl",
 ) -> dict[str, Any]:
     """Evaluate TAT-QA tabular question answering task.
 
     Computes both exact match accuracy and token-level F1 score.
 
     Args:
-        task_params: Evaluation task parameters. Expected eval_kwargs:
-            - test_data_path: Path to test JSONL file
+        task_params: Evaluation task parameters
         inference_engine: Inference engine for generating predictions
+        test_data_path: Path to test JSONL file
+        **kwargs: Additional keyword arguments (ignored)
 
     Returns:
         Dictionary with exact match and F1 metrics
     """
-    test_data_path = task_params.eval_kwargs.get(
-        "test_data_path", "data/enterprise/tatqa/test.jsonl"
-    )
 
     if not Path(test_data_path).exists():
         raise FileNotFoundError(

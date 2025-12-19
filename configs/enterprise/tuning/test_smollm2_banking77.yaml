@@ -18,14 +18,18 @@ data:
       - dataset_name: text_sft
         dataset_path: data/enterprise/banking77/train.jsonl
         sample_count: 500  # Use subset for testing
-    collator_name: text_with_padding
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
 
   validation:
     datasets:
       - dataset_name: text_sft
         dataset_path: data/enterprise/banking77/test.jsonl
         sample_count: 100  # Use subset for testing
-    collator_name: text_with_padding
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
 
 tuning:
   n_trials: 2  # Minimal trials for testing

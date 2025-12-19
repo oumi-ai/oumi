@@ -91,20 +91,19 @@ def _compute_accuracy(predictions: list[str], ground_truths: list[str]) -> dict:
 def enterprise_banking77(
     task_params: EvaluationTaskParams,
     inference_engine: BaseInferenceEngine,
+    test_data_path: str = "data/enterprise/banking77/test.jsonl",
 ) -> dict[str, Any]:
     """Evaluate Banking77 classification task.
 
     Args:
-        task_params: Evaluation task parameters. Expected eval_kwargs:
-            - test_data_path: Path to test JSONL file
+        task_params: Evaluation task parameters
         inference_engine: Inference engine for generating predictions
+        test_data_path: Path to test JSONL file
+        **kwargs: Additional keyword arguments (ignored)
 
     Returns:
         Dictionary with accuracy metrics
     """
-    test_data_path = task_params.eval_kwargs.get(
-        "test_data_path", "data/enterprise/banking77/test.jsonl"
-    )
 
     if not Path(test_data_path).exists():
         raise FileNotFoundError(
@@ -154,20 +153,19 @@ def enterprise_banking77(
 def enterprise_pubmedqa(
     task_params: EvaluationTaskParams,
     inference_engine: BaseInferenceEngine,
+    test_data_path: str = "data/enterprise/pubmedqa/test.jsonl",
 ) -> dict[str, Any]:
     """Evaluate PubMedQA classification task.
 
     Args:
-        task_params: Evaluation task parameters. Expected eval_kwargs:
-            - test_data_path: Path to test JSONL file
+        task_params: Evaluation task parameters
         inference_engine: Inference engine for generating predictions
+        test_data_path: Path to test JSONL file
+        **kwargs: Additional keyword arguments (ignored)
 
     Returns:
         Dictionary with accuracy metrics
     """
-    test_data_path = task_params.eval_kwargs.get(
-        "test_data_path", "data/enterprise/pubmedqa/test.jsonl"
-    )
 
     if not Path(test_data_path).exists():
         raise FileNotFoundError(

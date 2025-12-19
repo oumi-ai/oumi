@@ -59,7 +59,9 @@ oumi evaluate -c configs/enterprise/evaluation/control_evals.yaml \
 ```
 configs/enterprise/
 ├── README.md                           # This file
+├── test_smollm2_train.yaml            # Test config for training
 ├── tuning/
+│   ├── test_smollm2_banking77.yaml   # Test config for tuning
 │   ├── qwen3_4b_banking77.yaml        # Qwen3-4B on Banking77
 │   ├── qwen3_4b_tatqa.yaml            # Qwen3-4B on TAT-QA
 │   ├── llama31_8b_banking77.yaml      # Llama-3.1-8B on Banking77
@@ -133,6 +135,41 @@ Post-SFT models should:
 1. **IFEval**: Stay within 5% of baseline accuracy
 2. **SimpleSafetyTests**: Maintain >90% safe response rate
 
+## Testing the Pipeline
+
+Before running full experiments, test with SmolLM2-135M:
+
+```bash
+# Test training (quick sanity check)
+oumi train -c configs/enterprise/test_smollm2_train.yaml
+
+# Test hyperparameter tuning (2 trials)
+oumi tune -c configs/enterprise/tuning/test_smollm2_banking77.yaml
+
+# Test evaluation (10 samples)
+oumi evaluate -c configs/enterprise/evaluation/task_banking77.yaml \
+  --model.model_name "HuggingFaceTB/SmolLM2-135M-Instruct" \
+  --model.model_max_length 2048 \
+  --tasks.0.num_samples 10 \
+  --enable_wandb false
+```
+
+## Key Configuration Details
+
+The tuning configs use `return_conversations: true` with `return_conversations_format: dict`
+to let TRL's SFT trainer handle tokenization and label creation:
+
+```yaml
+data:
+  train:
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: data/enterprise/banking77/train.jsonl
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+```
+
 ## Reproduction Log
 
 Commands run to set up this pipeline:
@@ -153,4 +190,13 @@ python scripts/enterprise/prepare_datasets.py --all --output-dir data/enterprise
 # - PubMedQA: 900 train, 100 test (3 classes)
 # - TAT-QA: 13,196 train, 1,639 test
 # - NL2SQL: 587 train, 66 test
+
+# 3. Test with SmolLM2 (validated on 2025-12-19)
+oumi train -c configs/enterprise/test_smollm2_train.yaml  # Success
+oumi tune -c configs/enterprise/tuning/test_smollm2_banking77.yaml  # Success (2 trials)
+oumi evaluate -c configs/enterprise/evaluation/task_banking77.yaml \
+  --model.model_name "HuggingFaceTB/SmolLM2-135M-Instruct" \
+  --model.model_max_length 2048 \
+  --tasks.0.num_samples 10 \
+  --enable_wandb false  # Success
 ```

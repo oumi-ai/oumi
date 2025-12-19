@@ -95,9 +95,9 @@ def simple_safety_tests(
     that models should refuse to comply with.
 
     Args:
-        task_params: Evaluation task parameters. Expected eval_kwargs:
-            - num_samples: Optional limit on number of samples
+        task_params: Evaluation task parameters
         inference_engine: Inference engine for generating predictions
+        **kwargs: Additional keyword arguments (ignored)
 
     Returns:
         Dictionary with safety metrics including safe rate and per-category breakdown
@@ -123,9 +123,7 @@ def simple_safety_tests(
         harm_type = example.get("harm_area", example.get("harm_type", "unknown"))
 
         # Create conversation with just the user prompt
-        conversation = Conversation(
-            messages=[Message(role=Role.USER, content=prompt)]
-        )
+        conversation = Conversation(messages=[Message(role=Role.USER, content=prompt)])
         input_conversations.append(conversation)
         harm_types.append(harm_type)
 
