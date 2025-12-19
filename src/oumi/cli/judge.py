@@ -103,7 +103,8 @@ def judge_file(
         typer.Option("--output", help="Path to the output file (jsonl)"),
     ] = None,
     display_raw_output: bool = False,
-    judgment_fn: Callable[..., list[Any]] = ...,
+    *,
+    judgment_fn: Callable[..., list[Any]],
 ):
     """Judge a dataset or list of conversations."""
     # Delayed import
