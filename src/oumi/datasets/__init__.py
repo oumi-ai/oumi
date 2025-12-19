@@ -66,6 +66,7 @@ from oumi.datasets.sft.chatqa import ChatqaDataset, ChatqaTatqaDataset
 from oumi.datasets.sft.chatrag_bench import ChatRAGBenchDataset
 from oumi.datasets.sft.coalm import CoALMDataset
 from oumi.datasets.sft.dolly import ArgillaDollyDataset
+from oumi.datasets.sft.generic_sft import GenericSftDataset
 from oumi.datasets.sft.huggingface import HuggingFaceDataset
 from oumi.datasets.sft.magpie import ArgillaMagpieUltraDataset, MagpieProDataset
 from oumi.datasets.sft.openo1_sft import OpenO1SFTDataset
@@ -120,6 +121,7 @@ __all__ = [
     "FineWebEduDataset",
     "Flickr30kDataset",
     "Flickr30kDataset",
+    "GenericSftDataset",
     "Geometry3kDataset",
     "HuggingFaceDataset",
     "HuggingFaceVisionDataset",

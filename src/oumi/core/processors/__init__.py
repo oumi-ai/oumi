@@ -12,28 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A framework used for registering and accessing objects across Oumi."""
+"""Oumi processors for tokenization and feature generation.
 
-from oumi.core.registry.registry import (
-    REGISTRY,
-    Registry,
-    RegistryType,
-    register,
-    register_cloud_builder,
-    register_converter,
-    register_dataset,
-    register_evaluation_function,
-    register_sample_analyzer,
-)
+This module provides processors for generating model-specific input features
+from input data such as text, images, conversations, etc.
+"""
+
+from oumi.core.processors.base_image_processor import BaseImageProcessor
+from oumi.core.processors.base_processor import BaseProcessor
+from oumi.core.processors.default_image_processor import DefaultImageProcessor
+from oumi.core.processors.default_processor import DefaultProcessor
 
 __all__ = [
-    "REGISTRY",
-    "Registry",
-    "RegistryType",
-    "register",
-    "register_cloud_builder",
-    "register_converter",
-    "register_dataset",
-    "register_evaluation_function",
-    "register_sample_analyzer",
+    "BaseImageProcessor",
+    "BaseProcessor",
+    "DefaultImageProcessor",
+    "DefaultProcessor",
 ]

@@ -74,6 +74,35 @@ class DatasetParams(BaseParams):
     downloaded from the huggingface hub or oumi registry.
     """
 
+    converter: Optional[str] = None
+    """The format converter to use for converting raw data to Conversation format.
+
+    If specified, uses the named converter from the registry to transform data.
+    If omitted and dataset_name is in the dataset registry, uses that dataset's
+    built-in transformation logic.
+    If omitted and loading from path/HuggingFace directly, attempts auto-detection.
+
+    Available converters:
+        - "oumi": For data with {"messages": [{"role": ..., "content": ...}, ...]}
+        - "alpaca": For data with {"instruction": ..., "input": ..., "output": ...}
+        - "sharegpt": For data with {"conversations": [{"from": ..., "value": ...}]}
+        - "conversations": For nested {"conversation": {"messages": [...]}}
+        - "langfuse": For Langfuse exports with input/output pairs
+        - "opentelemetry": For OpenTelemetry LLM semantic conventions
+        - "langchain": For LangChain run traces
+    """
+
+    converter_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Keyword arguments to pass to the converter factory.
+
+    For converters that support configuration (like Alpaca's system prompt),
+    these arguments are passed when creating the converter instance.
+
+    Example:
+        converter_kwargs:
+            include_system_prompt: true
+    """
+
     subset: Optional[str] = None
     """The subset of the dataset to load.
 
@@ -180,6 +209,12 @@ class DatasetParams(BaseParams):
                     f"reserved fields: {conflicting_keys}. "
                     "Use properties of DatasetParams instead."
                 )
+
+        if len(self.converter_kwargs) > 0 and self.converter is None:
+            raise ValueError(
+                "converter_kwargs specified but no converter name provided. "
+                "Please specify a converter name using the 'converter' field."
+            )
 
         if self.trust_remote_code:
             warnings.warn(

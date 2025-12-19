@@ -26,6 +26,7 @@ from oumi.utils.logging import logger
 
 class RegistryType(Enum):
     CLOUD = auto()
+    CONVERTER = auto()
     DATASET = auto()
     METRICS_FUNCTION = auto()
     REWARD_FUNCTION = auto()
@@ -95,6 +96,7 @@ def _register_dependencies(cls_function):
             self._initialized = True
             # Import all core dependencies.
             import oumi.core.analyze  # noqa: F401
+            import oumi.core.converters  # noqa: F401
             import oumi.datasets  # noqa: F401
             import oumi.launcher  # noqa: F401
             import oumi.models  # noqa: F401
@@ -201,6 +203,10 @@ class Registry:
     def get_sample_analyzer(self, name: str) -> Optional[Callable]:
         """Gets a record that corresponds to a registered sample analyzer."""
         return self.get(name, RegistryType.SAMPLE_ANALYZER)
+
+    def get_converter(self, name: str) -> Optional[Callable]:
+        """Gets a record that corresponds to a registered format converter."""
+        return self.get(name, RegistryType.CONVERTER)
 
     def get_dataset(
         self, name: str, subset: Optional[str] = None
@@ -356,6 +362,38 @@ def register_sample_analyzer(registry_name: str) -> Callable:
         REGISTRY.register(
             name=registry_name, type=RegistryType.SAMPLE_ANALYZER, value=obj
         )
+        return obj
+
+    return decorator_register
+
+
+def register_converter(registry_name: str) -> Callable:
+    """Returns function to register a format converter in the Oumi global registry.
+
+    Format converters are functions that convert raw data dictionaries into
+    Conversation objects. They enable decoupling dataset paths from format logic.
+
+    Args:
+        registry_name: The name that the converter should be registered with.
+            Common names: "oumi", "alpaca", "sharegpt", "langfuse", etc.
+
+    Returns:
+        Decorator function to register the target converter.
+
+    Example:
+        @register_converter("alpaca")
+        def convert_alpaca(example: dict) -> Conversation:
+            ...
+    """
+
+    def decorator_register(obj):
+        """Decorator to register its target converter function."""
+        if not callable(obj):
+            raise TypeError(
+                f"Converter `{registry_name}` must be callable. "
+                f"Got {type(obj).__name__} instead."
+            )
+        REGISTRY.register(name=registry_name, type=RegistryType.CONVERTER, value=obj)
         return obj
 
     return decorator_register

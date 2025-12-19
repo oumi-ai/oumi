@@ -162,6 +162,25 @@ def _load_dataset(
     tokenizer: Optional[BaseTokenizer] = None,
 ) -> IterDataPipe:
     """Loads a dataset and wraps it in a DataPipe if necessary."""
+    # If converter is specified, use GenericSftDataset for format-converter-based loading
+    if dataset_params.converter is not None:
+        from oumi.datasets.sft.generic_sft import GenericSftDataset
+
+        dataset = GenericSftDataset(
+            converter=dataset_params.converter,
+            converter_kwargs=dataset_params.converter_kwargs,
+            dataset_name=dataset_params.dataset_name,
+            dataset_path=dataset_params.dataset_path,
+            split=dataset_params.split,
+            subset=dataset_params.subset,
+            tokenizer=tokenizer,
+            **dataset_params.dataset_kwargs,
+        )
+
+        # Convert to IterDataPipe
+        _, _, _, MapToIterConverterIterDataPipe = _get_torchdata_imports()
+        return MapToIterConverterIterDataPipe(dataset)
+
     # First, try to load a custom dataset from the REGISTRY
     dataset_class = REGISTRY.get_dataset(
         dataset_params.dataset_name, subset=dataset_params.subset
