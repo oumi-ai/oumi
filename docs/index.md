@@ -70,6 +70,10 @@ CLI Reference <cli/commands>
 :caption: FAQ
 
 faq/troubleshooting
+faq/installation
+faq/training
+faq/inference
+faq/remote_jobs
 faq/oom
 ```
 

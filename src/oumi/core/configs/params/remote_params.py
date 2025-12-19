@@ -55,6 +55,30 @@ class RemoteParams(BaseParams):
     before making a subsequent request.
     """
 
+    requests_per_minute: Optional[int] = None
+    """Maximum number of requests allowed per minute.
+
+    If set, the engine will limit the rate of requests to stay within this limit.
+    This is useful when the API provider enforces request-based rate limits.
+    When both requests_per_minute and politeness_policy are set, both limits apply.
+    """
+
+    input_tokens_per_minute: Optional[int] = None
+    """Maximum number of input (prompt) tokens allowed per minute.
+
+    If set, the engine will track input token usage and wait when approaching
+    the limit. Many API providers (OpenAI, Anthropic) enforce input token limits.
+    Token counts are extracted from API response headers or usage fields.
+    """
+
+    output_tokens_per_minute: Optional[int] = None
+    """Maximum number of output (completion) tokens allowed per minute.
+
+    If set, the engine will track output token usage and wait when approaching
+    the limit. Many API providers enforce output/completion token limits.
+    Token counts are extracted from API response headers or usage fields.
+    """
+
     batch_completion_window: Optional[str] = "24h"
     """Time window for batch completion. Currently only '24h' is supported.
 
@@ -101,6 +125,22 @@ class RemoteParams(BaseParams):
         if self.retry_backoff_max < self.retry_backoff_base:
             raise ValueError(
                 "Retry backoff max must be greater than or equal to retry backoff base."
+            )
+        if self.requests_per_minute is not None and self.requests_per_minute < 1:
+            raise ValueError("Requests per minute must be greater than or equal to 1.")
+        if (
+            self.input_tokens_per_minute is not None
+            and self.input_tokens_per_minute < 1
+        ):
+            raise ValueError(
+                "Input tokens per minute must be greater than or equal to 1."
+            )
+        if (
+            self.output_tokens_per_minute is not None
+            and self.output_tokens_per_minute < 1
+        ):
+            raise ValueError(
+                "Output tokens per minute must be greater than or equal to 1."
             )
 
 
