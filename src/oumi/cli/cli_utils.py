@@ -21,7 +21,7 @@ import sys
 import urllib.parse
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import requests
 import typer
@@ -139,7 +139,7 @@ class LogLevel(str, Enum):
     CRITICAL = logging.getLevelName(logging.CRITICAL)
 
 
-def set_log_level(level: Optional[LogLevel]):
+def set_log_level(level: LogLevel | None):
     """Sets the logging level for the current command.
 
     Args:
@@ -153,7 +153,7 @@ def set_log_level(level: Optional[LogLevel]):
 
 
 LOG_LEVEL_TYPE = Annotated[
-    Optional[LogLevel],
+    LogLevel | None,
     typer.Option(
         "--log-level",
         "-log",
@@ -177,7 +177,7 @@ VERBOSE_TYPE = Annotated[
 
 
 def _resolve_oumi_prefix(
-    config_path: str, output_dir: Optional[Path] = None
+    config_path: str, output_dir: Path | None = None
 ) -> tuple[str, Path]:
     """Resolves oumi:// prefix and determines output directory.
 
@@ -199,7 +199,7 @@ def _resolve_oumi_prefix(
 
 
 def resolve_and_fetch_config(
-    config_path: str, output_dir: Optional[Path] = None, force: bool = True
+    config_path: str, output_dir: Path | None = None, force: bool = True
 ) -> Path:
     """Resolve oumi:// prefix and fetch config if needed.
 

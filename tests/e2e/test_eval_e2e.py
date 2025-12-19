@@ -4,7 +4,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import pytest
 
@@ -27,12 +27,12 @@ class EvalTestConfig(NamedTuple):
     distributed version. This sometimes leads to lower GPU RAM usage.
     """
 
-    model_max_length: Optional[int] = None
-    batch_size: Optional[int] = None
-    num_samples: Optional[int] = 20  # Limit the number of samples by default
-    num_fewshot: Optional[int] = None
-    enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
-    enable_vllm: Optional[bool] = False  # use vLLM inference engine instead of native
+    model_max_length: int | None = None
+    batch_size: int | None = None
+    num_samples: int | None = 20  # Limit the number of samples by default
+    num_fewshot: int | None = None
+    enable_wandb: bool | None = False  # Disable `wandb`` by default
+    enable_vllm: bool | None = False  # use vLLM inference engine instead of native
 
 
 def get_eval_test_id_fn(val):
@@ -45,7 +45,7 @@ def _test_eval_impl(
     tmp_path: Path,
     *,
     cleanup_output_dir_on_success: bool = True,
-    single_gpu: Optional[bool] = None,
+    single_gpu: bool | None = None,
 ):
     device_cleanup()
     if test_config.skip:

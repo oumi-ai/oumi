@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
 
 from oumi.core.configs.params.evaluation_params import EvaluationBackend
 from oumi.utils.packaging import PackagePrerequisites, check_package_prerequisites
@@ -48,7 +47,7 @@ BACKEND_PREREQUISITES: dict[
 
 def check_prerequisites(
     evaluation_backend: EvaluationBackend,
-    task_name: Optional[str] = None,
+    task_name: str | None = None,
 ) -> None:
     """Check whether the evaluation backend prerequisites are satisfied.
 

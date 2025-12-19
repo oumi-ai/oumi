@@ -1,6 +1,5 @@
 import tempfile
 from pathlib import Path
-from typing import Optional
 from unittest import mock
 from unittest.mock import patch
 
@@ -21,7 +20,7 @@ class MockInferenceEngine(BaseInferenceEngine):
     def _infer_online(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         # Mock implementation that appends an assistant response
         results = []
@@ -43,7 +42,7 @@ class MockInferenceEngine(BaseInferenceEngine):
     def _infer_from_file(
         self,
         input_filepath: str,
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         return self.infer(inference_config=inference_config)
 

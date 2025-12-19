@@ -16,9 +16,10 @@
 
 import copy
 import os
+from collections.abc import Callable
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Optional, Union, cast
+from typing import Any, cast
 
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
@@ -76,13 +77,13 @@ class VerlGrpoTrainer(BaseTrainer):
 
     def __init__(
         self,
-        processing_class: Optional[BaseTokenizer],
+        processing_class: BaseTokenizer | None,
         config: TrainingConfig,
         reward_funcs: list[Callable],
         train_dataset: Dataset,
         eval_dataset: Dataset,
-        processor: Optional[BaseProcessor] = None,
-        cache_dir: Optional[Union[str, Path]] = None,
+        processor: BaseProcessor | None = None,
+        cache_dir: str | Path | None = None,
         **kwargs,
     ):
         """Initializes the verl trainer.
@@ -107,12 +108,12 @@ class VerlGrpoTrainer(BaseTrainer):
         )
         self._processing_class = processing_class
         self._oumi_config = copy.deepcopy(config)
-        self._final_output_dir: Optional[Path] = (
+        self._final_output_dir: Path | None = (
             Path(self._oumi_config.training.output_dir).absolute().resolve()
             if self._oumi_config.training.output_dir
             else None
         )
-        self._temp_output_dir: Optional[Path] = (
+        self._temp_output_dir: Path | None = (
             self._final_output_dir / "verl_output" if self._final_output_dir else None
         )
 
@@ -144,7 +145,7 @@ class VerlGrpoTrainer(BaseTrainer):
 
     def _detect_dataset_process_fn(
         self,
-    ) -> Optional[_DatasetProcessFn]:
+    ) -> _DatasetProcessFn | None:
         """Returns a post-processing function to convert data to verl format.
 
         Examines dataset samples to determine what post-processing function to use.
@@ -255,7 +256,7 @@ class VerlGrpoTrainer(BaseTrainer):
         return data
 
     def _create_dataset_files(
-        self, process_fn: Optional[_DatasetProcessFn] = None
+        self, process_fn: _DatasetProcessFn | None = None
     ) -> None:
         """Creates dataset files for verl in Parquet format.
 
@@ -489,7 +490,7 @@ class VerlGrpoTrainer(BaseTrainer):
 
         # Find sub-directory named `global_step_NNN` with the largest NNN.
         latest_checkpoint_step = -1
-        latest_checkpoint_dir: Optional[Path] = None
+        latest_checkpoint_dir: Path | None = None
         for d in all_checkpoint_dirs:
             step_str = str(d.name.removeprefix("global_step_"))
             try:

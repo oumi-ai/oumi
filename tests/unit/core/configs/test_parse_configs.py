@@ -1,6 +1,5 @@
 import glob
 import os
-from typing import Optional
 
 import pytest
 
@@ -27,7 +26,7 @@ def _backtrack_on_path(path, n):
     return output_path
 
 
-def _get_all_config_paths(exclude_yaml_suffixes: Optional[set[str]]) -> list[str]:
+def _get_all_config_paths(exclude_yaml_suffixes: set[str] | None) -> list[str]:
     """Recursively returns all configs in the /configs/ dir of the repo."""
     path_to_current_file = os.path.realpath(__file__)
     repo_root = _backtrack_on_path(path_to_current_file, 5)

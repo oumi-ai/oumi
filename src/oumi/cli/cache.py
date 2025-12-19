@@ -14,7 +14,7 @@
 
 import fnmatch
 import shutil
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from huggingface_hub import model_info, snapshot_download
@@ -28,7 +28,7 @@ console = Console()
 
 def ls(
     filter_pattern: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--filter",
             "-f",
@@ -158,7 +158,7 @@ def rm(
 def get(
     repo_id: Annotated[str, typer.Argument(help="Repository ID to download/cache")],
     revision: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--revision", help="Repository revision to download"),
     ] = None,
 ):

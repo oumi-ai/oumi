@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from datasets import Dataset, Features, Value
 from datasets import Image as HFImage
@@ -22,7 +22,7 @@ from PIL import Image
 
 def resize_and_convert_image(
     image_path: Path, max_size: int = 1024
-) -> Optional[Image.Image]:
+) -> Image.Image | None:
     """Resize image to max size on longest side and convert to RGB without alpha."""
     try:
         img = Image.open(image_path)
@@ -109,9 +109,7 @@ def preprocess_code(code: str) -> str:
     return code
 
 
-def run_code_artifact(
-    code: str, temp_dir: Path, sample_idx: int
-) -> Optional[Image.Image]:
+def run_code_artifact(code: str, temp_dir: Path, sample_idx: int) -> Image.Image | None:
     """Run a code artifact and return the generated PIL image."""
     if not code:
         print(f"Sample {sample_idx}: No code artifact")
@@ -169,7 +167,7 @@ def run_code_artifact(
 
 
 def create_hf_dataset(
-    samples: list[dict[str, Any]], images: list[Optional[Image.Image]], images_dir: Path
+    samples: list[dict[str, Any]], images: list[Image.Image | None], images_dir: Path
 ) -> Dataset:
     """Create a HuggingFace dataset with all existing columns plus Image column.
 

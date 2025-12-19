@@ -20,7 +20,6 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
 
 import jsonlines
 from hdrh.histogram import HdrHistogram
@@ -49,7 +48,7 @@ class BaseInferenceEngine(ABC):
         self,
         model_params: ModelParams,
         *,
-        generation_params: Optional[GenerationParams] = None,
+        generation_params: GenerationParams | None = None,
     ):
         """Initializes the inference engine.
 
@@ -70,8 +69,8 @@ class BaseInferenceEngine(ABC):
 
     def infer(
         self,
-        input: Optional[list[Conversation]] = None,
-        inference_config: Optional[InferenceConfig] = None,
+        input: list[Conversation] | None = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference.
 
@@ -217,7 +216,7 @@ class BaseInferenceEngine(ABC):
 
         return final_results
 
-    def _maybe_log_latency_histogram(self, histogram: Optional[HdrHistogram]) -> None:
+    def _maybe_log_latency_histogram(self, histogram: HdrHistogram | None) -> None:
         """Logs the histogram if it is not None.
 
         Args:
@@ -261,7 +260,7 @@ class BaseInferenceEngine(ABC):
                     conversations.append(conversation)
         return conversations
 
-    def _load_from_scratch(self, output_filepath: Optional[str]) -> list[Conversation]:
+    def _load_from_scratch(self, output_filepath: str | None) -> list[Conversation]:
         """Loads conversations from a scratch file.
 
         Args:
@@ -307,7 +306,7 @@ class BaseInferenceEngine(ABC):
             if conv.conversation_id not in completed_ids
         ]
 
-    def _get_scratch_filepath(self, output_filepath: Optional[str]) -> str:
+    def _get_scratch_filepath(self, output_filepath: str | None) -> str:
         """Returns a scratch filepath for the given output filepath.
 
         The scratch filepath always includes a hash of the model parameters, generation
@@ -346,7 +345,7 @@ class BaseInferenceEngine(ABC):
         return str(path_prefix / f"temp_inference_output_{inference_hash}.jsonl")
 
     def _save_conversation_to_scratch(
-        self, conversation: Conversation, output_filepath: Optional[str]
+        self, conversation: Conversation, output_filepath: str | None
     ) -> None:
         """Appends a conversation to a file in Oumi chat format.
 
@@ -362,7 +361,7 @@ class BaseInferenceEngine(ABC):
             json_obj = conversation.to_dict()
             writer.write(json_obj)
 
-    def _cleanup_scratch_file(self, output_filepath: Optional[str]) -> None:
+    def _cleanup_scratch_file(self, output_filepath: str | None) -> None:
         """Delete the scratch file from the file system if it exists.
 
         Args:
@@ -428,7 +427,7 @@ class BaseInferenceEngine(ABC):
     def _infer_online(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 

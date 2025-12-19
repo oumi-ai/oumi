@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union, cast
+from typing import cast
 
 import torch
 import torch.nn as nn
@@ -52,7 +52,7 @@ except ImportError:
 
 def build_model(
     model_params: ModelParams,
-    peft_params: Optional[PeftParams] = None,
+    peft_params: PeftParams | None = None,
     **kwargs,
 ) -> nn.Module:
     """Builds and returns a model based on the provided Oumi configuration.
@@ -110,7 +110,7 @@ def build_model(
     return model
 
 
-def _get_model_type(model: nn.Module) -> Optional[str]:
+def _get_model_type(model: nn.Module) -> str | None:
     return getattr(model, "config", None) and getattr(model.config, "model_type", None)
 
 
@@ -138,7 +138,7 @@ def _patch_model_for_liger_kernel(model: nn.Module) -> None:
 
 def build_oumi_model(
     model_params: ModelParams,
-    peft_params: Optional[PeftParams] = None,
+    peft_params: PeftParams | None = None,
     **kwargs,
 ) -> nn.Module:
     """Builds a custom model from our Oumi registry."""
@@ -215,7 +215,7 @@ def _disable_cache_in_model_config(model: transformers.PreTrainedModel) -> None:
 
 def build_huggingface_model(
     model_params: ModelParams,
-    peft_params: Optional[PeftParams] = None,
+    peft_params: PeftParams | None = None,
     **kwargs,
 ) -> nn.Module:
     """Builds a HuggingFace model.
@@ -344,7 +344,7 @@ def is_image_text_llm(model_params: ModelParams) -> bool:
 
 def build_tokenizer(
     model_params: ModelParams,
-) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
+) -> transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast:
     """Builds and returns a tokenizer based on the provided Oumi configuration.
 
     Args:
@@ -368,7 +368,7 @@ def build_tokenizer(
     else:
         tokenizer_id_str = f"model '{model_params.model_name}'"
 
-    internal_config: Optional[InternalModelConfig] = (
+    internal_config: InternalModelConfig | None = (
         find_internal_model_config_using_model_name(
             model_name=tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,

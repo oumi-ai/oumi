@@ -14,11 +14,12 @@
 
 import copy
 from dataclasses import asdict, dataclass
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 import pandas as pd
 
 from oumi.builders.models import build_tokenizer
+from oumi.core.analyze.column_types import ContentType
 from oumi.core.analyze.dataframe_analyzer import DataFrameAnalyzer, DataFrameWithSchema
 from oumi.core.configs import AnalyzeConfig, ModelParams
 from oumi.core.datasets import BaseMapDataset
@@ -105,7 +106,7 @@ class DatasetAnalysisResult:
 class DatasetAnalyzer:
     """Orchestrates the analysis of datasets using multiple sample analyzers."""
 
-    def __init__(self, config: AnalyzeConfig, dataset: Optional[BaseMapDataset] = None):
+    def __init__(self, config: AnalyzeConfig, dataset: BaseMapDataset | None = None):
         """Initialize the dataset analyzer with configuration.
 
         Args:
@@ -146,11 +147,12 @@ class DatasetAnalyzer:
         self.dataframe_analyzer = DataFrameAnalyzer(self.sample_analyzers)
 
         # Initialize analysis results as None
-        self._analysis_results: Optional[DatasetAnalysisResult] = None
-        self._merged_df: Optional[pd.DataFrame] = None
-        self._message_df: Optional[pd.DataFrame] = None
-        self._conversation_df: Optional[pd.DataFrame] = None
-        self._analysis_summary: Optional[dict[str, Any]] = None
+        self._analysis_results: DatasetAnalysisResult | None = None
+        self._merged_df: pd.DataFrame | None = None
+        self._message_df: pd.DataFrame | None = None
+        self._conversation_df: pd.DataFrame | None = None
+        self._merged_schema: dict | None = None
+        self._analysis_summary: dict[str, Any] | None = None
 
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
@@ -341,6 +343,7 @@ class DatasetAnalyzer:
         self._merged_df = analysis_result.merged_df
         self._message_df = analysis_result.messages_df
         self._conversation_df = analysis_result.conversations_df
+        self._merged_schema = analysis_result.merged_schema
 
         self._analysis_results = DatasetAnalysisResult(
             dataset_name=self.dataset_name or "",
@@ -352,7 +355,7 @@ class DatasetAnalyzer:
         self._analysis_summary = self._generate_analysis_summary()
 
     def _prepare_dataframe_list(
-        self, max_items: Optional[int] = None
+        self, max_items: int | None = None
     ) -> tuple[list[DataFrameWithSchema], int, int]:
         """Prepare DataFrameWithSchema list from input source with optional limiting.
 
@@ -405,7 +408,7 @@ class DatasetAnalyzer:
             raise ValueError("Either dataframes or dataset must be provided")
 
     @property
-    def analysis_results(self) -> Optional[DatasetAnalysisResult]:
+    def analysis_results(self) -> DatasetAnalysisResult | None:
         """Get the analysis results if available.
 
         Returns:
@@ -443,7 +446,7 @@ class DatasetAnalyzer:
         return filtered_df
 
     @property
-    def analysis_df(self) -> Union[pd.DataFrame, None]:
+    def analysis_df(self) -> pd.DataFrame | None:
         """Get the merged analysis DataFrame with both message and conversation metrics.
 
         Returns:
@@ -461,7 +464,7 @@ class DatasetAnalyzer:
         return self._merged_df
 
     @property
-    def message_df(self) -> Union[pd.DataFrame, None]:
+    def message_df(self) -> pd.DataFrame | None:
         """Get the message-level analysis DataFrame.
 
         Returns:
@@ -478,7 +481,7 @@ class DatasetAnalyzer:
         return self._message_df
 
     @property
-    def conversation_df(self) -> Union[pd.DataFrame, None]:
+    def conversation_df(self) -> pd.DataFrame | None:
         """Get the conversation-level analysis DataFrame.
 
         Returns:
@@ -493,6 +496,23 @@ class DatasetAnalyzer:
                 "to access the conversation DataFrame."
             )
         return self._conversation_df
+
+    def get_schema(self) -> dict:
+        """Get the schema for the analysis results.
+
+        Returns:
+            Dictionary containing the schema for the merged DataFrame, combining
+            schemas from all input DataFrames including analyzer-generated columns.
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+        """
+        if self._merged_schema is None:
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the merged schema."
+            )
+        return self._merged_schema
 
     def query_conversations(
         self,
@@ -537,7 +557,7 @@ class DatasetAnalyzer:
     def filter(
         self,
         query_expression: str,
-    ) -> Union[BaseMapDataset, BaseIterableDataset]:
+    ) -> BaseMapDataset | BaseIterableDataset:
         """Filter the original dataset based on analysis results.
 
         This method uses analysis results to filter the original dataset, returning
@@ -591,7 +611,7 @@ class DatasetAnalyzer:
 
     def _create_filtered_dataset(
         self, conversation_indices: list[int]
-    ) -> Union[BaseMapDataset, BaseIterableDataset]:
+    ) -> BaseMapDataset | BaseIterableDataset:
         """Create a new dataset containing only the specified conversations.
 
         Args:
@@ -644,8 +664,10 @@ class DatasetAnalyzer:
         # They should be generalized to work with any dataset type and column structure.
         summary = {
             "dataset_overview": self._get_dataset_overview(),
-            "message_level_summary": self._get_message_level_summary(),
-            "conversation_level_summary": self._get_conversation_level_summary(),
+            "message_level_summary": self._get_level_summary(self._message_df),
+            "conversation_level_summary": self._get_level_summary(
+                self._conversation_df
+            ),
             "conversation_turns": self._get_conversation_turns_summary(),
         }
 
@@ -691,160 +713,56 @@ class DatasetAnalyzer:
             "analyzers_used": list(self.sample_analyzers.keys()),
         }
 
-    def _get_message_level_summary(self) -> dict[str, Any]:
-        """Get aggregated message-level metrics across all analyzers."""
-        if self._message_df is None or self._message_df.empty:
+    def _get_computable_columns(self, df: pd.DataFrame) -> list[str]:
+        """Get computable columns from DataFrame using schema information.
+
+        A computable column is one that has content_type == NUMERIC in the schema.
+
+        Args:
+            df: DataFrame to analyze
+
+        Returns:
+            List of tuples (column_name, schema_info) for computable columns
+        """
+        if self._merged_schema is None:
+            raise RuntimeError(
+                "Schema not available. Please call analyze_dataset() first."
+            )
+
+        computable_columns = []
+        for col in df.columns:
+            # Check schema for this column
+            col_schema = self._merged_schema.get(col)
+            if col_schema is None:
+                continue
+
+            # Only include columns with ContentType.NUMERIC
+            content_type = col_schema.get("content_type")
+            if content_type == ContentType.NUMERIC:
+                computable_columns.append(col)
+
+        return computable_columns
+
+    def _get_level_summary(self, df: pd.DataFrame | None) -> dict[str, Any]:
+        """Get aggregated metrics for a given DataFrame level.
+
+        Uses schema information to better identify and group computable columns.
+
+        Args:
+            df: DataFrame to analyze (message_df or conversation_df)
+
+        Returns:
+            Dictionary mapping metric names to their statistics
+        """
+        if df is None or df.empty:
             return {}
 
-        # Get all analyzer columns (columns that are not base message columns)
-        base_columns = {
-            "conversation_index",
-            "conversation_id",
-            "message_index",
-            "message_id",
-            "role",
-            "text_content",
-        }
-
-        analyzer_columns = [
-            col
-            for col in self._message_df.columns
-            if col not in base_columns
-            and pd.api.types.is_numeric_dtype(self._message_df[col])
-        ]
-
         summary = {}
-
-        for col in analyzer_columns:
-            # Extract analyzer name and metric from column
-            # Format: text_content_{analyzer}_{metric}
-            # Example: text_content_length_analyzer_char_count
-            parts = col.split("_")
-            if len(parts) >= 5:  # text_content_analyzer_metric_type
-                if parts[0] == "text" and parts[1] == "content":
-                    # The analyzer name and metric are in the remaining parts
-                    # For "text_content_length_analyzer_char_count":
-                    # parts[2:] = ["length", "analyzer", "char", "count"]
-                    # We need to find where the analyzer name ends and metric begins
-
-                    # Look for known metric suffixes to split correctly
-                    remaining_parts = parts[2:]
-                    metric_suffixes = [
-                        "char_count",
-                        "word_count",
-                        "sentence_count",
-                        "token_count",
-                    ]
-
-                    analyzer_name = None
-                    metric_name = None
-
-                    # Try to find a metric suffix
-                    for i in range(
-                        1, len(remaining_parts)
-                    ):  # Start from 1 to ensure analyzer_name is not empty
-                        potential_metric = "_".join(remaining_parts[i:])
-                        if any(
-                            potential_metric.endswith(suffix)
-                            for suffix in metric_suffixes
-                        ):
-                            analyzer_name = "_".join(remaining_parts[:i])
-                            metric_name = f"text_content_{potential_metric}"
-                            break
-
-                    # Fallback: assume last two parts are metric
-                    if analyzer_name is None:
-                        if len(remaining_parts) >= 2:
-                            analyzer_name = "_".join(remaining_parts[:-2])
-                            metric_name = (
-                                f"text_content_{remaining_parts[-2]}_"
-                                f"{remaining_parts[-1]}"
-                            )
-
-                    if analyzer_name and metric_name:
-                        if analyzer_name not in summary:
-                            summary[analyzer_name] = {}
-
-                        # Compute statistics for numeric columns
-                        values = cast(pd.Series, self._message_df[col].dropna())
-                        if len(values) > 0:
-                            summary[analyzer_name][metric_name] = compute_statistics(
-                                values, self._decimal_precision
-                            )
-
-        return summary
-
-    def _get_conversation_level_summary(self) -> dict[str, Any]:
-        """Get aggregated conversation-level metrics across all analyzers."""
-        if self._conversation_df is None or self._conversation_df.empty:
-            return {}
-
-        # Get all analyzer columns (columns that are not base conversation columns)
-        base_columns = {
-            "conversation_index",
-            "conversation_id",
-            "num_messages",
-        }
-
-        analyzer_columns = [
-            col
-            for col in self._conversation_df.columns
-            if col not in base_columns
-            and pd.api.types.is_numeric_dtype(self._conversation_df[col])
-        ]
-
-        summary = {}
-
-        for col in analyzer_columns:
-            # Use the same parsing logic as message level summary
-            # Format: text_content_{analyzer}_{metric}
-            # (for conversation-level aggregated metrics)
-            parts = col.split("_")
-            if len(parts) >= 5:  # text_content_analyzer_metric_type
-                if parts[0] == "text" and parts[1] == "content":
-                    remaining_parts = parts[2:]
-                    metric_suffixes = [
-                        "char_count",
-                        "word_count",
-                        "sentence_count",
-                        "token_count",
-                    ]
-
-                    analyzer_name = None
-                    metric_name = None
-
-                    # Try to find a metric suffix
-                    for i in range(
-                        1, len(remaining_parts)
-                    ):  # Start from 1 to ensure analyzer_name is not empty
-                        potential_metric = "_".join(remaining_parts[i:])
-                        if any(
-                            potential_metric.endswith(suffix)
-                            for suffix in metric_suffixes
-                        ):
-                            analyzer_name = "_".join(remaining_parts[:i])
-                            metric_name = f"text_content_{potential_metric}"
-                            break
-
-                    # Fallback: assume last two parts are metric
-                    if analyzer_name is None:
-                        if len(remaining_parts) >= 2:
-                            analyzer_name = "_".join(remaining_parts[:-2])
-                            metric_name = (
-                                f"text_content_{remaining_parts[-2]}_"
-                                f"{remaining_parts[-1]}"
-                            )
-
-                    if analyzer_name and metric_name:
-                        if analyzer_name not in summary:
-                            summary[analyzer_name] = {}
-
-                        # Compute statistics for numeric columns
-                        values = cast(pd.Series, self._conversation_df[col].dropna())
-                        if len(values) > 0:
-                            summary[analyzer_name][metric_name] = compute_statistics(
-                                values, self._decimal_precision
-                            )
+        for col in self._get_computable_columns(df):
+            # Compute statistics for numeric columns
+            values = cast(pd.Series, df[col].dropna())
+            if len(values) > 0:
+                summary[col] = compute_statistics(values, self._decimal_precision)
 
         return summary
 

@@ -48,7 +48,6 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Union
 
 import numpy as np
 import torch
@@ -84,13 +83,13 @@ class ModelMergerConfig:
     backend: str
     local_dir: str
     hf_model_config_path: str
-    target_dir: Optional[str] = "tmp"
-    hf_upload_path: Optional[str] = None
+    target_dir: str | None = "tmp"
+    hf_upload_path: str | None = None
     private: bool = False
-    test_hf_dir: Optional[str] = None
+    test_hf_dir: str | None = None
     tie_word_embedding: bool = False
     is_value_model: bool = False
-    hf_model_path: Optional[str] = None
+    hf_model_path: str | None = None
     hf_upload: bool = field(init=False)
 
     def __post_init__(self):
@@ -455,7 +454,7 @@ class MegatronModelMerger(BaseModelMerger):
         config: PretrainedConfig,
         tp_size: int,
         is_value_model: bool = False,
-    ) -> Union[torch.Tensor, list[torch.Tensor]]:
+    ) -> torch.Tensor | list[torch.Tensor]:
         if "linear_fc1.weight" in key:
             # if the tensor is gate and proj
             gate_lst = []

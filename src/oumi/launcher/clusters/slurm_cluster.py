@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from functools import reduce
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
@@ -205,7 +205,7 @@ class SlurmCluster(BaseCluster):
         """Gets the name of the cluster."""
         return self._connection.name
 
-    def get_job(self, job_id: str) -> Optional[JobStatus]:
+    def get_job(self, job_id: str) -> JobStatus | None:
         """Gets the jobs on this cluster if it exists, else returns None."""
         for job in self.get_jobs():
             if job.id == job_id:
@@ -290,7 +290,7 @@ class SlurmCluster(BaseCluster):
         pass
 
     def get_logs_stream(
-        self, cluster_name: str, job_id: Optional[str] = None
+        self, cluster_name: str, job_id: str | None = None
     ) -> SlurmLogStream:
         """Gets a stream that tails the logs of the target job.
 

@@ -53,7 +53,7 @@ repos:
     rev: v3.19.1
     hooks:
       - id: pyupgrade
-        args: [--py39-plus]
+        args: [--py310-plus]
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.24.3
     hooks:

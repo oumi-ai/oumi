@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
@@ -55,7 +54,7 @@ class EvaluationConfig(BaseConfig):
     required to generate model responses. If the model is accessed via a remote API,
     these parameters specify how to run inference against the remote API."""
 
-    run_name: Optional[str] = None
+    run_name: str | None = None
     """A unique identifier for the current training run.
     This name is used to identify the run in Weights & Biases.
     """

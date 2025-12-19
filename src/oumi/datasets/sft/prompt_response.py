@@ -17,8 +17,6 @@
 Allows users to specify the prompt and response columns at the config level.
 """
 
-from typing import Union
-
 import pandas as pd
 
 from oumi.core.datasets import BaseSftDataset
@@ -52,7 +50,7 @@ class PromptResponseDataset(BaseSftDataset):
         kwargs["dataset_name"] = hf_dataset_path
         super().__init__(**kwargs)
 
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict | pd.Series) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.
 
         Args:

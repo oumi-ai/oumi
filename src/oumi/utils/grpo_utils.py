@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-from typing import Union
 
 import datasets as hf_datasets
 
@@ -93,8 +92,8 @@ def try_prepare_trl_grpo_example(
 
 
 def try_prepare_trl_grpo_dataset(
-    dataset: Union[hf_datasets.Dataset, hf_datasets.IterableDataset],
-) -> Union[hf_datasets.Dataset, hf_datasets.IterableDataset]:
+    dataset: hf_datasets.Dataset | hf_datasets.IterableDataset,
+) -> hf_datasets.Dataset | hf_datasets.IterableDataset:
     """Prepares a dataset for GRPO_TRL processing."""
     column_names = dataset.column_names
     if column_names and ("conversation_json" not in column_names):
