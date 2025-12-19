@@ -17,11 +17,8 @@ import shutil
 from typing import Annotated
 
 import typer
-from huggingface_hub import model_info, snapshot_download
 from rich.console import Console
 from rich.table import Table
-
-from oumi.utils.hf_cache_utils import format_size, list_hf_cache
 
 console = Console()
 
@@ -43,6 +40,8 @@ def ls(
     ] = False,
 ):
     """List locally cached Hugging Face items."""
+    from oumi.utils.hf_cache_utils import format_size, list_hf_cache
+
     try:
         # Get cached items
         cached_items = list_hf_cache()
@@ -120,6 +119,8 @@ def rm(
     ] = False,
 ):
     """Remove a cached Hugging Face item."""
+    from oumi.utils.hf_cache_utils import list_hf_cache
+
     try:
         cached_items = list_hf_cache()
 
@@ -163,6 +164,10 @@ def get(
     ] = None,
 ):
     """Download and cache a Hugging Face repository."""
+    from huggingface_hub import snapshot_download
+
+    from oumi.utils.hf_cache_utils import list_hf_cache
+
     try:
         # Check if repository is already cached
         cached_items = list_hf_cache()
@@ -195,6 +200,10 @@ def card(
     ],
 ):
     """Show repository information for a Hugging Face repository."""
+    from huggingface_hub import model_info
+
+    from oumi.utils.hf_cache_utils import list_hf_cache
+
     try:
         # Check if repository is cached locally first
         cached_items = list_hf_cache()

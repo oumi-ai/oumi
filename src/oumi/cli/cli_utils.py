@@ -23,10 +23,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Annotated
 
-import requests
 import typer
 import yaml
-from requests.exceptions import RequestException
 from rich.console import Console
 
 from oumi.utils.logging import logger, update_logger_level
@@ -213,6 +211,9 @@ def resolve_and_fetch_config(
     """
     if not config_path.lower().startswith(_OUMI_PREFIX):
         return Path(config_path)
+
+    import requests
+    from requests.exceptions import RequestException
 
     # Remove oumi:// prefix if present
     new_config_path, config_dir = _resolve_oumi_prefix(config_path, output_dir)
