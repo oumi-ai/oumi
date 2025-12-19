@@ -38,7 +38,7 @@ def list_hf_cache() -> list[CachedItem]:
     """List all cached items in the HuggingFace cache directory."""
     from huggingface_hub.utils import scan_cache_dir
 
-    cache_dir: "HFCacheInfo" = scan_cache_dir()
+    cache_dir: HFCacheInfo = scan_cache_dir()
     cached_items: list[CachedItem] = []
     for repo in cache_dir.repos:
         repo_id: str = repo.repo_id
