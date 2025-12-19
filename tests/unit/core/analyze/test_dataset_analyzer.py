@@ -9,7 +9,7 @@ import jsonlines
 import pandas as pd
 import pytest
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.dataset_analyzer import (
     DatasetAnalyzer,
 )
@@ -47,13 +47,14 @@ class MockSampleAnalyzer:
 
     def analyze_sample(
         self, df: pd.DataFrame, schema: Optional[dict] = None
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """
         Mock analysis that adds analyzer metrics to the DataFrame.
         """
         self.analyze_calls.append(df)
 
         result_df = df.copy()
+        generated_schema = {}
 
         # Add mock analyzer metrics for text content columns
         if schema:
@@ -65,14 +66,23 @@ class MockSampleAnalyzer:
 
             for text_col in text_columns:
                 # Add char_count and word_count metrics for each text column
-                result_df[f"{text_col}_{self.analyzer_id}_char_count"] = (
-                    df[text_col].astype(str).str.len()
-                )
-                result_df[f"{text_col}_{self.analyzer_id}_word_count"] = (
-                    df[text_col].astype(str).str.split().str.len()
-                )
+                char_col = f"{text_col}_{self.analyzer_id}_char_count"
+                word_col = f"{text_col}_{self.analyzer_id}_word_count"
+                result_df[char_col] = df[text_col].astype(str).str.len()
+                result_df[word_col] = df[text_col].astype(str).str.split().str.len()
 
-        return result_df
+                generated_schema[char_col] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Character count for {text_col}",
+                }
+                generated_schema[word_col] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Word count for {text_col}",
+                }
+
+        return result_df, generated_schema
 
 
 class MockFailingAnalyzer:
@@ -83,7 +93,7 @@ class MockFailingAnalyzer:
 
     def analyze_sample(
         self, df: pd.DataFrame, schema: Optional[dict] = None
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         raise ValueError("Analyzer failed")
 
 
@@ -770,22 +780,16 @@ def test_generate_analysis_summary(test_data_path, mock_config):
     assert "total_messages" in overview
     assert "analyzers_used" in overview
 
-    # Test message level summary - analyzer names with underscores get split
+    # Test message level summary - now flattened structure (metric_name -> stats)
     message_summary = summary["message_level_summary"]
-    # The analyzer names get split on underscores, so check for the actual keys
     assert len(message_summary) > 0
-    # Check that we have some analyzer metrics
-    for analyzer_name, metrics in message_summary.items():
-        assert isinstance(metrics, dict)
-        assert len(metrics) > 0
-        # Verify statistics structure for at least one metric
-        for metric_name, stats in metrics.items():
-            assert isinstance(stats, dict)
-            required_stats = ["count", "mean", "std", "min", "max", "median"]
-            for stat_name in required_stats:
-                assert stat_name in stats
-            break  # Only check first metric
-        break  # Only check first analyzer
+    # Check that we have some metrics
+    for metric_name, stats in message_summary.items():
+        assert isinstance(stats, dict)
+        required_stats = ["count", "mean", "std", "min", "max", "median"]
+        for stat_name in required_stats:
+            assert stat_name in stats
+        break  # Only check first metric
 
     # Test conversation level summary - may be empty if no conversation-level metrics
     conversation_summary = summary["conversation_level_summary"]

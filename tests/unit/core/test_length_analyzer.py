@@ -51,7 +51,7 @@ def test_char_count():
     )
     conv = _single_message_conversation("Hello, world!")
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
-    result_df = analyzer.analyze_sample(
+    result_df, _ = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["text_content_length_char_count"] == 13
@@ -66,7 +66,7 @@ def test_word_count():
     )
     conv = _single_message_conversation("Hello world! This is a test.")
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
-    result_df = analyzer.analyze_sample(
+    result_df, _ = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["text_content_length_word_count"] == 6
@@ -82,7 +82,7 @@ def test_sentence_count():
     conv = _single_message_conversation("Hello world! This is a test. How are you?")
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
 
-    result_df = analyzer.analyze_sample(
+    result_df, _ = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["text_content_length_sentence_count"] == 3
@@ -97,7 +97,7 @@ def test_analyzer_instantiation():
     conv = _single_message_conversation("Hello, world!")
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
 
-    result_df = analyzer.analyze_sample(
+    result_df, _ = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["text_content_length_char_count"] == 13
@@ -112,7 +112,7 @@ def test_analyzer_instantiation():
     conv = _single_message_conversation("Hello, world!")
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
 
-    result_df = analyzer.analyze_sample(
+    result_df, _ = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["text_content_length_char_count"] == 13
@@ -125,7 +125,7 @@ def test_analyzer_instantiation():
     conv = _single_message_conversation("Hello, world!")
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
 
-    result_df = analyzer.analyze_sample(
+    result_df, _ = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
     assert "text_content_length_char_count" not in result_df.columns
@@ -151,7 +151,7 @@ def test_token_count():
     conv = _single_message_conversation("Hello, world!")
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
 
-    result_df = analyzer.analyze_sample(
+    result_df, _ = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["text_content_length_token_count"] == 7
@@ -174,7 +174,7 @@ def test_token_count():
     )
     conv = _single_message_conversation("Hello, world!")
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
-    result_df = analyzer_no_special.analyze_sample(
+    result_df, _ = analyzer_no_special.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
     assert result_df.iloc[0]["text_content_length_token_count"] == 5
@@ -208,7 +208,7 @@ def test_token_count():
     )
     conv = _single_message_conversation("Hello, world!")
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
-    result_df = analyzer_unused.analyze_sample(
+    result_df, _ = analyzer_unused.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
     # Should not call tokenizer since token_count=False
@@ -247,7 +247,7 @@ def test_conversation_level_token_count():
 
     # Analyze the conversation
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
-    result_df = analyzer.analyze_sample(
+    result_df, _ = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
 
@@ -293,7 +293,7 @@ def test_conversation_level_token_count_without_dataset():
 
     # Analyze the conversation
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
-    result_df = analyzer.analyze_sample(
+    result_df, _ = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
 
@@ -340,7 +340,7 @@ def test_conversation_level_metrics_aggregation():
 
     # Analyze the conversation
     _, test_df = conversation_to_dataframes(conv, "test_conv", 0)
-    result_df = analyzer.analyze_sample(
+    result_df, _ = analyzer.analyze_sample(
         test_df, schema={"text_content": {"content_type": "text"}}
     )
 
