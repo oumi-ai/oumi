@@ -20,7 +20,7 @@ prerelease = "allow"
 name = "oumi"
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.15"
 description = "Oumi - Modeling Platform"
 authors = [{ name = "Oumi Team", email = "contact@oumi.ai" }]
 license = { file = "LICENSE" }
@@ -30,6 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -66,9 +67,9 @@ dependencies = [
     "safetensors>=0.6,<0.8",
     "skypilot>=0.10.2,<0.12",  # 0.10.2 and above is needed
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
-    "torch>=2.6,<2.9.0",       # vllm only supports up to torch==2.7
+    "torch>=2.6,<2.10.0",      # vllm only supports up to torch==2.7
     "torchao>=0.12,<0.15",     # Used by transformers
-    "torchvision>=0.21,<0.24", # Used by some VLM-s (multimodal)
+    "torchvision>=0.21,<0.25", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
