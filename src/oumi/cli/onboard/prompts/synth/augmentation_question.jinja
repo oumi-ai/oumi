@@ -1,5 +1,12 @@
 You are augmenting labeled examples for this task:
 {{ task_description }}
+{% if domain %}
+
+## Domain Context
+- Domain: {{ domain.domain }}
+- Key terms: {{ domain.terminology|join(', ') if domain.terminology else 'N/A' }}
+- Quality indicators: {{ domain.quality_signals|join(', ') if domain.quality_signals else 'N/A' }}
+{% endif %}
 
 Reference examples (input -> output):
 {{ examples_json }}

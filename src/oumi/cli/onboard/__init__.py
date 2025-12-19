@@ -49,7 +49,6 @@ from .helpers import (
 )
 from .wizard_steps import (
     wizard_step_generate,
-    wizard_step_inputs,
     wizard_step_outputs,
     wizard_step_task,
 )
@@ -92,7 +91,6 @@ __all__ = [
     "suggest_quality_criteria",
     # Wizard steps
     "wizard_step_generate",
-    "wizard_step_inputs",
     "wizard_step_outputs",
     "wizard_step_task",
 ]

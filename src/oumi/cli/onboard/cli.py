@@ -50,10 +50,8 @@ from .wizard_steps import (
     wizard_step_confirm_detection,
     wizard_step_detect,
     wizard_step_generate,
-    wizard_step_inputs,
     wizard_step_outputs,
     wizard_step_task,
-    wizard_step_template,
 )
 
 
@@ -107,17 +105,23 @@ def wizard(
             help="Auto-accept suggestions (press Enter to continue).",
         ),
     ] = True,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Enable verbose logging (show LLM inputs/outputs).",
+        ),
+    ] = False,
 ):
     """Interactive wizard to guide you through Oumi setup.
 
-    This wizard helps you build training data through a detection-first flow:
+    This wizard helps you build training data through a streamlined detection-first flow:
     1. Detection - Auto-analyze files for task, template, examples, evals
     2. Confirmation - Review and confirm detected elements
-    3. Task - What should your model do? (uses detection if available)
-    4. Template - Clarify user prompt template (if detected)
-    5. Inputs - What data will it receive?
-    6. Outputs - What makes a good response? (merges extracted + generated)
-    7. Generate - Create configs with appropriate mode (augmentation/synthesis)
+    3. Task Definition - Define task and system prompt (template auto-inferred if detected)
+    4. Quality Criteria - Define evaluation criteria (merges extracted + generated)
+    5. Generate - Create configs with appropriate mode (augmentation/teacher_labeling/synthesis)
 
     LLM analysis is required for intelligent suggestions.
 
@@ -130,6 +134,9 @@ def wizard(
 
         # Specify model
         oumi onboard wizard --data ./data/ --model claude-sonnet-4-20250514
+
+        # Enable verbose logging to see LLM inputs/outputs
+        oumi onboard wizard --data ./my_data.csv --verbose
     """
     from oumi.onboarding import DataAnalyzer
     from oumi.onboarding.llm_analyzer import LLMAnalyzer
@@ -138,7 +145,7 @@ def wizard(
 
     cli_utils.CONSOLE.print(
         "[bold green]Oumi Onboarding Wizard[/bold green]\n"
-        "[dim]Flow: Detect -> Confirm -> Task -> Template -> Inputs -> Outputs -> Generate[/dim]\n"
+        "[dim]Flow: Detect -> Confirm -> Task -> Quality Criteria -> Generate[/dim]\n"
     )
 
     data_path = Path(data)
@@ -156,7 +163,7 @@ def wizard(
         engine_upper = "ANTHROPIC"
 
     try:
-        state.llm_analyzer = LLMAnalyzer(engine=engine_upper, model=model)
+        state.llm_analyzer = LLMAnalyzer(engine=engine_upper, model=model, verbose=verbose)
         cli_utils.CONSOLE.print(
             f"[dim]Using {engine_upper} engine"
             f"{f' with model {model}' if model else ''}[/dim]\n"
@@ -318,6 +325,8 @@ def wizard(
     if not state.primary_schema and files and files[0].get("schema"):
         state.primary_schema = files[0]["schema"]
 
+    # Analyze domain FIRST (provides context to detection)
+    # Domain analysis helps detection identify task types, input sources, and quality criteria
     if state.primary_schema:
         if use_cached_analysis and cached_state and cached_state.domain_analysis:
             state.domain_analysis = cached_state.domain_analysis
@@ -328,7 +337,7 @@ def wizard(
             except Exception:
                 pass
 
-    # Phase 0: Detection (silent)
+    # Phase 0: Detection (silent, can now use domain context)
     if "detection" not in state.completed_steps:
         state = wizard_step_detect(state)
         save_wizard_cache(state, output_path, "detection", model, engine_upper)
@@ -342,6 +351,7 @@ def wizard(
     else:
         cli_utils.CONSOLE.print(f"\n[dim]Detection summary[/dim] [green]v[/green]")
 
+    # Phase 2: Task Definition (includes template if detected)
     if "task" not in state.completed_steps:
         state = wizard_step_task(state, auto_accept=auto_accept)
         save_wizard_cache(state, output_path, "task", model, engine_upper)
@@ -349,20 +359,11 @@ def wizard(
         desc_preview = state.task.description or "defined"
         cli_utils.CONSOLE.print(f"\n[dim]Task[/dim] [green]v[/green] {desc_preview}")
 
-    # Template clarification (conditional)
-    if state.detection.has_user_prompt_template and "template" not in state.completed_steps:
-        state = wizard_step_template(state, auto_accept=auto_accept)
-        save_wizard_cache(state, output_path, "template", model, engine_upper)
-    elif "template" in state.completed_steps:
-        cli_utils.CONSOLE.print(f"\n[dim]Template[/dim] [green]v[/green]")
+    # Template and Inputs steps removed - now handled automatically
+    # Template: auto-inferred during task step
+    # Inputs: determined during generate step based on detection results
 
-    if "inputs" not in state.completed_steps:
-        state = wizard_step_inputs(state, auto_accept=auto_accept)
-        save_wizard_cache(state, output_path, "inputs", model, engine_upper)
-    else:
-        input_preview = INPUT_FORMATS.get(state.inputs.format, state.inputs.format)
-        cli_utils.CONSOLE.print(f"\n[dim]Inputs[/dim] [green]v[/green] {input_preview}")
-
+    # Phase 3: Quality Criteria (formerly "outputs")
     if "outputs" not in state.completed_steps:
         state = wizard_step_outputs(state, auto_accept=auto_accept)
         save_wizard_cache(state, output_path, "outputs", model, engine_upper)

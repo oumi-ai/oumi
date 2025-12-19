@@ -17,6 +17,7 @@
 Each step has ONE user prompt requiring explicit confirmation.
 """
 
+import re
 from pathlib import Path
 
 from rich.panel import Panel
@@ -71,17 +72,17 @@ def _print_flow(current_step: str, state: WizardState, template_applicable: bool
     detection_flag = fmt("Detection", "detection")
     confirm_flag = fmt("Confirm", "confirm")
     task_flag = fmt("Task", "task")
-    inputs_flag = fmt("Inputs", "inputs")
-    outputs_flag = fmt("Outputs", "outputs")
+    criteria_flag = fmt("Criteria", "outputs")  # Display as "Criteria", cache key is "outputs"
     generate_flag = fmt("Generate", "generate")
 
-    # Build multi-line diagram
+    # Build streamlined 5-step flow diagram
     line1 = f"{detection_flag} ──> {confirm_flag} ──> {task_flag}"
-    if has_template and template_applicable:
-        line2 = f"{' ' * 26}└─> {template_label}"
+    # Show template note if detected (no longer a separate step)
+    if has_template:
+        line2 = f"{' ' * 26}(template: auto-inferred)"
     else:
-        line2 = f"{' ' * 26}└─> [dim]Template (n/a)[/dim]"
-    line3 = f"{inputs_flag} ──> {outputs_flag} ──> {generate_flag}"
+        line2 = ""
+    line3 = f"{criteria_flag} ──> {generate_flag}"
     line4 = f"Mode: {mode}"
 
     # Detection summary hints
@@ -97,7 +98,8 @@ def _print_flow(current_step: str, state: WizardState, template_applicable: bool
 
     cli_utils.CONSOLE.print("\n[dim]Flow:[/dim]")
     cli_utils.CONSOLE.print(line1)
-    cli_utils.CONSOLE.print(line2)
+    if line2:
+        cli_utils.CONSOLE.print(f"[dim]{line2}[/dim]")
     cli_utils.CONSOLE.print(line3)
     cli_utils.CONSOLE.print(line4)
     cli_utils.CONSOLE.print(line5 + "\n")
@@ -255,82 +257,8 @@ def wizard_step_confirm_detection(
     return state
 
 
-def wizard_step_template(
-    state: WizardState, auto_accept: bool = False
-) -> WizardState:
-    """Step for clarifying user prompt template mappings.
-
-    Only runs if a user prompt template was detected.
-    Shows the template and surfaces inferred variable-to-column mappings
-    without requiring additional user input.
-
-    Args:
-        state: Current wizard state with detected template.
-        auto_accept: If True, automatically accept suggested mappings.
-
-    Returns:
-        Updated state with confirmed template mappings.
-    """
-    if not state.detection.has_user_prompt_template:
-        return state
-
-    _print_flow("template", state, template_applicable=True)
-    cli_utils.CONSOLE.print(
-        "\n[bold cyan]--- Template Configuration ---[/bold cyan]\n"
-    )
-
-    # Display the template
-    template = state.detection.user_prompt_template or ""
-    cli_utils.CONSOLE.print("[bold]Detected User Prompt Template:[/bold]")
-    cli_utils.CONSOLE.print(
-        Panel(template, border_style="cyan")
-    )
-
-    # Show detected variables
-    variables = state.detection.template_variables
-    if not variables:
-        cli_utils.CONSOLE.print("[yellow]No variables detected in template.[/yellow]")
-        return state
-
-    cli_utils.CONSOLE.print(f"\n[bold]Template Variables:[/bold] {', '.join(variables)}")
-
-    # Get available columns
-    available_columns = []
-    if state.primary_schema and state.primary_schema.columns:
-        available_columns = [col.name for col in state.primary_schema.columns]
-
-    # Show suggested mappings (no user input)
-    cli_utils.CONSOLE.print("\n[bold]Suggested Variable Mappings:[/bold]")
-
-    mapping = state.detection.template_mapping.copy()
-    inferred_mapping = clarify_template_variables(
-        template, variables, state.primary_schema, state.llm_analyzer
-    )
-    if not mapping:
-        mapping = inferred_mapping
-    else:
-        # fill any missing variables using inferred mapping
-        for var, col in inferred_mapping.items():
-            mapping.setdefault(var, col)
-
-    for var in variables:
-        suggested = mapping.get(var, "")
-        cli_utils.CONSOLE.print(f"  {{{var}}} -> [green]{suggested or 'n/a'}[/green]")
-
-    state.detection.template_mapping = mapping
-    cli_utils.CONSOLE.print(
-        "\n[dim]Mappings are inferred from column names. Edit the cache file later if a mapping looks off.[/dim]"
-    )
-    if not any(mapping.values()):
-        cli_utils.CONSOLE.print(
-            "[yellow]No column mappings found. The template will be kept as-is and placeholders remain user-provided at runtime; generation will not auto-fill these variables.[/yellow]"
-        )
-    cli_utils.CONSOLE.print("\n[green]v Template mappings recorded[/green]")
-    return state
-
-
 # =============================================================================
-# Phase 2: Conditional Wizard Steps (existing steps, now with conditional logic)
+# Phase 2: Task Definition Step (includes template handling)
 # =============================================================================
 
 
@@ -358,7 +286,7 @@ def wizard_step_task(state: WizardState, auto_accept: bool = False) -> WizardSta
             "[bold green]Using detected task definition from your documents.[/bold green]\n"
         )
 
-        # Build summary of detected elements
+        # Build summary of detected elements (including template if present)
         detected_parts = []
         detected_parts.append(
             f"[bold]Task:[/bold] {state.detection.task_definition}"
@@ -366,96 +294,52 @@ def wizard_step_task(state: WizardState, auto_accept: bool = False) -> WizardSta
         if state.detection.system_prompt:
             detected_parts.append(f"[bold]System Prompt:[/bold]\n{state.detection.system_prompt}")
 
+        # Show template inline if detected
+        if state.detection.has_user_prompt_template and state.detection.user_prompt_template:
+            detected_parts.append(f"[bold]User Prompt Template:[/bold]\n{state.detection.user_prompt_template}")
+            if state.detection.template_variables:
+                vars_str = ", ".join(state.detection.template_variables)
+                detected_parts.append(f"[bold]Template Variables:[/bold] {vars_str}")
+
         cli_utils.CONSOLE.print(
             Panel(
                 "\n\n".join(detected_parts),
-                title="[green]Detected Task[/green]",
+                title="[green]Detected Task & Template[/green]",
                 border_style="green",
             )
         )
 
-        # Ask for confirmation
-        if Confirm.ask("Use this detected task?", default=auto_accept or True):
+        # Single confirmation for task + template
+        if Confirm.ask("Use this detected task" + (" and template" if state.detection.has_user_prompt_template else "") + "?", default=auto_accept or True):
             state.task.description = state.detection.task_definition
             state.task.system_prompt = (
                 state.detection.system_prompt
                 or generate_system_prompt(state, state.llm_analyzer)
             )
 
-            # Infer task type
-            with cli_utils.CONSOLE.status(
-                "[dim]Detecting task type...[/dim]", spinner="dots"
-            ):
-                task_type, _ = infer_task_type(
-                    state.task.description,
-                    state.task.system_prompt,
-                    state.llm_analyzer,
-                )
-                state.task.task_type = task_type
+            # Auto-infer template mappings if template exists
+            if state.detection.has_user_prompt_template and state.detection.template_variables:
+                if not state.detection.template_mapping:
+                    cli_utils.CONSOLE.print("[dim]Inferring template variable mappings...[/dim]")
+                    from .helpers import clarify_template_variables
+                    state.detection.template_mapping = clarify_template_variables(
+                        state.detection.user_prompt_template,
+                        state.detection.template_variables,
+                        state.primary_schema,
+                        state.llm_analyzer
+                    )
 
-            cli_utils.CONSOLE.print("[green]v Task defined from detection[/green]")
-            return state
+                # Show inferred mappings
+                if state.detection.template_mapping:
+                    cli_utils.CONSOLE.print("\n[bold]Template Variable Mappings:[/bold]")
+                    for var, col in state.detection.template_mapping.items():
+                        cli_utils.CONSOLE.print(f"  {{{var}}} -> [green]{col or 'n/a'}[/green]")
+                    cli_utils.CONSOLE.print("[dim](Mappings are auto-inferred; edit cache file later if needed)[/dim]")
 
-    # Fall back to original extraction logic if detection didn't find task
-    extracted_use_case = None
-    if not state.detection.has_task_definition:
-        with cli_utils.CONSOLE.status(
-            "[dim]Analyzing your files for use case specification...[/dim]", spinner="dots"
-        ):
-            extracted_use_case = extract_use_case_from_documents(
-                state.files, state.llm_analyzer
-            )
-
-    if extracted_use_case and extracted_use_case.has_explicit_use_case:
-        # Customer provided explicit use case - show what we extracted
-        cli_utils.CONSOLE.print(
-            "[bold green]Found explicit use case in your documents![/bold green]\n"
-        )
-
-        # Build summary of extracted elements
-        extracted_parts = []
-        if extracted_use_case.task_description:
-            extracted_parts.append(
-                f"[bold]Task:[/bold] {extracted_use_case.task_description}"
-            )
-        if extracted_use_case.system_prompt:
-            # Truncate for display
-            extracted_parts.append(f"[bold]System Prompt:[/bold]\n{extracted_use_case.system_prompt}")
-        if extracted_use_case.output_schema:
-            extracted_parts.append(
-                f"[bold]Output Schema:[/bold] {extracted_use_case.output_schema}"
-            )
-        if extracted_use_case.input_fields:
-            extracted_parts.append(
-                f"[bold]Input Fields:[/bold] {', '.join(extracted_use_case.input_fields)}"
-            )
-        if extracted_use_case.output_fields:
-            extracted_parts.append(
-                f"[bold]Output Fields:[/bold] {', '.join(extracted_use_case.output_fields)}"
-            )
-
-        cli_utils.CONSOLE.print(
-            Panel(
-                "\n\n".join(extracted_parts),
-                title="[green]Extracted Use Case[/green]",
-                border_style="green",
-            )
-        )
-
-        # Ask if user wants to use extracted use case
-        if Confirm.ask("Use this extracted use case?", default=auto_accept or True):
-            # Use extracted values
-            state.task.description = (
-                extracted_use_case.task_description
-                or "Process input according to the provided specification"
-            )
-            state.task.system_prompt = (
-                extracted_use_case.system_prompt
-                or generate_system_prompt(state, state.llm_analyzer)
-            )
-
-            # Store additional extracted info for later use
-            state.extracted_use_case = extracted_use_case
+                if not any(state.detection.template_mapping.values()):
+                    cli_utils.CONSOLE.print(
+                        "\n[yellow]No column mappings found. Template placeholders remain user-provided at runtime.[/yellow]"
+                    )
 
             # Infer task type
             with cli_utils.CONSOLE.status(
@@ -465,13 +349,15 @@ def wizard_step_task(state: WizardState, auto_accept: bool = False) -> WizardSta
                     state.task.description,
                     state.task.system_prompt,
                     state.llm_analyzer,
+                    state.domain_analysis,
                 )
                 state.task.task_type = task_type
 
-            cli_utils.CONSOLE.print("[green]v Task defined from your documentation[/green]")
+            cli_utils.CONSOLE.print("[green]v Task" + (" and template" if state.detection.has_user_prompt_template else "") + " defined from detection[/green]")
             return state
 
     # Fall back to generating task suggestions
+    # Note: Detection already ran extract_use_case_from_documents(), so no need to re-run
     with cli_utils.CONSOLE.status("[dim]Generating task suggestions...[/dim]", spinner="dots"):
         analysis = analyze_task_from_files(
             state.files, state.llm_analyzer, state.domain_analysis
@@ -515,7 +401,7 @@ def wizard_step_task(state: WizardState, auto_accept: bool = False) -> WizardSta
     # Infer task type
     with cli_utils.CONSOLE.status("[dim]Detecting task type...[/dim]", spinner="dots"):
         task_type, _ = infer_task_type(
-            state.task.description, state.task.system_prompt, state.llm_analyzer
+            state.task.description, state.task.system_prompt, state.llm_analyzer, state.domain_analysis
         )
         state.task.task_type = task_type
 
@@ -538,7 +424,7 @@ def wizard_step_task(state: WizardState, auto_accept: bool = False) -> WizardSta
         # Re-infer task type based on updated prompt
         with cli_utils.CONSOLE.status("[dim]Updating task type...[/dim]", spinner="dots"):
             task_type, _ = infer_task_type(
-                state.task.description, state.task.system_prompt, state.llm_analyzer
+                state.task.description, state.task.system_prompt, state.llm_analyzer, state.domain_analysis
             )
             state.task.task_type = task_type
 
@@ -555,117 +441,13 @@ def wizard_step_task(state: WizardState, auto_accept: bool = False) -> WizardSta
     return state
 
 
-def wizard_step_inputs(state: WizardState, auto_accept: bool = False) -> WizardState:
-    """Step 2: Define input distribution.
-
-    Requires explicit user confirmation before proceeding.
-
-    Args:
-        state: Current wizard state.
-        auto_accept: If True, default to accepting suggestions.
-
-    Returns:
-        Updated state with input spec.
-    """
-    _print_flow("inputs", state, template_applicable=state.detection.has_user_prompt_template)
-    cli_utils.CONSOLE.print(
-        "\n[bold cyan]--- Inputs & Distribution ---[/bold cyan]\n"
-    )
-
-    detection_result = state.detection
-    used_detection = False
-
-    # Prefer detected examples/prompts when available
-    if detection_result.has_labeled_examples and detection_result.labeled_examples:
-        cli_utils.CONSOLE.print(
-            "[green]Detected labeled examples - using them to shape inputs.[/green]\n"
-        )
-        state.inputs.format = "single_turn"
-        state.inputs.source_column = detection_result.input_column or "detected_examples"
-        state.inputs.samples = [
-            str(ex.get("input", ""))
-            for ex in detection_result.labeled_examples[:3]
-            if ex.get("input")
-        ]
-        used_detection = True
-    elif detection_result.has_unlabeled_prompts and detection_result.unlabeled_prompts:
-        cli_utils.CONSOLE.print(
-            "[green]Detected unlabeled prompts - using them as input seeds.[/green]\n"
-        )
-        state.inputs.format = "single_turn"
-        state.inputs.source_column = detection_result.prompt_column or "prompt"
-        state.inputs.samples = [
-            str(p) for p in detection_result.unlabeled_prompts[:3] if p
-        ]
-        used_detection = True
-
-    # Otherwise detect input source from schema
-    if not used_detection:
-        if state.primary_schema:
-            with cli_utils.CONSOLE.status("[dim]Analyzing data for best input columns...[/dim]", spinner="dots"):
-                detected_source = detect_input_source(state, state.llm_analyzer)
-        else:
-            detected_source = fallback_input_detection(state)
-
-        state.inputs.source_column = detected_source["source_column"]
-        state.inputs.format = detected_source["format"]
-        state.inputs.samples = detected_source["samples"]
-
-    # Display summary
-    format_name = INPUT_FORMATS.get(state.inputs.format, state.inputs.format)
-    summary_parts = [f"[bold]Format:[/bold] {format_name}"]
-    if state.inputs.source_column:
-        summary_parts.append(f"[bold]Source column:[/bold] {state.inputs.source_column}")
-    if state.inputs.samples:
-        summary_parts.append("\n[bold]Sample inputs:[/bold]")
-        for i, sample in enumerate(state.inputs.samples[:3], 1):
-            summary_parts.append(f"  {i}. {sample}")
-
-    cli_utils.CONSOLE.print(
-        Panel("\n".join(summary_parts), title="[green]Input Configuration[/green]", border_style="green")
-    )
-
-    # Require explicit confirmation
-    while not Confirm.ask("Accept this input configuration?", default=auto_accept):
-        # Show available columns if schema exists
-        if state.primary_schema and state.primary_schema.columns:
-            cli_utils.CONSOLE.print("\n[bold]Available columns:[/bold]")
-            for col in state.primary_schema.columns:
-                cli_utils.CONSOLE.print(f"  - {col.name} ({col.dtype})")
-
-        state.inputs.source_column = Prompt.ask(
-            "\nInput column name",
-            default=state.inputs.source_column,
-        )
-
-        # Update samples for new column
-        if state.inputs.source_column and state.primary_schema and state.primary_schema.sample_rows:
-            state.inputs.samples = [
-                str(row.get(state.inputs.source_column, ""))
-                for row in state.primary_schema.sample_rows[:3]
-                if row.get(state.inputs.source_column)
-            ]
-
-        # Show updated summary
-        format_name = INPUT_FORMATS.get(state.inputs.format, state.inputs.format)
-        summary_parts = [f"[bold]Format:[/bold] {format_name}"]
-        if state.inputs.source_column:
-            summary_parts.append(f"[bold]Source column:[/bold] {state.inputs.source_column}")
-        if state.inputs.samples:
-            summary_parts.append("\n[bold]Sample inputs:[/bold]")
-            for i, sample in enumerate(state.inputs.samples[:3], 1):
-                summary_parts.append(f"  {i}. {sample}")
-
-        cli_utils.CONSOLE.print(
-            Panel("\n".join(summary_parts), title="[green]Updated Input Configuration[/green]", border_style="green")
-        )
-
-    cli_utils.CONSOLE.print("[green]v Inputs configured[/green]")
-    return state
+# =============================================================================
+# Phase 3: Quality Criteria Step
+# =============================================================================
 
 
 def wizard_step_outputs(state: WizardState, auto_accept: bool = False) -> WizardState:
-    """Step 3: Define output quality criteria.
+    """Step 3: Define quality criteria for evaluation.
 
     Merges extracted criteria from documents with generated suggestions,
     allowing user to select from both sources.
@@ -675,15 +457,17 @@ def wizard_step_outputs(state: WizardState, auto_accept: bool = False) -> Wizard
         auto_accept: If True, default to accepting suggestions.
 
     Returns:
-        Updated state with output criteria.
+        Updated state with quality criteria.
     """
     _print_flow("outputs", state, template_applicable=state.detection.has_user_prompt_template)
     cli_utils.CONSOLE.print(
-        "\n[bold cyan]--- Output Quality ---[/bold cyan]\n"
+        "\n[bold cyan]--- Quality Criteria ---[/bold cyan]\n"
     )
 
     extracted_criteria = []
+    extracted_descriptions = {}
     generated_criteria = []
+    generated_descriptions = {}
 
     # Check for extracted criteria from detection
     if state.detection.has_eval_criteria and state.detection.eval_criteria:
@@ -692,27 +476,47 @@ def wizard_step_outputs(state: WizardState, auto_accept: bool = False) -> Wizard
             f"[green]Found {len(extracted_criteria)} criteria in your documents[/green]\n"
         )
 
-    # Generate additional suggestions
-    with cli_utils.CONSOLE.status("[dim]Generating additional quality criteria...[/dim]", spinner="dots"):
-        generated_criteria = suggest_quality_criteria(state, state.llm_analyzer)
+    # Smart generation: only generate if extracted criteria insufficient
+    if len(extracted_criteria) >= 5 and state.detection.eval_confidence > 0.7:
+        # Have sufficient high-quality criteria, skip generation
+        cli_utils.CONSOLE.print("[dim]Using extracted criteria (sufficient quality)[/dim]\n")
+        merged_criteria = extracted_criteria[:7]
+        criteria_sources = {c: "extracted" for c in merged_criteria}
+        criteria_descriptions = extracted_descriptions
+    else:
+        # Generate to supplement
+        with cli_utils.CONSOLE.status("[dim]Generating additional quality criteria...[/dim]", spinner="dots"):
+            generated_criteria, generated_descriptions = suggest_quality_criteria(state, state.llm_analyzer)
 
-    merged_criteria, criteria_sources = merge_criteria(
-        extracted_criteria, generated_criteria
-    )
+        merged_criteria, criteria_sources, criteria_descriptions = merge_criteria(
+            extracted_criteria, generated_criteria,
+            extracted_descriptions, generated_descriptions
+        )
 
     state.outputs.criteria = merged_criteria[:7]  # Limit to 7 criteria
     state.outputs.criteria_sources = {
         c: source for c, source in criteria_sources.items() if c in state.outputs.criteria
     }
+    state.outputs.criteria_descriptions = {
+        c: desc for c, desc in criteria_descriptions.items() if c in state.outputs.criteria
+    }
 
-    # Display summary with sources
-    cli_utils.CONSOLE.print("[bold]Quality criteria:[/bold]")
+    # Display summary with sources and descriptions
+    cli_utils.CONSOLE.print("[bold]Quality criteria:[/bold]\n")
     for i, c in enumerate(state.outputs.criteria, 1):
         source = criteria_sources.get(c, "")
+        desc = criteria_descriptions.get(c, "")
+
         if source == "extracted":
-            cli_utils.CONSOLE.print(f"  {i}. {c} [green](from docs)[/green]")
+            source_label = "[green](from docs)[/green]"
         else:
-            cli_utils.CONSOLE.print(f"  {i}. {c} [dim](generated)[/dim]")
+            source_label = "[dim](generated)[/dim]"
+
+        cli_utils.CONSOLE.print(f"  {i}. [bold]{c}[/bold] {source_label}")
+        if desc:
+            # Indent and wrap description
+            cli_utils.CONSOLE.print(f"     [dim]{desc}[/dim]")
+        cli_utils.CONSOLE.print()  # Empty line between criteria
 
     # Require explicit confirmation
     while not Confirm.ask("\nAccept these criteria?", default=auto_accept):
@@ -769,6 +573,37 @@ def wizard_step_generate(
         mode_desc = "Full synthesis from scratch"
 
     cli_utils.CONSOLE.print(f"[bold]Mode:[/bold] {generation_mode} ({mode_desc})")
+
+    # Determine input configuration from detection (replaces wizard_step_inputs)
+    if detection.has_labeled_examples:
+        # Use labeled examples
+        state.inputs.format = "single_turn"
+        state.inputs.source_column = detection.input_column or "detected_examples"
+        if detection.labeled_examples:
+            state.inputs.samples = [
+                str(ex.get("input", ""))
+                for ex in detection.labeled_examples[:3]
+                if ex.get("input")
+            ]
+    elif detection.has_unlabeled_prompts:
+        # Use unlabeled prompts
+        state.inputs.format = "single_turn"
+        state.inputs.source_column = detection.prompt_column or "prompt"
+        if detection.unlabeled_prompts:
+            state.inputs.samples = [
+                str(p) for p in detection.unlabeled_prompts[:3] if p
+            ]
+    else:
+        # Use schema-based detection or fallback
+        state.inputs.format = "single_turn"
+        state.inputs.source_column = detection.input_column or detection.prompt_column
+        if not state.inputs.source_column and state.primary_schema:
+            # Fallback: use first text column
+            for col in state.primary_schema.columns:
+                if col.is_text:
+                    state.inputs.source_column = col.name
+                    break
+
     cli_utils.CONSOLE.print("[dim]Generating synthesis config...[/dim]")
     synth_builder = SynthConfigBuilder()
 
@@ -806,14 +641,25 @@ def wizard_step_generate(
         judge_builder = JudgeConfigBuilder()
 
         for criterion in state.outputs.criteria[:3]:
-            judge_name = criterion.lower().replace(" ", "_")[:20]
+            # Sanitize criterion name for use as filename
+            judge_name = re.sub(r'[^a-z0-9_-]+', '_', criterion.lower())[:20].strip('_')
+            if not judge_name:  # Fallback if sanitization results in empty string
+                judge_name = f"criterion_{len(judge_paths)}"
+
+            # Use full description if available, otherwise generate a simple one
+            if criterion in state.outputs.criteria_descriptions:
+                criteria_text = state.outputs.criteria_descriptions[criterion]
+            else:
+                criteria_text = f"Evaluate whether the response is {criterion}"
+
             judge_config = judge_builder.build(
                 schema=state.primary_schema,
                 judge_name=judge_name,
-                criteria=f"Evaluate whether the response is {criterion}",
+                criteria=criteria_text,
                 task_type=state.task.task_type if state.task else "generation",
                 task_description=state.task.description if state.task else "",
                 domain=state.domain_analysis,
+                llm_analyzer=state.llm_analyzer,
             )
             judge_path = output_path / f"judge_{judge_name}.yaml"
             judge_config.to_yaml(str(judge_path), exclude_defaults=True)

@@ -142,13 +142,14 @@ def derive_task_name(description: str) -> str:
     return truncated + "..."
 
 
-def infer_task_type(description: str, system_prompt: str, llm_analyzer) -> tuple[str, str]:
+def infer_task_type(description: str, system_prompt: str, llm_analyzer, domain_analysis=None) -> tuple[str, str]:
     """Infer the task type from description and system prompt.
 
     Args:
         description: Task description.
         system_prompt: Generated system prompt.
         llm_analyzer: LLMAnalyzer instance.
+        domain_analysis: Optional DomainAnalysis for better classification.
 
     Returns:
         Tuple of (task_type, example_output_format).
@@ -158,12 +159,20 @@ def infer_task_type(description: str, system_prompt: str, llm_analyzer) -> tuple
         for key, info in TASK_TYPES.items()
     ])
 
-    prompt = load_prompt(
-        "infer_task_type",
-        description=description,
-        system_prompt=system_prompt,
-        task_types_str=task_types_str,
-    )
+    # Build context for prompt
+    context = {
+        "description": description,
+        "system_prompt": system_prompt,
+        "task_types_str": task_types_str,
+    }
+
+    # Add domain context if available
+    if domain_analysis:
+        context["domain"] = domain_analysis.domain
+        if domain_analysis.terminology:
+            context["terminology"] = ", ".join(domain_analysis.terminology[:5])
+
+    prompt = load_prompt("infer_task_type", **context)
 
     try:
         result = llm_analyzer._invoke_json(prompt)
@@ -330,7 +339,9 @@ def detect_all_elements(
     result = DetectionResult()
 
     # 1. Detect labeled examples (input-output pairs)
-    labeled_result = detect_labeled_examples(files, primary_schema, llm_analyzer)
+    labeled_result = detect_labeled_examples(
+        files, primary_schema, llm_analyzer, domain_analysis
+    )
     if labeled_result:
         result.has_labeled_examples = labeled_result.get("has_labeled_examples", False)
         result.labels_confidence = labeled_result.get("confidence", 0.0)
@@ -341,7 +352,9 @@ def detect_all_elements(
     # 2. Detect unlabeled prompts (inputs without outputs)
     # Only check if no labeled examples found
     if not result.has_labeled_examples:
-        unlabeled_result = detect_unlabeled_prompts(files, primary_schema, llm_analyzer)
+        unlabeled_result = detect_unlabeled_prompts(
+            files, primary_schema, llm_analyzer, domain_analysis
+        )
         if unlabeled_result:
             result.has_unlabeled_prompts = unlabeled_result.get(
                 "has_unlabeled_prompts", False
@@ -407,7 +420,10 @@ def detect_all_elements(
 
 
 def detect_labeled_examples(
-    files: list[dict], primary_schema: Any, llm_analyzer
+    files: list[dict],
+    primary_schema: Any,
+    llm_analyzer,
+    domain_analysis: Any = None,
 ) -> Optional[dict]:
     """Detect if the data contains labeled training examples (input-output pairs).
 
@@ -415,6 +431,7 @@ def detect_labeled_examples(
         files: List of file info dicts.
         primary_schema: Primary data schema.
         llm_analyzer: LLMAnalyzer instance.
+        domain_analysis: Optional domain analysis for context.
 
     Returns:
         Dict with detection results, or None if detection fails.
@@ -445,8 +462,8 @@ def detect_labeled_examples(
                 for row in primary_schema.sample_rows[:10]:
                     if input_col in row and output_col in row:
                         examples.append({
-                            "input": str(row[input_col])[:500],
-                            "output": str(row[output_col])[:500],
+                            "input": str(row[input_col]),
+                            "output": str(row[output_col]),
                         })
 
             result["examples"] = examples
@@ -457,7 +474,10 @@ def detect_labeled_examples(
 
 
 def detect_unlabeled_prompts(
-    files: list[dict], primary_schema: Any, llm_analyzer
+    files: list[dict],
+    primary_schema: Any,
+    llm_analyzer,
+    domain_analysis: Any = None,
 ) -> Optional[dict]:
     """Detect if the data contains unlabeled prompts (inputs without outputs).
 
@@ -465,6 +485,7 @@ def detect_unlabeled_prompts(
         files: List of file info dicts.
         primary_schema: Primary data schema.
         llm_analyzer: LLMAnalyzer instance.
+        domain_analysis: Optional domain analysis for context.
 
     Returns:
         Dict with detection results, or None if detection fails.
@@ -492,7 +513,7 @@ def detect_unlabeled_prompts(
             if prompt_col and primary_schema.sample_rows:
                 for row in primary_schema.sample_rows[:20]:
                     if prompt_col in row and row[prompt_col]:
-                        prompts.append(str(row[prompt_col])[:500])
+                        prompts.append(str(row[prompt_col]))
 
             result["prompts"] = prompts
 

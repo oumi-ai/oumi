@@ -99,10 +99,13 @@ class OutputSpec:
     """Output specification - quality criteria."""
 
     criteria: list = field(default_factory=list)
-    """What makes a good response (user-provided list)."""
+    """What makes a good response (list of criterion names)."""
 
     criteria_sources: dict = field(default_factory=dict)
     """Source of each criterion: {"accurate": "extracted", "helpful": "generated"}."""
+
+    criteria_descriptions: dict = field(default_factory=dict)
+    """Description of each criterion: {"accurate": "Factually correct without hallucinations"}."""
 
 
 @dataclass

@@ -1,6 +1,13 @@
 Generate a response to this prompt.
 
 Task: {{ task_description }}
+{% if domain %}
+
+## Domain Context
+- Domain: {{ domain.domain }}
+- Key terms: {{ domain.terminology|join(', ') if domain.terminology else 'N/A' }}
+- Quality indicators: {{ domain.quality_signals|join(', ') if domain.quality_signals else 'N/A' }}
+{% endif %}
 {% if output_format %}
 
 Expected output style:

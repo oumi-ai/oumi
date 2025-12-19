@@ -1,31 +1,91 @@
-Suggest 3-5 quality criteria for evaluating model responses on this task.
+You are helping define evaluation criteria for a production ML model. These criteria will be used to make SHIP/NO-SHIP decisions - determining whether model outputs are safe and acceptable for production use.
 
 ## Task
 {{ task_description }}
 
-## Guidelines for Good Criteria
-1. Be specific to the task (avoid generic criteria like "good" or "nice")
-2. Focus on measurable or observable qualities
-3. Cover different aspects: correctness, format, style, completeness
-4. Use single words or short phrases (1-3 words each)
+{% if task_type %}
+## Task Type
+{{ task_type }}
+{% endif %}
 
-## Task-Specific Criteria Examples
-- Extraction tasks: accurate, complete, properly_formatted, no_hallucination
-- Classification tasks: correct_label, confident, well_reasoned
-- Generation tasks: fluent, relevant, coherent, on_topic, appropriate_length
-- QA tasks: factually_correct, well_sourced, concise, directly_answers_question
-- Summarization: captures_key_points, concise, no_fabrication, readable
-- Customer support: professional_tone, actionable, empathetic, solution_oriented
+{% if domain %}
+## Domain
+{{ domain }}
+{% endif %}
 
-## Common Quality Dimensions
-- Correctness: accurate, factual, correct, truthful
-- Completeness: thorough, comprehensive, complete, addresses_all_parts
-- Clarity: clear, readable, well_structured, coherent
-- Relevance: on_topic, relevant, focused, directly_addresses_task
-- Format: properly_formatted, follows_instructions, appropriate_length
-- Tone: professional, friendly, appropriate_formality
+{% if quality_signals %}
+## Known Quality Indicators
+{{ quality_signals }}
+{% endif %}
 
-Return a JSON array with 3-5 criteria most relevant to this specific task:
-["criterion1", "criterion2", "criterion3"]
+{% if system_prompt %}
+## System Prompt Context
+{{ system_prompt }}
+{% endif %}
 
-Return ONLY the JSON array.
+## Your Goal
+Generate 3-5 **specific, actionable, binary-checkable** evaluation criteria that would help decide whether to ship this model to production.
+
+## Critical Requirements
+1. **Specific to this task** - NOT generic criteria like "good quality" or "nice output"
+2. **Actionable** - A human judge should be able to clearly say YES or NO for each criterion
+3. **Catches real failures** - Focus on criteria that would catch outputs you'd block from going to users
+4. **Binary checkable** - Each criterion should be answerable as pass/fail (yes/no)
+5. **Short phrases** - Use 1-3 words per criterion (e.g., "factually_accurate", "no_hallucination")
+
+## Evaluation Mindset
+Think like a quality gate: What could go WRONG with model outputs on this task? What would make an output unacceptable for users?
+
+## Task-Specific Failure Modes to Consider
+- **Extraction**: hallucinated_fields, missing_required_info, wrong_format, extracts_nonexistent_data
+- **Classification**: wrong_category, low_confidence, misses_obvious_signals, inconsistent_reasoning
+- **Generation**: fabricates_facts, off_topic, inappropriate_tone, ignores_constraints, too_verbose
+- **QA**: factually_wrong, dodges_question, provides_outdated_info, cites_fake_sources
+- **Summarization**: invents_details, misses_key_points, distorts_meaning, copies_verbatim
+- **Code**: security_vulnerability, runtime_error, wrong_logic, poor_performance, unmaintainable
+- **Customer support**: dismissive_tone, suggests_harmful_action, ignores_urgency, provides_wrong_info
+- **Medical/Legal/Finance**: gives_advice_outside_scope, contradicts_regulations, dangerous_recommendation
+
+## Common Critical Dimensions (Choose Most Relevant)
+- **Correctness**: factually_accurate, logically_sound, no_hallucination, correct_reasoning
+- **Safety**: no_harmful_content, appropriate_boundaries, follows_guidelines, safe_recommendations
+- **Completeness**: addresses_full_question, includes_key_info, no_critical_omissions
+- **Format adherence**: follows_format, parseable_output, correct_structure, proper_syntax
+- **Relevance**: directly_addresses_task, stays_on_topic, no_tangents
+- **Reliability**: consistent_with_sources, verifiable_claims, no_fabrication
+- **Appropriateness**: suitable_tone, respects_context, professional_language
+
+## Examples of GOOD Criteria (Task-Specific, Binary, Actionable)
+✓ "no_hallucinated_entities" (for extraction: checks if output invents non-existent information)
+✓ "addresses_user_question" (for QA: checks if response actually answers what was asked)
+✓ "follows_json_schema" (for structured output: checks if output is valid JSON matching spec)
+✓ "no_security_vulnerabilities" (for code: checks for SQL injection, XSS, etc.)
+✓ "medically_safe" (for health advice: checks if advice could harm users)
+✓ "cites_real_sources" (for research: checks if references are valid, not fabricated)
+
+## Examples of BAD Criteria (Too Generic, Not Actionable)
+✗ "good_quality" (too vague - what makes it good?)
+✗ "helpful" (subjective - helpful how?)
+✗ "nice" (meaningless for ship/no-ship)
+✗ "appropriate" (too broad - appropriate in what way?)
+✗ "looks_fine" (not checkable)
+
+Return a JSON array with 3-5 criteria objects that are **most critical for catching failures** in this specific task.
+
+Each criterion should have:
+- **name**: Short identifier using underscores (e.g., "factually_accurate", "no_harmful_content")
+- **description**: 1-2 sentence explanation of what this criterion checks and why it matters for production quality
+
+Example format:
+[
+  {
+    "name": "no_hallucinated_entities",
+    "description": "Checks that the model does not invent entities, facts, or information that don't exist in the source material. Critical for preventing fabricated information from reaching users."
+  },
+  {
+    "name": "addresses_user_question",
+    "description": "Verifies that the response directly answers what the user asked, rather than deflecting or providing tangential information. Essential for user satisfaction."
+  }
+]
+
+Return ONLY the JSON array of criterion objects.

@@ -16,7 +16,7 @@ Templates often contain {placeholders} or similar markers that get replaced with
    - "Based on this context: {context}\n\nQuestion: {query}"
    - "Classify this text: {text}\nCategories: {categories}"
 
-2. **Variable references**: {curly_braces}, {{double_braces}}, or $variable markers
+2. **Variable references**: {curly_braces}, {% raw %}{{double_braces}}{% endraw %}, or $variable markers
 
 3. **Structured prompts**: Instructions that reference input fields
 
@@ -37,7 +37,7 @@ Return a JSON object:
 
 ## Guidelines
 - Extract the template VERBATIM - do not modify or paraphrase
-- Preserve the exact placeholder syntax used ({}, {{}}, etc.)
+- Preserve the exact placeholder syntax used ({}, {% raw %}{{}}{% endraw %}, etc.)
 - For suggested_mapping, match variable names to similar column names
 - Set has_template to false if no clear template pattern is found
 - If multiple templates exist, extract the most complete/primary one

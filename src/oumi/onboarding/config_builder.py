@@ -714,40 +714,57 @@ class JudgeConfigBuilder(ConfigBuilder):
         task_description: str = "",
         domain: Optional["DomainAnalysis"] = None,
         output_format: Optional[str] = None,
-        judgment_type: JudgeOutputType = JudgeOutputType.FLOAT,
+        judgment_type: JudgeOutputType = JudgeOutputType.BOOL,
+        llm_analyzer: Optional[Any] = None,
     ) -> JudgeConfig:
-        """Build a JudgeConfig with task-specific evaluation criteria.
+        """Build a JudgeConfig with LLM-generated evaluation prompts.
 
         Args:
             schema: The analyzed data schema.
             judge_name: A short name for this judge (e.g., "accuracy", "helpfulness").
-            criteria: The specific evaluation criteria.
+            criteria: The specific evaluation criteria description.
             task_type: Task type (extraction, classification, qa, etc.).
             task_description: User's task description.
             domain: Optional DomainAnalysis for domain-specific evaluation.
             output_format: Expected output format for evaluation.
-            judgment_type: The type of judgment output (FLOAT, BOOL, or LIKERT).
+            judgment_type: The type of judgment output (BOOL, FLOAT, or LIKERT).
+            llm_analyzer: Optional LLMAnalyzer for generating custom prompts.
 
         Returns:
-            A configured JudgeConfig with task-specific evaluation prompts.
+            A configured JudgeConfig with generated evaluation prompts.
         """
-        # Map task_type to judge template
-        valid_types = {"extraction", "classification", "qa"}
-        if task_type not in valid_types:
-            logger.warning(
-                f"Unknown task_type '{task_type}' for judge, defaulting to 'generic'. "
-                f"Valid types: {', '.join(sorted(valid_types))}"
+        # Generate custom judge prompt using LLM if available
+        if llm_analyzer:
+            try:
+                template_vars = {
+                    "task_description": task_description,
+                    "criterion_name": judge_name,
+                    "criterion_description": criteria,
+                    "task_type": task_type,
+                    "domain": domain.domain if domain else None,
+                }
+
+                generation_prompt = load_prompt("generate_judge_prompt", **template_vars)
+                prompt_template = llm_analyzer._invoke(generation_prompt).strip()
+
+                # Validate that required placeholders are present
+                if "{input}" not in prompt_template or "{output}" not in prompt_template:
+                    logger.warning(
+                        f"Generated judge prompt missing required placeholders, using fallback"
+                    )
+                    prompt_template = self._fallback_prompt_template(
+                        judge_name, criteria, task_description
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to generate judge prompt: {e}, using fallback")
+                prompt_template = self._fallback_prompt_template(
+                    judge_name, criteria, task_description
+                )
+        else:
+            # No LLM available, use simple fallback
+            prompt_template = self._fallback_prompt_template(
+                judge_name, criteria, task_description
             )
-        template_type = task_type if task_type in valid_types else "generic"
-
-        template_vars = {
-            "task_description": task_description,
-            "criteria": criteria,
-            "domain": domain,
-            "output_format": output_format,
-        }
-
-        prompt_template = load_prompt(f"judge/{template_type}_judge", **template_vars)
 
         system_instruction = f"""You are an expert evaluator assessing '{judge_name}'.
 
@@ -766,6 +783,36 @@ Be thorough, fair, and consistent in your evaluations."""
             judge_params=judge_params,
             inference_config=self._create_inference_config(),
         )
+
+    def _fallback_prompt_template(
+        self, judge_name: str, criteria: str, task_description: str
+    ) -> str:
+        """Generate a simple fallback prompt when LLM generation fails.
+
+        Args:
+            judge_name: Name of the criterion being evaluated.
+            criteria: Description of what to evaluate.
+            task_description: Description of the task.
+
+        Returns:
+            A simple but functional judge prompt template.
+        """
+        return f"""You are evaluating: {judge_name}
+
+## Task Context
+{task_description}
+
+## Evaluation Criterion
+{criteria}
+
+## What to Check
+Based on the criterion above, evaluate whether the output meets the requirements for production quality.
+
+## Content to Evaluate
+Input: {{input}}
+Output: {{output}}
+
+Does the output satisfy this criterion? Provide a clear yes/no assessment."""
 
 
 class TrainConfigBuilder(ConfigBuilder):

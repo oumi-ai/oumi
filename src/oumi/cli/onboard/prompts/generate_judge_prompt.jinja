@@ -1,0 +1,76 @@
+You are designing an evaluation prompt for a production ML system judge. The judge will evaluate model outputs to make ship/no-ship decisions.
+
+## Task Context
+{{ task_description }}
+
+{% if domain %}
+## Domain
+{{ domain }}
+{% endif %}
+
+{% if task_type %}
+## Task Type
+{{ task_type }}
+{% endif %}
+
+## Evaluation Criterion
+**Name:** {{ criterion_name }}
+
+**What to Check:**
+{{ criterion_description }}
+
+## Your Goal
+Generate a clear, actionable judge prompt that:
+1. Explains what to evaluate based on the criterion above
+2. Provides specific yes/no questions to check
+3. Focuses on catching failures that would block production deployment
+4. Uses the criterion description as the primary evaluation guide
+
+## Judge Prompt Structure
+Your generated prompt should include:
+
+**1. Context Section:** Brief explanation of what's being evaluated (reference the criterion)
+
+**2. Evaluation Checklist:** 3-5 specific yes/no questions derived from the criterion description that help determine pass/fail
+
+**3. Decision Framework:** Clear guidance on when to pass vs fail
+
+**4. Content Placeholders:** Include {input} and {output} placeholders for runtime substitution
+
+## Important Guidelines
+- Make it **specific to the criterion** - not generic evaluation questions
+- Frame as **binary pass/fail** - avoid scoring rubrics or scales
+- Focus on **production quality gates** - what would block shipping to users?
+- Keep it **concise** - judges need to evaluate quickly and consistently
+- Use the criterion description as the **source of truth** for what to check
+
+## Example Format
+
+Here's the structure to follow:
+
+```
+You are evaluating: [criterion name]
+
+## What This Checks
+[1-2 sentences from criterion description explaining what's being evaluated]
+
+## Evaluation Questions
+Based on the criterion, check:
+1. [Specific yes/no question derived from criterion]
+2. [Specific yes/no question derived from criterion]
+3. [Specific yes/no question derived from criterion]
+
+## Decision Rule
+- PASS if: [Clear condition based on criterion]
+- FAIL if: [Clear condition based on criterion]
+
+## Content to Evaluate
+Input: {input}
+Output: {output}
+
+Does the output pass this criterion? Evaluate based on the questions above.
+```
+
+Generate a judge prompt following this structure for the criterion provided above.
+
+Return ONLY the judge prompt text (no meta-commentary, no markdown code blocks, just the prompt itself).

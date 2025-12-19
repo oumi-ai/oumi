@@ -183,6 +183,7 @@ class LLMAnalyzer:
         api_key: Optional[str] = None,
         api_key_env_var: Optional[str] = None,
         num_workers: int = 1,
+        verbose: bool = False,
     ):
         """Initialize the LLM analyzer.
 
@@ -193,6 +194,7 @@ class LLMAnalyzer:
             api_key_env_var: Environment variable name for the API key.
                 If not provided, uses default for the engine.
             num_workers: Number of concurrent workers for inference.
+            verbose: If True, log LLM inputs/outputs at INFO level.
         """
         self.engine_type = engine
         self.model = model or self.DEFAULT_MODELS.get(engine, "claude-haiku-4-5")
@@ -201,6 +203,7 @@ class LLMAnalyzer:
             engine, "ANTHROPIC_API_KEY"
         )
         self._num_workers = num_workers
+        self._verbose = verbose
         self._inference_engine = None
 
     def _get_engine_type(self) -> InferenceEngineType:
@@ -258,7 +261,8 @@ class LLMAnalyzer:
 
         conversation = Conversation(messages=messages)
 
-        logger.debug(f"LLM Request: {conversation}")
+        if self._verbose:
+            logger.info(f"LLM Request: {conversation}")
 
         # Create inference config
         inference_config = InferenceConfig(
@@ -277,7 +281,8 @@ class LLMAnalyzer:
                 inference_config=inference_config,
             )
 
-            logger.debug(f"LLM Response: {results}")
+            if self._verbose:
+                logger.info(f"LLM Response: {results}")
 
             # Extract response text from the last message
             if results and results[0].messages:

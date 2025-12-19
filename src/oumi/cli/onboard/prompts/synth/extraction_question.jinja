@@ -1,8 +1,12 @@
 You are generating training data for a structured extraction task.
 
 Task: {{ task_description }}
-{% if domain and domain.terminology %}
-Domain terminology: {{ domain.terminology[:8] | join(', ') }}
+{% if domain %}
+
+## Domain Context
+- Domain: {{ domain.domain }}
+- Key terms: {{ domain.terminology|join(', ') if domain.terminology else 'N/A' }}
+- Quality indicators: {{ domain.quality_signals|join(', ') if domain.quality_signals else 'N/A' }}
 {% endif %}
 {% if sample_rows %}
 
