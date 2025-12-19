@@ -100,7 +100,10 @@ class LlmCompressorQuantization(BaseQuantization):
     def _get_modifier(self, config: QuantizationConfig) -> Any:
         """Get the appropriate modifier based on method configuration."""
         from llmcompressor.modifiers.awq import AWQModifier
-        from llmcompressor.modifiers.quantization import GPTQModifier, QuantizationModifier
+        from llmcompressor.modifiers.quantization import (
+            GPTQModifier,
+            QuantizationModifier,
+        )
 
         method_config = LLMC_METHOD_CONFIG[config.method]
         modifier_type = method_config["modifier"]
@@ -143,9 +146,8 @@ class LlmCompressorQuantization(BaseQuantization):
 
     def _quantize(self, config: QuantizationConfig) -> None:
         """Quantize model using llm_compressor oneshot API."""
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-
         from llmcompressor import oneshot
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
         logger.info(f"Loading model for quantization: {config.model.model_name}")
         logger.info(f"Using method: {config.method}")

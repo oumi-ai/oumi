@@ -114,9 +114,9 @@ class TestLlmCompressorQuantizationE2E:
         generated_text = response[len(prompt) :].strip()
         assert len(generated_text) > 0, "No text was generated"
         # Check that it's not just special characters or numbers
-        assert any(
-            c.isalpha() for c in generated_text
-        ), "Generated text contains no letters"
+        assert any(c.isalpha() for c in generated_text), (
+            "Generated text contains no letters"
+        )
 
     def test_quantized_model_size_reduction(self, output_dir):
         """Test that quantization actually reduces model size."""
