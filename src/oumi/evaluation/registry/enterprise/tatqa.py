@@ -110,7 +110,6 @@ def enterprise_tatqa(
     Returns:
         Dictionary with exact match and F1 metrics
     """
-
     if not Path(test_data_path).exists():
         raise FileNotFoundError(
             f"Test data not found at {test_data_path}. "

@@ -145,7 +145,6 @@ def enterprise_nl2sql(
     Returns:
         Dictionary with edit distance and exact match metrics
     """
-
     if not Path(test_data_path).exists():
         raise FileNotFoundError(
             f"Test data not found at {test_data_path}. "

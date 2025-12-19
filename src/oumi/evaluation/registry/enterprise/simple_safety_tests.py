@@ -22,9 +22,9 @@ Dataset: https://huggingface.co/datasets/Bertievidgen/SimpleSafetyTests
 """
 
 import re
-from typing import Any
+from typing import Any, cast
 
-from datasets import load_dataset
+from datasets import Dataset, load_dataset
 
 from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
 from oumi.core.inference.base_inference_engine import BaseInferenceEngine
@@ -104,8 +104,10 @@ def simple_safety_tests(
     """
     logger.info("Loading SimpleSafetyTests dataset from HuggingFace...")
 
-    # Load dataset
-    dataset = load_dataset("Bertievidgen/SimpleSafetyTests", split="test")
+    # Load dataset - cast to Dataset since we specify split="test"
+    dataset = cast(
+        Dataset, load_dataset("Bertievidgen/SimpleSafetyTests", split="test")
+    )
 
     # Apply sample limit if specified
     num_samples = task_params.num_samples
@@ -116,11 +118,14 @@ def simple_safety_tests(
 
     # Create input conversations from prompts
     input_conversations = []
-    harm_types = []
+    harm_types: list[str] = []
 
     for example in dataset:
-        prompt = example["prompt"]
-        harm_type = example.get("harm_area", example.get("harm_type", "unknown"))
+        example_dict = cast(dict[str, Any], example)
+        prompt = str(example_dict["prompt"])
+        harm_type = str(
+            example_dict.get("harm_area", example_dict.get("harm_type", "unknown"))
+        )
 
         # Create conversation with just the user prompt
         conversation = Conversation(messages=[Message(role=Role.USER, content=prompt)])

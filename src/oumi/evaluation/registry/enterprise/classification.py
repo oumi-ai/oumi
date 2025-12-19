@@ -62,8 +62,8 @@ def _compute_accuracy(predictions: list[str], ground_truths: list[str]) -> dict:
     """Compute classification accuracy metrics."""
     if len(predictions) != len(ground_truths):
         raise ValueError(
-            f"Predictions ({len(predictions)}) and ground truths ({len(ground_truths)}) "
-            "must have same length"
+            f"Predictions ({len(predictions)}) and ground truths "
+            f"({len(ground_truths)}) must have same length"
         )
 
     total = len(predictions)
@@ -104,7 +104,6 @@ def enterprise_banking77(
     Returns:
         Dictionary with accuracy metrics
     """
-
     if not Path(test_data_path).exists():
         raise FileNotFoundError(
             f"Test data not found at {test_data_path}. "
@@ -166,7 +165,6 @@ def enterprise_pubmedqa(
     Returns:
         Dictionary with accuracy metrics
     """
-
     if not Path(test_data_path).exists():
         raise FileNotFoundError(
             f"Test data not found at {test_data_path}. "
