@@ -23,7 +23,6 @@ class EvaluationBackend(Enum):
     """Enum representing the evaluation backend to use."""
 
     LM_HARNESS = "lm_harness"
-    ALPACA_EVAL = "alpaca_eval"
     CUSTOM = "custom"
 
 
@@ -36,8 +35,6 @@ class EvaluationTaskParams(BaseParams):
     - LM Harness: Framework for evaluating language models on standard benchmarks.
       A list of all supported tasks can be found at:
       https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
-    - Alpaca Eval: Framework for evaluating language models on instruction-following
-      and quality of responses on open-ended questions.
     - Custom: Users can register their own evaluation functions using the decorator
       `@register_evaluation_function`. The task_name should be the registry key for
       the custom evaluation function to be used.
@@ -50,14 +47,6 @@ class EvaluationTaskParams(BaseParams):
                 evaluation_backend="lm_harness",
                 task_name="mmlu",
                 eval_kwargs={"num_fewshot": 5}
-            )
-
-
-        .. code-block:: python
-
-            # Alpaca Eval 2.0 evaluation
-            params = EvaluationTaskParams(
-                evaluation_backend="alpaca_eval"
             )
 
 
@@ -128,8 +117,6 @@ class EvaluationTaskParams(BaseParams):
             )
         elif self.evaluation_backend == EvaluationBackend.LM_HARNESS.value:
             return EvaluationBackend.LM_HARNESS
-        elif self.evaluation_backend == EvaluationBackend.ALPACA_EVAL.value:
-            return EvaluationBackend.ALPACA_EVAL
         elif self.evaluation_backend == EvaluationBackend.CUSTOM.value:
             return EvaluationBackend.CUSTOM
         else:
@@ -168,24 +155,3 @@ class LMHarnessTaskParams(EvaluationTaskParams):
             raise ValueError("`task_name` must be a valid LM Harness task.")
         if self.num_fewshot and self.num_fewshot < 0:
             raise ValueError("`num_fewshot` must be non-negative.")
-
-
-@dataclass
-class AlpacaEvalTaskParams(EvaluationTaskParams):
-    """Parameters for the AlpacaEval evaluation framework.
-
-    AlpacaEval is an LLM-based automatic evaluation suite that is fast, cheap,
-    replicable, and validated against 20K human annotations. The latest version
-    (AlpacaEval 2.0) contains 805 prompts (tatsu-lab/alpaca_eval), which are open-ended
-    questions. A model annotator (judge) is used to evaluate the quality of model's
-    responses for these questions and calculates win rates vs. reference responses.
-    The default judge is GPT4 Turbo.
-    """
-
-    version: float | None = 2.0
-    """The version of AlpacaEval to use. Options: 1.0 or 2.0 (default)."""
-
-    def __post_init__(self):
-        """Verifies params."""
-        if self.version not in [1.0, 2.0]:
-            raise ValueError("AlpacaEval `version` must be 1.0 or 2.0.")
