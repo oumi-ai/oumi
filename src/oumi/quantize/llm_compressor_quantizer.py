@@ -23,7 +23,7 @@ from typing_extensions import override
 
 from oumi.core.configs import QuantizationConfig
 from oumi.quantize.base import BaseQuantization, QuantizationResult
-from oumi.quantize.constants import LLMC_METHOD_CONFIG
+from oumi.quantize.constants import LLMC_METHOD_CONFIG, METHOD_ALIASES, resolve_method_alias
 from oumi.quantize.utils import format_size, get_directory_size
 from oumi.utils.logging import logger
 
@@ -34,6 +34,9 @@ class LlmCompressorQuantization(BaseQuantization):
     This class handles quantization using the llm_compressor library,
     supporting AWQ, GPTQ, and FP8 quantization methods with various schemes
     like W4A16, W4A16_ASYM, W8A8, and FP8.
+
+    Also supports legacy AWQ method names (awq_q4_0, awq_q4_1, awq_q8_0) for
+    backwards compatibility.
     """
 
     supported_methods = [
@@ -43,6 +46,8 @@ class LlmCompressorQuantization(BaseQuantization):
         "llmc_W8A8_INT",
         "llmc_W8A8_FP8",
         "llmc_FP8_BLOCK",
+        # Legacy AWQ aliases
+        *list(METHOD_ALIASES.keys()),
     ]
     supported_formats = ["safetensors"]
 
@@ -104,7 +109,9 @@ class LlmCompressorQuantization(BaseQuantization):
             QuantizationModifier,
         )
 
-        method_config = LLMC_METHOD_CONFIG[config.method]
+        # Resolve legacy aliases to canonical method names
+        resolved_method = resolve_method_alias(config.method)
+        method_config = LLMC_METHOD_CONFIG[resolved_method]
         modifier_type = method_config["modifier"]
         scheme = method_config["scheme"]
 
@@ -127,7 +134,9 @@ class LlmCompressorQuantization(BaseQuantization):
         """Build the quantization recipe based on method configuration."""
         from llmcompressor.modifiers.smoothquant import SmoothQuantModifier
 
-        method_config = LLMC_METHOD_CONFIG[config.method]
+        # Resolve legacy aliases to canonical method names
+        resolved_method = resolve_method_alias(config.method)
+        method_config = LLMC_METHOD_CONFIG[resolved_method]
         requires_smoothquant = method_config["requires_smoothquant"]
 
         recipe = []

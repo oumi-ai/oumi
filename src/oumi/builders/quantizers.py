@@ -26,7 +26,8 @@ def build_quantizer(method: str) -> BaseQuantization:
     """Create appropriate quantization instance based on method.
 
     Args:
-        method: Quantization method name (e.g., "llmc_W4A16", "bnb_4bit")
+        method: Quantization method name (e.g., "llmc_W4A16", "bnb_4bit",
+            or legacy aliases like "awq_q4_0")
 
     Returns:
         Instance of appropriate quantization class
@@ -38,7 +39,8 @@ def build_quantizer(method: str) -> BaseQuantization:
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
     from oumi.quantize.llm_compressor_quantizer import LlmCompressorQuantization
 
-    if method.startswith("llmc_"):
+    # Route based on method prefix (awq_ methods are handled by llm_compressor)
+    if method.startswith("llmc_") or method.startswith("awq_"):
         return LlmCompressorQuantization()
     elif method.startswith("bnb_"):
         return BitsAndBytesQuantization()

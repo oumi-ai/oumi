@@ -16,7 +16,7 @@
 
 # Supported quantization methods
 SUPPORTED_METHODS = [
-    # llm_compressor methods (replacing AWQ)
+    # llm_compressor methods
     "llmc_W4A16",
     "llmc_W4A16_ASYM",
     "llmc_W8A16",
@@ -26,7 +26,23 @@ SUPPORTED_METHODS = [
     # BitsAndBytes methods
     "bnb_4bit",
     "bnb_8bit",
+    # Legacy AWQ aliases (map to llm_compressor methods)
+    "awq_q4_0",
+    "awq_q4_1",
+    "awq_q8_0",
 ]
+
+# Mapping from legacy AWQ method names to new llm_compressor methods
+METHOD_ALIASES = {
+    "awq_q4_0": "llmc_W4A16",
+    "awq_q4_1": "llmc_W4A16_ASYM",
+    "awq_q8_0": "llmc_W8A16",
+}
+
+
+def resolve_method_alias(method: str) -> str:
+    """Resolve a method name, converting legacy aliases to canonical names."""
+    return METHOD_ALIASES.get(method, method)
 
 # Mapping from method to llm_compressor modifier and scheme
 LLMC_METHOD_CONFIG = {
