@@ -203,15 +203,15 @@ def _display_analysis_summary(analyzer: "DatasetAnalyzer") -> None:
                 table.add_row(
                     metric_name,
                     f"{stats.get('mean', 'N/A'):.2f}"
-                    if isinstance(stats.get("mean"), (int, float))
+                    if isinstance(stats.get("mean"), int | float)
                     else "N/A",
                     f"{stats.get('std', 'N/A'):.2f}"
-                    if isinstance(stats.get("std"), (int, float))
+                    if isinstance(stats.get("std"), int | float)
                     else "N/A",
                     str(stats.get("min", "N/A")),
                     str(stats.get("max", "N/A")),
                     f"{stats.get('median', 'N/A'):.2f}"
-                    if isinstance(stats.get("median"), (int, float))
+                    if isinstance(stats.get("median"), int | float)
                     else "N/A",
                 )
         cli_utils.CONSOLE.print(table)
@@ -236,15 +236,15 @@ def _display_analysis_summary(analyzer: "DatasetAnalyzer") -> None:
                 table.add_row(
                     metric_name,
                     f"{stats.get('mean', 'N/A'):.2f}"
-                    if isinstance(stats.get("mean"), (int, float))
+                    if isinstance(stats.get("mean"), int | float)
                     else "N/A",
                     f"{stats.get('std', 'N/A'):.2f}"
-                    if isinstance(stats.get("std"), (int, float))
+                    if isinstance(stats.get("std"), int | float)
                     else "N/A",
                     str(stats.get("min", "N/A")),
                     str(stats.get("max", "N/A")),
                     f"{stats.get('median', 'N/A'):.2f}"
-                    if isinstance(stats.get("median"), (int, float))
+                    if isinstance(stats.get("median"), int | float)
                     else "N/A",
                 )
         cli_utils.CONSOLE.print(table)

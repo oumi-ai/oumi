@@ -45,7 +45,7 @@ class MockSampleAnalyzer:
         self.analyzer_id = kwargs.get("analyzer_id", "mock")
 
     def analyze_sample(
-        self, df: pd.DataFrame, schema: Optional[dict] = None
+        self, df: pd.DataFrame, schema: dict | None = None
     ) -> tuple[pd.DataFrame, dict]:
         """
         Mock analysis that adds analyzer metrics to the DataFrame.
@@ -91,7 +91,7 @@ class MockFailingAnalyzer:
         self.config = kwargs
 
     def analyze_sample(
-        self, df: pd.DataFrame, schema: Optional[dict] = None
+        self, df: pd.DataFrame, schema: dict | None = None
     ) -> tuple[pd.DataFrame, dict]:
         raise ValueError("Analyzer failed")
 

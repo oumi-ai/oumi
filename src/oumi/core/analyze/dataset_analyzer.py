@@ -147,12 +147,12 @@ class DatasetAnalyzer:
         self.dataframe_analyzer = DataFrameAnalyzer(self.sample_analyzers)
 
         # Initialize analysis results as None
-        self._analysis_results: Optional[DatasetAnalysisResult] = None
-        self._merged_df: Optional[pd.DataFrame] = None
-        self._message_df: Optional[pd.DataFrame] = None
-        self._conversation_df: Optional[pd.DataFrame] = None
-        self._merged_schema: Optional[dict] = None
-        self._analysis_summary: Optional[dict[str, Any]] = None
+        self._analysis_results: DatasetAnalysisResult | None = None
+        self._merged_df: pd.DataFrame | None = None
+        self._message_df: pd.DataFrame | None = None
+        self._conversation_df: pd.DataFrame | None = None
+        self._merged_schema: dict | None = None
+        self._analysis_summary: dict[str, Any] | None = None
 
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
@@ -743,7 +743,7 @@ class DatasetAnalyzer:
 
         return computable_columns
 
-    def _get_level_summary(self, df: Optional[pd.DataFrame]) -> dict[str, Any]:
+    def _get_level_summary(self, df: pd.DataFrame | None) -> dict[str, Any]:
         """Get aggregated metrics for a given DataFrame level.
 
         Uses schema information to better identify and group computable columns.

@@ -67,7 +67,7 @@ class LengthAnalyzer(SampleAnalyzer):
     def analyze_sample(
         self,
         df: pd.DataFrame,
-        schema: Optional[dict] = None,
+        schema: dict | None = None,
     ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields and return metrics.
 
