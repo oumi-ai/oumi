@@ -17,12 +17,11 @@ import hashlib
 import logging
 import os
 import re
-from typing import Optional
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 
-def sanitize_run_name(run_name: Optional[str]) -> Optional[str]:
+def sanitize_run_name(run_name: str | None) -> str | None:
     """Computes a sanitized version of wandb run name.
 
     A valid run name may only contain alphanumeric characters, dashes, underscores,
@@ -52,7 +51,7 @@ def sanitize_run_name(run_name: Optional[str]) -> Optional[str]:
     return result
 
 
-def try_str_to_bool(s: str) -> Optional[bool]:
+def try_str_to_bool(s: str) -> bool | None:
     """Attempts to convert a string representation to a boolean value.
 
     This function interprets various string inputs as boolean values.

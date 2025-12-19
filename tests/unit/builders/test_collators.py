@@ -1,5 +1,4 @@
 import re
-from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -123,7 +122,7 @@ def test_build_data_collator_vision_language_sft(mock_tokenizer):
 
 @pytest.mark.parametrize("label_ignore_index", [None, -100])
 def test_build_collator_from_config_with_collator(
-    label_ignore_index: Optional[int], mock_tokenizer
+    label_ignore_index: int | None, mock_tokenizer
 ):
     training_config = TrainingConfig(
         data=DataParams(

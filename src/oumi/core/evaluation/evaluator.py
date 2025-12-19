@@ -15,9 +15,10 @@
 import copy
 import inspect
 import time
+from collections.abc import Callable
 from dataclasses import fields
 from datetime import datetime
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import (
@@ -72,7 +73,7 @@ class Evaluator:
         evaluation function to be used.
     """
 
-    _inference_engine: Optional[BaseInferenceEngine] = None
+    _inference_engine: BaseInferenceEngine | None = None
     """Inference engine used for evaluation, if needed by the tasks."""
 
     def evaluate(self, config: EvaluationConfig, **kwargs) -> list[EvaluationResult]:
@@ -208,7 +209,7 @@ class Evaluator:
         task_params: EvaluationTaskParams,
         evaluation_result: EvaluationResult,
         base_output_dir: str,
-        config: Optional[EvaluationConfig],
+        config: EvaluationConfig | None,
     ) -> None:
         """Saves the evaluation's output to the specified output directory.
 
@@ -230,7 +231,7 @@ class Evaluator:
         )
 
     @staticmethod
-    def _get_custom_evaluation_fn(task_name: Optional[str]) -> Callable:
+    def _get_custom_evaluation_fn(task_name: str | None) -> Callable:
         """Retrieve the evaluation function of the custom task."""
         if not task_name:
             raise ValueError(
@@ -254,7 +255,7 @@ class Evaluator:
     @staticmethod
     def _get_backend_task_params(
         task_params: EvaluationTaskParams,
-    ) -> Union[LMHarnessTaskParams, AlpacaEvalTaskParams]:
+    ) -> LMHarnessTaskParams | AlpacaEvalTaskParams:
         """Returns the evaluation backend-specific task parameters."""
         if task_params.get_evaluation_backend() == EvaluationBackend.LM_HARNESS:
             target_class = LMHarnessTaskParams

@@ -15,7 +15,7 @@
 import io
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Final, Optional, Union
+from typing import Final
 
 import PIL.Image
 import requests
@@ -61,7 +61,7 @@ def create_png_bytes_from_image_list(pil_images: list[PIL.Image.Image]) -> list[
 
 
 def convert_pil_image_mode(
-    image: PIL.Image.Image, *, mode: Optional[str]
+    image: PIL.Image.Image, *, mode: str | None
 ) -> PIL.Image.Image:
     """Converts a PIL image to the requested mode (if it's not in that mode already) .
 
@@ -90,7 +90,7 @@ def convert_pil_image_mode(
 
 
 def load_pil_image_from_path(
-    input_image_filepath: Union[str, Path], mode: str = DEFAULT_IMAGE_MODE
+    input_image_filepath: str | Path, mode: str = DEFAULT_IMAGE_MODE
 ) -> PIL.Image.Image:
     """Loads an image from a path.
 
@@ -157,7 +157,7 @@ def load_pil_image_from_url(
 
 
 def load_pil_image_from_bytes(
-    image_bytes: Optional[bytes], mode: str = DEFAULT_IMAGE_MODE
+    image_bytes: bytes | None, mode: str = DEFAULT_IMAGE_MODE
 ) -> PIL.Image.Image:
     """Loads an image from raw image bytes.
 
@@ -194,7 +194,7 @@ def _check_pdf2image_dependency():
 
 
 def load_pdf_pages_from_path(
-    input_pdf_filepath: Union[str, Path],
+    input_pdf_filepath: str | Path,
     *,
     dpi: int = _DEFAULT_PDF_DPI,
     mode: str = DEFAULT_IMAGE_MODE,
@@ -247,7 +247,7 @@ def load_pdf_pages_from_path(
 
 
 def load_pdf_pages_from_bytes(
-    pdf_bytes: Optional[bytes],
+    pdf_bytes: bytes | None,
     *,
     dpi: int = _DEFAULT_PDF_DPI,
     mode: str = DEFAULT_IMAGE_MODE,
@@ -314,7 +314,7 @@ def load_pdf_pages_from_url(
 
 
 def create_png_bytes_from_image_bytes(
-    image_bytes: Optional[bytes], mode: str = DEFAULT_IMAGE_MODE
+    image_bytes: bytes | None, mode: str = DEFAULT_IMAGE_MODE
 ) -> bytes:
     """Loads an image from raw image bytes, and converts to PNG image bytes.
 
@@ -332,7 +332,7 @@ def create_png_bytes_from_image_bytes(
 
 
 def load_image_png_bytes_from_path(
-    input_image_filepath: Union[str, Path], mode: str = DEFAULT_IMAGE_MODE
+    input_image_filepath: str | Path, mode: str = DEFAULT_IMAGE_MODE
 ) -> bytes:
     """Loads an image from a path, converts it to PNG, and returns image bytes.
 

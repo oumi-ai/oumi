@@ -17,13 +17,12 @@ import os
 import sys
 import warnings
 from pathlib import Path
-from typing import Optional, Union
 
 
 def get_logger(
     name: str,
     level: str = "info",
-    log_dir: Optional[Union[str, Path]] = None,
+    log_dir: str | Path | None = None,
 ) -> logging.Logger:
     """Gets a logger instance with the specified name and log level.
 
@@ -65,7 +64,7 @@ def _detect_rank() -> int:
 def configure_logger(
     name: str,
     level: str = "info",
-    log_dir: Optional[Union[str, Path]] = None,
+    log_dir: str | Path | None = None,
 ) -> None:
     """Configures a logger with the specified name and log level."""
     logger = logging.getLogger(name)
@@ -189,7 +188,7 @@ def update_logger_level(name: str, level: str = "info") -> None:
         handler.setLevel(level.upper())
 
 
-def configure_dependency_warnings(level: Union[str, int] = "info") -> None:
+def configure_dependency_warnings(level: str | int = "info") -> None:
     """Ignores non-critical warnings from dependencies, unless in debug mode.
 
     Args:

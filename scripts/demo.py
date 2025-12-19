@@ -560,7 +560,7 @@ def run_demo():
 
                             # Process metrics
                             for metric_name, value in metrics.items():
-                                if isinstance(value, (int, float)):
+                                if isinstance(value, int | float):
                                     # Extract base metric name and type
                                     base_name, *metric_type = metric_name.split(",")
 

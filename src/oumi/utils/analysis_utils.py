@@ -14,7 +14,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 from tqdm import tqdm
@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 def load_dataset_from_config(
-    config: AnalyzeConfig, tokenizer: Optional[Any] = None
-) -> Union[BaseMapDataset, BaseIterableDataset]:
+    config: AnalyzeConfig, tokenizer: Any | None = None
+) -> BaseMapDataset | BaseIterableDataset:
     """Load dataset based on configuration.
 
     This function loads datasets directly from the registry for analysis purposes.
@@ -149,7 +149,7 @@ def load_dataset_from_config(
             dataset = dataset_class(**dataset_kwargs)
 
             # Ensure we return a supported dataset type
-            if isinstance(dataset, (BaseMapDataset, BaseIterableDataset)):
+            if isinstance(dataset, BaseMapDataset | BaseIterableDataset):
                 return dataset
             else:
                 raise NotImplementedError(
@@ -171,7 +171,7 @@ def load_dataset_from_config(
 
 def _load_custom_dataset_from_path(
     dataset_path: str,
-    tokenizer: Optional[Any],
+    tokenizer: Any | None,
     config: AnalyzeConfig,
 ) -> BaseMapDataset:
     """Load a custom dataset from a local file path.

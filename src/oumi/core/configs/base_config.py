@@ -20,7 +20,7 @@ from collections.abc import Iterator
 from enum import Enum
 from io import StringIO
 from pathlib import Path
-from typing import Any, Optional, TypeVar, Union, cast
+from typing import Any, TypeVar, cast
 
 from omegaconf import OmegaConf
 
@@ -137,7 +137,7 @@ def _read_config_without_interpolation(config_path: str) -> str:
 
 @dataclasses.dataclass(eq=False)
 class BaseConfig:
-    def to_yaml(self, config_path: Union[str, Path, StringIO]) -> None:
+    def to_yaml(self, config_path: str | Path | StringIO) -> None:
         """Saves the configuration to a YAML file.
 
         Non-primitive values are removed and warnings are logged.
@@ -169,7 +169,7 @@ class BaseConfig:
 
     @classmethod
     def from_yaml(
-        cls: type[T], config_path: Union[str, Path], ignore_interpolation=True
+        cls: type[T], config_path: str | Path, ignore_interpolation=True
     ) -> T:
         """Loads a configuration from a YAML file.
 
@@ -212,9 +212,9 @@ class BaseConfig:
     @classmethod
     def from_yaml_and_arg_list(
         cls: type[T],
-        config_path: Optional[str],
+        config_path: str | None,
         arg_list: list[str],
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
         ignore_interpolation=True,
     ) -> T:
         """Loads a configuration from various sources.
@@ -280,7 +280,7 @@ class BaseConfig:
 
         return cast(T, config)
 
-    def print_config(self, logger: Optional[logging.Logger] = None) -> None:
+    def print_config(self, logger: logging.Logger | None = None) -> None:
         """Prints the configuration in a human-readable format.
 
         Args:

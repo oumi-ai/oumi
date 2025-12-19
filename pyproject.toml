@@ -20,13 +20,12 @@ prerelease = "allow"
 name = "oumi"
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.10,<3.14"
 description = "Oumi - Modeling Platform"
 authors = [{ name = "Oumi Team", email = "contact@oumi.ai" }]
 license = { file = "LICENSE" }
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -76,7 +75,7 @@ dependencies = [
     "transformers>=4.57,<4.58",
     "trl>=0.24,<0.27",
     "typer",                    # Used by CLI
-    "typing_extensions",        # Backports of typing updates to python 3.9
+    "typing_extensions",        # Backports of typing updates
     "uvicorn<0.36.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.24",        # Logging to Weights and Biases.
 ]
@@ -256,7 +255,7 @@ exclude = [
     "src/oumi/utils/verl_model_merger.py",
 ]
 typeCheckingMode = "basic"
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 pythonPlatform = "All" # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"

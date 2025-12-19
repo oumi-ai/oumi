@@ -16,7 +16,7 @@ import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from oumi.core.configs.training_config import TrainingConfig
@@ -338,7 +338,7 @@ class TrainingParams(BaseParams):
     so only use it for debugging.
     """
 
-    run_name: Optional[str] = None
+    run_name: str | None = None
     """A unique identifier for the current training run.
 
     This name is used to identify the run in logging outputs, saved model
@@ -347,7 +347,7 @@ class TrainingParams(BaseParams):
     or when you want to easily distinguish between different training sessions.
     """
 
-    metrics_function: Optional[str] = None
+    metrics_function: str | None = None
     """The name of the metrics function in the Oumi registry to use for evaluation
     during training.
 
@@ -356,7 +356,7 @@ class TrainingParams(BaseParams):
     single metrics_function may compute multiple metrics.
     """
 
-    reward_functions: Optional[list[str]] = None
+    reward_functions: list[str] | None = None
     """The names of the reward function in the Oumi registry to use for reinforcement
     learning.
 
@@ -434,7 +434,7 @@ class TrainingParams(BaseParams):
     - "no": Disable logging.
     """
 
-    logging_dir: Optional[str] = None
+    logging_dir: str | None = None
     """The directory where training logs will be saved.
 
     This includes TensorBoard logs and other training-related output.
@@ -496,14 +496,14 @@ class TrainingParams(BaseParams):
     These arguments can be used to fine-tune the behavior of the chosen scheduler.
     """
 
-    warmup_ratio: Optional[float] = None
+    warmup_ratio: float | None = None
     """The ratio of total training steps used for a linear warmup from 0 to the
     learning rate.
 
     If set along with `warmup_steps`, this value will be ignored.
     """
 
-    warmup_steps: Optional[int] = None
+    warmup_steps: int | None = None
     """The number of steps for the warmup phase of the learning rate scheduler.
 
     If set, will override the value of `warmup_ratio`.
@@ -583,7 +583,7 @@ class TrainingParams(BaseParams):
     log_model_summary: bool = False
     """Whether to print a model summary, including layer names."""
 
-    resume_from_checkpoint: Optional[str] = None
+    resume_from_checkpoint: str | None = None
     """Path to a checkpoint folder from which to resume training.
 
     If specified, training will resume by first loading the model from this folder.
@@ -600,7 +600,7 @@ class TrainingParams(BaseParams):
     this parameter has no effect.
     """
 
-    dataloader_num_workers: Union[int, str] = 0
+    dataloader_num_workers: int | str = 0
     """Number of subprocesses to use for data loading (PyTorch only).
     0 means that the data will be loaded in the main process.
 
@@ -621,7 +621,7 @@ class TrainingParams(BaseParams):
     increase RAM usage. Will default to False.
     """
 
-    dataloader_prefetch_factor: Optional[int] = None
+    dataloader_prefetch_factor: int | None = None
     """Number of batches loaded in advance by each worker.
 
     2 means there will be a total of 2 * num_workers batches prefetched across
@@ -630,7 +630,7 @@ class TrainingParams(BaseParams):
     This is only used if dataloader_num_workers >= 1.
     """
 
-    dataloader_main_process_only: Optional[bool] = None
+    dataloader_main_process_only: bool | None = None
     """Controls whether the dataloader is iterated through on the main process only.
 
     If set to `True`, the dataloader is only iterated through on the main process
@@ -647,14 +647,14 @@ class TrainingParams(BaseParams):
     NOTE: We recommend to benchmark your setup, and configure `True` or `False`.
     """
 
-    ddp_find_unused_parameters: Optional[bool] = None
+    ddp_find_unused_parameters: bool | None = None
     """When using PyTorch's DistributedDataParallel training, the value of this flag is
     passed to `find_unused_parameters`.
 
     Will default to `False` if gradient checkpointing is used, `True` otherwise.
     """
 
-    max_grad_norm: Optional[float] = 1.0
+    max_grad_norm: float | None = 1.0
     """Maximum gradient norm (for gradient clipping) to avoid exploding gradients which
     can destabilize training.
 
@@ -707,7 +707,7 @@ class TrainingParams(BaseParams):
     This field contains telemetry configuration options.
     """
 
-    empty_device_cache_steps: Optional[int] = None
+    empty_device_cache_steps: int | None = None
     """Number of steps to wait before calling `torch.<device>.empty_cache()`.
 
     This parameter determines how frequently the GPU cache should be cleared during
@@ -718,7 +718,7 @@ class TrainingParams(BaseParams):
     long training runs, but may impact performance if set too low.
     """
 
-    nccl_default_timeout_minutes: Optional[float] = None
+    nccl_default_timeout_minutes: float | None = None
     """Default timeout for NCCL operations in minutes.
 
     See: https://pytorch.org/docs/stable/distributed.html#torch.distributed.init_process_group
@@ -727,7 +727,7 @@ class TrainingParams(BaseParams):
     which is 10min.
     """
 
-    label_ignore_index: Optional[int] = None
+    label_ignore_index: int | None = None
     """Tokens with this label value don't contribute to the loss computation.
     For example, this can be `PAD`, or image tokens. `-100` is the PyTorch convention.
     Refer to the `ignore_index` parameter of `torch.nn.CrossEntropyLoss()`
@@ -988,9 +988,9 @@ class TrainingParams(BaseParams):
             )
 
     @property
-    def telemetry_dir(self) -> Optional[Path]:
+    def telemetry_dir(self) -> Path | None:
         """Returns the telemetry stats output directory."""
-        result: Optional[Path] = None
+        result: Path | None = None
         if self.telemetry.telemetry_dir:
             result = Path(self.telemetry.telemetry_dir)
 

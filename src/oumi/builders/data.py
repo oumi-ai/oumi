@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import copy
-from collections.abc import Sequence
-from typing import Callable, Optional, TypeVar, Union, cast
+from collections.abc import Callable, Sequence
+from typing import TypeVar, cast
 
 import datasets
 
@@ -39,11 +39,11 @@ DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
 
 def build_dataset_mixture(
     data_params: DataParams,
-    tokenizer: Optional[BaseTokenizer],
+    tokenizer: BaseTokenizer | None,
     dataset_split: DatasetSplit,
-    seq_length: Optional[int] = None,
-    seed: Optional[int] = None,
-) -> Union[DatasetType, PretrainingAsyncTextDataset]:
+    seq_length: int | None = None,
+    seed: int | None = None,
+) -> DatasetType | PretrainingAsyncTextDataset:
     """Builds a dataset for the specified split.
 
     Args:
@@ -117,13 +117,13 @@ def build_dataset_mixture(
 
 def build_dataset(
     dataset_name: str,
-    tokenizer: Optional[BaseTokenizer],
-    seed: Optional[int] = None,
+    tokenizer: BaseTokenizer | None,
+    seed: int | None = None,
     stream: bool = False,
     pack: bool = False,
-    use_torchdata: Optional[bool] = None,
+    use_torchdata: bool | None = None,
     **kwargs,
-) -> Union[DatasetType, PretrainingAsyncTextDataset]:
+) -> DatasetType | PretrainingAsyncTextDataset:
     """Builds a dataset from a dataset name.
 
     Please refer to `DatasetParams` & `DatasetSplitParams` for a description of
@@ -152,9 +152,9 @@ def build_dataset(
 
 def _mix_datasets(
     dataset_list: list[DatasetType],
-    mixture_proportions: Sequence[Optional[float]],
+    mixture_proportions: Sequence[float | None],
     mixture_strategy: str,
-    seed: Optional[int],
+    seed: int | None,
 ) -> DatasetType:
     """Joins multiple datasets using the provided `mixture_strategy`."""
     if any([proportion is None for proportion in mixture_proportions]):
@@ -173,12 +173,10 @@ def _mix_datasets(
 
 
 def _sample_dataset(
-    dataset: Union[
-        datasets.DatasetDict,
-        datasets.Dataset,
-        datasets.IterableDatasetDict,
-        datasets.IterableDataset,
-    ],
+    dataset: datasets.DatasetDict
+    | datasets.Dataset
+    | datasets.IterableDatasetDict
+    | datasets.IterableDataset,
     dataset_params: DatasetParams,
     stream: bool,
 ) -> DatasetType:
@@ -245,13 +243,13 @@ def _build_iterable_dataset_sampler(
 def _load_dataset(
     dataset_params: DatasetParams,
     stream: bool,
-    tokenizer: Optional[BaseTokenizer] = None,
-) -> Union[
-    datasets.DatasetDict,
-    datasets.Dataset,
-    datasets.IterableDatasetDict,
-    datasets.IterableDataset,
-]:
+    tokenizer: BaseTokenizer | None = None,
+) -> (
+    datasets.DatasetDict
+    | datasets.Dataset
+    | datasets.IterableDatasetDict
+    | datasets.IterableDataset
+):
     """Loads a dataset with the specified name and subset.
 
     Note:

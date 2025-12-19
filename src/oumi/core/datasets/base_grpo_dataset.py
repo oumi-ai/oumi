@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union
 
 import pandas as pd
 from typing_extensions import override
@@ -34,9 +33,9 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
-        dataset_path: Optional[str] = None,
-        split: Optional[str] = None,
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        split: str | None = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseExperimentalGrpoDataset class."""
@@ -55,7 +54,7 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
         # of text values. Let's strip them.
         return s.strip() if s else ""
 
-    def _transform_grpo_example(self, example: Union[dict, pd.Series]) -> dict:
+    def _transform_grpo_example(self, example: dict | pd.Series) -> dict:
         """Validate and transform the GRPO sample into Python `dict`."""
         for required_key in (_PROMPT_KEY, _COMPLETION_KEY):
             if required_key not in example:
@@ -104,7 +103,7 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
         indexes = range(len(self))
         return [self.conversation(index) for index in indexes]
 
-    def transform_conversation(self, sample: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, sample: dict | pd.Series) -> Conversation:
         """Converts the input sample to a Conversation.
 
         Args:

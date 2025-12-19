@@ -2,7 +2,6 @@
 
 import tempfile
 from pathlib import Path
-from typing import Optional
 from unittest.mock import patch
 
 import jsonlines
@@ -23,13 +22,13 @@ def check_no_nans(obj):
     if isinstance(obj, dict):
         for key, value in obj.items():
             # Only check for NaN in numeric values, not lists or strings
-            if isinstance(value, (int, float)) and pd.isna(value):
+            if isinstance(value, int | float) and pd.isna(value):
                 raise AssertionError(f"Found NaN value in key '{key}': {value}")
             check_no_nans(value)
     elif isinstance(obj, list):
         for item in obj:
             check_no_nans(item)
-    elif isinstance(obj, (int, float)) and pd.isna(obj):
+    elif isinstance(obj, int | float) and pd.isna(obj):
         raise AssertionError(f"Found NaN value: {obj}")
     else:
         # Other types (str, bool, None, etc.) are not checked for NaN
@@ -46,7 +45,7 @@ class MockSampleAnalyzer:
         self.analyzer_id = kwargs.get("analyzer_id", "mock")
 
     def analyze_sample(
-        self, df: pd.DataFrame, schema: Optional[dict] = None
+        self, df: pd.DataFrame, schema: dict | None = None
     ) -> tuple[pd.DataFrame, dict]:
         """
         Mock analysis that adds analyzer metrics to the DataFrame.
@@ -92,7 +91,7 @@ class MockFailingAnalyzer:
         self.config = kwargs
 
     def analyze_sample(
-        self, df: pd.DataFrame, schema: Optional[dict] = None
+        self, df: pd.DataFrame, schema: dict | None = None
     ) -> tuple[pd.DataFrame, dict]:
         raise ValueError("Analyzer failed")
 

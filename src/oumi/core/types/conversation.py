@@ -13,10 +13,10 @@
 # limitations under the License.
 
 import base64
-from collections.abc import Generator, Mapping
+from collections.abc import Callable, Generator, Mapping
 from enum import Enum
 from types import MappingProxyType
-from typing import Any, Callable, Final, NamedTuple, Optional, Union
+from typing import Any, Final, NamedTuple
 
 import pydantic
 from jinja2 import Template
@@ -71,7 +71,7 @@ def _convert_role_to_proto_role(role: Role) -> pb2.Role:
 
 def _convert_proto_role_to_role(role: pb2.Role) -> Role:
     """Converts a Protocol Buffer role format to role."""
-    result: Optional[Role] = _PROTO_ROLE_TO_ROLE_MAP.get(role, None)
+    result: Role | None = _PROTO_ROLE_TO_ROLE_MAP.get(role, None)
     if result is None:
         raise ValueError(f"Invalid role: {role}")
     return result
@@ -128,9 +128,7 @@ def _convert_type_to_proto_type(content_type: Type) -> pb2.ContentPart.Type:
 
 def _convert_proto_type_to_type(content_type: pb2.ContentPart.Type) -> Type:
     """Converts a Protocol Buffer type format to type."""
-    result: Optional[Type] = _CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP.get(
-        content_type, None
-    )
+    result: Type | None = _CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP.get(content_type, None)
     if result is None:
         raise ValueError(f"Invalid type: {content_type}")
     return result
@@ -164,13 +162,13 @@ class ContentItem(pydantic.BaseModel):
     type: Type
     """The type of the content (e.g., text, image path, image URL)."""
 
-    content: Optional[str] = None
+    content: str | None = None
     """Optional text content of the content item.
 
     One of content or binary must be provided.
     """
 
-    binary: Optional[bytes] = None
+    binary: bytes | None = None
     """Optional binary data for the message content item, used for image data.
 
     One of content or binary must be provided.
@@ -191,7 +189,7 @@ class ContentItem(pydantic.BaseModel):
         return self.type == Type.TEXT
 
     @pydantic.field_serializer("binary")
-    def _encode_binary(self, value: Optional[bytes]) -> str:
+    def _encode_binary(self, value: bytes | None) -> str:
         """Encode binary value as base64 ASCII string.
 
         This is needed for compatibility with JSON.
@@ -201,7 +199,7 @@ class ContentItem(pydantic.BaseModel):
         return base64.b64encode(value).decode("ascii")
 
     @pydantic.field_validator("binary", mode="before")
-    def _decode_binary(cls, value: Optional[Union[str, bytes]]) -> Optional[bytes]:
+    def _decode_binary(cls, value: str | bytes | None) -> bytes | None:
         if value is None:
             return None
         elif isinstance(value, str):
@@ -282,7 +280,7 @@ class Message(pydantic.BaseModel):
 
     model_config = pydantic.ConfigDict(frozen=True)
 
-    id: Optional[str] = None
+    id: str | None = None
     """Optional unique identifier for the message.
 
     This attribute can be used to assign a specific identifier to the message,
@@ -292,7 +290,7 @@ class Message(pydantic.BaseModel):
         Optional[str]: The unique identifier of the message, if set; otherwise None.
     """
 
-    content: Union[str, list[ContentItem]]
+    content: str | list[ContentItem]
     """Content of the message.
 
     For text messages, `content` can be set to a string value.
@@ -313,7 +311,7 @@ class Message(pydantic.BaseModel):
         Raises:
             ValueError: If both content and binary are None.
         """
-        if not isinstance(self.content, (str, list)):
+        if not isinstance(self.content, str | list):
             raise ValueError(
                 f"Unexpected content type: {type(self.content)}. "
                 f"Must by a Python string or a list."
@@ -456,7 +454,7 @@ class Message(pydantic.BaseModel):
 class Conversation(pydantic.BaseModel):
     """Represents a conversation, which is a sequence of messages."""
 
-    conversation_id: Optional[str] = None
+    conversation_id: str | None = None
     """Optional unique identifier for the conversation.
 
     This attribute can be used to assign a specific identifier to the conversation,
@@ -484,7 +482,7 @@ class Conversation(pydantic.BaseModel):
         """
         return self.messages[idx]
 
-    def first_message(self, role: Optional[Role] = None) -> Optional[Message]:
+    def first_message(self, role: Role | None = None) -> Message | None:
         """Gets the first message in the conversation, optionally filtered by role.
 
         Args:
@@ -498,7 +496,7 @@ class Conversation(pydantic.BaseModel):
         messages = self.filter_messages(role=role)
         return messages[0] if len(messages) > 0 else None
 
-    def last_message(self, role: Optional[Role] = None) -> Optional[Message]:
+    def last_message(self, role: Role | None = None) -> Message | None:
         """Gets the last message in the conversation, optionally filtered by role.
 
         Args:
@@ -515,8 +513,8 @@ class Conversation(pydantic.BaseModel):
     def filter_messages(
         self,
         *,
-        role: Optional[Role] = None,
-        filter_fn: Optional[Callable[[Message], bool]] = None,
+        role: Role | None = None,
+        filter_fn: Callable[[Message], bool] | None = None,
     ) -> list[Message]:
         """Gets all messages in the conversation, optionally filtered by role.
 

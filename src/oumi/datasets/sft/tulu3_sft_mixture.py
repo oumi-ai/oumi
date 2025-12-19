@@ -13,8 +13,6 @@
 # limitations under the License.
 
 
-from typing import Union
-
 import pandas as pd
 
 from oumi.core.datasets import BaseSftDataset
@@ -26,7 +24,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 class Tulu3MixtureDataset(BaseSftDataset):
     default_dataset = "allenai/tulu-3-sft-mixture"
 
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict | pd.Series) -> Conversation:
         """Convert the example into a Conversation.
 
         Args:

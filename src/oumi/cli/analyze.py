@@ -14,7 +14,7 @@
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Optional
+from typing import TYPE_CHECKING, Annotated
 
 import pandas as pd
 import typer
@@ -41,7 +41,7 @@ def analyze(
         ),
     ],
     output: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--output",
             "-o",
@@ -203,15 +203,15 @@ def _display_analysis_summary(analyzer: "DatasetAnalyzer") -> None:
                 table.add_row(
                     metric_name,
                     f"{stats.get('mean', 'N/A'):.2f}"
-                    if isinstance(stats.get("mean"), (int, float))
+                    if isinstance(stats.get("mean"), int | float)
                     else "N/A",
                     f"{stats.get('std', 'N/A'):.2f}"
-                    if isinstance(stats.get("std"), (int, float))
+                    if isinstance(stats.get("std"), int | float)
                     else "N/A",
                     str(stats.get("min", "N/A")),
                     str(stats.get("max", "N/A")),
                     f"{stats.get('median', 'N/A'):.2f}"
-                    if isinstance(stats.get("median"), (int, float))
+                    if isinstance(stats.get("median"), int | float)
                     else "N/A",
                 )
         cli_utils.CONSOLE.print(table)
@@ -236,15 +236,15 @@ def _display_analysis_summary(analyzer: "DatasetAnalyzer") -> None:
                 table.add_row(
                     metric_name,
                     f"{stats.get('mean', 'N/A'):.2f}"
-                    if isinstance(stats.get("mean"), (int, float))
+                    if isinstance(stats.get("mean"), int | float)
                     else "N/A",
                     f"{stats.get('std', 'N/A'):.2f}"
-                    if isinstance(stats.get("std"), (int, float))
+                    if isinstance(stats.get("std"), int | float)
                     else "N/A",
                     str(stats.get("min", "N/A")),
                     str(stats.get("max", "N/A")),
                     f"{stats.get('median', 'N/A'):.2f}"
-                    if isinstance(stats.get("median"), (int, float))
+                    if isinstance(stats.get("median"), int | float)
                     else "N/A",
                 )
         cli_utils.CONSOLE.print(table)
@@ -264,13 +264,13 @@ def _display_analysis_summary(analyzer: "DatasetAnalyzer") -> None:
         table.add_row(
             "Mean",
             f"{turns_summary.get('mean', 0):.2f}"
-            if isinstance(turns_summary.get("mean"), (int, float))
+            if isinstance(turns_summary.get("mean"), int | float)
             else "N/A",
         )
         table.add_row(
             "Std",
             f"{turns_summary.get('std', 0):.2f}"
-            if isinstance(turns_summary.get("std"), (int, float))
+            if isinstance(turns_summary.get("std"), int | float)
             else "N/A",
         )
         table.add_row("Min", str(turns_summary.get("min", "N/A")))
@@ -278,7 +278,7 @@ def _display_analysis_summary(analyzer: "DatasetAnalyzer") -> None:
         table.add_row(
             "Median",
             f"{turns_summary.get('median', 0):.2f}"
-            if isinstance(turns_summary.get("median"), (int, float))
+            if isinstance(turns_summary.get("median"), int | float)
             else "N/A",
         )
         cli_utils.CONSOLE.print(table)

@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
@@ -30,17 +29,17 @@ class InferenceConfig(BaseConfig):
     generation: GenerationParams = field(default_factory=GenerationParams)
     """Parameters for text generation during inference."""
 
-    input_path: Optional[str] = None
+    input_path: str | None = None
     """Path to the input file containing prompts for text generation.
 
     The input file should be in JSONL format, where each line is a JSON representation
     of an Oumi `Conversation` object.
     """
 
-    output_path: Optional[str] = None
+    output_path: str | None = None
     """Path to the output file where the generated text will be saved."""
 
-    engine: Optional[InferenceEngineType] = None
+    engine: InferenceEngineType | None = None
     """The inference engine to use for generation.
 
     Options:
@@ -57,5 +56,5 @@ class InferenceConfig(BaseConfig):
     If not specified, the "NATIVE" engine will be used.
     """
 
-    remote_params: Optional[RemoteParams] = None
+    remote_params: RemoteParams | None = None
     """Parameters for running inference against a remote API."""

@@ -35,7 +35,7 @@ Example:
     >>> batch = collator([{"conversation_json": conversation1.to_json()}, ...])
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.feature_generators import (
     FeatureGeneratorOptions,
@@ -75,16 +75,16 @@ class VisionLanguageSftCollator:
         tokenizer: BaseTokenizer,
         processor_name: str,
         *,
-        processor_kwargs: Optional[dict[str, Any]] = None,
-        max_length: Optional[int] = None,
+        processor_kwargs: dict[str, Any] | None = None,
+        max_length: int | None = None,
         truncation: bool = False,
         truncation_side: str = "right",
-        label_ignore_index: Optional[int] = None,
+        label_ignore_index: int | None = None,
         allow_multi_image_inputs: bool = True,
         trust_remote_code: bool = False,
         train_on_completions_only: bool = False,
-        response_template: Optional[str] = None,
-        instruction_template: Optional[str] = None,
+        response_template: str | None = None,
+        instruction_template: str | None = None,
         process_individually: bool = False,
     ):
         """Initializes the vision-language SFT collator.

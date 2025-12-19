@@ -14,7 +14,7 @@
 
 import copy
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs import EvaluationConfig, EvaluationTaskParams
 from oumi.core.evaluation.evaluation_result import EvaluationResult
@@ -81,8 +81,8 @@ def save_evaluation_output(
     backend_name: str,
     task_params: EvaluationTaskParams,
     evaluation_result: EvaluationResult,
-    base_output_dir: Optional[str],
-    config: Optional[EvaluationConfig],
+    base_output_dir: str | None,
+    config: EvaluationConfig | None,
 ) -> None:
     """Writes configuration settings and evaluation outputs to files.
 

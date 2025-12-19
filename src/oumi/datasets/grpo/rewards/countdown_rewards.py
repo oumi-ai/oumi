@@ -18,12 +18,12 @@ This file was slightly modified to be an Oumi reward registry function.
 """
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.registry import RegistryType, register
 
 
-def _extract_solution(solution_str: str) -> Optional[str]:
+def _extract_solution(solution_str: str) -> str | None:
     """Extracts the equation from the solution string.
 
     Args:
@@ -68,7 +68,7 @@ def _validate_equation(equation_str: str, available_numbers: list[int]) -> bool:
         return False
 
 
-def _evaluate_equation(equation_str: str) -> Optional[float]:
+def _evaluate_equation(equation_str: str) -> float | None:
     """Safely evaluates the arithmetic equation using eval() with precautions."""
     try:
         # Regex that only allows numbers, operators, parentheses and whitespace
