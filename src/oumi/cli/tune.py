@@ -30,7 +30,8 @@ def tune(
         ),
     ],
     level: cli_utils.LOG_LEVEL_TYPE = None,
-    verbose: cli_utils.VERBOSE_TYPE = False,
+    verbose: cli_utils.VERBOSE_TYPE = 0,
+    quiet: cli_utils.QUIET_TYPE = False,
 ):
     """Tune hyperparameters for a model.
 
@@ -38,8 +39,17 @@ def tune(
         ctx: The Typer context object.
         config: Path to the configuration file for training.
         level: The logging level for the specified command.
-        verbose: Enable verbose logging with additional debug information.
+        verbose: Verbosity level (-v for debug, -vv for dependency debug).
+        quiet: Suppress non-essential output (WARNING level only).
     """
+    from oumi.utils.logging import configure_dependency_warnings, update_logger_level
+
+    # Apply verbosity settings if --log-level not explicitly set
+    if level is None:
+        log_level = cli_utils.resolve_log_level(verbose, quiet)
+        update_logger_level("oumi", level=log_level)
+        configure_dependency_warnings(level=cli_utils.resolve_dep_log_level(verbose))
+
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
     config = str(
@@ -70,6 +80,6 @@ def tune(
     device_cleanup()
 
     # Run training
-    oumi_tune(parsed_config, verbose=verbose)
+    oumi_tune(parsed_config, verbose=verbose > 0)
 
     device_cleanup()

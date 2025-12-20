@@ -164,14 +164,60 @@ LOG_LEVEL_TYPE = Annotated[
 ]
 
 VERBOSE_TYPE = Annotated[
-    bool,
+    int,
     typer.Option(
         "--verbose",
         "-v",
-        help="Enable verbose logging with additional debug information.",
-        show_default=True,
+        count=True,
+        help="Increase verbosity level. Use -v for debug, -vv for dependency debug.",
+        show_default=False,
     ),
 ]
+
+QUIET_TYPE = Annotated[
+    bool,
+    typer.Option(
+        "--quiet",
+        "-q",
+        help="Suppress non-essential output (WARNING level and above only).",
+        show_default=False,
+    ),
+]
+
+
+def resolve_log_level(verbose: int = 0, quiet: bool = False) -> str:
+    """Convert verbosity flags to a log level string.
+
+    Args:
+        verbose: Verbosity count (0=INFO, 1+=DEBUG).
+        quiet: If True, use WARNING level (overrides verbose).
+
+    Returns:
+        str: The log level name (e.g., "INFO", "DEBUG", "WARNING").
+    """
+    if quiet:
+        return "WARNING"
+    if verbose >= 1:
+        return "DEBUG"
+    return "INFO"
+
+
+def resolve_dep_log_level(verbose: int = 0) -> str:
+    """Convert verbosity flags to a dependency log level string.
+
+    Dependencies (torch, transformers, etc.) are kept quieter by default.
+
+    Args:
+        verbose: Verbosity count (0-1=WARNING, 2+=DEBUG).
+
+    Returns:
+        str: The log level name for dependency loggers.
+    """
+    if verbose >= 2:
+        return "DEBUG"
+    elif verbose >= 1:
+        return "INFO"
+    return "WARNING"
 
 
 def _resolve_oumi_prefix(

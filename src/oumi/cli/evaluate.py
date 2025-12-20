@@ -31,7 +31,8 @@ def evaluate(
         ),
     ],
     level: cli_utils.LOG_LEVEL_TYPE = None,
-    verbose: cli_utils.VERBOSE_TYPE = False,
+    verbose: cli_utils.VERBOSE_TYPE = 0,
+    quiet: cli_utils.QUIET_TYPE = False,
 ):
     """Evaluate a model.
 
@@ -39,8 +40,17 @@ def evaluate(
         ctx: The Typer context object.
         config: Path to the configuration file for evaluation.
         level: The logging level for the specified command.
-        verbose: Enable verbose logging with additional debug information.
+        verbose: Verbosity level (-v for debug, -vv for dependency debug).
+        quiet: Suppress non-essential output (WARNING level only).
     """
+    from oumi.utils.logging import configure_dependency_warnings, update_logger_level
+
+    # Apply verbosity settings if --log-level not explicitly set
+    if level is None:
+        log_level = cli_utils.resolve_log_level(verbose, quiet)
+        update_logger_level("oumi", level=log_level)
+        configure_dependency_warnings(level=cli_utils.resolve_dep_log_level(verbose))
+
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
     config = str(
@@ -63,7 +73,7 @@ def evaluate(
     )
     parsed_config.finalize_and_validate()
 
-    if verbose:
+    if verbose > 0:
         # Print configuration for verification
         parsed_config.print_config(logger)
 
