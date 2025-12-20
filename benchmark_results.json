@@ -1,0 +1,598 @@
+{
+  "timestamp": "2025-12-19T15:22:12.827772",
+  "python_version": "3.11.13",
+  "platform": "macOS-26.1-arm64-arm-64bit",
+  "oumi_version": "unknown",
+  "quick_mode": true,
+  "results": [
+    {
+      "dataset_key": "alpaca_small",
+      "dataset_name": "yahma/alpaca-cleaned",
+      "dataset_config": {
+        "dataset_name": "yahma/alpaca-cleaned",
+        "split": "train",
+        "sample_count": 100,
+        "description": "Small Alpaca-format SFT dataset",
+        "category": "sft",
+        "oumi_load_timing": {
+          "duration_seconds": 30.604544000001624,
+          "peak_memory_mb": 312.8395109176636,
+          "current_memory_mb": 312.7119560241699,
+          "success": true,
+          "error": null
+        }
+      },
+      "num_examples": 100,
+      "num_features": 3,
+      "load_raw": {
+        "duration_seconds": 1.6655857919249684,
+        "peak_memory_mb": 6.7801713943481445,
+        "current_memory_mb": 6.7372283935546875,
+        "success": true,
+        "error": null
+      },
+      "to_hf_map": {
+        "duration_seconds": 17.096007750136778,
+        "peak_memory_mb": 13.762587547302246,
+        "current_memory_mb": 0.21879005432128906,
+        "success": true,
+        "error": null
+      },
+      "to_hf_iterable": {
+        "duration_seconds": 17.208298417041078,
+        "peak_memory_mb": 13.656783103942871,
+        "current_memory_mb": 0.12072372436523438,
+        "success": true,
+        "error": null
+      },
+      "iteration_first_100": {
+        "duration_seconds": 0.2890065829269588,
+        "peak_memory_mb": 0.030452728271484375,
+        "current_memory_mb": 0.023866653442382812,
+        "success": true,
+        "error": null
+      },
+      "iteration_full": {
+        "duration_seconds": 0.2843731250613928,
+        "peak_memory_mb": 0.030452728271484375,
+        "current_memory_mb": 0.023866653442382812,
+        "success": true,
+        "error": null
+      },
+      "sampling": null,
+      "oversampling": {
+        "duration_seconds": 1.4501237079966813,
+        "peak_memory_mb": 0.21785736083984375,
+        "current_memory_mb": 0.1756916046142578,
+        "success": true,
+        "error": null
+      },
+      "examples_per_second": 351.6506701482821,
+      "bytes_per_example": 0.0,
+      "total_benchmark_time": 72.62478762492537
+    },
+    {
+      "dataset_key": "sharegpt_medium",
+      "dataset_name": "anon8231489123/ShareGPT_Vicuna_unfiltered",
+      "dataset_config": {
+        "dataset_name": "anon8231489123/ShareGPT_Vicuna_unfiltered",
+        "subset": "ShareGPT_V3_unfiltered_cleaned_split_no_imsorry",
+        "split": "train",
+        "sample_count": 500,
+        "description": "ShareGPT multi-turn conversation dataset",
+        "category": "sft",
+        "oumi_load_timing": {
+          "duration_seconds": 0.28079491714015603,
+          "peak_memory_mb": 0.0028209686279296875,
+          "current_memory_mb": 0.0018157958984375,
+          "success": false,
+          "error": "ModuleNotFoundError: No module named 'oumi.datasets.sft.generic_sft'"
+        }
+      },
+      "num_examples": 0,
+      "num_features": 0,
+      "load_raw": {
+        "duration_seconds": 1.7012532090302557,
+        "peak_memory_mb": 0.27789974212646484,
+        "current_memory_mb": 0.24806594848632812,
+        "success": false,
+        "error": "DataFilesNotFoundError: No (supported) data files found in anon8231489123/ShareGPT_Vicuna_unfiltered"
+      },
+      "to_hf_map": null,
+      "to_hf_iterable": null,
+      "iteration_first_100": null,
+      "iteration_full": null,
+      "sampling": null,
+      "oversampling": null,
+      "examples_per_second": 0.0,
+      "bytes_per_example": 0.0,
+      "total_benchmark_time": 2.260126458015293
+    },
+    {
+      "dataset_key": "openhermes_large",
+      "dataset_name": "teknium/OpenHermes-2.5",
+      "dataset_config": {
+        "dataset_name": "teknium/OpenHermes-2.5",
+        "split": "train",
+        "sample_count": 1000,
+        "description": "Large OpenAI-format instruction dataset",
+        "category": "sft",
+        "oumi_load_timing": {
+          "duration_seconds": 0.2799924579448998,
+          "peak_memory_mb": 0.0027065277099609375,
+          "current_memory_mb": 0.00170135498046875,
+          "success": false,
+          "error": "ModuleNotFoundError: No module named 'oumi.datasets.sft.generic_sft'"
+        }
+      },
+      "num_examples": 1000,
+      "num_features": 16,
+      "load_raw": {
+        "duration_seconds": 2.5782327922061086,
+        "peak_memory_mb": 0.4873037338256836,
+        "current_memory_mb": 0.2471914291381836,
+        "success": true,
+        "error": null
+      },
+      "to_hf_map": null,
+      "to_hf_iterable": null,
+      "iteration_first_100": {
+        "duration_seconds": 0.289846875006333,
+        "peak_memory_mb": 0.10486221313476562,
+        "current_memory_mb": 0.09972763061523438,
+        "success": true,
+        "error": null
+      },
+      "iteration_full": {
+        "duration_seconds": 0.38160687522031367,
+        "peak_memory_mb": 0.13755321502685547,
+        "current_memory_mb": 0.11758613586425781,
+        "success": true,
+        "error": null
+      },
+      "sampling": {
+        "duration_seconds": 1.1102607080247253,
+        "peak_memory_mb": 0.36534690856933594,
+        "current_memory_mb": 0.16350364685058594,
+        "success": true,
+        "error": null
+      },
+      "oversampling": {
+        "duration_seconds": 1.125107750063762,
+        "peak_memory_mb": 0.3754892349243164,
+        "current_memory_mb": 0.2073822021484375,
+        "success": true,
+        "error": null
+      },
+      "examples_per_second": 2620.49786032463,
+      "bytes_per_example": 0.0,
+      "total_benchmark_time": 6.643789291847497
+    },
+    {
+      "dataset_key": "ultrafeedback_dpo",
+      "dataset_name": "HuggingFaceH4/ultrafeedback_binarized",
+      "dataset_config": {
+        "dataset_name": "HuggingFaceH4/ultrafeedback_binarized",
+        "split": "train_prefs",
+        "sample_count": 500,
+        "description": "DPO preference dataset with chosen/rejected",
+        "category": "dpo",
+        "oumi_load_timing": {
+          "duration_seconds": 0.2767794581595808,
+          "peak_memory_mb": 0.0027065277099609375,
+          "current_memory_mb": 0.00170135498046875,
+          "success": false,
+          "error": "ModuleNotFoundError: No module named 'oumi.datasets.sft.generic_sft'"
+        }
+      },
+      "num_examples": 500,
+      "num_features": 7,
+      "load_raw": {
+        "duration_seconds": 9.381399540929124,
+        "peak_memory_mb": 0.18722152709960938,
+        "current_memory_mb": 0.1476421356201172,
+        "success": true,
+        "error": null
+      },
+      "to_hf_map": null,
+      "to_hf_iterable": null,
+      "iteration_first_100": {
+        "duration_seconds": 0.28625704208388925,
+        "peak_memory_mb": 0.10413265228271484,
+        "current_memory_mb": 0.06281375885009766,
+        "success": true,
+        "error": null
+      },
+      "iteration_full": {
+        "duration_seconds": 0.31553229107521474,
+        "peak_memory_mb": 0.22028255462646484,
+        "current_memory_mb": 0.14124202728271484,
+        "success": true,
+        "error": null
+      },
+      "sampling": {
+        "duration_seconds": 1.2509684590622783,
+        "peak_memory_mb": 0.1817455291748047,
+        "current_memory_mb": 0.10878467559814453,
+        "success": true,
+        "error": null
+      },
+      "oversampling": {
+        "duration_seconds": 1.0719158749561757,
+        "peak_memory_mb": 0.217437744140625,
+        "current_memory_mb": 0.13401222229003906,
+        "success": true,
+        "error": null
+      },
+      "examples_per_second": 1584.6238693865184,
+      "bytes_per_example": 0.0,
+      "total_benchmark_time": 13.429859667085111
+    },
+    {
+      "dataset_key": "code_alpaca",
+      "dataset_name": "sahil2801/CodeAlpaca-20k",
+      "dataset_config": {
+        "dataset_name": "sahil2801/CodeAlpaca-20k",
+        "split": "train",
+        "sample_count": 100,
+        "description": "Code instruction dataset",
+        "category": "sft",
+        "oumi_load_timing": {
+          "duration_seconds": 0.2778180839959532,
+          "peak_memory_mb": 0.0028591156005859375,
+          "current_memory_mb": 0.00185394287109375,
+          "success": false,
+          "error": "ModuleNotFoundError: No module named 'oumi.datasets.sft.generic_sft'"
+        }
+      },
+      "num_examples": 100,
+      "num_features": 3,
+      "load_raw": {
+        "duration_seconds": 1.4822277501225471,
+        "peak_memory_mb": 0.2831277847290039,
+        "current_memory_mb": 0.2303028106689453,
+        "success": true,
+        "error": null
+      },
+      "to_hf_map": null,
+      "to_hf_iterable": null,
+      "iteration_first_100": {
+        "duration_seconds": 0.28456712490879,
+        "peak_memory_mb": 0.026576995849609375,
+        "current_memory_mb": 0.02340984344482422,
+        "success": true,
+        "error": null
+      },
+      "iteration_full": {
+        "duration_seconds": 0.27991875004954636,
+        "peak_memory_mb": 0.026576995849609375,
+        "current_memory_mb": 0.02340984344482422,
+        "success": true,
+        "error": null
+      },
+      "sampling": null,
+      "oversampling": {
+        "duration_seconds": 1.0716249588876963,
+        "peak_memory_mb": 0.1804952621459961,
+        "current_memory_mb": 0.13348770141601562,
+        "success": true,
+        "error": null
+      },
+      "examples_per_second": 357.24652236514964,
+      "bytes_per_example": 0.0,
+      "total_benchmark_time": 4.096782790962607
+    },
+    {
+      "dataset_key": "metamath",
+      "dataset_name": "meta-math/MetaMathQA",
+      "dataset_config": {
+        "dataset_name": "meta-math/MetaMathQA",
+        "split": "train",
+        "sample_count": 500,
+        "description": "Math reasoning dataset",
+        "category": "sft",
+        "oumi_load_timing": {
+          "duration_seconds": 0.2773434999398887,
+          "peak_memory_mb": 0.0027065277099609375,
+          "current_memory_mb": 0.00170135498046875,
+          "success": false,
+          "error": "ModuleNotFoundError: No module named 'oumi.datasets.sft.generic_sft'"
+        }
+      },
+      "num_examples": 500,
+      "num_features": 4,
+      "load_raw": {
+        "duration_seconds": 2.0083737089298666,
+        "peak_memory_mb": 0.32949161529541016,
+        "current_memory_mb": 0.23512840270996094,
+        "success": true,
+        "error": null
+      },
+      "to_hf_map": null,
+      "to_hf_iterable": null,
+      "iteration_first_100": {
+        "duration_seconds": 0.28018154203891754,
+        "peak_memory_mb": 0.03313446044921875,
+        "current_memory_mb": 0.029909133911132812,
+        "success": true,
+        "error": null
+      },
+      "iteration_full": {
+        "duration_seconds": 0.294275667052716,
+        "peak_memory_mb": 0.1197509765625,
+        "current_memory_mb": 0.11631202697753906,
+        "success": true,
+        "error": null
+      },
+      "sampling": {
+        "duration_seconds": 1.7815161659382284,
+        "peak_memory_mb": 0.2084951400756836,
+        "current_memory_mb": 0.1300954818725586,
+        "success": true,
+        "error": null
+      },
+      "oversampling": {
+        "duration_seconds": 1.0821263750549406,
+        "peak_memory_mb": 0.20976638793945312,
+        "current_memory_mb": 0.1421833038330078,
+        "success": true,
+        "error": null
+      },
+      "examples_per_second": 1699.0871348884953,
+      "bytes_per_example": 0.0,
+      "total_benchmark_time": 6.563289042096585
+    },
+    {
+      "dataset_key": "wikitext",
+      "dataset_name": "Salesforce/wikitext",
+      "dataset_config": {
+        "dataset_name": "Salesforce/wikitext",
+        "subset": "wikitext-2-raw-v1",
+        "split": "train",
+        "sample_count": 500,
+        "description": "Raw text pretraining dataset",
+        "category": "pretraining"
+      },
+      "num_examples": 500,
+      "num_features": 1,
+      "load_raw": {
+        "duration_seconds": 1.6679352498613298,
+        "peak_memory_mb": 0.26490020751953125,
+        "current_memory_mb": 0.12554645538330078,
+        "success": true,
+        "error": null
+      },
+      "to_hf_map": null,
+      "to_hf_iterable": null,
+      "iteration_first_100": {
+        "duration_seconds": 0.2768420830834657,
+        "peak_memory_mb": 0.01717090606689453,
+        "current_memory_mb": 0.011806488037109375,
+        "success": true,
+        "error": null
+      },
+      "iteration_full": {
+        "duration_seconds": 0.2817385420203209,
+        "peak_memory_mb": 0.041893959045410156,
+        "current_memory_mb": 0.03774833679199219,
+        "success": true,
+        "error": null
+      },
+      "sampling": {
+        "duration_seconds": 0.9617125410586596,
+        "peak_memory_mb": 0.2593650817871094,
+        "current_memory_mb": 0.08750438690185547,
+        "success": true,
+        "error": null
+      },
+      "oversampling": {
+        "duration_seconds": 0.9734695421066135,
+        "peak_memory_mb": 0.25882720947265625,
+        "current_memory_mb": 0.0876913070678711,
+        "success": true,
+        "error": null
+      },
+      "examples_per_second": 1774.6950644897445,
+      "bytes_per_example": 0.0,
+      "total_benchmark_time": 4.864740124903619
+    },
+    {
+      "dataset_key": "aya_multilingual",
+      "dataset_name": "CohereForAI/aya_dataset",
+      "dataset_config": {
+        "dataset_name": "CohereForAI/aya_dataset",
+        "split": "train",
+        "sample_count": 100,
+        "description": "Multilingual instruction dataset",
+        "category": "sft",
+        "oumi_load_timing": {
+          "duration_seconds": 2.436081459047273,
+          "peak_memory_mb": 0.27166175842285156,
+          "current_memory_mb": 0.04952430725097656,
+          "success": true,
+          "error": null
+        }
+      },
+      "num_examples": 100,
+      "num_features": 6,
+      "load_raw": {
+        "duration_seconds": 8.237387333996594,
+        "peak_memory_mb": 0.27596569061279297,
+        "current_memory_mb": 0.11388492584228516,
+        "success": true,
+        "error": null
+      },
+      "to_hf_map": {
+        "duration_seconds": 93.20200158283114,
+        "peak_memory_mb": 48.460890769958496,
+        "current_memory_mb": 0.11692047119140625,
+        "success": true,
+        "error": null
+      },
+      "to_hf_iterable": {
+        "duration_seconds": 0.33323008310981095,
+        "peak_memory_mb": 10.898822784423828,
+        "current_memory_mb": 0.05274772644042969,
+        "success": true,
+        "error": null
+      },
+      "iteration_first_100": {
+        "duration_seconds": 0.2895886250771582,
+        "peak_memory_mb": 0.049948692321777344,
+        "current_memory_mb": 0.04008293151855469,
+        "success": true,
+        "error": null
+      },
+      "iteration_full": {
+        "duration_seconds": 0.2906741669867188,
+        "peak_memory_mb": 0.049948692321777344,
+        "current_memory_mb": 0.04008293151855469,
+        "success": true,
+        "error": null
+      },
+      "sampling": null,
+      "oversampling": {
+        "duration_seconds": 2.050765458960086,
+        "peak_memory_mb": 0.2707395553588867,
+        "current_memory_mb": 0.12715530395507812,
+        "success": true,
+        "error": null
+      },
+      "examples_per_second": 344.02782000427686,
+      "bytes_per_example": 0.0,
+      "total_benchmark_time": 107.85516458307393
+    },
+    {
+      "dataset_key": "longalpaca",
+      "dataset_name": "Yukang/LongAlpaca-12k",
+      "dataset_config": {
+        "dataset_name": "Yukang/LongAlpaca-12k",
+        "split": "train",
+        "sample_count": 100,
+        "description": "Long-context instruction dataset",
+        "category": "sft",
+        "oumi_load_timing": {
+          "duration_seconds": 0.28745337505824864,
+          "peak_memory_mb": 0.0027360916137695312,
+          "current_memory_mb": 0.00170135498046875,
+          "success": false,
+          "error": "ModuleNotFoundError: No module named 'oumi.datasets.sft.generic_sft'"
+        }
+      },
+      "num_examples": 100,
+      "num_features": 4,
+      "load_raw": {
+        "duration_seconds": 2.3006905000656843,
+        "peak_memory_mb": 0.2807769775390625,
+        "current_memory_mb": 0.23035621643066406,
+        "success": true,
+        "error": null
+      },
+      "to_hf_map": null,
+      "to_hf_iterable": null,
+      "iteration_first_100": {
+        "duration_seconds": 0.2901004580780864,
+        "peak_memory_mb": 0.20518207550048828,
+        "current_memory_mb": 0.15808963775634766,
+        "success": true,
+        "error": null
+      },
+      "iteration_full": {
+        "duration_seconds": 0.2906845828983933,
+        "peak_memory_mb": 0.20518207550048828,
+        "current_memory_mb": 0.15808963775634766,
+        "success": true,
+        "error": null
+      },
+      "sampling": null,
+      "oversampling": {
+        "duration_seconds": 1.0673160410951823,
+        "peak_memory_mb": 0.1833362579345703,
+        "current_memory_mb": 0.13921642303466797,
+        "success": true,
+        "error": null
+      },
+      "examples_per_second": 344.0154926790675,
+      "bytes_per_example": 0.0,
+      "total_benchmark_time": 4.957649874966592
+    },
+    {
+      "dataset_key": "glaive_function",
+      "dataset_name": "glaiveai/glaive-function-calling-v2",
+      "dataset_config": {
+        "dataset_name": "glaiveai/glaive-function-calling-v2",
+        "split": "train",
+        "sample_count": 100,
+        "description": "Function calling dataset",
+        "category": "sft",
+        "oumi_load_timing": {
+          "duration_seconds": 0.28447887510992587,
+          "peak_memory_mb": 0.0027065277099609375,
+          "current_memory_mb": 0.00170135498046875,
+          "success": false,
+          "error": "ModuleNotFoundError: No module named 'oumi.datasets.sft.generic_sft'"
+        }
+      },
+      "num_examples": 100,
+      "num_features": 2,
+      "load_raw": {
+        "duration_seconds": 1.5743423749227077,
+        "peak_memory_mb": 0.29617881774902344,
+        "current_memory_mb": 0.2423095703125,
+        "success": true,
+        "error": null
+      },
+      "to_hf_map": null,
+      "to_hf_iterable": null,
+      "iteration_first_100": {
+        "duration_seconds": 0.2890743750613183,
+        "peak_memory_mb": 0.03470420837402344,
+        "current_memory_mb": 0.026498794555664062,
+        "success": true,
+        "error": null
+      },
+      "iteration_full": {
+        "duration_seconds": 0.2877662079408765,
+        "peak_memory_mb": 0.03470420837402344,
+        "current_memory_mb": 0.026498794555664062,
+        "success": true,
+        "error": null
+      },
+      "sampling": null,
+      "oversampling": {
+        "duration_seconds": 1.063508874969557,
+        "peak_memory_mb": 0.16727256774902344,
+        "current_memory_mb": 0.12844181060791016,
+        "success": true,
+        "error": null
+      },
+      "examples_per_second": 347.50431857706405,
+      "bytes_per_example": 0.0,
+      "total_benchmark_time": 4.216643332969397
+    }
+  ],
+  "summary": {
+    "total_datasets": 10,
+    "successful_datasets": 9,
+    "failed_datasets": 1,
+    "avg_load_time_seconds": 3.432908338106548,
+    "avg_to_hf_time_seconds": 55.14900466648396,
+    "avg_examples_per_second": 1047.0387503181364,
+    "total_benchmark_time_seconds": 227.512832790846,
+    "peak_memory_mb": 48.460890769958496,
+    "by_category": {
+      "sft": {
+        "count": 8,
+        "avg_load_time": 0.0
+      },
+      "dpo": {
+        "count": 1,
+        "avg_load_time": 0.0
+      },
+      "pretraining": {
+        "count": 1,
+        "avg_load_time": 0.0
+      }
+    }
+  }
+}
