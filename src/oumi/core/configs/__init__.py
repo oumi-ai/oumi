@@ -74,154 +74,146 @@ Note:
     All configuration classes inherit from
         :class:`~oumi.core.configs.base_config.BaseConfig`,
         which provides common functionality such as serialization and validation.
+
+    This module uses lazy loading to improve import performance. Heavy dependencies
+    like `peft` and `transformers` are only loaded when the corresponding config
+    classes are accessed.
 """
 
-from oumi.core.configs.analyze_config import (
-    AnalyzeConfig,
-    DatasetSource,
-    SampleAnalyzerParams,
-)
-from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
-from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.evaluation_config import EvaluationConfig
-from oumi.core.configs.inference_config import InferenceConfig
-from oumi.core.configs.inference_engine_type import InferenceEngineType
-from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
-from oumi.core.configs.judge_config import JudgeConfig
-from oumi.core.configs.params.data_params import (
-    DataParams,
-    DatasetParams,
-    DatasetSplit,
-    DatasetSplitParams,
-    MixtureStrategy,
-)
-from oumi.core.configs.params.evaluation_params import (
-    EvaluationBackend,
-    EvaluationTaskParams,
-    LMHarnessTaskParams,
-)
-from oumi.core.configs.params.fsdp_params import (
-    AutoWrapPolicy,
-    BackwardPrefetch,
-    FSDPParams,
-    ShardingStrategy,
-    StateDictType,
-)
-from oumi.core.configs.params.generation_params import GenerationParams
-from oumi.core.configs.params.grpo_params import GrpoParams
-from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
-from oumi.core.configs.params.judge_params import (
-    JudgeOutputType,
-    JudgeResponseFormat,
-)
-from oumi.core.configs.params.model_params import ModelParams
-from oumi.core.configs.params.peft_params import (
-    LoraWeightInitialization,
-    PeftParams,
-    PeftSaveMode,
-)
-from oumi.core.configs.params.profiler_params import ProfilerParams
-from oumi.core.configs.params.remote_params import RemoteParams
-from oumi.core.configs.params.synthesis_params import (
-    AttributeCombination,
-    DocumentSegmentationParams,
-    DocumentSource,
-    ExampleSource,
-    GeneralSynthesisParams,
-    GeneratedAttribute,
-    GeneratedAttributePostprocessingParams,
-    SampledAttribute,
-    SampledAttributeValue,
-    SegmentationStrategy,
-    TextConversation,
-    TextMessage,
-    TransformationStrategy,
-    TransformationType,
-    TransformedAttribute,
-)
-from oumi.core.configs.params.synthesis_params import (
-    DatasetSource as DatasetSourceParam,
-)
-from oumi.core.configs.params.telemetry_params import TelemetryParams
-from oumi.core.configs.params.training_params import (
-    MixedPrecisionDtype,
-    SchedulerType,
-    TrainerType,
-    TrainingParams,
-)
-from oumi.core.configs.params.tuning_params import (
-    TunerType,
-    TuningParams,
-)
-from oumi.core.configs.quantization_config import QuantizationConfig
-from oumi.core.configs.synthesis_config import SynthesisConfig
-from oumi.core.configs.training_config import TrainingConfig
-from oumi.core.configs.tuning_config import TuningConfig
+from __future__ import annotations
 
-__all__ = [
-    "AsyncEvaluationConfig",
-    "AutoWrapPolicy",
-    "BackwardPrefetch",
-    "BaseConfig",
-    "DataParams",
-    "DatasetParams",
-    "DatasetSplit",
-    "DatasetSplitParams",
-    "AnalyzeConfig",
-    "DatasetSource",
-    "SampleAnalyzerParams",
-    "EvaluationTaskParams",
-    "EvaluationConfig",
-    "EvaluationBackend",
-    "EvaluationConfig",
-    "EvaluationTaskParams",
-    "FSDPParams",
-    "GenerationParams",
-    "GrpoParams",
-    "GuidedDecodingParams",
-    "InferenceConfig",
-    "InferenceEngineType",
-    "JobConfig",
-    "JobResources",
-    "JudgeConfig",
-    "JudgeOutputType",
-    "JudgeResponseFormat",
-    "LMHarnessTaskParams",
-    "LoraWeightInitialization",
-    "MixedPrecisionDtype",
-    "MixtureStrategy",
-    "ModelParams",
-    "PeftParams",
-    "PeftSaveMode",
-    "ProfilerParams",
-    "QuantizationConfig",
-    "RemoteParams",
-    "SchedulerType",
-    "ShardingStrategy",
-    "StateDictType",
-    "StorageMount",
-    "SynthesisConfig",
-    "TelemetryParams",
-    "TrainerType",
-    "TrainingConfig",
-    "TrainingParams",
-    "TunerType",
-    "TuningConfig",
-    "TuningParams",
-    "AttributeCombination",
-    "DatasetSourceParam",
-    "DocumentSegmentationParams",
-    "DocumentSource",
-    "ExampleSource",
-    "GeneratedAttributePostprocessingParams",
-    "GeneralSynthesisParams",
-    "GeneratedAttribute",
-    "SampledAttribute",
-    "SampledAttributeValue",
-    "SegmentationStrategy",
-    "TextConversation",
-    "TextMessage",
-    "TransformationStrategy",
-    "TransformationType",
-    "TransformedAttribute",
-]
+import lazy_loader as lazy
+
+# Use lazy.attach() to defer imports until they are actually accessed.
+# This significantly improves import time by not loading heavy dependencies
+# (like peft, transformers, trl) until they are needed.
+_lazy_getattr, _lazy_dir, __all__ = lazy.attach(
+    __name__,
+    submod_attrs={
+        # Analyze config (lightweight)
+        "analyze_config": [
+            "AnalyzeConfig",
+            "DatasetSource",
+            "SampleAnalyzerParams",
+        ],
+        # Async evaluation config
+        "async_evaluation_config": ["AsyncEvaluationConfig"],
+        # Base config (lightweight - no heavy deps)
+        "base_config": ["BaseConfig"],
+        # Evaluation config
+        "evaluation_config": ["EvaluationConfig"],
+        # Inference config
+        "inference_config": ["InferenceConfig"],
+        # Inference engine type (lightweight enum)
+        "inference_engine_type": ["InferenceEngineType"],
+        # Job config (lightweight)
+        "job_config": ["JobConfig", "JobResources", "StorageMount"],
+        # Judge config
+        "judge_config": ["JudgeConfig"],
+        # Data params (lightweight)
+        "params.data_params": [
+            "DataParams",
+            "DatasetParams",
+            "DatasetSplit",
+            "DatasetSplitParams",
+            "MixtureStrategy",
+        ],
+        # Evaluation params (lightweight)
+        "params.evaluation_params": [
+            "EvaluationBackend",
+            "EvaluationTaskParams",
+            "LMHarnessTaskParams",
+        ],
+        # FSDP params (lightweight)
+        "params.fsdp_params": [
+            "AutoWrapPolicy",
+            "BackwardPrefetch",
+            "FSDPParams",
+            "ShardingStrategy",
+            "StateDictType",
+        ],
+        # Generation params (lightweight)
+        "params.generation_params": ["GenerationParams"],
+        # GRPO params (lightweight)
+        "params.grpo_params": ["GrpoParams"],
+        # Guided decoding params (lightweight)
+        "params.guided_decoding_params": ["GuidedDecodingParams"],
+        # Judge params (lightweight)
+        "params.judge_params": [
+            "JudgeOutputType",
+            "JudgeResponseFormat",
+        ],
+        # Model params (imports transformers - HEAVY)
+        "params.model_params": ["ModelParams"],
+        # PEFT params (imports peft, transformers - HEAVY)
+        "params.peft_params": [
+            "LoraWeightInitialization",
+            "PeftParams",
+            "PeftSaveMode",
+        ],
+        # Profiler params (lightweight)
+        "params.profiler_params": ["ProfilerParams"],
+        # Remote params (lightweight)
+        "params.remote_params": ["RemoteParams"],
+        # Synthesis params (lightweight)
+        # Note: DatasetSource from synthesis_params is exported as DatasetSourceParam
+        # to avoid conflict with DatasetSource from analyze_config
+        "params.synthesis_params": [
+            "AttributeCombination",
+            "DocumentSegmentationParams",
+            "DocumentSource",
+            "ExampleSource",
+            "GeneralSynthesisParams",
+            "GeneratedAttribute",
+            "GeneratedAttributePostprocessingParams",
+            "SampledAttribute",
+            "SampledAttributeValue",
+            "SegmentationStrategy",
+            "TextConversation",
+            "TextMessage",
+            "TransformationStrategy",
+            "TransformationType",
+            "TransformedAttribute",
+        ],
+        # Telemetry params (lightweight)
+        "params.telemetry_params": ["TelemetryParams"],
+        # Training params (imports transformers, trl - HEAVY)
+        "params.training_params": [
+            "MixedPrecisionDtype",
+            "SchedulerType",
+            "TrainerType",
+            "TrainingParams",
+        ],
+        # Tuning params (lightweight)
+        "params.tuning_params": [
+            "TunerType",
+            "TuningParams",
+        ],
+        # Quantization config (lightweight)
+        "quantization_config": ["QuantizationConfig"],
+        # Synthesis config (lightweight)
+        "synthesis_config": ["SynthesisConfig"],
+        # Training config (imports training_params - HEAVY)
+        "training_config": ["TrainingConfig"],
+        # Tuning config (lightweight)
+        "tuning_config": ["TuningConfig"],
+    },
+)
+
+# Add DatasetSourceParam to __all__ (it's an alias for DatasetSource from synthesis_params)
+__all__ = list(__all__) + ["DatasetSourceParam"]
+
+
+def __getattr__(name: str):
+    """Custom getattr to handle DatasetSourceParam alias."""
+    if name == "DatasetSourceParam":
+        # DatasetSourceParam is an alias for DatasetSource from synthesis_params
+        from oumi.core.configs.params.synthesis_params import DatasetSource
+
+        return DatasetSource
+    return _lazy_getattr(name)
+
+
+def __dir__():
+    """Custom dir to include DatasetSourceParam."""
+    return _lazy_dir()

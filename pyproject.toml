@@ -39,6 +39,7 @@ classifiers = [
 
 dependencies = [
     "accelerate>=1.10.0,<2.0",
+    "lazy-loader>=0.4",          # For lazy loading of heavy dependencies
     "aiohttp>=3.12,<3.16",        # Used by inference engine
     "aiofiles>=24.1.0,<26",       # Allows to use async file operations
     "aioresponses>=0.7,<0.8",     # User by inference engine tests
