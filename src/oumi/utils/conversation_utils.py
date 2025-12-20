@@ -18,7 +18,13 @@ from typing import Any, Union
 import PIL.Image
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.conversation import ContentItem, Conversation, Message, Type
+from oumi.core.types.conversation import (
+    ContentItem,
+    Conversation,
+    Message,
+    OutputFormat,
+    Type,
+)
 from oumi.utils.image_utils import (
     DEFAULT_IMAGE_MODE,
     load_image_png_bytes_from_path,
@@ -35,8 +41,8 @@ def load_image_bytes_to_content_item(
 ) -> ContentItem:
     """Ensures that message content item contains inline image bytes if it's an image.
 
-    Loads image content if image type is `IMAGE_URL` or `IMAGE_PATH`.
-    Otherwise returns the input content item w/o any changes.
+    Loads image content if image type is `IMAGE_URL`, `IMAGE_PATH`, or `IMAGE`
+    (with path field). Otherwise returns the input content item w/o any changes.
 
     Args:
         item: An input message content item.
@@ -45,21 +51,26 @@ def load_image_bytes_to_content_item(
             For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
 
     Returns:
-        A content item guaranteed to be `IMAGE_BINARY` if an input content item
-        was any of image types (`IMAGE_URL`, `IMAGE_PATH`, `IMAGE_BINARY`).
+        A content item guaranteed to have binary data if an input content item
+        was any of image types that can be loaded (`IMAGE_URL`, `IMAGE_PATH`,
+        or `IMAGE` with path).
     """
-    if item.type in (Type.IMAGE_PATH, Type.IMAGE_URL):
-        if item.type == Type.IMAGE_PATH:
-            if item.content is None:
-                raise ValueError("Image path is None")
-            png_bytes = load_image_png_bytes_from_path(item.content, mode=mode)
-        else:
-            assert item.type == Type.IMAGE_URL
-            if item.content is None:
-                raise ValueError("Image URL is None")
-            png_bytes = load_image_png_bytes_from_url(item.content, mode=mode)
-
+    if item.type == Type.IMAGE_PATH:
+        if item.content is None:
+            raise ValueError("Image path is None")
+        png_bytes = load_image_png_bytes_from_path(item.content, mode=mode)
         return ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
+
+    if item.type == Type.IMAGE_URL:
+        if item.content is None:
+            raise ValueError("Image URL is None")
+        png_bytes = load_image_png_bytes_from_url(item.content, mode=mode)
+        return ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
+
+    # Handle new IMAGE type with path field
+    if item.type == Type.IMAGE and item.path:
+        png_bytes = load_image_png_bytes_from_path(item.path, mode=mode)
+        return ContentItem(type=Type.IMAGE, url=f"data:image/png;base64,{base64.b64encode(png_bytes).decode('utf8')}", binary=png_bytes)
 
     return item
 
@@ -90,6 +101,26 @@ def load_pil_image_from_content_item(
         if image_item.binary is None:
             raise ValueError("Image binary is None")
         image_bin = load_pil_image_from_bytes(image_item.binary, mode=mode)
+    elif image_item.type == Type.IMAGE:
+        # Handle new IMAGE type - check path, url, or binary
+        if image_item.binary:
+            image_bin = load_pil_image_from_bytes(image_item.binary, mode=mode)
+        elif image_item.path:
+            image_bin = load_pil_image_from_path(image_item.path, mode=mode)
+        elif image_item.url:
+            if image_item.url.startswith("data:"):
+                # Data URI - extract base64 and decode
+                import re
+                match = re.match(r"data:[^;]+;base64,(.+)", image_item.url)
+                if match:
+                    image_bytes = base64.b64decode(match.group(1))
+                    image_bin = load_pil_image_from_bytes(image_bytes, mode=mode)
+                else:
+                    raise ValueError(f"Invalid data URI format: {image_item.url[:50]}...")
+            else:
+                image_bin = load_pil_image_from_url(image_item.url, mode=mode)
+        else:
+            raise ValueError("IMAGE type content item has no path, url, or binary data")
     else:
         raise ValueError(
             f"Unsupported content item type: {image_item.type}. Not an image!"
@@ -131,11 +162,14 @@ _JSON_DICT_KEY_URL: str = "url"
 
 def convert_message_content_item_to_json_dict(
     item: ContentItem,
+    output_format: OutputFormat = OutputFormat.OPENAI,
 ) -> dict[str, Any]:
     """Returns the content for a message content item.
 
     Args:
         item: The message content item to get the content for.
+        output_format: The output format to use for serialization.
+            Defaults to OPENAI for backward compatibility with remote inference APIs.
 
     Returns:
         Dict[str, Any]: The content for the message.
@@ -143,65 +177,112 @@ def convert_message_content_item_to_json_dict(
     if item.type == Type.TEXT:
         return {
             _JSON_DICT_KEY_TYPE: Type.TEXT.value,
-            _JSON_DICT_KEY_TEXT: (item.content or ""),
+            _JSON_DICT_KEY_TEXT: item.get_text(),
         }
     elif not item.is_image():
         raise ValueError(f"Unsupported message type: {item.type}")
 
-    if not item.binary and item.type != Type.IMAGE_URL:
-        item = load_image_bytes_to_content_item(item)
+    # Handle image types - need to load bytes for certain types
+    image_url = _get_image_url_for_serialization(item)
 
-    if item.binary:
-        b64_image = base64encode_content_item_image_bytes(item, add_mime_prefix=True)
+    if output_format == OutputFormat.OPENAI:
         return {
             _JSON_DICT_KEY_TYPE: Type.IMAGE_URL.value,
-            _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: b64_image},
+            _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: image_url},
+        }
+    else:
+        # OUMI and OUMI_LEGACY formats use flat structure
+        return {
+            _JSON_DICT_KEY_TYPE: "image",
+            _JSON_DICT_KEY_URL: image_url,
         }
 
-    assert item.type == Type.IMAGE_URL, (
-        f"Unexpected message type: {item.type}. Must be a code bug."
-    )
-    return {
-        _JSON_DICT_KEY_TYPE: Type.IMAGE_URL.value,
-        _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: item.content or ""},
-    }
+
+def _get_image_url_for_serialization(item: ContentItem) -> str:
+    """Gets the image URL for serialization, loading bytes if needed.
+
+    Args:
+        item: An image content item.
+
+    Returns:
+        The image URL (either an actual URL or a base64 data URI).
+    """
+    # For IMAGE type with url field, use it directly if it's a URL
+    if item.type == Type.IMAGE and item.url:
+        if item.url.startswith(("http://", "https://", "data:")):
+            return item.url
+        # If url field contains a file path, load and encode it
+        # (This shouldn't happen with proper usage, but handle it gracefully)
+
+    # For IMAGE_URL type, return the URL directly
+    if item.type == Type.IMAGE_URL:
+        return item.content or ""
+
+    # For types that need byte loading (IMAGE_PATH, IMAGE_BINARY, or IMAGE with path)
+    if item.binary:
+        return base64encode_content_item_image_bytes(item, add_mime_prefix=True)
+
+    # Load bytes from path or URL
+    loaded_item = load_image_bytes_to_content_item(item)
+    if loaded_item.binary:
+        return base64encode_content_item_image_bytes(loaded_item, add_mime_prefix=True)
+
+    # Fallback for IMAGE type with url (shouldn't reach here normally)
+    if item.type == Type.IMAGE and item.url:
+        return item.url
+
+    raise ValueError(f"Unable to get image URL for item type: {item.type}")
 
 
 def convert_content_items_to_json_list(
     content_items: list[ContentItem],
+    output_format: OutputFormat = OutputFormat.OPENAI,
 ) -> list[dict[str, Any]]:
     """Converts content items to a list of JSON dicts.
 
     Args:
         content_items: A list of content items.
+        output_format: The output format to use for serialization.
+            Defaults to OPENAI for backward compatibility with remote inference APIs.
 
     Returns:
         list[Dict[str, Any]]: The list of all content items encoded as JSON dicts.
     """
-    return [convert_message_content_item_to_json_dict(item) for item in content_items]
+    return [
+        convert_message_content_item_to_json_dict(item, output_format=output_format)
+        for item in content_items
+    ]
 
 
 def convert_message_to_json_content_list(
     message: Message,
+    output_format: OutputFormat = OutputFormat.OPENAI,
 ) -> list[dict[str, Any]]:
     """Returns the message content as a list of its content items encoded as JSON dicts.
 
     Args:
         message: The message to get the content for.
+        output_format: The output format to use for serialization.
+            Defaults to OPENAI for backward compatibility with remote inference APIs.
 
     Returns:
         list[Dict[str, Any]]: The content for the message for all content items.
     """
-    return convert_content_items_to_json_list(message.content_items)
+    return convert_content_items_to_json_list(
+        message.content_items, output_format=output_format
+    )
 
 
 def convert_message_to_json_content(
     message: Message,
+    output_format: OutputFormat = OutputFormat.OPENAI,
 ) -> Union[str, list[dict[str, Any]]]:
     """Returns the message content.
 
     Args:
         message: The message to get the content for.
+        output_format: The output format to use for serialization.
+            Defaults to OPENAI for backward compatibility with remote inference APIs.
 
     Returns:
         The content for the message returned either as a single string,
@@ -211,13 +292,16 @@ def convert_message_to_json_content(
         return message.content
 
     assert isinstance(message.content, list)
-    return convert_content_items_to_json_list(message.content_items)
+    return convert_content_items_to_json_list(
+        message.content_items, output_format=output_format
+    )
 
 
 def create_list_of_message_json_dicts(
     messages: list[Message],
     *,
     group_adjacent_same_role_turns: bool,
+    output_format: OutputFormat = OutputFormat.OPENAI,
 ) -> list[dict[str, Any]]:
     """Returns a list of JSON dictionaries representing messages.
 
@@ -227,6 +311,8 @@ def create_list_of_message_json_dicts(
         messages: The input messages.
         group_adjacent_same_role_turns: Whether to pack adjacent messages
             from the same role into a single element in output list.
+        output_format: The output format to use for serialization.
+            Defaults to OPENAI for backward compatibility with remote inference APIs.
 
     Returns:
         list[Dict[str, Any]]: The list of messages encoded as nested JSON dicts.
@@ -249,12 +335,16 @@ def create_list_of_message_json_dicts(
         if group_size == 1 and messages[idx].contains_single_text_content_item_only():
             # Set "content" to a primitive string value, which is the common
             # convention for text-only models.
-            item["content"] = messages[idx].text_content_items[0].content
+            item["content"] = messages[idx].text_content_items[0].get_text()
         else:
             # Set "content" to be a list of dictionaries for more complex cases.
             content_list = []
             while idx < end_idx:
-                content_list.extend(convert_message_to_json_content_list(messages[idx]))
+                content_list.extend(
+                    convert_message_to_json_content_list(
+                        messages[idx], output_format=output_format
+                    )
+                )
                 idx += 1
             item["content"] = content_list
 

@@ -13,15 +13,13 @@
 # limitations under the License.
 
 import base64
-from collections.abc import Generator, Mapping
+import warnings
+from collections.abc import Generator
 from enum import Enum
-from types import MappingProxyType
-from typing import Any, Callable, Final, NamedTuple, Optional, Union
+from typing import Any, Callable, NamedTuple, Optional, Union
 
 import pydantic
 from jinja2 import Template
-
-import oumi.core.types.proto.generated.conversation_pb2 as pb2
 
 
 class Role(str, Enum):
@@ -48,49 +46,81 @@ class Role(str, Enum):
         return self.value
 
 
-_ROLE_TO_PROTO_ROLE_MAP: Final[Mapping[Role, pb2.Role]] = MappingProxyType(
-    {
-        Role.SYSTEM: pb2.Role.SYSTEM,
-        Role.USER: pb2.Role.USER,
-        Role.ASSISTANT: pb2.Role.ASSISTANT,
-        Role.TOOL: pb2.Role.TOOL,
-    }
-)
-_PROTO_ROLE_TO_ROLE_MAP: Final[Mapping[pb2.Role, Role]] = MappingProxyType(
-    {v: k for k, v in _ROLE_TO_PROTO_ROLE_MAP.items()}
-)
+class OutputFormat(str, Enum):
+    """Output format for conversation serialization.
 
+    This enum controls how conversations are serialized to dictionaries/JSON.
+    """
 
-def _convert_role_to_proto_role(role: Role) -> pb2.Role:
-    """Converts a Role enum to Protocol Buffer format."""
-    result: pb2.Role = _ROLE_TO_PROTO_ROLE_MAP.get(role, pb2.Role.ROLE_UNSPECIFIED)
-    if result == pb2.Role.ROLE_UNSPECIFIED:
-        raise ValueError(f"Invalid role: {role}")
-    return result
+    OUMI = "oumi"
+    """Oumi format (HuggingFace-compatible).
 
+    This is the default format, compatible with HuggingFace transformers.
 
-def _convert_proto_role_to_role(role: pb2.Role) -> Role:
-    """Converts a Protocol Buffer role format to role."""
-    result: Optional[Role] = _PROTO_ROLE_TO_ROLE_MAP.get(role, None)
-    if result is None:
-        raise ValueError(f"Invalid role: {role}")
-    return result
+    - Text: ``{"type": "text", "text": "..."}``
+    - Image URL: ``{"type": "image", "url": "..."}``
+    - Image path: ``{"type": "image", "path": "..."}``
+    - Image binary: ``{"type": "image", "url": "data:image/png;base64,..."}``
+    """
+
+    OPENAI = "openai"
+    """OpenAI API format.
+
+    Use this format when calling OpenAI-compatible APIs.
+
+    - Text: ``{"type": "text", "text": "..."}``
+    - Image: ``{"type": "image_url", "image_url": {"url": "..."}}``
+    """
+
+    OUMI_LEGACY = "oumi_legacy"
+    """Legacy Oumi format (deprecated).
+
+    This format is provided for backward compatibility with existing pipelines.
+
+    - Text: ``{"type": "text", "content": "..."}``
+    - Image URL: ``{"type": "image_url", "content": "..."}``
+    - Image path: ``{"type": "image_path", "content": "..."}``
+    - Image binary: ``{"type": "image_binary", "binary": "..."}``
+    """
+
+    def __str__(self) -> str:
+        """Return the string representation of the OutputFormat enum."""
+        return self.value
 
 
 class Type(str, Enum):
-    """Type of the message."""
+    """Type of the content item in a message."""
 
     TEXT = "text"
     """Represents a text message."""
 
+    IMAGE = "image"
+    """Represents an image (HuggingFace format).
+
+    Use with `url` field for URLs/data URIs, or `path` field for local paths.
+    """
+
+    # Deprecated types - use IMAGE instead
     IMAGE_PATH = "image_path"
-    """Represents an image referenced by its file path."""
+    """Represents an image referenced by its file path.
+
+    .. deprecated::
+        Use `Type.IMAGE` with the `path` field instead.
+    """
 
     IMAGE_URL = "image_url"
-    """Represents an image referenced by its URL."""
+    """Represents an image referenced by its URL.
+
+    .. deprecated::
+        Use `Type.IMAGE` with the `url` field instead.
+    """
 
     IMAGE_BINARY = "image_binary"
-    """Represents an image stored as binary data."""
+    """Represents an image stored as binary data.
+
+    .. deprecated::
+        Use `Type.IMAGE` with the `url` field containing a data URI instead.
+    """
 
     def __str__(self) -> str:
         """Return the string representation of the Type enum.
@@ -100,40 +130,9 @@ class Type(str, Enum):
         """
         return self.value
 
-
-_CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP: Final[Mapping[Type, pb2.ContentPart.Type]] = (
-    MappingProxyType(
-        {
-            Type.TEXT: pb2.ContentPart.TEXT,
-            Type.IMAGE_PATH: pb2.ContentPart.IMAGE_PATH,
-            Type.IMAGE_URL: pb2.ContentPart.IMAGE_URL,
-            Type.IMAGE_BINARY: pb2.ContentPart.IMAGE_BINARY,
-        }
-    )
-)
-_CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP: Final[Mapping[pb2.ContentPart.Type, Type]] = (
-    MappingProxyType({v: k for k, v in _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.items()})
-)
-
-
-def _convert_type_to_proto_type(content_type: Type) -> pb2.ContentPart.Type:
-    """Converts a type enum to Protocol Buffer format."""
-    result: pb2.ContentPart.Type = _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.get(
-        content_type, pb2.ContentPart.TYPE_UNSPECIFIED
-    )
-    if result == pb2.ContentPart.TYPE_UNSPECIFIED:
-        raise ValueError(f"Invalid type: {content_type}")
-    return result
-
-
-def _convert_proto_type_to_type(content_type: pb2.ContentPart.Type) -> Type:
-    """Converts a Protocol Buffer type format to type."""
-    result: Optional[Type] = _CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP.get(
-        content_type, None
-    )
-    if result is None:
-        raise ValueError(f"Invalid type: {content_type}")
-    return result
+    def is_deprecated(self) -> bool:
+        """Check if this type is deprecated."""
+        return self in (Type.IMAGE_PATH, Type.IMAGE_URL, Type.IMAGE_BINARY)
 
 
 class ContentItemCounts(NamedTuple):
@@ -155,40 +154,109 @@ class ContentItem(pydantic.BaseModel):
     For example, a multimodal message from `USER` may include
     two `ContentItem`-s: one for text, and another for image.
 
+    Examples:
+        Text content (HuggingFace format)::
+
+            ContentItem(type=Type.TEXT, text="Hello, world!")
+
+        Text content (legacy format, still supported)::
+
+            ContentItem(type=Type.TEXT, content="Hello, world!")
+
+        Image from URL (HuggingFace format)::
+
+            ContentItem(type=Type.IMAGE, url="https://example.com/image.jpg")
+
+        Image from local path (HuggingFace format)::
+
+            ContentItem(type=Type.IMAGE, path="/path/to/image.jpg")
+
+        Image with binary data (HuggingFace format)::
+
+            ContentItem(type=Type.IMAGE, url="data:image/png;base64,...")
+
     Note:
-        Either content or binary must be provided when creating an instance.
+        The legacy types ``IMAGE_URL``, ``IMAGE_PATH``, and ``IMAGE_BINARY``
+        are deprecated. Use ``Type.IMAGE`` with the appropriate field instead.
     """
 
-    model_config = pydantic.ConfigDict(frozen=True)
+    model_config = pydantic.ConfigDict(
+        frozen=True,
+        populate_by_name=True,  # Accept both field names and aliases
+    )
 
     type: Type
-    """The type of the content (e.g., text, image path, image URL)."""
+    """The type of the content (e.g., text, image)."""
 
     content: Optional[str] = None
-    """Optional text content of the content item.
+    """Text content or legacy image URL/path.
 
-    One of content or binary must be provided.
+    For ``Type.TEXT``: contains the text content.
+    For deprecated ``IMAGE_URL``/``IMAGE_PATH``: contains the URL or path.
+
+    Note:
+        For new code, prefer using ``text`` for text content,
+        and ``url``/``path`` for images with ``Type.IMAGE``.
+    """
+
+    # New HuggingFace-style fields
+    text: Optional[str] = pydantic.Field(default=None)
+    """Text content (HuggingFace format).
+
+    Alternative to ``content`` for ``Type.TEXT``. When both are provided,
+    ``text`` takes precedence for HuggingFace format output.
+    """
+
+    url: Optional[str] = None
+    """Image URL or data URI (HuggingFace format).
+
+    For ``Type.IMAGE``: contains the HTTP(S) URL or a data URI
+    (e.g., ``data:image/png;base64,...``).
+    """
+
+    path: Optional[str] = None
+    """Local file path (HuggingFace format).
+
+    For ``Type.IMAGE``: contains the local filesystem path to the image.
     """
 
     binary: Optional[bytes] = None
-    """Optional binary data for the message content item, used for image data.
+    """Binary image data (internal use).
 
-    One of content or binary must be provided.
+    Contains the raw image bytes. For ``Type.IMAGE``, this is populated
+    when loading images from URLs or paths, or when providing inline data.
 
-    The field is required for `IMAGE_BINARY`, and can be optionally populated for
-    `IMAGE_URL`, `IMAGE_PATH` in which case it must be the loaded bytes of
-    the image specified in the `content` field.
-
-    The field must be `None` for `TEXT`.
+    For deprecated ``IMAGE_BINARY``: this field is required.
+    For ``IMAGE_URL``/``IMAGE_PATH``: optionally populated with loaded bytes.
     """
 
     def is_image(self) -> bool:
         """Checks if the item contains an image."""
-        return self.type in (Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH)
+        return self.type in (Type.IMAGE, Type.IMAGE_BINARY, Type.IMAGE_URL, Type.IMAGE_PATH)
 
     def is_text(self) -> bool:
         """Checks if the item contains text."""
         return self.type == Type.TEXT
+
+    def get_text(self) -> Optional[str]:
+        """Returns the text content, checking both 'text' and 'content' fields."""
+        return self.text if self.text is not None else self.content
+
+    def get_image_url(self) -> Optional[str]:
+        """Returns the image URL, checking both 'url' and 'content' fields."""
+        if self.url is not None:
+            return self.url
+        if self.type in (Type.IMAGE_URL, Type.IMAGE):
+            return self.content
+        return None
+
+    def get_image_path(self) -> Optional[str]:
+        """Returns the image path, checking both 'path' and 'content' fields."""
+        if self.path is not None:
+            return self.path
+        if self.type == Type.IMAGE_PATH:
+            return self.content
+        return None
 
     @pydantic.field_serializer("binary")
     def _encode_binary(self, value: Optional[bytes]) -> str:
@@ -212,65 +280,200 @@ class ContentItem(pydantic.BaseModel):
         """Post-initialization method for the `ContentItem` model.
 
         This method is automatically called after the model is initialized.
-        Performs additional validation e.g., to ensure that either content or binary
-        is provided for the message.
+        Performs additional validation and emits deprecation warnings.
 
         Raises:
             ValueError: If fields are set to invalid or inconsistent values.
         """
-        if self.binary is None and self.content is None:
-            raise ValueError(
-                "Either content or binary must be provided for the message item "
-                f"(Item type: {self.type})."
+        # Emit deprecation warnings for legacy image types
+        if self.type.is_deprecated():
+            warnings.warn(
+                f"Type.{self.type.name} is deprecated. Use Type.IMAGE with "
+                f"{'url' if self.type == Type.IMAGE_URL else 'path' if self.type == Type.IMAGE_PATH else 'url (data URI)'} "
+                f"field instead.",
+                DeprecationWarning,
+                stacklevel=3,
             )
 
-        if self.is_image():
-            if self.type == Type.IMAGE_BINARY and (
-                self.binary is None or len(self.binary) == 0
-            ):
+        # Validate based on type
+        if self.type == Type.TEXT:
+            # For TEXT, need either content or text field
+            if self.content is None and self.text is None:
+                raise ValueError(
+                    "Either 'content' or 'text' must be provided for TEXT items."
+                )
+            if self.binary is not None:
+                raise ValueError(
+                    "Binary data cannot be provided for TEXT items."
+                )
+            if self.url is not None or self.path is not None:
+                raise ValueError(
+                    "The 'url' and 'path' fields cannot be used with TEXT items."
+                )
+
+        elif self.type == Type.IMAGE:
+            # For IMAGE (HuggingFace format), need url, path, or binary
+            has_url = self.url is not None and len(self.url) > 0
+            has_path = self.path is not None and len(self.path) > 0
+            has_binary = self.binary is not None and len(self.binary) > 0
+
+            if not has_url and not has_path and not has_binary:
+                raise ValueError(
+                    "For Type.IMAGE, provide 'url', 'path', or 'binary' field."
+                )
+            if has_url and has_path:
+                raise ValueError(
+                    "Cannot provide both 'url' and 'path' for the same IMAGE item."
+                )
+            if self.content is not None or self.text is not None:
+                raise ValueError(
+                    "The 'content' and 'text' fields cannot be used with IMAGE items. "
+                    "Use 'url' or 'path' instead."
+                )
+
+        elif self.type == Type.IMAGE_BINARY:
+            # Legacy IMAGE_BINARY requires binary data
+            if self.binary is None or len(self.binary) == 0:
                 raise ValueError(
                     f"No image bytes in message content item (Item type: {self.type})."
                 )
-            if self.type in (Type.IMAGE_PATH, Type.IMAGE_URL) and (
-                self.content is None or len(self.content) == 0
-            ):
+
+        elif self.type in (Type.IMAGE_PATH, Type.IMAGE_URL):
+            # Legacy IMAGE_PATH/IMAGE_URL require content field
+            if self.content is None or len(self.content) == 0:
                 raise ValueError(f"Content not provided for {self.type} message item.")
+
         else:
-            if self.binary is not None:
-                raise ValueError(
-                    f"Binary can only be provided for images (Item type: {self.type})."
-                )
-
-    @staticmethod
-    def from_proto(item_proto: pb2.ContentPart) -> "ContentItem":
-        """Converts a Protocol Buffer to a content item."""
-        if item_proto.HasField("blob") and item_proto.blob:
-            return ContentItem(
-                type=_convert_proto_type_to_type(item_proto.type),
-                binary=item_proto.blob.binary_data,
-                content=(item_proto.content or None),
-            )
-        return ContentItem(
-            type=_convert_proto_type_to_type(item_proto.type),
-            content=item_proto.content,
-        )
-
-    def to_proto(self) -> pb2.ContentPart:
-        """Converts a content item to Protocol Buffer format."""
-        if self.binary is not None and len(self.binary) > 0:
-            return pb2.ContentPart(
-                type=_convert_type_to_proto_type(self.type),
-                blob=pb2.DataBlob(binary_data=self.binary),
-                content=(self.content or None),
-            )
-        return pb2.ContentPart(
-            type=_convert_type_to_proto_type(self.type),
-            content=(self.content or None),
-        )
+            raise ValueError(f"Unknown content item type: {self.type}")
 
     def __repr__(self) -> str:
         """Returns a string representation of the message item."""
-        return f"{self.content}" if self.is_text() else f"<{self.type.upper()}>"
+        if self.is_text():
+            return f"{self.get_text()}"
+        else:
+            return f"<{self.type.value.upper()}>"
+
+    def to_dict(
+        self,
+        output_format: OutputFormat = OutputFormat.OUMI,
+    ) -> dict[str, Any]:
+        """Serialize the content item to a dictionary.
+
+        Args:
+            output_format: The serialization format to use.
+                Defaults to OUMI (HuggingFace-compatible format).
+
+        Returns:
+            Dictionary representation of the content item.
+        """
+        if self.type == Type.TEXT:
+            return self._serialize_text(output_format)
+        elif self.is_image():
+            return self._serialize_image(output_format)
+        else:
+            raise ValueError(f"Unknown content item type: {self.type}")
+
+    def _serialize_text(self, output_format: OutputFormat) -> dict[str, Any]:
+        """Serialize text content item."""
+        text_value = self.get_text() or ""
+
+        if output_format == OutputFormat.OUMI_LEGACY:
+            return {"type": "text", "content": text_value}
+        else:  # OUMI or OPENAI - both use "text" key
+            return {"type": "text", "text": text_value}
+
+    def _serialize_image(self, output_format: OutputFormat) -> dict[str, Any]:
+        """Serialize image content item."""
+        if output_format == OutputFormat.OUMI:
+            return self._serialize_image_oumi()
+        elif output_format == OutputFormat.OPENAI:
+            return self._serialize_image_openai()
+        else:  # OUMI_LEGACY
+            return self._serialize_image_legacy()
+
+    def _serialize_image_oumi(self) -> dict[str, Any]:
+        """Serialize image in Oumi (HuggingFace) format."""
+        # Handle new IMAGE type
+        if self.type == Type.IMAGE:
+            if self.path:
+                result: dict[str, Any] = {"type": "image", "path": self.path}
+            else:
+                result = {"type": "image", "url": self.url or ""}
+            if self.binary:
+                result["binary"] = base64.b64encode(self.binary).decode("ascii")
+            return result
+
+        # Handle legacy types - convert to new format
+        if self.type == Type.IMAGE_PATH:
+            result = {"type": "image", "path": self.content or ""}
+            if self.binary:
+                result["binary"] = base64.b64encode(self.binary).decode("ascii")
+            return result
+        elif self.type == Type.IMAGE_BINARY:
+            # Convert binary to data URI
+            b64 = base64.b64encode(self.binary or b"").decode("ascii")
+            return {"type": "image", "url": f"data:image/png;base64,{b64}"}
+        else:  # IMAGE_URL
+            result = {"type": "image", "url": self.content or ""}
+            if self.binary:
+                result["binary"] = base64.b64encode(self.binary).decode("ascii")
+            return result
+
+    def _serialize_image_openai(self) -> dict[str, Any]:
+        """Serialize image in OpenAI format."""
+        # Get the URL - either from url field, content field, or generate from binary
+        if self.url:
+            url = self.url
+        elif self.binary and (self.type in (Type.IMAGE, Type.IMAGE_BINARY)):
+            b64 = base64.b64encode(self.binary).decode("ascii")
+            url = f"data:image/png;base64,{b64}"
+        elif self.content:
+            url = self.content
+        else:
+            url = ""
+
+        return {
+            "type": "image_url",
+            "image_url": {"url": url},
+        }
+
+    def _serialize_image_legacy(self) -> dict[str, Any]:
+        """Serialize image in legacy Oumi format."""
+        # Handle new IMAGE type - map back to legacy format
+        if self.type == Type.IMAGE:
+            if self.path:
+                result: dict[str, Any] = {"type": "image_path", "content": self.path}
+                if self.binary:
+                    result["binary"] = base64.b64encode(self.binary).decode("ascii")
+                return result
+            elif self.binary and not self.url:
+                # Pure binary without URL
+                return {
+                    "type": "image_binary",
+                    "binary": base64.b64encode(self.binary).decode("ascii"),
+                }
+            else:
+                result = {"type": "image_url", "content": self.url or ""}
+                if self.binary:
+                    result["binary"] = base64.b64encode(self.binary).decode("ascii")
+                return result
+
+        # Handle legacy types - preserve original format
+        if self.type == Type.IMAGE_BINARY:
+            return {
+                "type": "image_binary",
+                "binary": base64.b64encode(self.binary or b"").decode("ascii"),
+            }
+        elif self.type == Type.IMAGE_PATH:
+            result: dict[str, Any] = {"type": "image_path", "content": self.content or ""}
+            if self.binary:
+                result["binary"] = base64.b64encode(self.binary).decode("ascii")
+            return result
+        else:  # IMAGE_URL
+            result = {"type": "image_url", "content": self.content or ""}
+            if self.binary:
+                result["binary"] = base64.b64encode(self.binary).decode("ascii")
+            return result
 
 
 class Message(pydantic.BaseModel):
@@ -417,31 +620,33 @@ class Message(pydantic.BaseModel):
         counts = self.count_content_items()
         return counts.image_items == 1 and counts.image_items == counts.total_items
 
-    @staticmethod
-    def from_proto(message_proto: pb2.Message) -> "Message":
-        """Converts a Protocol Buffer to a message."""
-        if (len(message_proto.parts) == 1) and (
-            message_proto.parts[0].type == pb2.ContentPart.TEXT
-        ):
-            return Message(
-                id=(message_proto.id or None),
-                role=_convert_proto_role_to_role(message_proto.role),
-                content=message_proto.parts[0].content,
-            )
+    def to_dict(
+        self,
+        output_format: OutputFormat = OutputFormat.OUMI,
+    ) -> dict[str, Any]:
+        """Serialize the message to a dictionary.
 
-        return Message(
-            id=(message_proto.id or None),
-            role=_convert_proto_role_to_role(message_proto.role),
-            content=[ContentItem.from_proto(part) for part in message_proto.parts],
-        )
+        Args:
+            output_format: The serialization format to use.
+                Defaults to OUMI (HuggingFace-compatible format).
 
-    def to_proto(self) -> pb2.Message:
-        """Converts a message to Protocol Buffer format."""
-        return pb2.Message(
-            id=self.id,
-            role=_convert_role_to_proto_role(self.role),
-            parts=[item.to_proto() for item in self.content_items],
-        )
+        Returns:
+            Dictionary representation of the message.
+        """
+        result: dict[str, Any] = {"role": str(self.role)}
+
+        if self.id is not None:
+            result["id"] = self.id
+
+        # Handle content
+        if isinstance(self.content, str):
+            result["content"] = self.content
+        else:
+            result["content"] = [
+                item.to_dict(output_format=output_format) for item in self.content
+            ]
+
+        return result
 
     def __repr__(self) -> str:
         """Returns a string representation of the message."""
@@ -540,11 +745,32 @@ class Conversation(pydantic.BaseModel):
 
         return messages
 
-    def to_dict(self):
-        """Converts the conversation to a dictionary."""
-        return self.model_dump(
-            mode="json", exclude_unset=True, exclude_defaults=False, exclude_none=True
-        )
+    def to_dict(
+        self,
+        output_format: OutputFormat = OutputFormat.OUMI,
+    ) -> dict[str, Any]:
+        """Converts the conversation to a dictionary.
+
+        Args:
+            output_format: The serialization format to use.
+                Defaults to OUMI (HuggingFace-compatible format).
+
+        Returns:
+            Dictionary representation of the conversation.
+        """
+        result: dict[str, Any] = {}
+
+        if self.conversation_id:
+            result["conversation_id"] = self.conversation_id
+
+        result["messages"] = [
+            msg.to_dict(output_format=output_format) for msg in self.messages
+        ]
+
+        if self.metadata:
+            result["metadata"] = self.metadata
+
+        return result
 
     def append_id_to_string(self, s: str) -> str:
         """Appends conversation ID to a string.
@@ -562,38 +788,27 @@ class Conversation(pydantic.BaseModel):
         """Converts a dictionary to a conversation."""
         return cls.model_validate(data)
 
-    def to_json(self) -> str:
-        """Converts the conversation to a JSON string."""
-        return self.model_dump_json(
-            exclude_unset=True, exclude_defaults=False, exclude_none=True
-        )
+    def to_json(
+        self,
+        output_format: OutputFormat = OutputFormat.OUMI,
+    ) -> str:
+        """Converts the conversation to a JSON string.
+
+        Args:
+            output_format: The serialization format to use.
+                Defaults to OUMI (HuggingFace-compatible format).
+
+        Returns:
+            JSON string representation of the conversation.
+        """
+        import json
+
+        return json.dumps(self.to_dict(output_format=output_format))
 
     @classmethod
     def from_json(cls, data: str) -> "Conversation":
         """Converts a JSON string to a conversation."""
         return cls.model_validate_json(data)
-
-    @staticmethod
-    def from_proto(conversation_proto: pb2.Conversation) -> "Conversation":
-        """Converts a conversation from Protocol Buffer format."""
-        result: Conversation = Conversation(
-            conversation_id=(conversation_proto.conversation_id or None),
-            messages=[Message.from_proto(m) for m in conversation_proto.messages],
-        )
-        for key, value in conversation_proto.metadata.items():
-            result.metadata[key] = str(value)
-        return result
-
-    def to_proto(self) -> pb2.Conversation:
-        """Converts a conversation to Protocol Buffer format."""
-        result = pb2.Conversation(
-            conversation_id=self.conversation_id,
-            messages=[m.to_proto() for m in self.messages],
-        )
-        if self.metadata is not None:
-            for key, value in self.metadata.items():
-                result.metadata[key] = str(value)
-        return result
 
     def __repr__(self) -> str:
         """Returns a string representation of the conversation."""

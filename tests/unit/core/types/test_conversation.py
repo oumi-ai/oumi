@@ -175,6 +175,7 @@ def test_conversation_to_dict_compound_text_content():
         ],
         metadata={"test": "metadata"},
     )
+    # Default format is now OUMI (HuggingFace-compatible)
     conv_dict = conv.to_dict()
 
     assert isinstance(conv_dict, dict)
@@ -182,10 +183,10 @@ def test_conversation_to_dict_compound_text_content():
     assert len(conv_dict["messages"]) == 2
     assert conv_dict["metadata"] == {"test": "metadata"}
     assert conv_dict["messages"][0]["role"] == "user"
-    assert conv_dict["messages"][0]["content"] == [{"content": "Hello", "type": "text"}]
+    assert conv_dict["messages"][0]["content"] == [{"text": "Hello", "type": "text"}]
     assert conv_dict["messages"][1]["role"] == "assistant"
     assert conv_dict["messages"][1]["content"] == [
-        {"content": "Hi there!", "type": "text"}
+        {"text": "Hi there!", "type": "text"}
     ]
 
 
@@ -214,6 +215,7 @@ def test_conversation_to_dict_compound_mixed_content():
         ],
         metadata={"test": "metadata"},
     )
+    # Default format is now OUMI (HuggingFace-compatible)
     conv_dict = conv.to_dict()
 
     assert isinstance(conv_dict, dict)
@@ -221,20 +223,23 @@ def test_conversation_to_dict_compound_mixed_content():
     assert len(conv_dict["messages"]) == 2
     assert conv_dict["metadata"] == {"test": "metadata"}
     assert conv_dict["messages"][0]["role"] == "user"
+    # IMAGE_BINARY -> {"type": "image", "url": "data:..."}
+    # TEXT -> {"type": "text", "text": "..."}
     assert conv_dict["messages"][0]["content"] == [
         {
-            "binary": _SMALL_B64_IMAGE,
-            "type": "image_binary",
+            "type": "image",
+            "url": f"data:image/png;base64,{_SMALL_B64_IMAGE}",
         },
-        {"content": "Hello", "type": "text"},
+        {"type": "text", "text": "Hello"},
     ]
     assert conv_dict["messages"][1]["role"] == "assistant"
+    # IMAGE_URL -> {"type": "image", "url": "...", "binary": "..."}
     assert conv_dict["messages"][1]["content"] == [
-        {"content": "Hi there!", "type": "text"},
+        {"type": "text", "text": "Hi there!"},
         {
+            "type": "image",
+            "url": "/tmp/foo.png",
             "binary": _SMALL_B64_IMAGE,
-            "content": "/tmp/foo.png",
-            "type": "image_url",
         },
     ]
 
@@ -318,14 +323,15 @@ def test_conversation_to_json_legacy():
         ],
         metadata={"test": "metadata"},
     )
+    # String content is preserved as-is in all formats
     json_str = conv.to_json()
 
     assert isinstance(json_str, str)
-    assert '"role":"user"' in json_str
-    assert '"content":"Hello"' in json_str
-    assert '"role":"assistant"' in json_str
-    assert '"content":"Hi there!"' in json_str
-    assert '"test":"metadata"' in json_str
+    assert '"role": "user"' in json_str
+    assert '"content": "Hello"' in json_str
+    assert '"role": "assistant"' in json_str
+    assert '"content": "Hi there!"' in json_str
+    assert '"test": "metadata"' in json_str
 
 
 def test_conversation_to_json_mixed_content():
@@ -353,20 +359,24 @@ def test_conversation_to_json_mixed_content():
         ],
         metadata={"test": "_MY_METADATA_"},
     )
+    # Default format is now OUMI (HuggingFace-compatible)
     json_str = conv.to_json()
 
     assert isinstance(json_str, str)
-    assert '"role":"user"' in json_str, json_str
-    assert '"type":"image_binary"' in json_str
-    assert ('"binary":"' + _SMALL_B64_IMAGE + '"') in json_str, json_str
-    assert json_str.count('"binary":"' + _SMALL_B64_IMAGE + '"') == 2, json_str
-    assert '"content":"Hello"' in json_str, json_str
-    assert '"type":"text"' in json_str
-    assert json_str.count('"type":"text"') == 2, json_str
-    assert '"role":"assistant"' in json_str
-    assert '"type":"image_url"' in json_str
-    assert '"content":"Hi there!"' in json_str
-    assert '"test":"_MY_METADATA_"' in json_str
+    assert '"role": "user"' in json_str, json_str
+    # IMAGE_BINARY -> {"type": "image", "url": "data:..."}
+    assert '"type": "image"' in json_str
+    assert f'"url": "data:image/png;base64,{_SMALL_B64_IMAGE}"' in json_str, json_str
+    # TEXT -> {"type": "text", "text": "..."}
+    assert '"text": "Hello"' in json_str, json_str
+    assert '"type": "text"' in json_str
+    assert json_str.count('"type": "text"') == 2, json_str
+    assert '"role": "assistant"' in json_str
+    # IMAGE_URL with binary -> {"type": "image", "url": "...", "binary": "..."}
+    assert '"url": "/tmp/foo.png"' in json_str
+    assert f'"binary": "{_SMALL_B64_IMAGE}"' in json_str
+    assert '"text": "Hi there!"' in json_str
+    assert '"test": "_MY_METADATA_"' in json_str
 
 
 def test_conversation_from_json_legacy():
@@ -410,6 +420,8 @@ def test_conversation_from_json_compound_simple():
 
 
 def test_roundtrip_dict_legacy(root_testdata_dir):
+    from oumi.core.types.conversation import OutputFormat
+
     original = Conversation(
         messages=[
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
@@ -426,13 +438,16 @@ def test_roundtrip_dict_legacy(root_testdata_dir):
         ],
         metadata={"test": "metadata"},
     )
-    conv_dict = original.to_dict()
+    # Use OUMI_LEGACY format to preserve exact equality
+    conv_dict = original.to_dict(output_format=OutputFormat.OUMI_LEGACY)
     reconstructed = Conversation.from_dict(conv_dict)
 
     assert original == reconstructed
 
 
 def test_roundtrip_dict_compound_mixed_content(root_testdata_dir):
+    from oumi.core.types.conversation import OutputFormat
+
     png_logo_bytes = load_image_png_bytes_from_path(
         root_testdata_dir / "images" / "oumi_logo_dark.png"
     )
@@ -476,13 +491,16 @@ def test_roundtrip_dict_compound_mixed_content(root_testdata_dir):
         ],
         metadata={"a": "b", "b": "c"},
     )
-    conv_dict = original.to_dict()
+    # Use OUMI_LEGACY format to preserve exact equality with legacy types
+    conv_dict = original.to_dict(output_format=OutputFormat.OUMI_LEGACY)
     reconstructed = Conversation.from_dict(conv_dict)
 
     assert original == reconstructed
 
 
 def test_roundtrip_json_legacy(root_testdata_dir):
+    from oumi.core.types.conversation import OutputFormat
+
     original = Conversation(
         messages=[
             Message(id="001", role=Role.SYSTEM, content="Behave!"),
@@ -499,13 +517,16 @@ def test_roundtrip_json_legacy(root_testdata_dir):
         ],
         metadata={"test": "metadata"},
     )
-    json_str = original.to_json()
+    # Use OUMI_LEGACY format to preserve exact equality
+    json_str = original.to_json(output_format=OutputFormat.OUMI_LEGACY)
     reconstructed = Conversation.from_json(json_str)
 
     assert original == reconstructed
 
 
 def test_roundtrip_json_compound_mixed_content(root_testdata_dir):
+    from oumi.core.types.conversation import OutputFormat
+
     png_logo_bytes = load_image_png_bytes_from_path(
         root_testdata_dir / "images" / "oumi_logo_light.png"
     )
@@ -549,91 +570,11 @@ def test_roundtrip_json_compound_mixed_content(root_testdata_dir):
         ],
         metadata={"a": "b", "b": "c"},
     )
-    json_str = original.to_json()
+    # Use OUMI_LEGACY format to preserve exact equality with legacy types
+    json_str = original.to_json(output_format=OutputFormat.OUMI_LEGACY)
     reconstructed = Conversation.from_json(json_str)
 
     assert original == reconstructed
-
-
-def test_roundtrip_proto_legacy(root_testdata_dir):
-    original = Conversation(
-        messages=[
-            Message(id="001", role=Role.SYSTEM, content="Behave!"),
-            Message(role=Role.ASSISTANT, content="Hi there!"),
-            Message(
-                role=Role.USER,
-                content="",
-            ),
-            Message(
-                id="xyz",
-                role=Role.TOOL,
-                content="oumi_logo_dark",
-            ),
-        ],
-        metadata={"test": "metadata"},
-    )
-    convo_proto = original.to_proto()
-    reconstructed = Conversation.from_proto(convo_proto)
-
-    assert original == reconstructed, (
-        f"\n\noriginal: {original.to_dict()}\n"
-        f"\n\nreconstructed: {reconstructed.to_dict()}\n"
-        f"\n\nproto: {convo_proto.SerializeToString()}"
-    )
-
-
-def test_roundtrip_proto_compound_mixed_content(root_testdata_dir):
-    png_logo_bytes = load_image_png_bytes_from_path(
-        root_testdata_dir / "images" / "oumi_logo_light.png"
-    )
-    png_small_image_bytes = _create_test_image_bytes()
-
-    original = Conversation(
-        messages=[
-            Message(id="001", role=Role.SYSTEM, content="Behave!"),
-            Message(role=Role.ASSISTANT, content="Hi there!"),
-            Message(
-                id="z072",
-                role=Role.USER,
-                content=[
-                    ContentItem(binary=png_logo_bytes, type=Type.IMAGE_BINARY),
-                    ContentItem(binary=png_small_image_bytes, type=Type.IMAGE_BINARY),
-                    ContentItem(
-                        content="https://www.oumi.ai/logo.png",
-                        type=Type.IMAGE_URL,
-                    ),
-                ],
-            ),
-            Message(
-                id="_xyz",
-                role=Role.TOOL,
-                content=[
-                    ContentItem(
-                        content=str(
-                            root_testdata_dir / "images" / "oumi_logo_dark.png"
-                        ),
-                        binary=png_logo_bytes,
-                        type=Type.IMAGE_PATH,
-                    ),
-                    ContentItem(
-                        content="http://oumi.ai/bzz.png",
-                        binary=png_small_image_bytes,
-                        type=Type.IMAGE_URL,
-                    ),
-                    ContentItem(content="<@>", type=Type.TEXT),
-                ],
-            ),
-        ],
-        metadata={"a": "b", "b": "c"},
-    )
-    convo_proto = original.to_proto()
-    reconstructed = Conversation.from_proto(convo_proto)
-
-    assert original == reconstructed, (
-        f"\n\noriginal: {original.to_dict()}\n"
-        f"\n\nreconstructed: {reconstructed.to_dict()}\n"
-        f"\n\nproto: {convo_proto.SerializeToString()}"
-    )
 
 
 def test_from_dict_with_invalid_field():
@@ -684,18 +625,21 @@ def test_incorrect_message_content_item_type():
             type=Type.TEXT,
             content=cast(str, 12345.7),  # Hacky way to pass a number as content.
         )
-    with pytest.raises(ValueError, match="Either content or binary must be provided"):
+    with pytest.raises(ValueError, match="'content' or 'text' must be provided"):
         ContentItem(
             type=Type.TEXT,
         )
-    with pytest.raises(ValueError, match="No image bytes in message content item"):
-        ContentItem(type=Type.IMAGE_BINARY, binary=b"")
-    with pytest.raises(ValueError, match="Content not provided"):
-        ContentItem(type=Type.IMAGE_URL, binary=b"")
-    with pytest.raises(ValueError, match="Content not provided"):
-        ContentItem(type=Type.IMAGE_PATH, binary=b"")
-    with pytest.raises(ValueError, match="Binary can only be provided for images"):
-        ContentItem(type=Type.TEXT, binary=b"")
+    with pytest.warns(DeprecationWarning):
+        with pytest.raises(ValueError, match="No image bytes in message content item"):
+            ContentItem(type=Type.IMAGE_BINARY, binary=b"")
+    with pytest.warns(DeprecationWarning):
+        with pytest.raises(ValueError, match="Content not provided"):
+            ContentItem(type=Type.IMAGE_URL, binary=b"")
+    with pytest.warns(DeprecationWarning):
+        with pytest.raises(ValueError, match="Content not provided"):
+            ContentItem(type=Type.IMAGE_PATH, binary=b"")
+    with pytest.raises(ValueError, match="Binary data cannot be provided for TEXT"):
+        ContentItem(type=Type.TEXT, content="hello", binary=b"")
 
 
 @pytest.mark.parametrize(
@@ -961,3 +905,414 @@ def test_conversation_metadata_independence():
 
     assert conv2.metadata == {}
     assert conv1.metadata == {"foo": "bar"}
+
+
+# ============================================================================
+# New HuggingFace format tests (Type.IMAGE, text/url/path fields)
+# ============================================================================
+
+
+class TestImageType:
+    """Tests for the new unified IMAGE type."""
+
+    def test_image_with_url(self):
+        """Test creating IMAGE content item with URL."""
+        item = ContentItem(type=Type.IMAGE, url="https://example.com/image.jpg")
+        assert item.type == Type.IMAGE
+        assert item.url == "https://example.com/image.jpg"
+        assert item.path is None
+        assert item.is_image()
+        assert not item.is_text()
+
+    def test_image_with_path(self):
+        """Test creating IMAGE content item with local path."""
+        item = ContentItem(type=Type.IMAGE, path="/path/to/image.jpg")
+        assert item.type == Type.IMAGE
+        assert item.path == "/path/to/image.jpg"
+        assert item.url is None
+        assert item.is_image()
+
+    def test_image_with_binary(self):
+        """Test creating IMAGE content item with binary data."""
+        png_bytes = _create_test_image_bytes()
+        item = ContentItem(type=Type.IMAGE, url="data:image/png;base64,test", binary=png_bytes)
+        assert item.type == Type.IMAGE
+        assert item.binary == png_bytes
+        assert item.is_image()
+
+    def test_image_with_data_uri(self):
+        """Test creating IMAGE content item with data URI."""
+        data_uri = f"data:image/png;base64,{_SMALL_B64_IMAGE}"
+        item = ContentItem(type=Type.IMAGE, url=data_uri)
+        assert item.type == Type.IMAGE
+        assert item.url == data_uri
+        assert item.is_image()
+
+    def test_image_repr(self):
+        """Test IMAGE type string representation."""
+        item = ContentItem(type=Type.IMAGE, url="https://example.com/image.jpg")
+        assert repr(item) == "<IMAGE>"
+
+    def test_image_validation_requires_url_or_path(self):
+        """Test that IMAGE type requires url, path, or binary."""
+        with pytest.raises(ValueError, match="provide 'url', 'path', or 'binary'"):
+            ContentItem(type=Type.IMAGE)
+
+    def test_image_validation_cannot_have_both_url_and_path(self):
+        """Test that IMAGE type cannot have both url and path."""
+        with pytest.raises(ValueError, match="Cannot provide both 'url' and 'path'"):
+            ContentItem(
+                type=Type.IMAGE,
+                url="https://example.com/image.jpg",
+                path="/path/to/image.jpg",
+            )
+
+    def test_image_validation_cannot_have_content(self):
+        """Test that IMAGE type cannot use content field."""
+        with pytest.raises(ValueError, match="'content' and 'text' fields cannot be used"):
+            ContentItem(
+                type=Type.IMAGE,
+                url="https://example.com/image.jpg",
+                content="should not be here",
+            )
+
+    def test_get_image_url(self):
+        """Test get_image_url helper method."""
+        item = ContentItem(type=Type.IMAGE, url="https://example.com/image.jpg")
+        assert item.get_image_url() == "https://example.com/image.jpg"
+
+    def test_get_image_path(self):
+        """Test get_image_path helper method."""
+        item = ContentItem(type=Type.IMAGE, path="/path/to/image.jpg")
+        assert item.get_image_path() == "/path/to/image.jpg"
+
+
+class TestTextFieldAlias:
+    """Tests for the 'text' field alias (HuggingFace format)."""
+
+    def test_text_field_for_text_type(self):
+        """Test creating TEXT content item with text field."""
+        item = ContentItem(type=Type.TEXT, text="Hello, world!")
+        assert item.type == Type.TEXT
+        assert item.text == "Hello, world!"
+        assert item.is_text()
+
+    def test_text_field_repr(self):
+        """Test TEXT type with text field string representation."""
+        item = ContentItem(type=Type.TEXT, text="Hello")
+        assert repr(item) == "Hello"
+
+    def test_get_text_prefers_text_field(self):
+        """Test that get_text() returns text field when both are set."""
+        item = ContentItem(type=Type.TEXT, text="text_field", content="content_field")
+        assert item.get_text() == "text_field"
+
+    def test_get_text_falls_back_to_content(self):
+        """Test that get_text() falls back to content field."""
+        item = ContentItem(type=Type.TEXT, content="content_field")
+        assert item.get_text() == "content_field"
+
+    def test_text_validation_requires_content_or_text(self):
+        """Test that TEXT type requires content or text field."""
+        with pytest.raises(ValueError, match="'content' or 'text' must be provided"):
+            ContentItem(type=Type.TEXT)
+
+    def test_text_cannot_have_url_or_path(self):
+        """Test that TEXT type cannot use url or path fields."""
+        with pytest.raises(ValueError, match="'url' and 'path' fields cannot be used"):
+            ContentItem(type=Type.TEXT, text="Hello", url="https://example.com")
+
+
+class TestDeprecationWarnings:
+    """Tests for deprecation warnings on legacy types."""
+
+    def test_image_url_deprecation_warning(self):
+        """Test that IMAGE_URL emits deprecation warning."""
+        with pytest.warns(DeprecationWarning, match="IMAGE_URL is deprecated"):
+            ContentItem(type=Type.IMAGE_URL, content="https://example.com/image.jpg")
+
+    def test_image_path_deprecation_warning(self):
+        """Test that IMAGE_PATH emits deprecation warning."""
+        with pytest.warns(DeprecationWarning, match="IMAGE_PATH is deprecated"):
+            ContentItem(type=Type.IMAGE_PATH, content="/path/to/image.jpg")
+
+    def test_image_binary_deprecation_warning(self):
+        """Test that IMAGE_BINARY emits deprecation warning."""
+        with pytest.warns(DeprecationWarning, match="IMAGE_BINARY is deprecated"):
+            ContentItem(type=Type.IMAGE_BINARY, binary=_create_test_image_bytes())
+
+    def test_is_deprecated_method(self):
+        """Test is_deprecated() method on Type enum."""
+        assert Type.IMAGE_URL.is_deprecated()
+        assert Type.IMAGE_PATH.is_deprecated()
+        assert Type.IMAGE_BINARY.is_deprecated()
+        assert not Type.IMAGE.is_deprecated()
+        assert not Type.TEXT.is_deprecated()
+
+
+class TestHuggingFaceFormatParsing:
+    """Tests for parsing HuggingFace format input."""
+
+    def test_parse_hf_text_format(self):
+        """Test parsing HuggingFace text format."""
+        conv_dict = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": "Hello from HF format"}],
+                }
+            ]
+        }
+        conv = Conversation.from_dict(conv_dict)
+        assert len(conv.messages) == 1
+        assert isinstance(conv.messages[0].content, list)
+        item = conv.messages[0].content[0]
+        assert item.type == Type.TEXT
+        assert item.text == "Hello from HF format"
+
+    def test_parse_hf_image_url_format(self):
+        """Test parsing HuggingFace image URL format."""
+        conv_dict = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "url": "https://example.com/image.jpg"}
+                    ],
+                }
+            ]
+        }
+        conv = Conversation.from_dict(conv_dict)
+        item = conv.messages[0].content[0]
+        assert item.type == Type.IMAGE
+        assert item.url == "https://example.com/image.jpg"
+
+    def test_parse_hf_image_path_format(self):
+        """Test parsing HuggingFace image path format."""
+        conv_dict = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "image", "path": "/path/to/image.jpg"}],
+                }
+            ]
+        }
+        conv = Conversation.from_dict(conv_dict)
+        item = conv.messages[0].content[0]
+        assert item.type == Type.IMAGE
+        assert item.path == "/path/to/image.jpg"
+
+    def test_parse_mixed_hf_format(self):
+        """Test parsing mixed HuggingFace format message."""
+        conv_dict = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "What is in this image?"},
+                        {"type": "image", "url": "https://example.com/image.jpg"},
+                    ],
+                }
+            ]
+        }
+        conv = Conversation.from_dict(conv_dict)
+        assert len(conv.messages[0].content) == 2
+        assert conv.messages[0].content[0].type == Type.TEXT
+        assert conv.messages[0].content[0].text == "What is in this image?"
+        assert conv.messages[0].content[1].type == Type.IMAGE
+        assert conv.messages[0].content[1].url == "https://example.com/image.jpg"
+
+
+class TestImageTypeRoundtrip:
+    """Tests for IMAGE type roundtrip serialization."""
+
+    def test_roundtrip_dict_image_url(self):
+        """Test roundtrip for IMAGE with URL."""
+        original = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(type=Type.IMAGE, url="https://example.com/img.jpg"),
+                        ContentItem(type=Type.TEXT, text="What is this?"),
+                    ],
+                )
+            ]
+        )
+        conv_dict = original.to_dict()
+        reconstructed = Conversation.from_dict(conv_dict)
+        assert original == reconstructed
+
+    def test_roundtrip_dict_image_path(self):
+        """Test roundtrip for IMAGE with path."""
+        original = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content=[ContentItem(type=Type.IMAGE, path="/path/to/image.jpg")],
+                )
+            ]
+        )
+        conv_dict = original.to_dict()
+        reconstructed = Conversation.from_dict(conv_dict)
+        assert original == reconstructed
+
+    def test_roundtrip_dict_image_binary(self):
+        """Test roundtrip for IMAGE with binary data."""
+        png_bytes = _create_test_image_bytes()
+        data_uri = f"data:image/png;base64,{_SMALL_B64_IMAGE}"
+        original = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content=[ContentItem(type=Type.IMAGE, url=data_uri, binary=png_bytes)],
+                )
+            ]
+        )
+        conv_dict = original.to_dict()
+        reconstructed = Conversation.from_dict(conv_dict)
+        assert original == reconstructed
+
+    def test_roundtrip_json_image_type(self):
+        """Test JSON roundtrip for IMAGE type."""
+        original = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(type=Type.TEXT, text="Look at this"),
+                        ContentItem(type=Type.IMAGE, url="https://example.com/img.jpg"),
+                    ],
+                )
+            ]
+        )
+        json_str = original.to_json()
+        reconstructed = Conversation.from_json(json_str)
+        assert original == reconstructed
+
+
+class TestOutputFormat:
+    """Tests for OutputFormat serialization options."""
+
+    def test_oumi_format_text(self):
+        """Test OUMI format for text content."""
+        from oumi.core.types.conversation import OutputFormat
+
+        item = ContentItem(type=Type.TEXT, content="Hello")
+        result = item.to_dict(output_format=OutputFormat.OUMI)
+        assert result == {"type": "text", "text": "Hello"}
+
+    def test_oumi_format_image_url(self):
+        """Test OUMI format for IMAGE with URL."""
+        from oumi.core.types.conversation import OutputFormat
+
+        item = ContentItem(type=Type.IMAGE, url="https://example.com/img.jpg")
+        result = item.to_dict(output_format=OutputFormat.OUMI)
+        assert result == {"type": "image", "url": "https://example.com/img.jpg"}
+
+    def test_oumi_format_image_path(self):
+        """Test OUMI format for IMAGE with path."""
+        from oumi.core.types.conversation import OutputFormat
+
+        item = ContentItem(type=Type.IMAGE, path="/path/to/img.jpg")
+        result = item.to_dict(output_format=OutputFormat.OUMI)
+        assert result == {"type": "image", "path": "/path/to/img.jpg"}
+
+    def test_openai_format_text(self):
+        """Test OPENAI format for text content."""
+        from oumi.core.types.conversation import OutputFormat
+
+        item = ContentItem(type=Type.TEXT, content="Hello")
+        result = item.to_dict(output_format=OutputFormat.OPENAI)
+        assert result == {"type": "text", "text": "Hello"}
+
+    def test_openai_format_image(self):
+        """Test OPENAI format for IMAGE with URL."""
+        from oumi.core.types.conversation import OutputFormat
+
+        item = ContentItem(type=Type.IMAGE, url="https://example.com/img.jpg")
+        result = item.to_dict(output_format=OutputFormat.OPENAI)
+        assert result == {
+            "type": "image_url",
+            "image_url": {"url": "https://example.com/img.jpg"},
+        }
+
+    def test_openai_format_legacy_image_binary(self):
+        """Test OPENAI format for legacy IMAGE_BINARY."""
+        from oumi.core.types.conversation import OutputFormat
+
+        png_bytes = _create_test_image_bytes()
+        item = ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
+        result = item.to_dict(output_format=OutputFormat.OPENAI)
+        assert result["type"] == "image_url"
+        assert "image_url" in result
+        assert result["image_url"]["url"].startswith("data:image/png;base64,")
+
+    def test_legacy_format_text(self):
+        """Test OUMI_LEGACY format for text content."""
+        from oumi.core.types.conversation import OutputFormat
+
+        item = ContentItem(type=Type.TEXT, content="Hello")
+        result = item.to_dict(output_format=OutputFormat.OUMI_LEGACY)
+        assert result == {"type": "text", "content": "Hello"}
+
+    def test_legacy_format_image_url(self):
+        """Test OUMI_LEGACY format for legacy IMAGE_URL."""
+        from oumi.core.types.conversation import OutputFormat
+
+        item = ContentItem(type=Type.IMAGE_URL, content="https://example.com/img.jpg")
+        result = item.to_dict(output_format=OutputFormat.OUMI_LEGACY)
+        assert result == {"type": "image_url", "content": "https://example.com/img.jpg"}
+
+    def test_legacy_format_image_path(self):
+        """Test OUMI_LEGACY format for legacy IMAGE_PATH."""
+        from oumi.core.types.conversation import OutputFormat
+
+        item = ContentItem(type=Type.IMAGE_PATH, content="/path/to/img.jpg")
+        result = item.to_dict(output_format=OutputFormat.OUMI_LEGACY)
+        assert result == {"type": "image_path", "content": "/path/to/img.jpg"}
+
+    def test_legacy_format_image_binary(self):
+        """Test OUMI_LEGACY format for legacy IMAGE_BINARY."""
+        from oumi.core.types.conversation import OutputFormat
+
+        png_bytes = _create_test_image_bytes()
+        item = ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
+        result = item.to_dict(output_format=OutputFormat.OUMI_LEGACY)
+        assert result["type"] == "image_binary"
+        assert "binary" in result
+        assert result["binary"] == _SMALL_B64_IMAGE
+
+    def test_conversation_to_dict_all_formats(self):
+        """Test Conversation.to_dict with all formats."""
+        from oumi.core.types.conversation import OutputFormat
+
+        conv = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(type=Type.TEXT, content="What is this?"),
+                        ContentItem(type=Type.IMAGE, url="https://example.com/img.jpg"),
+                    ],
+                )
+            ]
+        )
+
+        # OUMI format (default)
+        oumi_dict = conv.to_dict(output_format=OutputFormat.OUMI)
+        assert oumi_dict["messages"][0]["content"][0] == {"type": "text", "text": "What is this?"}
+        assert oumi_dict["messages"][0]["content"][1] == {"type": "image", "url": "https://example.com/img.jpg"}
+
+        # OPENAI format
+        openai_dict = conv.to_dict(output_format=OutputFormat.OPENAI)
+        assert openai_dict["messages"][0]["content"][0] == {"type": "text", "text": "What is this?"}
+        assert openai_dict["messages"][0]["content"][1] == {
+            "type": "image_url",
+            "image_url": {"url": "https://example.com/img.jpg"},
+        }
+
+        # OUMI_LEGACY format - IMAGE type maps to image_url
+        legacy_dict = conv.to_dict(output_format=OutputFormat.OUMI_LEGACY)
+        assert legacy_dict["messages"][0]["content"][0] == {"type": "text", "content": "What is this?"}
+        assert legacy_dict["messages"][0]["content"][1] == {"type": "image_url", "content": "https://example.com/img.jpg"}
