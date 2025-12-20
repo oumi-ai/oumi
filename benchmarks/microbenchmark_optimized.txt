@@ -1,0 +1,149 @@
+======================================================================
+OUMI DATASET PIPELINE MICRO-BENCHMARKS
+======================================================================
+
+======================================================================
+BENCHMARK: Oversampling Strategies
+======================================================================
+
+Base dataset size: 1000
+Target size: 5000
+Oversample factor: 5x
+
+Deep Copy (current):
+  Iterations: 5
+  Avg time: 4.37 ms
+  Min/Max: 4.30 / 4.48 ms
+  Avg peak memory: 0.1 MB
+  Max peak memory: 0.1 MB
+
+Lazy Index Mapping (proposed):
+  Iterations: 5
+  Avg time: 0.01 ms
+  Min/Max: 0.01 / 0.01 ms
+  Avg peak memory: 0.0 MB
+  Max peak memory: 0.0 MB
+  Correctness: VERIFIED
+
+HF Select (alternative):
+  Iterations: 5
+  Avg time: 8.14 ms
+  Min/Max: 7.91 / 8.55 ms
+  Avg peak memory: 0.1 MB
+  Max peak memory: 0.1 MB
+
+  Speedup (lazy vs deep copy): 442.8x
+  Memory reduction (lazy vs deep copy): 99.3%
+
+======================================================================
+BENCHMARK: Feature Detection Sampling Strategies
+======================================================================
+
+Dataset size: 10000
+
+1/8 sampling (current):
+  Iterations: 5
+  Avg time: 3.86 ms
+  Min/Max: 3.81 / 3.98 ms
+  Avg peak memory: 0.1 MB
+  Max peak memory: 0.1 MB
+  Samples collected: 8
+
+Fixed 100 (proposed):
+  Iterations: 5
+  Avg time: 49.14 ms
+  Min/Max: 48.35 / 51.49 ms
+  Avg peak memory: 1.2 MB
+  Max peak memory: 1.2 MB
+  Samples collected: 100
+
+Fixed 10 (minimal):
+  Iterations: 5
+  Avg time: 4.88 ms
+  Min/Max: 4.81 / 4.96 ms
+  Avg peak memory: 0.1 MB
+  Max peak memory: 0.1 MB
+  Samples collected: 10
+
+  Speedup (fixed 100 vs 1/8): 0.1x
+
+======================================================================
+BENCHMARK: DataFrame vs Direct HuggingFace Processing
+======================================================================
+
+Dataset size: 5000
+
+Via Pandas (current):
+  Iterations: 3
+  Avg time: 197.07 ms
+  Min/Max: 195.57 / 198.99 ms
+  Avg peak memory: 4.3 MB
+  Max peak memory: 4.3 MB
+Map:   0%|          | 0/5000 [00:00<?, ? examples/s]Map:  42%|████▏     | 2088/5000 [00:00<00:00, 20700.13 examples/s]Map: 100%|██████████| 5000/5000 [00:00<00:00, 20533.91 examples/s]Map: 100%|██████████| 5000/5000 [00:00<00:00, 20473.34 examples/s]
+Map:   0%|          | 0/5000 [00:00<?, ? examples/s]Map:  41%|████▏     | 2069/5000 [00:00<00:00, 20564.99 examples/s]Map:  83%|████████▎ | 4153/5000 [00:00<00:00, 20718.34 examples/s]Map: 100%|██████████| 5000/5000 [00:00<00:00, 20594.11 examples/s]
+Map:   0%|          | 0/5000 [00:00<?, ? examples/s]Map:  41%|████      | 2045/5000 [00:00<00:00, 20314.74 examples/s]Map:  83%|████████▎ | 4155/5000 [00:00<00:00, 20767.94 examples/s]Map: 100%|██████████| 5000/5000 [00:00<00:00, 20712.26 examples/s]
+
+Via HF map (direct):
+  Iterations: 3
+  Avg time: 247.99 ms
+  Min/Max: 243.54 / 255.70 ms
+  Avg peak memory: 0.4 MB
+  Max peak memory: 0.5 MB
+
+Via Generator:
+  Iterations: 3
+  Avg time: 80.09 ms
+  Min/Max: 9.93 / 219.40 ms
+  Avg peak memory: 3.3 MB
+  Max peak memory: 6.4 MB
+
+  Speedup (HF map vs pandas): 0.8x
+  Memory reduction: 89.8%
+
+======================================================================
+BENCHMARK: Converter Auto-Detection
+======================================================================
+
+Iterations per format: 1000
+  oumi: 0.0062 ms avg
+  alpaca: 0.0066 ms avg
+  sharegpt: 0.0104 ms avg
+  langfuse: 0.0084 ms avg
+
+  Caching comparison:
+    Cache miss: 0.0070 ms
+    Cache hit: 0.002769 ms
+    Speedup with caching: 3x
+
+======================================================================
+BENCHMARK: Dataset Mixture Operations
+======================================================================
+
+Dataset sizes: [1000, 2000, 500, 1500]
+Total examples: 5000
+
+Concatenate:
+  Iterations: 5
+  Avg time: 2.38 ms
+  Min/Max: 2.32 / 2.43 ms
+  Avg peak memory: 0.0 MB
+  Max peak memory: 0.0 MB
+  Result size: 5000
+
+Interleave (equal):
+  Iterations: 5
+  Avg time: 7.34 ms
+  Min/Max: 7.22 / 7.50 ms
+  Avg peak memory: 0.1 MB
+  Max peak memory: 0.1 MB
+
+Interleave (weighted):
+  Iterations: 5
+  Avg time: 136.05 ms
+  Min/Max: 132.59 / 140.16 ms
+  Avg peak memory: 1.6 MB
+  Max peak memory: 1.6 MB
+
+======================================================================
+MICRO-BENCHMARKS COMPLETE
+======================================================================
