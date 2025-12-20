@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import torch
 import torch.nn as nn
-import transformers
-from peft import PeftModel, get_peft_model, prepare_model_for_kbit_training
-from transformers import Mxfp4Config  # pyright: ignore[reportAttributeAccessIssue]
 
 from oumi.core.configs import ModelParams, PeftParams
+
+if TYPE_CHECKING:
+    import transformers
 from oumi.core.configs.internal.internal_model_config import InternalModelConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
@@ -30,24 +30,11 @@ from oumi.core.configs.internal.supported_models import (
 )
 from oumi.core.distributed import get_device_rank_info
 from oumi.core.registry import REGISTRY, RegistryType
-from oumi.core.tokenizers import get_default_special_tokens
 from oumi.utils.distributed_utils import is_using_accelerate_fsdp
 from oumi.utils.io_utils import get_oumi_root_directory, load_file
 from oumi.utils.logging import logger
 from oumi.utils.torch_naming_heuristics import disable_dropout
 from oumi.utils.torch_utils import freeze_model_layers
-
-try:
-    import liger_kernel.transformers  # type: ignore
-except ImportError:
-    liger_kernel = None
-
-# Import `onebitllms` utils methods
-try:
-    import onebitllms  # type: ignore
-    from onebitllms import replace_linear_with_bitnet_linear  # type: ignore
-except ImportError:
-    onebitllms = None
 
 
 def build_model(
@@ -87,7 +74,9 @@ def build_model(
         "tiiuae/Falcon-E-3B-Base",
         "tiiuae/Falcon-E-3B-Instruct",
     ):
-        if onebitllms is None:
+        try:
+            from onebitllms import replace_linear_with_bitnet_linear  # type: ignore
+        except ImportError:
             raise ValueError(
                 """Please install `onebitllms` in order to fine-tune
                 `Falcon-E` models - `pip install onebitllms`"""
@@ -123,7 +112,9 @@ def _patch_model_for_liger_kernel(model: nn.Module) -> None:
     If the model is not supported, liger kernel patching will not be applied,
     and a warning will be logged.
     """
-    if liger_kernel is None:
+    try:
+        import liger_kernel.transformers  # type: ignore
+    except ImportError:
         raise ImportError(
             "Liger Kernel not installed. Please install `pip install liger-kernel`."
         )
@@ -195,6 +186,10 @@ def _get_quantization_config_for_training(model_params: ModelParams):
 
     # Handle MXFP4 quantization for training (requires dequantization)
     if isinstance(quant_config, dict) and quant_config.get("quant_method") == "mxfp4":
+        from transformers import (
+            Mxfp4Config,  # pyright: ignore[reportAttributeAccessIssue]
+        )
+
         logger.info(
             "Detected MXFP4 quantized model. Creating Mxfp4Config(dequantize=True) "
             "for training."
@@ -204,7 +199,7 @@ def _get_quantization_config_for_training(model_params: ModelParams):
     return None
 
 
-def _disable_cache_in_model_config(model: transformers.PreTrainedModel) -> None:
+def _disable_cache_in_model_config(model: "transformers.PreTrainedModel") -> None:
     # Required for FSDP.
     # Context: https://github.com/huggingface/transformers/issues/28499
     model.config.use_cache = False
@@ -302,6 +297,8 @@ def build_huggingface_model(
 
     # Load pretrained PEFT adapters
     if model_params.adapter_model:
+        from peft import PeftModel
+
         logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
         model = PeftModel.from_pretrained(model, model_params.adapter_model)
 
@@ -309,6 +306,8 @@ def build_huggingface_model(
 
 
 def _get_transformers_model_class(config):
+    import transformers
+
     llm_info = get_all_models_map().get(config.model_type, None)
 
     if llm_info is not None:
@@ -344,7 +343,7 @@ def is_image_text_llm(model_params: ModelParams) -> bool:
 
 def build_tokenizer(
     model_params: ModelParams,
-) -> transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast:
+) -> "transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast":
     """Builds and returns a tokenizer based on the provided Oumi configuration.
 
     Args:
@@ -353,6 +352,8 @@ def build_tokenizer(
     Returns:
         tokenizer: The tokenizer object built from the configuration.
     """
+    import transformers
+
     # Identify the tokenizer we need to leverage for this model.
     if model_params.tokenizer_name:
         tokenizer_name = model_params.tokenizer_name
@@ -410,6 +411,8 @@ def build_tokenizer(
 
     # Ensure that the tokenizer has a pad token set.
     if (tokenizer.pad_token is None) and (tokenizer.pad_token_id is None):
+        from oumi.core.tokenizers import get_default_special_tokens
+
         default_pad_token = get_default_special_tokens(tokenizer).pad_token
         if default_pad_token:
             logger.warning(f"Undefined pad token. Setting it to `{default_pad_token}`.")
@@ -480,6 +483,8 @@ def build_peft_model(
     Returns:
         The built PEFT model.
     """
+    from peft import get_peft_model, prepare_model_for_kbit_training
+
     lora_config = peft_params.to_lora()
 
     if peft_params.q_lora:

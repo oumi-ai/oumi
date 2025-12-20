@@ -14,13 +14,13 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal
-
-from peft import LoraConfig
-from peft.utils.peft_types import TaskType
-from transformers import BitsAndBytesConfig
+from typing import TYPE_CHECKING, Literal
 
 from oumi.core.configs.params.base_params import BaseParams
+
+if TYPE_CHECKING:
+    from peft import LoraConfig
+    from transformers import BitsAndBytesConfig
 
 
 class PeftSaveMode(Enum):
@@ -212,10 +212,12 @@ class PeftParams(BaseParams):
         https://github.com/huggingface/peft/blob/main/src/peft/tuners/lora/config.py
     """
 
-    lora_task_type: TaskType = TaskType.CAUSAL_LM
+    lora_task_type: str = "CAUSAL_LM"
     """The task type for LoRA adaptation.
 
-    Defaults to CAUSAL_LM (Causal Language Modeling).
+    Valid values are TaskType enum names: "SEQ_CLS", "SEQ_2_SEQ_LM", "CAUSAL_LM",
+    "TOKEN_CLS", "QUESTION_ANS", "FEATURE_EXTRACTION".
+    Defaults to "CAUSAL_LM" (Causal Language Modeling).
     """
 
     # Q-Lora Params
@@ -301,8 +303,11 @@ class PeftParams(BaseParams):
     - MERGED: Merge the adapter and base model's weights and save as a single model.
     """
 
-    def to_lora(self) -> LoraConfig:
+    def to_lora(self) -> "LoraConfig":
         """Creates a configuration for LoRA via HF's peft library."""
+        from peft import LoraConfig
+        from peft.utils.peft_types import TaskType
+
         if self.lora_init_weights == LoraWeightInitialization.RANDOM:
             init_lora_weights = False
         elif self.lora_init_weights == LoraWeightInitialization.DEFAULT:
@@ -320,6 +325,9 @@ class PeftParams(BaseParams):
         if target_modules == ["all-linear"]:
             target_modules = "all-linear"
 
+        # Convert string task type to TaskType enum
+        task_type = TaskType[self.lora_task_type]
+
         return LoraConfig(
             r=self.lora_r,
             lora_alpha=self.lora_alpha,
@@ -328,15 +336,17 @@ class PeftParams(BaseParams):
             target_parameters=self.lora_target_parameters,
             modules_to_save=self.lora_modules_to_save,
             bias=self.lora_bias,  # type: ignore
-            task_type=self.lora_task_type,
+            task_type=task_type,
             init_lora_weights=init_lora_weights,
         )
 
-    def to_bits_and_bytes(self) -> BitsAndBytesConfig:
+    def to_bits_and_bytes(self) -> "BitsAndBytesConfig":
         """Creates a configuration for quantized models via BitsAndBytes.
 
         The resulting configuration uses the instantiated peft parameters.
         """
+        from transformers import BitsAndBytesConfig
+
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=self.q_lora_bits == 4,
             load_in_8bit=self.q_lora_bits == 8,

@@ -18,20 +18,22 @@
 """
 
 import importlib
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import torch
 import torch.nn as nn
-import transformers
 
 from oumi.utils.logging import logger
+
+if TYPE_CHECKING:
+    import transformers
 from oumi.utils.torch_utils import _get_parameter_names
 
 _PARAMS_KEY = "params"
 _WEIGHT_DECAY_KEY = "weight_decay"
 
 
-def disable_dropout(hf_config: transformers.PretrainedConfig) -> None:
+def disable_dropout(hf_config: "transformers.PretrainedConfig") -> None:
     """Detects dropout probabilities in config and sets them to 0.0.
 
     This essentially removes the dropout layer, which can aid the compiled model's

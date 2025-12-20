@@ -21,9 +21,6 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from oumi.core.configs.training_config import TrainingConfig
 
-import transformers
-import trl
-
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.gkd_params import GkdParams
 from oumi.core.configs.params.gold_params import GoldParams
@@ -746,6 +743,9 @@ class TrainingParams(BaseParams):
         Args:
             training_config: Optional TrainingConfig to access DeepSpeed parameters.
         """
+        import transformers
+        import trl
+
         save_strategy: str = "no"
         if self.save_epoch:
             save_strategy = "epoch"

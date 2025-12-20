@@ -62,11 +62,12 @@ import copy
 import functools
 import types
 from collections.abc import Mapping
-from typing import Any, NamedTuple, cast
-
-import transformers
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 from oumi.core.configs import ModelParams
+
+if TYPE_CHECKING:
+    import transformers
 from oumi.core.configs.internal.internal_model_config import (
     InternalFeatureFirstDimAction,
     InternalFeatureSpec,
@@ -86,8 +87,10 @@ def find_model_hf_config(
     trust_remote_code: bool,
     revision: str | None = None,
     **kwargs: Any,
-) -> transformers.PretrainedConfig:
+) -> "transformers.PretrainedConfig":
     """Finds HF model config by model name."""
+    import transformers
+
     hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
         model_name,
         trust_remote_code=trust_remote_code,
@@ -99,7 +102,7 @@ def find_model_hf_config(
         logger.warning(
             f"Unused kwargs found in '{model_name}' config: {unused_kwargs}."
         )
-    return cast(transformers.PretrainedConfig, hf_config)
+    return cast("transformers.PretrainedConfig", hf_config)
 
 
 class _ModelTypeInfo(NamedTuple):
@@ -486,6 +489,8 @@ def get_all_models_map() -> Mapping[
         An immutable mapping from model_type strings to _ModelTypeInfo objects.
         The mapping includes both LLMs and VLMs with their specific configurations.
     """
+    import transformers
+
     default_vlm_config: InternalModelConfig = _create_default_vlm_config()
 
     default_llm_class = transformers.AutoModelForCausalLM

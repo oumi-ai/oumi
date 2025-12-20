@@ -17,8 +17,10 @@ import hashlib
 import logging
 import os
 import re
+from typing import TYPE_CHECKING
 
-from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+if TYPE_CHECKING:
+    from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 
 def sanitize_run_name(run_name: str | None) -> str | None:
@@ -196,7 +198,7 @@ def set_oumi_install_editable(setup: str) -> str:
 
 def truncate_to_max_tokens_limit(
     text: str,
-    tokenizer: BaseTokenizer,
+    tokenizer: "BaseTokenizer",
     *,
     max_tokens: int,
     truncation_side: str = "right",
@@ -270,7 +272,7 @@ def truncate_to_max_tokens_limit(
 
 def truncate_text_pieces_to_max_tokens_limit(
     text_pieces: list[str],
-    tokenizer: BaseTokenizer,
+    tokenizer: "BaseTokenizer",
     *,
     max_tokens: int,
     truncation_side: str = "right",
