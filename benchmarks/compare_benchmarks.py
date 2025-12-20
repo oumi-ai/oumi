@@ -26,8 +26,6 @@ import argparse
 import json
 import sys
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Optional
 
 
 @dataclass
@@ -47,7 +45,9 @@ class MetricComparison:
     def percent_change(self) -> float:
         if self.baseline_value == 0:
             return 0.0
-        return ((self.optimized_value - self.baseline_value) / self.baseline_value) * 100
+        return (
+            (self.optimized_value - self.baseline_value) / self.baseline_value
+        ) * 100
 
     @property
     def is_improvement(self) -> bool:
@@ -139,7 +139,9 @@ def compare_datasets(
         dataset_comparisons = []
         for metric_name in sorted(baseline_metrics.keys()):
             if metric_name in optimized_metrics:
-                unit = "s" if "duration" in metric_name or "time" in metric_name else "MB"
+                unit = (
+                    "s" if "duration" in metric_name or "time" in metric_name else "MB"
+                )
                 if "per_second" in metric_name:
                     unit = "ex/s"
 
@@ -196,9 +198,7 @@ def print_comparison_table(
     print("-" * 90)
 
     # Header
-    print(
-        f"{'Metric':<35} {'Baseline':>12} {'Optimized':>12} {'Change':>20}"
-    )
+    print(f"{'Metric':<35} {'Baseline':>12} {'Optimized':>12} {'Change':>20}")
     print("-" * 90)
 
     for c in comparisons:
@@ -241,7 +241,11 @@ def generate_markdown_report(
     ]
 
     for c in summary_comparisons:
-        status = "better" if c.is_improvement else ("worse" if abs(c.percent_change) > 5 else "~same")
+        status = (
+            "better"
+            if c.is_improvement
+            else ("worse" if abs(c.percent_change) > 5 else "~same")
+        )
         lines.append(
             f"| {c.metric_name} | {c.baseline_value:.2f} {c.unit} | "
             f"{c.optimized_value:.2f} {c.unit} | {c.percent_change:+.1f}% ({status}) |"
@@ -258,7 +262,11 @@ def generate_markdown_report(
         for c in comparisons:
             if abs(c.percent_change) < 1:
                 continue
-            status = "better" if c.is_improvement else ("worse" if abs(c.percent_change) > 5 else "~same")
+            status = (
+                "better"
+                if c.is_improvement
+                else ("worse" if abs(c.percent_change) > 5 else "~same")
+            )
             lines.append(
                 f"| {c.metric_name} | {c.baseline_value:.2f} {c.unit} | "
                 f"{c.optimized_value:.2f} {c.unit} | {c.percent_change:+.1f}% ({status}) |"

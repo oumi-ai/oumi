@@ -55,12 +55,14 @@ def get_top_memory_lines(snapshot, limit=20):
     top_stats = snapshot.statistics("lineno")
     result = []
     for stat in top_stats[:limit]:
-        result.append({
-            "file": stat.traceback.format()[0] if stat.traceback else "unknown",
-            "size": stat.size,
-            "size_str": format_bytes(stat.size),
-            "count": stat.count,
-        })
+        result.append(
+            {
+                "file": stat.traceback.format()[0] if stat.traceback else "unknown",
+                "size": stat.size,
+                "size_str": format_bytes(stat.size),
+                "count": stat.count,
+            }
+        )
     return result
 
 
@@ -111,13 +113,13 @@ def profile_memory_detailed(func, *args, **kwargs):
 
 def print_memory_stats(stats, title):
     """Print formatted memory statistics."""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"MEMORY PROFILE: {title}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(f"Elapsed: {stats['elapsed_sec']:.2f}s")
     print(f"Current memory: {format_bytes(stats['current_memory'])}")
     print(f"Peak memory: {format_bytes(stats['peak_memory'])}")
-    print(f"\nTop Memory Allocations (diff):")
+    print("\nTop Memory Allocations (diff):")
     print("-" * 70)
     for i, stat in enumerate(stats["top_allocations"][:15], 1):
         # Format the traceback
@@ -132,7 +134,7 @@ def print_memory_stats(stats, title):
         else:
             location = "unknown"
 
-        size_diff = stat.size_diff if hasattr(stat, 'size_diff') else stat.size
+        size_diff = stat.size_diff if hasattr(stat, "size_diff") else stat.size
         print(f"{i:2}. {format_bytes(size_diff):>10} | {location[:55]}")
 
 
@@ -140,10 +142,10 @@ def profile_dataset_loading(dataset_name: str, split: str, num_samples: int):
     """Profile dataset loading phase."""
     from oumi.core.registry import REGISTRY
 
-    print(f"\n{'#'*70}")
-    print(f"PROFILING: Dataset Loading")
+    print(f"\n{'#' * 70}")
+    print("PROFILING: Dataset Loading")
     print(f"Dataset: {dataset_name}, Split: {split}")
-    print(f"{'#'*70}")
+    print(f"{'#' * 70}")
 
     dataset_class = REGISTRY.get_dataset(dataset_name)
     if dataset_class is None:
@@ -171,10 +173,10 @@ def profile_dataset_loading(dataset_name: str, split: str, num_samples: int):
 
 def profile_to_hf_conversion(dataset, use_native: bool = True):
     """Profile to_hf conversion phase."""
-    print(f"\n{'#'*70}")
+    print(f"\n{'#' * 70}")
     print(f"PROFILING: to_hf Conversion (native={use_native})")
     print(f"Dataset size: {len(dataset)} examples")
-    print(f"{'#'*70}")
+    print(f"{'#' * 70}")
 
     def convert_to_hf():
         return dataset.to_hf(use_native_map=use_native)
@@ -194,10 +196,10 @@ def profile_to_hf_conversion(dataset, use_native: bool = True):
 
 def profile_transform_batch(dataset, batch_size: int = 1000):
     """Profile the _transform_batch method specifically."""
-    print(f"\n{'#'*70}")
-    print(f"PROFILING: _transform_batch")
+    print(f"\n{'#' * 70}")
+    print("PROFILING: _transform_batch")
     print(f"Batch size: {batch_size}")
-    print(f"{'#'*70}")
+    print(f"{'#' * 70}")
 
     # Get a batch of raw data
     dataset._ensure_loaded()
@@ -259,22 +261,32 @@ def profile_transform_batch(dataset, batch_size: int = 1000):
         )
         step4_time = time.perf_counter() - start
 
-        print(f"  Extract examples:     {step1_time*1000:8.2f} ms ({step1_time/sum([step1_time,step2_time,step3_time,step4_time])*100:5.1f}%)")
-        print(f"  Transform to conv:    {step2_time*1000:8.2f} ms ({step2_time/sum([step1_time,step2_time,step3_time,step4_time])*100:5.1f}%)")
-        print(f"  Apply chat template:  {step3_time*1000:8.2f} ms ({step3_time/sum([step1_time,step2_time,step3_time,step4_time])*100:5.1f}%)")
-        print(f"  Tokenize:             {step4_time*1000:8.2f} ms ({step4_time/sum([step1_time,step2_time,step3_time,step4_time])*100:5.1f}%)")
-        print(f"  TOTAL:                {(step1_time+step2_time+step3_time+step4_time)*1000:8.2f} ms")
+        print(
+            f"  Extract examples:     {step1_time * 1000:8.2f} ms ({step1_time / sum([step1_time, step2_time, step3_time, step4_time]) * 100:5.1f}%)"
+        )
+        print(
+            f"  Transform to conv:    {step2_time * 1000:8.2f} ms ({step2_time / sum([step1_time, step2_time, step3_time, step4_time]) * 100:5.1f}%)"
+        )
+        print(
+            f"  Apply chat template:  {step3_time * 1000:8.2f} ms ({step3_time / sum([step1_time, step2_time, step3_time, step4_time]) * 100:5.1f}%)"
+        )
+        print(
+            f"  Tokenize:             {step4_time * 1000:8.2f} ms ({step4_time / sum([step1_time, step2_time, step3_time, step4_time]) * 100:5.1f}%)"
+        )
+        print(
+            f"  TOTAL:                {(step1_time + step2_time + step3_time + step4_time) * 1000:8.2f} ms"
+        )
     else:
-        print(f"  Extract examples:     {step1_time*1000:8.2f} ms")
-        print(f"  Transform to conv:    {step2_time*1000:8.2f} ms")
+        print(f"  Extract examples:     {step1_time * 1000:8.2f} ms")
+        print(f"  Transform to conv:    {step2_time * 1000:8.2f} ms")
 
 
 def profile_tokenization_strategies(dataset, num_samples: int = 100):
     """Compare different tokenization strategies."""
-    print(f"\n{'#'*70}")
-    print(f"PROFILING: Tokenization Strategies")
+    print(f"\n{'#' * 70}")
+    print("PROFILING: Tokenization Strategies")
     print(f"Samples: {num_samples}")
-    print(f"{'#'*70}")
+    print(f"{'#' * 70}")
 
     if dataset._tokenizer is None:
         print("No tokenizer available")
@@ -303,7 +315,10 @@ def profile_tokenization_strategies(dataset, num_samples: int = 100):
     # Strategy 2: Batched tokenization
     gc.collect()
     start = time.perf_counter()
-    texts = [dataset._tokenizer.apply_chat_template(conv, tokenize=False) for conv in conversations]
+    texts = [
+        dataset._tokenizer.apply_chat_template(conv, tokenize=False)
+        for conv in conversations
+    ]
     batch_tokens = dataset._tokenizer(texts, padding=False, truncation=True)
     batch_time = time.perf_counter() - start
 
@@ -318,7 +333,9 @@ def profile_tokenization_strategies(dataset, num_samples: int = 100):
             texts_batched = [texts_batched]  # Single result, not batched
             batched_template_time = None
         else:
-            batch_tokens_v2 = dataset._tokenizer(texts_batched, padding=False, truncation=True)
+            batch_tokens_v2 = dataset._tokenizer(
+                texts_batched, padding=False, truncation=True
+            )
             batched_template_time = time.perf_counter() - start
     except Exception as e:
         batched_template_time = None
@@ -326,22 +343,29 @@ def profile_tokenization_strategies(dataset, num_samples: int = 100):
 
     print(f"\n  Strategy Comparison ({num_samples} samples):")
     print(f"  {'Strategy':<30} | {'Time':>10} | {'Speedup':>10}")
-    print(f"  {'-'*30}-+-{'-'*10}-+-{'-'*10}")
-    print(f"  {'Serial (one at a time)':<30} | {serial_time*1000:>8.1f}ms | {'1.0x':>10}")
-    print(f"  {'Batched tokenization':<30} | {batch_time*1000:>8.1f}ms | {serial_time/batch_time:>9.1f}x")
+    print(f"  {'-' * 30}-+-{'-' * 10}-+-{'-' * 10}")
+    print(
+        f"  {'Serial (one at a time)':<30} | {serial_time * 1000:>8.1f}ms | {'1.0x':>10}"
+    )
+    print(
+        f"  {'Batched tokenization':<30} | {batch_time * 1000:>8.1f}ms | {serial_time / batch_time:>9.1f}x"
+    )
     if batched_template_time:
-        print(f"  {'Batched template + tokenize':<30} | {batched_template_time*1000:>8.1f}ms | {serial_time/batched_template_time:>9.1f}x")
+        print(
+            f"  {'Batched template + tokenize':<30} | {batched_template_time * 1000:>8.1f}ms | {serial_time / batched_template_time:>9.1f}x"
+        )
 
 
 def profile_oversampling(num_samples: int = 1000, oversample_factor: int = 5):
     """Profile different oversampling strategies."""
     import copy
+
     import datasets
 
-    print(f"\n{'#'*70}")
-    print(f"PROFILING: Oversampling Strategies")
+    print(f"\n{'#' * 70}")
+    print("PROFILING: Oversampling Strategies")
     print(f"Base samples: {num_samples}, Factor: {oversample_factor}x")
-    print(f"{'#'*70}")
+    print(f"{'#' * 70}")
 
     # Create sample dataset
     data = {"text": [f"Sample text {i}" for i in range(num_samples)]}
@@ -377,22 +401,29 @@ def profile_oversampling(num_samples: int = 1000, oversample_factor: int = 5):
     tracemalloc.stop()
 
     print(f"\n  {'Strategy':<25} | {'Time':>12} | {'Memory':>12} | {'Speedup':>10}")
-    print(f"  {'-'*25}-+-{'-'*12}-+-{'-'*12}-+-{'-'*10}")
-    print(f"  {'Deep copy (current)':<25} | {deepcopy_time*1000:>10.2f}ms | {format_bytes(deepcopy_mem):>12} | {'1.0x':>10}")
-    print(f"  {'Index selection':<25} | {select_time*1000:>10.2f}ms | {format_bytes(select_mem):>12} | {deepcopy_time/select_time:>9.1f}x")
-    print(f"  {'Concatenate refs':<25} | {concat_time*1000:>10.2f}ms | {format_bytes(concat_mem):>12} | {deepcopy_time/concat_time:>9.1f}x")
+    print(f"  {'-' * 25}-+-{'-' * 12}-+-{'-' * 12}-+-{'-' * 10}")
+    print(
+        f"  {'Deep copy (current)':<25} | {deepcopy_time * 1000:>10.2f}ms | {format_bytes(deepcopy_mem):>12} | {'1.0x':>10}"
+    )
+    print(
+        f"  {'Index selection':<25} | {select_time * 1000:>10.2f}ms | {format_bytes(select_mem):>12} | {deepcopy_time / select_time:>9.1f}x"
+    )
+    print(
+        f"  {'Concatenate refs':<25} | {concat_time * 1000:>10.2f}ms | {format_bytes(concat_mem):>12} | {deepcopy_time / concat_time:>9.1f}x"
+    )
 
 
 def profile_full_pipeline(dataset_name: str, split: str, num_samples: int):
     """Run full pipeline profiling."""
     from transformers import AutoTokenizer
+
     from oumi.core.registry import REGISTRY
 
-    print(f"\n{'='*70}")
-    print(f"FULL PIPELINE PROFILING")
+    print(f"\n{'=' * 70}")
+    print("FULL PIPELINE PROFILING")
     print(f"Dataset: {dataset_name}")
     print(f"Samples: {num_samples}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     # Load tokenizer
     print("\nLoading tokenizer...")
@@ -403,13 +434,14 @@ def profile_full_pipeline(dataset_name: str, split: str, num_samples: int):
     if dataset_class is None:
         print(f"Dataset {dataset_name} not in registry, using AlpacaDataset")
         from oumi.datasets import AlpacaDataset
+
         dataset_class = AlpacaDataset
         dataset_name = "yahma/alpaca-cleaned"
 
     # Profile loading
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PHASE 1: Dataset Loading")
-    print("="*70)
+    print("=" * 70)
 
     gc.collect()
     tracemalloc.start()
@@ -430,21 +462,21 @@ def profile_full_pipeline(dataset_name: str, split: str, num_samples: int):
     print(f"  Dataset size: {len(dataset)} examples")
 
     # Profile transform_batch
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PHASE 2: Transform Batch Analysis")
-    print("="*70)
+    print("=" * 70)
     profile_transform_batch(dataset, batch_size=min(1000, len(dataset)))
 
     # Profile tokenization strategies
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PHASE 3: Tokenization Strategies")
-    print("="*70)
+    print("=" * 70)
     profile_tokenization_strategies(dataset, num_samples=min(100, len(dataset)))
 
     # Profile to_hf native
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PHASE 4: to_hf Conversion (Native)")
-    print("="*70)
+    print("=" * 70)
 
     gc.collect()
     tracemalloc.start()
@@ -458,13 +490,13 @@ def profile_full_pipeline(dataset_name: str, split: str, num_samples: int):
 
     print(f"  Conversion time: {native_time:.2f}s")
     print(f"  Peak memory: {format_bytes(native_mem)}")
-    print(f"  Throughput: {len(dataset)/native_time:.0f} examples/sec")
+    print(f"  Throughput: {len(dataset) / native_time:.0f} examples/sec")
 
     # Profile to_hf legacy (if small enough)
     if len(dataset) <= 5000:
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("PHASE 5: to_hf Conversion (Legacy Generator)")
-        print("="*70)
+        print("=" * 70)
 
         gc.collect()
         tracemalloc.start()
@@ -478,26 +510,28 @@ def profile_full_pipeline(dataset_name: str, split: str, num_samples: int):
 
         print(f"  Conversion time: {legacy_time:.2f}s")
         print(f"  Peak memory: {format_bytes(legacy_mem)}")
-        print(f"  Throughput: {len(dataset)/legacy_time:.0f} examples/sec")
-        print(f"\n  Native vs Legacy speedup: {legacy_time/native_time:.1f}x")
+        print(f"  Throughput: {len(dataset) / legacy_time:.0f} examples/sec")
+        print(f"\n  Native vs Legacy speedup: {legacy_time / native_time:.1f}x")
 
     # Profile oversampling
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PHASE 6: Oversampling Analysis")
-    print("="*70)
+    print("=" * 70)
     profile_oversampling(num_samples=1000, oversample_factor=5)
 
     # Summary
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PROFILING SUMMARY")
-    print("="*70)
+    print("=" * 70)
     print(f"  Dataset: {dataset_name}")
     print(f"  Samples: {len(dataset)}")
     print(f"  Load time: {load_time:.2f}s")
     print(f"  to_hf time (native): {native_time:.2f}s")
     print(f"  Peak memory (load): {format_bytes(load_mem)}")
     print(f"  Peak memory (to_hf): {format_bytes(native_mem)}")
-    print(f"  Overall throughput: {len(dataset)/(load_time+native_time):.0f} examples/sec")
+    print(
+        f"  Overall throughput: {len(dataset) / (load_time + native_time):.0f} examples/sec"
+    )
 
 
 def main():

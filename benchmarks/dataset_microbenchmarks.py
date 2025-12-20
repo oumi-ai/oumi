@@ -32,11 +32,11 @@ import gc
 import sys
 import time
 import tracemalloc
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import datasets
-import pandas as pd
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -430,7 +430,9 @@ def benchmark_converter_detection():
         if "inputs" in example and "outputs" in example:
             return "langchain"
 
-        raise ValueError(f"Unable to auto-detect format for keys: {list(example.keys())}")
+        raise ValueError(
+            f"Unable to auto-detect format for keys: {list(example.keys())}"
+        )
 
     iterations = 1000
 
@@ -467,7 +469,9 @@ def benchmark_converter_detection():
 
     print(f"    Cache miss: {r_miss['avg_time_ms']:.4f} ms")
     print(f"    Cache hit: {r_hit['avg_time_ms']:.6f} ms")
-    speedup = r_miss["avg_time_ms"] / r_hit["avg_time_ms"] if r_hit["avg_time_ms"] > 0 else 0
+    speedup = (
+        r_miss["avg_time_ms"] / r_hit["avg_time_ms"] if r_hit["avg_time_ms"] > 0 else 0
+    )
     print(f"    Speedup with caching: {speedup:.0f}x")
 
 

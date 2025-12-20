@@ -30,7 +30,6 @@ Options:
 import argparse
 import gc
 import json
-import os
 import sys
 import time
 import traceback
@@ -39,7 +38,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -53,7 +52,7 @@ class TimingResult:
     peak_memory_mb: float
     current_memory_mb: float
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass
@@ -67,13 +66,13 @@ class DatasetBenchmarkResult:
     num_features: int = 0
 
     # Timing results for each phase
-    load_raw: Optional[TimingResult] = None
-    to_hf_map: Optional[TimingResult] = None
-    to_hf_iterable: Optional[TimingResult] = None
-    iteration_first_100: Optional[TimingResult] = None
-    iteration_full: Optional[TimingResult] = None
-    sampling: Optional[TimingResult] = None
-    oversampling: Optional[TimingResult] = None
+    load_raw: TimingResult | None = None
+    to_hf_map: TimingResult | None = None
+    to_hf_iterable: TimingResult | None = None
+    iteration_first_100: TimingResult | None = None
+    iteration_full: TimingResult | None = None
+    sampling: TimingResult | None = None
+    oversampling: TimingResult | None = None
 
     # Additional metrics
     examples_per_second: float = 0.0
@@ -250,7 +249,7 @@ def get_dataset_configs(quick_mode: bool = False) -> dict[str, dict]:
 
 def benchmark_raw_hf_load(
     dataset_name: str,
-    subset: Optional[str],
+    subset: str | None,
     split: str,
     sample_count: int,
 ) -> tuple[Any, TimingResult]:
@@ -297,10 +296,10 @@ def get_default_tokenizer():
 
 def benchmark_oumi_load(
     dataset_name: str,
-    subset: Optional[str],
+    subset: str | None,
     split: str,
     sample_count: int,
-    converter: Optional[str] = None,
+    converter: str | None = None,
 ) -> tuple[Any, TimingResult]:
     """Benchmark Oumi dataset loading via registry or GenericSftDataset."""
     from oumi.core.registry import REGISTRY
@@ -350,7 +349,7 @@ def benchmark_to_hf_conversion(
 
 
 def benchmark_iteration(
-    dataset: Any, num_examples: Optional[int] = None, label: str = "Iteration"
+    dataset: Any, num_examples: int | None = None, label: str = "Iteration"
 ) -> TimingResult:
     """Benchmark iterating through dataset examples."""
     count = 0
@@ -368,14 +367,12 @@ def benchmark_iteration(
 
 def benchmark_sampling(
     dataset_name: str,
-    subset: Optional[str],
+    subset: str | None,
     split: str,
     original_size: int,
     target_size: int,
 ) -> TimingResult:
     """Benchmark dataset sampling (downsampling)."""
-    import copy
-
     import datasets as hf_datasets
 
     from oumi.builders.data import _sample_dataset
@@ -410,7 +407,7 @@ def benchmark_sampling(
 
 def benchmark_oversampling(
     dataset_name: str,
-    subset: Optional[str],
+    subset: str | None,
     split: str,
     original_size: int,
     target_size: int,
@@ -455,11 +452,11 @@ def benchmark_single_dataset(
     quick_mode: bool = False,
 ) -> DatasetBenchmarkResult:
     """Run full benchmark suite on a single dataset."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Benchmarking: {key}")
     print(f"  {config.get('description', '')}")
     print(f"  Dataset: {config['dataset_name']}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     result = DatasetBenchmarkResult(
         dataset_key=key,
@@ -484,7 +481,9 @@ def benchmark_single_dataset(
         if raw_ds is not None:
             result.num_examples = len(raw_ds)
             result.num_features = len(raw_ds.column_names)
-            print(f"  Loaded {result.num_examples} examples, {result.num_features} features")
+            print(
+                f"  Loaded {result.num_examples} examples, {result.num_features} features"
+            )
 
         # Phase 2: Oumi dataset loading (if applicable)
         print("\n[Phase 2] Oumi Dataset Loading")
@@ -541,7 +540,10 @@ def benchmark_single_dataset(
                     raw_ds, label=f"Full iteration ({result.num_examples} examples)"
                 )
 
-                if result.iteration_full.success and result.iteration_full.duration_seconds > 0:
+                if (
+                    result.iteration_full.success
+                    and result.iteration_full.duration_seconds > 0
+                ):
                     result.examples_per_second = (
                         result.num_examples / result.iteration_full.duration_seconds
                     )
@@ -672,7 +674,9 @@ def print_results_table(results: list[DatasetBenchmarkResult]):
             f"{r.iteration_full.duration_seconds:.2f}" if r.iteration_full else "N/A"
         )
         peak_mem = f"{r.load_raw.peak_memory_mb:.1f}" if r.load_raw else "N/A"
-        throughput = f"{r.examples_per_second:.0f}" if r.examples_per_second > 0 else "N/A"
+        throughput = (
+            f"{r.examples_per_second:.0f}" if r.examples_per_second > 0 else "N/A"
+        )
 
         row = [
             r.dataset_key[:20],
@@ -691,6 +695,7 @@ def print_results_table(results: list[DatasetBenchmarkResult]):
 
 def save_results(suite: BenchmarkSuite, output_path: str):
     """Save benchmark results to JSON file."""
+
     # Convert to dict, handling dataclasses
     def to_dict(obj):
         if hasattr(obj, "__dataclass_fields__"):
@@ -798,10 +803,14 @@ def main():
 
     # Print summary
     print("\nSUMMARY:")
-    print(f"  Successful: {suite.summary['successful_datasets']}/{suite.summary['total_datasets']}")
+    print(
+        f"  Successful: {suite.summary['successful_datasets']}/{suite.summary['total_datasets']}"
+    )
     print(f"  Avg load time: {suite.summary['avg_load_time_seconds']:.2f}s")
     print(f"  Avg to_hf time: {suite.summary['avg_to_hf_time_seconds']:.2f}s")
-    print(f"  Avg throughput: {suite.summary['avg_examples_per_second']:.0f} examples/s")
+    print(
+        f"  Avg throughput: {suite.summary['avg_examples_per_second']:.0f} examples/s"
+    )
     print(f"  Peak memory: {suite.summary['peak_memory_mb']:.1f} MB")
     print(f"  Total time: {suite.summary['total_benchmark_time_seconds']:.1f}s")
 

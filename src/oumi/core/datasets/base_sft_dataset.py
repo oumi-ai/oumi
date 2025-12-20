@@ -73,14 +73,10 @@ class BaseSftDataset(BaseMapDataset, ABC):
         if self._assistant_only:
             self._verify_assistant_only_compatibility()
 
-        # Only load data if not already set by subclass
-        # (subclasses may set _data before calling super().__init__)
         if self._data is None and self._raw_hf_data is None:
-            # Check if _load_data is overridden by subclass (legacy path)
             if type(self)._load_data is not BaseMapDataset._load_data:
                 self._data = self._load_data()
             else:
-                # Use new HF native loading
                 self._raw_hf_data = self._load_raw_hf_dataset()
 
     #
@@ -324,40 +320,26 @@ class BaseSftDataset(BaseMapDataset, ABC):
 
             self._is_template_compatible_with_completions_only_training = False
 
-    #
-    # Batched Processing (for native HF .map())
-    #
     @override
     def _transform_batch(self, examples: dict[str, Any]) -> dict[str, Any]:
-        """Optimized batched transform for SFT datasets.
-
-        This method is called by HF `.map()` and provides batched tokenization
-        for significant speedup (10-50x faster than serial processing).
-        """
+        """Batched transform with batched tokenization for SFT datasets."""
         if self._tokenizer is None:
-            # No tokenizer - fall back to base implementation
             return super()._transform_batch(examples)
 
         if self._return_conversations:
-            # Return conversations mode - fall back to base implementation
             return super()._transform_batch(examples)
 
         if self._assistant_only:
-            # Assistant-only training requires special tokenization
-            # Fall back to serial processing for now
             return super()._transform_batch(examples)
 
-        # Get batch size from first column
         batch_size = len(next(iter(examples.values())))
 
-        # Step 1: Convert all examples to Conversations
         conversations = []
         for i in range(batch_size):
             example = {k: v[i] for k, v in examples.items()}
             conv = self.transform_conversation(example)
             conversations.append(conv)
 
-        # Step 2: Apply chat template to all conversations (list of strings)
         texts = []
         for conv in conversations:
             text = self._tokenizer.apply_chat_template(
@@ -367,14 +349,12 @@ class BaseSftDataset(BaseMapDataset, ABC):
             )
             texts.append(text)
 
-        # Step 3: BATCH tokenize - this is where the major speedup comes from
-        # One call to tokenizer with N texts vs N calls with 1 text
         tokenized = self._tokenizer(
             texts,
             padding=False,
             truncation=True,
             max_length=self._tokenizer.model_max_length,
-            return_tensors=None,  # Return lists, not tensors
+            return_tensors=None,
         )
 
         return {
