@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
@@ -20,126 +19,115 @@ import PIL.Image
 import transformers
 from typing_extensions import override
 
-from oumi.core.processors.base_image_processor import BaseImageProcessor
 from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.processors.default_image_processor import DefaultImageProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Message
-from oumi.utils.logging import logger
 from oumi.utils.str_utils import truncate_to_max_tokens_limit
 
 
 class DefaultProcessor(BaseProcessor):
-    """Default implementation of processor that wraps a worker processor.
+    """Thin wrapper around HuggingFace AutoProcessor providing Oumi conveniences.
 
-    Validates that worker conforms to basic required invariants.
+    This class adds:
+    - Oumi Message format support for apply_chat_template
+    - label_ignore_index tracking for training
+    - ignore_features list for filtering processor outputs
     """
 
     def __init__(
         self,
         processor_name: str,
-        worker_processor: Any,
+        hf_processor: Any,
         tokenizer: BaseTokenizer,
         *,
         label_ignore_index: Optional[int],
         ignore_features: Optional[list[str]] = None,
     ):
-        """Initializes the processor."""
+        """Initializes the processor.
+
+        Args:
+            processor_name: Name of the processor/model.
+            hf_processor: HuggingFace processor (from AutoProcessor.from_pretrained).
+            tokenizer: Tokenizer associated with this processor.
+            label_ignore_index: Special label value for loss computation exclusion.
+            ignore_features: List of feature keys to remove from processor output.
+        """
         if not processor_name:
-            raise ValueError("Processor name must be provided!")
-        elif worker_processor is None:
-            raise ValueError("Worker processor must be provided!")
-        elif not callable(worker_processor):
-            raise ValueError("Worker processor is not callable!")
-        elif not (
-            hasattr(worker_processor, "apply_chat_template")
-            and worker_processor.apply_chat_template is not None
-            and callable(worker_processor.apply_chat_template)
-        ):
-            raise ValueError(
-                "Worker processor doesn't have the `apply_chat_template` method"
-            )
+            raise ValueError("Empty model name is not allowed!")
 
         self._processor_name = processor_name
-        self._worker_processor: Callable = worker_processor
-        self._worker_processor.tokenizer = tokenizer
+        self._hf_processor: Callable = hf_processor
         self._tokenizer: BaseTokenizer = tokenizer
-
-        # If the worker processor does not have a chat template, or has a different
-        # one, then equate it to tokenizer's.
-        if (
-            not hasattr(self._worker_processor, "chat_template")
-            or self._worker_processor.chat_template != tokenizer.chat_template
-        ):
-            self._worker_processor.chat_template = tokenizer.chat_template
-
-        self._image_processor: Optional[BaseImageProcessor] = None
-        if (
-            hasattr(self._worker_processor, "image_processor")
-            and self._worker_processor.image_processor is not None
-        ):
-            self._image_processor = DefaultImageProcessor(
-                self._worker_processor.image_processor
-            )
         self._label_ignore_index: Optional[int] = label_ignore_index
-        self._ignore_features: Optional[list[str]] = (
-            copy.copy(ignore_features) if ignore_features else []
-        )
+        self._ignore_features: list[str] = ignore_features or []
+
+        # Sync tokenizer with HF processor
+        if hasattr(self._hf_processor, "tokenizer"):
+            self._hf_processor.tokenizer = tokenizer
+
+        # Sync chat template
+        if hasattr(self._hf_processor, "chat_template"):
+            if (
+                not self._hf_processor.chat_template
+                or self._hf_processor.chat_template != tokenizer.chat_template
+            ):
+                self._hf_processor.chat_template = tokenizer.chat_template
 
     @property
     @override
     def processor_name(self) -> str:
-        """Returns a processor name."""
+        """Returns the processor name."""
         return self._processor_name
 
     @property
     @override
     def tokenizer(self) -> BaseTokenizer:
-        """Returns a tokenizer associated with this processor."""
+        """Returns the tokenizer associated with this processor."""
         return self._tokenizer
 
     @tokenizer.setter
     @override
     def tokenizer(self, new_tokenizer: BaseTokenizer) -> None:
-        """Sets a tokenizer associated with this processor."""
-        self._worker_processor.tokenizer = new_tokenizer
+        """Sets the tokenizer associated with this processor."""
         self._tokenizer = new_tokenizer
+        if hasattr(self._hf_processor, "tokenizer"):
+            self._hf_processor.tokenizer = new_tokenizer
 
     @property
     @override
     def chat_template(self) -> str:
-        """Returns a chat template."""
-        if not hasattr(self._worker_processor, "chat_template"):
-            return ""
-        return self._worker_processor.chat_template
+        """Returns the chat template."""
+        if hasattr(self._hf_processor, "chat_template"):
+            return self._hf_processor.chat_template or ""
+        return ""
 
     @chat_template.setter
     @override
     def chat_template(self, new_chat_template: str) -> None:
-        """Sets a chat template associated with this processor."""
-        self._worker_processor.chat_template = new_chat_template
+        """Sets the chat template."""
+        if hasattr(self._hf_processor, "chat_template"):
+            self._hf_processor.chat_template = new_chat_template
 
     @property
     @override
-    def image_processor(self) -> Optional[BaseImageProcessor]:
-        """Returns an image processor."""
-        return self._image_processor
+    def image_processor(self) -> Optional[transformers.ImageProcessingMixin]:
+        """Returns the image processor."""
+        return getattr(self._hf_processor, "image_processor", None)
 
     @property
     @override
     def image_token(self) -> Optional[str]:
-        """Returns an image token."""
-        if (
-            hasattr(self._worker_processor, "image_token")
-            and self._worker_processor.image_token
-        ):
-            return str(self._worker_processor.image_token)
+        """Returns the image token string."""
+        if hasattr(self._hf_processor, "image_token"):
+            token = self._hf_processor.image_token
+            if token:
+                return str(token)
         return None
 
     @property
     @override
     def image_token_id(self) -> Optional[int]:
-        """Returns an image token id."""
+        """Returns the image token ID."""
         token_str = self.image_token
         if not token_str:
             return None
@@ -147,30 +135,28 @@ class DefaultProcessor(BaseProcessor):
         token_id = self._tokenizer.convert_tokens_to_ids(token_str)  # type: ignore
         if not isinstance(token_id, int):
             raise ValueError(
-                "Image token id must be an integer. "
-                "The token is likely not in tokenizer's vocabulary. "
-                f"Image token: '{token_str}' "
-                f"Actual type: {type(token_id)}"
+                f"Image token '{token_str}' not in tokenizer vocabulary. "
+                f"Got type {type(token_id)} instead of int."
             )
-        return int(token_id)
+        return token_id
 
     @property
     @override
     def label_ignore_index(self) -> Optional[int]:
-        """Returns a label ignore index."""
+        """Returns the label ignore index for loss computation."""
         return self._label_ignore_index
 
     @property
     @override
     def ignore_features(self) -> list[str]:
-        """Returns a list of keys of features to ignore from feeding the model."""
-        return copy.copy(self._ignore_features) if self._ignore_features else []
+        """Returns the list of features to ignore."""
+        return self._ignore_features.copy()
 
     @property
     @override
     def raw_processor(self) -> Callable:
-        """Returns the underlying raw processor."""
-        return self._worker_processor
+        """Returns the underlying HuggingFace processor."""
+        return self._hf_processor
 
     @override
     def __call__(
@@ -184,107 +170,106 @@ class DefaultProcessor(BaseProcessor):
         """Invokes the processor to extract features.
 
         Args:
-            text: A list of text prompts.
-            images: A list of input images.
-            return_tensors: The format of returned tensors.
-            **kwargs: Additional keyword arguments to pass to the processor.
+            text: List of text prompts.
+            images: Optional list of input images.
+            return_tensors: Format of returned tensors ('pt', 'np', etc).
+            **kwargs: Additional arguments passed to HF processor.
 
         Returns:
-            transformers.BatchEncoding: The model-specific input features.
+            BatchEncoding with model-specific input features.
         """
+        # Direct delegation to HF processor
         if images is None or len(images) == 0:
-            result = self._worker_processor(
+            result = self._hf_processor(
                 text=text,
                 return_tensors=return_tensors,
                 **kwargs,
             )
         else:
-            result = self._worker_processor(
-                text=(text[0] if len(text) == 1 else text),
+            # Single text string for single image, list for multiple
+            text_input = text[0] if len(text) == 1 else text
+            result = self._hf_processor(
+                text=text_input,
                 images=images,
                 return_tensors=return_tensors,
                 **kwargs,
             )
-        if result is None:
-            raise RuntimeError("Processor returned `None`.")
-        elif isinstance(result, transformers.BatchFeature):
-            for key in self.ignore_features:
-                if key in result:  # If it is not, we do not act to allow
-                    del result[key]  # the underlying dataset/processor to vary
-                    # their examples/output across batches.
 
+        # Remove ignored features if specified
+        if self._ignore_features and isinstance(result, dict):
+            for key in self._ignore_features:
+                result.pop(key, None)
+
+        # Ensure result is BatchEncoding
+        if isinstance(result, transformers.BatchFeature):
             result = transformers.BatchEncoding(
                 data=dict(**result), tensor_type=return_tensors
             )
         elif isinstance(result, dict):
-            result = transformers.BatchEncoding(data=result, tensor_type=return_tensors)
+            result = transformers.BatchEncoding(
+                data=result, tensor_type=return_tensors
+            )
         elif not isinstance(result, transformers.BatchEncoding):
             raise RuntimeError(
-                "Processor returned an object that is not a BatchEncoding. "
-                f"Actual type: {type(result)}"
+                f"Processor returned unexpected type: {type(result)}. "
+                "Expected BatchEncoding."
             )
+
         return result
 
     @override
     def apply_chat_template(
         self, conversation: list[Message], add_generation_prompt: bool = False
     ) -> str:
-        """Applies a chat template.
+        """Applies chat template to Oumi conversation format.
+
+        This is the main Oumi-specific convenience - handling Oumi Message objects
+        instead of requiring HF's dict format.
 
         Args:
-            conversation: A list of messages (conversation "turns").
-            add_generation_prompt: Whether to append generation prompt to the output.
+            conversation: List of Oumi Message objects.
+            add_generation_prompt: Whether to append generation prompt.
 
         Returns:
-            A text prompt, which includes all input messages formatted into a string.
+            Formatted text prompt string.
         """
-        if isinstance(self._worker_processor, BaseTokenizer):
-            # If the processor is actually a tokenizer, then disallow non-text messages.
+        # Special handling for tokenizer-only processors
+        if isinstance(self._hf_processor, BaseTokenizer):
+            # Tokenizer can't handle images
             for message in conversation:
                 if message.contains_images():
                     raise ValueError(
-                        f"Conversation includes non-text messages: {message.id}. "
-                        "This is not allowed for processors that are tokenizers."
+                        f"Message {message.id} contains images, but processor "
+                        "is text-only (tokenizer). Use a multimodal processor."
                     )
 
-            result = self._worker_processor.apply_chat_template(
+            result = self._hf_processor.apply_chat_template(
                 conversation,  # type: ignore
                 tokenize=False,
                 add_generation_prompt=add_generation_prompt,
             )
         else:
-            result = self._worker_processor.apply_chat_template(
+            # Multimodal processor - wrap in list
+            result = self._hf_processor.apply_chat_template(
                 [conversation], add_generation_prompt=add_generation_prompt
             )
 
-        if result is None:
-            raise RuntimeError("`apply_chat_template` returned `None`.")
-        elif isinstance(result, list) and len(result) == 1:
+        # Unwrap single-item list
+        if isinstance(result, list) and len(result) == 1:
             result = result[0]
 
         if not isinstance(result, str):
             raise RuntimeError(
-                "`apply_chat_template` returned an object that is not a string. "
-                f"Actual type: {type(result)}"
+                f"apply_chat_template returned {type(result)}, expected str."
             )
+
         return result
 
     @override
     def save_config(self, output_dir: Union[Path, str]) -> None:
-        """Saves processor config to the directory."""
-        if not (
-            hasattr(self._worker_processor, "save_pretrained")
-            and self._worker_processor.save_pretrained is not None
-            and callable(self._worker_processor.save_pretrained)
-        ):
-            logger.warning(
-                "Don't know how to save processor config "
-                f"to output dir: {output_dir}. "
-                "Ignored the request!"
-            )
-            return
-
-        self._worker_processor.save_pretrained(str(output_dir))
+        """Saves processor config to directory."""
+        if hasattr(self._hf_processor, "save_pretrained"):
+            self._hf_processor.save_pretrained(str(output_dir))
 
     @override
     def truncate_text(
@@ -294,15 +279,15 @@ class DefaultProcessor(BaseProcessor):
         max_tokens: int,
         truncation_side: str = "right",
     ) -> tuple[str, int]:
-        """Truncates text to `max_length` in tokens.
+        """Truncates text to max_tokens.
 
         Args:
-            text: A text prompt.
-            max_tokens: Maximum number of tokens to keep.
-            truncation_side: The side to truncate the tokens ("right" or "left").
+            text: Text to truncate.
+            max_tokens: Maximum number of tokens.
+            truncation_side: Which side to truncate ("right" or "left").
 
         Returns:
-            A tuple containing truncated text prompt and the number of tokens.
+            Tuple of (truncated_text, num_tokens).
         """
         return truncate_to_max_tokens_limit(
             text,

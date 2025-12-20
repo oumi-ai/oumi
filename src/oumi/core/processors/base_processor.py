@@ -19,9 +19,6 @@ from typing import Callable, Optional, Union
 import PIL.Image
 import transformers
 
-from oumi.core.processors.base_image_processor import (
-    BaseImageProcessor,
-)
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Message
 
@@ -65,7 +62,7 @@ class BaseProcessor(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def image_processor(self) -> Optional[BaseImageProcessor]:
+    def image_processor(self) -> Optional[transformers.ImageProcessingMixin]:
         """Returns an image processor."""
         raise NotImplementedError
 

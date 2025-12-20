@@ -68,19 +68,16 @@ def build_processor(
         # Override model-specific params with user-defined ones.
         effective_processor_kwargs.update(processor_kwargs)
 
-    create_processor_fn = functools.partial(
-        transformers.AutoProcessor.from_pretrained,
+    # Build HuggingFace processor
+    hf_processor = transformers.AutoProcessor.from_pretrained(
         processor_name,
         trust_remote_code=trust_remote_code,
+        **effective_processor_kwargs,
     )
-    if len(effective_processor_kwargs) > 0:
-        worker_processor = create_processor_fn(**effective_processor_kwargs)
-    else:
-        worker_processor = create_processor_fn()
 
     return DefaultProcessor(
         processor_name,
-        worker_processor,
+        hf_processor,
         tokenizer,
         label_ignore_index=label_ignore_index,
         ignore_features=ignore_features,
