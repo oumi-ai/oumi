@@ -5,7 +5,7 @@
 #   curl -LsSf https://oumi.ai/install.sh | bash -s -- --gpu
 #   curl -LsSf https://oumi.ai/install.sh | bash -s -- --python 3.12
 
-set -eu
+set -euo pipefail
 
 # Colors (disabled if not a terminal)
 if [ -t 1 ]; then
@@ -32,23 +32,15 @@ CURRENT_ENV=false
 
 # Detect GPU availability
 detect_gpu() {
-    # NVIDIA GPU
     if command -v nvidia-smi > /dev/null 2>&1; then
         echo "nvidia"
-        return 0
-    fi
-    # AMD ROCm GPU
-    if command -v rocm-smi > /dev/null 2>&1 || [ -d "/opt/rocm" ]; then
+    elif command -v rocm-smi > /dev/null 2>&1 || [ -d "/opt/rocm" ]; then
         echo "amd"
-        return 0
-    fi
-    # Check for CUDA libraries
-    if [ -d "/usr/local/cuda" ] || [ -n "${CUDA_HOME:-}" ]; then
+    elif [ -d "/usr/local/cuda" ] || [ -n "${CUDA_HOME:-}" ]; then
         echo "nvidia"
-        return 0
+    else
+        echo "none"
     fi
-    echo "none"
-    return 1
 }
 
 # Print functions
@@ -69,14 +61,17 @@ while [ $# -gt 0 ]; do
             shift
             ;;
         --version)
+            [ -z "${2:-}" ] && { error "--version requires a value"; exit 1; }
             VERSION="$2"
             shift 2
             ;;
         --extras)
+            [ -z "${2:-}" ] && { error "--extras requires a value"; exit 1; }
             EXTRAS="$2"
             shift 2
             ;;
         --python)
+            [ -z "${2:-}" ] && { error "--python requires a value"; exit 1; }
             PYTHON_VERSION="$2"
             shift 2
             ;;
@@ -242,19 +237,20 @@ if [ "$CURRENT_ENV" = true ]; then
     else
         warn "Installing ${PACKAGE} in virtual environment..."
     fi
-    INSTALL_CMD="uv pip install $PACKAGE --prerelease=allow"
+    [ -n "$PYTHON_VERSION" ] && warn "Note: --python is ignored with --current-env (uses current environment's Python)"
+    INSTALL_CMD=(uv pip install "$PACKAGE" --prerelease=allow)
 else
     # Install as uv tool (default) - uv manages everything
     warn "Installing ${PACKAGE} as uv tool..."
-    INSTALL_CMD="uv tool install $PACKAGE --prerelease=allow"
+    INSTALL_CMD=(uv tool install "$PACKAGE" --prerelease=allow)
 
     if [ -n "$PYTHON_VERSION" ]; then
-        INSTALL_CMD="$INSTALL_CMD --python $PYTHON_VERSION"
+        INSTALL_CMD+=(--python "$PYTHON_VERSION")
     fi
 fi
 
 # Run installation
-if eval "$INSTALL_CMD"; then
+if "${INSTALL_CMD[@]}"; then
     echo ""
     success "Oumi installed successfully!"
     echo ""
