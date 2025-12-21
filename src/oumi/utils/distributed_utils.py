@@ -35,3 +35,22 @@ def is_using_accelerate() -> bool:
 def is_using_accelerate_fsdp() -> bool:
     """Returns whether the current job is requesting Accelerate FSDP training."""
     return str_to_bool(os.environ.get("ACCELERATE_USE_FSDP", "false"))
+
+
+def is_using_torchrun() -> bool:
+    """Returns whether the current job was launched with torchrun.
+
+    torchrun (torch.distributed.elastic) sets TORCHELASTIC_RUN_ID even
+    when running with a single GPU, making this a definitive detection method.
+    """
+    return "TORCHELASTIC_RUN_ID" in os.environ
+
+
+def is_under_distributed_launcher() -> bool:
+    """Returns whether the current job is running under any distributed launcher.
+
+    Detects both torchrun and accelerate launchers. This is more robust than
+    checking WORLD_SIZE > 1, as launchers set specific environment variables
+    even when running with a single GPU.
+    """
+    return is_using_torchrun() or is_using_accelerate()

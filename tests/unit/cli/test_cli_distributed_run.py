@@ -28,7 +28,15 @@ def app():
 
 @pytest.fixture
 def mock_os():
+    # Patch os in distributed_run.py (for env copy in _run_subprocess)
     with patch("oumi.cli.distributed_run.os") as os_mock:
+        yield os_mock
+
+
+@pytest.fixture
+def mock_cluster_os():
+    # Patch os.environ in cluster.py for detect_cluster_info
+    with patch("oumi.core.cluster.os") as os_mock:
         yield os_mock
 
 
@@ -40,7 +48,8 @@ def mock_popen():
 
 @pytest.fixture
 def mock_subprocess():
-    with patch("oumi.cli.distributed_run.subprocess") as subprocess_mock:
+    # Patch subprocess in cluster.py (for SLURM detection)
+    with patch("oumi.core.cluster.subprocess") as subprocess_mock:
         yield subprocess_mock
 
 
@@ -54,6 +63,7 @@ def mock_torch():
 def test_torchrun_skypilot_single_gpu(
     app,
     mock_os,
+    mock_cluster_os,
     mock_popen,
     monkeypatch,
 ):
@@ -62,6 +72,9 @@ def test_torchrun_skypilot_single_gpu(
         "SKYPILOT_NODE_RANK": 0,
         "SKYPILOT_NUM_GPUS_PER_NODE": 1,
     }
+    # Mock os.environ for cluster.py (detect_cluster_info uses .get())
+    mock_cluster_os.environ = copy.deepcopy(test_env_vars)
+    # Mock os.environ.copy() for distributed_run.py (subprocess env)
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
 
     mock_process = Mock()
@@ -104,6 +117,7 @@ def test_torchrun_skypilot_single_gpu(
 def test_torchrun_skypilot_multi_gpu(
     app,
     mock_os,
+    mock_cluster_os,
     mock_popen,
     monkeypatch,
 ):
@@ -116,6 +130,9 @@ def test_torchrun_skypilot_multi_gpu(
         "OUMI_NUM_NODES": 3,
         "OUMI_MASTER_ADDR": "x111",
     }
+    # Mock os.environ for cluster.py (detect_cluster_info uses .get())
+    mock_cluster_os.environ = copy.deepcopy(test_env_vars)
+    # Mock os.environ.copy() for distributed_run.py (subprocess env)
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
 
     mock_process = Mock()
@@ -165,6 +182,7 @@ def test_torchrun_skypilot_multi_gpu(
 def test_torchrun_polaris_multi_gpu(
     app,
     mock_os,
+    mock_cluster_os,
     mock_popen,
     monkeypatch,
 ):
@@ -182,6 +200,9 @@ def test_torchrun_polaris_multi_gpu(
             "OUMI_NUM_NODES": 3,
             "OUMI_MASTER_ADDR": "z111",
         }
+        # Mock os.environ for cluster.py (detect_cluster_info uses .get())
+        mock_cluster_os.environ = copy.deepcopy(test_env_vars)
+        # Mock os.environ.copy() for distributed_run.py (subprocess env)
         mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
 
         mock_process = Mock()
@@ -232,6 +253,7 @@ def test_torchrun_polaris_multi_gpu(
 def test_torchrun_slurm_multi_gpu(
     app,
     mock_os,
+    mock_cluster_os,
     mock_popen,
     mock_subprocess,
     mock_torch,
@@ -246,6 +268,9 @@ def test_torchrun_slurm_multi_gpu(
         "OUMI_NUM_NODES": 2,
         "OUMI_MASTER_ADDR": "frontier04316",
     }
+    # Mock os.environ for cluster.py (detect_cluster_info uses .get())
+    mock_cluster_os.environ = copy.deepcopy(test_env_vars)
+    # Mock os.environ.copy() for distributed_run.py (subprocess env)
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
     mock_torch.cuda.device_count.return_value = 8
 
@@ -301,6 +326,7 @@ def test_torchrun_slurm_multi_gpu(
 def test_accelerate_skypilot_multi_gpu(
     app,
     mock_os,
+    mock_cluster_os,
     mock_popen,
     monkeypatch,
 ):
@@ -313,6 +339,9 @@ def test_accelerate_skypilot_multi_gpu(
         "OUMI_NUM_NODES": 3,
         "OUMI_MASTER_ADDR": "x111",
     }
+    # Mock os.environ for cluster.py (detect_cluster_info uses .get())
+    mock_cluster_os.environ = copy.deepcopy(test_env_vars)
+    # Mock os.environ.copy() for distributed_run.py (subprocess env)
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
 
     mock_process = Mock()
@@ -360,6 +389,7 @@ def test_accelerate_skypilot_multi_gpu(
 def test_torchrun_localmachine_multi_gpu(
     app,
     mock_os,
+    mock_cluster_os,
     mock_popen,
     mock_torch,
     monkeypatch,
@@ -367,6 +397,9 @@ def test_torchrun_localmachine_multi_gpu(
     test_env_vars = {
         # No environment vars set
     }
+    # Mock os.environ for cluster.py (detect_cluster_info uses .get())
+    mock_cluster_os.environ = copy.deepcopy(test_env_vars)
+    # Mock os.environ.copy() for distributed_run.py (subprocess env)
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
     mock_torch.cuda.device_count.return_value = 8
 
@@ -417,11 +450,15 @@ def test_torchrun_localmachine_multi_gpu(
 def test_torchrun_localmachine_multi_gpu_masteraddress(
     app,
     mock_os,
+    mock_cluster_os,
     mock_popen,
     mock_torch,
     monkeypatch,
 ):
     test_env_vars = {"MASTER_ADDRESS": "111.0.0.0", "MASTER_PORT": 1337}
+    # Mock os.environ for cluster.py (detect_cluster_info uses .get())
+    mock_cluster_os.environ = copy.deepcopy(test_env_vars)
+    # Mock os.environ.copy() for distributed_run.py (subprocess env)
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
     mock_torch.cuda.device_count.return_value = 8
 
