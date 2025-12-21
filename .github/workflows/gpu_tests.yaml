@@ -83,7 +83,19 @@ jobs:
           echo "CUDA_HOME: $CUDA_HOME"
           nvcc --version
 
-      - name: Run GPU tests
+      - name: Run GPU tests with coverage
         run: |
-          cd ./tests/integration/
-          pytest -s -m "not e2e and not e2e_eternal and not multi_gpu" --durations=50 --timeout=300
+          pytest tests/integration/ \
+            --cov=src/oumi \
+            --cov-report=xml:coverage-integration.xml \
+            --cov-report=term-missing \
+            -s -m "not e2e and not e2e_eternal and not multi_gpu" \
+            --durations=50 --timeout=300
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage-integration.xml
+          flags: integration
+          name: integration-tests
+          fail_ci_if_error: false

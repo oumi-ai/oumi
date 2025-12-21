@@ -52,7 +52,19 @@ jobs:
         run: |
           pre-commit run --all-files --show-diff-on-failure
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
-          cd ./tests/unit/
-          pytest -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300
+          pytest tests/unit/ \
+            --cov=src/oumi \
+            --cov-report=xml:coverage-unit.xml \
+            --cov-report=term-missing \
+            -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" \
+            --durations=50 --timeout=300
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage-unit.xml
+          flags: unit
+          name: unit-tests
+          fail_ci_if_error: false

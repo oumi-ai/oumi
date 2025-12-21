@@ -1,0 +1,54 @@
+codecov:
+  require_ci_to_pass: false
+
+coverage:
+  precision: 2
+  round: down
+  range: "60...100"
+
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+      unit:
+        target: auto
+        flags:
+          - unit
+      integration:
+        target: auto
+        flags:
+          - integration
+      e2e:
+        target: auto
+        flags:
+          - e2e
+    patch:
+      default:
+        target: 80%
+        threshold: 5%
+
+flags:
+  unit:
+    paths:
+      - src/oumi/
+    carryforward: true
+  integration:
+    paths:
+      - src/oumi/
+    carryforward: true
+  e2e:
+    paths:
+      - src/oumi/
+    carryforward: true
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: false
+
+ignore:
+  - "tests/**/*"
+  - "scripts/**/*"
+  - "docs/**/*"
+  - "notebooks/**/*"
