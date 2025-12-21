@@ -18,6 +18,7 @@ import typer
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.cli.alias import AliasType, try_get_config_name_for_alias
+from oumi.cli.completions import complete_quantize_config
 from oumi.utils.logging import logger
 
 _list_configs_callback = cli_utils.create_list_configs_callback(
@@ -40,6 +41,7 @@ def quantize(
                 "If not provided, will create a default config from CLI arguments."
             ),
             rich_help_panel="Options",
+            autocompletion=complete_quantize_config,
         ),
     ] = None,
     list_configs: Annotated[

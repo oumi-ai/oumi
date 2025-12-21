@@ -20,6 +20,7 @@ from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.cli.alias import AliasType, try_get_config_name_for_alias
+from oumi.cli.completions import complete_infer_config
 from oumi.utils.logging import logger
 
 _DEFAULT_CLI_PDF_DPI: Final[int] = 200
@@ -38,6 +39,7 @@ def infer(
             *cli_utils.CONFIG_FLAGS,
             help="Path or config name (e.g. llama3.1-8b).",
             rich_help_panel="Options",
+            autocompletion=complete_infer_config,
         ),
     ],
     list_configs: Annotated[

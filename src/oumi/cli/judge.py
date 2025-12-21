@@ -21,6 +21,7 @@ from rich.table import Table
 
 from oumi.cli import cli_utils
 from oumi.cli.alias import AliasType
+from oumi.cli.completions import complete_judge_config
 
 _list_configs_callback = cli_utils.create_list_configs_callback(
     AliasType.JUDGE, "Available Judge Configs", "judge dataset"
@@ -37,6 +38,7 @@ def judge_dataset_file(
             "-c",
             help="Path or config name (e.g. safety, truthfulness).",
             rich_help_panel="Options",
+            autocompletion=complete_judge_config,
         ),
     ],
     list_configs: Annotated[
@@ -99,6 +101,7 @@ def judge_conversations_file(
             "-c",
             help="Path or config name (e.g. safety, truthfulness).",
             rich_help_panel="Options",
+            autocompletion=complete_judge_config,
         ),
     ],
     list_configs: Annotated[

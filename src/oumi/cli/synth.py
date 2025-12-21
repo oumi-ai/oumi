@@ -21,6 +21,7 @@ from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.cli.alias import AliasType, try_get_config_name_for_alias
+from oumi.cli.completions import complete_synth_config
 from oumi.utils.logging import logger
 
 _MAX_TABLE_ROWS = 1
@@ -41,6 +42,7 @@ def synth(
             *cli_utils.CONFIG_FLAGS,
             help="Path or config name for synthesis.",
             rich_help_panel="Options",
+            autocompletion=complete_synth_config,
         ),
     ],
     list_configs: Annotated[

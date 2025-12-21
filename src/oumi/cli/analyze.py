@@ -21,6 +21,7 @@ from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.cli.alias import AliasType, try_get_config_name_for_alias
+from oumi.cli.completions import complete_analyze_config
 from oumi.utils.logging import logger
 
 # Valid output formats for analysis results
@@ -45,6 +46,7 @@ def analyze(
             *cli_utils.CONFIG_FLAGS,
             help="Path or config name for analysis.",
             rich_help_panel="Options",
+            autocompletion=complete_analyze_config,
         ),
     ],
     list_configs: Annotated[
