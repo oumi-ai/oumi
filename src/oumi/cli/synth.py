@@ -20,34 +20,83 @@ import typer
 from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
+from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.utils.logging import logger
 
 _MAX_TABLE_ROWS = 1
 _MAX_REPRESENTATION_LENGTH = 200
 _TABLE_COLUMNS_TO_DISPLAY = 6
 
+_list_configs_callback = cli_utils.create_list_configs_callback(
+    AliasType.SYNTH, "Available Synthesis Configs", "synth"
+)
+
 
 def synth(
     ctx: typer.Context,
+    # Main options
     config: Annotated[
         str,
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
-            help="Path to the configuration file for synthesis.",
+            help="Path or config name for synthesis.",
+            rich_help_panel="Options",
         ),
     ],
-    level: cli_utils.LOG_LEVEL_TYPE = None,
+    list_configs: Annotated[
+        bool,
+        typer.Option(
+            "--list",
+            help="List all available synthesis configs.",
+            callback=_list_configs_callback,
+            is_eager=True,
+            rich_help_panel="Options",
+        ),
+    ] = False,
+    level: Annotated[
+        cli_utils.LogLevel | None,
+        typer.Option(
+            "--log-level",
+            "-log",
+            help="Logging level.",
+            show_default=False,
+            show_choices=True,
+            case_sensitive=False,
+            callback=cli_utils.set_log_level,
+            rich_help_panel="Options",
+        ),
+    ] = None,
+    # Output options
+    output_path: Annotated[
+        str | None,
+        typer.Option(
+            "--output_path",
+            help="Output path for synthesized dataset.",
+            rich_help_panel="Output",
+        ),
+    ] = None,
 ):
     """Synthesize a dataset.
 
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for synthesis.
+        list_configs: List all available synthesis configs.
         level: The logging level for the specified command.
+        output_path: Output path for synthesized dataset.
     """
+    # Auto-collect overrides from dot-notation options
+    option_overrides = cli_utils.collect_config_overrides(ctx)
+    # Parse any additional extra args from command line
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+    # Combine: explicit options take precedence (added last)
+    all_overrides = extra_args + option_overrides
 
-    config = str(cli_utils.resolve_and_fetch_config(config))
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            try_get_config_name_for_alias(config, AliasType.SYNTH),
+        )
+    )
 
     with cli_utils.CONSOLE.status(
         "[green]Loading configuration...[/green]", spinner="dots"
@@ -59,21 +108,26 @@ def synth(
 
     # Load configuration
     parsed_config: SynthesisConfig = SynthesisConfig.from_yaml_and_arg_list(
-        config, extra_args, logger=logger
+        config, all_overrides, logger=logger
     )
+
+    # Apply non-dot-notation overrides
+    if output_path is not None:
+        parsed_config.output_path = output_path
+
     parsed_config.finalize_and_validate()
 
-    output_path = parsed_config.output_path
-    if not output_path:
+    config_output_path = parsed_config.output_path
+    if not config_output_path:
         cwd = Path.cwd()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = cwd / f"oumi_synth_results_{timestamp}.jsonl"
-        if output_path.exists():
+        auto_output_path = cwd / f"oumi_synth_results_{timestamp}.jsonl"
+        if auto_output_path.exists():
             i = 1
-            while output_path.exists():
-                output_path = cwd / f"oumi_synth_results_{timestamp}_{i}.jsonl"
+            while auto_output_path.exists():
+                auto_output_path = cwd / f"oumi_synth_results_{timestamp}_{i}.jsonl"
                 i += 1
-        parsed_config.output_path = output_path.as_posix()
+        parsed_config.output_path = auto_output_path.as_posix()
 
     # Run synthesis
     with cli_utils.CONSOLE.status(

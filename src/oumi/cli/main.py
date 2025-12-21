@@ -128,16 +128,48 @@ def get_app() -> typer.Typer:
     )(analyze)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Generate synthetic training & evaluation data.",
+        help=get_command_help(
+            "Generate synthetic training & evaluation data.", AliasType.SYNTH
+        ),
         rich_help_panel="Data",
     )(synth)
     app.command(  # Alias for synth
         name="synthesize",
         hidden=True,
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Generate synthetic training data.",
+        help=get_command_help(
+            "Generate synthetic training & evaluation data.", AliasType.SYNTH
+        ),
     )(synth)
     judge_app = typer.Typer(pretty_exceptions_enable=False)
+
+    # Create callback for --list on top-level judge command
+    from oumi.cli.cli_utils import create_list_configs_callback
+
+    _judge_list_callback = create_list_configs_callback(
+        AliasType.JUDGE, "Available Judge Configs", "judge dataset"
+    )
+
+    _judge_help = get_command_help(
+        "Score and evaluate outputs using an LLM judge.", AliasType.JUDGE
+    )
+
+    @judge_app.callback(invoke_without_command=True, help=_judge_help)
+    def judge_callback(
+        ctx: typer.Context,
+        list_configs: bool = typer.Option(
+            False,
+            "--list",
+            help="List all available judge configs.",
+            callback=_judge_list_callback,
+            is_eager=True,
+        ),
+    ):
+        if ctx.invoked_subcommand is None and not list_configs:
+            # Show help if no subcommand provided
+            CONSOLE.print(ctx.get_help())
+            raise typer.Exit(0)
+
     judge_app.command(
         name="dataset",
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
@@ -151,7 +183,6 @@ def get_app() -> typer.Typer:
     app.add_typer(
         judge_app,
         name="judge",
-        help="Score and evaluate outputs using an LLM judge.",
         rich_help_panel="Data",
     )
 

@@ -26,6 +26,10 @@ from oumi.utils.logging import logger
 # Valid output formats for analysis results
 _VALID_OUTPUT_FORMATS = ("csv", "json", "parquet")
 
+_list_configs_callback = cli_utils.create_list_configs_callback(
+    AliasType.ANALYZE, "Available Analysis Configs", "analyze"
+)
+
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -34,19 +38,80 @@ if TYPE_CHECKING:
 
 def analyze(
     ctx: typer.Context,
+    # Main options
     config: Annotated[
         str,
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
-            help="Path to the configuration file for analysis.",
+            help="Path or config name for analysis.",
+            rich_help_panel="Options",
         ),
     ],
+    list_configs: Annotated[
+        bool,
+        typer.Option(
+            "--list",
+            help="List all available analysis configs.",
+            callback=_list_configs_callback,
+            is_eager=True,
+            rich_help_panel="Options",
+        ),
+    ] = False,
+    level: Annotated[
+        cli_utils.LogLevel | None,
+        typer.Option(
+            "--log-level",
+            "-log",
+            help="Logging level.",
+            show_default=False,
+            show_choices=True,
+            case_sensitive=False,
+            callback=cli_utils.set_log_level,
+            rich_help_panel="Options",
+        ),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Enable verbose output.",
+            rich_help_panel="Options",
+        ),
+    ] = False,
+    # Data overrides
+    dataset_name: Annotated[
+        str | None,
+        typer.Option(
+            "--dataset_name",
+            help="Dataset name to analyze.",
+            rich_help_panel="Data",
+        ),
+    ] = None,
+    dataset_path: Annotated[
+        str | None,
+        typer.Option(
+            "--dataset_path",
+            help="Path to custom dataset file (JSON or JSONL).",
+            rich_help_panel="Data",
+        ),
+    ] = None,
+    sample_count: Annotated[
+        int | None,
+        typer.Option(
+            "--sample_count",
+            help="Number of examples to sample from the dataset.",
+            rich_help_panel="Data",
+        ),
+    ] = None,
+    # Output options
     output: Annotated[
         str | None,
         typer.Option(
             "--output",
             "-o",
-            help="Output directory for analysis results. Overrides config output_path.",
+            help="Output directory for analysis results.",
+            rich_help_panel="Output",
         ),
     ] = None,
     output_format: Annotated[
@@ -54,21 +119,24 @@ def analyze(
         typer.Option(
             "--format",
             "-f",
-            help="Output format for results: csv, json, or parquet (case-insensitive).",
+            help="Output format for results: csv, json, or parquet.",
+            rich_help_panel="Output",
         ),
     ] = "csv",
-    level: cli_utils.LOG_LEVEL_TYPE = None,
-    verbose: cli_utils.VERBOSE_TYPE = False,
 ):
     """Analyze a dataset to compute metrics and statistics.
 
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for analysis.
-        output: Output directory for results. Overrides config output_path.
-        output_format: Output format (csv, json, parquet). Case-insensitive.
+        list_configs: List all available analysis configs.
         level: The logging level for the specified command.
         verbose: Enable verbose logging with additional debug information.
+        dataset_name: Dataset name to analyze.
+        dataset_path: Path to custom dataset file.
+        sample_count: Number of examples to sample.
+        output: Output directory for results.
+        output_format: Output format (csv, json, parquet).
     """
     from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 
@@ -82,7 +150,12 @@ def analyze(
         raise typer.Exit(code=1)
 
     try:
+        # Auto-collect overrides from dot-notation options
+        option_overrides = cli_utils.collect_config_overrides(ctx)
+        # Parse any additional extra args from command line
         extra_args = cli_utils.parse_extra_cli_args(ctx)
+        # Combine: explicit options take precedence (added last)
+        all_overrides = extra_args + option_overrides
 
         config = str(
             cli_utils.resolve_and_fetch_config(
@@ -98,11 +171,17 @@ def analyze(
 
         # Load configuration
         parsed_config: AnalyzeConfig = AnalyzeConfig.from_yaml_and_arg_list(
-            config, extra_args, logger=logger
+            config, all_overrides, logger=logger
         )
 
-        # Override output path if provided via CLI
-        if output:
+        # Apply non-dot-notation overrides
+        if dataset_name is not None:
+            parsed_config.dataset_name = dataset_name
+        if dataset_path is not None:
+            parsed_config.dataset_path = dataset_path
+        if sample_count is not None:
+            parsed_config.sample_count = sample_count
+        if output is not None:
             parsed_config.output_path = output
 
         # Validate configuration
