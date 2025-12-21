@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import functools
 import time
 from collections.abc import Callable
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Final, cast
+from typing import Any, Final, cast, overload
 
 import datasets as hf_datasets
 import torch
@@ -279,14 +281,177 @@ def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
     _log_feedback_request()
 
 
+@overload
 def train(
     config: TrainingConfig,
     additional_model_kwargs: dict[str, Any] | None = None,
     additional_trainer_kwargs: dict[str, Any] | None = None,
     additional_tuning_kwargs: dict[str, Any] | None = None,
     verbose: bool = False,
+) -> None | dict[str, Any]: ...
+
+
+@overload
+def train(
+    model: str,
+    dataset: str | None = None,
+    *,
+    method: str = "sft",
+    output_dir: str = "./output",
+    epochs: int = 3,
+    batch_size: int = 4,
+    learning_rate: float = 2e-5,
+    use_peft: bool = True,
+    lora_r: int = 16,
+    lora_alpha: int = 32,
+    verbose: bool = False,
+) -> None | dict[str, Any]: ...
+
+
+def train(
+    config_or_model: TrainingConfig | str,
+    dataset_or_model_kwargs: str | dict[str, Any] | None = None,
+    additional_trainer_kwargs: dict[str, Any] | None = None,
+    additional_tuning_kwargs: dict[str, Any] | None = None,
+    verbose: bool = False,
+    *,
+    method: str = "sft",
+    output_dir: str = "./output",
+    epochs: int = 3,
+    batch_size: int = 4,
+    learning_rate: float = 2e-5,
+    use_peft: bool = True,
+    lora_r: int = 16,
+    lora_alpha: int = 32,
+    gradient_accumulation_steps: int = 4,
+    warmup_ratio: float = 0.03,
+    save_steps: int = 500,
+    logging_steps: int = 10,
 ) -> None | dict[str, Any]:
-    """Trains a model using the provided configuration."""
+    """Train a model using either a config or simplified arguments.
+
+    This function supports two modes:
+
+    1. **Config mode**: Pass a TrainingConfig object or YAML path
+        >>> train(TrainingConfig.from_yaml("config.yaml"))
+        >>> train("config.yaml")
+
+    2. **Simple mode**: Pass model name and dataset for quick training
+        >>> train("meta-llama/Llama-3.1-8B", "tatsu-lab/alpaca")
+        >>> train("meta-llama/Llama-3.1-8B", "dataset", method="dpo")
+
+    Args:
+        config_or_model: Either a TrainingConfig object, a YAML config path,
+            or a model name (HuggingFace model ID).
+        dataset_or_model_kwargs: In simple mode, the dataset name/path.
+            In config mode, optional additional model kwargs.
+        additional_trainer_kwargs: Additional kwargs passed to the trainer.
+        additional_tuning_kwargs: Additional kwargs for hyperparameter tuning.
+        verbose: Whether to print detailed config.
+        method: Training method - "sft", "dpo", "kto", "grpo", "gkd", "gold".
+            Only used in simple mode.
+        output_dir: Where to save the trained model. Only used in simple mode.
+        epochs: Number of training epochs. Only used in simple mode.
+        batch_size: Per-device batch size. Only used in simple mode.
+        learning_rate: Learning rate. Only used in simple mode.
+        use_peft: Whether to use LoRA/PEFT. Only used in simple mode.
+        lora_r: LoRA rank. Only used in simple mode.
+        lora_alpha: LoRA alpha. Only used in simple mode.
+        gradient_accumulation_steps: Gradient accumulation steps. Simple mode only.
+        warmup_ratio: Warmup ratio for learning rate scheduler. Simple mode only.
+        save_steps: Save checkpoint every N steps. Simple mode only.
+        logging_steps: Log every N steps. Simple mode only.
+
+    Returns:
+        Training metrics dictionary if tuning, else None.
+
+    Examples:
+        Simple SFT training:
+            >>> train("meta-llama/Llama-3.1-8B", "tatsu-lab/alpaca")
+
+        DPO training:
+            >>> train("meta-llama/Llama-3.1-8B", "dataset", method="dpo")
+
+        From YAML config:
+            >>> train("configs/training.yaml")
+
+        Full config object:
+            >>> train(TrainingConfig(...))
+    """
+    from oumi.utils.provider_detection import is_yaml_path
+
+    # Detect mode based on first argument type
+    if isinstance(config_or_model, TrainingConfig):
+        # Full config mode - original behavior
+        additional_model_kwargs = (
+            dataset_or_model_kwargs
+            if isinstance(dataset_or_model_kwargs, dict)
+            else None
+        )
+        return _train_impl(
+            config_or_model,
+            additional_model_kwargs=additional_model_kwargs,
+            additional_trainer_kwargs=additional_trainer_kwargs,
+            additional_tuning_kwargs=additional_tuning_kwargs,
+            verbose=verbose,
+        )
+
+    # String argument - could be YAML path or model name
+    if is_yaml_path(config_or_model):
+        config = TrainingConfig.from_yaml(config_or_model)
+        return _train_impl(
+            config,
+            additional_model_kwargs=None,
+            additional_trainer_kwargs=additional_trainer_kwargs,
+            additional_tuning_kwargs=additional_tuning_kwargs,
+            verbose=verbose,
+        )
+
+    # Simple mode - model name and dataset
+    model_name = config_or_model
+    dataset_name = dataset_or_model_kwargs
+
+    if not isinstance(dataset_name, str):
+        raise ValueError(
+            "In simple mode, the second argument must be a dataset name or path. "
+            f"Got: {type(dataset_name).__name__}"
+        )
+
+    # Build config from simple parameters
+    config = TrainingConfig.for_method(
+        method=method,
+        model=model_name,
+        dataset=dataset_name,
+        output_dir=output_dir,
+        epochs=epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        use_peft=use_peft,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        warmup_ratio=warmup_ratio,
+        save_steps=save_steps,
+        logging_steps=logging_steps,
+    )
+
+    return _train_impl(
+        config,
+        additional_model_kwargs=None,
+        additional_trainer_kwargs=additional_trainer_kwargs,
+        additional_tuning_kwargs=additional_tuning_kwargs,
+        verbose=verbose,
+    )
+
+
+def _train_impl(
+    config: TrainingConfig,
+    additional_model_kwargs: dict[str, Any] | None = None,
+    additional_trainer_kwargs: dict[str, Any] | None = None,
+    additional_tuning_kwargs: dict[str, Any] | None = None,
+    verbose: bool = False,
+) -> None | dict[str, Any]:
+    """Internal implementation of model training."""
     _START_TIME = time.time()
 
     _create_training_dirs(config)

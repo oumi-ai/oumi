@@ -27,23 +27,45 @@ Modules:
     - :mod:`~oumi.judges`: Functions for judging datasets and conversations.
 
 Functions:
+    - :func:`~oumi.chat`: Simple one-line chat interface for model inference.
     - :func:`~oumi.train.train`: Train a machine learning model.
     - :func:`~oumi.evaluate_async.evaluate_async`: Asynchronously evaluate a model.
     - :func:`~oumi.evaluate.evaluate`: Evaluate a model using LM Harness.
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
     - :func:`~oumi.infer.infer_interactive`: Run interactive inference with a model.
     - :func:`~oumi.quantize.quantize`: Quantize a model to reduce size and memory usage.
+    - :func:`~oumi.judge.judge`: Judge a dataset using an LLM-as-judge approach.
     - :func:`~oumi.judge.judge_dataset`: Judge a dataset using a model.
 
 Examples:
-    Training a model::
+    Simple chat (one-liner)::
+
+        >>> from oumi import chat
+        >>> response = chat("gpt-4o", "What is machine learning?")
+
+    Simple training::
+
+        >>> from oumi import train
+        >>> train("meta-llama/Llama-3.1-8B", "tatsu-lab/alpaca")
+
+    Simple evaluation::
+
+        >>> from oumi import evaluate
+        >>> results = evaluate("meta-llama/Llama-3.1-8B", tasks=["mmlu"])
+
+    Simple judging::
+
+        >>> from oumi import judge
+        >>> results = judge("gpt-4o", dataset, criteria="truthfulness")
+
+    Training with full config::
 
         >>> from oumi import train
         >>> from oumi.core.configs import TrainingConfig
         >>> config = TrainingConfig(...)
         >>> train(config)
 
-    Evaluating a model::
+    Evaluating with full config::
 
         >>> from oumi import evaluate
         >>> from oumi.core.configs import EvaluationConfig
@@ -64,7 +86,8 @@ Examples:
         >>> config = QuantizationConfig(...)
         >>> result = quantize(config)
 
-    Judging a dataset::
+    Judging with full config::
+
         >>> from oumi import judge_dataset
         >>> from oumi.core.configs import JudgeConfig
         >>> config = JudgeConfig(...)
@@ -106,6 +129,83 @@ if TYPE_CHECKING:
 logging.configure_dependency_warnings()
 
 
+def chat(
+    model: str,
+    message: str | None = None,
+    *,
+    messages: list[dict[str, str]] | None = None,
+    system_prompt: str | None = None,
+    conversation: Conversation | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    top_p: float | None = None,
+    return_conversation: bool = False,
+    use_cache: bool = True,
+) -> str | Conversation:
+    """Simple one-line chat interface for model inference.
+
+    This function provides a streamlined way to interact with various LLM providers
+    with automatic provider detection based on model name.
+
+    Args:
+        model: Model name with optional provider prefix.
+            - "gpt-4o" -> auto-detected as OpenAI
+            - "claude-3-opus" -> auto-detected as Anthropic
+            - "openai/gpt-4o" -> explicit OpenAI
+            - "meta-llama/Llama-3.1-8B-Instruct" -> HuggingFace model via vLLM
+            - "config.yaml" -> load full InferenceConfig from YAML
+        message: The user message to send. Required unless using messages/conversation.
+        messages: List of message dicts with 'role' and 'content' keys (OpenAI format).
+            Alternative to using message + system_prompt for multi-turn conversations.
+        system_prompt: Optional system prompt for the conversation.
+        conversation: Optional existing Conversation object to continue.
+        temperature: Sampling temperature (default: provider-specific).
+        max_tokens: Maximum tokens to generate (default: 1024).
+        top_p: Top-p sampling parameter.
+        return_conversation: If True, return full Conversation object instead of string.
+        use_cache: If True, cache and reuse inference engines for better performance.
+
+    Returns:
+        str: The assistant's response text (default).
+        Conversation: Full conversation object if return_conversation=True.
+
+    Examples:
+        Simple single message::
+
+            >>> response = chat("gpt-4o", "What is machine learning?")
+
+        With parameters::
+
+            >>> response = chat("claude-3-opus", "Explain AI", temperature=0.7)
+
+        Multi-turn with dict messages (OpenAI format)::
+
+            >>> response = chat("gpt-4o", messages=[
+            ...     {"role": "system", "content": "You are helpful."},
+            ...     {"role": "user", "content": "Hello!"},
+            ... ])
+
+        Continue a conversation::
+
+            >>> conv = chat("gpt-4o", "Hi!", return_conversation=True)
+            >>> response = chat("gpt-4o", "Tell me more", conversation=conv)
+    """
+    import oumi.infer
+
+    return oumi.infer.chat(
+        model,
+        message,
+        messages=messages,
+        system_prompt=system_prompt,
+        conversation=conversation,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        top_p=top_p,
+        return_conversation=return_conversation,
+        use_cache=use_cache,
+    )
+
+
 def evaluate_async(config: AsyncEvaluationConfig) -> None:
     """Runs an async evaluation for a model using the provided configuration.
 
@@ -126,19 +226,72 @@ def evaluate_async(config: AsyncEvaluationConfig) -> None:
     return oumi.evaluate_async.evaluate_async(config)
 
 
-def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
-    """Evaluates a model using the provided configuration.
+def evaluate(
+    config_or_model: EvaluationConfig | str,
+    tasks: list[str] | None = None,
+    *,
+    num_samples: int | None = None,
+    batch_size: int = 8,
+    output_dir: str = "./eval_output",
+    enable_wandb: bool = False,
+) -> list[dict[str, Any]]:
+    """Evaluate a model using LM Harness or custom evaluation tasks.
+
+    This function supports two modes:
+
+    1. **Config mode**: Pass an EvaluationConfig object or YAML path
+        >>> evaluate(EvaluationConfig.from_yaml("eval.yaml"))
+        >>> evaluate("eval_config.yaml")
+
+    2. **Simple mode**: Pass model name and task list
+        >>> evaluate("meta-llama/Llama-3.1-8B", tasks=["mmlu", "hellaswag"])
 
     Args:
-        config: The desired configuration for evaluation.
+        config_or_model: Either an EvaluationConfig object, a YAML config path,
+            or a model name (HuggingFace model ID or provider-prefixed name).
+        tasks: List of evaluation task names (e.g., ["mmlu", "hellaswag"]).
+            Only used in simple mode. See LM Harness for available tasks.
+        num_samples: Number of samples per task (None = all samples).
+            Only used in simple mode.
+        batch_size: Batch size for evaluation. Only used in simple mode.
+        output_dir: Output directory for evaluation results. Only used in simple mode.
+        enable_wandb: Whether to enable W&B logging. Only used in simple mode.
 
     Returns:
         A list of evaluation results (one for each task). Each evaluation result is a
         dictionary of metric names and their corresponding values.
+
+    Examples:
+        Simple evaluation with default settings::
+
+            >>> results = evaluate("meta-llama/Llama-3.1-8B", tasks=["mmlu"])
+
+        Evaluation with sampling::
+
+            >>> results = evaluate(
+            ...     "gpt-4o",
+            ...     tasks=["mmlu", "hellaswag"],
+            ...     num_samples=100,
+            ... )
+
+        From YAML config::
+
+            >>> results = evaluate("eval_config.yaml")
+
+        Full config object::
+
+            >>> results = evaluate(EvaluationConfig(...))
     """
     import oumi.evaluate
 
-    return oumi.evaluate.evaluate(config)
+    return oumi.evaluate.evaluate(
+        config_or_model,
+        tasks,
+        num_samples=num_samples,
+        batch_size=batch_size,
+        output_dir=output_dir,
+        enable_wandb=enable_wandb,
+    )
 
 
 def infer_interactive(
@@ -236,6 +389,77 @@ def judge_dataset(
     return oumi.judge.judge_dataset(judge_config, dataset)
 
 
+def judge(
+    config_or_model: JudgeConfig | str,
+    dataset: list[dict[str, str]],
+    *,
+    criteria: str | None = None,
+    prompt_template: str | None = None,
+    judgment_type: str = "bool",
+    include_explanation: bool = True,
+    output_file: str | None = None,
+) -> list[JudgeOutput]:
+    """Judge a dataset using an LLM-as-judge approach.
+
+    This function supports two modes:
+
+    1. **Config mode**: Pass a JudgeConfig object or YAML path
+        >>> judge(JudgeConfig(...), dataset)
+        >>> judge("judge_config.yaml", dataset)
+
+    2. **Simple mode**: Pass model name with criteria or custom prompt
+        >>> judge("gpt-4o", dataset, criteria="truthfulness")
+        >>> judge("gpt-4o", dataset, prompt_template="Is this accurate? {request} {response}")
+
+    Args:
+        config_or_model: Either a JudgeConfig object, a YAML config path,
+            or a judge model name (HuggingFace model ID or provider-prefixed name).
+        dataset: List of dictionaries containing input data. Each dictionary should
+            have 'request' and 'response' keys (or keys matching your prompt placeholders).
+        criteria: Predefined criteria name for simple mode. Available criteria:
+            "truthfulness", "helpfulness", "safety", "relevance", "coherence".
+        prompt_template: Custom prompt template with {request}, {response} placeholders.
+            Use this instead of criteria for custom evaluation logic.
+        judgment_type: Type of judgment output - "bool", "int", "float", "text", "enum".
+            Only used in simple mode with custom prompt_template.
+        include_explanation: Whether to request explanations from the judge.
+            Only used in simple mode.
+        output_file: Optional path to save results as JSONL.
+
+    Returns:
+        List of JudgeOutput objects containing judgment results.
+
+    Examples:
+        Simple judging with predefined criteria::
+
+            >>> results = judge("gpt-4o", dataset, criteria="truthfulness")
+
+        Custom prompt template::
+
+            >>> results = judge(
+            ...     "claude-3-opus",
+            ...     dataset,
+            ...     prompt_template="Is this response accurate? Q: {request} A: {response}",
+            ...     judgment_type="bool",
+            ... )
+
+        From config file::
+
+            >>> results = judge("judge_config.yaml", dataset)
+    """
+    import oumi.judge
+
+    return oumi.judge.judge(
+        config_or_model,
+        dataset,
+        criteria=criteria,
+        prompt_template=prompt_template,
+        judgment_type=judgment_type,
+        include_explanation=include_explanation,
+        output_file=output_file,
+    )
+
+
 def synthesize(config: SynthesisConfig) -> list[dict[str, Any]]:
     """Synthesize a dataset using the provided configuration."""
     import oumi.synth
@@ -244,19 +468,92 @@ def synthesize(config: SynthesisConfig) -> list[dict[str, Any]]:
 
 
 def train(
-    config: TrainingConfig,
-    additional_model_kwargs: dict[str, Any] | None = None,
+    config_or_model: TrainingConfig | str,
+    dataset_or_model_kwargs: str | dict[str, Any] | None = None,
     additional_trainer_kwargs: dict[str, Any] | None = None,
+    additional_tuning_kwargs: dict[str, Any] | None = None,
     verbose: bool = False,
+    *,
+    method: str = "sft",
+    output_dir: str = "./output",
+    epochs: int = 3,
+    batch_size: int = 4,
+    learning_rate: float = 2e-5,
+    use_peft: bool = True,
+    lora_r: int = 16,
+    lora_alpha: int = 32,
 ) -> dict[str, Any] | None:
-    """Trains a model using the provided configuration."""
+    """Train a model using Oumi's training framework.
+
+    This function supports two modes:
+
+    1. **Config mode**: Pass a TrainingConfig object or YAML path
+        >>> train(TrainingConfig(...))
+        >>> train("training_config.yaml")
+
+    2. **Simple mode**: Pass model and dataset names with optional parameters
+        >>> train("meta-llama/Llama-3.1-8B", "tatsu-lab/alpaca")
+        >>> train("meta-llama/Llama-3.1-8B", "my-dataset", method="dpo")
+
+    Args:
+        config_or_model: Either a TrainingConfig object, a YAML config path,
+            or a model name (HuggingFace model ID).
+        dataset_or_model_kwargs: Either a dataset name (simple mode) or
+            additional_model_kwargs dict (config mode).
+        additional_trainer_kwargs: Additional kwargs to pass to the trainer.
+        additional_tuning_kwargs: Additional kwargs to pass for hyperparameter tuning.
+        verbose: Whether to print verbose output.
+        method: Training method - "sft", "dpo", "kto", "grpo", "gkd", "gold".
+            Only used in simple mode.
+        output_dir: Output directory for checkpoints. Only used in simple mode.
+        epochs: Number of training epochs. Only used in simple mode.
+        batch_size: Per-device batch size. Only used in simple mode.
+        learning_rate: Learning rate. Only used in simple mode.
+        use_peft: Whether to use LoRA/PEFT. Only used in simple mode.
+        lora_r: LoRA rank. Only used in simple mode.
+        lora_alpha: LoRA alpha. Only used in simple mode.
+
+    Returns:
+        Training metrics dictionary, or None.
+
+    Examples:
+        Simple SFT training::
+
+            >>> train("meta-llama/Llama-3.1-8B", "tatsu-lab/alpaca")
+
+        DPO training with custom settings::
+
+            >>> train(
+            ...     "meta-llama/Llama-3.1-8B",
+            ...     "my-preference-dataset",
+            ...     method="dpo",
+            ...     learning_rate=1e-5,
+            ... )
+
+        From YAML config::
+
+            >>> train("training_config.yaml")
+
+        Full config object::
+
+            >>> train(TrainingConfig(...))
+    """
     import oumi.train
 
     return oumi.train.train(
-        config,
-        additional_model_kwargs=additional_model_kwargs,
+        config_or_model,
+        dataset_or_model_kwargs,
         additional_trainer_kwargs=additional_trainer_kwargs,
+        additional_tuning_kwargs=additional_tuning_kwargs,
         verbose=verbose,
+        method=method,
+        output_dir=output_dir,
+        epochs=epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        use_peft=use_peft,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
     )
 
 
@@ -292,10 +589,13 @@ def tune(config: TuningConfig) -> None:
 
 
 __all__ = [
+    "chat",
     "evaluate_async",
     "evaluate",
     "infer_interactive",
     "infer",
+    "judge",
+    "judge_dataset",
     "quantize",
     "synthesize",
     "train",

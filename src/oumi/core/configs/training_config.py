@@ -255,3 +255,207 @@ class TrainingConfig(BaseConfig):
             raise ValueError(
                 "At least one validation dataset is required for VERL_GRPO training."
             )
+
+    @classmethod
+    def for_method(
+        cls,
+        method: str,
+        model: str,
+        dataset: str,
+        output_dir: str = "./output",
+        epochs: int = 3,
+        batch_size: int = 4,
+        learning_rate: float = 2e-5,
+        use_peft: bool = True,
+        lora_r: int = 16,
+        lora_alpha: int = 32,
+        gradient_accumulation_steps: int = 4,
+        warmup_ratio: float = 0.03,
+        save_steps: int = 500,
+        logging_steps: int = 10,
+        **kwargs,
+    ) -> "TrainingConfig":
+        """Create a TrainingConfig for a specific training method with sensible defaults.
+
+        This factory method provides a simplified way to create training configurations
+        without manually constructing all the nested parameter objects.
+
+        Args:
+            method: Training method - "sft", "dpo", "kto", "grpo", "gkd", "gold".
+            model: HuggingFace model name or path (e.g., "meta-llama/Llama-3.1-8B").
+            dataset: Dataset name or path (e.g., "tatsu-lab/alpaca").
+            output_dir: Output directory for checkpoints and logs.
+            epochs: Number of training epochs.
+            batch_size: Per-device batch size.
+            learning_rate: Learning rate.
+            use_peft: Whether to use LoRA/PEFT for efficient fine-tuning.
+            lora_r: LoRA rank (only used if use_peft=True).
+            lora_alpha: LoRA alpha (only used if use_peft=True).
+            gradient_accumulation_steps: Gradient accumulation steps.
+            warmup_ratio: Warmup ratio for learning rate scheduler.
+            save_steps: Save checkpoint every N steps.
+            logging_steps: Log metrics every N steps.
+            **kwargs: Additional overrides for any config parameter.
+
+        Returns:
+            A configured TrainingConfig instance.
+
+        Raises:
+            ValueError: If the training method is unknown.
+
+        Examples:
+            Create SFT config:
+                >>> config = TrainingConfig.for_method(
+                ...     method="sft",
+                ...     model="meta-llama/Llama-3.1-8B",
+                ...     dataset="tatsu-lab/alpaca",
+                ... )
+
+            Create DPO config with custom settings:
+                >>> config = TrainingConfig.for_method(
+                ...     method="dpo",
+                ...     model="meta-llama/Llama-3.1-8B",
+                ...     dataset="my-preference-dataset",
+                ...     learning_rate=1e-5,
+                ...     epochs=1,
+                ... )
+        """
+        from oumi.core.configs.params.data_params import (
+            DataParams,
+            DatasetParams,
+            DatasetSplitParams,
+        )
+
+        # Map method string to trainer type
+        trainer_type_map = {
+            "sft": TrainerType.TRL_SFT,
+            "dpo": TrainerType.TRL_DPO,
+            "kto": TrainerType.TRL_KTO,
+            "grpo": TrainerType.TRL_GRPO,
+            "gkd": TrainerType.TRL_GKD,
+            "gold": TrainerType.TRL_GOLD,
+        }
+
+        trainer_type = trainer_type_map.get(method.lower())
+        if trainer_type is None:
+            raise ValueError(
+                f"Unknown training method: '{method}'. "
+                f"Supported methods: {list(trainer_type_map.keys())}"
+            )
+
+        # Build data params
+        data_params = DataParams(
+            train=DatasetSplitParams(datasets=[DatasetParams(dataset_name=dataset)])
+        )
+
+        # Build model params
+        model_params = ModelParams(model_name=model)
+
+        # Build training params
+        training_params = TrainingParams(
+            output_dir=output_dir,
+            num_train_epochs=epochs,
+            per_device_train_batch_size=batch_size,
+            learning_rate=learning_rate,
+            gradient_accumulation_steps=gradient_accumulation_steps,
+            warmup_ratio=warmup_ratio,
+            save_steps=save_steps,
+            logging_steps=logging_steps,
+            trainer_type=trainer_type,
+            use_peft=use_peft,
+        )
+
+        # Build PEFT params if using LoRA
+        peft_params = PeftParams(
+            lora_r=lora_r,
+            lora_alpha=lora_alpha,
+        ) if use_peft else PeftParams()
+
+        return cls(
+            data=data_params,
+            model=model_params,
+            training=training_params,
+            peft=peft_params,
+            **kwargs,
+        )
+
+    @classmethod
+    def for_sft(
+        cls,
+        model: str,
+        dataset: str,
+        **kwargs,
+    ) -> "TrainingConfig":
+        """Create a TrainingConfig for SFT (Supervised Fine-Tuning).
+
+        Convenience method equivalent to for_method(method="sft", ...).
+
+        Args:
+            model: HuggingFace model name or path.
+            dataset: Dataset name or path.
+            **kwargs: Additional parameters passed to for_method().
+
+        Returns:
+            A configured TrainingConfig for SFT.
+
+        Examples:
+            >>> config = TrainingConfig.for_sft(
+            ...     model="meta-llama/Llama-3.1-8B",
+            ...     dataset="tatsu-lab/alpaca",
+            ... )
+        """
+        return cls.for_method(method="sft", model=model, dataset=dataset, **kwargs)
+
+    @classmethod
+    def for_dpo(
+        cls,
+        model: str,
+        dataset: str,
+        **kwargs,
+    ) -> "TrainingConfig":
+        """Create a TrainingConfig for DPO (Direct Preference Optimization).
+
+        Convenience method equivalent to for_method(method="dpo", ...).
+
+        Args:
+            model: HuggingFace model name or path.
+            dataset: Dataset name or path (should be a preference dataset).
+            **kwargs: Additional parameters passed to for_method().
+
+        Returns:
+            A configured TrainingConfig for DPO.
+
+        Examples:
+            >>> config = TrainingConfig.for_dpo(
+            ...     model="meta-llama/Llama-3.1-8B",
+            ...     dataset="my-preference-dataset",
+            ... )
+        """
+        return cls.for_method(method="dpo", model=model, dataset=dataset, **kwargs)
+
+    @classmethod
+    def for_grpo(
+        cls,
+        model: str,
+        dataset: str,
+        **kwargs,
+    ) -> "TrainingConfig":
+        """Create a TrainingConfig for GRPO (Group Relative Policy Optimization).
+
+        Convenience method equivalent to for_method(method="grpo", ...).
+
+        Args:
+            model: HuggingFace model name or path.
+            dataset: Dataset name or path.
+            **kwargs: Additional parameters passed to for_method().
+
+        Returns:
+            A configured TrainingConfig for GRPO.
+
+        Examples:
+            >>> config = TrainingConfig.for_grpo(
+            ...     model="meta-llama/Llama-3.1-8B",
+            ...     dataset="my-grpo-dataset",
+            ... )
+        """
+        return cls.for_method(method="grpo", model=model, dataset=dataset, **kwargs)
