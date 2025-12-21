@@ -115,11 +115,17 @@ EOF
             ;;
         *)
             error "Unknown option: $1"
-            echo "Use --help for usage information"
+            echo "    Use --help for usage information"
             exit 1
             ;;
     esac
 done
+
+# Validate mutually exclusive options
+if [ "$GPU" = true ] && [ "$CPU_ONLY" = true ]; then
+    error "--gpu and --cpu are mutually exclusive"
+    exit 1
+fi
 
 cat << 'EOF'
 
@@ -135,16 +141,14 @@ EOF
 # Detect OS
 OS="$(uname -s)"
 
-info "Detected: $OS"
-
 # Check platform support
 case "$OS" in
     Linux|Darwin)
         ;;
     MINGW*|MSYS*|CYGWIN*)
         error "Windows detected. Please use WSL (Windows Subsystem for Linux):"
-        echo "  1. Install WSL: wsl --install"
-        echo "  2. Open WSL terminal and run this script again"
+        echo "    1. Install WSL: wsl --install"
+        echo "    2. Open WSL terminal and run this script again"
         exit 1
         ;;
     *)
@@ -155,15 +159,16 @@ esac
 # Check for curl
 if ! command -v curl > /dev/null 2>&1; then
     error "curl is required but not installed."
+    echo ""
     echo "Please install curl and try again:"
     case "$OS" in
         Linux)
-            echo "  Ubuntu/Debian: sudo apt install curl"
-            echo "  Fedora/RHEL:   sudo dnf install curl"
-            echo "  Arch:          sudo pacman -S curl"
+            echo "    Ubuntu/Debian: sudo apt install curl"
+            echo "    Fedora/RHEL:   sudo dnf install curl"
+            echo "    Arch:          sudo pacman -S curl"
             ;;
         Darwin)
-            echo "  brew install curl"
+            echo "    brew install curl"
             ;;
     esac
     exit 1
@@ -171,36 +176,33 @@ fi
 
 # Install uv if not present
 if command -v uv > /dev/null 2>&1; then
-    success "uv is already installed"
+    UV_STATUS="yes"
 else
-    warn "Installing uv..."
+    info "Installing uv..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
 
     # Add uv to PATH for this session
-    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+    export PATH="$HOME/.local/bin:$PATH"
 
     if command -v uv > /dev/null 2>&1; then
-        success "uv installed successfully"
+        UV_STATUS="just installed"
     else
         error "Failed to install uv. Please install manually:"
-        echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+        echo "    curl -LsSf https://astral.sh/uv/install.sh | sh"
         exit 1
     fi
 fi
 
-# Auto-detect GPU (unless --cpu or --gpu was explicitly passed)
-if [ "$CPU_ONLY" = true ]; then
-    info "Installing CPU-only version (--cpu specified)"
-elif [ "$GPU" = false ]; then
-    # Auto-detect GPU by default
-    GPU_TYPE=$(detect_gpu)
-    if [ "$GPU_TYPE" != "none" ]; then
-        success "Detected $GPU_TYPE GPU - enabling GPU support"
-        GPU=true
-    else
-        info "No GPU detected - installing CPU version"
-    fi
+# Detect GPU and determine install variant
+GPU_TYPE=$(detect_gpu)
+if [ "$CPU_ONLY" = true ] || { [ "$GPU" = false ] && [ "$GPU_TYPE" = "none" ]; }; then
+    VARIANT="CPU"
+else
+    GPU=true
+    VARIANT="GPU"
 fi
+
+info "Detected: OS: $OS | GPU: $GPU_TYPE | uv installed: $UV_STATUS"
 
 # Build package specification
 EXTRAS_LIST=""
@@ -224,24 +226,24 @@ if [ "$CURRENT_ENV" = true ]; then
         error "No virtual environment active."
         echo ""
         echo "Either activate a virtual environment first:"
-        echo "  source .venv/bin/activate  # or: conda activate myenv"
-        echo "  curl -LsSf https://oumi.ai/install.sh | bash -s -- --current-env"
+        echo "    source .venv/bin/activate  # or: conda activate myenv"
+        echo "    curl -LsSf https://oumi.ai/install.sh | bash -s -- --current-env"
         echo ""
         echo "Or install as a uv tool (recommended):"
-        echo "  curl -LsSf https://oumi.ai/install.sh | bash"
+        echo "    curl -LsSf https://oumi.ai/install.sh | bash"
         exit 1
     fi
 
     if [ -n "${CONDA_PREFIX:-}" ]; then
-        warn "Installing ${PACKAGE} in conda environment: $(basename "$CONDA_PREFIX")..."
+        info "Installing oumi ($VARIANT) in conda environment: $(basename "$CONDA_PREFIX")..."
     else
-        warn "Installing ${PACKAGE} in virtual environment..."
+        info "Installing oumi ($VARIANT) in virtual environment..."
     fi
     [ -n "$PYTHON_VERSION" ] && warn "Note: --python is ignored with --current-env (uses current environment's Python)"
     INSTALL_CMD=(uv pip install "$PACKAGE" --prerelease=allow)
 else
     # Install as uv tool (default) - uv manages everything
-    warn "Installing ${PACKAGE} as uv tool..."
+    info "Installing oumi ($VARIANT) as uv tool..."
     INSTALL_CMD=(uv tool install "$PACKAGE" --prerelease=allow)
 
     if [ -n "$PYTHON_VERSION" ]; then
@@ -254,38 +256,36 @@ if "${INSTALL_CMD[@]}"; then
     echo ""
     success "Oumi installed successfully!"
     echo ""
-    info "Quick start:"
-    echo "  oumi --help                              # Show available commands"
-    echo "  oumi env                                 # Check your environment"
-    echo "  oumi infer --interactive \\              # Interactive inference"
-    echo "    --model Qwen/Qwen3-0.6B-Instruct"
-    echo "  oumi train -c smollm-135m"
+    echo "Quick start:"
+    echo "    oumi --help                     # Show available commands"
+    echo "    oumi env                        # Check your environment"
+    echo "    oumi infer -c smollm-135m -i    # Interactive inference"
+    echo "    oumi train -c smollm-135m       # Train a model"
     echo ""
+    echo "To upgrade later:"
     if [ "$CURRENT_ENV" = true ]; then
-        info "To upgrade later:"
-        echo "  uv pip install --upgrade oumi"
+        echo "    uv pip install --upgrade oumi"
     else
-        info "To upgrade later:"
-        echo "  uv tool upgrade oumi"
+        echo "    uv tool upgrade oumi"
     fi
     echo ""
-    info "Documentation: https://oumi.ai/docs"
-    info "Discord: https://discord.gg/oumi"
+    echo "Documentation: https://oumi.ai/docs"
+    echo "Discord:       https://discord.gg/oumi"
 else
     echo ""
     error "Installation failed."
     echo ""
     echo "Try installing manually:"
     if [ "$CURRENT_ENV" = true ]; then
-        echo "  uv pip install '$PACKAGE'"
+        echo "    uv pip install '$PACKAGE'"
     else
-        echo "  uv tool install '$PACKAGE'"
+        echo "    uv tool install '$PACKAGE'"
     fi
     echo ""
     echo "Or with pip:"
-    echo "  pip install '$PACKAGE'"
+    echo "    pip install '$PACKAGE'"
     echo ""
     echo "If you encounter issues, please report them at:"
-    echo "  https://github.com/oumi-ai/oumi/issues"
+    echo "    https://github.com/oumi-ai/oumi/issues"
     exit 1
 fi
