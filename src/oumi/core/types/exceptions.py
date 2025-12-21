@@ -15,3 +15,7 @@
 
 class HardwareException(Exception):
     """An exception thrown for invalid hardware configurations."""
+
+
+class ConfigNotFoundError(FileNotFoundError):
+    """An exception thrown when a config file cannot be found."""

@@ -200,9 +200,14 @@ def get_app() -> typer.Typer:
 
 def run():
     """The entrypoint for the CLI."""
+    from oumi.core.types.exceptions import ConfigNotFoundError
+
     app = get_app()
     try:
         return app()
+    except ConfigNotFoundError as e:
+        CONSOLE.print(f"\n[red]Error:[/red] {e}")
+        sys.exit(1)
     except Exception as e:
         tb_str = traceback.format_exc()
         CONSOLE.print(tb_str)

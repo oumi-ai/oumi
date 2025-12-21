@@ -127,12 +127,20 @@ def _read_config_without_interpolation(config_path: str) -> str:
 
     Returns:
         str: The stringified configuration.
+
+    Raises:
+        ConfigNotFoundError: If the config file does not exist.
     """
-    with open(config_path) as f:
-        stringified_config = f.read()
-        pattern = r"(?<!\\)\$\{"  # Matches "${" but not "\${"
-        stringified_config = re.sub(pattern, "\\${", stringified_config)
-    return stringified_config
+    from oumi.core.types.exceptions import ConfigNotFoundError
+
+    try:
+        with open(config_path) as f:
+            stringified_config = f.read()
+            pattern = r"(?<!\\)\$\{"  # Matches "${" but not "\${"
+            stringified_config = re.sub(pattern, "\\${", stringified_config)
+        return stringified_config
+    except FileNotFoundError:
+        raise ConfigNotFoundError(f"Config file not found: '{config_path}'")
 
 
 @dataclasses.dataclass(eq=False)
