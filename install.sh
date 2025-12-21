@@ -137,11 +137,10 @@ cat << 'EOF'
 
 EOF
 
-# Detect OS and architecture
+# Detect OS
 OS="$(uname -s)"
-ARCH="$(uname -m)"
 
-info "Detected: $OS ($ARCH)"
+info "Detected: $OS"
 
 # Check platform support
 case "$OS" in
@@ -160,7 +159,7 @@ esac
 
 # Check for curl
 if ! command -v curl > /dev/null 2>&1; then
-    error "Error: curl is required but not installed."
+    error "curl is required but not installed."
     echo "Please install curl and try again:"
     case "$OS" in
         Linux)
@@ -209,21 +208,19 @@ elif [ "$GPU" = false ]; then
 fi
 
 # Build package specification
-PACKAGE="oumi"
-
-if [ "$GPU" = true ]; then
-    if [ -n "$EXTRAS" ]; then
-        PACKAGE="oumi[gpu,$EXTRAS]"
-    else
-        PACKAGE="oumi[gpu]"
-    fi
-elif [ -n "$EXTRAS" ]; then
-    PACKAGE="oumi[$EXTRAS]"
+EXTRAS_LIST=""
+[ "$GPU" = true ] && EXTRAS_LIST="gpu"
+if [ -n "$EXTRAS" ]; then
+    EXTRAS_LIST="${EXTRAS_LIST:+$EXTRAS_LIST,}$EXTRAS"
 fi
 
-if [ -n "$VERSION" ]; then
-    PACKAGE="${PACKAGE}==${VERSION}"
+if [ -n "$EXTRAS_LIST" ]; then
+    PACKAGE="oumi[$EXTRAS_LIST]"
+else
+    PACKAGE="oumi"
 fi
+
+[ -n "$VERSION" ] && PACKAGE="${PACKAGE}==${VERSION}"
 
 # Build command based on installation mode
 if [ "$CURRENT_ENV" = true ]; then
@@ -266,7 +263,7 @@ if eval "$INSTALL_CMD"; then
     echo "  oumi env                                 # Check your environment"
     echo "  oumi infer --interactive \\              # Interactive inference"
     echo "    --model Qwen/Qwen3-0.6B-Instruct"
-    echo "  oumi train -c configs/recipes/qwen3/sft/0.6b_full/train.yaml"
+    echo "  oumi train -c smollm-135m"
     echo ""
     if [ "$CURRENT_ENV" = true ]; then
         info "To upgrade later:"
