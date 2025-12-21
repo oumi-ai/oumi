@@ -18,6 +18,7 @@ import traceback
 
 import typer
 
+from oumi.cli.alias import AliasType
 from oumi.cli.analyze import analyze
 from oumi.cli.cache import card as cache_card
 from oumi.cli.cache import get as cache_get
@@ -27,6 +28,7 @@ from oumi.cli.cli_utils import (
     CONSOLE,
     CONTEXT_ALLOW_EXTRA_ARGS,
     create_github_issue_url,
+    get_command_help,
 )
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
@@ -77,40 +79,51 @@ def get_app() -> typer.Typer:
     # Model
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Run benchmarks and evaluations on a model.",
+        help=get_command_help(
+            "Run benchmarks and evaluations on a model.", AliasType.EVAL
+        ),
         rich_help_panel="Model",
     )(evaluate)
     app.command(  # Alias for evaluate
         name="eval",
         hidden=True,
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Run benchmarks and evaluations on a model.",
+        help=get_command_help(
+            "Run benchmarks and evaluations on a model.", AliasType.EVAL
+        ),
     )(evaluate)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Generate text or predictions using a model.",
+        help=get_command_help(
+            "Generate text or predictions using a model.", AliasType.INFER
+        ),
         rich_help_panel="Model",
     )(infer)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Fine-tune or pre-train a model.",
+        help=get_command_help("Fine-tune or pre-train a model.", AliasType.TRAIN),
         rich_help_panel="Model",
     )(train)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Search for optimal hyperparameters.",
+        help=get_command_help("Search for optimal hyperparameters.", AliasType.TUNE),
         rich_help_panel="Model",
     )(tune)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Compress a model to reduce size and speed up inference.",
+        help=get_command_help(
+            "Compress a model to reduce size and speed up inference.",
+            AliasType.QUANTIZE,
+        ),
         rich_help_panel="Model",
     )(quantize)
 
     # Data
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Compute statistics and metrics for a dataset.",
+        help=get_command_help(
+            "Compute statistics and metrics for a dataset.", AliasType.ANALYZE
+        ),
         rich_help_panel="Data",
     )(analyze)
     app.command(
@@ -125,12 +138,16 @@ def get_app() -> typer.Typer:
         help="Generate synthetic training data.",
     )(synth)
     judge_app = typer.Typer(pretty_exceptions_enable=False)
-    judge_app.command(name="dataset", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
-        judge_dataset_file
-    )
-    judge_app.command(name="conversations", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
-        judge_conversations_file
-    )
+    judge_app.command(
+        name="dataset",
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help=get_command_help("Judge a dataset.", AliasType.JUDGE),
+    )(judge_dataset_file)
+    judge_app.command(
+        name="conversations",
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help=get_command_help("Judge conversations.", AliasType.JUDGE),
+    )(judge_conversations_file)
     app.add_typer(
         judge_app,
         name="judge",
