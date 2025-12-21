@@ -1,0 +1,62 @@
+name: "Update Config Index"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "configs/**"
+      - "src/oumi/cli/alias.py"
+      - "src/oumi/core/configs/metadata/**"
+  workflow_dispatch:
+
+jobs:
+  update-index:
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          uv pip install --system -e '.[dev]'
+
+      - name: Generate Config Index
+        run: |
+          python scripts/generate_config_index.py --verbose
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet configs/.oumi/config_index.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add configs/.oumi/config_index.json
+          git commit -m "chore: auto-update config metadata index
+
+          [skip ci]"
+          git push

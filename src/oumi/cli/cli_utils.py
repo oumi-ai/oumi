@@ -117,6 +117,118 @@ def create_list_configs_callback(
     return callback
 
 
+def list_configs_with_metadata(
+    alias_type: AliasType,
+    title: str,
+    command: str,
+    verbose: bool = False,
+    filter_expr: str | None = None,
+) -> None:
+    """Display available configs with optional metadata and filtering.
+
+    Args:
+        alias_type: The type of alias to list (TRAIN, EVAL, INFER, etc.).
+        title: Title for the table.
+        command: The oumi command name (e.g., "train").
+        verbose: Whether to show metadata columns.
+        filter_expr: Optional filter expression (e.g., "vram<24,family=llama").
+    """
+    from oumi.cli.config_index import (
+        filter_configs,
+        load_config_index,
+        parse_filter_expression,
+    )
+    from oumi.core.configs.metadata import ConfigType
+
+    # Map alias type to config type for filtering
+    alias_to_config_type = {
+        AliasType.TRAIN: ConfigType.TRAINING,
+        AliasType.EVAL: ConfigType.EVALUATION,
+        AliasType.INFER: ConfigType.INFERENCE,
+        AliasType.JOB: ConfigType.JOB,
+        AliasType.JUDGE: ConfigType.JUDGE,
+        AliasType.QUANTIZE: ConfigType.QUANTIZE,
+    }
+
+    # Get all aliases for this type
+    all_aliases = get_aliases_for_type(alias_type)
+
+    # Load index and apply filters
+    index = load_config_index()
+
+    if filter_expr:
+        criteria = parse_filter_expression(filter_expr)
+        # Force config type filter based on alias type
+        criteria["config_type"] = alias_to_config_type.get(alias_type)
+        filtered = filter_configs(index, **criteria)
+        # Filter to only aliases of this type
+        matching_aliases = [
+            a
+            for a in all_aliases
+            if a in filtered or f"{a}:{alias_type.value}" in filtered
+        ]
+    else:
+        matching_aliases = all_aliases
+
+    # Build table
+    table = Table(
+        title=title,
+        title_style="bold",
+        show_header=True,
+        header_style="bold cyan",
+    )
+    table.add_column("Config", style="green")
+
+    if verbose:
+        table.add_column("Model", style="cyan")
+        table.add_column("Method", style="yellow")
+        table.add_column("VRAM", style="magenta")
+        table.add_column("Description", style="dim", max_width=40)
+    else:
+        table.add_column("Usage", style="dim")
+
+    configs = index.get("configs", {})
+
+    for alias in sorted(matching_aliases):
+        # Try to find metadata for this alias
+        meta = configs.get(alias) or configs.get(f"{alias}:{alias_type.value}", {})
+
+        if verbose:
+            # Extract metadata fields
+            model_size = meta.get("model_size_billions")
+            model_str = f"{model_size}B" if model_size else "-"
+
+            method = meta.get("training_method", "-")
+            ftype = meta.get("finetuning_type", "")
+            method_str = f"{method}/{ftype}" if ftype else (method or "-")
+
+            vram = meta.get("min_vram_gb")
+            vram_str = f"~{int(vram)} GB" if vram else "-"
+
+            desc = meta.get("description") or "-"
+
+            table.add_row(alias, model_str, method_str, vram_str, desc)
+        else:
+            table.add_row(alias, f"oumi {command} -c {alias}")
+
+    CONSOLE.print()
+    CONSOLE.print(table)
+    CONSOLE.print()
+
+    # Show totals and filter info
+    if filter_expr:
+        CONSOLE.print(
+            f"[dim]Showing {len(matching_aliases)} of {len(all_aliases)} configs "
+            f"(filter: {filter_expr})[/dim]"
+        )
+    else:
+        CONSOLE.print(f"[dim]Total: {len(matching_aliases)} configs[/dim]")
+
+    if not verbose:
+        CONSOLE.print("[dim]Use --verbose/-v for more details[/dim]")
+    CONSOLE.print()
+
+
 def collect_config_overrides(ctx: typer.Context) -> list[str]:
     """Collect config overrides from dot-notation CLI options."""
     overrides = []

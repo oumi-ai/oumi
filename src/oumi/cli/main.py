@@ -30,6 +30,7 @@ from oumi.cli.cli_utils import (
     create_github_issue_url,
     get_command_help,
 )
+from oumi.cli.configs import configs_app
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
@@ -240,6 +241,12 @@ def get_app() -> typer.Typer:
         cache_app,
         name="cache",
         help="Manage locally cached models and datasets.",
+        rich_help_panel="Tools",
+    )
+    app.add_typer(
+        configs_app,
+        name="configs",
+        help="Manage and explore config metadata.",
         rich_help_panel="Tools",
     )
 
