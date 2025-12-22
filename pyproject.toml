@@ -75,7 +75,7 @@ dependencies = [
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
     "transformers>=4.57,<4.58",
     "trl>=0.24,<0.27",
-    "typer",                    # Used by CLI
+    "typer<0.20.1",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
     "uvicorn<0.41.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.24",        # Logging to Weights and Biases.
