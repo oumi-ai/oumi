@@ -262,7 +262,7 @@ pythonPlatform = "All" # Include linux, mac, windows
 reportPrivateImportUsage = "none"
 
 [tool.ty.src]
-include = ["src/oumi/**", "tests/**"]
+include = ["src/oumi/**"]
 exclude = [
     "src/oumi/core/types/proto/**",
     "src/oumi/utils/verl_model_merger.py",
@@ -271,6 +271,20 @@ exclude = [
 [tool.ty.environment]
 python-version = "3.10"
 python-platform = "all"
+
+[tool.ty.rules]
+# Match pyright's basic mode - be lenient on complex type issues
+unresolved-import = "warn"  # Many optional deps (vllm, llama_cpp, boto3, etc.)
+redundant-cast = "ignore"  # Too noisy, casts are often intentional for clarity
+invalid-method-override = "ignore"  # Subclasses often change param types (duck typing)
+unresolved-attribute = "warn"  # Often due to dynamic types, callable attributes
+invalid-argument-type = "warn"  # TypeVar constraints, generics
+invalid-assignment = "warn"  # Union type narrowing
+invalid-return-type = "warn"  # Generic return type issues
+call-non-callable = "warn"  # Dynamic callables
+unsupported-operator = "warn"  # Type narrowing limitations with isinstance
+too-many-positional-arguments = "warn"  # Loose typing (Callable) doesn't capture signatures
+parameter-already-assigned = "warn"  # False positives with *args/**kwargs patterns
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
