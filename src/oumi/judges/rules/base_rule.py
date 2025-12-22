@@ -12,24 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""This module provides access to various judge configurations for the Oumi project.
+from abc import ABC, abstractmethod
 
-The judges are used to evaluate the quality of AI-generated responses based on
-different criteria such as helpfulness, honesty, and safety.
-"""
 
-from oumi.judges.base_judge import (
-    BaseJudge,
-    JudgeOutput,
-    JudgeOutputField,
-)
-from oumi.judges.rule_based_judge import RuleBasedJudge
-from oumi.judges.simple_judge import SimpleJudge
+class BaseRule(ABC):
+    """Base class for rules used for deterministic evals."""
 
-__all__ = [
-    "BaseJudge",
-    "SimpleJudge",
-    "JudgeOutputField",
-    "JudgeOutput",
-    "RuleBasedJudge",
-]
+    @abstractmethod
+    def apply(
+        self, input_data: dict[str, str], rule_config: dict
+    ) -> tuple[bool, float]:
+        """Apply the rule to input data.
+
+        Returns:
+            tuple: (judgement: bool, score: float)
+        """
+        pass

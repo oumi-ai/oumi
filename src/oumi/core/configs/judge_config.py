@@ -24,6 +24,7 @@ from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.core.configs import BaseConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.judge_params import JudgeParams
+from oumi.core.configs.params.rule_judge_params import RuleJudgeParams
 
 JUDGE_CONFIG_REPO_PATH_TEMPLATE = "oumi://configs/projects/judges/{path}.yaml"
 
@@ -54,7 +55,10 @@ class JudgeConfig(BaseConfig):
     judge_params: JudgeParams
     """Parameters for the judge prompt and response format."""
 
-    inference_config: InferenceConfig
+    rule_judge_params: RuleJudgeParams | None = None
+    """Parameters for the rule-based deterministic judge."""
+
+    inference_config: InferenceConfig | None = None
     """Configuration for the inference engine and generation parameters."""
 
     @classmethod
