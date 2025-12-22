@@ -261,6 +261,17 @@ pythonPlatform = "All" # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
 
+[tool.ty.src]
+include = ["src/oumi/**", "tests/**"]
+exclude = [
+    "src/oumi/core/types/proto/**",
+    "src/oumi/utils/verl_model_merger.py",
+]
+
+[tool.ty.environment]
+python-version = "3.10"
+python-platform = "all"
+
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
