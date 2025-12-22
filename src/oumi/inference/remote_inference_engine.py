@@ -610,7 +610,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     continue
             # This should only be reached if all retries failed
             raise RuntimeError(
-                f"Failed to query API after {attempt + 1} attempts. "
+                f"Failed to query API after {remote_params.max_retries + 1} attempts. "
                 + (f"Reason: {failure_reason}" if failure_reason else "")
             )
 

@@ -18,7 +18,7 @@ import torch
 import torch.nn as nn
 import transformers
 from peft import PeftModel, get_peft_model, prepare_model_for_kbit_training
-from transformers import Mxfp4Config  # pyright: ignore[reportAttributeAccessIssue]
+from transformers import Mxfp4Config  # pyright: ignore[reportAttributeAccessIssue]  # type: ignore[attr-defined]
 
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.configs.internal.internal_model_config import InternalModelConfig
@@ -40,14 +40,14 @@ from oumi.utils.torch_utils import freeze_model_layers
 try:
     import liger_kernel.transformers  # type: ignore
 except ImportError:
-    liger_kernel = None
+    liger_kernel = None  # type: ignore[invalid-assignment]
 
 # Import `onebitllms` utils methods
 try:
     import onebitllms  # type: ignore
     from onebitllms import replace_linear_with_bitnet_linear  # type: ignore
 except ImportError:
-    onebitllms = None
+    onebitllms = None  # type: ignore[invalid-assignment]
 
 
 def build_model(
@@ -69,13 +69,13 @@ def build_model(
         model = build_oumi_model(
             model_params=model_params,
             peft_params=peft_params,
-            *kwargs,
+            **kwargs,
         )
     else:
         model = build_huggingface_model(
             model_params=model_params,
             peft_params=peft_params,
-            *kwargs,
+            **kwargs,
         )
 
     if model_params.enable_liger_kernel:
@@ -199,7 +199,7 @@ def _get_quantization_config_for_training(model_params: ModelParams):
             "Detected MXFP4 quantized model. Creating Mxfp4Config(dequantize=True) "
             "for training."
         )
-        return Mxfp4Config(dequantize=True)  # pyright: ignore[reportOptionalCall]
+        return Mxfp4Config(dequantize=True)  # pyright: ignore[reportOptionalCall]  # type: ignore[call-possibly-unbound]
 
     return None
 

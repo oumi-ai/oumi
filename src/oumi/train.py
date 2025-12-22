@@ -248,7 +248,7 @@ def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
     remote Ray function.
     """
     try:
-        import ray  # pyright: ignore[reportMissingImports]
+        import ray  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
     except ModuleNotFoundError:
         raise RuntimeError(
             "ray is not installed. Please install it with `pip install 'oumi[gpu]'`."

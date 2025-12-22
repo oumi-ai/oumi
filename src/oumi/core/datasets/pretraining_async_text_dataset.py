@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 import queue
 import random
 import threading
@@ -123,7 +124,8 @@ class PretrainingAsyncTextDataset(IterableDataset):
         if formatting_func is not None:
             self.formatting_func = formatting_func
 
-            if formatting_func.__code__.co_argcount != 1:
+            sig = inspect.signature(formatting_func)
+            if len(sig.parameters) != 1:
                 logger.warning(
                     "The passed formatting_func does not have exactly 1 argument. Note "
                     "that additional arguments will remain unused."

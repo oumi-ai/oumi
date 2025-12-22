@@ -231,7 +231,7 @@ class SkyClient:
         return JobStatus(
             name="",
             id=str(job_id),
-            cluster=resource_handle.cluster_name,  # pyright: ignore[reportAttributeAccessIssue]
+            cluster=resource_handle.cluster_name,  # pyright: ignore[reportAttributeAccessIssue]  # type: ignore[unresolved-attribute]
             status="",
             metadata="",
             done=False,
@@ -249,7 +249,7 @@ class SkyClient:
 
     def queue(
         self, cluster_name: str
-    ) -> list[dict] | list["sky.schemas.api.responses.ClusterJobRecord"]:  # pyright: ignore[reportAttributeAccessIssue]
+    ) -> list[dict] | list["sky.schemas.api.responses.ClusterJobRecord"]:  # pyright: ignore[reportAttributeAccessIssue]  # type: ignore[unresolved-attribute]
         """Gets the job queue of a cluster.
 
         Args:

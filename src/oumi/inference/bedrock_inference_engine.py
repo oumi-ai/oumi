@@ -26,8 +26,8 @@ from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
 
 try:
-    import boto3  # pyright: ignore[reportMissingImports]
-    from botocore.exceptions import ClientError  # pyright: ignore[reportMissingImports]
+    import boto3  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
+    from botocore.exceptions import ClientError  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
 except ModuleNotFoundError:
     boto3 = None  # type: ignore
     ClientError = None  # type: ignore

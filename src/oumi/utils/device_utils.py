@@ -21,9 +21,9 @@ from oumi.utils.logging import logger
 try:
     # The library is only useful for NVIDIA GPUs, and
     # may not be installed for other vendors e.g., AMD
-    import pynvml  # pyright: ignore[reportMissingImports]
+    import pynvml  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
 except ModuleNotFoundError:
-    pynvml = None
+    pynvml = None  # type: ignore[invalid-assignment]
 
 # TODO: OPE-562 - Add support for `amdsmi.amdsmi_init()`` for AMD GPUs
 
@@ -40,7 +40,7 @@ def _initialize_pynvml() -> bool:
         logger.error(
             "Failed to initialize pynvml library. All pynvml calls will be disabled."
         )
-        pynvml = None
+        pynvml = None  # type: ignore[invalid-assignment]
 
     return pynvml is not None
 
@@ -144,7 +144,7 @@ def _get_nvidia_gpu_runtime_info_impl(
 
     try:
         gpu_handle = pynvml.nvmlDeviceGetHandleByIndex(device_index)
-    except pynvml.NVMLError_NotSupported:  # pyright: ignore
+    except pynvml.NVMLError_NotSupported:  # pyright: ignore  # type: ignore[unresolved-attribute]
         # This error is expected on some systems.
         # Only do DEBUG-level logging to reduce noise.
         logger.debug(f"pyNVML GPU handle not supported for device: {device_index}")
@@ -157,7 +157,7 @@ def _get_nvidia_gpu_runtime_info_impl(
         try:
             info = pynvml.nvmlDeviceGetMemoryInfo(gpu_handle)
             used_memory_mb_value = float(info.used) // 1024**2
-        except pynvml.NVMLError_NotSupported:  # pyright: ignore
+        except pynvml.NVMLError_NotSupported:  # pyright: ignore  # type: ignore[unresolved-attribute]
             # This error is expected on some systems.
             # Only do DEBUG-level logging to reduce noise.
             logger.debug(
@@ -175,7 +175,7 @@ def _get_nvidia_gpu_runtime_info_impl(
             temperature_value = pynvml.nvmlDeviceGetTemperature(
                 gpu_handle, pynvml.NVML_TEMPERATURE_GPU
             )
-        except pynvml.NVMLError_NotSupported:  # pyright: ignore
+        except pynvml.NVMLError_NotSupported:  # pyright: ignore  # type: ignore[unresolved-attribute]
             # This error is expected on some systems.
             # Only do DEBUG-level logging to reduce noise.
             logger.debug(
@@ -192,7 +192,7 @@ def _get_nvidia_gpu_runtime_info_impl(
     if fan_speed:
         try:
             fan_speed_value = pynvml.nvmlDeviceGetFanSpeed(gpu_handle)
-        except pynvml.NVMLError_NotSupported:  # pyright: ignore
+        except pynvml.NVMLError_NotSupported:  # pyright: ignore  # type: ignore[unresolved-attribute]
             # This error is expected on some systems.
             # Only do DEBUG-level logging to reduce noise.
             logger.debug(
@@ -228,7 +228,7 @@ def _get_nvidia_gpu_runtime_info_impl(
 
             milliwatts = pynvml.nvmlDeviceGetPowerManagementLimit(gpu_handle)
             power_limit_watts_value = float(milliwatts) * 1e-3
-        except pynvml.NVMLError_NotSupported:  # pyright: ignore
+        except pynvml.NVMLError_NotSupported:  # pyright: ignore  # type: ignore[unresolved-attribute]
             # This error is expected on some systems.
             # Only do DEBUG-level logging to reduce noise.
             logger.debug(
@@ -247,7 +247,7 @@ def _get_nvidia_gpu_runtime_info_impl(
             result = pynvml.nvmlDeviceGetUtilizationRates(gpu_handle)
             gpu_utilization_value = int(result.gpu)
             memory_utilization_value = int(result.memory)
-        except pynvml.NVMLError_NotSupported:  # pyright: ignore
+        except pynvml.NVMLError_NotSupported:  # pyright: ignore  # type: ignore[unresolved-attribute]
             # This error is expected on some systems.
             # Only do DEBUG-level logging to reduce noise.
             logger.debug(
@@ -265,7 +265,7 @@ def _get_nvidia_gpu_runtime_info_impl(
             performance_state_value = int(
                 pynvml.nvmlDeviceGetPerformanceState(gpu_handle)
             )
-        except pynvml.NVMLError_NotSupported:  # pyright: ignore
+        except pynvml.NVMLError_NotSupported:  # pyright: ignore  # type: ignore[unresolved-attribute]
             # This error is expected on some systems.
             # Only do DEBUG-level logging to reduce noise.
             logger.debug(
@@ -291,7 +291,7 @@ def _get_nvidia_gpu_runtime_info_impl(
             clock_speed_memory_value = int(
                 pynvml.nvmlDeviceGetClockInfo(gpu_handle, pynvml.NVML_CLOCK_MEM)
             )
-        except pynvml.NVMLError_NotSupported:  # pyright: ignore
+        except pynvml.NVMLError_NotSupported:  # pyright: ignore  # type: ignore[unresolved-attribute]
             # This error is expected on some systems.
             # Only do DEBUG-level logging to reduce noise.
             logger.debug(

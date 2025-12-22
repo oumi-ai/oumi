@@ -30,23 +30,23 @@ from oumi.utils.grpo_utils import (
 )
 
 try:
-    import ray  # pyright: ignore[reportMissingImports]
-    import verl  # pyright: ignore[reportMissingImports]
-    from verl.trainer.ppo.ray_trainer import (  # pyright: ignore[reportMissingImports]
+    import ray  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
+    import verl  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
+    from verl.trainer.ppo.ray_trainer import (  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
         RayPPOTrainer,
         ResourcePoolManager,
         Role,
     )
-    from verl.workers.fsdp_workers import (  # pyright: ignore[reportMissingImports]
+    from verl.workers.fsdp_workers import (  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
         ActorRolloutRefWorker,
         CriticWorker,
     )
-    from verl.workers.reward_manager import (  # pyright: ignore[reportMissingImports]
+    from verl.workers.reward_manager import (  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
         NaiveRewardManager,
     )
 except ModuleNotFoundError:
-    verl = None
-    ray = None
+    verl = None  # type: ignore[invalid-assignment]
+    ray = None  # type: ignore[invalid-assignment]
 
 
 from oumi.core.configs import DatasetSplitParams, TrainingConfig

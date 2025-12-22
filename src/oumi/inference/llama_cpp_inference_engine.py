@@ -25,9 +25,9 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
 
 try:
-    from llama_cpp import Llama  # pyright: ignore[reportMissingImports]
+    from llama_cpp import Llama  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
 except ModuleNotFoundError:
-    Llama = None
+    Llama = None  # type: ignore[invalid-assignment]
 
 
 class LlamaCppInferenceEngine(BaseInferenceEngine):

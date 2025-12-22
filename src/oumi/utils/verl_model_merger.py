@@ -72,9 +72,9 @@ except ImportError:
 from tqdm import tqdm
 
 try:
-    import verl  # pyright: ignore[reportMissingImports]
+    import verl  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
 except ModuleNotFoundError:
-    verl = None
+    verl = None  # type: ignore[invalid-assignment]
 
 
 @dataclass
@@ -177,7 +177,7 @@ class BaseModelMerger(ABC):
 
         api = HfApi()
         api.create_repo(
-            repo_id=self.config.hf_upload_path,  # pyright: ignore[reportArgumentType]
+            repo_id=self.config.hf_upload_path,  # pyright: ignore[reportArgumentType]  # type: ignore[arg-type]
             private=self.config.private,
             exist_ok=True,
         )

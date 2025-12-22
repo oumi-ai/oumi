@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from typing import cast
+
 import numpy as np
 import transformers
 
@@ -29,11 +31,14 @@ def tokenize_for_completions_only_training_with_template(
     tokenizer: BaseTokenizer, conversation: Conversation
 ) -> dict:
     """Tokenize a conversation for completions-only training with a template."""
-    batch: transformers.BatchEncoding = tokenizer.apply_chat_template(
-        conversation=conversation,  # type: ignore
-        tokenize=True,
-        return_dict=True,
-        return_assistant_tokens_mask=True,
+    batch = cast(
+        transformers.BatchEncoding,
+        tokenizer.apply_chat_template(
+            conversation=conversation,  # type: ignore
+            tokenize=True,
+            return_dict=True,
+            return_assistant_tokens_mask=True,
+        ),
     )
 
     data = batch.data
@@ -57,11 +62,14 @@ def tokenize_for_completions_only_training_with_prefix(
     instruction_token_ids: list[int],
 ) -> dict:
     """Tokenize a conversation for completions-only training with a prefix."""
-    prompt: str = tokenizer.apply_chat_template(
-        conversation=conversation,  # type: ignore
-        tokenize=False,
-        return_dict=False,
-        return_assistant_tokens_mask=False,
+    prompt = cast(
+        str,
+        tokenizer.apply_chat_template(
+            conversation=conversation,  # type: ignore
+            tokenize=False,
+            return_dict=False,
+            return_assistant_tokens_mask=False,
+        ),
     )
     tokenizer_batch: transformers.BatchEncoding = tokenizer(
         prompt, truncation=True, padding=False, return_tensors="pt"
@@ -241,8 +249,11 @@ def tokenizer_for_inference(
     tokenizer: BaseTokenizer, conversation: Conversation
 ) -> dict:
     """Tokenize a conversation for inference."""
-    return tokenizer.apply_chat_template(
-        conversation=conversation,  # type: ignore
-        tokenize=True,
-        return_dict=True,
+    return cast(
+        dict,
+        tokenizer.apply_chat_template(
+            conversation=conversation,  # type: ignore
+            tokenize=True,
+            return_dict=True,
+        ),
     )

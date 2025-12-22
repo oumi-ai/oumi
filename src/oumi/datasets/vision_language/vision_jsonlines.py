@@ -77,8 +77,9 @@ class VLJsonlinesDataset(VisionLanguageSftDataset):
 
     default_dataset = "custom"
 
-    def __init__(
+    def __init__(  # type: ignore[invalid-argument-type]
         self,
+        *,
         dataset_path: str | Path | None = None,
         data: list | None = None,
         **kwargs,

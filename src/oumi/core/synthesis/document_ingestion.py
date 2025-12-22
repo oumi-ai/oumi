@@ -23,11 +23,11 @@ from oumi.core.configs.params.synthesis_params import (
 from oumi.utils.logging import logger
 
 try:
-    from pdftext.extraction import (  # pyright: ignore[reportMissingImports]
+    from pdftext.extraction import (  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
         plain_text_output,
     )
 except ImportError:
-    plain_text_output = None
+    plain_text_output = None  # type: ignore[invalid-assignment]
 
 
 class DocumentSegmenter:

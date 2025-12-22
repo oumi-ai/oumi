@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import abc
-from collections.abc import Callable
 from pathlib import Path
 
 import PIL.Image
@@ -95,7 +94,7 @@ class BaseProcessor(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def raw_processor(self) -> Callable:
+    def raw_processor(self) -> transformers.ProcessorMixin:
         """Returns the underlying raw processor.
 
         The use of this method is generally discouraged. Only use it if you know

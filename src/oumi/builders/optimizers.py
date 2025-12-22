@@ -64,7 +64,7 @@ def build_optimizer(
         "paged_adamw_32bit",
     ):
         try:
-            import bitsandbytes  # pyright: ignore[reportMissingImports]
+            import bitsandbytes  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
         except ImportError:
             raise ImportError(
                 "bitsandbytes is not installed. "

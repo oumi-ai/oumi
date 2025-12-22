@@ -27,7 +27,7 @@ try:
     import onebitllms  # type: ignore
     from onebitllms import quantize_to_1bit  # type: ignore
 except ImportError:
-    onebitllms = None
+    onebitllms = None  # type: ignore[invalid-assignment]
 
 
 class BitNetCallback(BaseTrainerCallback):

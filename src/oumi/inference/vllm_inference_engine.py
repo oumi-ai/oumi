@@ -32,28 +32,28 @@ from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.peft_utils import get_lora_rank
 
 try:
-    import vllm  # pyright: ignore[reportMissingImports]
+    import vllm  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
 
     try:
-        from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]
+        from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
     except ImportError:
         # For compatibility with newer vLLM versions
         ModelDType = str  # type: ignore
-    from vllm.entrypoints.chat_utils import (  # pyright: ignore[reportMissingImports]
+    from vllm.entrypoints.chat_utils import (  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
         ChatCompletionMessageParam,
     )
-    from vllm.lora.request import LoRARequest  # pyright: ignore[reportMissingImports]
-    from vllm.model_executor.layers.quantization import (  # pyright: ignore[reportMissingImports]
+    from vllm.lora.request import LoRARequest  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
+    from vllm.model_executor.layers.quantization import (  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
         QuantizationMethods,
     )
-    from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+    from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
         GuidedDecodingParams as VLLMGuidedDecodingParams,
     )
-    from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+    from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]  # type: ignore[import-not-found]
         SamplingParams,
     )
 except ModuleNotFoundError:
-    vllm = None
+    vllm = None  # type: ignore[invalid-assignment]
 
 
 class VLLMInferenceEngine(BaseInferenceEngine):
@@ -198,7 +198,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,
-            dtype=cast(ModelDType, model_params.torch_dtype_str),  # pyright: ignore[reportInvalidTypeForm]
+            dtype=cast(ModelDType, model_params.torch_dtype_str),  # pyright: ignore[reportInvalidTypeForm]  # type: ignore[invalid-type-form]
             # TODO: these params should be settable via config,
             # but they don't belong to model_params
             tensor_parallel_size=tensor_parallel_size,
@@ -214,7 +214,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if quantization is not None and "quantization" not in vllm_kwargs:
             final_vllm_kwargs["quantization"] = quantization
 
-        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType]
+        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType]  # type: ignore[arg-type]
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
 

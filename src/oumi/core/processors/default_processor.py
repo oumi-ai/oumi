@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import copy
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -62,7 +61,7 @@ class DefaultProcessor(BaseProcessor):
             )
 
         self._processor_name = processor_name
-        self._worker_processor: Callable = worker_processor
+        self._worker_processor: transformers.ProcessorMixin = worker_processor
         self._worker_processor.tokenizer = tokenizer
         self._tokenizer: BaseTokenizer = tokenizer
 
@@ -169,7 +168,7 @@ class DefaultProcessor(BaseProcessor):
 
     @property
     @override
-    def raw_processor(self) -> Callable:
+    def raw_processor(self) -> transformers.ProcessorMixin:
         """Returns the underlying raw processor."""
         return self._worker_processor
 
