@@ -27,8 +27,6 @@ from rich.table import Table
 from oumi.cli.cli_utils import CONSOLE
 from oumi.core.activity_tracker import Activity, ActivityTracker
 
-# Heatmap characters (from less to more activity)
-HEATMAP_CHARS = ["·", "░", "▒", "▓", "█"]
 DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
@@ -83,21 +81,23 @@ def _generate_heatmap(activities: list[Activity], weeks: int = 12) -> str:
         except (ValueError, AttributeError):
             continue
 
-    # Calculate date range
+    # Calculate date range - end on current week's Sunday, go back `weeks` weeks
     today = datetime.now(timezone.utc).date()
-    start_date = today - timedelta(weeks=weeks, days=today.weekday())
+    today_key = today.strftime("%Y-%m-%d")
+    # Start from Monday of (weeks-1) weeks ago to include current week
+    start_date = today - timedelta(days=today.weekday(), weeks=weeks - 1)
 
     # Find max count for normalization
     max_count = max(day_counts.values()) if day_counts else 1
 
-    # Build month labels
+    # Build month labels - align with week columns
     months: list[str] = []
     current_month = ""
     for week in range(weeks):
         week_start = start_date + timedelta(weeks=week)
         month = week_start.strftime("%b")
         if month != current_month:
-            months.append(month)
+            months.append(f"{month:<3}")
             current_month = month
         else:
             months.append("   ")
@@ -105,8 +105,8 @@ def _generate_heatmap(activities: list[Activity], weeks: int = 12) -> str:
     # Build the heatmap grid
     lines = []
 
-    # Month header
-    month_line = "     " + " ".join(months[:weeks])
+    # Month header - each column is 3 chars wide (char + 2 spaces)
+    month_line = "     " + "".join(months[:weeks])
     lines.append(f"[dim]{month_line}[/dim]")
 
     # Day rows (Mon, Wed, Fri for compactness)
@@ -116,33 +116,37 @@ def _generate_heatmap(activities: list[Activity], weeks: int = 12) -> str:
             date = start_date + timedelta(weeks=week, days=day_idx)
             day_key = date.strftime("%Y-%m-%d")
             count = day_counts.get(day_key, 0)
+            is_today = day_key == today_key
 
             if date > today:
-                char = " "
+                # Future date - empty space
+                row += "   "
+            elif is_today:
+                # Today gets special highlighting (magenta stands out from blue scale)
+                if count == 0:
+                    row += "[bold magenta]◈[/bold magenta]  "
+                else:
+                    row += "[bold bright_magenta]█[/bold bright_magenta]  "
             elif count == 0:
-                char = HEATMAP_CHARS[0]
+                row += "[dim]·[/dim]  "
             else:
-                # Normalize to 1-4 range
+                # Blue-based color scale (color blind friendly)
                 level = min(4, max(1, int((count / max_count) * 4)))
-                char = HEATMAP_CHARS[level]
-
-            # Color based on intensity
-            if char == HEATMAP_CHARS[0]:
-                row += f"[dim]{char}[/dim]  "
-            elif char in HEATMAP_CHARS[1:3]:
-                row += f"[yellow]{char}[/yellow]  "
-            else:
-                row += f"[bright_yellow]{char}[/bright_yellow]  "
+                if level <= 2:
+                    row += "[blue]█[/blue]  "
+                else:
+                    row += "[bright_cyan]█[/bright_cyan]  "
 
         lines.append(row)
 
-    # Legend
-    legend = "     Less " + " ".join(
-        f"[yellow]{c}[/yellow]" if i > 0 else f"[dim]{c}[/dim]"
-        for i, c in enumerate(HEATMAP_CHARS)
-    ) + " More"
+    # Legend with color explanations (blue scale is color blind friendly)
     lines.append("")
-    lines.append(legend)
+    lines.append(
+        "     [dim]·[/dim] None  "
+        "[blue]█[/blue] Low  "
+        "[bright_cyan]█[/bright_cyan] High  "
+        "[bold bright_magenta]█[/bold bright_magenta] Today"
+    )
 
     return "\n".join(lines)
 
@@ -298,11 +302,11 @@ def _show_overview(days: int) -> None:
     for activity in activities:
         command_counts[activity.command] += 1
 
-    # Build stats panels
+    # Build stats panels (normalized to 4 rows each for consistent layout)
     # Training stats
     train_activities = [a for a in activities if a.command == "train"]
     train_table = Table.grid(padding=(0, 2))
-    train_table.add_column(style="dim")
+    train_table.add_column(style="dim", width=18)
     train_table.add_column(style="cyan")
 
     train_table.add_row("Total runs:", str(len(train_activities)))
@@ -324,10 +328,10 @@ def _show_overview(days: int) -> None:
         expand=True,
     )
 
-    # Inference stats
+    # Inference stats (4 rows to match Training)
     infer_activities = [a for a in activities if a.command == "infer"]
     infer_table = Table.grid(padding=(0, 2))
-    infer_table.add_column(style="dim")
+    infer_table.add_column(style="dim", width=18)
     infer_table.add_column(style="cyan")
 
     infer_table.add_row("Sessions:", str(len(infer_activities)))
@@ -335,6 +339,10 @@ def _show_overview(days: int) -> None:
         a.metadata.get("tokens_generated", 0) for a in infer_activities
     )
     infer_table.add_row("Tokens generated:", _format_number(total_tokens))
+    infer_time = sum(
+        a.duration_seconds for a in infer_activities if a.duration_seconds
+    )
+    infer_table.add_row("Total time:", _format_duration(infer_time))
     infer_model = _get_favorite_value(infer_activities, "model")
     infer_table.add_row("Favorite model:", infer_model or "-")
 
@@ -345,13 +353,17 @@ def _show_overview(days: int) -> None:
         expand=True,
     )
 
-    # Evaluation stats
+    # Evaluation stats (3 rows to match Data)
     eval_activities = [a for a in activities if a.command in ("evaluate", "eval")]
     eval_table = Table.grid(padding=(0, 2))
-    eval_table.add_column(style="dim")
+    eval_table.add_column(style="dim", width=18)
     eval_table.add_column(style="cyan")
 
     eval_table.add_row("Evaluations:", str(len(eval_activities)))
+    eval_time = sum(
+        a.duration_seconds for a in eval_activities if a.duration_seconds
+    )
+    eval_table.add_row("Total time:", _format_duration(eval_time))
     eval_model = _get_favorite_value(eval_activities, "model")
     eval_table.add_row("Favorite model:", eval_model or "-")
 
@@ -362,11 +374,11 @@ def _show_overview(days: int) -> None:
         expand=True,
     )
 
-    # Data stats
+    # Data stats (3 rows to match Evaluation)
     data_commands = ["analyze", "synth", "synthesize", "judge"]
     data_activities = [a for a in activities if a.command in data_commands]
     data_table = Table.grid(padding=(0, 2))
-    data_table.add_column(style="dim")
+    data_table.add_column(style="dim", width=18)
     data_table.add_column(style="cyan")
 
     synth_count = len([a for a in data_activities if a.command in ("synth", "synthesize")])
@@ -384,11 +396,11 @@ def _show_overview(days: int) -> None:
         expand=True,
     )
 
-    # Compute stats
+    # Compute stats (4 rows to match Overall)
     compute_commands = ["launch", "distributed"]
     compute_activities = [a for a in activities if a.command in compute_commands]
     compute_table = Table.grid(padding=(0, 2))
-    compute_table.add_column(style="dim")
+    compute_table.add_column(style="dim", width=18)
     compute_table.add_column(style="cyan")
 
     compute_table.add_row("Jobs launched:", str(len(compute_activities)))
@@ -400,6 +412,11 @@ def _show_overview(days: int) -> None:
         else 0
     )
     compute_table.add_row("Success rate:", f"{success_rate:.0f}%")
+    compute_time = sum(
+        a.duration_seconds for a in compute_activities if a.duration_seconds
+    )
+    compute_table.add_row("Total time:", _format_duration(compute_time))
+    compute_table.add_row("", "")  # Empty row for alignment
 
     compute_panel = Panel(
         compute_table,
@@ -408,16 +425,15 @@ def _show_overview(days: int) -> None:
         expand=True,
     )
 
-    # Overall stats
+    # Overall stats (4 rows to match Compute)
     overall_table = Table.grid(padding=(0, 2))
-    overall_table.add_column(style="dim")
+    overall_table.add_column(style="dim", width=18)
     overall_table.add_column(style="cyan")
 
     overall_table.add_row("Total commands:", str(len(activities)))
     overall_table.add_row("Completed:", f"{len(completed)} ({len(completed)*100//len(activities) if activities else 0}%)")
     overall_table.add_row("Failed:", str(len(failed)))
     overall_table.add_row("Total time:", _format_duration(total_duration))
-    overall_table.add_row("Longest run:", _format_duration(longest_duration))
 
     overall_panel = Panel(
         overall_table,
@@ -426,17 +442,21 @@ def _show_overview(days: int) -> None:
         expand=True,
     )
 
-    # Print panels in a grid layout
-    from rich.columns import Columns
+    # Print panels in a 2-column grid layout using a table
+    layout_table = Table.grid(padding=(0, 1), expand=True)
+    layout_table.add_column(ratio=1)
+    layout_table.add_column(ratio=1)
 
     # Row 1: Training + Inference
-    CONSOLE.print(Columns([train_panel, infer_panel], equal=True, expand=True))
+    layout_table.add_row(train_panel, infer_panel)
 
     # Row 2: Evaluation + Data
-    CONSOLE.print(Columns([eval_panel, data_panel], equal=True, expand=True))
+    layout_table.add_row(eval_panel, data_panel)
 
     # Row 3: Compute + Overall
-    CONSOLE.print(Columns([compute_panel, overall_panel], equal=True, expand=True))
+    layout_table.add_row(compute_panel, overall_panel)
+
+    CONSOLE.print(layout_table)
 
     # Footer stats
     CONSOLE.print()
