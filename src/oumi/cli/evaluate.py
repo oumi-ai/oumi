@@ -53,6 +53,7 @@ def evaluate(
     ):
         # Delayed imports
         from oumi import evaluate as oumi_evaluate
+        from oumi.core.activity_tracker import ActivityTracker
         from oumi.core.configs import EvaluationConfig
         from oumi.core.distributed import is_world_process_zero
         # End imports
@@ -67,11 +68,35 @@ def evaluate(
         # Print configuration for verification
         parsed_config.print_config(logger)
 
+    # Track activity (only on rank 0)
+    activity_id = ""
+    if is_world_process_zero():
+        tracker = ActivityTracker()
+        metadata = {
+            "model": parsed_config.model.model_name,
+            "config_path": config,
+        }
+        if parsed_config.tasks:
+            metadata["benchmarks"] = [t.get_task_name() for t in parsed_config.tasks]
+        activity_id = tracker.start_activity("evaluate", metadata=metadata)
+
     # Run evaluation
-    with cli_utils.CONSOLE.status(
-        "[green]Running evaluation...[/green]", spinner="dots"
-    ):
-        results = oumi_evaluate(parsed_config)
+    try:
+        with cli_utils.CONSOLE.status(
+            "[green]Running evaluation...[/green]", spinner="dots"
+        ):
+            results = oumi_evaluate(parsed_config)
+
+        if activity_id:
+            tracker.complete_activity(activity_id, "completed")
+    except KeyboardInterrupt:
+        if activity_id:
+            tracker.complete_activity(activity_id, "cancelled")
+        raise
+    except Exception:
+        if activity_id:
+            tracker.complete_activity(activity_id, "failed")
+        raise
 
     if not is_world_process_zero():
         return

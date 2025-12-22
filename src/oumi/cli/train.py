@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from typing import Annotated
 
 import typer
@@ -73,7 +74,36 @@ def train(
         parsed_config.training.seed, parsed_config.training.use_deterministic
     )
 
-    # Run training
-    oumi_train(parsed_config, verbose=verbose)
+    # Track activity (only on rank 0 to avoid duplicate tracking in distributed)
+    activity_id = ""
+    if int(os.environ.get("RANK", 0)) == 0:
+        from oumi.core.activity_tracker import ActivityTracker
 
-    device_cleanup()
+        tracker = ActivityTracker()
+        metadata = {
+            "model": parsed_config.model.model_name,
+            "config_path": config,
+        }
+        if parsed_config.data.train.datasets:
+            metadata["dataset"] = parsed_config.data.train.datasets[0].dataset_name
+        if parsed_config.training.max_steps:
+            metadata["max_steps"] = parsed_config.training.max_steps
+        activity_id = tracker.start_activity("train", metadata=metadata)
+
+    try:
+        # Run training
+        oumi_train(parsed_config, verbose=verbose)
+
+        # Mark as completed
+        if activity_id:
+            tracker.complete_activity(activity_id, "completed")
+    except KeyboardInterrupt:
+        if activity_id:
+            tracker.complete_activity(activity_id, "cancelled")
+        raise
+    except Exception:
+        if activity_id:
+            tracker.complete_activity(activity_id, "failed")
+        raise
+    finally:
+        device_cleanup()

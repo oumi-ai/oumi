@@ -37,6 +37,7 @@ from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
+from oumi.cli.stats import stats
 from oumi.cli.synth import synth
 from oumi.cli.train import train
 from oumi.cli.tune import tune
@@ -181,6 +182,10 @@ def get_app() -> typer.Typer:
         help="Download example configs from the Oumi repository.",
         rich_help_panel="Tools",
     )(fetch)
+    app.command(
+        help="Show usage statistics across all Oumi commands.",
+        rich_help_panel="Tools",
+    )(stats)
     cache_app = typer.Typer(pretty_exceptions_enable=False)
     cache_app.command(name="ls", help="List cached models and datasets.")(cache_ls)
     cache_app.command(

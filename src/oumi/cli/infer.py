@@ -128,34 +128,56 @@ def infer(
                 )
             else:
                 input_image_png_bytes = [load_image_png_bytes_from_path(image)]
-    if parsed_config.input_path:
-        if interactive:
-            logger.warning(
-                "Input path provided, skipping interactive inference. "
-                "To run in interactive mode, do not provide an input path."
+
+    # Track activity
+    from oumi.core.activity_tracker import ActivityTracker
+
+    tracker = ActivityTracker()
+    metadata = {
+        "model": parsed_config.model.model_name,
+        "config_path": config,
+        "interactive": interactive or not parsed_config.input_path,
+    }
+    activity_id = tracker.start_activity("infer", metadata=metadata)
+
+    try:
+        if parsed_config.input_path:
+            if interactive:
+                logger.warning(
+                    "Input path provided, skipping interactive inference. "
+                    "To run in interactive mode, do not provide an input path."
+                )
+            generations = oumi_infer(parsed_config)
+            tracker.complete_activity(activity_id, "completed")
+            # Don't print results if output_filepath is provided.
+            if parsed_config.output_path:
+                return
+            table = Table(
+                title="Inference Results",
+                title_style="bold magenta",
+                show_edge=False,
+                show_lines=True,
             )
-        generations = oumi_infer(parsed_config)
-        # Don't print results if output_filepath is provided.
-        if parsed_config.output_path:
+            table.add_column("Conversation", style="green")
+            for generation in generations:
+                table.add_row(repr(generation))
+            cli_utils.CONSOLE.print(table)
             return
-        table = Table(
-            title="Inference Results",
-            title_style="bold magenta",
-            show_edge=False,
-            show_lines=True,
+        if not interactive:
+            logger.warning(
+                "No input path provided, running in interactive mode. "
+                "To run with an input path, provide one in the configuration file."
+            )
+        result = oumi_infer_interactive(
+            parsed_config,
+            input_image_bytes=input_image_png_bytes,
+            system_prompt=system_prompt,
         )
-        table.add_column("Conversation", style="green")
-        for generation in generations:
-            table.add_row(repr(generation))
-        cli_utils.CONSOLE.print(table)
-        return
-    if not interactive:
-        logger.warning(
-            "No input path provided, running in interactive mode. "
-            "To run with an input path, provide one in the configuration file."
-        )
-    return oumi_infer_interactive(
-        parsed_config,
-        input_image_bytes=input_image_png_bytes,
-        system_prompt=system_prompt,
-    )
+        tracker.complete_activity(activity_id, "completed")
+        return result
+    except KeyboardInterrupt:
+        tracker.complete_activity(activity_id, "cancelled")
+        raise
+    except Exception:
+        tracker.complete_activity(activity_id, "failed")
+        raise
