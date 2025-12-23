@@ -117,7 +117,7 @@ For a detailed guide on distributed training, see {doc}`/user_guides/train/train
 
 ## Data Synthesis
 
-For a detailed guide on data synthesis, see {doc}`/user_guides/synth`.
+For a detailed guide on data synthesis, see {doc}`/user_guides/synth/synth`.
 
 ```{typer} oumi.cli.main.app.synth
   :prog: oumi synth
