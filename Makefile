@@ -32,6 +32,7 @@ help:
 	@echo "  clean             - Remove generated files and directories"
 	@echo "  check             - Run pre-commit hooks"
 	@echo "  torchfix          - Run TorchFix static analysis"
+	@echo "  ty                - Run ty type checker"
 	@echo "  format            - Run code formatter"
 	@echo "  test              - Run tests"
 	@echo "  coverage          - Run tests with coverage"
@@ -128,6 +129,9 @@ check:
 torchfix:
 	$(CONDA_RUN) torchfix --select ALL .
 
+ty:
+	$(CONDA_RUN) ty check
+
 format:
 	$(CONDA_RUN) ruff format $(SRC_DIR) $(TEST_DIR)
 
@@ -184,4 +188,4 @@ doctest-file:
 	fi
 	$(CONDA_RUN) $(SPHINXBUILD) -b doctest "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(FILE)
 
-.PHONY: help setup upgrade clean check format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file
+.PHONY: help setup upgrade clean check torchfix ty format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file
