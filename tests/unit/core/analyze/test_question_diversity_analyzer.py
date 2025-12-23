@@ -104,6 +104,18 @@ class TestQuestionDiversityAnalyzerInit:
         with pytest.raises(ValueError, match="Unknown clustering method"):
             QuestionDiversityAnalyzer(clustering_method="invalid")
 
+    def test_init_invalid_concentration_threshold(self):
+        """Test that invalid concentration threshold raises error."""
+        from oumi.core.analyze.question_diversity_analyzer import (
+            QuestionDiversityAnalyzer,
+        )
+
+        with pytest.raises(ValueError, match="concentration_threshold must be in range"):
+            QuestionDiversityAnalyzer(concentration_threshold=1.5)
+
+        with pytest.raises(ValueError, match="concentration_threshold must be in range"):
+            QuestionDiversityAnalyzer(concentration_threshold=-0.1)
+
 
 class TestEntropyCalculation:
     """Tests for Shannon entropy calculation."""
@@ -295,8 +307,8 @@ class TestAnalyzeSampleWithMocks:
         mock_model.encode.return_value = embeddings
 
         with patch(
-            "oumi.core.analyze.question_diversity_analyzer."
-            "QuestionDiversityAnalyzer._get_model"
+            "oumi.core.analyze.embedding_base_analyzer."
+            "EmbeddingBasedAnalyzer._get_model"
         ) as mock_get:
             mock_get.return_value = mock_model
             analyzer = QuestionDiversityAnalyzer(
@@ -311,11 +323,15 @@ class TestAnalyzeSampleWithMocks:
                 "Compute average",
             ])
 
-            result_df = analyzer.analyze_sample(df, _get_schema())
+            result_df, generated_schema = analyzer.analyze_sample(df, _get_schema())
 
             # Check columns are added
             assert "text_content_question_diversity_cluster_id" in result_df.columns
             assert "text_content_question_diversity_cluster_size" in result_df.columns
+
+            # Check generated schema
+            assert "text_content_question_diversity_cluster_id" in generated_schema
+            assert "text_content_question_diversity_cluster_size" in generated_schema
 
     def test_analyze_sample_with_roles(self, mock_model):
         """Test that only user messages are analyzed when role column exists."""
@@ -331,8 +347,8 @@ class TestAnalyzeSampleWithMocks:
         mock_model.encode.return_value = embeddings
 
         with patch(
-            "oumi.core.analyze.question_diversity_analyzer."
-            "QuestionDiversityAnalyzer._get_model"
+            "oumi.core.analyze.embedding_base_analyzer."
+            "EmbeddingBasedAnalyzer._get_model"
         ) as mock_get:
             mock_get.return_value = mock_model
             analyzer = QuestionDiversityAnalyzer(
@@ -345,7 +361,7 @@ class TestAnalyzeSampleWithMocks:
                 roles=["user", "assistant", "user", "assistant"],
             )
 
-            result_df = analyzer.analyze_sample(df, _get_schema(with_role=True))
+            result_df, _ = analyzer.analyze_sample(df, _get_schema(with_role=True))
 
             # User messages should have cluster IDs
             cluster_col = "text_content_question_diversity_cluster_id"
@@ -370,8 +386,8 @@ class TestAnalyzeSampleWithMocks:
         mock_model.encode.return_value = embeddings
 
         with patch(
-            "oumi.core.analyze.question_diversity_analyzer."
-            "QuestionDiversityAnalyzer._get_model"
+            "oumi.core.analyze.embedding_base_analyzer."
+            "EmbeddingBasedAnalyzer._get_model"
         ) as mock_get:
             mock_get.return_value = mock_model
             analyzer = QuestionDiversityAnalyzer(
@@ -382,10 +398,11 @@ class TestAnalyzeSampleWithMocks:
 
             df = _create_test_df(["q1", "q2", "q3", "q4"])
 
-            result_df = analyzer.analyze_sample(df, _get_schema())
+            result_df, generated_schema = analyzer.analyze_sample(df, _get_schema())
 
             # Check concentrated flag column exists
             assert "text_content_question_diversity_is_concentrated" in result_df.columns
+            assert "text_content_question_diversity_is_concentrated" in generated_schema
 
     def test_compute_dataset_metrics(self, mock_model):
         """Test dataset-level metrics computation."""
@@ -402,8 +419,8 @@ class TestAnalyzeSampleWithMocks:
         mock_model.encode.return_value = embeddings
 
         with patch(
-            "oumi.core.analyze.question_diversity_analyzer."
-            "QuestionDiversityAnalyzer._get_model"
+            "oumi.core.analyze.embedding_base_analyzer."
+            "EmbeddingBasedAnalyzer._get_model"
         ) as mock_get:
             mock_get.return_value = mock_model
             analyzer = QuestionDiversityAnalyzer(
@@ -423,6 +440,33 @@ class TestAnalyzeSampleWithMocks:
             assert "question_gini" in metrics["text_content"]
             assert "largest_cluster_ratio" in metrics["text_content"]
             assert "diversity_rating" in metrics["text_content"]
+
+
+    def test_analyze_sample_returns_tuple(self, mock_model):
+        """Test that analyze_sample returns a tuple of (DataFrame, dict)."""
+        from oumi.core.analyze.question_diversity_analyzer import (
+            QuestionDiversityAnalyzer,
+        )
+
+        mock_model.encode.return_value = np.random.randn(3, 2)
+
+        with patch(
+            "oumi.core.analyze.embedding_base_analyzer."
+            "EmbeddingBasedAnalyzer._get_model"
+        ) as mock_get:
+            mock_get.return_value = mock_model
+            analyzer = QuestionDiversityAnalyzer(
+                clustering_method="kmeans",
+                n_clusters=2,
+            )
+
+            df = _create_test_df(["q1", "q2", "q3"])
+            result = analyzer.analyze_sample(df, _get_schema())
+
+            assert isinstance(result, tuple)
+            assert len(result) == 2
+            assert isinstance(result[0], pd.DataFrame)
+            assert isinstance(result[1], dict)
 
 
 class TestValidation:
@@ -449,12 +493,13 @@ class TestValidation:
         analyzer = QuestionDiversityAnalyzer()
         df = _create_test_df(["test"])
 
-        result_df = analyzer.analyze_sample(
+        result_df, generated_schema = analyzer.analyze_sample(
             df, schema={"text_content": {"content_type": "numeric"}}
         )
 
         # DataFrame should be returned unchanged
         assert list(result_df.columns) == list(df.columns)
+        assert generated_schema == {}
 
 
 class TestClusterSizeComputation:
