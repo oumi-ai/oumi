@@ -36,10 +36,8 @@ repos:
       - id: ruff
         types_or: [python, pyi, jupyter]
         args: [--fix, --exit-non-zero-on-fix]
-        exclude: src/oumi/core/types/proto
       - id: ruff-format
         types_or: [python, pyi, jupyter]
-        exclude: src/oumi/core/types/proto
   - repo: local
     hooks:
       - id: pyright
