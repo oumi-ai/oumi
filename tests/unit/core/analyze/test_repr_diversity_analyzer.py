@@ -79,6 +79,16 @@ class TestReprDiversityAnalyzerInit:
         with pytest.raises(ValueError, match="Invalid embed_field"):
             ReprDiversityAnalyzer(embed_field="invalid")
 
+    def test_init_invalid_k_neighbors(self):
+        """Test that invalid k_neighbors raises error."""
+        from oumi.core.analyze.repr_diversity_analyzer import ReprDiversityAnalyzer
+
+        with pytest.raises(ValueError, match="k_neighbors must be >= 1"):
+            ReprDiversityAnalyzer(k_neighbors=0)
+
+        with pytest.raises(ValueError, match="k_neighbors must be >= 1"):
+            ReprDiversityAnalyzer(k_neighbors=-1)
+
 
 class TestReprDiversityAnalyzerWithMocks:
     """Tests using mocked embedding model."""
@@ -145,13 +155,18 @@ class TestReprDiversityAnalyzerWithMocks:
                 }
             )
 
-            result_df = analyzer.analyze_sample(df, sample_schema)
+            result_df, generated_schema = analyzer.analyze_sample(df, sample_schema)
 
             # Check that output columns were added
             assert "text_content_repr_diversity_nn_distance" in result_df.columns
             assert "text_content_repr_diversity_score" in result_df.columns
             assert "text_content_repr_diversity_is_redundant" in result_df.columns
             assert "text_content_repr_diversity_percentile" in result_df.columns
+
+            # Check generated schema
+            assert "text_content_repr_diversity_nn_distance" in generated_schema
+            assert "text_content_repr_diversity_score" in generated_schema
+            assert "text_content_repr_diversity_is_redundant" in generated_schema
 
             # Check that values are reasonable
             assert all(
@@ -183,7 +198,7 @@ class TestReprDiversityAnalyzerWithMocks:
                 }
             )
 
-            result_df = analyzer.analyze_sample(df, sample_schema)
+            result_df, _ = analyzer.analyze_sample(df, sample_schema)
 
             # Only user messages should have diversity scores
             assert pd.notna(result_df.loc[0, "text_content_repr_diversity_score"])
@@ -253,8 +268,8 @@ class TestReprDiversityAnalyzerWithMocks:
                 }
             )
 
-            analyzer.analyze_sample(df, sample_schema)
-            metrics = analyzer.compute_dataset_metrics(df, sample_schema)
+            result_df, _ = analyzer.analyze_sample(df, sample_schema)
+            metrics = analyzer.compute_dataset_metrics(result_df, sample_schema)
 
             assert "text_content" in metrics
             assert "total_samples" in metrics["text_content"]
@@ -277,13 +292,32 @@ class TestReprDiversityAnalyzerWithMocks:
                 }
             )
 
-            result_df = analyzer.analyze_sample(df, sample_schema)
+            result_df, generated_schema = analyzer.analyze_sample(df, sample_schema)
 
             assert "text_content_repr_diversity_embedding" in result_df.columns
+            assert "text_content_repr_diversity_embedding" in generated_schema
             # Check that embeddings are lists
             assert isinstance(
                 result_df.loc[0, "text_content_repr_diversity_embedding"], list
             )
+
+    def test_analyze_sample_returns_tuple(self, mock_model, sample_schema):
+        """Test that analyze_sample returns a tuple of (DataFrame, dict)."""
+        from oumi.core.analyze.repr_diversity_analyzer import ReprDiversityAnalyzer
+
+        analyzer = ReprDiversityAnalyzer(
+            k_neighbors=2,
+            show_progress_bar=False,
+        )
+
+        with patch.object(analyzer, "_get_model", return_value=mock_model):
+            df = pd.DataFrame({"text_content": ["Text 1", "Text 2", "Text 3"]})
+            result = analyzer.analyze_sample(df, sample_schema)
+
+            assert isinstance(result, tuple)
+            assert len(result) == 2
+            assert isinstance(result[0], pd.DataFrame)
+            assert isinstance(result[1], dict)
 
 
 class TestReprDiversityAnalyzerEdgeCases:
@@ -316,7 +350,7 @@ class TestReprDiversityAnalyzerEdgeCases:
             df = pd.DataFrame({"text_content": ["Only one sample"]})
 
             # Should handle gracefully (not enough samples for KNN)
-            result_df = analyzer.analyze_sample(df, sample_schema)
+            result_df, _ = analyzer.analyze_sample(df, sample_schema)
 
             # Should return original df without diversity columns added
             # or with None values
@@ -338,7 +372,7 @@ class TestReprDiversityAnalyzerEdgeCases:
                 }
             )
 
-            result_df = analyzer.analyze_sample(df, sample_schema)
+            result_df, _ = analyzer.analyze_sample(df, sample_schema)
 
             # Should adapt k to available samples
             assert "text_content_repr_diversity_score" in result_df.columns
@@ -352,5 +386,5 @@ class TestReprDiversityAnalyzerEdgeCases:
         with patch.object(analyzer, "_get_model", return_value=mock_model):
             df = pd.DataFrame({"text_content": []})
 
-            result_df = analyzer.analyze_sample(df, sample_schema)
+            result_df, generated_schema = analyzer.analyze_sample(df, sample_schema)
             assert len(result_df) == 0
