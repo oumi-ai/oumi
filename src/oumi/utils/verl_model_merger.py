@@ -71,6 +71,8 @@ except ImportError:
 
 from tqdm import tqdm
 
+from oumi.utils.logging import logger
+
 try:
     import verl  # pyright: ignore[reportMissingImports]
 except ModuleNotFoundError:
@@ -106,8 +108,11 @@ class BaseModelMerger(ABC):
         self.hf_model_config_path = config.hf_model_config_path
 
         if config.hf_model_path:
-            print(
-                "Warning: --hf_model_path is deprecated and will be removed in a future version. Currently verl will save huggingface model configuration files into checkpoint directories. Therefore, there is no need to provide --hf_model_path. "
+            logger.warning(
+                "--hf_model_path is deprecated and will be removed in a future version. "
+                "Currently verl will save huggingface model configuration files into "
+                "checkpoint directories. Therefore, there is no need to provide "
+                "--hf_model_path."
             )
             self.hf_model_config_path = config.hf_model_path
 
@@ -137,8 +142,9 @@ class BaseModelMerger(ABC):
                     self.hf_model_config_path
                 )
             except OSError:
-                print(
-                    f"Warning: Generation config file not found in {self.hf_model_config_path}, using a generation config created from the model config."
+                logger.warning(
+                    f"Generation config file not found in {self.hf_model_config_path}, "
+                    "using a generation config created from the model config."
                 )
         return model
 
@@ -158,7 +164,7 @@ class BaseModelMerger(ABC):
         model.to_empty(device="cpu")
         model = self.patch_model_generation_config(model)
 
-        print(f"Saving model to {self.config.target_dir}")
+        logger.info(f"Saving model to {self.config.target_dir}")
         model.save_pretrained(self.config.target_dir, state_dict=state_dict)
         del state_dict
         del model
@@ -166,10 +172,10 @@ class BaseModelMerger(ABC):
         processor = hf_processor(self.hf_model_config_path)
         tokenizer = hf_tokenizer(self.hf_model_config_path)
         if processor is not None:
-            print(f"Saving processor to {self.config.target_dir}")
+            logger.info(f"Saving processor to {self.config.target_dir}")
             processor.save_pretrained(self.config.target_dir)
         if tokenizer is not None:
-            print(f"Saving tokenizer to {self.config.target_dir}")
+            logger.info(f"Saving tokenizer to {self.config.target_dir}")
             tokenizer.save_pretrained(self.config.target_dir)
 
     def upload_to_huggingface(self):
@@ -320,7 +326,7 @@ class FSDPModelMerger(BaseModelMerger):
         # Merge tensors
         for key in sorted(state_dict):
             if not isinstance(state_dict[key], list):
-                print(f"No need to merge key {key}")
+                logger.debug(f"No need to merge key {key}")
                 continue
             if key in param_placements:
                 # merge shards
@@ -345,12 +351,14 @@ class FSDPModelMerger(BaseModelMerger):
         mesh, mesh_dim_names = self._extract_device_mesh_info(
             rank_zero_state_dict, world_size
         )
-        print(f"Got device mesh {mesh}, mesh_dim_names {mesh_dim_names}")
+        logger.debug(f"Got device mesh {mesh}, mesh_dim_names {mesh_dim_names}")
 
         total_shards, mesh_shape = self._calculate_shard_configuration(
             mesh, mesh_dim_names
         )
-        print(f"Processing model shards with {total_shards} {mesh_shape} in total")
+        logger.info(
+            f"Processing model shards with {total_shards} {mesh_shape} in total"
+        )
 
         merged_state_dict = self._load_and_merge_state_dicts(
             world_size, total_shards, mesh_shape, mesh_dim_names
@@ -406,8 +414,9 @@ class FSDPModelMerger(BaseModelMerger):
                 hf_state_dict[key], state_dict[key], atol=1e-6, rtol=1e-6
             )
 
-        print(
-            "FSDP checks passed: The merged state_dict matches the hf model saved by FSDPCheckpointManager."
+        logger.info(
+            "FSDP checks passed: The merged state_dict matches the hf model "
+            "saved by FSDPCheckpointManager."
         )
 
 
@@ -552,8 +561,9 @@ class MegatronModelMerger(BaseModelMerger):
                     if "extra_state" in key:
                         continue
                     if self.config.tie_word_embedding and ("output_layer" in key):
-                        print(
-                            "skip lm_head and reward_head loading because of tie_word_embeddings"
+                        logger.debug(
+                            "Skipping lm_head and reward_head loading "
+                            "because of tie_word_embeddings"
                         )
                         continue
 
@@ -602,9 +612,10 @@ class MegatronModelMerger(BaseModelMerger):
         sharded_dirs, tp_size, pp_size = self._check_megatron_checkpoint_path(
             model_ckpt_path
         )
-        print(
-            f"sharded_dirs: {sharded_dirs}, tp_size: {tp_size}, pp_size: {pp_size}, mp_size: {len(sharded_dirs)}"
+        logger.info(
+            f"Found {len(sharded_dirs)} shards: tp_size={tp_size}, pp_size={pp_size}"
         )
+        logger.debug(f"Sharded directories: {sharded_dirs}")
 
         model_state_dict_lst = self._load_state_dicts(
             model_ckpt_path, sharded_dirs, tp_size, pp_size
