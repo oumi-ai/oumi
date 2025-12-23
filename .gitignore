@@ -6,6 +6,8 @@ test_pipeline_output/
 test_wizard_output/
 diff.sh
 oumi_configs/
+enterprise/
+reports/
 
 # Local experiments
 tmp/
