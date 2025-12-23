@@ -14,7 +14,7 @@
 
 import copy
 from dataclasses import asdict, dataclass
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import pandas as pd
 
