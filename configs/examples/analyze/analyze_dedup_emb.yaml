@@ -1,0 +1,72 @@
+# Comprehensive Alpaca Dataset Analysis Configuration
+# Usage: oumi analyze --config configs/examples/analyze/analyze_dedup_emb.yaml
+#
+# This configuration runs comprehensive analysis on the alpaca dataset including:
+# - Duplicate detection (semantic + fuzzy MinHash)
+# - Content pattern detection (placeholders, hallucinations, refusals)
+# - Quality and training effectiveness metrics
+#
+# Requirements:
+#   pip install 'oumi[analyze]'  # Includes sentence-transformers, datasketch
+#
+# Output files:
+#   - message_analysis.csv: Per-message metrics with duplicate flags
+#   - conversation_analysis.csv: Per-conversation aggregated metrics
+#   - analysis_summary.json: Statistical summary with duplicate counts
+#   - analysis_report.html: Interactive HTML report
+#
+# Expected runtime: ~10-30 minutes for full dataset (depends on hardware)
+# GPU recommended for faster embedding computation
+
+# Dataset configuration - FULL alpaca dataset
+dataset_name: tatsu-lab/alpaca
+split: train
+# No sample_count = process entire dataset (~52k samples)
+sample_count: 5000
+
+# Output configuration
+output_path: ./analysis_output/dedup_emb
+generate_report: true
+report_title: "Alpaca Dataset Duplicate Analysis"
+
+# Recommendation settings
+generate_recommendations: true
+
+analyzers:
+  # ==========================================================================
+  # EMBEDDING ANALYZER - Comprehensive duplicate detection
+  # ==========================================================================
+  - id: embedding
+    params:
+      # Model configuration
+      model_name: all-MiniLM-L6-v2 # Fast, good quality (384 dims)
+      # # Alternative: all-mpnet-base-v2 (768 dims, slower but more accurate)
+      batch_size: 64 # Increase if you have more GPU memory
+      # device: null # Auto-detect (uses GPU if available)
+
+      # ----- Semantic Duplicate Detection (Embedding-based) -----
+      # Catches: Paraphrases, same meaning with different wording
+      # Method: Cosine similarity between embedding vectors
+      # Speed: O(n²) - slower, but catches semantic duplicates
+      detect_duplicates: true
+      duplicate_threshold: 0.95 # High threshold = only very similar
+      # Try 0.90 for more aggressive dedup, 0.98 for conservative
+
+      # ----- Fuzzy Duplicate Detection (MinHash LSH) -----
+      # Catches: Near-exact copies, minor edits, copy-paste variants
+      # Method: Jaccard similarity via MinHash with LSH indexing
+      # Speed: O(n) - very fast even for large datasets
+      # detect_fuzzy_duplicates: true
+      # fuzzy_threshold: 0.8 # Jaccard similarity threshold
+      # fuzzy_ngram_size: 3 # Character n-gram size
+      # fuzzy_num_perm: 128 # MinHash permutations (accuracy vs speed)
+      # Higher num_perm = more accurate but slower
+
+      # Clustering (optional - useful for grouping similar content)
+      cluster_samples: false # Set true to cluster by topic
+      # clustering_method: dbscan    # or "kmeans"
+      # eps: 0.5                     # DBSCAN epsilon
+      # min_samples: 2               # DBSCAN min samples
+
+      # Don't store embeddings (saves memory)
+      store_embeddings: true
