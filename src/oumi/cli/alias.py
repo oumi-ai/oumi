@@ -28,6 +28,7 @@ class AliasType(str, Enum):
     JUDGE = "judge"
     TUNE = "tune"
     ANALYZE = "analyze"
+    SYNTH = "synth"
 
 
 _ALIASES: dict[str, dict[AliasType, str]] = {

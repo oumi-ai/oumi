@@ -20,25 +20,62 @@ import typer
 from rich.table import Table
 
 from oumi.cli import cli_utils
+from oumi.cli.alias import AliasType
+from oumi.cli.completions import complete_judge_config
+
+_list_configs_callback = cli_utils.create_list_configs_callback(
+    AliasType.JUDGE, "Available Judge Configs", "judge dataset"
+)
 
 
 def judge_dataset_file(
     ctx: typer.Context,
+    # Main options
     judge_config: Annotated[
         str,
         typer.Option(
             "--config",
-            help="Path to the judge config file",
+            "-c",
+            help="Path or config name (e.g. safety, truthfulness).",
+            rich_help_panel="Options",
+            autocompletion=complete_judge_config,
         ),
     ],
+    list_configs: Annotated[
+        bool,
+        typer.Option(
+            "--list",
+            help="List all available judge configs.",
+            callback=_list_configs_callback,
+            is_eager=True,
+            rich_help_panel="Options",
+        ),
+    ] = False,
+    # I/O options
     input_file: Annotated[
-        str, typer.Option("--input", help="Path to the dataset input file (jsonl)")
-    ],
+        str,
+        typer.Option(
+            "--input",
+            help="Path to the dataset input file (jsonl).",
+            rich_help_panel="I/O",
+        ),
+    ] = "",
     output_file: Annotated[
         str | None,
-        typer.Option("--output", help="Path to the output file (jsonl)"),
+        typer.Option(
+            "--output",
+            help="Path to the output file (jsonl).",
+            rich_help_panel="I/O",
+        ),
     ] = None,
-    display_raw_output: bool = False,
+    display_raw_output: Annotated[
+        bool,
+        typer.Option(
+            "--raw",
+            help="Display raw judge output.",
+            rich_help_panel="Output",
+        ),
+    ] = False,
 ):
     """Judge a dataset."""
     # Delayed import
@@ -56,21 +93,52 @@ def judge_dataset_file(
 
 def judge_conversations_file(
     ctx: typer.Context,
+    # Main options
     judge_config: Annotated[
         str,
         typer.Option(
             "--config",
-            help="Path to the judge config file",
+            "-c",
+            help="Path or config name (e.g. safety, truthfulness).",
+            rich_help_panel="Options",
+            autocompletion=complete_judge_config,
         ),
     ],
+    list_configs: Annotated[
+        bool,
+        typer.Option(
+            "--list",
+            help="List all available judge configs.",
+            callback=_list_configs_callback,
+            is_eager=True,
+            rich_help_panel="Options",
+        ),
+    ] = False,
+    # I/O options
     input_file: Annotated[
-        str, typer.Option("--input", help="Path to the dataset input file (jsonl)")
-    ],
+        str,
+        typer.Option(
+            "--input",
+            help="Path to the conversations input file (jsonl).",
+            rich_help_panel="I/O",
+        ),
+    ] = "",
     output_file: Annotated[
         str | None,
-        typer.Option("--output", help="Path to the output file (jsonl)"),
+        typer.Option(
+            "--output",
+            help="Path to the output file (jsonl).",
+            rich_help_panel="I/O",
+        ),
     ] = None,
-    display_raw_output: bool = False,
+    display_raw_output: Annotated[
+        bool,
+        typer.Option(
+            "--raw",
+            help="Display raw judge output.",
+            rich_help_panel="Output",
+        ),
+    ] = False,
 ):
     """Judge a list of conversations."""
     # Delayed import
@@ -108,17 +176,32 @@ def judge_file(
 ):
     """Judge a dataset or list of conversations."""
     # Delayed import
+    from oumi.cli.alias import try_get_config_name_for_alias
     from oumi.core.configs.judge_config import JudgeConfig
 
     # Load configs
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
-    # Resolve judge config
-    judge_config_obj = JudgeConfig.from_path(path=judge_config, extra_args=extra_args)
+    # Resolve alias and fetch config
+    judge_config_path = str(
+        cli_utils.resolve_and_fetch_config(
+            try_get_config_name_for_alias(judge_config, AliasType.JUDGE),
+        )
+    )
 
-    # Ensure the dataset input file exists
+    # Resolve judge config
+    judge_config_obj = JudgeConfig.from_path(
+        path=judge_config_path, extra_args=extra_args
+    )
+
+    # Ensure the dataset input file is provided and exists
+    if not input_file:
+        cli_utils.CONSOLE.print("[red]Error:[/red] --input is required.")
+        raise typer.Exit(code=1)
     if not Path(input_file).exists():
-        typer.echo(f"Input file not found: '{input_file}'")
+        cli_utils.CONSOLE.print(
+            f"[red]Error:[/red] Input file not found: '{input_file}'"
+        )
         raise typer.Exit(code=1)
 
     # Judge the dataset
