@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import os
 import random
+from collections.abc import Callable
 from pprint import pformat
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch

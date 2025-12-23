@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import copy
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import numpy as np
 import torch
@@ -55,9 +55,9 @@ from oumi.utils.torch_utils import get_first_dim_len
 class _SpecialTokens(NamedTuple):
     """Special tokens used by `VisionLanguageFeatureGenerator`."""
 
-    image_token: Optional[str]
-    image_token_id: Optional[int]
-    label_ignore_index: Optional[int]
+    image_token: str | None
+    image_token_id: int | None
+    label_ignore_index: int | None
 
     pad_token_id: int
     """Token id of `PAD` token."""
@@ -69,19 +69,19 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
     def __init__(
         self,
         *,
-        tokenizer: Optional[BaseTokenizer] = None,
-        processor: Optional[BaseProcessor] = None,
-        processor_name: Optional[str] = None,
-        processor_kwargs: Optional[dict[str, Any]] = None,
+        tokenizer: BaseTokenizer | None = None,
+        processor: BaseProcessor | None = None,
+        processor_name: str | None = None,
+        processor_kwargs: dict[str, Any] | None = None,
         trust_remote_code: bool = False,
-        return_tensors: Optional[str] = None,
-        max_length: Optional[int] = None,
+        return_tensors: str | None = None,
+        max_length: int | None = None,
         truncation: bool = False,
         truncation_side: str = "right",
-        label_ignore_index: Optional[int] = None,
+        label_ignore_index: int | None = None,
         train_on_completions_only: bool = False,
-        response_template: Optional[str] = None,
-        instruction_template: Optional[str] = None,
+        response_template: str | None = None,
+        instruction_template: str | None = None,
     ) -> None:
         """Initializes a new instance of VisionLanguageFeatureProcessor."""
         # Importing these here to avoid circular dependencies
@@ -93,7 +93,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                 "Expected 'left' or 'right'."
             )
 
-        self._max_length: Optional[int] = max_length
+        self._max_length: int | None = max_length
         self._truncation: bool = truncation
         self._truncation_side = truncation_side
         self._return_tensors = return_tensors
@@ -278,7 +278,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
 
     @override
     def transform_conversation(
-        self, conversation: Conversation, options: Optional[FeatureGeneratorOptions]
+        self, conversation: Conversation, options: FeatureGeneratorOptions | None
     ) -> dict:
         """Transforms a single Oumi conversation into a dictionary of model inputs.
 
@@ -295,7 +295,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
     def transform_conversations(
         self,
         conversations: list[Conversation],
-        options: Optional[FeatureGeneratorOptions],
+        options: FeatureGeneratorOptions | None,
     ) -> dict:
         """Transforms a list of Oumi conversations into a dictionary of model inputs.
 
@@ -347,7 +347,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                 continue
             x = inputs[feature_name]
 
-            if not isinstance(x, (list, torch.Tensor, np.ndarray)):
+            if not isinstance(x, list | torch.Tensor | np.ndarray):
                 raise ValueError(
                     f"Unexpected type of the feature '{feature_name}': {type(x)}"
                 )
@@ -397,7 +397,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             labels = inputs["labels"]
             image_token_id = int(self._special_tokens.image_token_id)
             label_ignore_index = int(self._special_tokens.label_ignore_index)
-            if isinstance(labels, (torch.Tensor, np.ndarray)):
+            if isinstance(labels, torch.Tensor | np.ndarray):
                 # Modify in-place
                 labels[labels == image_token_id] = label_ignore_index
             else:

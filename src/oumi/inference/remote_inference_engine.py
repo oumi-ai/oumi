@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import aiofiles
 import aiohttp
@@ -83,25 +83,25 @@ class BatchInfo:
     total_requests: int = 0
     completed_requests: int = 0
     failed_requests: int = 0
-    endpoint: Optional[str] = None
-    input_file_id: Optional[str] = None
-    batch_completion_window: Optional[str] = None
-    output_file_id: Optional[str] = None
-    error_file_id: Optional[str] = None
-    error: Optional[str] = None
-    created_at: Optional[datetime] = None
-    in_progress_at: Optional[datetime] = None
-    expires_at: Optional[datetime] = None
-    finalizing_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    failed_at: Optional[datetime] = None
-    expired_at: Optional[datetime] = None
-    canceling_at: Optional[datetime] = None
-    canceled_at: Optional[datetime] = None
-    metadata: Optional[dict[str, Any]] = None
+    endpoint: str | None = None
+    input_file_id: str | None = None
+    batch_completion_window: str | None = None
+    output_file_id: str | None = None
+    error_file_id: str | None = None
+    error: str | None = None
+    created_at: datetime | None = None
+    in_progress_at: datetime | None = None
+    expires_at: datetime | None = None
+    finalizing_at: datetime | None = None
+    completed_at: datetime | None = None
+    failed_at: datetime | None = None
+    expired_at: datetime | None = None
+    canceling_at: datetime | None = None
+    canceled_at: datetime | None = None
+    metadata: dict[str, Any] | None = None
 
     @staticmethod
-    def _convert_timestamp(timestamp: Optional[int]) -> Optional[datetime]:
+    def _convert_timestamp(timestamp: int | None) -> datetime | None:
         """Convert Unix timestamp to datetime.
 
         Args:
@@ -176,8 +176,8 @@ class BatchListResponse:
     """Response from listing batch jobs."""
 
     batches: list[BatchInfo]
-    first_id: Optional[str] = None
-    last_id: Optional[str] = None
+    first_id: str | None = None
+    last_id: str | None = None
     has_more: bool = False
 
 
@@ -203,10 +203,10 @@ class FileListResponse:
 class RemoteInferenceEngine(BaseInferenceEngine):
     """Engine for running inference against a server implementing the OpenAI API."""
 
-    base_url: Optional[str] = None
+    base_url: str | None = None
     """The base URL for the remote API."""
 
-    api_key_env_varname: Optional[str] = None
+    api_key_env_varname: str | None = None
     """The environment variable name for the API key."""
 
     _remote_params: RemoteParams
@@ -216,8 +216,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         model_params: ModelParams,
         *,
-        generation_params: Optional[GenerationParams] = None,
-        remote_params: Optional[RemoteParams] = None,
+        generation_params: GenerationParams | None = None,
+        remote_params: RemoteParams | None = None,
     ):
         """Initializes the inference Engine.
 
@@ -321,12 +321,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "max_completion_tokens": generation_params.max_new_tokens,
             "seed": generation_params.seed,
             "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
             "frequency_penalty": generation_params.frequency_penalty,
             "presence_penalty": generation_params.presence_penalty,
         }
 
         # Optional generation parameters.
+        if generation_params.top_p is not None:
+            generation_params_dict["top_p"] = generation_params.top_p
         if generation_params.logit_bias:
             generation_params_dict["logit_bias"] = generation_params.logit_bias
         if generation_params.stop_strings:
@@ -422,7 +423,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             conversation_id=original_conversation.conversation_id,
         )
 
-    def _get_api_key(self, remote_params: RemoteParams) -> Optional[str]:
+    def _get_api_key(self, remote_params: RemoteParams) -> str | None:
         if not remote_params:
             return None
 
@@ -435,7 +436,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         return None
 
     def _get_request_headers(
-        self, remote_params: Optional[RemoteParams]
+        self, remote_params: RemoteParams | None
     ) -> dict[str, str]:
         headers = {}
 
@@ -464,7 +465,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         conversation: Conversation,
         semaphore: PoliteAdaptiveSemaphore,
         session: aiohttp.ClientSession,
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> Conversation:
         """Queries the API with the provided input.
 
@@ -616,7 +617,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     async def _infer(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
@@ -654,7 +655,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def _infer_online(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -688,7 +689,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def infer_online(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -712,7 +713,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def infer_from_file(
         self,
         input_filepath: str,
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
@@ -760,7 +761,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def infer_batch(
         self,
         conversations: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> str:
         """Creates a new batch inference job.
 
@@ -798,8 +799,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     def list_batches(
         self,
-        after: Optional[str] = None,
-        limit: Optional[int] = None,
+        after: str | None = None,
+        limit: int | None = None,
     ) -> BatchListResponse:
         """Lists batch jobs.
 
@@ -969,8 +970,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     async def _list_batches(
         self,
-        after: Optional[str] = None,
-        limit: Optional[int] = None,
+        after: str | None = None,
+        limit: int | None = None,
     ) -> BatchListResponse:
         """Lists batch jobs.
 
@@ -1069,10 +1070,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     #
     def list_files(
         self,
-        purpose: Optional[str] = None,
-        limit: Optional[int] = None,
+        purpose: str | None = None,
+        limit: int | None = None,
         order: str = "desc",
-        after: Optional[str] = None,
+        after: str | None = None,
     ) -> FileListResponse:
         """Lists files."""
         return safe_asyncio_run(
@@ -1107,10 +1108,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     async def _list_files(
         self,
-        purpose: Optional[str] = None,
-        limit: Optional[int] = None,
+        purpose: str | None = None,
+        limit: int | None = None,
         order: str = "desc",
-        after: Optional[str] = None,
+        after: str | None = None,
     ) -> FileListResponse:
         """Lists files.
 

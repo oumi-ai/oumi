@@ -105,7 +105,7 @@ def evaluate(
             # Process metrics
             for metric_name, value in metrics.items():
                 metric_name: str = str(metric_name)
-                if isinstance(value, (int, float)):
+                if isinstance(value, int | float):
                     # Extract base metric name and type
                     base_name, *metric_type = metric_name.split(",")
 

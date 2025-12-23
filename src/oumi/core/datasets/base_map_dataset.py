@@ -19,7 +19,7 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable, Sized
 from pathlib import Path
-from typing import Any, NamedTuple, Optional, Union, cast
+from typing import Any, NamedTuple, cast
 
 import datasets
 import pandas as pd
@@ -60,21 +60,21 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
 
     _data: pd.DataFrame
     dataset_name: str
-    dataset_path: Optional[str] = None
-    default_dataset: Optional[str] = None
-    default_subset: Optional[str] = None
+    dataset_path: str | None = None
+    default_dataset: str | None = None
+    default_subset: str | None = None
     trust_remote_code: bool
-    transform_num_workers: Optional[Union[str, int]] = None
+    transform_num_workers: str | int | None = None
 
     def __init__(
         self,
         *,
-        dataset_name: Optional[str],
-        dataset_path: Optional[str] = None,
-        subset: Optional[str] = None,
-        split: Optional[str] = None,
+        dataset_name: str | None,
+        dataset_path: str | None = None,
+        subset: str | None = None,
+        split: str | None = None,
         trust_remote_code: bool = False,
-        transform_num_workers: Optional[Union[str, int]] = None,
+        transform_num_workers: str | int | None = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
@@ -270,7 +270,7 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
 
     def to_hf(
         self, return_iterable: bool = False
-    ) -> Union[datasets.Dataset, datasets.IterableDataset]:
+    ) -> datasets.Dataset | datasets.IterableDataset:
         """Converts the dataset to a Hugging Face dataset.
 
         Args:
@@ -463,11 +463,10 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
             path=self.dataset_name,
             name=self.dataset_subset,
             split=self.split,
-            trust_remote_code=self.trust_remote_code,
         )
 
         if isinstance(
-            splits_or_dataset, (datasets.IterableDataset, datasets.IterableDatasetDict)
+            splits_or_dataset, datasets.IterableDataset | datasets.IterableDatasetDict
         ):
             raise ValueError("IterableDataset is not supported with this class.")
 

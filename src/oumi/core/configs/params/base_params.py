@@ -14,7 +14,7 @@
 
 import dataclasses
 from collections.abc import Iterator
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclasses.dataclass
@@ -58,7 +58,7 @@ class BaseParams:
     #
     # Private methods
     #
-    def _finalize_and_validate(self, validated: Optional[set[int]]) -> None:
+    def _finalize_and_validate(self, validated: set[int] | None) -> None:
         """Recursively finalizes and validates the parameters."""
         if validated is None:
             validated = set()

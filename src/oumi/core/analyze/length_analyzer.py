@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -112,6 +112,7 @@ class LengthAnalyzer(SampleAnalyzer):
             DataFrame with added token count columns
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -132,6 +133,7 @@ class LengthAnalyzer(SampleAnalyzer):
 
         # Get analyzer ID for column naming (defaults to "length")
         analyzer_id = getattr(self, "analyzer_id", "length")
+
         for column in text_columns:
             if self.token_count:
                 col_name = f"{column}_{analyzer_id}_token_count"
@@ -157,4 +159,4 @@ class LengthAnalyzer(SampleAnalyzer):
                         .apply(self._count_tokens_tiktoken)
                     )
 
-        return result_df
+        return result_df, generated_schema

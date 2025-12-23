@@ -16,7 +16,6 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Optional
 
-import pandas as pd
 import typer
 from rich.box import ROUNDED
 from rich.table import Table
@@ -161,6 +160,8 @@ _METRIC_DESCRIPTIONS: dict[str, tuple[str, str, Optional[str]]] = {
 }
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 
 
@@ -174,7 +175,7 @@ def analyze(
         ),
     ],
     output: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--output",
             "-o",
@@ -810,7 +811,7 @@ def _export_results(
     cli_utils.CONSOLE.print(f"[green]Saved analysis summary to:[/green] {summary_path}")
 
 
-def _save_dataframe(df: pd.DataFrame, path: Path, output_format: str) -> None:
+def _save_dataframe(df: "pd.DataFrame", path: Path, output_format: str) -> None:
     """Save a DataFrame to the specified format."""
     if output_format == "csv":
         df.to_csv(path, index=False)

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-from typing import Annotated, Final, Optional
+from typing import Annotated, Final
 
 import typer
 from rich.table import Table
@@ -39,7 +39,7 @@ def infer(
         typer.Option("-i", "--interactive", help="Run in an interactive session."),
     ] = False,
     image: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--image",
             help=(
@@ -49,7 +49,7 @@ def infer(
         ),
     ] = None,
     system_prompt: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--system-prompt",
             help=(
@@ -111,7 +111,7 @@ def infer(
     # https://stackoverflow.com/questions/62691279/how-to-disable-tokenizers-parallelism-true-false-warning
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-    input_image_png_bytes: Optional[list[bytes]] = None
+    input_image_png_bytes: list[bytes] | None = None
     if image:
         image_lower = image.lower()
         if image_lower.startswith("http://") or image_lower.startswith("https://"):

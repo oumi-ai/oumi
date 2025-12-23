@@ -1,0 +1,36 @@
+# Inference config for OLMo 3 7B Instruct.
+#
+# Model highlights:
+#   - 7B parameter open LLM from Allen AI
+#   - Sliding window attention (4096 window, 3/4 layers)
+#   - Pre-trained on Dolma 3 dataset
+#   - Apache 2.0 license
+#
+# Requirements:
+#   - transformers >= 4.57.0
+#   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/olmo3/inference/7b_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "allenai/Olmo-3-7B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+  # Recommended settings from model card
+  temperature: 0.6
+  top_p: 0.95
+  use_sampling: True
+
+engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.

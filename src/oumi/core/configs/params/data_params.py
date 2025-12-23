@@ -13,9 +13,10 @@
 # limitations under the License.
 
 import math
+import warnings
 from dataclasses import dataclass, field, fields
 from enum import Enum
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal
 
 from omegaconf import MISSING
 
@@ -64,7 +65,7 @@ class DatasetParams(BaseParams):
     be loaded from the specified `dataset_path`.
     """
 
-    dataset_path: Optional[str] = None
+    dataset_path: str | None = None
     """The path to the dataset to load.
 
     This can be used to load a dataset of type `dataset_name` from a custom path.
@@ -73,7 +74,7 @@ class DatasetParams(BaseParams):
     downloaded from the huggingface hub or oumi registry.
     """
 
-    subset: Optional[str] = None
+    subset: str | None = None
     """The subset of the dataset to load.
 
     This is usually a subfolder within the dataset root.
@@ -91,14 +92,14 @@ class DatasetParams(BaseParams):
     These arguments will be passed directly to the dataset constructor.
     """
 
-    sample_count: Optional[int] = None
+    sample_count: int | None = None
     """The number of examples to sample from the dataset.
 
     Must be non-negative. If `sample_count` is larger than the size of the dataset, then
     the required additional examples are sampled by looping over the original dataset.
     """
 
-    mixture_proportion: Optional[float] = None
+    mixture_proportion: float | None = None
     """The proportion of examples from this dataset relative to other datasets
         in the mixture.
 
@@ -113,7 +114,7 @@ class DatasetParams(BaseParams):
     shuffle: bool = False
     """Whether to shuffle the dataset before any sampling occurs."""
 
-    seed: Optional[int] = None
+    seed: int | None = None
     """The random seed used for shuffling the dataset before sampling.
 
     If set to `None`, shuffling will be non-deterministic.
@@ -123,9 +124,13 @@ class DatasetParams(BaseParams):
     """The size of the shuffle buffer used for shuffling the dataset before sampling."""
 
     trust_remote_code: bool = False
-    """Whether to trust remote code when loading the dataset."""
+    """Whether to trust remote code when loading the dataset.
 
-    transform_num_workers: Optional[Union[str, int]] = None
+    Deprecated:
+        This parameter is deprecated and will be removed in the future.
+    """
+
+    transform_num_workers: str | int | None = None
     """Number of subprocesses to use for dataset post-processing (`ds.transform()`).
 
     Multiprocessing is disabled by default (`None`).
@@ -176,13 +181,21 @@ class DatasetParams(BaseParams):
                     "Use properties of DatasetParams instead."
                 )
 
+        if self.trust_remote_code:
+            warnings.warn(
+                "`trust_remote_code` is deprecated and will be removed in the future.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.trust_remote_code = False
+
 
 @dataclass
 class DatasetSplitParams(BaseParams):
     datasets: list[DatasetParams] = field(default_factory=list)
     """The datasets in this split."""
 
-    collator_name: Optional[str] = None
+    collator_name: str | None = None
     """Name of Oumi data collator.
 
     Data collator controls how to form a mini-batch from individual dataset elements.
@@ -215,7 +228,7 @@ class DatasetSplitParams(BaseParams):
     stream: bool = False
     """Whether to stream the dataset."""
 
-    target_col: Optional[str] = None
+    target_col: str | None = None
     """The dataset column name containing the input for training/testing/validation.
 
     Deprecated:
@@ -246,13 +259,13 @@ class DatasetSplitParams(BaseParams):
        in the mixture. This may lead to significant oversampling.
     """
 
-    seed: Optional[int] = None
+    seed: int | None = None
     """The random seed used for mixing this dataset split, if specified.
 
     If set to `None` mixing will be non-deterministic.
     """
 
-    use_torchdata: Optional[bool] = None
+    use_torchdata: bool | None = None
     """Whether to use the `torchdata` library for dataset loading and processing.
 
     If set to `None`, this setting may be auto-inferred.
@@ -286,8 +299,10 @@ class DatasetSplitParams(BaseParams):
                 f'"{MixtureStrategy.ALL_EXHAUSTED.value}"].'
             )
         if self.target_col is not None:
-            raise DeprecationWarning(
-                "`target_col` is deprecated and will be removed in the future."
+            warnings.warn(
+                "`target_col` is deprecated and will be removed in the future.",
+                DeprecationWarning,
+                stacklevel=2,
             )
 
     def _is_sum_normalized(self, mix_sum) -> bool:

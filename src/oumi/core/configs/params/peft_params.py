@@ -14,7 +14,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal, Optional
+from typing import Literal
 
 from peft import LoraConfig
 from peft.utils.peft_types import TaskType
@@ -125,7 +125,7 @@ class PeftParams(BaseParams):
     This helps prevent overfitting in the adaptation layers.
     """
 
-    lora_target_modules: Optional[list[str]] = field(
+    lora_target_modules: list[str] | None = field(
         default=None,
         metadata={"help": "LoRA target modules."},
     )
@@ -138,7 +138,7 @@ class PeftParams(BaseParams):
     lora_target_parameters instead).
     """
 
-    lora_target_parameters: Optional[list[str]] = field(
+    lora_target_parameters: list[str] | None = field(
         default=None,
         metadata={"help": "LoRA target parameters."},
     )
@@ -149,7 +149,7 @@ class PeftParams(BaseParams):
     MoEs that sometimes use nn.Parameter instead of nn.Module.
     """
 
-    lora_modules_to_save: Optional[list[str]] = field(
+    lora_modules_to_save: list[str] | None = field(
         default=None,
         metadata={"help": "Model layers to unfreeze and train."},
     )
@@ -246,7 +246,7 @@ class PeftParams(BaseParams):
     Can be 'fp4' (float point 4) or 'nf4' (normal float 4).
     """
 
-    llm_int8_skip_modules: Optional[list[str]] = field(
+    llm_int8_skip_modules: list[str] | None = field(
         default=None,
         metadata={"help": "Modules that we do not want to convert in 8-bit"},
     )

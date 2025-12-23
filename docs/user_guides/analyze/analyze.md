@@ -100,6 +100,13 @@ conversation_df = analyzer.conversation_df  # One row per conversation
 full_df = analyzer.analysis_df          # Merged view
 ```
 
+The `conversation_df` includes:
+
+- `conversation_index`: Index of the conversation in the dataset
+- `conversation_id`: Unique identifier for the conversation
+- `num_messages`: Number of messages in the conversation
+- `conversation_text_content`: Full conversation rendered as text (formatted as "ROLE: content" for each message)
+
 ### Querying and Filtering
 
 Filter results using pandas query syntax:
@@ -109,7 +116,7 @@ Filter results using pandas query syntax:
 long_messages = analyzer.query("text_content_length_word_count > 10")
 
 # Find short conversations
-short_convos = analyzer.query_conversations("text_content_length_char_count < 100")
+short_convos = analyzer.query_conversations("conversation_text_content_length_char_count < 100")
 
 # Create filtered dataset
 filtered_dataset = analyzer.filter("text_content_length_word_count < 100")

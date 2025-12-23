@@ -16,7 +16,6 @@ import importlib
 import importlib.metadata
 from collections import namedtuple
 from functools import lru_cache
-from typing import Optional, Union
 
 from packaging import version
 
@@ -49,10 +48,10 @@ def _version_bounds_str(min_package_version, max_package_version):
 
 def _package_error_message(
     package_name: str,
-    actual_package_version: Union[version.Version, None],
-    min_package_version: Optional[version.Version] = None,
-    max_package_version: Optional[version.Version] = None,
-) -> Union[str, None]:
+    actual_package_version: version.Version | None,
+    min_package_version: version.Version | None = None,
+    max_package_version: version.Version | None = None,
+) -> str | None:
     """Checks if a package is installed and if its version is compatible.
 
     This function checks if the package with name `package_name` is installed and if the
@@ -174,4 +173,31 @@ def require_torchdata(feature_name: str = "This feature") -> None:
         raise ImportError(
             f"{feature_name} requires torchdata. "
             "Please install it with: pip install 'oumi[torchdata]' "
+        )
+
+
+_MIN_TRL_VERSION_FOR_GOLD = "0.24.0"
+
+
+@lru_cache(maxsize=1)
+def is_gold_trainer_available() -> bool:
+    """Checks if TRL's experimental GOLDTrainer is available."""
+    try:
+        trl_version = importlib.metadata.version("trl")
+        return version.parse(trl_version) >= version.parse(_MIN_TRL_VERSION_FOR_GOLD)
+    except importlib.metadata.PackageNotFoundError:
+        return False
+
+
+def require_gold_trainer(feature_name: str = "GOLD training") -> None:
+    """Raises an ImportError if TRL's GOLDTrainer is not available."""
+    if not is_gold_trainer_available():
+        try:
+            trl_version = importlib.metadata.version("trl")
+        except importlib.metadata.PackageNotFoundError:
+            trl_version = "not installed"
+        raise ImportError(
+            f"{feature_name} requires TRL version >= {_MIN_TRL_VERSION_FOR_GOLD}. "
+            f"Current TRL version: {trl_version}. "
+            "Please upgrade TRL with: pip install --upgrade trl"
         )

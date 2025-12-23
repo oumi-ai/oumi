@@ -236,7 +236,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             for key in ("role", "content"):
                 if key not in json_dict:
                     raise RuntimeError(f"The required field '{key}' is missing!")
-            if not isinstance(json_dict["content"], (str, list)):
+            if not isinstance(json_dict["content"], str | list):
                 raise RuntimeError(
                     "The 'content' field must be `str` or `list`. "
                     f"Actual: {type(json_dict['content'])}."
@@ -285,7 +285,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             n=1,
             max_tokens=generation_params.max_new_tokens,
             temperature=generation_params.temperature,
-            top_p=generation_params.top_p,
+            top_p=generation_params.top_p
+            if generation_params.top_p is not None
+            else 1.0,
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
             stop=generation_params.stop_strings,

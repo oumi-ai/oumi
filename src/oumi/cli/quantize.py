@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -24,7 +24,7 @@ from oumi.utils.logging import logger
 def quantize(
     ctx: typer.Context,
     config: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
             help=(
