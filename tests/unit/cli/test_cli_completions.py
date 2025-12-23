@@ -17,8 +17,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from oumi.cli.completions import (
     _fuzzy_match,
     _score_match,
@@ -126,7 +124,7 @@ class TestCompleteInferConfig:
         names = [r[0] for r in results if "/" not in r[0]]
 
         # Import to verify - these should have infer configs
-        from oumi.cli.alias import AliasType, _ALIASES
+        from oumi.cli.alias import _ALIASES, AliasType
 
         for name in names:
             if name in _ALIASES:

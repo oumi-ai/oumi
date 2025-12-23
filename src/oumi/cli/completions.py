@@ -146,6 +146,7 @@ def create_config_completer(alias_type: AliasType):
     Returns:
         Completion function suitable for use with typer.Option(autocompletion=...).
     """
+
     def complete_config(incomplete: str) -> list[tuple[str, str]]:
         """Complete config names and paths.
 

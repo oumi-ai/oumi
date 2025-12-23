@@ -199,7 +199,9 @@ def judge_file(
         cli_utils.CONSOLE.print("[red]Error:[/red] --input is required.")
         raise typer.Exit(code=1)
     if not Path(input_file).exists():
-        cli_utils.CONSOLE.print(f"[red]Error:[/red] Input file not found: '{input_file}'")
+        cli_utils.CONSOLE.print(
+            f"[red]Error:[/red] Input file not found: '{input_file}'"
+        )
         raise typer.Exit(code=1)
 
     # Judge the dataset
