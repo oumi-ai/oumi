@@ -356,7 +356,9 @@ class FSDPModelMerger(BaseModelMerger):
         total_shards, mesh_shape = self._calculate_shard_configuration(
             mesh, mesh_dim_names
         )
-        logger.info(f"Processing model shards with {total_shards} {mesh_shape} in total")
+        logger.info(
+            f"Processing model shards with {total_shards} {mesh_shape} in total"
+        )
 
         merged_state_dict = self._load_and_merge_state_dicts(
             world_size, total_shards, mesh_shape, mesh_dim_names
