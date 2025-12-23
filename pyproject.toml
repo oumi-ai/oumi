@@ -141,6 +141,7 @@ gcp = [
     "google-cloud-storage>=3.3",
     "skypilot[gcp]",
 ]
+kubernetes = ["skypilot[kubernetes]"]
 lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
