@@ -12,32 +12,57 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Embedding analyzer for semantic analysis of text content."""
+"""Embedding analyzer for semantic analysis of text content.
 
-from typing import Any, Optional
+This module provides the EmbeddingAnalyzer class for detecting semantic
+duplicates, fuzzy duplicates (using MinHash LSH), and clustering samples
+based on their semantic similarity.
+
+Example usage:
+    >>> from oumi.core.analyze import EmbeddingAnalyzer
+    >>> analyzer = EmbeddingAnalyzer(
+    ...     detect_duplicates=True,
+    ...     duplicate_threshold=0.95,
+    ... )
+    >>> result_df, schema = analyzer.analyze_sample(df, schema)
+"""
+
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from oumi.core.analyze.column_types import ContentType
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.embedding_base_analyzer import EmbeddingBasedAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
 
 
 @register_sample_analyzer("embedding")
-class EmbeddingAnalyzer(SampleAnalyzer):
+class EmbeddingAnalyzer(EmbeddingBasedAnalyzer):
     """Analyzer that computes embeddings for semantic analysis of text content.
 
     This analyzer uses sentence-transformers to compute dense vector embeddings
     for text content, enabling semantic analysis such as:
     - Detecting semantic duplicates (similar meaning but different wording)
-    - Clustering similar samples
-    - Computing semantic similarity scores
+    - Detecting fuzzy duplicates (using MinHash LSH for O(n) scalability)
+    - Clustering similar samples using DBSCAN or K-means
 
     Note: This analyzer requires sentence-transformers to be installed.
-    Install with: pip install 'oumi[analyze_advanced]'
+    Install with: pip install 'oumi[analyze]'
+
+    Example:
+        >>> analyzer = EmbeddingAnalyzer(
+        ...     detect_duplicates=True,
+        ...     duplicate_threshold=0.95,
+        ...     cluster_samples=True,
+        ...     clustering_method="dbscan",
+        ... )
+        >>> result_df, schema = analyzer.analyze_sample(
+        ...     df,
+        ...     schema={"content": {"content_type": "text"}}
+        ... )
     """
 
     def __init__(
@@ -60,6 +85,7 @@ class EmbeddingAnalyzer(SampleAnalyzer):
         device: Optional[str] = None,
         store_embeddings: bool = False,
         show_progress_bar: bool = True,
+        similarity_chunk_size: int = 1000,
     ):
         """Initialize the EmbeddingAnalyzer.
 
@@ -69,45 +95,84 @@ class EmbeddingAnalyzer(SampleAnalyzer):
             detect_duplicates: Whether to detect semantic duplicates.
                 Duplicates are identified by cosine similarity above threshold.
             duplicate_threshold: Cosine similarity threshold for detecting
-                duplicates. Values closer to 1.0 require higher similarity.
+                duplicates. Must be in range [0.0, 1.0]. Values closer to 1.0
+                require higher similarity. Default 0.95.
             duplicate_scope: Controls which messages are compared for duplicate
                 detection. Options:
-                - "all": Compare all messages together (default, original behavior)
-                - "by_role": Only compare messages with the same role (user vs user,
-                  assistant vs assistant, etc.)
+                - "all": Compare all messages together (default)
+                - "by_role": Only compare messages with the same role
                 - "user": Only detect duplicates among user messages
                 - "assistant": Only detect duplicates among assistant messages
-                Requires a "role" column in the schema. Falls back to "all" if
-                no role column is found.
             detect_fuzzy_duplicates: Whether to detect fuzzy (near) duplicates
                 using MinHash LSH. Much faster than semantic duplicate detection
                 for large datasets. Requires datasketch package.
             fuzzy_threshold: Jaccard similarity threshold for fuzzy duplicates.
-                Values closer to 1.0 require higher similarity. Default 0.8.
+                Must be in range [0.0, 1.0]. Default 0.8.
             fuzzy_ngram_size: N-gram size for fuzzy duplicate detection.
                 Smaller values are more sensitive to small changes. Default 3.
             fuzzy_num_perm: Number of permutations for MinHash. Higher values
                 are more accurate but slower. Default 128.
             cluster_samples: Whether to cluster samples by semantic similarity.
-            clustering_method: Clustering method to use: "dbscan" or "kmeans".
-                DBSCAN automatically determines the number of clusters.
+            clustering_method: Clustering method: "dbscan" or "kmeans".
             n_clusters: Number of clusters for k-means. Required if using kmeans.
             eps: DBSCAN epsilon parameter (maximum distance between samples).
             min_samples: DBSCAN minimum samples in a neighborhood.
             batch_size: Batch size for embedding computation.
-            device: Device to use for embedding model ("cuda", "cpu", or None for auto).
+            device: Device for embedding model ("cuda", "cpu", or None for auto).
             store_embeddings: Whether to store embeddings in the output DataFrame.
-                Note: This can significantly increase memory usage.
-            show_progress_bar: Whether to show progress bars during embedding
-                computation and fuzzy duplicate detection. Default True.
+            show_progress_bar: Whether to show progress bars during computation.
+            similarity_chunk_size: Chunk size for similarity matrix computation.
+                Larger values are faster but use more memory. Default 1000.
 
         Raises:
-            ImportError: If sentence-transformers is not installed.
-            ValueError: If clustering_method is "kmeans" but n_clusters is not set.
+            ImportError: If required dependencies are not installed.
+            ValueError: If parameters are invalid.
         """
-        self._check_dependencies()
+        super().__init__(
+            model_name=model_name,
+            batch_size=batch_size,
+            device=device,
+            show_progress_bar=show_progress_bar,
+        )
 
-        self.model_name = model_name
+        # Validate thresholds
+        if not 0.0 <= duplicate_threshold <= 1.0:
+            raise ValueError(
+                f"duplicate_threshold must be in range [0.0, 1.0], "
+                f"got {duplicate_threshold}"
+            )
+        if not 0.0 <= fuzzy_threshold <= 1.0:
+            raise ValueError(
+                f"fuzzy_threshold must be in range [0.0, 1.0], "
+                f"got {fuzzy_threshold}"
+            )
+
+        # Validate duplicate_scope
+        valid_scopes = ("all", "by_role", "user", "assistant")
+        if duplicate_scope not in valid_scopes:
+            raise ValueError(
+                f"Invalid duplicate_scope: '{duplicate_scope}'. "
+                f"Must be one of: {valid_scopes}"
+            )
+
+        # Validate clustering parameters
+        if cluster_samples:
+            self._check_sklearn()
+            if clustering_method == "kmeans" and n_clusters is None:
+                raise ValueError(
+                    "n_clusters must be specified when using kmeans clustering. "
+                    "Either set n_clusters or use clustering_method='dbscan'."
+                )
+            if clustering_method not in ("dbscan", "kmeans"):
+                raise ValueError(
+                    f"Unknown clustering_method: '{clustering_method}'. "
+                    f"Supported methods: 'dbscan', 'kmeans'."
+                )
+
+        # Check fuzzy duplicate dependencies
+        if detect_fuzzy_duplicates:
+            self._check_datasketch()
+
         self.detect_duplicates = detect_duplicates
         self.duplicate_threshold = duplicate_threshold
         self.duplicate_scope = duplicate_scope
@@ -120,128 +185,18 @@ class EmbeddingAnalyzer(SampleAnalyzer):
         self.n_clusters = n_clusters
         self.eps = eps
         self.min_samples = min_samples
-        self.batch_size = batch_size
-        self.device = device
         self.store_embeddings = store_embeddings
-        self.show_progress_bar = show_progress_bar
-
-        # Validate parameters
-        valid_scopes = ("all", "by_role", "user", "assistant")
-        if self.duplicate_scope not in valid_scopes:
-            raise ValueError(
-                f"Invalid duplicate_scope: '{self.duplicate_scope}'. "
-                f"Must be one of: {valid_scopes}"
-            )
-
-        if self.cluster_samples and self.clustering_method == "kmeans":
-            if self.n_clusters is None:
-                raise ValueError(
-                    "n_clusters must be specified when using kmeans clustering. "
-                    "Either set n_clusters or use clustering_method='dbscan'."
-                )
-
-        # Check fuzzy duplicate dependencies
-        if self.detect_fuzzy_duplicates:
-            self._check_fuzzy_dependencies()
-
-        # Lazy-load the model
-        self._model = None
-
-    def _check_dependencies(self) -> None:
-        """Check if required dependencies are installed.
-
-        Raises:
-            ImportError: If sentence-transformers is not installed.
-        """
-        try:
-            import sentence_transformers  # noqa: F401
-        except ImportError:
-            raise ImportError(
-                "EmbeddingAnalyzer requires sentence-transformers. "
-                "Install with: pip install 'oumi[analyze_advanced]'"
-            )
-
-        try:
-            import sklearn  # noqa: F401
-        except ImportError:
-            raise ImportError(
-                "EmbeddingAnalyzer requires scikit-learn for clustering. "
-                "Install with: pip install 'oumi[analyze_advanced]'"
-            )
-
-    def _check_fuzzy_dependencies(self) -> None:
-        """Check if datasketch is installed for fuzzy duplicate detection.
-
-        Raises:
-            ImportError: If datasketch is not installed.
-        """
-        try:
-            import datasketch  # noqa: F401
-        except ImportError:
-            raise ImportError(
-                "Fuzzy duplicate detection requires datasketch. "
-                "Install with: pip install 'oumi[analyze]' or pip install datasketch"
-            )
-
-    def _get_model(self) -> Any:
-        """Lazy-load the sentence-transformers model.
-
-        Returns:
-            SentenceTransformer model instance.
-        """
-        if self._model is None:
-            from sentence_transformers import SentenceTransformer
-
-            logger.info(f"Loading embedding model: {self.model_name}")
-            self._model = SentenceTransformer(self.model_name, device=self.device)
-        return self._model
-
-    def _compute_embeddings(self, texts: list[str]) -> np.ndarray:
-        """Compute embeddings for a list of texts.
-
-        Args:
-            texts: List of text strings to embed.
-
-        Returns:
-            Numpy array of shape (n_texts, embedding_dim).
-        """
-        model = self._get_model()
-
-        if not self.show_progress_bar:
-            # No progress bar - encode all at once
-            embeddings = model.encode(
-                texts,
-                batch_size=self.batch_size,
-                show_progress_bar=False,
-                convert_to_numpy=True,
-            )
-            return embeddings
-
-        # Use our own progress bar for better terminal compatibility
-        # Process in batches with tqdm
-        all_embeddings = []
-
-        with tqdm(total=len(texts), desc="Computing embeddings") as pbar:
-            for i in range(0, len(texts), self.batch_size):
-                batch_texts = texts[i : i + self.batch_size]
-                batch_embeddings = model.encode(
-                    batch_texts,
-                    batch_size=self.batch_size,
-                    show_progress_bar=False,
-                    convert_to_numpy=True,
-                )
-                all_embeddings.append(batch_embeddings)
-                pbar.update(len(batch_texts))
-
-        return np.vstack(all_embeddings)
+        self.similarity_chunk_size = similarity_chunk_size
 
     def _detect_semantic_duplicates(
         self, embeddings: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
         """Detect semantic duplicates based on cosine similarity.
 
+        Uses chunked processing to manage memory for large datasets.
+
         Args:
-            embeddings: Array of embeddings.
+            embeddings: Array of normalized embeddings.
 
         Returns:
             Tuple of (duplicate_group_ids, is_duplicate flags).
@@ -253,19 +208,18 @@ class EmbeddingAnalyzer(SampleAnalyzer):
         n_samples = len(embeddings)
 
         # Initialize arrays
-        duplicate_group_ids = np.arange(n_samples)  # Each sample starts in own group
+        duplicate_group_ids = np.arange(n_samples)
         is_duplicate = np.zeros(n_samples, dtype=bool)
 
-        # Compute similarity matrix (can be memory intensive for large datasets)
-        # For very large datasets, we would use batch processing
         if n_samples > 10000:
             logger.warning(
                 f"Computing similarity matrix for {n_samples} samples. "
-                "This may take a while and use significant memory."
+                "This may take a while and use significant memory. "
+                "Consider using fuzzy duplicates (MinHash LSH) for faster processing."
             )
 
         # Process in chunks to manage memory
-        chunk_size = min(1000, n_samples)
+        chunk_size = min(self.similarity_chunk_size, n_samples)
         processed = set()
 
         for i in range(0, n_samples, chunk_size):
@@ -291,7 +245,7 @@ class EmbeddingAnalyzer(SampleAnalyzer):
                     is_duplicate[global_idx] = True
                     is_duplicate[duplicate_indices] = True
 
-                    # Assign same group ID
+                    # Assign same group ID (use minimum for consistency)
                     min_group = min(
                         duplicate_group_ids[global_idx],
                         *[duplicate_group_ids[j] for j in duplicate_indices],
@@ -308,15 +262,16 @@ class EmbeddingAnalyzer(SampleAnalyzer):
         """Extract character n-grams from text.
 
         Args:
-            text: Input text.
+            text: Input text string.
 
         Returns:
-            Set of n-gram strings.
+            Set of n-gram strings. For texts shorter than n-gram size,
+            returns a set containing just the text itself.
         """
         text = text.lower().strip()
         n = self.fuzzy_ngram_size
         if len(text) < n:
-            return {text}
+            return {text} if text else set()
         return {text[i : i + n] for i in range(len(text) - n + 1)}
 
     def _detect_fuzzy_duplicates(
@@ -325,16 +280,14 @@ class EmbeddingAnalyzer(SampleAnalyzer):
         """Detect fuzzy (near) duplicates using MinHash LSH.
 
         This method is much faster than semantic duplicate detection for
-        large datasets, as it uses locality-sensitive hashing.
+        large datasets, as it uses locality-sensitive hashing with O(n)
+        complexity for candidate generation.
 
         Args:
             texts: List of text strings.
 
         Returns:
             Tuple of (fuzzy_group_ids, is_fuzzy_duplicate, jaccard_scores).
-            - fuzzy_group_ids: Integer IDs grouping near-duplicates together
-            - is_fuzzy_duplicate: Boolean array indicating if sample has near-duplicates
-            - jaccard_scores: Estimated Jaccard similarity to nearest duplicate
         """
         from datasketch import MinHash, MinHashLSH
 
@@ -348,6 +301,7 @@ class EmbeddingAnalyzer(SampleAnalyzer):
         # Create MinHash for each text
         logger.info(f"Creating MinHash signatures for {n_samples} samples...")
         minhashes: list[MinHash] = []
+
         text_iterator = (
             tqdm(texts, desc="Creating MinHash signatures")
             if self.show_progress_bar
@@ -366,7 +320,7 @@ class EmbeddingAnalyzer(SampleAnalyzer):
 
         # Find near-duplicates
         logger.info("Finding fuzzy duplicates using LSH...")
-        processed_groups: dict[int, int] = {}  # Maps sample index to group ID
+        processed_groups: dict[int, int] = {}
         current_group = 0
 
         minhash_iterator = (
@@ -375,7 +329,6 @@ class EmbeddingAnalyzer(SampleAnalyzer):
             else enumerate(minhashes)
         )
         for i, m in minhash_iterator:
-            # Query LSH for similar items
             candidates = lsh.query(m)
             candidate_indices = [int(c) for c in candidates if int(c) != i]
 
@@ -422,55 +375,26 @@ class EmbeddingAnalyzer(SampleAnalyzer):
             embeddings: Array of embeddings.
 
         Returns:
-            Array of cluster labels.
+            Array of cluster labels. For DBSCAN, -1 indicates noise points.
         """
         if self.clustering_method == "dbscan":
             from sklearn.cluster import DBSCAN
 
             clustering = DBSCAN(eps=self.eps, min_samples=self.min_samples)
             labels = clustering.fit_predict(embeddings)
-        elif self.clustering_method == "kmeans":
+        else:  # kmeans
             from sklearn.cluster import KMeans
 
             clustering = KMeans(n_clusters=self.n_clusters, random_state=42, n_init=10)
             labels = clustering.fit_predict(embeddings)
-        else:
-            raise ValueError(
-                f"Unknown clustering method: {self.clustering_method}. "
-                f"Supported methods: 'dbscan', 'kmeans'."
-            )
 
         return labels
-
-    def _find_role_column(
-        self, df: pd.DataFrame, schema: Optional[dict]
-    ) -> Optional[str]:
-        """Find the role column in the DataFrame using the schema.
-
-        Args:
-            df: Input DataFrame.
-            schema: Column schema dict.
-
-        Returns:
-            Name of the role column if found, None otherwise.
-        """
-        if not schema:
-            return None
-
-        for col, config in schema.items():
-            if (
-                config.get("content_type") == ContentType.CATEGORICAL
-                and col in df.columns
-                and "role" in col.lower()
-            ):
-                return col
-        return None
 
     def analyze_sample(
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields using embeddings for semantic analysis.
 
         Args:
@@ -478,35 +402,28 @@ class EmbeddingAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added embedding analysis columns.
+            Tuple of (result DataFrame, generated schema dict).
+            The result DataFrame contains the original columns plus:
+            - {col}_embedding_duplicate_group: Duplicate group ID
+            - {col}_embedding_has_semantic_duplicate: Boolean flag
+            - {col}_embedding_fuzzy_duplicate_group: Fuzzy group ID (if enabled)
+            - {col}_embedding_has_fuzzy_duplicate: Boolean flag (if enabled)
+            - {col}_embedding_fuzzy_jaccard_score: Jaccard score (if enabled)
+            - {col}_embedding_cluster: Cluster label (if enabled)
+            - {col}_embedding_embedding: Raw embedding (if store_embeddings=True)
         """
+        self._validate_schema_required(schema)
         result_df = df.copy()
+        generated_schema: dict = {}
 
-        if not schema:
-            raise ValueError(
-                "schema is required to identify text fields for embedding analysis. "
-                "Please provide a column schema dict that specifies which "
-                "columns contain text content."
-            )
-
-        text_columns = [
-            col
-            for col, config in schema.items()
-            if config.get("content_type") == ContentType.TEXT and col in df.columns
-        ]
-
+        text_columns = self._find_text_columns(df, schema)
         if not text_columns:
-            # No text columns to analyze in this DataFrame, return unchanged
-            return result_df
+            return result_df, generated_schema
 
-        # Get analyzer ID for column naming
         analyzer_id = getattr(self, "analyzer_id", "embedding")
-
-        # Find role column for role-aware duplicate detection
         role_column = self._find_role_column(df, schema)
 
         for column in text_columns:
-            # Get texts and compute embeddings
             texts = df[column].astype(str).tolist()
 
             if len(texts) == 0:
@@ -517,151 +434,200 @@ class EmbeddingAnalyzer(SampleAnalyzer):
 
             # Detect semantic duplicates
             if self.detect_duplicates:
-                dup_group_col = f"{column}_{analyzer_id}_duplicate_group"
-                has_dup_col = f"{column}_{analyzer_id}_has_semantic_duplicate"
-
-                # Determine if we should use role-aware detection
-                use_role_aware = (
-                    self.duplicate_scope != "all" and role_column is not None
+                result_df, col_schema = self._process_semantic_duplicates(
+                    result_df, df, embeddings, texts, column, analyzer_id,
+                    role_column, schema
                 )
+                generated_schema.update(col_schema)
 
-                if not use_role_aware:
-                    # Original behavior: compare all messages together
-                    logger.info("Detecting semantic duplicates...")
-                    duplicate_groups, is_duplicate = self._detect_semantic_duplicates(
-                        embeddings
-                    )
-                    result_df[dup_group_col] = duplicate_groups
-                    result_df[has_dup_col] = is_duplicate
-                else:
-                    # Role-aware duplicate detection
-                    logger.info(
-                        f"Detecting semantic duplicates with scope='{self.duplicate_scope}'..."
-                    )
-                    result_df[dup_group_col] = np.arange(len(df))
-                    result_df[has_dup_col] = False
-
-                    # Determine which roles to process
-                    if self.duplicate_scope == "by_role":
-                        roles_to_process = df[role_column].str.lower().unique().tolist()
-                    else:
-                        # "user" or "assistant" - only process that role
-                        roles_to_process = [self.duplicate_scope]
-
-                    # Track group ID offset to ensure unique groups across roles
-                    group_offset = 0
-
-                    for role in roles_to_process:
-                        role_mask = df[role_column].str.lower() == role
-                        role_indices = df[role_mask].index.tolist()
-
-                        if len(role_indices) < 2:
-                            continue
-
-                        # Get embeddings for this role
-                        role_embeddings = embeddings[role_mask]
-
-                        logger.info(
-                            f"  Processing {len(role_indices)} '{role}' messages..."
-                        )
-
-                        # Detect duplicates within this role
-                        role_groups, role_is_dup = self._detect_semantic_duplicates(
-                            role_embeddings
-                        )
-
-                        # Assign results back to the full DataFrame
-                        # Offset group IDs to be unique across roles
-                        role_groups_offset = role_groups + group_offset
-                        group_offset = role_groups_offset.max() + 1
-
-                        for local_idx, global_idx in enumerate(role_indices):
-                            result_df.loc[global_idx, dup_group_col] = (
-                                role_groups_offset[local_idx]
-                            )
-                            result_df.loc[global_idx, has_dup_col] = role_is_dup[
-                                local_idx
-                            ]
-
-            # Detect fuzzy (near) duplicates using MinHash
+            # Detect fuzzy duplicates
             if self.detect_fuzzy_duplicates:
-                fuzzy_group_col = f"{column}_{analyzer_id}_fuzzy_duplicate_group"
-                has_fuzzy_col = f"{column}_{analyzer_id}_has_fuzzy_duplicate"
-                jaccard_col = f"{column}_{analyzer_id}_fuzzy_jaccard_score"
-
-                # Determine if we should use role-aware detection
-                use_role_aware = (
-                    self.duplicate_scope != "all" and role_column is not None
+                result_df, col_schema = self._process_fuzzy_duplicates(
+                    result_df, df, texts, column, analyzer_id, role_column
                 )
-
-                if not use_role_aware:
-                    # Original behavior: compare all messages together
-                    logger.info("Detecting fuzzy duplicates using MinHash LSH...")
-                    fuzzy_groups, is_fuzzy_dup, jaccard_scores = (
-                        self._detect_fuzzy_duplicates(texts)
-                    )
-                    result_df[fuzzy_group_col] = fuzzy_groups
-                    result_df[has_fuzzy_col] = is_fuzzy_dup
-                    result_df[jaccard_col] = jaccard_scores
-                else:
-                    # Role-aware fuzzy duplicate detection
-                    logger.info(
-                        f"Detecting fuzzy duplicates with scope='{self.duplicate_scope}'..."
-                    )
-                    result_df[fuzzy_group_col] = np.arange(len(df))
-                    result_df[has_fuzzy_col] = False
-                    result_df[jaccard_col] = 0.0
-
-                    # Determine which roles to process
-                    if self.duplicate_scope == "by_role":
-                        roles_to_process = df[role_column].str.lower().unique().tolist()
-                    else:
-                        roles_to_process = [self.duplicate_scope]
-
-                    group_offset = 0
-
-                    for role in roles_to_process:
-                        role_mask = df[role_column].str.lower() == role
-                        role_indices = df[role_mask].index.tolist()
-
-                        if len(role_indices) < 2:
-                            continue
-
-                        role_texts = [texts[i] for i in role_indices]
-
-                        logger.info(
-                            f"  Processing {len(role_indices)} '{role}' messages..."
-                        )
-
-                        role_groups, role_is_dup, role_jaccard = (
-                            self._detect_fuzzy_duplicates(role_texts)
-                        )
-
-                        role_groups_offset = role_groups + group_offset
-                        group_offset = role_groups_offset.max() + 1
-
-                        for local_idx, global_idx in enumerate(role_indices):
-                            result_df.loc[global_idx, fuzzy_group_col] = (
-                                role_groups_offset[local_idx]
-                            )
-                            result_df.loc[global_idx, has_fuzzy_col] = role_is_dup[
-                                local_idx
-                            ]
-                            result_df.loc[global_idx, jaccard_col] = role_jaccard[
-                                local_idx
-                            ]
+                generated_schema.update(col_schema)
 
             # Cluster samples
             if self.cluster_samples:
                 logger.info(f"Clustering samples using {self.clustering_method}...")
                 cluster_labels = self._cluster_embeddings(embeddings)
-                result_df[f"{column}_{analyzer_id}_cluster"] = cluster_labels
+                cluster_col = f"{column}_{analyzer_id}_cluster"
+                result_df[cluster_col] = cluster_labels
+                generated_schema[cluster_col] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": f"Cluster label for {column} (-1 = noise for DBSCAN)",
+                }
 
-            # Optionally store embeddings (can be large)
+            # Store embeddings if requested
             if self.store_embeddings:
-                # Store as list per row (not ideal for large datasets)
-                result_df[f"{column}_{analyzer_id}_embedding"] = [
-                    emb.tolist() for emb in embeddings
-                ]
+                emb_col = f"{column}_{analyzer_id}_embedding"
+                result_df[emb_col] = [emb.tolist() for emb in embeddings]
+                generated_schema[emb_col] = {
+                    "type": ColumnType.OBJECT,
+                    "content_type": ContentType.METADATA,
+                    "description": f"Embedding vector for {column}",
+                }
 
-        return result_df
+        return result_df, generated_schema
+
+    def _process_semantic_duplicates(
+        self,
+        result_df: pd.DataFrame,
+        original_df: pd.DataFrame,
+        embeddings: np.ndarray,
+        texts: list[str],
+        column: str,
+        analyzer_id: str,
+        role_column: Optional[str],
+        schema: Optional[dict],
+    ) -> tuple[pd.DataFrame, dict]:
+        """Process semantic duplicate detection with role-aware support."""
+        dup_group_col = f"{column}_{analyzer_id}_duplicate_group"
+        has_dup_col = f"{column}_{analyzer_id}_has_semantic_duplicate"
+
+        use_role_aware = self.duplicate_scope != "all" and role_column is not None
+
+        if not use_role_aware:
+            logger.info("Detecting semantic duplicates...")
+            duplicate_groups, is_duplicate = self._detect_semantic_duplicates(
+                embeddings
+            )
+            result_df[dup_group_col] = duplicate_groups
+            result_df[has_dup_col] = is_duplicate
+        else:
+            logger.info(
+                f"Detecting semantic duplicates with scope='{self.duplicate_scope}'..."
+            )
+            result_df[dup_group_col] = np.arange(len(original_df))
+            result_df[has_dup_col] = False
+
+            if self.duplicate_scope == "by_role":
+                roles_to_process = (
+                    original_df[role_column].str.lower().unique().tolist()
+                )
+            else:
+                roles_to_process = [self.duplicate_scope]
+
+            group_offset = 0
+            for role in roles_to_process:
+                role_mask = original_df[role_column].str.lower() == role
+                role_indices = original_df[role_mask].index.tolist()
+
+                if len(role_indices) < 2:
+                    continue
+
+                role_embeddings = embeddings[role_mask]
+                logger.info(f"  Processing {len(role_indices)} '{role}' messages...")
+
+                role_groups, role_is_dup = self._detect_semantic_duplicates(
+                    role_embeddings
+                )
+
+                role_groups_offset = role_groups + group_offset
+                group_offset = role_groups_offset.max() + 1
+
+                for local_idx, global_idx in enumerate(role_indices):
+                    result_df.loc[global_idx, dup_group_col] = role_groups_offset[
+                        local_idx
+                    ]
+                    result_df.loc[global_idx, has_dup_col] = role_is_dup[local_idx]
+
+        generated_schema = {
+            dup_group_col: {
+                "type": ColumnType.INT,
+                "content_type": ContentType.METADATA,
+                "description": f"Duplicate group ID for {column}",
+            },
+            has_dup_col: {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.CATEGORICAL,
+                "description": f"Whether {column} has semantic duplicates",
+            },
+        }
+
+        return result_df, generated_schema
+
+    def _process_fuzzy_duplicates(
+        self,
+        result_df: pd.DataFrame,
+        original_df: pd.DataFrame,
+        texts: list[str],
+        column: str,
+        analyzer_id: str,
+        role_column: Optional[str],
+    ) -> tuple[pd.DataFrame, dict]:
+        """Process fuzzy duplicate detection with role-aware support."""
+        fuzzy_group_col = f"{column}_{analyzer_id}_fuzzy_duplicate_group"
+        has_fuzzy_col = f"{column}_{analyzer_id}_has_fuzzy_duplicate"
+        jaccard_col = f"{column}_{analyzer_id}_fuzzy_jaccard_score"
+
+        use_role_aware = self.duplicate_scope != "all" and role_column is not None
+
+        if not use_role_aware:
+            logger.info("Detecting fuzzy duplicates using MinHash LSH...")
+            fuzzy_groups, is_fuzzy_dup, jaccard_scores = self._detect_fuzzy_duplicates(
+                texts
+            )
+            result_df[fuzzy_group_col] = fuzzy_groups
+            result_df[has_fuzzy_col] = is_fuzzy_dup
+            result_df[jaccard_col] = jaccard_scores
+        else:
+            logger.info(
+                f"Detecting fuzzy duplicates with scope='{self.duplicate_scope}'..."
+            )
+            result_df[fuzzy_group_col] = np.arange(len(original_df))
+            result_df[has_fuzzy_col] = False
+            result_df[jaccard_col] = 0.0
+
+            if self.duplicate_scope == "by_role":
+                roles_to_process = (
+                    original_df[role_column].str.lower().unique().tolist()
+                )
+            else:
+                roles_to_process = [self.duplicate_scope]
+
+            group_offset = 0
+            for role in roles_to_process:
+                role_mask = original_df[role_column].str.lower() == role
+                role_indices = original_df[role_mask].index.tolist()
+
+                if len(role_indices) < 2:
+                    continue
+
+                role_texts = [texts[i] for i in role_indices]
+                logger.info(f"  Processing {len(role_indices)} '{role}' messages...")
+
+                role_groups, role_is_dup, role_jaccard = self._detect_fuzzy_duplicates(
+                    role_texts
+                )
+
+                role_groups_offset = role_groups + group_offset
+                group_offset = role_groups_offset.max() + 1
+
+                for local_idx, global_idx in enumerate(role_indices):
+                    result_df.loc[global_idx, fuzzy_group_col] = role_groups_offset[
+                        local_idx
+                    ]
+                    result_df.loc[global_idx, has_fuzzy_col] = role_is_dup[local_idx]
+                    result_df.loc[global_idx, jaccard_col] = role_jaccard[local_idx]
+
+        generated_schema = {
+            fuzzy_group_col: {
+                "type": ColumnType.INT,
+                "content_type": ContentType.METADATA,
+                "description": f"Fuzzy duplicate group ID for {column}",
+            },
+            has_fuzzy_col: {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.CATEGORICAL,
+                "description": f"Whether {column} has fuzzy duplicates",
+            },
+            jaccard_col: {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": f"Jaccard similarity score for {column}",
+            },
+        }
+
+        return result_df, generated_schema
