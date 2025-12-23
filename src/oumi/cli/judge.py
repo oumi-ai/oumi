@@ -77,7 +77,15 @@ def judge_dataset_file(
         ),
     ] = False,
 ):
-    """Judge a dataset."""
+    """Judge a dataset.
+
+    Examples:
+        oumi judge dataset -c judge.yaml --input data.jsonl
+
+        oumi judge dataset -c safety --input outputs.jsonl  # Using alias
+
+        oumi judge dataset -c config.yaml --input data.jsonl --output results.jsonl
+    """
     # Delayed import
     from oumi import judge
 
@@ -140,7 +148,13 @@ def judge_conversations_file(
         ),
     ] = False,
 ):
-    """Judge a list of conversations."""
+    """Judge a list of conversations.
+
+    Examples:
+        oumi judge conversations -c judge.yaml --input conversations.jsonl
+
+        oumi judge conversations -c instruction-following --input chats.jsonl
+    """
     # Delayed import
     from oumi import judge
 
@@ -160,6 +174,7 @@ def judge_file(
         str,
         typer.Option(
             "--config",
+            "-c",
             help="Path to the judge config file",
         ),
     ],
@@ -259,4 +274,4 @@ def judge_file(
 
         cli_utils.CONSOLE.print(table)
     else:
-        typer.echo(f"Results saved to {output_file}")
+        cli_utils.CONSOLE.print(f"[green]Results saved to {output_file}[/green]")
