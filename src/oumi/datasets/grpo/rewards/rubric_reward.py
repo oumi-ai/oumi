@@ -197,69 +197,6 @@ _JUDGE_INSTANCE: SimpleJudge | None = None
 _JUDGE_PANEL: dict[str, SimpleJudge] = {}  # Cache for panel judges by model name
 
 
-# Pricing per 1M tokens (as of Dec 2024)
-MODEL_PRICING = {
-    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-    "gpt-4o": {"input": 2.50, "output": 10.00},
-    "gpt-4-turbo": {"input": 10.00, "output": 30.00},
-    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
-    "claude-3-haiku": {"input": 0.25, "output": 1.25},
-    "claude-3-sonnet": {"input": 3.00, "output": 15.00},
-    "claude-3-opus": {"input": 15.00, "output": 75.00},
-}
-
-
-def _estimate_tokens(text: str) -> int:
-    """Estimate token count from text.
-
-    Uses a simple heuristic: ~4 characters per token for English text.
-    This is a rough approximation; actual counts may vary by model.
-
-    Args:
-        text: The text to estimate tokens for.
-
-    Returns:
-        Estimated token count.
-    """
-    if not text:
-        return 0
-    # Rough estimate: 4 chars per token for English
-    return max(1, len(text) // 4)
-
-
-@dataclass
-class JudgeStats:
-    """Statistics for a single judge in a panel."""
-
-    name: str = ""
-    model: str = ""
-    calls: int = 0
-    successful: int = 0
-    failed: int = 0
-    total_score: float = 0.0
-    total_time_ms: float = 0.0
-    input_tokens: int = 0
-    output_tokens: int = 0
-
-    @property
-    def avg_score(self) -> float:
-        """Average score across successful evaluations."""
-        return self.total_score / self.successful if self.successful > 0 else 0.0
-
-    @property
-    def avg_time_ms(self) -> float:
-        """Average evaluation time in milliseconds."""
-        return self.total_time_ms / self.successful if self.successful > 0 else 0.0
-
-    @property
-    def estimated_cost_usd(self) -> float:
-        """Estimated cost in USD based on token usage."""
-        pricing = MODEL_PRICING.get(self.model, MODEL_PRICING["gpt-4o-mini"])
-        input_cost = (self.input_tokens / 1_000_000) * pricing["input"]
-        output_cost = (self.output_tokens / 1_000_000) * pricing["output"]
-        return input_cost + output_cost
-
-
 @dataclass
 class RubricRewardStats:
     """Statistics tracker for rubric-based reward computation."""
@@ -269,90 +206,26 @@ class RubricRewardStats:
     failed_calls: int = 0
     total_reward: float = 0.0
     total_judge_time_ms: float = 0.0
-    rewards_history: list[float] = field(default_factory=list)
     log_interval: int = 10  # Log every N calls
 
-    # Token tracking
-    total_input_tokens: int = 0
-    total_output_tokens: int = 0
-    judge_model: str = "gpt-4o-mini"
-
-    # Panel tracking
-    panel_stats: dict[str, JudgeStats] = field(default_factory=dict)
+    # Panel tracking (judge disagreement)
     panel_variance_history: list[float] = field(default_factory=list)
 
-    def record_success(
-        self,
-        reward: float,
-        judge_time_ms: float,
-        input_tokens: int = 0,
-        output_tokens: int = 0,
-    ) -> None:
+    def record_success(self, reward: float, judge_time_ms: float) -> None:
         """Record a successful reward computation."""
         self.total_calls += 1
         self.successful_calls += 1
         self.total_reward += reward
         self.total_judge_time_ms += judge_time_ms
-        self.rewards_history.append(reward)
-        self.total_input_tokens += input_tokens
-        self.total_output_tokens += output_tokens
 
-    def record_failure(self, input_tokens: int = 0) -> None:
+    def record_failure(self) -> None:
         """Record a failed reward computation."""
         self.total_calls += 1
         self.failed_calls += 1
-        self.rewards_history.append(0.0)
-        # Still count input tokens for failed calls (we still paid for the prompt)
-        self.total_input_tokens += input_tokens
-
-    def record_panel_result(
-        self,
-        judge_name: str,
-        judge_model: str,
-        score: float,
-        time_ms: float,
-        input_tokens: int,
-        output_tokens: int,
-        success: bool,
-    ) -> None:
-        """Record result from a single judge in a panel."""
-        if judge_name not in self.panel_stats:
-            self.panel_stats[judge_name] = JudgeStats(
-                name=judge_name, model=judge_model
-            )
-
-        stats = self.panel_stats[judge_name]
-        stats.calls += 1
-        stats.input_tokens += input_tokens
-        stats.output_tokens += output_tokens
-
-        if success:
-            stats.successful += 1
-            stats.total_score += score
-            stats.total_time_ms += time_ms
-        else:
-            stats.failed += 1
 
     def record_panel_variance(self, variance: float) -> None:
         """Record variance across panel judges for this evaluation."""
         self.panel_variance_history.append(variance)
-
-    @property
-    def total_tokens(self) -> int:
-        """Total tokens used (input + output)."""
-        return self.total_input_tokens + self.total_output_tokens
-
-    @property
-    def estimated_cost_usd(self) -> float:
-        """Estimated cost in USD based on model pricing."""
-        # If we have panel stats, sum their costs
-        if self.panel_stats:
-            return sum(s.estimated_cost_usd for s in self.panel_stats.values())
-        # Otherwise use single judge pricing
-        pricing = MODEL_PRICING.get(self.judge_model, MODEL_PRICING["gpt-4o-mini"])
-        input_cost = (self.total_input_tokens / 1_000_000) * pricing["input"]
-        output_cost = (self.total_output_tokens / 1_000_000) * pricing["output"]
-        return input_cost + output_cost
 
     @property
     def avg_reward(self) -> float:
@@ -388,7 +261,7 @@ class RubricRewardStats:
 
     def get_summary(self) -> str:
         """Get a summary string of current stats."""
-        base = (
+        summary = (
             f"RubricReward Stats: "
             f"calls={self.total_calls}, "
             f"success_rate={self.success_rate:.1%}, "
@@ -396,54 +269,9 @@ class RubricRewardStats:
             f"avg_judge_time={self.avg_judge_time_ms:.0f}ms, "
             f"failed={self.failed_calls}"
         )
-        if self.panel_stats:
-            base += f", panel_variance={self.avg_panel_variance:.4f}"
-        return base
-
-    def get_cost_summary(self) -> str:
-        """Get a summary string of token usage and costs."""
-        if self.panel_stats:
-            # Panel mode: show per-judge costs
-            lines = [f"Panel Cost Summary (total: ${self.estimated_cost_usd:.4f}):"]
-            for name, stats in self.panel_stats.items():
-                lines.append(
-                    f"  {name}: ${stats.estimated_cost_usd:.4f} "
-                    f"(in={stats.input_tokens:,}, out={stats.output_tokens:,}, "
-                    f"avg_score={stats.avg_score:.3f})"
-                )
-            return "\n".join(lines)
-        else:
-            return (
-                f"Token Usage: "
-                f"input={self.total_input_tokens:,}, "
-                f"output={self.total_output_tokens:,}, "
-                f"total={self.total_tokens:,} | "
-                f"Est. Cost: ${self.estimated_cost_usd:.4f} ({self.judge_model})"
-            )
-
-    def get_full_summary(self) -> str:
-        """Get a complete summary including stats and costs."""
-        return f"{self.get_summary()}\n{self.get_cost_summary()}"
-
-    def get_recent_rewards(self, n: int = 10) -> list[float]:
-        """Get the most recent N rewards."""
-        return self.rewards_history[-n:] if self.rewards_history else []
-
-    def get_panel_summary(self) -> str:
-        """Get a detailed summary of panel judge performance."""
-        if not self.panel_stats:
-            return "No panel data"
-
-        lines = ["Panel Judge Summary:"]
-        for name, stats in self.panel_stats.items():
-            lines.append(
-                f"  {name} ({stats.model}): "
-                f"calls={stats.calls}, "
-                f"avg_score={stats.avg_score:.3f}, "
-                f"avg_time={stats.avg_time_ms:.0f}ms, "
-                f"cost=${stats.estimated_cost_usd:.4f}"
-            )
-        return "\n".join(lines)
+        if self.panel_variance_history:
+            summary += f", panel_variance={self.avg_panel_variance:.4f}"
+        return summary
 
 
 # Global stats tracker
@@ -561,9 +389,7 @@ def _get_or_create_judge(
     Returns:
         A SimpleJudge instance.
     """
-    global _JUDGE_INSTANCE, _REWARD_STATS
-
-    _REWARD_STATS.judge_model = judge_model
+    global _JUDGE_INSTANCE
 
     if _JUDGE_INSTANCE is not None:
         return _JUDGE_INSTANCE
@@ -940,10 +766,6 @@ def compute_rubric_reward_panel(
     else:
         rubrics_text = _format_simple_rubrics(rubrics)
 
-    input_text = prompt + completion + rubrics_text
-    template_overhead = 150 if is_weighted else 100
-    input_tokens_per_judge = _estimate_tokens(input_text) + template_overhead
-
     judge_inputs = [
         {
             "prompt": prompt,
@@ -957,15 +779,12 @@ def compute_rubric_reward_panel(
     weights = []
     per_judge_results = []
     total_time_ms = 0.0
-    total_input_tokens = 0
-    total_output_tokens = 0
 
     for member, judge in panel:
         start_time = time.time()
         try:
             outputs = judge.judge(judge_inputs)
             judge_time_ms = (time.time() - start_time) * 1000
-            output_tokens = 100 if is_weighted else 30
 
             score = 0.0
             if outputs and len(outputs) > 0:
@@ -996,36 +815,14 @@ def compute_rubric_reward_panel(
             scores.append(score)
             weights.append(member.weight)
             total_time_ms += judge_time_ms
-            total_input_tokens += input_tokens_per_judge
-            total_output_tokens += output_tokens
             per_judge_results.append((member.name, score, judge_time_ms))
-
-            # Record per-judge stats
-            _REWARD_STATS.record_panel_result(
-                judge_name=member.name or member.model,
-                judge_model=member.model,
-                score=score,
-                time_ms=judge_time_ms,
-                input_tokens=input_tokens_per_judge,
-                output_tokens=output_tokens,
-                success=True,
-            )
 
         except Exception as e:
             logger.warning(f"Judge {member.name} failed: {e}")
-            _REWARD_STATS.record_panel_result(
-                judge_name=member.name or member.model,
-                judge_model=member.model,
-                score=0.0,
-                time_ms=0.0,
-                input_tokens=input_tokens_per_judge,
-                output_tokens=0,
-                success=False,
-            )
 
     # Aggregate scores
     if not scores:
-        _REWARD_STATS.record_failure(input_tokens=total_input_tokens)
+        _REWARD_STATS.record_failure()
         return 0.0
 
     reward, agg_details = _aggregate_scores(scores, weights, panel_config.aggregation)
@@ -1035,12 +832,7 @@ def compute_rubric_reward_panel(
         _REWARD_STATS.record_panel_variance(agg_details.get("score_variance", 0.0))
 
     # Record overall success
-    _REWARD_STATS.record_success(
-        reward,
-        total_time_ms,
-        input_tokens=total_input_tokens,
-        output_tokens=total_output_tokens,
-    )
+    _REWARD_STATS.record_success(reward, total_time_ms)
 
     # Log if requested or periodically
     if log_example or _REWARD_STATS.should_log():
@@ -1053,7 +845,7 @@ def compute_rubric_reward_panel(
             final_reward=reward,
             variance=agg_details.get("score_variance", 0.0),
         )
-        logger.info(_REWARD_STATS.get_full_summary())
+        logger.info(_REWARD_STATS.get_summary())
 
     return reward
 
@@ -1112,16 +904,9 @@ def compute_rubric_reward(
     else:
         rubrics_text = _format_simple_rubrics(rubrics)
 
-    # Estimate input tokens (prompt template + prompt + completion + rubrics)
-    # The judge prompt template adds ~100-200 tokens of overhead
-    input_text = prompt + completion + rubrics_text
-    template_overhead = 150 if is_weighted else 100
-    input_tokens = _estimate_tokens(input_text) + template_overhead
-
     start_time = time.time()
 
     try:
-        # Call the judge
         judge_inputs = [
             {
                 "prompt": prompt,
@@ -1134,9 +919,6 @@ def compute_rubric_reward(
         judge_time_ms = (time.time() - start_time) * 1000
         reward = 0.0
         per_rubric_details = None
-
-        # Estimate output tokens based on rubric type
-        output_tokens = 100 if is_weighted else 30
 
         if outputs and len(outputs) > 0:
             output = outputs[0]
@@ -1171,16 +953,10 @@ def compute_rubric_reward(
                         logger.warning(
                             "Judge returned no valid score, defaulting to 0.0"
                         )
-                        _REWARD_STATS.record_failure(input_tokens=input_tokens)
+                        _REWARD_STATS.record_failure()
                         return 0.0
 
-            # Record success with token counts
-            _REWARD_STATS.record_success(
-                reward,
-                judge_time_ms,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-            )
+            _REWARD_STATS.record_success(reward, judge_time_ms)
 
             # Log example if requested or periodically
             if log_example or _REWARD_STATS.should_log():
@@ -1192,17 +968,17 @@ def compute_rubric_reward(
                     judge_time_ms=judge_time_ms,
                     per_rubric_details=per_rubric_details,
                 )
-                logger.info(_REWARD_STATS.get_full_summary())
+                logger.info(_REWARD_STATS.get_summary())
 
             return reward
 
         logger.warning("Judge returned empty output, defaulting to 0.0")
-        _REWARD_STATS.record_failure(input_tokens=input_tokens)
+        _REWARD_STATS.record_failure()
         return 0.0
 
     except Exception as e:
         logger.warning(f"Error during rubric evaluation: {e}")
-        _REWARD_STATS.record_failure(input_tokens=input_tokens)
+        _REWARD_STATS.record_failure()
         return 0.0
 
 
@@ -1413,7 +1189,6 @@ def rubric_reward(
         f"non_zero={non_zero_rewards}/{batch_size}, "
         f"time={batch_time_ms:.0f}ms"
     )
-    # Log cumulative cost summary
-    logger.info(f"[RLVR] {_REWARD_STATS.get_cost_summary()}")
+    logger.info(f"[RLVR] {_REWARD_STATS.get_summary()}")
 
     return rewards
