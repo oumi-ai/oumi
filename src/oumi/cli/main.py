@@ -55,17 +55,15 @@ _ASCII_LOGO = r"""
 
 _HELP_FOOTER = """
 [bold]Examples:[/bold]
-  [cyan]oumi train -c llama3.1-8b[/cyan]                   [dim]# Finetune (alias)[/dim]
-  [cyan]oumi train -c config.yaml[/cyan]                   [dim]# Finetune (file)[/dim]
-  [cyan]oumi train -c cfg.yaml --training.max_steps 100[/cyan]  [dim]# Override[/dim]
-  [cyan]oumi infer -c llama3.1-8b --interactive[/cyan]     [dim]# Chat mode[/dim]
-  [cyan]oumi eval -c llama3.1-8b[/cyan]                    [dim]# Alias: evaluate[/dim]
+  [cyan]oumi train -c llama3.1-8b[/cyan]                           [dim]# Finetune (alias)[/dim]
+  [cyan]oumi train -c config.yaml[/cyan]                           [dim]# Finetune (file)[/dim]
+  [cyan]oumi train -c config.yaml --training.max_steps 100[/cyan]  [dim]# Override config value[/dim]
 
 [bold]Tips:[/bold]
   • Override nested config values: [cyan]--section.subsection.key value[/cyan]
   • List available model configs: [cyan]oumi train --list[/cyan]
   • Enable shell completion: [cyan]oumi --install-completion[/cyan]
-"""
+"""  # noqa: E501
 
 
 def experimental_features_enabled():
@@ -89,7 +87,7 @@ def _oumi_welcome(
 
     # Show help with tips when no subcommand is provided or help is requested
     if help_flag or ctx.invoked_subcommand is None:
-        CONSOLE.print(ctx.get_help())
+        CONSOLE.print(ctx.get_help(), end="")  # Don't print a newline after the help
         CONSOLE.print(_HELP_FOOTER)
         raise typer.Exit
 
