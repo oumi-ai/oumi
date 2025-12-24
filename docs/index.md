@@ -151,6 +151,8 @@ For detailed setup instructions including virtual environments and cloud setup, 
 
 ## Documentation Guide
 
+A complete map of the documentation to help you find what you need:
+
 | Category | Description | Links |
 |----------|-------------|-------|
 | **Getting Started** | Installation, quickstart, and core concepts | {doc}`Quickstart <get_started/quickstart>` · {doc}`Installation <get_started/installation>` · {doc}`Core Concepts <get_started/core_concepts>` |
@@ -159,7 +161,9 @@ For detailed setup instructions including virtual environments and cloud setup, 
 | **Reference** | API and CLI documentation | {doc}`Python API <api/oumi>` · {doc}`CLI Reference <cli/commands>` |
 | **Development** | Contributing to Oumi | {doc}`Dev Setup <development/dev_setup>` · {doc}`Contributing <development/contributing>` · {doc}`Style Guide <development/style_guide>` |
 
-## Key Capabilities
+## Feature Highlights
+
+Explore Oumi's core capabilities:
 
 ::::{grid} 2
 :gutter: 3
@@ -208,7 +212,7 @@ Launch jobs on AWS, GCP, Azure, Lambda, and other cloud providers.
 
 ::::
 
-## 🤝 Join the Community
+## Join the Community
 
 Oumi is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome!
 
@@ -216,7 +220,7 @@ Oumi is a community-first effort. Whether you are a developer, a researcher, or 
 - Make sure to join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and contribute to the project!
 - If you are interested by joining one of the community's open-science efforts, check out our [open collaboration](https://oumi.ai/community) page.
 
-## ❓ Need Help?
+## Need Help?
 
 If you encounter any issues or have questions, please don't hesitate to:
 
