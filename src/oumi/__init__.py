@@ -36,7 +36,12 @@ Functions:
     - :func:`~oumi.judge.judge_dataset`: Judge a dataset using a model.
 
 Examples:
-    Training a model::
+    Simple training::
+
+        >>> from oumi import train
+        >>> train("meta-llama/Llama-3.1-8B", "tatsu-lab/alpaca")
+
+    Training with full config::
 
         >>> from oumi import train
         >>> from oumi.core.configs import TrainingConfig
@@ -244,19 +249,92 @@ def synthesize(config: SynthesisConfig) -> list[dict[str, Any]]:
 
 
 def train(
-    config: TrainingConfig,
-    additional_model_kwargs: dict[str, Any] | None = None,
+    config_or_model: TrainingConfig | str,
+    dataset_or_model_kwargs: str | dict[str, Any] | None = None,
     additional_trainer_kwargs: dict[str, Any] | None = None,
+    additional_tuning_kwargs: dict[str, Any] | None = None,
     verbose: bool = False,
+    *,
+    method: str = "sft",
+    output_dir: str = "./output",
+    epochs: int = 3,
+    batch_size: int = 4,
+    learning_rate: float = 2e-5,
+    use_peft: bool = True,
+    lora_r: int = 16,
+    lora_alpha: int = 32,
 ) -> dict[str, Any] | None:
-    """Trains a model using the provided configuration."""
+    """Train a model using Oumi's training framework.
+
+    This function supports two modes:
+
+    1. **Config mode**: Pass a TrainingConfig object or YAML path
+        >>> train(TrainingConfig(...))
+        >>> train("training_config.yaml")
+
+    2. **Simple mode**: Pass model and dataset names with optional parameters
+        >>> train("meta-llama/Llama-3.1-8B", "tatsu-lab/alpaca")
+        >>> train("meta-llama/Llama-3.1-8B", "my-dataset", method="dpo")
+
+    Args:
+        config_or_model: Either a TrainingConfig object, a YAML config path,
+            or a model name (HuggingFace model ID).
+        dataset_or_model_kwargs: Either a dataset name (simple mode) or
+            additional_model_kwargs dict (config mode).
+        additional_trainer_kwargs: Additional kwargs to pass to the trainer.
+        additional_tuning_kwargs: Additional kwargs to pass for hyperparameter tuning.
+        verbose: Whether to print verbose output.
+        method: Training method - "sft", "dpo", "kto", "grpo", "gkd", "gold".
+            Only used in simple mode.
+        output_dir: Output directory for checkpoints. Only used in simple mode.
+        epochs: Number of training epochs. Only used in simple mode.
+        batch_size: Per-device batch size. Only used in simple mode.
+        learning_rate: Learning rate. Only used in simple mode.
+        use_peft: Whether to use LoRA/PEFT. Only used in simple mode.
+        lora_r: LoRA rank. Only used in simple mode.
+        lora_alpha: LoRA alpha. Only used in simple mode.
+
+    Returns:
+        Training metrics dictionary, or None.
+
+    Examples:
+        Simple SFT training::
+
+            >>> train("meta-llama/Llama-3.1-8B", "tatsu-lab/alpaca")
+
+        DPO training with custom settings::
+
+            >>> train(
+            ...     "meta-llama/Llama-3.1-8B",
+            ...     "my-preference-dataset",
+            ...     method="dpo",
+            ...     learning_rate=1e-5,
+            ... )
+
+        From YAML config::
+
+            >>> train("training_config.yaml")
+
+        Full config object::
+
+            >>> train(TrainingConfig(...))
+    """
     import oumi.train
 
     return oumi.train.train(
-        config,
-        additional_model_kwargs=additional_model_kwargs,
+        config_or_model,
+        dataset_or_model_kwargs,
         additional_trainer_kwargs=additional_trainer_kwargs,
+        additional_tuning_kwargs=additional_tuning_kwargs,
         verbose=verbose,
+        method=method,
+        output_dir=output_dir,
+        epochs=epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        use_peft=use_peft,
+        lora_r=lora_r,
+        lora_alpha=lora_alpha,
     )
 
 
