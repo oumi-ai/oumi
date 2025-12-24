@@ -51,15 +51,19 @@ oumi <command> --help  # for command-specific help
 
 The available commands are:
 
-| Command      | Purpose                                                               |
-|--------------|-----------------------------------------------------------------------|
-`train`        | Train a model.
-`evaluate`     | Evaluate a model.
-`infer`        | Run inference on a model.
-`launch`       | Launch jobs remotely.
-`judge`        | Judge datasets, models or conversations.
-`env`          | Prints information about the current environment.
-`distributed`  | A wrapper for torchrun/accelerate with reasonable default values for distributed training.
+| Command | Purpose |
+|---------|---------|
+| `train` | Train or fine-tune a model |
+| `evaluate` | Evaluate a model on benchmarks |
+| `infer` | Run inference on a model |
+| `launch` | Launch jobs on cloud platforms |
+| `judge` | Use LLM-as-a-Judge for evaluation |
+| `synth` | Generate synthetic training data |
+| `analyze` | Analyze and profile datasets |
+| `tune` | Hyperparameter tuning with Optuna |
+| `quantize` | Quantize models for efficient deployment |
+| `distributed` | Distributed training wrapper for torchrun/accelerate |
+| `env` | Display environment information |
 
 Any Oumi command which takes a config path as an argument (`train`, `evaluate`, `infer`, etc.) can override parameters from the command line. For example:
 
