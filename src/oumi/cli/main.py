@@ -55,11 +55,11 @@ _ASCII_LOGO = r"""
 
 _HELP_FOOTER = """
 [bold]Examples:[/bold]
-  [cyan]oumi train -c llama3.1-8b[/cyan]                            [dim]# Fine-tune using a model alias[/dim]
-  [cyan]oumi train -c config.yaml[/cyan]                            [dim]# Fine-tune using a config file[/dim]
-  [cyan]oumi train -c cfg.yaml --training.max_steps 100[/cyan]      [dim]# Override any config value[/dim]
-  [cyan]oumi infer -c llama3.1-8b --interactive[/cyan]              [dim]# Interactive chat mode[/dim]
-  [cyan]oumi eval -c llama3.1-8b[/cyan]                             [dim]# 'eval' is short for 'evaluate'[/dim]
+  [cyan]oumi train -c llama3.1-8b[/cyan]                   [dim]# Finetune (alias)[/dim]
+  [cyan]oumi train -c config.yaml[/cyan]                   [dim]# Finetune (file)[/dim]
+  [cyan]oumi train -c cfg.yaml --training.max_steps 100[/cyan]  [dim]# Override[/dim]
+  [cyan]oumi infer -c llama3.1-8b --interactive[/cyan]     [dim]# Chat mode[/dim]
+  [cyan]oumi eval -c llama3.1-8b[/cyan]                    [dim]# Alias: evaluate[/dim]
 
 [bold]Tips:[/bold]
   • Override nested config values: [cyan]--section.subsection.key value[/cyan]
@@ -91,7 +91,7 @@ def _oumi_welcome(
     if help_flag or ctx.invoked_subcommand is None:
         CONSOLE.print(ctx.get_help())
         CONSOLE.print(_HELP_FOOTER)
-        raise typer.Exit()
+        raise typer.Exit
 
 
 def get_app() -> typer.Typer:
