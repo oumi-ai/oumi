@@ -53,6 +53,20 @@ _ASCII_LOGO = r"""
   \____/ \____/|_|  |_|_____|
 """
 
+_HELP_FOOTER = """
+[bold]Examples:[/bold]
+  [cyan]oumi train -c llama3.1-8b[/cyan]                            [dim]# Fine-tune using a model alias[/dim]
+  [cyan]oumi train -c config.yaml[/cyan]                            [dim]# Fine-tune using a config file[/dim]
+  [cyan]oumi train -c cfg.yaml --training.max_steps 100[/cyan]      [dim]# Override any config value[/dim]
+  [cyan]oumi infer -c llama3.1-8b --interactive[/cyan]              [dim]# Interactive chat mode[/dim]
+  [cyan]oumi eval -c llama3.1-8b[/cyan]                             [dim]# 'eval' is short for 'evaluate'[/dim]
+
+[bold]Tips:[/bold]
+  • Override nested config values: [cyan]--section.subsection.key value[/cyan]
+  • List available model configs: [cyan]oumi train --list[/cyan]
+  • Enable shell completion: [cyan]oumi --install-completion[/cyan]
+"""
+
 
 def experimental_features_enabled():
     """Check if experimental features are enabled."""
@@ -60,7 +74,12 @@ def experimental_features_enabled():
     return is_enabled.lower() in ("1", "true", "yes", "on")
 
 
-def _oumi_welcome(ctx: typer.Context):
+def _oumi_welcome(
+    ctx: typer.Context,
+    help_flag: bool = typer.Option(
+        False, "--help", "-h", is_eager=True, help="Show this message and exit."
+    ),
+):
     if ctx.invoked_subcommand == "distributed":
         return
     # Skip logo for rank>0 for multi-GPU jobs to reduce noise in logs.
@@ -68,13 +87,17 @@ def _oumi_welcome(ctx: typer.Context):
         return
     CONSOLE.print(_ASCII_LOGO, style="green", highlight=False)
 
+    # Show help with tips when no subcommand is provided or help is requested
+    if help_flag or ctx.invoked_subcommand is None:
+        CONSOLE.print(ctx.get_help())
+        CONSOLE.print(_HELP_FOOTER)
+        raise typer.Exit()
+
 
 def get_app() -> typer.Typer:
     """Create the Typer CLI app."""
-    app = typer.Typer(pretty_exceptions_enable=False)
-    app.callback(context_settings={"help_option_names": ["-h", "--help"]})(
-        _oumi_welcome
-    )
+    app = typer.Typer(pretty_exceptions_enable=False, rich_markup_mode="rich")
+    app.callback(invoke_without_command=True)(_oumi_welcome)
 
     # Model
     app.command(

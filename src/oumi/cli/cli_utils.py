@@ -291,7 +291,23 @@ def resolve_and_fetch_config(
         Path: Local path to the config file
     """
     if not config_path.lower().startswith(_OUMI_PREFIX):
-        return Path(config_path)
+        local_path = Path(config_path)
+        if not local_path.exists():
+            CONSOLE.print(f"[red]Error:[/red] Config file not found: {config_path}")
+            CONSOLE.print()
+            CONSOLE.print("[dim]Suggestions:[/dim]")
+            CONSOLE.print("  • Check the file path is correct")
+            CONSOLE.print(
+                "  • Use an alias: [cyan]oumi <command> -c llama3.1-8b[/cyan]"
+            )
+            CONSOLE.print(
+                "  • List available configs: [cyan]oumi <command> --list[/cyan]"
+            )
+            CONSOLE.print(
+                "  • Fetch a config: [cyan]oumi fetch oumi://configs/...[/cyan]"
+            )
+            raise typer.Exit(code=1)
+        return local_path
 
     import requests
     from requests.exceptions import RequestException
