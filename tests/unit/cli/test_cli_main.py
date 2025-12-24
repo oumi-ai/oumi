@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from inspect import signature
-from typing import Callable, get_type_hints
+from typing import get_type_hints
 from unittest.mock import Mock, patch
 
 import pytest

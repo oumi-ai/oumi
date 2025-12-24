@@ -1,5 +1,5 @@
 import base64
-from typing import Any, Final, Optional
+from typing import Any, Final
 
 import numpy as np
 import PIL.Image
@@ -47,7 +47,7 @@ def test_build_processor_empty_name(trust_remote_code, mock_tokenizer):
     ],
 )
 def test_build_processor_basic_gpt2_success(
-    processor_kwargs: Optional[dict[str, Any]], mock_tokenizer
+    processor_kwargs: dict[str, Any] | None, mock_tokenizer
 ):
     test_chat_template: Final[str] = build_chat_template(template_name="default")
 

@@ -14,7 +14,7 @@
 
 
 import uuid
-from typing import Any, Union
+from typing import Any
 
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
@@ -25,7 +25,7 @@ from oumi.core.configs.params.synthesis_params import (
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message
 
-SampleValue = Union[str, list[str], dict[str, str], Conversation]
+SampleValue = str | list[str] | dict[str, str] | Conversation
 
 
 class AttributeTransformer:

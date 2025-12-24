@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union
 
 from typing_extensions import override
 
@@ -76,7 +75,7 @@ class SimpleJudge(BaseJudge):
 
     def __init__(
         self,
-        judge_config: Union[JudgeConfig, str],
+        judge_config: JudgeConfig | str,
     ):
         """Initialize the Judge.
 

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 from typing_extensions import override
@@ -78,9 +78,9 @@ class TextSftJsonLinesDataset(BaseSftDataset):
 
     def __init__(
         self,
-        dataset_path: Optional[Union[str, Path]] = None,
-        data: Optional[list[dict[str, Any]]] = None,
-        format: Optional[str] = None,
+        dataset_path: str | Path | None = None,
+        data: list[dict[str, Any]] | None = None,
+        format: str | None = None,
         **kwargs,
     ):
         """Initializes a new instance of the TextSftJsonLinesDataset class.
@@ -103,9 +103,7 @@ class TextSftJsonLinesDataset(BaseSftDataset):
             )
 
         self._data_column: str = "_messages_column"
-        self._dataset_path: Optional[Path] = (
-            Path(dataset_path) if dataset_path else None
-        )
+        self._dataset_path: Path | None = Path(dataset_path) if dataset_path else None
 
         if data is not None:
             data_frame = pd.DataFrame({self._data_column: data})

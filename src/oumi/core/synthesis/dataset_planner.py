@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import random
-from typing import Optional
 
 from oumi.core.configs.params.synthesis_params import (
     AttributeCombination,
@@ -32,8 +31,8 @@ class DatasetPlanner:
 
     def __init__(
         self,
-        document_reader: Optional[DocumentReader] = None,
-        dataset_reader: Optional[DatasetReader] = None,
+        document_reader: DocumentReader | None = None,
+        dataset_reader: DatasetReader | None = None,
     ):
         """Initialize the dataset planner."""
         self._document_reader = document_reader or DocumentReader()
@@ -136,7 +135,7 @@ class DatasetPlanner:
 
     def _ingest_example_sources(
         self,
-        example_sources: Optional[list[ExampleSource]],
+        example_sources: list[ExampleSource] | None,
     ) -> list[list[dict]]:
         """Read examples from the example sources."""
         if example_sources is None or len(example_sources) == 0:
@@ -147,7 +146,7 @@ class DatasetPlanner:
 
     def _ingest_dataset_sources(
         self,
-        dataset_sources: Optional[list[DatasetSource]],
+        dataset_sources: list[DatasetSource] | None,
     ) -> list[list[dict]]:
         """Read in datasets from the dataset sources."""
         if dataset_sources is None or len(dataset_sources) == 0:
@@ -160,7 +159,7 @@ class DatasetPlanner:
 
     def _ingest_document_sources(
         self,
-        document_sources: Optional[list[DocumentSource]],
+        document_sources: list[DocumentSource] | None,
     ) -> list[list[dict]]:
         """Read documents from the document sources and segment them if necessary."""
         if not document_sources:
@@ -218,8 +217,8 @@ class DatasetPlanner:
 
     def _plan_permutable_attributes(
         self,
-        permutable_attributes: Optional[list[SampledAttribute]],
-        combination_sampling: Optional[list[AttributeCombination]],
+        permutable_attributes: list[SampledAttribute] | None,
+        combination_sampling: list[AttributeCombination] | None,
         sample_count: int,
     ) -> list[dict]:
         if sample_count < 0:

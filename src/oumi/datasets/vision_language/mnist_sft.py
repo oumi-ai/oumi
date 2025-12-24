@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Any
 
 from typing_extensions import override
 
@@ -40,7 +40,7 @@ class MnistSftDataset(VisionLanguageSftDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
+        dataset_name: str | None = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the MnistSftDataset class."""

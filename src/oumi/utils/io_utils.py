@@ -14,12 +14,12 @@
 
 import json
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import jsonlines
 
 
-def load_json(filename: Union[str, Path]) -> Any:
+def load_json(filename: str | Path) -> Any:
     """Load JSON data from a file.
 
     Args:
@@ -40,9 +40,7 @@ def load_json(filename: Union[str, Path]) -> Any:
         return json.load(file)
 
 
-def save_json(
-    data: dict[str, Any], filename: Union[str, Path], indent: int = 2
-) -> None:
+def save_json(data: dict[str, Any], filename: str | Path, indent: int = 2) -> None:
     """Save data as a formatted JSON file.
 
     Args:
@@ -58,7 +56,7 @@ def save_json(
         json.dump(data, file, indent=indent, ensure_ascii=False)
 
 
-def load_file(filename: Union[str, Path], encoding: str = "utf-8") -> str:
+def load_file(filename: str | Path, encoding: str = "utf-8") -> str:
     """Load a file as a string.
 
     Args:
@@ -88,7 +86,7 @@ def get_oumi_root_directory() -> Path:
     return Path(__file__).parent.parent.resolve()
 
 
-def load_jsonlines(filename: Union[str, Path]) -> list[dict[str, Any]]:
+def load_jsonlines(filename: str | Path) -> list[dict[str, Any]]:
     """Load a jsonlines file.
 
     Args:
@@ -116,7 +114,7 @@ def load_jsonlines(filename: Union[str, Path]) -> list[dict[str, Any]]:
         return list(reader)
 
 
-def save_jsonlines(filename: Union[str, Path], data: list[dict[str, Any]]) -> None:
+def save_jsonlines(filename: str | Path, data: list[dict[str, Any]]) -> None:
     """Save a list of dictionaries to a jsonlines file.
 
     Args:

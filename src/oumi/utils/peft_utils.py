@@ -13,14 +13,13 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Union
 
 from oumi.utils.io_utils import load_json
 
 _ADAPTER_CONFIG_RANK_KEY = "r"
 
 
-def get_lora_rank(adapter_dir: Union[str, Path]) -> int:
+def get_lora_rank(adapter_dir: str | Path) -> int:
     """Gets the LoRA rank for a saved adapter model.
 
     Example config:

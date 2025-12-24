@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 
@@ -24,13 +23,13 @@ from oumi.core.configs.params.base_params import BaseParams
 class RemoteParams(BaseParams):
     """Parameters for running inference against a remote API."""
 
-    api_url: Optional[str] = None
+    api_url: str | None = None
     """URL of the API endpoint to use for inference."""
 
-    api_key: Optional[str] = None
+    api_key: str | None = None
     """API key to use for authentication."""
 
-    api_key_env_varname: Optional[str] = None
+    api_key_env_varname: str | None = None
     """Name of the environment variable containing the API key for authentication."""
 
     max_retries: int = 3
@@ -55,7 +54,7 @@ class RemoteParams(BaseParams):
     before making a subsequent request.
     """
 
-    batch_completion_window: Optional[str] = "24h"
+    batch_completion_window: str | None = "24h"
     """Time window for batch completion. Currently only '24h' is supported.
 
     Only used for batch inference.

@@ -16,18 +16,11 @@ All evaluations in Oumi are automatically logged and versioned, capturing model 
 
 ### AlpacaEval (1.0 and 2.0)
 
-[AlpacaEval](https://github.com/tatsu-lab/alpaca_eval) is a framework for automatically evaluating the instruction-following capabilities of language models, as well as whether their responses are helpful, accurate, and relevant. The framework prioritizes human-aligned evaluation, aiming to assess whether the model’s response meets the expectations of human evaluators. The instruction set consists of 805 open-ended questions, such as "How did US states get their names?".
+[AlpacaEval](https://github.com/tatsu-lab/alpaca_eval) is a framework for automatically evaluating the instruction-following capabilities of language models, as well as whether their responses are helpful, accurate, and relevant. The framework prioritizes human-aligned evaluation, aiming to assess whether the model's response meets the expectations of human evaluators. The instruction set consists of 805 open-ended questions, such as "How did US states get their names?".
 
 The latest update (2.0) uses GPT-4 Turbo as a judge, comparing the model outputs against a set of reference responses, and calculating standardized win-rates against these responses. AlpacaEval 2.0 has been widely adopted as a benchmark in research papers and it is particularly useful for evaluating instruction-tuned models, comparing performance against established baselines (see [leaderboard](https://tatsu-lab.github.io/alpaca_eval/)), and conducting automated evaluations at scale.
 
-To use AlpacaEval, you can run the following command:
-
-```bash
-OPENAI_API_KEY="your_key"
-oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_alpaca_v2_eval.yaml
-```
-
-If you prefer to use AlpacaEval outside Oumi, we refer you to our example notebook {gh}`notebooks/Oumi - Evaluation with AlpacaEval 2.0.ipynb`.
+To use AlpacaEval, see our example notebook {gh}`notebooks/Oumi - Evaluation with AlpacaEval 2.0.ipynb`.
 
 **Resources:**
 - [AlpacaEval V1.0 Paper](https://arxiv.org/abs/2305.14387)

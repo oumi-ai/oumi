@@ -15,7 +15,6 @@
 """Length analyzer for text content."""
 
 import re
-from typing import Optional, Union
 
 import pandas as pd
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
@@ -36,7 +35,7 @@ class LengthAnalyzer(SampleAnalyzer):
         word_count: bool = True,
         sentence_count: bool = True,
         token_count: bool = False,
-        tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
+        tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast | None = None,
         include_special_tokens: bool = True,
     ):
         """Initialize the LengthAnalyzer.
@@ -68,7 +67,7 @@ class LengthAnalyzer(SampleAnalyzer):
     def analyze_sample(
         self,
         df: pd.DataFrame,
-        schema: Optional[dict] = None,
+        schema: dict | None = None,
     ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields and return metrics.
 

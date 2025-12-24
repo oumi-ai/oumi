@@ -1,5 +1,3 @@
-from typing import Union
-
 import pytest
 from datasets import Dataset, IterableDataset
 
@@ -61,7 +59,7 @@ def _get_default_config(
 
 
 def _get_dataset_size(
-    dataset: Union[Dataset, IterableDataset, PretrainingAsyncTextDataset],
+    dataset: Dataset | IterableDataset | PretrainingAsyncTextDataset,
     stream: bool,
     pack: bool = False,
 ) -> int:
@@ -69,10 +67,7 @@ def _get_dataset_size(
         if pack:
             assert isinstance(
                 dataset,
-                (
-                    BasePretrainingDataset,
-                    PretrainingAsyncTextDataset,
-                ),
+                BasePretrainingDataset | PretrainingAsyncTextDataset,
             )
         else:
             assert isinstance(dataset, (IterableDataset))

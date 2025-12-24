@@ -14,7 +14,7 @@
 
 import warnings
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 from tqdm.auto import tqdm
 from typing_extensions import override
@@ -60,7 +60,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         self,
         model_params: ModelParams,
         *,
-        generation_params: Optional[GenerationParams] = None,
+        generation_params: GenerationParams | None = None,
     ):
         """Initializes the LlamaCppInferenceEngine.
 
@@ -168,7 +168,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def _infer(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference on the provided input using llama.cpp.
 
@@ -255,7 +255,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def infer_online(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -279,7 +279,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def infer_from_file(
         self,
         input_filepath: str,
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
@@ -308,7 +308,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def _infer_online(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 

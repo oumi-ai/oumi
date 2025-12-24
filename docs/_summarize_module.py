@@ -2,7 +2,6 @@ import importlib
 import inspect
 import os
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -14,13 +13,13 @@ GITHUB_BASE_URL = "https://github.com/oumi-ai/oumi/blob/main"
 @app.command()
 def summarize_module(
     module_name: str = typer.Argument(..., help="The name of the module to inspect"),
-    filter_type: Optional[list[str]] = typer.Option(
+    filter_type: list[str] | None = typer.Option(
         None, help="Filter for object types (class, method, attribute, function)"
     ),
-    output_file: Optional[str] = typer.Option(
+    output_file: str | None = typer.Option(
         None, help="File path to save the generated markdown"
     ),
-    parent_class: Optional[str] = typer.Option(
+    parent_class: str | None = typer.Option(
         None, help="Only include children of this class (format: module.ClassName)"
     ),
     exclude_imported: bool = typer.Option(
@@ -124,7 +123,7 @@ def summarize_configs(
     config_class: str = typer.Argument(
         ..., help="The class to instantiate configs (format: module.ClassName)"
     ),
-    output_file: Optional[str] = typer.Option(
+    output_file: str | None = typer.Option(
         None, help="File path to save the generated markdown"
     ),
 ):
@@ -207,7 +206,7 @@ def _get_object_type(obj) -> str:
         return "property"
     elif inspect.ismethod(obj):
         return "method"
-    elif isinstance(obj, (classmethod, staticmethod)):
+    elif isinstance(obj, classmethod | staticmethod):
         return "method"
     else:
         return "other"

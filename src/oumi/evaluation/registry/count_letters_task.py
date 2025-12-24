@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
 from oumi.core.inference.base_inference_engine import BaseInferenceEngine
@@ -22,7 +22,7 @@ from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
 from oumi.utils.logging import logger
 
 
-def _extract_prediction(response: str) -> Optional[int]:
+def _extract_prediction(response: str) -> int | None:
     r"""Returns the numeric answer extracted from `\boxed{...}`, or None otherwise."""
     regex_result = re.findall(r"\\boxed\{([-+]?\d+)\}", response)
     if not regex_result or len(regex_result) != 1:

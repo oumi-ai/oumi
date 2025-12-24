@@ -15,7 +15,8 @@
 """Cache utilities for handling functions with unhashable arguments."""
 
 import functools
-from typing import Any, Callable, TypeVar, cast
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
 
 F = TypeVar("F", bound=Callable[..., Any])
 

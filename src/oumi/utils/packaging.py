@@ -16,7 +16,6 @@ import importlib
 import importlib.metadata
 from collections import namedtuple
 from functools import lru_cache
-from typing import Optional, Union
 
 from packaging import version
 
@@ -49,10 +48,10 @@ def _version_bounds_str(min_package_version, max_package_version):
 
 def _package_error_message(
     package_name: str,
-    actual_package_version: Union[version.Version, None],
-    min_package_version: Optional[version.Version] = None,
-    max_package_version: Optional[version.Version] = None,
-) -> Union[str, None]:
+    actual_package_version: version.Version | None,
+    min_package_version: version.Version | None = None,
+    max_package_version: version.Version | None = None,
+) -> str | None:
     """Checks if a package is installed and if its version is compatible.
 
     This function checks if the package with name `package_name` is installed and if the

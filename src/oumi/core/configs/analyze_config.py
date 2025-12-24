@@ -15,7 +15,7 @@
 import warnings
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from omegaconf import MISSING
 
@@ -53,7 +53,7 @@ class SampleAnalyzerParams(BaseParams):
 class AnalyzeConfig(BaseConfig):
     """Configuration for dataset analysis and aggregation."""
 
-    dataset_source: Optional[DatasetSource] = None
+    dataset_source: DatasetSource | None = None
     """Source of the dataset for analysis.
 
     .. deprecated::
@@ -62,7 +62,7 @@ class AnalyzeConfig(BaseConfig):
         a dataset is passed directly to DatasetAnalyzer.__init__().
     """
 
-    dataset_format: Optional[str] = None
+    dataset_format: str | None = None
     """Format of the custom dataset.
 
     .. deprecated::
@@ -70,10 +70,10 @@ class AnalyzeConfig(BaseConfig):
         The dataset format is now automatically detected from the file contents.
     """
 
-    dataset_name: Optional[str] = None
+    dataset_name: str | None = None
     """Dataset name."""
 
-    dataset_path: Optional[str] = None
+    dataset_path: str | None = None
     """Path to a custom dataset file (JSON or JSONL format).
     If provided, this takes precedence over dataset_name for loading custom datasets.
     """
@@ -83,10 +83,10 @@ class AnalyzeConfig(BaseConfig):
     This is typically one of "train", "test", or "validation". Defaults to "train".
     """
 
-    subset: Optional[str] = None
+    subset: str | None = None
     """The subset of the dataset to load. If None, uses the base dataset."""
 
-    sample_count: Optional[int] = None
+    sample_count: int | None = None
     """The number of examples to sample from the dataset.
     If None, uses the full dataset. If specified, must be non-negative.
     """
@@ -101,7 +101,7 @@ class AnalyzeConfig(BaseConfig):
     """List of analyzer configurations (plugin-style)."""
 
     # Tokenizer configuration
-    tokenizer_name: Optional[str] = None
+    tokenizer_name: str | None = None
     """The name or path of the tokenizer to use for token counting metrics.
 
     If None, no tokenizer will be used. This is typically a model identifier
@@ -111,7 +111,7 @@ class AnalyzeConfig(BaseConfig):
     tokenizer_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional keyword arguments to pass to the tokenizer constructor."""
 
-    tokenizer_config: Optional[dict[str, Any]] = None
+    tokenizer_config: dict[str, Any] | None = None
     """Tokenizer configuration for building a tokenizer.
 
     .. deprecated::
@@ -120,7 +120,7 @@ class AnalyzeConfig(BaseConfig):
     """
 
     # Processor parameters for vision-language datasets
-    processor_name: Optional[str] = None
+    processor_name: str | None = None
     """Processor name for vision-language datasets.
 
     If provided, the dataset will be treated as multimodal (vision-language).
@@ -132,7 +132,7 @@ class AnalyzeConfig(BaseConfig):
     trust_remote_code: bool = False
     """Whether to trust remote code for tokenizer/processor loading."""
 
-    is_multimodal: Optional[bool] = None
+    is_multimodal: bool | None = None
     """Whether to treat the dataset as multimodal (vision-language).
 
     .. deprecated::

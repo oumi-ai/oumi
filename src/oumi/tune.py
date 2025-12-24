@@ -16,7 +16,7 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Optional
+from typing import Any
 
 from oumi.builders import (
     build_tuner,
@@ -90,8 +90,8 @@ def _log_tuning_info(config: TuningConfig) -> None:
 
 def tune(
     config: TuningConfig,
-    additional_model_kwargs: Optional[dict[str, Any]] = None,
-    additional_tuner_kwargs: Optional[dict[str, Any]] = None,
+    additional_model_kwargs: dict[str, Any] | None = None,
+    additional_tuner_kwargs: dict[str, Any] | None = None,
     verbose: bool = False,
 ) -> None:
     """Tunes a model using the provided configuration."""

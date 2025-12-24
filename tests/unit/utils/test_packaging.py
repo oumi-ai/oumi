@@ -1,5 +1,4 @@
 import importlib.metadata
-from typing import Union
 
 import pytest
 from packaging import version
@@ -66,10 +65,10 @@ from oumi.utils.packaging import (
 )
 def test_package_error_message(
     package_name: str,
-    actual_version: Union[str, None],
-    min_version: Union[str, None],
-    max_version: Union[str, None],
-    expected_message: Union[str, None],
+    actual_version: str | None,
+    min_version: str | None,
+    max_version: str | None,
+    expected_message: str | None,
 ):
     message = _package_error_message(
         package_name=package_name,

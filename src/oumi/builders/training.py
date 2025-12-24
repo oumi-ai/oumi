@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import warnings
+from collections.abc import Callable
 from pprint import pformat
-from typing import Callable, Optional, cast
+from typing import cast
 
 import transformers
 import trl
@@ -33,7 +34,7 @@ from oumi.utils.logging import logger
 
 
 def build_trainer(
-    trainer_type: TrainerType, processor: Optional[BaseProcessor], verbose: bool = False
+    trainer_type: TrainerType, processor: BaseProcessor | None, verbose: bool = False
 ) -> Callable[..., BaseTrainer]:
     """Builds a trainer creator functor based on the provided configuration.
 

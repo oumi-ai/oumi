@@ -236,7 +236,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             for key in ("role", "content"):
                 if key not in json_dict:
                     raise RuntimeError(f"The required field '{key}' is missing!")
-            if not isinstance(json_dict["content"], (str, list)):
+            if not isinstance(json_dict["content"], str | list):
                 raise RuntimeError(
                     "The 'content' field must be `str` or `list`. "
                     f"Actual: {type(json_dict['content'])}."

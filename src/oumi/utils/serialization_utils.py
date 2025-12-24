@@ -112,7 +112,7 @@ def flatten_config(
             # Recursively flatten nested dataclasses
             nested_flat = flatten_config(value, new_key, separator)
             flattened.update(nested_flat)
-        elif isinstance(value, (list, tuple)):
+        elif isinstance(value, list | tuple):
             # Handle lists/tuples by converting to string or flattening if they
             # contain dicts
             if value and (
@@ -129,7 +129,7 @@ def flatten_config(
             else:
                 flattened[new_key] = str(value)
         else:
-            if isinstance(value, (str, int, float, bool)) or value is None:
+            if isinstance(value, str | int | float | bool) or value is None:
                 flattened[new_key] = value
             else:
                 flattened[new_key] = str(value)

@@ -38,13 +38,21 @@ oumi <command> --help  # for command-specific help
 
 The available commands are:
 
-- `train`
-- `evaluate`
-- `infer`
-- `launch`
-- `judge`
+| Command | Description |
+|---------|-------------|
+| `train` | Train or fine-tune models |
+| `evaluate` | Evaluate models on benchmarks |
+| `infer` | Run model inference |
+| `launch` | Launch jobs on cloud platforms |
+| `judge` | Use LLM-as-a-Judge for evaluation |
+| `synth` | Generate synthetic training data |
+| `analyze` | Analyze and profile datasets |
+| `tune` | Hyperparameter tuning |
+| `quantize` | Quantize models for deployment |
+| `distributed` | Distributed training utilities |
+| `env` | Display environment information |
 
-Let's go through some examples of each command.
+Let's go through some examples of the core commands.
 
 ## 📚 Training
 

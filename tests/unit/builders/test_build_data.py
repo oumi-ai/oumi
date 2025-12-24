@@ -1,6 +1,5 @@
 import tempfile
 from pathlib import Path
-from typing import Optional, Union
 
 import datasets
 import pytest
@@ -77,13 +76,13 @@ class CustomProxyIterableDataset(BaseIterableDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str],
-        dataset_path: Optional[str] = None,
-        subset: Optional[str] = None,
-        split: Optional[str] = None,
+        dataset_name: str | None,
+        dataset_path: str | None = None,
+        subset: str | None = None,
+        split: str | None = None,
         trust_remote_code: bool = False,
-        transform_num_workers: Optional[Union[str, int]] = None,
-        tokenizer: Optional[BaseTokenizer] = None,
+        transform_num_workers: str | int | None = None,
+        tokenizer: BaseTokenizer | None = None,
         **kwargs,
     ):
         if dataset_name is None:

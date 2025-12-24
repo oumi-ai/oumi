@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 from PIL import Image
 from typing_extensions import override
@@ -66,16 +66,16 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
-        dataset_path: Optional[str] = None,
-        split: Optional[str] = None,
-        tokenizer: Optional[BaseTokenizer] = None,
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        split: str | None = None,
+        tokenizer: BaseTokenizer | None = None,
         return_tensors: bool = False,
-        processor: Optional[Any] = None,
-        processor_name: Optional[str] = None,
+        processor: Any | None = None,
+        processor_name: str | None = None,
         trust_remote_code: bool = False,
-        processor_kwargs: Optional[dict[str, Any]] = None,
-        max_size: Optional[int] = None,
+        processor_kwargs: dict[str, Any] | None = None,
+        max_size: int | None = None,
         prompt_key: str = _PROMPT_KEY,
         chosen_key: str = _CHOSEN_KEY,
         rejected_key: str = _REJECTED_KEY,
@@ -183,7 +183,7 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
             _IMAGES_KEY: images,
         }
 
-    def _load_image(self, image_path: Union[str, ContentItem, dict]) -> Image.Image:
+    def _load_image(self, image_path: str | ContentItem | dict) -> Image.Image:
         """Load images from the given paths."""
         if isinstance(image_path, str):
             content_type = (

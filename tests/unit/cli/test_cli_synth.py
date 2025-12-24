@@ -72,7 +72,7 @@ def mock_fetch():
 @pytest.fixture
 def mock_parse_extra_cli_args():
     with patch("oumi.cli.cli_utils.parse_extra_cli_args") as m_parse:
-        m_parse.return_value = {}
+        m_parse.return_value = []
         yield m_parse
 
 
@@ -114,7 +114,7 @@ def test_synth_runs(
         assert result.exit_code == 0
         mock_parse_extra_cli_args.assert_called_once()
         mock_synthesis_config_from_yaml.assert_called_once_with(
-            yaml_path, {}, logger=logger
+            yaml_path, [], logger=logger
         )
         mock_synthesize.assert_called_once_with(config)
 

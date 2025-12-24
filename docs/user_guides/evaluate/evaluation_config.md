@@ -30,11 +30,6 @@ tasks:
     eval_kwargs:
       num_fewshot: 10
 
-  # AlpacaEval Task
-  - evaluation_backend: alpaca_eval
-    version: 2.0  # or 1.0
-    num_samples: 805
-
   # Custom Task
   - evaluation_backend: custom
     task_name: my_custom_evaluation
@@ -65,12 +60,6 @@ run_name: "phi3-evaluation"
     - `evaluation_backend`: "lm_harness"
     - `task_name`: Name of the LM Harness task
     - `num_fewshot`: Number of few-shot examples (0 for zero-shot)
-    - `num_samples`: Number of samples to evaluate
-    - `eval_kwargs`: Additional task-specific parameters
-
-  - AlpacaEval Task Parameters: ({py:class}`~oumi.core.configs.params.evaluation_params.AlpacaEvalTaskParams`)
-    - `evaluation_backend`: "alpaca_eval"
-    - `version`: AlpacaEval version (1.0 or 2.0)
     - `num_samples`: Number of samples to evaluate
     - `eval_kwargs`: Additional task-specific parameters
 

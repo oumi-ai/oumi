@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from types import MappingProxyType
-from typing import Optional
 
 from oumi.core.configs import (
     GenerationParams,
@@ -68,8 +67,8 @@ ENGINE_MAP: MappingProxyType[InferenceEngineType, type[BaseInferenceEngine]] = (
 def build_inference_engine(
     engine_type: InferenceEngineType,
     model_params: ModelParams,
-    remote_params: Optional[RemoteParams] = None,
-    generation_params: Optional[GenerationParams] = None,
+    remote_params: RemoteParams | None = None,
+    generation_params: GenerationParams | None = None,
 ) -> BaseInferenceEngine:
     """Returns the inference engine based on the provided config.
 

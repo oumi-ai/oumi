@@ -1,4 +1,3 @@
-from typing import Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -165,7 +164,7 @@ def test_is_image_text_llm(
 def test_default_chat_template_in_build_tokenizer(
     model_name: str,
     trust_remote_code: bool,
-    template_name: Optional[str],
+    template_name: str | None,
     expected_padding_side: str,
 ):
     tokenizer = build_tokenizer(

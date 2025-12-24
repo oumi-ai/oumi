@@ -14,7 +14,7 @@
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 
@@ -33,7 +33,7 @@ class GkdParams(BaseParams):
         GKDTrainer is experimental and may be changed or removed in future versions.
     """
 
-    teacher_model_name_or_path: Optional[str] = None
+    teacher_model_name_or_path: str | None = None
     """Path or identifier of the teacher model.
 
     This is required for GKD training. Can be a HuggingFace model ID or local path.

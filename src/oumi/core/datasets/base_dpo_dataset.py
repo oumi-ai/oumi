@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union, cast
+from typing import cast
 
 import numpy as np
 from typing_extensions import override
@@ -36,10 +36,10 @@ class BaseDpoDataset(BaseMapDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
-        dataset_path: Optional[str] = None,
-        split: Optional[str] = None,
-        tokenizer: Optional[BaseTokenizer] = None,
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        split: str | None = None,
+        tokenizer: BaseTokenizer | None = None,
         return_tensors: bool = False,
         **kwargs,
     ) -> None:
@@ -153,7 +153,7 @@ class BaseDpoDataset(BaseMapDataset):
         return self._process_sample(self.transform_preference(sample))
 
     def _to_messages_list(
-        self, turn: Union[str, dict, list[dict]], role: Role
+        self, turn: str | dict | list[dict], role: Role
     ) -> list[dict]:
         """Convert a turn to a conversation dictionary."""
         if isinstance(turn, str):

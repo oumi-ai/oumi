@@ -30,9 +30,9 @@ def mock_response():
 
 @pytest.fixture
 def mock_requests(mock_response):
-    with patch("oumi.cli.cli_utils.requests") as r_mock:
-        r_mock.get.return_value = mock_response
-        yield r_mock
+    with patch("requests.get") as get_mock:
+        get_mock.return_value = mock_response
+        yield get_mock
 
 
 def simple_command(ctx: typer.Context):
@@ -162,7 +162,7 @@ def test_resolve_and_fetch_config_with_oumi_prefix_and_explicit_output_dir(
 
         # Then
         assert result == expected_path
-        mock_requests.get.assert_called_once()
+        mock_requests.assert_called_once()
         assert expected_path.exists()
 
 
@@ -179,7 +179,7 @@ def test_resolve_and_fetch_config_without_prefix_and_explicit_output_dir(mock_re
 
         # Then
         assert result == Path(config_path)
-        assert not mock_requests.get.called
+        assert not mock_requests.called
 
 
 def test_resolve_and_fetch_config_with_oumi_prefix_and_env_dir(
@@ -198,7 +198,7 @@ def test_resolve_and_fetch_config_with_oumi_prefix_and_env_dir(
 
         # Then
         assert result == expected_path
-        mock_requests.get.assert_called_once()
+        mock_requests.assert_called_once()
         assert expected_path.exists()
 
 
@@ -217,7 +217,7 @@ def test_resolve_and_fetch_config_without_prefix_and_env_dir(
 
         # Then
         assert result == Path(config_path)
-        assert not mock_requests.get.called
+        assert not mock_requests.called
 
 
 def test_resolve_and_fetch_config_with_oumi_prefix_and_default_dir(
@@ -237,7 +237,7 @@ def test_resolve_and_fetch_config_with_oumi_prefix_and_default_dir(
 
             # Then
             assert result == expected_path
-            mock_requests.get.assert_called_once()
+            mock_requests.assert_called_once()
             assert expected_path.exists()
 
 
@@ -258,7 +258,7 @@ def test_resolve_and_fetch_config_without_prefix_and_default_dir(
 
             # Then
             assert result == expected_path
-            assert not mock_requests.get.called
+            assert not mock_requests.called
 
 
 def test_resolve_and_fetch_config_with_existing_file_default_force(mock_requests):
@@ -276,7 +276,7 @@ def test_resolve_and_fetch_config_with_existing_file_default_force(mock_requests
         result = resolve_and_fetch_config(config_path, output_dir)
         # Then
         assert result == expected_path
-        assert mock_requests.get.call_count == 1
+        assert mock_requests.call_count == 1
         assert expected_path.read_text() == "key: value"
 
 
@@ -296,7 +296,7 @@ def test_resolve_and_fetch_config_with_existing_file_force(mock_requests):
 
         # Then
         assert result == expected_path
-        mock_requests.get.assert_called_once()
+        mock_requests.assert_called_once()
         assert expected_path.exists()
         assert expected_path.read_text() == "key: value"  # From mock_response
 
@@ -312,7 +312,7 @@ def test_resolve_and_fetch_config_force_no_conflict(mock_requests):
         result = resolve_and_fetch_config(config_path, output_dir, force=True)
         # Then
         assert result == expected_path
-        assert mock_requests.get.call_count == 1
+        assert mock_requests.call_count == 1
         assert expected_path.read_text() == "key: value"
 
 
@@ -334,7 +334,7 @@ def test_resolve_and_fetch_config_conflict_no_force(mock_requests):
             result = resolve_and_fetch_config(config_path, output_dir, force=False)
             # Then
             assert result == expected_path
-            assert mock_requests.get.call_count == 1
+            assert mock_requests.call_count == 1
             assert expected_path.read_text() == "key: value"
 
 
@@ -343,7 +343,7 @@ def test_resolve_and_fetch_config_http_error(mock_requests):
         # Given
         output_dir = Path(temp_dir)
         config_path = "oumi://configs/recipes/smollm/inference/135m_infer.yaml"
-        mock_requests.get.side_effect = RequestException("HTTP Error")
+        mock_requests.side_effect = RequestException("HTTP Error")
 
         # When
         with pytest.raises(RequestException):
@@ -355,7 +355,7 @@ def test_resolve_and_fetch_config_yaml_error(mock_requests):
         # Given
         output_dir = Path(temp_dir)
         config_path = "oumi://configs/recipes/smollm/inference/135m_infer.yaml"
-        mock_requests.get.return_value.text = "foo: bar\nbye"
+        mock_requests.return_value.text = "foo: bar\nbye"
         # When
         with pytest.raises(yaml.YAMLError):
             _ = resolve_and_fetch_config(config_path, output_dir, force=False)

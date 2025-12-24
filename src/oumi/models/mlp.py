@@ -14,7 +14,7 @@
 
 """This module defines the MLPEncoder class, which is a simple text encoder."""
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -46,7 +46,7 @@ class MLPEncoder(BaseModel):
     def forward(
         self,
         input_ids: torch.LongTensor,
-        labels: Optional[torch.LongTensor] = None,
+        labels: torch.LongTensor | None = None,
         **kwargs,
     ) -> dict[str, torch.Tensor]:
         """Forward pass of the MLP model.

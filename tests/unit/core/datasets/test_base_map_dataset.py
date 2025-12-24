@@ -17,7 +17,7 @@ class MyTestDataset(BaseMapDataset):
         result = sample.to_dict()
         computed_dict = {}
         for key, value in result.items():
-            if isinstance(value, (str, list)):
+            if isinstance(value, str | list):
                 computed_dict[f"{key}_len"] = len(value)
         result.update(computed_dict)
         return result

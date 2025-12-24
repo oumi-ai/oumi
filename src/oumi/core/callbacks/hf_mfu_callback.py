@@ -15,7 +15,6 @@
 """MFU calculator based on theoretical model flops computed by HuggingFace libraries."""
 
 import time
-from typing import Optional, Union
 
 import torch
 import transformers
@@ -55,8 +54,8 @@ class HfMfuTrainerCallback(BaseTrainerCallback):
             dtype: The data type of the model.
         """
         self._dtype = dtype
-        self._time_of_second_step: Optional[float] = None
-        self._flops_at_second_step: Optional[float] = None
+        self._time_of_second_step: float | None = None
+        self._flops_at_second_step: float | None = None
         self._time_for_train_steps = 0.0
         self._first_step_finished = False
 
@@ -78,9 +77,9 @@ class HfMfuTrainerCallback(BaseTrainerCallback):
 
     def on_step_begin(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the beginning of each train step."""
@@ -98,9 +97,9 @@ class HfMfuTrainerCallback(BaseTrainerCallback):
 
     def on_step_end(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the end of each train step.
@@ -121,9 +120,9 @@ class HfMfuTrainerCallback(BaseTrainerCallback):
 
     def on_log(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called after logging the last logs."""

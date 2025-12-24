@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import functools
-from typing import Any, Optional
+from typing import Any
 
 import transformers
 
@@ -30,7 +30,7 @@ def build_processor(
     processor_name: str,
     tokenizer: BaseTokenizer,
     *,
-    processor_kwargs: Optional[dict[str, Any]] = None,
+    processor_kwargs: dict[str, Any] | None = None,
     trust_remote_code: bool = False,
 ) -> BaseProcessor:
     """Builds a processor.
@@ -56,8 +56,8 @@ def build_processor(
     )
 
     # Initialize model-specific params.
-    label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX
-    ignore_features: Optional[list[str]] = None
+    label_ignore_index: int | None = constants.LABEL_IGNORE_INDEX
+    ignore_features: list[str] | None = None
     effective_processor_kwargs = {}
     if model_config is not None:
         label_ignore_index = model_config.label_ignore_index

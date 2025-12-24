@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Optional, Union
 
 import pandas as pd
 from typing_extensions import override
@@ -80,8 +79,8 @@ class VLJsonlinesDataset(VisionLanguageSftDataset):
 
     def __init__(
         self,
-        dataset_path: Optional[Union[str, Path]] = None,
-        data: Optional[list] = None,
+        dataset_path: str | Path | None = None,
+        data: list | None = None,
         **kwargs,
     ):
         """Initializes a new instance of the VLJsonlinesDataset class."""
@@ -91,9 +90,7 @@ class VLJsonlinesDataset(VisionLanguageSftDataset):
             )
 
         self._data_column: str = "_messages_column"
-        self._dataset_path: Optional[Path] = (
-            Path(dataset_path) if dataset_path else None
-        )
+        self._dataset_path: Path | None = Path(dataset_path) if dataset_path else None
 
         if data is not None:
             data_frame = pd.DataFrame({self._data_column: data})

@@ -14,7 +14,6 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 from datasets import load_dataset
@@ -169,8 +168,8 @@ class DatasetReader:
     def _read_from_hf(
         self,
         hf_path: str,
-        split: Optional[str] = None,
-        revision: Optional[str] = None,
+        split: str | None = None,
+        revision: str | None = None,
     ) -> list[dict]:
         """Read the dataset from HuggingFace."""
         dataset = load_dataset(hf_path, split=split, revision=revision)

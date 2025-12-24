@@ -1,7 +1,6 @@
 import pytest
 
 from oumi.core.configs.params.evaluation_params import (
-    AlpacaEvalTaskParams,
     EvaluationBackend,
     EvaluationTaskParams,
     LMHarnessTaskParams,
@@ -18,24 +17,6 @@ from oumi.core.configs.params.evaluation_params import (
         "backend_class,"
     ),
     [
-        # Alpaca Eval run with no arguments.
-        (
-            "alpaca_eval",
-            "",
-            None,
-            {},
-            EvaluationBackend.ALPACA_EVAL,
-            AlpacaEvalTaskParams,
-        ),
-        # Alpaca Eval run with arguments.
-        (
-            "alpaca_eval",
-            "unused_task_name",
-            44,
-            {"version": 2.0, "eval_param": "eval_param_value"},
-            EvaluationBackend.ALPACA_EVAL,
-            AlpacaEvalTaskParams,
-        ),
         # LM Harness run with no arguments.
         (
             "lm_harness",
@@ -65,8 +46,6 @@ from oumi.core.configs.params.evaluation_params import (
         ),
     ],
     ids=[
-        "test_valid_initialization_alpaca_eval_no_args",
-        "test_valid_initialization_alpaca_eval_with_args",
         "test_valid_initialization_lm_harness_no_args",
         "test_valid_initialization_lm_harness_with_args",
         "test_valid_initialization_custom_with_args",
@@ -164,14 +143,4 @@ def test_lm_harness_invalid_initialization_num_fewshot_negative():
             task_name="some_task",
             num_samples=10,
             num_fewshot=-1,
-        )
-
-
-def test_alpaca_eval_invalid_initialization_version():
-    with pytest.raises(ValueError, match="AlpacaEval `version` must be 1.0 or 2.0."):
-        _ = AlpacaEvalTaskParams(
-            evaluation_backend="alpaca_eval",
-            task_name="",
-            num_samples=10,
-            version=3.0,
         )

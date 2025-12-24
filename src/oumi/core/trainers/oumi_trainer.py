@@ -17,10 +17,11 @@ import copy
 import math
 import os
 import time
+from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Optional, cast
+from typing import Any, cast
 
 import mlflow
 import pydantic
@@ -73,14 +74,14 @@ class Trainer(BaseTrainer):
     def __init__(
         self,
         model: torch.nn.Module,
-        processing_class: Optional[BaseTokenizer],
+        processing_class: BaseTokenizer | None,
         args: TrainingParams,
         train_dataset: Dataset,
-        processor: Optional[BaseProcessor] = None,
-        eval_dataset: Optional[Dataset] = None,
-        callbacks: Optional[list[TrainerCallback]] = None,
-        data_collator: Optional[Callable] = None,
-        config: Optional[TrainingConfig] = None,
+        processor: BaseProcessor | None = None,
+        eval_dataset: Dataset | None = None,
+        callbacks: list[TrainerCallback] | None = None,
+        data_collator: Callable | None = None,
+        config: TrainingConfig | None = None,
         **kwargs,
     ):
         """Initializes the Oumi trainer."""
@@ -204,7 +205,7 @@ class Trainer(BaseTrainer):
     #
     # Training
     #
-    def train(self, resume_from_checkpoint: Optional[str] = None):
+    def train(self, resume_from_checkpoint: str | None = None):
         """Trains the model."""
         if resume_from_checkpoint:
             with torch.profiler.record_function("load_from_checkpoint"):
@@ -847,7 +848,7 @@ class Trainer(BaseTrainer):
     # Handle callbacks
     #
     def _process_callbacks(
-        self, event: str, logs: Optional[dict[str, Any]] = None
+        self, event: str, logs: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Process callbacks.
 

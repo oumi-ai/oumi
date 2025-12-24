@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import collections
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -27,9 +27,9 @@ class VisionLanguageCollatorWithPadding:
         self,
         tokenizer: BaseTokenizer,
         *,
-        max_length: Optional[int],
+        max_length: int | None,
         truncation: bool = False,
-        label_ignore_index: Optional[int] = None,
+        label_ignore_index: int | None = None,
         allow_multi_image_inputs: bool = True,
         main_image_feature: str = "pixel_values",
         debug: bool = False,

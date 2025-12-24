@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 from unittest.mock import ANY, Mock, call, patch
 
 import pytest
@@ -267,7 +266,7 @@ def test_convert_job_to_task_with_populated_image_and_dict(
     ],
 )
 def test_get_use_spot_vm_override(
-    env_var_use_spot_vm: Optional[str], expected_use_spot_vm: bool
+    env_var_use_spot_vm: str | None, expected_use_spot_vm: bool
 ):
     if env_var_use_spot_vm is not None:
         with patch.dict(

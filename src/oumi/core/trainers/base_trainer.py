@@ -13,14 +13,14 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs import TrainingConfig
 
 
 class BaseTrainer(ABC):
     @abstractmethod
-    def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
+    def train(self, resume_from_checkpoint: str | None = None) -> None:
         """Trains a model."""
 
     @abstractmethod

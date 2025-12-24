@@ -13,53 +13,149 @@
 # limitations under the License.
 
 import os
-from typing import Annotated, Final, Optional
+from typing import Annotated, Final
 
 import typer
 from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.cli.alias import AliasType, try_get_config_name_for_alias
+from oumi.cli.completions import complete_infer_config
 from oumi.utils.logging import logger
 
 _DEFAULT_CLI_PDF_DPI: Final[int] = 200
 
+_list_configs_callback = cli_utils.create_list_configs_callback(
+    AliasType.INFER, "Available Inference Configs", "infer"
+)
+
 
 def infer(
     ctx: typer.Context,
+    # Main options
     config: Annotated[
         str,
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
-            help="Path to the configuration file for inference.",
+            help="Path or config name (e.g. llama3.1-8b).",
+            rich_help_panel="Options",
+            autocompletion=complete_infer_config,
         ),
     ],
+    list_configs: Annotated[
+        bool,
+        typer.Option(
+            "--list",
+            help="List all available inference configs.",
+            callback=_list_configs_callback,
+            is_eager=True,
+            rich_help_panel="Options",
+        ),
+    ] = False,
     interactive: Annotated[
         bool,
-        typer.Option("-i", "--interactive", help="Run in an interactive session."),
+        typer.Option(
+            "-i",
+            "--interactive",
+            help="Run in an interactive session.",
+            rich_help_panel="Options",
+        ),
     ] = False,
     image: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--image",
             help=(
                 "File path or URL of an input image to be used with image+text VLLMs. "
                 "Only used in interactive mode."
             ),
+            rich_help_panel="Options",
         ),
     ] = None,
     system_prompt: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--system-prompt",
             help=(
                 "System prompt for task-specific instructions. "
                 "Only used in interactive mode."
             ),
+            rich_help_panel="Options",
         ),
     ] = None,
-    level: cli_utils.LOG_LEVEL_TYPE = None,
-    verbose: cli_utils.VERBOSE_TYPE = False,
+    level: Annotated[
+        cli_utils.LogLevel | None,
+        typer.Option(
+            "--log-level",
+            "-log",
+            help="Logging level.",
+            show_default=False,
+            show_choices=True,
+            case_sensitive=False,
+            callback=cli_utils.set_log_level,
+            rich_help_panel="Options",
+        ),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Enable verbose output.",
+            rich_help_panel="Options",
+        ),
+    ] = False,
+    # Model overrides
+    model_name: Annotated[
+        str | None,
+        typer.Option(
+            "--model.model_name",
+            help="Model name or HuggingFace path.",
+            rich_help_panel="Model",
+        ),
+    ] = None,
+    # Generation overrides
+    max_new_tokens: Annotated[
+        int | None,
+        typer.Option(
+            "--generation.max_new_tokens",
+            help="Maximum number of new tokens to generate.",
+            rich_help_panel="Generation",
+        ),
+    ] = None,
+    temperature: Annotated[
+        float | None,
+        typer.Option(
+            "--generation.temperature",
+            help="Sampling temperature (0.0 = deterministic).",
+            rich_help_panel="Generation",
+        ),
+    ] = None,
+    top_p: Annotated[
+        float | None,
+        typer.Option(
+            "--generation.top_p",
+            help="Nucleus sampling threshold.",
+            rich_help_panel="Generation",
+        ),
+    ] = None,
+    # I/O overrides
+    input_path: Annotated[
+        str | None,
+        typer.Option(
+            "--input_path",
+            help="Path to input file with prompts (JSONL).",
+            rich_help_panel="I/O",
+        ),
+    ] = None,
+    output_path: Annotated[
+        str | None,
+        typer.Option(
+            "--output_path",
+            help="Path to output file for generated text.",
+            rich_help_panel="I/O",
+        ),
+    ] = None,
 ):
     """Run inference on a model.
 
@@ -70,15 +166,25 @@ def infer(
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
-        output_dir: Directory to save configs
-        (defaults to OUMI_DIR env var or ~/.oumi/fetch).
+        list_configs: List all available inference configs.
         interactive: Whether to run in an interactive session.
         image: Path to the input image for `image+text` VLLMs.
         system_prompt: System prompt for task-specific instructions.
         level: The logging level for the specified command.
         verbose: Enable verbose logging with additional debug information.
+        model_name: Model name or HuggingFace path.
+        max_new_tokens: Maximum number of new tokens to generate.
+        temperature: Sampling temperature.
+        top_p: Nucleus sampling threshold.
+        input_path: Path to input file with prompts.
+        output_path: Path to output file for generated text.
     """
+    # Auto-collect overrides from dot-notation options (e.g., --model.model_name)
+    option_overrides = cli_utils.collect_config_overrides(ctx)
+    # Parse any additional extra args from command line
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+    # Combine: explicit options take precedence (added last)
+    all_overrides = extra_args + option_overrides
 
     config = str(
         cli_utils.resolve_and_fetch_config(
@@ -100,8 +206,15 @@ def infer(
     # End imports
 
     parsed_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
-        config, extra_args, logger=logger
+        config, all_overrides, logger=logger
     )
+
+    # Apply non-dot-notation overrides
+    if input_path is not None:
+        parsed_config.input_path = input_path
+    if output_path is not None:
+        parsed_config.output_path = output_path
+
     parsed_config.finalize_and_validate()
 
     if verbose:
@@ -111,7 +224,7 @@ def infer(
     # https://stackoverflow.com/questions/62691279/how-to-disable-tokenizers-parallelism-true-false-warning
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-    input_image_png_bytes: Optional[list[bytes]] = None
+    input_image_png_bytes: list[bytes] | None = None
     if image:
         image_lower = image.lower()
         if image_lower.startswith("http://") or image_lower.startswith("https://"):

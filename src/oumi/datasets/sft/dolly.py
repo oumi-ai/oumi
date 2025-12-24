@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union, cast
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -42,7 +42,7 @@ class ArgillaDollyDataset(BaseSftDataset):
         super().__init__(**kwargs)
 
     @override
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict | pd.Series) -> Conversation:
         """Transform a dataset example into a Conversation object.
 
         Args:
@@ -70,7 +70,7 @@ class ArgillaDollyDataset(BaseSftDataset):
         return Conversation(messages=messages)
 
     @staticmethod
-    def _get_field_value(example: Union[dict, pd.Series], field: str) -> str:
+    def _get_field_value(example: dict | pd.Series, field: str) -> str:
         """Helper method to get the value from a field.
 
         Args:
@@ -84,11 +84,11 @@ class ArgillaDollyDataset(BaseSftDataset):
 
         if isinstance(value, str):
             return value
-        if isinstance(value, (dict, pd.Series)) and "value" in value:
+        if isinstance(value, dict | pd.Series) and "value" in value:
             return cast(
                 str,
                 value["value"][0]
-                if isinstance(value["value"], (list, np.ndarray))
+                if isinstance(value["value"], list | np.ndarray)
                 else value["value"],
             )
         raise RuntimeError(f"Unable to parse field: {field}")

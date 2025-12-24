@@ -13,11 +13,11 @@
 # limitations under the License.
 
 import os
-from typing import Union
 
 import datasets as hf_datasets
 
 from oumi.core.types.conversation import Conversation, Role
+from oumi.utils.logging import logger
 
 
 def extract_prompt_images_completion_from_single_turn_conversation(
@@ -93,8 +93,8 @@ def try_prepare_trl_grpo_example(
 
 
 def try_prepare_trl_grpo_dataset(
-    dataset: Union[hf_datasets.Dataset, hf_datasets.IterableDataset],
-) -> Union[hf_datasets.Dataset, hf_datasets.IterableDataset]:
+    dataset: hf_datasets.Dataset | hf_datasets.IterableDataset,
+) -> hf_datasets.Dataset | hf_datasets.IterableDataset:
     """Prepares a dataset for GRPO_TRL processing."""
     column_names = dataset.column_names
     if column_names and ("conversation_json" not in column_names):
@@ -117,5 +117,5 @@ def try_prepare_trl_grpo_dataset(
             remove_columns=["conversation_json"],
         )
 
-    print(f"Transformed GRPO Dataset columns: {dataset.column_names}")
+    logger.info(f"Transformed GRPO Dataset columns: {dataset.column_names}")
     return dataset

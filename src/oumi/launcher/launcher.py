@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
@@ -57,7 +56,7 @@ class Launcher:
             raise ValueError(f"Cluster {cluster_name} not found.")
         cluster.down()
 
-    def get_cloud(self, job_or_cloud: Union[JobConfig, str]) -> BaseCloud:
+    def get_cloud(self, job_or_cloud: JobConfig | str) -> BaseCloud:
         """Gets the cloud instance for the specified job."""
         if isinstance(job_or_cloud, str):
             return self._get_cloud_by_name(job_or_cloud)
@@ -81,9 +80,9 @@ class Launcher:
 
     def status(
         self,
-        cloud: Optional[str] = None,
-        cluster: Optional[str] = None,
-        id: Optional[str] = None,
+        cloud: str | None = None,
+        cluster: str | None = None,
+        id: str | None = None,
     ) -> dict[str, list[JobStatus]]:
         """Gets the status of all jobs across all clusters.
 
@@ -124,7 +123,7 @@ class Launcher:
         cluster.stop()
 
     def up(
-        self, job: JobConfig, cluster_name: Optional[str], **kwargs
+        self, job: JobConfig, cluster_name: str | None, **kwargs
     ) -> tuple[BaseCluster, JobStatus]:
         """Creates a new cluster and starts the specified job on it."""
         cloud = self.get_cloud(job)

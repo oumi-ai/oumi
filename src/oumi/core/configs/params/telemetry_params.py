@@ -13,14 +13,13 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
 
 
 @dataclass
 class TelemetryParams(BaseParams):
-    telemetry_dir: Optional[str] = "telemetry"
+    telemetry_dir: str | None = "telemetry"
     """Directory where the telemetry data will be saved to.
 
     If not specified, then telemetry files will be written under `output_dir`.

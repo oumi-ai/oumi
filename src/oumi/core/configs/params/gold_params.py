@@ -14,7 +14,7 @@
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 
@@ -34,7 +34,7 @@ class GoldParams(BaseParams):
         GOLDTrainer is experimental and may be changed or removed in future versions.
     """
 
-    teacher_model_name_or_path: Optional[str] = None
+    teacher_model_name_or_path: str | None = None
     """Path or identifier of the teacher model.
 
     This is required for GOLD training. Can be a HuggingFace model ID or local path.
@@ -52,7 +52,7 @@ class GoldParams(BaseParams):
     of the teacher model.
     """
 
-    teacher_tokenizer_name_or_path: Optional[str] = None
+    teacher_tokenizer_name_or_path: str | None = None
     """Tokenizer name or path for the teacher model.
 
     Required when using ULD loss for cross-tokenizer distillation. If None when
@@ -150,7 +150,7 @@ class GoldParams(BaseParams):
     Only relevant when use_uld_loss=True.
     """
 
-    uld_hybrid_matched_weight: Optional[float] = None
+    uld_hybrid_matched_weight: float | None = None
     """Weight for matched token loss in hybrid mode.
 
     Scales the JSD loss for tokens with direct student-teacher mappings.
@@ -160,7 +160,7 @@ class GoldParams(BaseParams):
     Only relevant when use_uld_loss=True and uld_use_hybrid_loss=True.
     """
 
-    uld_hybrid_unmatched_weight: Optional[float] = None
+    uld_hybrid_unmatched_weight: float | None = None
     """Weight for unmatched token loss in hybrid mode.
 
     Scales the ULD loss for tokens without direct student-teacher mappings.
@@ -271,7 +271,7 @@ class GoldParams(BaseParams):
     Only relevant when use_vllm=True and vllm_mode="colocate".
     """
 
-    vllm_guided_decoding_regex: Optional[str] = None
+    vllm_guided_decoding_regex: str | None = None
     """Regex pattern for vLLM guided decoding.
 
     Only relevant when use_vllm=True.

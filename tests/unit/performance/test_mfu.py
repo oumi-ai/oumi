@@ -1,5 +1,5 @@
 import math
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import pytest
 import torch
@@ -20,10 +20,10 @@ class MfuTestParams(NamedTuple):
     num_tokens: int
     delta_time_seconds: float
     expected_mfu: float
-    num_layers: Optional[int]
-    num_attention_heads: Optional[int]
-    attention_head_size: Optional[int]
-    sequence_length: Optional[int]
+    num_layers: int | None
+    num_attention_heads: int | None
+    attention_head_size: int | None
+    sequence_length: int | None
     add_rematerialization: bool
 
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import numpy as np
 from sklearn.metrics import balanced_accuracy_score
@@ -23,20 +23,20 @@ from sklearn.utils import resample
 class Metric:
     """Base class for all metrics."""
 
-    name: Optional[str] = ""
+    name: str | None = ""
     """The name of the metric."""
 
-    value: Optional[float] = None
+    value: float | None = None
     """The value of the metric."""
 
-    ci: Optional[float] = None
+    ci: float | None = None
     """The confidence interval of the metric."""
 
     def __init__(
         self,
-        name: Optional[str] = "",
-        value: Optional[float] = None,
-        ci: Optional[float] = None,
+        name: str | None = "",
+        value: float | None = None,
+        ci: float | None = None,
     ) -> None:
         """Initialize a Metric instance."""
         self.name = name

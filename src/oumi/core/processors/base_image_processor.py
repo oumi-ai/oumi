@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import abc
-from typing import Optional
 
 import PIL.Image
 import transformers
@@ -27,7 +26,7 @@ class BaseImageProcessor(abc.ABC):
         self,
         images: list[PIL.Image.Image],
         *,
-        return_tensors: Optional[str] = "pt",
+        return_tensors: str | None = "pt",
     ) -> transformers.BatchFeature:
         """Extracts image features.
 

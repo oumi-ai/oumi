@@ -12,7 +12,7 @@
 import argparse
 import copy
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import jsonlines
 from tqdm import tqdm
@@ -29,13 +29,13 @@ from oumi.utils.logging import logger, update_logger_level
 def _load_sft_dataset(
     dataset_name: str,
     *,
-    dataset_path: Optional[str],
-    dataset_subset: Optional[str],
-    dataset_split: Optional[str],
-    tokenizer: Optional[BaseTokenizer] = None,
-    processor_name: Optional[str] = None,
+    dataset_path: str | None,
+    dataset_subset: str | None,
+    dataset_split: str | None,
+    tokenizer: BaseTokenizer | None = None,
+    processor_name: str | None = None,
     trust_remote_code: bool = False,
-    dataset_kwargs: Optional[dict[str, Any]] = None,
+    dataset_kwargs: dict[str, Any] | None = None,
 ) -> BaseSftDataset:
     """Loads a custom SFT dataset with the specified name and subset."""
     dataset_class = REGISTRY.get_dataset(dataset_name, subset=dataset_subset)
@@ -139,9 +139,9 @@ def _process_conversation(
 def main(args):
     """The script's entry point."""
     dataset_name: str = args.name
-    dataset_path: Optional[str] = args.path
-    dataset_subset: Optional[str] = args.subset
-    dataset_split: Optional[str] = args.split
+    dataset_path: str | None = args.path
+    dataset_subset: str | None = args.subset
+    dataset_split: str | None = args.split
     trust_remote_code: bool = args.trust_remote_code
     split_multi_turn_to_single_turn: bool = args.split_multi_turn_to_single_turn
     drop_assistant_messages: bool = args.drop_assistant_messages

@@ -14,8 +14,6 @@
 
 """Based on MFU from PaLM paper: https://arxiv.org/pdf/2204.02311."""
 
-from typing import Optional
-
 import torch
 
 _TFLOPS = "tflops"
@@ -108,10 +106,10 @@ def _get_device_flops(device_name: str, dtype: torch.dtype) -> float:
 
 def _get_model_flops_per_token(
     num_params: int,
-    num_layers: Optional[int] = None,
-    num_attention_heads: Optional[int] = None,
-    attention_head_size: Optional[int] = None,
-    sequence_length: Optional[int] = None,
+    num_layers: int | None = None,
+    num_attention_heads: int | None = None,
+    attention_head_size: int | None = None,
+    sequence_length: int | None = None,
     add_rematerialization: bool = False,
 ) -> int:
     """Returns the number of FLOPs per token for the given model configuration."""
@@ -163,10 +161,10 @@ def calculate_mfu(
     num_params: int,
     num_tokens: int,
     delta_time_seconds: float,
-    num_layers: Optional[int] = None,
-    num_attention_heads: Optional[int] = None,
-    attention_head_size: Optional[int] = None,
-    sequence_length: Optional[int] = None,
+    num_layers: int | None = None,
+    num_attention_heads: int | None = None,
+    attention_head_size: int | None = None,
+    sequence_length: int | None = None,
     add_rematerialization: bool = False,
 ) -> float:
     """Returns the number of MFU for the given model configuration."""

@@ -14,7 +14,6 @@
 
 
 from pathlib import Path
-from typing import Optional, Union
 
 from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.types.conversation import Conversation, Role
@@ -29,9 +28,9 @@ DATASET_RESPONSE_KEY = "response"
 
 
 def judge_dataset(
-    judge_config: Union[JudgeConfig, str],
+    judge_config: JudgeConfig | str,
     dataset: list[dict[str, str]],
-    output_file: Optional[Union[str, Path]] = None,
+    output_file: str | Path | None = None,
 ) -> list[JudgeOutput]:
     """Judge a dataset using Oumi's Judge framework.
 
@@ -93,9 +92,9 @@ def judge_dataset(
 
 
 def judge_dataset_file(
-    judge_config: Union[JudgeConfig, str],
-    input_file: Union[str, Path],
-    output_file: Optional[Union[str, Path]] = None,
+    judge_config: JudgeConfig | str,
+    input_file: str | Path,
+    output_file: str | Path | None = None,
 ) -> list[JudgeOutput]:
     """Judge a dataset from a JSONL file using Oumi's Judge framework.
 
@@ -127,9 +126,9 @@ def judge_dataset_file(
 
 
 def judge_conversations_file(
-    judge_config: Union[JudgeConfig, str],
-    input_file: Union[str, Path],
-    output_file: Optional[Union[str, Path]] = None,
+    judge_config: JudgeConfig | str,
+    input_file: str | Path,
+    output_file: str | Path | None = None,
 ) -> list[JudgeOutput]:
     """Judge a list of conversations from a JSONL file using Oumi's Judge framework.
 

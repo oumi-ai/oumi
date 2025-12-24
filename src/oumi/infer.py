@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import InferenceConfig, InferenceEngineType
@@ -43,8 +42,8 @@ def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
 def infer_interactive(
     config: InferenceConfig,
     *,
-    input_image_bytes: Optional[list[bytes]] = None,
-    system_prompt: Optional[str] = None,
+    input_image_bytes: list[bytes] | None = None,
+    system_prompt: str | None = None,
 ) -> None:
     """Interactively provide the model response for a user-provided input."""
     # Create engine up front to avoid reinitializing it for each input.
@@ -73,11 +72,11 @@ def infer_interactive(
 
 def infer(
     config: InferenceConfig,
-    inputs: Optional[list[str]] = None,
-    inference_engine: Optional[BaseInferenceEngine] = None,
+    inputs: list[str] | None = None,
+    inference_engine: BaseInferenceEngine | None = None,
     *,
-    input_image_bytes: Optional[list[bytes]] = None,
-    system_prompt: Optional[str] = None,
+    input_image_bytes: list[bytes] | None = None,
+    system_prompt: str | None = None,
 ) -> list[Conversation]:
     """Runs batch inference for a model using the provided configuration.
 

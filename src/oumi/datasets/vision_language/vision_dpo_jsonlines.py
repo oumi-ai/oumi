@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
 
 import pandas as pd
 from typing_extensions import override
@@ -44,9 +43,9 @@ class VisionDpoJsonlinesDataset(VisionLanguageDpoDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
-        dataset_path: Optional[str] = None,
-        data: Optional[list[dict]] = None,
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        data: list[dict] | None = None,
         **kwargs,
     ):
         """Initialize the VisionDpoJsonlinesDataset.

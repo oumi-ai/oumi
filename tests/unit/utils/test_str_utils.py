@@ -1,6 +1,5 @@
 import os
 import re
-from typing import Optional
 from unittest.mock import patch
 
 import pytest
@@ -127,7 +126,7 @@ def test_compute_utf8_len():
         ("False", False),
     ],
 )
-def test_get_editable_install_override(env_var_val: Optional[str], expected_val: bool):
+def test_get_editable_install_override(env_var_val: str | None, expected_val: bool):
     overrides = {}
     if env_var_val is not None:
         overrides = {"OUMI_FORCE_EDITABLE_INSTALL": env_var_val}
@@ -268,7 +267,7 @@ def test_truncate_text_pieces_to_max_tokens_limit_success(
     text_pieces: list[str],
     max_tokens: int,
     truncation_side: str,
-    expected_text_pieces: Optional[list[str]],
+    expected_text_pieces: list[str] | None,
     gpt2_tokenizer,
 ):
     truncated_text_pieces = truncate_text_pieces_to_max_tokens_limit(

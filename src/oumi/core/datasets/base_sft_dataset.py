@@ -14,7 +14,7 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Literal, Optional, Union, cast
+from typing import Literal, cast
 
 import pandas as pd
 from typing_extensions import override
@@ -37,16 +37,16 @@ class BaseSftDataset(BaseMapDataset, ABC):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
-        dataset_path: Optional[str] = None,
-        split: Optional[str] = None,
-        tokenizer: Optional[BaseTokenizer] = None,
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        split: str | None = None,
+        tokenizer: BaseTokenizer | None = None,
         task: Literal["sft", "generation", "auto"] = "auto",
         return_tensors: bool = False,
         text_col: str = "text",
         assistant_only: bool = False,
-        response_template: Optional[str] = None,
-        instruction_template: Optional[str] = None,
+        response_template: str | None = None,
+        instruction_template: str | None = None,
         return_conversations: bool = False,
         return_conversations_format: Literal["dict", "json"] = "json",
         **kwargs,
@@ -135,7 +135,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
     # Abstract Methods
     #
     @abstractmethod
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict | pd.Series) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.
 
         Args:
@@ -172,7 +172,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
 
     def tokenize(
         self,
-        sample: Union[dict, pd.Series, Conversation],
+        sample: dict | pd.Series | Conversation,
         tokenize: bool = True,
     ) -> dict:
         """Applies the chat template carried by the tokenizer to the input example.
@@ -230,7 +230,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
             )
 
     def _tokenize(
-        self, sample: Union[dict, pd.Series, Conversation], tokenize: bool = True
+        self, sample: dict | pd.Series | Conversation, tokenize: bool = True
     ) -> dict:
         if self._tokenizer is None:
             raise ValueError("Tokenizer is required for tokenization.")

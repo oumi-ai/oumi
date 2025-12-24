@@ -5,7 +5,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import pytest
 import yaml
@@ -27,15 +27,15 @@ class TrainTestConfig(NamedTuple):
     skip: bool = False
     interactive_logs: bool = True
 
-    trainer_type: Optional[TrainerType] = None
-    model_max_length: Optional[int] = None
-    batch_size: Optional[int] = None
-    gradient_accumulation_steps: Optional[int] = None
-    dataloader_num_workers: Optional[int] = None
-    dataloader_prefetch_factor: Optional[int] = None
-    save_steps: Optional[int] = None
-    save_final_model: Optional[bool] = None
-    enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
+    trainer_type: TrainerType | None = None
+    model_max_length: int | None = None
+    batch_size: int | None = None
+    gradient_accumulation_steps: int | None = None
+    dataloader_num_workers: int | None = None
+    dataloader_prefetch_factor: int | None = None
+    save_steps: int | None = None
+    save_final_model: bool | None = None
+    enable_wandb: bool | None = False  # Disable `wandb`` by default
 
 
 def _check_checkpoint_dir(

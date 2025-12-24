@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from oumi.core.configs import TrainingParams
 from oumi.core.registry import REGISTRY
 
 
-def build_rollout_function(config: TrainingParams) -> Optional[Callable]:
+def build_rollout_function(config: TrainingParams) -> Callable | None:
     """Builds the rollout function."""
     if config.grpo.rollout_function is None:
         return None

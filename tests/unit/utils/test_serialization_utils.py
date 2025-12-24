@@ -1,6 +1,6 @@
 import dataclasses
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -33,7 +33,7 @@ class ComplexConfig:
     name: str = "complex"
     nested: NestedConfig = dataclasses.field(default_factory=NestedConfig)
     items: list[str] = dataclasses.field(default_factory=list)
-    optional_value: Optional[int] = None
+    optional_value: int | None = None
     enum_value: ConfigTestEnum = ConfigTestEnum.VALUE_A
     torch_dtype: torch.dtype = torch.float32
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -33,7 +33,7 @@ from oumi.utils.torch_utils import (
 
 
 def build_training_callbacks(
-    config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
+    config: TrainingConfig, model: torch.nn.Module, profiler: Any | None
 ) -> list[BaseTrainerCallback]:
     """Builds the training callbacks for the given training config and model.
 

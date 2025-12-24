@@ -1,5 +1,3 @@
-from typing import Optional
-
 import datasets
 from sklearn.metrics import balanced_accuracy_score
 
@@ -21,7 +19,7 @@ Ensure that your final answer is formatted as <|supported|> or <|unsupported|>.
 """
 
 
-def _load_dataset(num_examples: Optional[int]) -> TextSftJsonLinesDataset:
+def _load_dataset(num_examples: int | None) -> TextSftJsonLinesDataset:
     """Load the facebook/anli dataset, formatted as a classification problem."""
     anli_dataset = datasets.load_dataset("facebook/anli", split="test_r3")
     evaluation_dataset = []
@@ -71,7 +69,7 @@ def classifier_benchmark(
     inference_engine: BaseInferenceEngine,
 ):
     """Custom evaluation function registered as `my_custom_evaluation`."""
-    num_examples: Optional[int] = task_params.eval_kwargs.get("num_examples", None)
+    num_examples: int | None = task_params.eval_kwargs.get("num_examples", None)
     dataset = _load_dataset(num_examples)
     # Run inference to generate the model responses.
     conversations = inference_engine.infer(dataset.conversations())

@@ -62,7 +62,7 @@ import copy
 import functools
 import types
 from collections.abc import Mapping
-from typing import Any, NamedTuple, Optional, cast
+from typing import Any, NamedTuple, cast
 
 import transformers
 
@@ -84,7 +84,7 @@ def find_model_hf_config(
     model_name: str,
     *,
     trust_remote_code: bool,
-    revision: Optional[str] = None,
+    revision: str | None = None,
     **kwargs: Any,
 ) -> transformers.PretrainedConfig:
     """Finds HF model config by model name."""
@@ -611,7 +611,7 @@ def is_custom_model(model_name: str) -> bool:
 
 def find_internal_model_config_using_model_name(
     model_name: str, trust_remote_code: bool
-) -> Optional[InternalModelConfig]:
+) -> InternalModelConfig | None:
     """Finds an internal model config for supported models using model name.
 
     Args:
@@ -637,7 +637,7 @@ def find_internal_model_config_using_model_name(
 
 def find_internal_model_config(
     model_params: ModelParams,
-) -> Optional[InternalModelConfig]:
+) -> InternalModelConfig | None:
     """Finds an internal model config for supported models using `ModelParams`.
 
     Args:

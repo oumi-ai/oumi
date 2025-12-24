@@ -15,7 +15,7 @@
 import queue
 import random
 import threading
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import datasets
 import torch
@@ -37,10 +37,10 @@ class PretrainingAsyncTextDataset(IterableDataset):
 
     def __init__(
         self,
-        tokenizer: Optional[BaseTokenizer],
+        tokenizer: BaseTokenizer | None,
         dataset: datasets.Dataset,
-        dataset_text_field: Optional[str] = None,
-        formatting_func: Optional[Callable] = None,
+        dataset_text_field: str | None = None,
+        formatting_func: Callable | None = None,
         infinite: bool = False,
         seq_length: int = 1024,
         sequence_buffer_size: int = 1024,

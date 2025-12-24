@@ -13,12 +13,12 @@
 # limitations under the License.
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.registry import RegistryType, register
 
 
-def _extract_prediction(response: str) -> Optional[int]:
+def _extract_prediction(response: str) -> int | None:
     r"""Returns the numeric answer extracted from `\boxed{...}`, or None otherwise."""
     regex_result = re.findall(r"\\boxed\{([-+]?\d+)\}", response)
     if not regex_result or len(regex_result) != 1:

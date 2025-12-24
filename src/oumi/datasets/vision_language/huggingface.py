@@ -19,7 +19,7 @@ Allows users to specify the image, question, and answer columns at the config le
 
 import base64
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 from typing_extensions import override
@@ -61,9 +61,9 @@ class HuggingFaceVisionDataset(VisionLanguageSftDataset):
         hf_dataset_path: str,
         image_column: str,
         question_column: str,
-        answer_column: Optional[str] = None,
-        system_prompt_column: Optional[str] = None,
-        system_prompt: Optional[str] = None,
+        answer_column: str | None = None,
+        system_prompt_column: str | None = None,
+        system_prompt: str | None = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the HuggingFaceVisionDataset class.
@@ -147,7 +147,7 @@ class HuggingFaceVisionDataset(VisionLanguageSftDataset):
             )
 
     @override
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict | pd.Series) -> Conversation:
         """Preprocesses the inputs of the example and returns a Conversation.
 
         Args:

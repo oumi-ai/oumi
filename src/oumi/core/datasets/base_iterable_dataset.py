@@ -14,7 +14,7 @@
 
 import abc
 from collections.abc import Iterable
-from typing import Any, Optional
+from typing import Any
 
 import datasets
 import torch
@@ -38,18 +38,18 @@ class BaseIterableDataset(IterDataPipe, abc.ABC):
     """Abstract base class for iterable datasets."""
 
     dataset_name: str
-    dataset_path: Optional[str] = None
-    default_dataset: Optional[str] = None
-    default_subset: Optional[str] = None
+    dataset_path: str | None = None
+    default_dataset: str | None = None
+    default_subset: str | None = None
     trust_remote_code: bool = False
 
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
-        dataset_path: Optional[str] = None,
-        subset: Optional[str] = None,
-        split: Optional[str] = None,
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        subset: str | None = None,
+        split: str | None = None,
         trust_remote_code: bool = False,
         stream: bool = True,
         **kwargs,

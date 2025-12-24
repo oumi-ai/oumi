@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 import PIL.Image
 import transformers
@@ -37,7 +38,7 @@ class DefaultImageProcessor(BaseImageProcessor):
         self,
         images: list[PIL.Image.Image],
         *,
-        return_tensors: Optional[str] = "pt",
+        return_tensors: str | None = "pt",
     ) -> transformers.BatchFeature:
         """Extracts image features.
 

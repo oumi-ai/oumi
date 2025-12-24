@@ -14,7 +14,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.constants import LABEL_IGNORE_INDEX
@@ -110,14 +110,14 @@ class InternalModelConfig(BaseConfig):
     chat_template: str = "default"
     """Default chat template."""
 
-    tokenizer_pad_token: Optional[str] = None
+    tokenizer_pad_token: str | None = None
     """The default padding token used by the tokenizer.
 
     If specified in internal model type config and unspecified
     in `ModelParams.tokenizer_pad_token`, then this value will be used.
     """
 
-    padding_side: Optional[InternalPaddingSide] = None
+    padding_side: InternalPaddingSide | None = None
     """Padding side for the model."""
 
     model_input_features: dict[str, InternalFeatureSpec] = field(
@@ -125,7 +125,7 @@ class InternalModelConfig(BaseConfig):
     )
     """Model input features specs."""
 
-    label_ignore_index: Optional[int] = LABEL_IGNORE_INDEX
+    label_ignore_index: int | None = LABEL_IGNORE_INDEX
     """Special label value to be excluded from loss computation."""
 
     sanitize_negative_labels: bool = False
@@ -142,5 +142,5 @@ class InternalModelConfig(BaseConfig):
     ignore_features: list[str] = field(default_factory=list)
     """Features from processing the input to ignore in the model's forward method."""
 
-    visual_config: Optional[InternalVisualModelConfig] = None
+    visual_config: InternalVisualModelConfig | None = None
     """Configuration specific to visual models."""

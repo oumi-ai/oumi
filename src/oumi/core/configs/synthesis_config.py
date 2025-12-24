@@ -14,7 +14,6 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.inference_config import InferenceConfig
@@ -32,7 +31,7 @@ class SynthesisStrategy(str, Enum):
 class SynthesisConfig(BaseConfig):
     """The configuration for the synthesis pipeline."""
 
-    output_path: Optional[str] = None
+    output_path: str | None = None
     """The path to the output file where the generated data will be saved.
 
     If not specified, the data will be returned as a list of dictionaries.

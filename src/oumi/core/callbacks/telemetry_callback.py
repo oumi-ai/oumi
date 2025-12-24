@@ -18,7 +18,6 @@ import copy
 import pathlib
 import sys
 from pprint import pformat
-from typing import Optional, Union
 
 import transformers
 
@@ -48,7 +47,7 @@ class TelemetryCallback(BaseTrainerCallback):
         world_process_zero_only: bool = True,
         include_timer_metrics: bool = False,
         track_gpu_temperature: bool = False,
-        output_dir: Optional[pathlib.Path] = None,
+        output_dir: pathlib.Path | None = None,
     ):
         """Initializes the TelemetryCallback.
 
@@ -64,27 +63,27 @@ class TelemetryCallback(BaseTrainerCallback):
                 the directory as JSON files.
         """
         self._telemetry = TelemetryTracker()
-        self._microstep_timer: Optional[TimerContext] = None
-        self._step_timer: Optional[TimerContext] = None
-        self._epoch_timer: Optional[TimerContext] = None
+        self._microstep_timer: TimerContext | None = None
+        self._step_timer: TimerContext | None = None
+        self._epoch_timer: TimerContext | None = None
 
         self._skip_first_steps: int = skip_first_steps
         self._include_timer_metrics = include_timer_metrics
         self._track_gpu_temperature = track_gpu_temperature
-        self._output_dir: Optional[pathlib.Path] = output_dir
+        self._output_dir: pathlib.Path | None = output_dir
         self._permanently_disabled: bool = (
             world_process_zero_only and not is_world_process_zero()
         )
         self._world_process_zero_only = world_process_zero_only
         self._step: int = 0
 
-        self._last_metrics_dict: Optional[dict[str, float]] = None
+        self._last_metrics_dict: dict[str, float] | None = None
 
     def on_step_begin(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the beginning of a training step.
@@ -102,9 +101,9 @@ class TelemetryCallback(BaseTrainerCallback):
 
     def on_substep_end(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the end of a substep during gradient accumulation."""
@@ -116,9 +115,9 @@ class TelemetryCallback(BaseTrainerCallback):
 
     def on_step_end(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the end of each train step.
@@ -135,9 +134,9 @@ class TelemetryCallback(BaseTrainerCallback):
 
     def on_epoch_begin(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the beginning of an epoch."""
@@ -149,9 +148,9 @@ class TelemetryCallback(BaseTrainerCallback):
 
     def on_epoch_end(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the end of an epoch."""
@@ -163,9 +162,9 @@ class TelemetryCallback(BaseTrainerCallback):
 
     def on_log(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called after logging the last logs."""
@@ -203,9 +202,9 @@ class TelemetryCallback(BaseTrainerCallback):
 
     def on_train_end(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the end of training."""
@@ -281,7 +280,7 @@ class TelemetryCallback(BaseTrainerCallback):
         return False
 
     @staticmethod
-    def _exit_timer_if_needed(timer: Optional[TimerContext]) -> Optional[TimerContext]:
+    def _exit_timer_if_needed(timer: TimerContext | None) -> TimerContext | None:
         if timer is not None:
             timer.__exit__(*sys.exc_info())
         return None
