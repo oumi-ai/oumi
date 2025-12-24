@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from oumi.core.configs.prompt_config import PromptOptimizationConfig
 from oumi.core.prompt_optimization.base import BaseOptimizer, OptimizationResult
@@ -25,7 +26,7 @@ class DSPyOptimizer(BaseOptimizer):
     def __init__(
         self,
         config: PromptOptimizationConfig,
-        metric_fn: Optional[Callable[[list[str], list[str]], float]] = None,
+        metric_fn: Callable[[list[str], list[str]], float] | None = None,
     ):
         """Initialize the DSPy optimizer.
 
@@ -101,7 +102,7 @@ class DSPyOptimizer(BaseOptimizer):
         return optimized_demos
 
     def _extract_prompt_from_program(
-        self, optimized_program, initial_prompt: Optional[str] = None
+        self, optimized_program, initial_prompt: str | None = None
     ) -> str:
         """Extract the optimized prompt/instructions from a DSPy program.
 
@@ -221,7 +222,7 @@ class MiproOptimizer(DSPyOptimizer):
         self,
         train_data: list[dict[str, Any]],
         val_data: list[dict[str, Any]],
-        initial_prompt: Optional[str] = None,
+        initial_prompt: str | None = None,
     ) -> OptimizationResult:
         """Optimize prompts using MIPROv2.
 
@@ -239,6 +240,7 @@ class MiproOptimizer(DSPyOptimizer):
         """
         import dspy
         from dspy.teleprompt import MIPROv2
+
         from oumi.core.prompt_optimization.dspy_bridge import OumiDSPyBridge
 
         self._log_progress("Starting MIPROv2 optimization...")
@@ -426,7 +428,7 @@ class GepaOptimizer(DSPyOptimizer):
         self,
         train_data: list[dict[str, Any]],
         val_data: list[dict[str, Any]],
-        initial_prompt: Optional[str] = None,
+        initial_prompt: str | None = None,
     ) -> OptimizationResult:
         """Optimize prompts using GEPA.
 
@@ -443,6 +445,7 @@ class GepaOptimizer(DSPyOptimizer):
             RuntimeError: If optimization fails.
         """
         import dspy
+
         from oumi.core.prompt_optimization.dspy_bridge import OumiDSPyBridge
 
         self._log_progress("Starting GEPA optimization...")
@@ -620,7 +623,7 @@ class BootstrapFewShotOptimizer(DSPyOptimizer):
         self,
         train_data: list[dict[str, Any]],
         val_data: list[dict[str, Any]],
-        initial_prompt: Optional[str] = None,
+        initial_prompt: str | None = None,
     ) -> OptimizationResult:
         """Optimize few-shot examples using Bootstrap.
 
@@ -638,6 +641,7 @@ class BootstrapFewShotOptimizer(DSPyOptimizer):
         """
         import dspy
         from dspy.teleprompt import BootstrapFewShot
+
         from oumi.core.prompt_optimization.dspy_bridge import OumiDSPyBridge
 
         self._log_progress("Starting BootstrapFewShot optimization...")
@@ -788,7 +792,7 @@ class BootstrapFewShotWithOptunaOptimizer(DSPyOptimizer):
         self,
         train_data: list[dict[str, Any]],
         val_data: list[dict[str, Any]],
-        initial_prompt: Optional[str] = None,
+        initial_prompt: str | None = None,
     ) -> OptimizationResult:
         """Optimize few-shot examples and hyperparameters using Bootstrap with Optuna.
 
@@ -809,6 +813,7 @@ class BootstrapFewShotWithOptunaOptimizer(DSPyOptimizer):
             RuntimeError: If optimization fails.
         """
         import dspy
+
         from oumi.core.prompt_optimization.dspy_bridge import OumiDSPyBridge
 
         self._log_progress("Starting BootstrapFewShotWithOptuna optimization...")

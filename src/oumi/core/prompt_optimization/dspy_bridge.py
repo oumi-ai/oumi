@@ -15,8 +15,9 @@
 """Bridge between Oumi inference engines and DSPy optimization framework."""
 
 import asyncio
+from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Any, Callable, Optional
+from typing import Any
 
 from oumi.core.configs.prompt_config import PromptOptimizationConfig
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -33,8 +34,8 @@ class OumiDSPyBridge:
     def __init__(
         self,
         config: PromptOptimizationConfig,
-        metric_fn: Optional[Callable[[list[str], list[str]], float]] = None,
-        callbacks: Optional[list] = None,
+        metric_fn: Callable[[list[str], list[str]], float] | None = None,
+        callbacks: list | None = None,
     ):
         """Initialize the bridge.
 
@@ -237,8 +238,8 @@ class OumiDSPyBridge:
 
             def forward(
                 self,
-                prompt: Optional[str] = None,
-                messages: Optional[list[dict[str, Any]]] = None,
+                prompt: str | None = None,
+                messages: list[dict[str, Any]] | None = None,
                 **kwargs,
             ) -> list[dict[str, Any]]:
                 """Generate text from prompt(s).
@@ -427,8 +428,8 @@ class OumiDSPyBridge:
 
             async def aforward(
                 self,
-                prompt: Optional[str] = None,
-                messages: Optional[list[dict[str, Any]]] = None,
+                prompt: str | None = None,
+                messages: list[dict[str, Any]] | None = None,
                 **kwargs,
             ) -> list[dict[str, Any]]:
                 """Async generate text from prompt(s).

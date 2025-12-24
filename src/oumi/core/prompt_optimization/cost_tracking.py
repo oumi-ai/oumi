@@ -15,7 +15,6 @@
 """Cost tracking and estimation utilities for prompt optimization."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 from oumi.utils.logging import logger
 
@@ -268,7 +267,7 @@ def estimate_optimization_cost(
 
 def should_warn_about_cost(
     estimate: CostEstimate, threshold: float = 10.0
-) -> tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """Check if cost warning should be shown to user.
 
     Args:

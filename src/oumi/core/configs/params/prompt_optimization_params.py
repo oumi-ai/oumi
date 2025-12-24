@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 
@@ -45,13 +45,13 @@ class PromptOptimizationParams(BaseParams):
     max_labeled_demos: int = 16
     """Maximum number of labeled demonstrations available in the training set."""
 
-    metric_threshold: Optional[float] = None
+    metric_threshold: float | None = None
     """Optional threshold for the evaluation metric.
 
     If set, optimization will stop early if this threshold is reached.
     """
 
-    seed: Optional[int] = None
+    seed: int | None = None
     """Random seed for reproducibility."""
 
     optimize_instructions: bool = True
@@ -96,7 +96,7 @@ class PromptOptimizationParams(BaseParams):
     Set to True to save time/cost if you trust DSPy's internal evaluation.
     """
 
-    max_errors: Optional[int] = None
+    max_errors: int | None = None
     """Maximum number of errors allowed during optimization before failing.
 
     If None, uses DSPy's default error handling (typically strict).

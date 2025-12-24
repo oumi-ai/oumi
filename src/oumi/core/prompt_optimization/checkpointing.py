@@ -48,16 +48,16 @@ class OptimizationCheckpoint:
     best_prompt: str = ""
     """Best prompt found so far."""
 
-    best_demos: Optional[list[dict[str, Any]]] = None
+    best_demos: list[dict[str, Any]] | None = None
     """Best few-shot demonstrations found so far."""
 
-    training_history: Optional[list[dict[str, Any]]] = None
+    training_history: list[dict[str, Any]] | None = None
     """History of trials and scores."""
 
     completed: bool = False
     """Whether optimization has completed."""
 
-    metadata: Optional[dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
     """Additional optimizer-specific metadata."""
 
     def __post_init__(self):
@@ -177,7 +177,7 @@ class CheckpointManager:
         best_demos: list[dict[str, Any]],
         training_history: list[dict[str, Any]],
         completed: bool = False,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Save a checkpoint.
 
@@ -211,7 +211,7 @@ class CheckpointManager:
         else:
             logger.debug(f"Saved checkpoint at trial {current_trial}/{total_trials}")
 
-    def load_checkpoint(self) -> Optional[OptimizationCheckpoint]:
+    def load_checkpoint(self) -> OptimizationCheckpoint | None:
         """Load the latest checkpoint.
 
         Returns:
@@ -235,10 +235,10 @@ class CheckpointManager:
 
 
 def can_resume_from_checkpoint(
-    checkpoint: Optional[OptimizationCheckpoint],
+    checkpoint: OptimizationCheckpoint | None,
     optimizer_name: str,
     num_trials: int,
-) -> tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """Check if optimization can be resumed from a checkpoint.
 
     Args:

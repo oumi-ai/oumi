@@ -13,8 +13,9 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any
 
 from oumi.core.configs.prompt_config import PromptOptimizationConfig
 from oumi.core.prompt_optimization.progress import OptimizationStats, ProgressTracker
@@ -46,17 +47,17 @@ class OptimizationResult:
     metadata: dict[str, Any]
     """Additional metadata about the optimization run."""
 
-    optimization_stats: Optional[OptimizationStats] = None
+    optimization_stats: OptimizationStats | None = None
     """Statistics from the optimization run (timing, inference calls, etc)."""
 
-    candidate_programs: Optional[list[dict[str, Any]]] = None
+    candidate_programs: list[dict[str, Any]] | None = None
     """List of candidate programs explored during optimization.
 
     For MIPROv2: Contains all candidate programs with their scores.
     Format: [{"program": str, "score": float}, ...]
     """
 
-    detailed_results: Optional[dict[str, Any]] = None
+    detailed_results: dict[str, Any] | None = None
     """Detailed results from the optimizer.
 
     For GEPA: Contains DspyGEPAResult with Pareto frontiers, lineage info, etc.
@@ -70,7 +71,7 @@ class BaseOptimizer(ABC):
     def __init__(
         self,
         config: PromptOptimizationConfig,
-        metric_fn: Optional[Callable[[list[str], list[str]], float]] = None,
+        metric_fn: Callable[[list[str], list[str]], float] | None = None,
     ):
         """Initialize the optimizer.
 
@@ -87,7 +88,7 @@ class BaseOptimizer(ABC):
         self,
         train_data: list[dict[str, Any]],
         val_data: list[dict[str, Any]],
-        initial_prompt: Optional[str] = None,
+        initial_prompt: str | None = None,
     ) -> OptimizationResult:
         """Optimize prompts using the training data.
 
@@ -117,7 +118,7 @@ class BaseOptimizer(ABC):
             print(f"[{self.get_optimizer_name()}] {message}")
 
     def _create_progress_tracker(
-        self, total_trials: int, description: Optional[str] = None
+        self, total_trials: int, description: str | None = None
     ) -> ProgressTracker:
         """Create a progress tracker for optimization.
 
@@ -140,7 +141,7 @@ class BaseOptimizer(ABC):
         metric_fn: Callable,
         description: str = "Evaluating on validation set",
         skip: bool = False,
-        estimated_score: Optional[float] = None,
+        estimated_score: float | None = None,
     ) -> tuple[float, list[float], int, "OptimizationStats"]:
         """Evaluate a DSPy program on a dataset.
 

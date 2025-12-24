@@ -16,7 +16,7 @@
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from tqdm import tqdm
 
@@ -28,7 +28,7 @@ class OptimizationStats:
     start_time: float = field(default_factory=time.time)
     """Start time of optimization."""
 
-    end_time: Optional[float] = None
+    end_time: float | None = None
     """End time of optimization."""
 
     num_examples_processed: int = 0
@@ -60,7 +60,7 @@ class OptimizationStats:
         end = self.end_time if self.end_time is not None else time.time()
         return end - self.start_time
 
-    def get_estimated_total_time(self, total_trials: int) -> Optional[float]:
+    def get_estimated_total_time(self, total_trials: int) -> float | None:
         """Estimate total time based on current progress.
 
         Args:
@@ -76,7 +76,7 @@ class OptimizationStats:
         time_per_trial = elapsed / self.current_trial
         return time_per_trial * total_trials
 
-    def get_remaining_time(self, total_trials: int) -> Optional[float]:
+    def get_remaining_time(self, total_trials: int) -> float | None:
         """Estimate remaining time based on current progress.
 
         Args:
@@ -159,7 +159,7 @@ class ProgressTracker:
     def update(
         self,
         n: int = 1,
-        score: Optional[float] = None,
+        score: float | None = None,
         examples_processed: int = 0,
         inference_calls: int = 0,
         failed_calls: int = 0,

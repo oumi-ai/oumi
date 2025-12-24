@@ -14,7 +14,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.prompt_config import PromptOptimizationConfig
 from oumi.core.prompt_optimization import (
@@ -31,7 +31,7 @@ from oumi.utils.logging import logger
 
 
 def _load_dataset(
-    dataset_path: str, max_samples: Optional[int] = None, dataset_name: str = "dataset"
+    dataset_path: str, max_samples: int | None = None, dataset_name: str = "dataset"
 ) -> list[dict]:
     """Load and validate dataset from JSONL file.
 

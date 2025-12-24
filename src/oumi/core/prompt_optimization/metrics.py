@@ -14,8 +14,8 @@
 
 import importlib.util
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 
 def accuracy_metric(predictions: list[str], references: list[str]) -> float:
@@ -292,7 +292,7 @@ def llm_judge_metric(
     predictions: list[str],
     references: list[str],
     judge_model: str = "gpt-3.5-turbo",
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
 ) -> float:
     """Use an LLM as a judge to evaluate predictions.
 
@@ -373,7 +373,7 @@ Output ONLY a single number from 0 to 10, nothing else."""
 
 
 def get_metric_fn(
-    metric_name: str, custom_metric_path: Optional[str] = None, **metric_kwargs
+    metric_name: str, custom_metric_path: str | None = None, **metric_kwargs
 ) -> Callable[[list[str], list[str]], float]:
     """Get a metric function by name.
 

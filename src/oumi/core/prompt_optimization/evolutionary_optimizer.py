@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import random
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.prompt_optimization.base import BaseOptimizer, OptimizationResult
 
@@ -158,7 +158,7 @@ class EvolutionaryOptimizer(BaseOptimizer):
         self,
         train_data: list[dict[str, Any]],
         val_data: list[dict[str, Any]],
-        initial_prompt: Optional[str] = None,
+        initial_prompt: str | None = None,
     ) -> OptimizationResult:
         """Optimize prompts using evolutionary algorithms.
 

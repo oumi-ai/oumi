@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
@@ -40,21 +39,21 @@ class PromptOptimizationConfig(BaseConfig):
     )
     """Parameters specific to prompt optimization."""
 
-    train_dataset_path: Optional[str] = None
+    train_dataset_path: str | None = None
     """Path to the training dataset file (JSONL format).
 
     Each line should be a JSON object with 'input' and 'output' fields,
     or an Oumi Conversation object.
     """
 
-    val_dataset_path: Optional[str] = None
+    val_dataset_path: str | None = None
     """Path to the validation dataset file (JSONL format).
 
     Used for evaluating optimized prompts. If not provided, a split from
     the training dataset will be used.
     """
 
-    initial_prompt: Optional[str] = None
+    initial_prompt: str | None = None
     """Initial prompt/instruction to optimize.
 
     If not provided, the optimizer will generate an initial prompt.
@@ -78,29 +77,29 @@ class PromptOptimizationConfig(BaseConfig):
         - custom: Use a custom metric function
     """
 
-    custom_metric_path: Optional[str] = None
+    custom_metric_path: str | None = None
     """Path to a Python file containing a custom metric function.
 
     The file should define a function named 'metric_fn' that takes
     predictions and references and returns a score between 0 and 1.
     """
 
-    engine: Optional[InferenceEngineType] = None
+    engine: InferenceEngineType | None = None
     """The inference engine to use for evaluation during optimization.
 
     If not specified, the "NATIVE" engine will be used.
     """
 
-    remote_params: Optional[RemoteParams] = None
+    remote_params: RemoteParams | None = None
     """Parameters for running inference against a remote API."""
 
-    max_training_samples: Optional[int] = None
+    max_training_samples: int | None = None
     """Maximum number of training samples to use for optimization.
 
     If not set, all training samples will be used.
     """
 
-    max_validation_samples: Optional[int] = None
+    max_validation_samples: int | None = None
     """Maximum number of validation samples to use for evaluation.
 
     If not set, all validation samples will be used.
