@@ -23,7 +23,7 @@ Working configs:
 
 from enum import Enum
 from pprint import pformat
-from typing import Final, NamedTuple, Optional
+from typing import Final, NamedTuple
 
 import torch
 import typer
@@ -176,7 +176,7 @@ class DatasetName(str, Enum):
 
 class _DatasetInfo(NamedTuple):
     default_split: str
-    default_subset: Optional[str]
+    default_subset: str | None
     contains_multiple_images: bool
 
 
@@ -190,7 +190,7 @@ def _get_dataset_info(dataset_name: DatasetName) -> _DatasetInfo:
 
     contains_multiple_images: bool = False
 
-    default_subset: Optional[str] = None
+    default_subset: str | None = None
     if dataset_name in (DatasetName.DOCMATIX,):
         # The only non-giant subset in the dataset
         default_subset = "zero-shot-exp"
@@ -210,8 +210,8 @@ def test_multimodal_trainer(
     max_steps: int = 20,
     optimizer: str = "sgd",
     logging_steps: int = 5,
-    split: Optional[str] = None,
-    subset: Optional[str] = None,
+    split: str | None = None,
+    subset: str | None = None,
     test_inference: bool = False,
     test_save_state: bool = False,
     test_fsdp: bool = False,

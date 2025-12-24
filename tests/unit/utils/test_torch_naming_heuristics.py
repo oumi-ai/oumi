@@ -73,7 +73,7 @@ def test_guess_transformer_layer_empty_model():
 
 
 MODEL_CONFIGS = [
-    ("gpt2", "GPT2Block", AutoModelForCausalLM),
+    ("openai-community/gpt2", "GPT2Block", AutoModelForCausalLM),
     ("facebook/opt-125m", "OPTDecoderLayer", AutoModelForCausalLM),
     ("bert-base-uncased", "BertLayer", AutoModelForCausalLM),
     ("roberta-base", "RobertaLayer", AutoModelForCausalLM),

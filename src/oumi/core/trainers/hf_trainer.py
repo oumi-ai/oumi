@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pathlib
-from typing import Optional, cast
+from typing import cast
 
 import peft
 import transformers
@@ -30,13 +30,13 @@ class HuggingFaceTrainer(BaseTrainer):
     def __init__(
         self,
         hf_trainer: transformers.Trainer,
-        processor: Optional[BaseProcessor] = None,
+        processor: BaseProcessor | None = None,
     ):
         """Initializes HuggingFace-specific Trainer version."""
         self._hf_trainer = hf_trainer
         self._processor = processor
 
-    def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
+    def train(self, resume_from_checkpoint: str | None = None) -> None:
         """Trains a model."""
         self._hf_trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 

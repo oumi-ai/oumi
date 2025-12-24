@@ -1,7 +1,7 @@
 # Test for a non-textual custom model (CNNClassifier).
 import tempfile
 from pathlib import Path
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -15,6 +15,9 @@ from oumi.core.datasets import BaseMapDataset
 from oumi.core.registry import REGISTRY, RegistryType, register_dataset
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.utils.logging import logger
+from tests.markers import requires_torchdata
+
+pytestmark = requires_torchdata()
 
 
 @register_dataset("npz_file")
@@ -26,10 +29,10 @@ class NpzDataset(BaseMapDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
-        dataset_path: Optional[Union[str, Path]] = None,
-        split: Optional[str] = None,
-        npz_split_col: Optional[str] = None,
+        dataset_name: str | None = None,
+        dataset_path: str | Path | None = None,
+        split: str | None = None,
+        npz_split_col: str | None = None,
         npz_allow_pickle: bool = False,
         **kwargs,
     ) -> None:

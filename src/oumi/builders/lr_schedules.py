@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
 
 import torch
 import transformers
@@ -29,7 +28,7 @@ from oumi.utils.logging import logger
 def build_lr_scheduler(
     optimizer: torch.optim.Optimizer,
     training_params: TrainingParams,
-    num_training_steps: Optional[int] = None,
+    num_training_steps: int | None = None,
     current_epoch: int = 0,
 ) -> torch.optim.lr_scheduler.LRScheduler:
     """Builds a learning rate scheduler based on the provided training parameters.

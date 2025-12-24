@@ -1,4 +1,5 @@
 import copy
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,22 +19,29 @@ from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_har
 
 @pytest.fixture
 def mock_patches_for_evaluate():
+    """Mock lm_eval dependencies that are imported inside evaluate().
+
+    The lm_eval imports are deferred (local imports inside evaluate()) because
+    lm_eval has heavy dependencies (vllm, etc.) that may not always be installed.
+    We use sys.modules patching to intercept these imports during testing.
+    """
+    mock_lm_harness_log_utils = MagicMock()
+    mock_evaluator = MagicMock()
+    mock_registry = MagicMock()
+    mock_loggers = MagicMock()
+
+    modules_to_patch = {
+        "lm_eval.loggers.utils": mock_lm_harness_log_utils,
+        "lm_eval.loggers": mock_loggers,
+        "lm_eval.evaluator": mock_evaluator,
+        "lm_eval.api.registry": mock_registry,
+    }
+
     with (
-        patch(
-            "oumi.core.evaluation.backends.lm_harness.lm_harness_log_utils"
-        ) as mock_lm_harness_log_utils,
-        patch(
-            "oumi.core.evaluation.backends.lm_harness.WandbLogger"
-        ) as mock_WandbLogger,
+        patch.dict(sys.modules, modules_to_patch),
         patch(
             "oumi.core.evaluation.backends.lm_harness.is_world_process_zero"
         ) as mock_is_world_process_zero,
-        patch(
-            "oumi.core.evaluation.backends.lm_harness.lm_harness_evaluate"
-        ) as mock_lm_harness_evaluate,
-        patch(
-            "oumi.core.evaluation.backends.lm_harness.lm_harness_get_model_class"
-        ) as mock_lm_harness_get_model_class,
         patch(
             "oumi.core.evaluation.backends.lm_harness._generate_lm_harness_model_args"
         ) as mock_generate_lm_harness_model_args,
@@ -54,22 +62,21 @@ def mock_patches_for_evaluate():
             "mock_is_image_text_llm": mock_is_image_text_llm,
             "mock_get_task_dict": mock_get_task_dict,
             "mock_generate_lm_harness_model_args": mock_generate_lm_harness_model_args,
-            "mock_lm_harness_get_model_class": mock_lm_harness_get_model_class,
-            "mock_lm_harness_evaluate": mock_lm_harness_evaluate,
+            "mock_lm_harness_get_model_class": mock_registry.get_model,
+            "mock_lm_harness_evaluate": mock_evaluator.evaluate,
             "mock_is_world_process_zero": mock_is_world_process_zero,
-            "mock_WandbLogger": mock_WandbLogger,
+            "mock_WandbLogger": mock_loggers.WandbLogger,
             "mock_lm_harness_log_utils": mock_lm_harness_log_utils,
         }
 
 
 @pytest.mark.parametrize(
-    "lm_harness_model, is_multimodal, device, model_params, generation_params, "
+    "lm_harness_model, is_multimodal, model_params, generation_params, "
     "inference_engine_type, inference_remote_params, expected_model_args",
     [
         (
             "hf",
             False,
-            "mps",
             ModelParams(model_name="text_model"),
             GenerationParams(batch_size=None),
             InferenceEngineType.NATIVE,
@@ -79,17 +86,15 @@ def mock_patches_for_evaluate():
                 "pretrained": "text_model",
                 "dtype": "auto",
                 "max_length": None,
-                "batch_size": 1,
-                "max_batch_size": None,
-                "device": "mps",
+                "batch_size": "auto",
+                "device": "cuda:0",
                 "parallelize": False,
-                "device_map": "auto",
+                "device_map": None,
             },
         ),
         (
             "hf-multimodal",
             True,
-            "cuda:0",
             ModelParams(model_name="vision_model", model_max_length=128),
             GenerationParams(),
             InferenceEngineType.NATIVE,
@@ -100,10 +105,9 @@ def mock_patches_for_evaluate():
                 "dtype": "auto",
                 "max_length": 128,
                 "batch_size": 1,
-                "max_batch_size": None,
                 "device": "cuda:0",
                 "parallelize": False,
-                "device_map": "auto",
+                "device_map": None,
                 "max_images": 1,
                 "interleave": True,
                 "convert_img_format": True,
@@ -114,7 +118,6 @@ def mock_patches_for_evaluate():
         (
             "vllm",
             False,
-            "cuda:0",
             ModelParams(model_name="text_model", model_max_length=128),
             GenerationParams(batch_size=1),
             InferenceEngineType.VLLM,
@@ -124,15 +127,13 @@ def mock_patches_for_evaluate():
                 "pretrained": "text_model",
                 "dtype": "auto",
                 "max_length": 128,
-                "batch_size": 1,
-                "max_batch_size": None,
-                "device": "cuda:0",
+                "batch_size": "auto",
+                "tensor_parallel_size": 1,
             },
         ),
         (
             "vllm-vlm",
             True,
-            "cuda:0",
             ModelParams(
                 model_name="vision_model", model_max_length=128, trust_remote_code=True
             ),
@@ -144,17 +145,15 @@ def mock_patches_for_evaluate():
                 "pretrained": "vision_model",
                 "dtype": "auto",
                 "max_length": 128,
-                "batch_size": 8,
-                "max_batch_size": None,
-                "device": "cuda:0",
+                "batch_size": 1,
                 "max_images": 1,
                 "interleave": True,
+                "tensor_parallel_size": 1,
             },
         ),
         (
             "local-completions",
             False,
-            "cpu",
             ModelParams(model_name="some_model"),
             GenerationParams(),
             InferenceEngineType.REMOTE,
@@ -170,8 +169,6 @@ def mock_patches_for_evaluate():
                 "dtype": "auto",
                 "max_length": None,
                 "batch_size": 1,
-                "max_batch_size": None,
-                "device": "cpu",
                 "base_url": "http://localhost:6864/v1/completions",
                 "num_concurrent": 16,
                 "max_retries": 3,
@@ -189,18 +186,35 @@ def mock_patches_for_evaluate():
 )
 @patch("oumi.core.evaluation.backends.lm_harness.build_tokenizer")
 @patch("oumi.core.evaluation.backends.lm_harness.build_processor")
+@patch("oumi.core.evaluation.backends.lm_harness.torch.cuda.device_count")
+@patch("oumi.core.evaluation.backends.lm_harness.torch.cuda.is_available")
+@patch("oumi.core.evaluation.backends.lm_harness.torch.backends.mps.is_available")
+@patch("oumi.core.evaluation.backends.lm_harness.get_device_rank_info")
 def test_generate_lm_harness_model_args(
+    mock_get_device_rank_info,
+    mock_mps_available,
+    mock_cuda_available,
+    mock_device_count,
     mock_build_processor,
     mock_build_tokenizer,
     lm_harness_model,
     is_multimodal,
-    device,
     model_params,
     generation_params,
     inference_engine_type,
     inference_remote_params,
     expected_model_args,
 ):
+    # Mock device info for CUDA
+    mock_device_info = MagicMock()
+    mock_device_info.local_rank = 0
+    mock_device_info.world_size = 1
+    mock_get_device_rank_info.return_value = mock_device_info
+
+    mock_device_count.return_value = 1  # Mock single GPU for tests
+    mock_cuda_available.return_value = True  # Mock CUDA availability
+    mock_mps_available.return_value = False  # Mock MPS not available
+
     mock_build_tokenizer.return_value = MagicMock()
     mock_build_processor.return_value = MagicMock(
         image_token="my_image_token", image_token_id=1111
@@ -209,7 +223,6 @@ def test_generate_lm_harness_model_args(
     model_args = _generate_lm_harness_model_args(
         lm_harness_model,
         is_multimodal,
-        device,
         model_params,
         generation_params,
         inference_engine_type,
@@ -254,7 +267,7 @@ def test_evaluate(mock_patches_for_evaluate):
     )
     evaluation_config = EvaluationConfig(
         tasks=[task_params],
-        model=ModelParams(model_name="gpt2"),
+        model=ModelParams(model_name="openai-community/gpt2"),
         generation=GenerationParams(),
         inference_engine=InferenceEngineType.NATIVE,
         inference_remote_params=None,
@@ -270,7 +283,7 @@ def test_evaluate(mock_patches_for_evaluate):
 
     # Mock the outputs of functions that evaluate() calls.
     mock_task_dict = {"mmlu": MagicMock(spec=ConfigurableTask)}
-    mock_lm_harness_model_args = {"pretrained": "gpt2"}
+    mock_lm_harness_model_args = {"pretrained": "openai-community/gpt2"}
     mock_results = {
         "results": {"mmlu": {"acc": 0.77}},
         "configs": {"my_config": "some_config"},
@@ -307,7 +320,6 @@ def test_evaluate(mock_patches_for_evaluate):
     mock_generate_lm_harness_model_args.assert_called_once_with(
         lm_harness_model="hf",
         is_multimodal=False,
-        device="cuda:0",
         model_params=evaluation_config.model,
         generation_params=evaluation_config.generation,
         inference_engine_type=evaluation_config.inference_engine,

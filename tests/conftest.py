@@ -67,13 +67,9 @@ def cleanup_gpu_memory(request):
             import torch
 
             if torch.cuda.is_available():
-                # More aggressive GPU memory cleanup
+                gc.collect()
                 torch.cuda.empty_cache()
                 torch.cuda.reset_peak_memory_stats()
-                torch.cuda.synchronize()
-                gc.collect()
-                # Force another cache clear after garbage collection
-                torch.cuda.empty_cache()
         except Exception:
             # Silently ignore cleanup errors to avoid test failures
             pass

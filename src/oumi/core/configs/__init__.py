@@ -96,7 +96,6 @@ from oumi.core.configs.params.data_params import (
     MixtureStrategy,
 )
 from oumi.core.configs.params.evaluation_params import (
-    AlpacaEvalTaskParams,
     EvaluationBackend,
     EvaluationTaskParams,
     LMHarnessTaskParams,
@@ -161,7 +160,6 @@ from oumi.core.configs.training_config import TrainingConfig
 from oumi.core.configs.tuning_config import TuningConfig
 
 __all__ = [
-    "AlpacaEvalTaskParams",
     "AsyncEvaluationConfig",
     "AutoWrapPolicy",
     "BackwardPrefetch",

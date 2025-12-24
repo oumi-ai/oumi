@@ -12,16 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, cast
+from typing import cast
 
 import torch.utils.data.datapipes as dp
 from torch.utils.data import IterDataPipe, MapDataPipe
-from torchdata.datapipes.iter import (
-    HuggingFaceHubReader,
-    MultiplexerLongest,
-    SampleMultiplexer,
-)
-from torchdata.datapipes.map.util.converter import MapToIterConverterIterDataPipe
 
 from oumi.core.configs import (
     DatasetParams,
@@ -32,13 +26,40 @@ from oumi.core.configs import (
 from oumi.core.configs.params.data_params import DataParams
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
+from oumi.utils.packaging import require_torchdata
+
+
+def _get_torchdata_imports():
+    """Lazily import torchdata classes when needed.
+
+    Returns:
+        Tuple of (HuggingFaceHubReader, MultiplexerLongest, SampleMultiplexer,
+                  MapToIterConverterIterDataPipe)
+
+    Raises:
+        ImportError: If torchdata is not installed.
+    """
+    require_torchdata("Torchdata datapipes")
+    from torchdata.datapipes.iter import (
+        HuggingFaceHubReader,
+        MultiplexerLongest,
+        SampleMultiplexer,
+    )
+    from torchdata.datapipes.map.util.converter import MapToIterConverterIterDataPipe
+
+    return (
+        HuggingFaceHubReader,
+        MultiplexerLongest,
+        SampleMultiplexer,
+        MapToIterConverterIterDataPipe,
+    )
 
 
 def build_dataset_mixture(
     data_params: DataParams,
-    tokenizer: Optional[BaseTokenizer],
+    tokenizer: BaseTokenizer | None,
     dataset_split: DatasetSplit,
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> IterDataPipe:
     """Builds a dataset for the specified split.
 
@@ -100,6 +121,7 @@ def build_dataset_mixture(
                 # one element from the 1st input DataPipe, then one element
                 # from the 2nd DataPipe in the next iteration, etc.
                 # Ends when all input DataPipes are exhausted.
+                _, MultiplexerLongest, _, _ = _get_torchdata_imports()
                 combined_datapipe = MultiplexerLongest(*datapipes)
             else:
                 raise ValueError(
@@ -117,6 +139,7 @@ def build_dataset_mixture(
             # and not torch.utils.data.IterDataPipe. This is a temporary workaround
             # until torchdata is updated to use torch.utils.data.IterDataPipe or
             # SampleMultiplexer is moved to torch.utils.data
+            _, _, SampleMultiplexer, _ = _get_torchdata_imports()
             combined_datapipe = SampleMultiplexer(mixture, seed=seed)  # type: ignore
     else:
         combined_datapipe = datapipes[0]
@@ -136,7 +159,7 @@ def build_dataset_mixture(
 def _load_dataset(
     dataset_params: DatasetParams,
     stream: bool,
-    tokenizer: Optional[BaseTokenizer] = None,
+    tokenizer: BaseTokenizer | None = None,
 ) -> IterDataPipe:
     """Loads a dataset and wraps it in a DataPipe if necessary."""
     # First, try to load a custom dataset from the REGISTRY
@@ -164,6 +187,7 @@ def _load_dataset(
 
         if isinstance(dataset, MapDataPipe):
             # TODO: should we keep map datasets as is?
+            _, _, _, MapToIterConverterIterDataPipe = _get_torchdata_imports()
             return MapToIterConverterIterDataPipe(dataset)
         else:
             return dataset
@@ -173,6 +197,7 @@ def _load_dataset(
     # and not torch.utils.data.IterDataPipe. This is a temporary workaround until
     # torchdata is updated to use torch.utils.data.IterDataPipe or HuggingFaceHubReader
     # is moved to torch.utils.data
+    HuggingFaceHubReader, _, _, _ = _get_torchdata_imports()
     return cast(
         IterDataPipe,
         HuggingFaceHubReader(

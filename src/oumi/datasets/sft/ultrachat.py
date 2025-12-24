@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union
 
 import pandas as pd
 
@@ -27,7 +26,7 @@ class UltrachatH4Dataset(BaseSftDataset):
 
     default_dataset = "HuggingFaceH4/ultrachat_200k"
 
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict | pd.Series) -> Conversation:
         """Transform a dataset example into a Conversation object."""
         raw_messages = example.get("messages")
         if raw_messages is None:

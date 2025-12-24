@@ -16,7 +16,6 @@ import io
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 from oumi.core.configs import JobConfig
 
@@ -100,7 +99,7 @@ class BaseCluster(ABC):
 
     @abstractmethod
     def get_logs_stream(
-        self, cluster_name: str, job_id: Optional[str] = None
+        self, cluster_name: str, job_id: str | None = None
     ) -> io.TextIOBase:
         """Gets a stream that tails the logs of the target job.
 

@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from enum import Enum
 from getpass import getpass
 from pathlib import Path
-from typing import Optional
 
 import pexpect
 
@@ -282,7 +281,7 @@ class PolarisClient:
         working_dir: str,
         node_count: int,
         queue: SupportedQueues,
-        name: Optional[str],
+        name: str | None,
     ) -> str:
         """Submits the specified job script to Polaris.
 
@@ -345,7 +344,7 @@ class PolarisClient:
             raise RuntimeError("At least one job status was not parsed.")
         return jobs
 
-    def get_job(self, job_id: str, queue: SupportedQueues) -> Optional[JobStatus]:
+    def get_job(self, job_id: str, queue: SupportedQueues) -> JobStatus | None:
         """Gets the specified job's status.
 
         Args:
@@ -361,7 +360,7 @@ class PolarisClient:
                 return job
         return None
 
-    def cancel(self, job_id, queue: SupportedQueues) -> Optional[JobStatus]:
+    def cancel(self, job_id, queue: SupportedQueues) -> JobStatus | None:
         """Cancels the specified job.
 
         Args:

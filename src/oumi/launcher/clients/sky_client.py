@@ -17,7 +17,7 @@ import os
 import re
 from collections.abc import Iterator
 from enum import Enum
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import JobState, JobStatus
@@ -44,6 +44,8 @@ def _get_sky_cloud_from_job(job: JobConfig) -> "sky.clouds.Cloud":
         return sky.clouds.AWS()
     elif job.resources.cloud == SkyClient.SupportedClouds.AZURE.value:
         return sky.clouds.Azure()
+    elif job.resources.cloud == SkyClient.SupportedClouds.K8S.value:
+        return sky.clouds.Kubernetes()
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
 
@@ -64,7 +66,7 @@ def _get_sky_storage_mounts_from_job(job: JobConfig) -> dict[str, "sky.data.Stor
 class SkyLogStream(io.TextIOBase):
     """Wraps a log iterator into a readline()-capable stream."""
 
-    def __init__(self, iterator: Iterator[Optional[str]]):
+    def __init__(self, iterator: Iterator[str | None]):
         """Initializes a new instance of the SkyLogStream class."""
         self.iterator = iterator
         # We want to remove ANSI escape codes from the log stream since
@@ -83,7 +85,7 @@ class SkyLogStream(io.TextIOBase):
         return ""
 
 
-def _get_use_spot_vm_override() -> Optional[bool]:
+def _get_use_spot_vm_override() -> bool | None:
     """Determines whether to override `use_spot_vm` setting based on OUMI_USE_SPOT_VM.
 
     Fetches the override value from the OUMI_USE_SPOT_VM environment variable
@@ -119,7 +121,7 @@ def _convert_job_to_task(job: JobConfig) -> "sky.Task":
     elif use_spot_vm != job.resources.use_spot:
         logger.info(f"Set use_spot={use_spot_vm} based on 'OUMI_USE_SPOT_VM' override.")
 
-    image_id: Union[str, dict[Optional[str], str], None] = None
+    image_id: str | dict[str | None, str] | None = None
     if job.resources.image_id is not None:
         image_id = job.resources.image_id
     elif job.resources.image_id_map is not None:
@@ -163,6 +165,7 @@ class SkyClient:
         GCP = "gcp"
         RUNPOD = "runpod"
         LAMBDA = "lambda"
+        K8S = "k8s"
 
     def __init__(self):
         """Initializes a new instance of the SkyClient class."""
@@ -172,7 +175,7 @@ class SkyClient:
         self._sky_lib = sky
 
     def launch(
-        self, job: JobConfig, cluster_name: Optional[str] = None, **kwargs
+        self, job: JobConfig, cluster_name: str | None = None, **kwargs
     ) -> JobStatus:
         """Creates a cluster and starts the provided Job.
 
@@ -246,7 +249,7 @@ class SkyClient:
 
     def queue(
         self, cluster_name: str
-    ) -> Union[list[dict], list["sky.schemas.api.responses.ClusterJobRecord"]]:  # pyright: ignore[reportAttributeAccessIssue]
+    ) -> list[dict] | list["sky.schemas.api.responses.ClusterJobRecord"]:  # pyright: ignore[reportAttributeAccessIssue]
         """Gets the job queue of a cluster.
 
         Args:
@@ -302,7 +305,7 @@ class SkyClient:
         self._sky_lib.down(cluster_name)
 
     def get_logs_stream(
-        self, cluster_name: str, job_id: Optional[str] = None
+        self, cluster_name: str, job_id: str | None = None
     ) -> SkyLogStream:
         """Gets a stream that tails the logs of the target job.
 

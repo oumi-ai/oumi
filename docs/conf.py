@@ -46,7 +46,6 @@ extensions = [
     "myst_nb",  # implicitly enables myst_parser
     "sphinx_copybutton",
     "sphinx_design",
-    "sphinx_rtd_theme",
     # "sphinx_term.termynal",  # Not currently used, but could be useful in the future
     "sphinx.ext.autodoc",
     "sphinx.ext.coverage",

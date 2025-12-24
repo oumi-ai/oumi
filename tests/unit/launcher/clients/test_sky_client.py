@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 from unittest.mock import ANY, Mock, call, patch
 
 import pytest
@@ -80,6 +79,11 @@ def test_sky_client_aws_name():
 def test_sky_client_azure_name():
     client = SkyClient()
     assert client.SupportedClouds.AZURE.value == "azure"
+
+
+def test_sky_client_k8s_name():
+    client = SkyClient()
+    assert client.SupportedClouds.K8S.value == "k8s"
 
 
 def test_convert_job_to_task(
@@ -262,7 +266,7 @@ def test_convert_job_to_task_with_populated_image_and_dict(
     ],
 )
 def test_get_use_spot_vm_override(
-    env_var_use_spot_vm: Optional[str], expected_use_spot_vm: bool
+    env_var_use_spot_vm: str | None, expected_use_spot_vm: bool
 ):
     if env_var_use_spot_vm is not None:
         with patch.dict(

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import collections
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.debug_utils import log_example_for_debugging
@@ -36,7 +36,7 @@ class _SpecialTokens(NamedTuple):
     pad_token_id: int
     """Token id of `PAD` token."""
 
-    label_ignore_index: Optional[int]
+    label_ignore_index: int | None
     """If set, then `PAD` tokens will be replaced by this special value
     to exclude them from the loss computation.
     """
@@ -47,9 +47,9 @@ class TextCollatorWithPadding:
         self,
         tokenizer: BaseTokenizer,
         *,
-        max_length: Optional[int],
+        max_length: int | None,
         truncation: bool = False,
-        label_ignore_index: Optional[int] = None,
+        label_ignore_index: int | None = None,
         max_variable_sized_dims: int = 1,
         debug: bool = False,
     ):
@@ -69,7 +69,7 @@ class TextCollatorWithPadding:
             Negative value mean `Unlimited`.
         debug: Whether to log a debug example.
         """
-        self._max_length: Optional[int] = (
+        self._max_length: int | None = (
             int(max_length) if max_length is not None and max_length > 0 else None
         )
         self._truncation: bool = bool(truncation)

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
 
 import torch
 from tqdm import tqdm
@@ -33,8 +32,8 @@ class PackedSftDataset(BaseMapDataset):
         max_seq_len: int,
         show_progress: bool = True,
         split_samples: bool = False,
-        concat_token_id: Optional[int] = None,
-        pad_token_id: Optional[int] = None,
+        concat_token_id: int | None = None,
+        pad_token_id: int | None = None,
         enable_padding: bool = True,
         **kwargs,
     ):

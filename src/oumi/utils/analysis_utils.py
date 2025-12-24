@@ -14,14 +14,12 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 from tqdm import tqdm
 
-from oumi.builders.models import build_tokenizer
 from oumi.core.configs.analyze_config import AnalyzeConfig
-from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.registry.registry import REGISTRY
@@ -30,37 +28,9 @@ from oumi.core.types.conversation import Conversation
 logger = logging.getLogger(__name__)
 
 
-def build_tokenizer_from_config(tokenizer_config: Optional[dict[str, Any]]):
-    """Build a tokenizer from configuration dictionary.
-
-    Args:
-        tokenizer_config: Dictionary containing tokenizer configuration
-
-    Returns:
-        Built tokenizer or None if config is None
-
-    Raises:
-        ValueError: If required fields are missing from tokenizer_config
-    """
-    if not tokenizer_config:
-        return None
-
-    if "model_name" not in tokenizer_config:
-        raise ValueError("tokenizer_config must contain 'model_name' field")
-
-    model_params = ModelParams(
-        model_name=tokenizer_config["model_name"],
-        tokenizer_kwargs=tokenizer_config.get("tokenizer_kwargs", {}),
-        trust_remote_code=tokenizer_config.get("trust_remote_code", False),
-    )
-    tokenizer = build_tokenizer(model_params)
-    logger.info(f"Built tokenizer for model: {model_params.model_name}")
-    return tokenizer
-
-
 def load_dataset_from_config(
-    config: AnalyzeConfig, tokenizer: Optional[Any] = None
-) -> Union[BaseMapDataset, BaseIterableDataset]:
+    config: AnalyzeConfig, tokenizer: Any | None = None
+) -> BaseMapDataset | BaseIterableDataset:
     """Load dataset based on configuration.
 
     This function loads datasets directly from the registry for analysis purposes.
@@ -81,16 +51,13 @@ def load_dataset_from_config(
     split = config.split
     subset = config.subset
     dataset_path = config.dataset_path
-    dataset_format = config.dataset_format
 
     if not dataset_name and not dataset_path:
         raise ValueError("Either dataset_name or dataset_path must be provided")
 
     # Handle custom dataset loading from local files
     if dataset_path:
-        return _load_custom_dataset_from_path(
-            dataset_path, dataset_format, tokenizer, config
-        )
+        return _load_custom_dataset_from_path(dataset_path, tokenizer, config)
 
     # Handle registered dataset loading
     try:
@@ -182,7 +149,7 @@ def load_dataset_from_config(
             dataset = dataset_class(**dataset_kwargs)
 
             # Ensure we return a supported dataset type
-            if isinstance(dataset, (BaseMapDataset, BaseIterableDataset)):
+            if isinstance(dataset, BaseMapDataset | BaseIterableDataset):
                 return dataset
             else:
                 raise NotImplementedError(
@@ -204,16 +171,13 @@ def load_dataset_from_config(
 
 def _load_custom_dataset_from_path(
     dataset_path: str,
-    dataset_format: Optional[str],
-    tokenizer: Optional[Any],
+    tokenizer: Any | None,
     config: AnalyzeConfig,
 ) -> BaseMapDataset:
     """Load a custom dataset from a local file path.
 
     Args:
         dataset_path: Path to the dataset file
-        dataset_format: Format of the dataset ('oumi' or 'alpaca') - required for
-            custom datasets
         tokenizer: Optional tokenizer to use with the dataset
         config: Configuration object containing additional parameters
 
@@ -234,9 +198,9 @@ def _load_custom_dataset_from_path(
             f"Dataset path must be a file, not a directory: {dataset_path}"
         )
 
-    # Multimodal handling is explicit via config.is_multimodal
-    if config.is_multimodal is True:
-        # Note: processor_name requirement is already validated in AnalyzeConfig
+    is_multimodal = config.processor_name is not None
+
+    if is_multimodal:
         dataset_kwargs = {
             "dataset_path": str(path),
             "tokenizer": tokenizer,
@@ -248,22 +212,15 @@ def _load_custom_dataset_from_path(
         dataset = VLJsonlinesDataset(**dataset_kwargs)
         logger.info(f"Loaded vision-language dataset from: {dataset_path}")
         return dataset
-    elif config.is_multimodal is False:
-        # If explicitly forced to text, load as text-only
-        dataset_kwargs = {
+    else:
+        dataset_kwargs_text: dict[str, Any] = {
             "dataset_path": str(path),
-            "format": dataset_format,
         }
         if tokenizer is not None:
-            dataset_kwargs["tokenizer"] = tokenizer
-        dataset_kwargs = {k: v for k, v in dataset_kwargs.items() if v is not None}
-        dataset = TextSftJsonLinesDataset(**dataset_kwargs)
+            dataset_kwargs_text["tokenizer"] = tokenizer
+        dataset = TextSftJsonLinesDataset(**dataset_kwargs_text)
         logger.info(f"Loaded text dataset from: {dataset_path}")
         return dataset
-    else:
-        # This should never happen due to config validation
-        # is_multimodal=None case is already caught by AnalyzeConfig.__post_init__
-        raise ValueError("Invalid vision-language configuration")
 
 
 def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[str, Any]:
@@ -311,6 +268,37 @@ def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[st
     }
 
 
+def render_conversation_as_text(
+    conversation: Conversation, separator: str = "\n"
+) -> str:
+    """Render a full conversation as a single text string.
+
+    This extracts only text content from messages and formats them as
+    "ROLE: content", which is suitable for text-based analysis.
+
+    Args:
+        conversation: The conversation to render
+        separator: String to separate messages (default: newline)
+
+    Returns:
+        Full conversation rendered as text
+    Note:
+        This is different from Conversation.__repr__() which includes message IDs
+        and uses repr() for content items (showing <IMAGE_BINARY> for images).
+        This function extracts only text content and is optimized for analysis.
+    """
+    message_texts = []
+    for message in conversation.messages:
+        # Get text content from message using existing method
+        text = message.compute_flattened_text_content()
+
+        # Format as "ROLE: content"
+        role_str = message.role.value.upper()
+        message_texts.append(f"{role_str}: {text}")
+
+    return separator.join(message_texts)
+
+
 def conversation_to_dataframes(
     conversation: Conversation, conversation_id: str, conversation_idx: int
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -332,6 +320,7 @@ def conversation_to_dataframes(
         "conversation_index": conversation_idx,
         "conversation_id": conversation_id,
         "num_messages": len(conversation.messages),
+        "conversation_text_content": render_conversation_as_text(conversation),
     }
     conversation_df = pd.DataFrame([conversation_data])
 
@@ -634,6 +623,11 @@ def get_conversation_schema() -> dict:
             "type": ColumnType.INT,
             "content_type": ContentType.NUMERIC,
             "description": "Number of messages in conversation",
+        },
+        "conversation_text_content": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Full conversation rendered as text",
         },
         # Message DataFrame columns
         "message_index": {

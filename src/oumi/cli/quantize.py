@@ -12,19 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.cli.alias import AliasType, try_get_config_name_for_alias
+from oumi.cli.completions import complete_quantize_config
 from oumi.utils.logging import logger
+
+_list_configs_callback = cli_utils.create_list_configs_callback(
+    AliasType.QUANTIZE, "Available Quantization Configs", "quantize"
+)
 
 
 def quantize(
     ctx: typer.Context,
+    # Main options
     config: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
             help=(
@@ -34,38 +40,54 @@ def quantize(
                 "QuantizationConfig. "
                 "If not provided, will create a default config from CLI arguments."
             ),
+            rich_help_panel="Options",
+            autocompletion=complete_quantize_config,
         ),
     ] = None,
-    method: Annotated[
-        str,
+    list_configs: Annotated[
+        bool,
         typer.Option(
-            "--method",
-            help=(
-                "Quantization method to use. "
-                "AWQ methods: awq_q4_0 (default), "
-                "awq_q4_1, awq_q8_0, awq_f16. "
-                "BitsAndBytes methods: bnb_4bit, bnb_8bit. "
-            ),
+            "--list",
+            help="List all available quantization configs.",
+            callback=_list_configs_callback,
+            is_eager=True,
+            rich_help_panel="Options",
         ),
-    ] = "awq_q4_0",
+    ] = False,
+    # Model options
     model: Annotated[
         str,
         typer.Option(
             "--model",
             help=(
                 "Path or identifier of the model to quantize. "
-                "Can be a HuggingFace model ID (e.g., 'oumi-ai/HallOumi-8B' this "
-                "is the model from Oumi), "
+                "Can be a HuggingFace model ID (e.g., 'oumi-ai/HallOumi-8B'), "
                 "a local directory path, or an Oumi model registry identifier. "
                 "If not specified, uses the model defined in the config file."
             ),
+            rich_help_panel="Model",
         ),
     ] = "",
+    # Quantization options
+    method: Annotated[
+        str,
+        typer.Option(
+            "--method",
+            help=(
+                "Quantization method to use. "
+                "AWQ methods: awq_q4_0 (default), awq_q4_1, awq_q8_0, awq_f16. "
+                "BitsAndBytes methods: bnb_4bit, bnb_8bit."
+            ),
+            rich_help_panel="Quantization",
+        ),
+    ] = "awq_q4_0",
+    # Output options
     output: Annotated[
         str,
         typer.Option(
             "--output",
             help="Output path for the quantized model.",
+            rich_help_panel="Output",
         ),
     ] = "quantized_model",
 ):

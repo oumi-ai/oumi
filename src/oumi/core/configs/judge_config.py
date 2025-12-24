@@ -14,7 +14,6 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import requests
 import yaml
@@ -59,10 +58,10 @@ class JudgeConfig(BaseConfig):
     """Configuration for the inference engine and generation parameters."""
 
     @classmethod
-    def from_path(cls, path: str, extra_args: Optional[list[str]] = None) -> Self:
+    def from_path(cls, path: str, extra_args: list[str] | None = None) -> Self:
         """Resolve the JudgeConfig from a local or repo path."""
 
-        def _resolve_path(unresolved_path: str) -> Optional[str]:
+        def _resolve_path(unresolved_path: str) -> str | None:
             try:
                 # Attempt to resolve the path using CLI utilities.
                 # This will handle both local paths and repo (oumi://) paths.

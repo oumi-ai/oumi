@@ -66,7 +66,7 @@ def mock_cached_items():
 
 
 class TestLsCommand:
-    @patch("oumi.cli.cache.list_hf_cache")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
     def test_ls_with_items(self, mock_list_hf_cache, app_ls, mock_cached_items):
         mock_list_hf_cache.return_value = mock_cached_items
         result = runner.invoke(app_ls, [])
@@ -74,14 +74,14 @@ class TestLsCommand:
         assert "test/model1" in result.stdout
         assert "test/dataset1" in result.stdout
 
-    @patch("oumi.cli.cache.list_hf_cache")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
     def test_ls_no_items(self, mock_list_hf_cache, app_ls):
         mock_list_hf_cache.return_value = []
         result = runner.invoke(app_ls, [])
         assert result.exit_code == 0
         assert "No cached items found" in result.stdout
 
-    @patch("oumi.cli.cache.list_hf_cache")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
     def test_ls_with_filter(self, mock_list_hf_cache, app_ls, mock_cached_items):
         mock_list_hf_cache.return_value = mock_cached_items
         result = runner.invoke(app_ls, ["--filter", "*model1*"])
@@ -89,7 +89,7 @@ class TestLsCommand:
         assert "test/model1" in result.stdout
         assert "test/dataset1" not in result.stdout
 
-    @patch("oumi.cli.cache.list_hf_cache")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
     def test_ls_verbose(self, mock_list_hf_cache, app_ls, mock_cached_items):
         mock_list_hf_cache.return_value = mock_cached_items
 
@@ -104,7 +104,7 @@ class TestLsCommand:
         # Verbose mode should have more columns/content
         assert len(result_verbose.stdout) > len(result_normal.stdout)
 
-    @patch("oumi.cli.cache.list_hf_cache")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
     def test_ls_sort_by_name(self, mock_list_hf_cache, app_ls, mock_cached_items):
         mock_list_hf_cache.return_value = mock_cached_items
         result = runner.invoke(app_ls, ["--sort", "name"])
@@ -114,8 +114,8 @@ class TestLsCommand:
 
 
 class TestRmCommand:
-    @patch("oumi.cli.cache.list_hf_cache")
-    @patch("oumi.cli.cache.shutil.rmtree")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
+    @patch("shutil.rmtree")
     @patch("typer.confirm")
     def test_rm_with_confirmation(
         self,
@@ -133,8 +133,8 @@ class TestRmCommand:
         mock_rmtree.assert_called_once_with(Path("/cache/model1"))
         assert "Successfully removed" in result.stdout
 
-    @patch("oumi.cli.cache.list_hf_cache")
-    @patch("oumi.cli.cache.shutil.rmtree")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
+    @patch("shutil.rmtree")
     @patch("typer.confirm")
     def test_rm_cancelled(
         self,
@@ -152,8 +152,8 @@ class TestRmCommand:
         mock_rmtree.assert_not_called()
         assert "Removal cancelled" in result.stdout
 
-    @patch("oumi.cli.cache.list_hf_cache")
-    @patch("oumi.cli.cache.shutil.rmtree")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
+    @patch("shutil.rmtree")
     def test_rm_force(self, mock_rmtree, mock_list_hf_cache, app_rm, mock_cached_items):
         mock_list_hf_cache.return_value = mock_cached_items
 
@@ -162,7 +162,7 @@ class TestRmCommand:
         mock_rmtree.assert_called_once_with(Path("/cache/model1"))
         assert "Successfully removed" in result.stdout
 
-    @patch("oumi.cli.cache.list_hf_cache")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
     def test_rm_item_not_found(self, mock_list_hf_cache, app_rm):
         mock_list_hf_cache.return_value = []
 
@@ -172,8 +172,8 @@ class TestRmCommand:
 
 
 class TestGetCommand:
-    @patch("oumi.cli.cache.list_hf_cache")
-    @patch("oumi.cli.cache.snapshot_download")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
+    @patch("huggingface_hub.snapshot_download")
     def test_get_new_repo(self, mock_snapshot_download, mock_list_hf_cache, app_get):
         mock_list_hf_cache.return_value = []
 
@@ -184,8 +184,8 @@ class TestGetCommand:
         )
         assert "Successfully downloaded" in result.stdout
 
-    @patch("oumi.cli.cache.list_hf_cache")
-    @patch("oumi.cli.cache.snapshot_download")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
+    @patch("huggingface_hub.snapshot_download")
     def test_get_with_revision(
         self, mock_snapshot_download, mock_list_hf_cache, app_get
     ):
@@ -197,8 +197,8 @@ class TestGetCommand:
             repo_id="test/new-repo", revision="v1.0"
         )
 
-    @patch("oumi.cli.cache.list_hf_cache")
-    @patch("oumi.cli.cache.snapshot_download")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
+    @patch("huggingface_hub.snapshot_download")
     def test_get_already_cached(
         self,
         mock_snapshot_download,
@@ -215,8 +215,8 @@ class TestGetCommand:
 
 
 class TestCardCommand:
-    @patch("oumi.cli.cache.list_hf_cache")
-    @patch("oumi.cli.cache.model_info")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
+    @patch("huggingface_hub.model_info")
     def test_card_cached_item(
         self, mock_model_info, mock_list_hf_cache, app_card, mock_cached_items
     ):
@@ -233,8 +233,8 @@ class TestCardCommand:
         assert "Cached locally" in result.stdout
         assert "text-generation" in result.stdout
 
-    @patch("oumi.cli.cache.list_hf_cache")
-    @patch("oumi.cli.cache.model_info")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
+    @patch("huggingface_hub.model_info")
     def test_card_not_cached_item(self, mock_model_info, mock_list_hf_cache, app_card):
         mock_list_hf_cache.return_value = []
         mock_info = MagicMock()
@@ -249,8 +249,8 @@ class TestCardCommand:
         assert "Not cached locally" in result.stdout
         assert "text-generation" in result.stdout
 
-    @patch("oumi.cli.cache.list_hf_cache")
-    @patch("oumi.cli.cache.model_info")
+    @patch("oumi.utils.hf_cache_utils.list_hf_cache")
+    @patch("huggingface_hub.model_info")
     def test_card_hub_info_error(
         self, mock_model_info, mock_list_hf_cache, app_card, mock_cached_items
     ):

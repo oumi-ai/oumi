@@ -1,5 +1,5 @@
 import os
-from typing import Final, NamedTuple, Optional
+from typing import Final, NamedTuple
 
 import datasets
 import pytest
@@ -19,7 +19,7 @@ from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import REGISTRY, RegistryType
 
 _DEFALT_DATASET_SPLIT: Final[str] = "test"
-_DEFAULT_MODEL_NAME: Final[str] = "Qwen/Qwen2-VL-2B-Instruct"
+_DEFAULT_MODEL_NAME: Final[str] = "HuggingFaceTB/SmolVLM-256M-Instruct"
 _DEFAULT_CHAT_TEMPLATE: Final[str] = "qwen2-vl-instruct"
 
 
@@ -37,10 +37,10 @@ class LoadDatasetInfo(NamedTuple):
     model_name: str
     stream: bool = False
     max_rows: int = 32
-    expected_rows: Optional[int] = 32
-    extra_dataset_features: Optional[list[str]] = None
+    expected_rows: int | None = 32
+    extra_dataset_features: list[str] | None = None
     chat_template: str = _DEFAULT_CHAT_TEMPLATE
-    dataset_subset: Optional[str] = None
+    dataset_subset: str | None = None
     dataset_split: str = _DEFALT_DATASET_SPLIT
     collator_name: str = "vision_language_with_padding"
     trust_remote_code: bool = False

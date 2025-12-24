@@ -15,7 +15,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 
@@ -111,7 +111,7 @@ class DeepSpeedParams(BaseParams):
     for memory-efficient distributed training.
     """
 
-    deepspeed_config_path: Optional[Union[str, Path]] = None
+    deepspeed_config_path: str | Path | None = None
     """Path to a DeepSpeed JSON configuration file.
 
     If this parameter is not None, all following fields in this class are ignored.
@@ -132,21 +132,21 @@ class DeepSpeedParams(BaseParams):
     Enable higher stages for memory efficiency with large models.
     """
 
-    offload_optimizer: Optional[OffloadConfig] = None
+    offload_optimizer: OffloadConfig | None = None
     """Configuration for optimizer state offloading.
 
     When enabled, optimizer states are offloaded to CPU/NVMe
     to save GPU memory. Available for ZeRO stages 1, 2, and 3.
     """
 
-    offload_param: Optional[OffloadConfig] = None
+    offload_param: OffloadConfig | None = None
     """Configuration for parameter offloading.
 
     When enabled, model parameters are offloaded to CPU/NVMe
     when not actively used. Only available for ZeRO stage 3.
     """
 
-    precision: Optional[DeepSpeedPrecision] = None
+    precision: DeepSpeedPrecision | None = None
     """Mixed precision training mode.
 
     Options:
@@ -165,7 +165,7 @@ class DeepSpeedParams(BaseParams):
     contiguous_gradients: bool = True
     """Whether to ensure gradient memory is contiguous."""
 
-    reduce_bucket_size: Union[int, str] = int(5e8)
+    reduce_bucket_size: int | str = int(5e8)
     """Bucket size for gradient reduction.
 
     Can be an integer or "auto" for automatic sizing.
@@ -185,10 +185,10 @@ class DeepSpeedParams(BaseParams):
     """Enable round robin gradients (ZeRO stages 1 and 2)."""
 
     # ZeRO-3 specific parameters
-    stage3_prefetch_bucket_size: Union[int, str] = int(5e7)
+    stage3_prefetch_bucket_size: int | str = int(5e7)
     """Bucket size for parameter prefetching in ZeRO-3."""
 
-    stage3_param_persistence_threshold: Union[int, str] = int(1e5)
+    stage3_param_persistence_threshold: int | str = int(1e5)
     """Parameter persistence threshold in ZeRO-3."""
 
     stage3_max_live_parameters: int = int(1e9)
@@ -208,7 +208,7 @@ class DeepSpeedParams(BaseParams):
     """Sub-group size for ZeRO-3 parameter sharding."""
 
     # Training parameters (auto-configured by HuggingFace Transformers)
-    train_batch_size: Union[int, str] = "auto"
+    train_batch_size: int | str = "auto"
     """Total training batch size across all GPUs.
 
     Can be an integer, or "auto" for automatic configuration by HuggingFace.
@@ -216,7 +216,7 @@ class DeepSpeedParams(BaseParams):
     management.
     """
 
-    train_micro_batch_size_per_gpu: Union[int, str] = "auto"
+    train_micro_batch_size_per_gpu: int | str = "auto"
     """Micro batch size per GPU.
 
     Can be an integer, or "auto" for automatic configuration by HuggingFace.
@@ -224,13 +224,13 @@ class DeepSpeedParams(BaseParams):
     management.
     """
 
-    gradient_accumulation_steps: Union[int, str] = "auto"
+    gradient_accumulation_steps: int | str = "auto"
     """Number of gradient accumulation steps.
 
     Can be an integer, or "auto" for automatic configuration by HuggingFace.
     """
 
-    gradient_clipping: Union[int, str] = "auto"
+    gradient_clipping: int | str = "auto"
     """Gradient clipping value.
 
     Can be an integer, or "auto" for automatic configuration by HuggingFace.

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Any
 
 from typing_extensions import override
 
@@ -43,13 +43,13 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
     @property
     @override
-    def base_url(self) -> Optional[str]:
+    def base_url(self) -> str | None:
         """Return the default base URL for the Anthropic API."""
         return "https://api.anthropic.com/v1/messages"
 
     @property
     @override
-    def api_key_env_varname(self) -> Optional[str]:
+    def api_key_env_varname(self) -> str | None:
         """Return the default environment variable name for the Anthropic API key."""
         return "ANTHROPIC_API_KEY"
 
@@ -108,8 +108,12 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             ),
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
         }
+
+        # Only include top_p if it's explicitly set (Sonnet 4.5 requires only one of
+        # temperature or top_p to be set, not both)
+        if generation_params.top_p is not None:
+            body["top_p"] = generation_params.top_p
 
         if system_message:
             body["system"] = system_message

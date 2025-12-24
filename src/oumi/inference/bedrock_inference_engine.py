@@ -14,7 +14,7 @@
 
 import asyncio
 import os
-from typing import Any, Optional
+from typing import Any
 
 from tqdm.asyncio import tqdm
 from typing_extensions import override
@@ -54,8 +54,8 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         self,
         model_params: ModelParams,
         *,
-        generation_params: Optional[GenerationParams] = None,
-        remote_params: Optional[RemoteParams] = None,
+        generation_params: GenerationParams | None = None,
+        remote_params: RemoteParams | None = None,
     ):
         """Initializes the BedrockInferenceEngine.
 
@@ -80,13 +80,13 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
 
     @property
     @override
-    def base_url(self) -> Optional[str]:
+    def base_url(self) -> str | None:
         """Return the default base URL for the Bedrock API."""
         return None
 
     @property
     @override
-    def api_key_env_varname(self) -> Optional[str]:
+    def api_key_env_varname(self) -> str | None:
         """Return the default environment variable name for the Bedrock API key."""
         return None
 
@@ -136,10 +136,12 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
             "inferenceConfig": {
                 "maxTokens": generation_params.max_new_tokens,
                 "temperature": generation_params.temperature,
-                "topP": generation_params.top_p,
             },
             "messages": self._to_bedrock_messages(messages),
         }
+
+        if generation_params.top_p is not None:
+            body["inferenceConfig"]["topP"] = generation_params.top_p
 
         if system_message:
             body["system"] = [{"text": system_message}]
@@ -198,7 +200,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
     async def _infer(
         self,
         input: list[Conversation],
-        inference_config: Optional[Any] = None,
+        inference_config: Any | None = None,
     ) -> list[Conversation]:
         """Async inference implementation that doesn't use HTTP sessions."""
         semaphore = PoliteAdaptiveSemaphore(
@@ -249,7 +251,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         conversation: Conversation,
         semaphore: PoliteAdaptiveSemaphore,
         session: Any,
-        inference_config: Optional[Any] = None,
+        inference_config: Any | None = None,
     ) -> Conversation:
         """Queries Bedrock Converse using boto3 instead of HTTP."""
         if inference_config is None:
@@ -272,7 +274,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
             api_input = self._convert_conversation_to_api_input(
                 conversation, generation_params, model_params
             )
-            failure_reason: Optional[str] = None
+            failure_reason: str | None = None
             for attempt in range(remote_params.max_retries + 1):
                 try:
                     if attempt > 0:
@@ -349,7 +351,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
     def infer_batch(
         self,
         conversations: list[Conversation],
-        inference_config: Optional[Any] = None,
+        inference_config: Any | None = None,
     ) -> str:
         """Bedrock does not support batch inference via OpenAI-style batch API."""
         raise NotImplementedError("Batch inference is not supported for Bedrock API.")
@@ -362,8 +364,8 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
     @override
     def list_batches(
         self,
-        after: Optional[str] = None,
-        limit: Optional[int] = None,
+        after: str | None = None,
+        limit: int | None = None,
     ) -> Any:
         """Bedrock does not support batch inference via OpenAI-style batch API."""
         raise NotImplementedError("Batch inference is not supported for Bedrock API.")

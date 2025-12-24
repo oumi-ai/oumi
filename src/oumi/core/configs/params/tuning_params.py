@@ -15,7 +15,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.peft_params import PeftParams
@@ -122,11 +121,11 @@ class TuningParams(BaseParams):
 
     Supported types from ParamType enum:
 
-    - CATEGORICAL: List of discrete choices
-    - INT: Integer range
-    - FLOAT: Float range (uniform sampling)
-    - LOGUNIFORM: Float range with log-scale sampling
-    - UNIFORM: Float range with uniform sampling
+    - ``CATEGORICAL``: List of discrete choices
+    - ``INT``: Integer range
+    - ``FLOAT``: Float range (uniform sampling)
+    - ``LOGUNIFORM``: Float range with log-scale sampling
+    - ``UNIFORM``: Float range with uniform sampling
     """
 
     fixed_training_params: dict = field(default_factory=dict)
@@ -171,7 +170,7 @@ class TuningParams(BaseParams):
     produced during the tuning process.
     """
 
-    tuning_study_name: Optional[str] = "oumi-tuning"
+    tuning_study_name: str | None = "oumi-tuning"
     """A unique identifier for the current tuning run.
 
     This name is used to identify the tuning study in logging outputs, saved model
@@ -209,7 +208,7 @@ class TuningParams(BaseParams):
     - "no": Disable logging.
     """
 
-    logging_dir: Optional[str] = None
+    logging_dir: str | None = None
     """The directory where training logs will be saved.
 
     If not specified, defaults to a "logs" subdirectory within the `output_dir`.
@@ -234,7 +233,7 @@ class TuningParams(BaseParams):
     If no existing study is found, a new one will be created.
     """
 
-    storage: Optional[str] = None
+    storage: str | None = None
     """The storage URL for the tuning study.
 
     This can be a database URL (e.g., SQLite, PostgreSQL) or a file path for local
@@ -248,7 +247,8 @@ class TuningParams(BaseParams):
     """The type of tuner to use for hyperparameter optimization.
 
     Possible values are:
-        - OPTUNA: Optuna tuner.
+
+    - ``OPTUNA``: Optuna tuner.
     """
 
     trainer_type: TrainerType = TrainerType.TRL_SFT
@@ -256,12 +256,12 @@ class TuningParams(BaseParams):
 
     Possible values are:
 
-    - TRL_SFT: TRL's SFT Trainer
+    - ``TRL_SFT``: TRL's SFT Trainer
 
     TODO: Add more options in the future.
     """
 
-    tuner_sampler: Optional[str] = None
+    tuner_sampler: str | None = None
     """The sampler to use for the tuner.
 
     This is specific to the tuner type. For Optuna, this could be "TPESampler",
@@ -269,7 +269,7 @@ class TuningParams(BaseParams):
     used.
     """
 
-    custom_eval_metrics: Optional[list[str]] = field(default_factory=list)
+    custom_eval_metrics: list[str] | None = field(default_factory=list)
     """Custom evaluation metrics.
 
     This specifies if the tuner will use user defined evaluation metrics to tune the
@@ -391,9 +391,9 @@ class TuningParams(BaseParams):
                 )
 
     @property
-    def telemetry_dir(self) -> Optional[Path]:
+    def telemetry_dir(self) -> Path | None:
         """Returns the telemetry stats output directory."""
-        result: Optional[Path] = None
+        result: Path | None = None
         if self.telemetry.telemetry_dir:
             result = Path(self.telemetry.telemetry_dir)
 

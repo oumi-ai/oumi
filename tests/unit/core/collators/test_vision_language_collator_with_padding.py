@@ -19,7 +19,7 @@ def create_test_tokenizer() -> tuple[BaseTokenizer, int]:
             model_name="MlpEncoder",
             torch_dtype_str="float16",
             trust_remote_code=False,
-            tokenizer_name="gpt2",
+            tokenizer_name="openai-community/gpt2",
             tokenizer_pad_token="<|endoftext|>",
         )
     )

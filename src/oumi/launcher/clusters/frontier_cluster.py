@@ -19,7 +19,7 @@ from datetime import datetime
 from enum import Enum
 from functools import reduce
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
@@ -57,7 +57,7 @@ def _last_sbatch_line(script: list[str]) -> int:
 
 def _get_logging_dirs_and_files(
     script: str,
-) -> tuple[list[str], Optional[Path], Optional[Path]]:
+) -> tuple[list[str], Path | None, Path | None]:
     """Gets the logging directories from the script.
 
     Parses the provided script for commands starting with `#SBATCH -o`, `#SBATCH -e`,
@@ -71,8 +71,8 @@ def _get_logging_dirs_and_files(
     """
     logging_pattern = r"#SBATCH\s+-([oe|eo|doe|o|e])\s+(.*)"
     logging_dirs = set()
-    stdout_file: Optional[Path] = None
-    stderr_file: Optional[Path] = None
+    stdout_file: Path | None = None
+    stderr_file: Path | None = None
     for line in script.split("\n"):
         match = re.match(logging_pattern, line.strip())
         if match:
@@ -215,7 +215,7 @@ class FrontierCluster(BaseCluster):
         """Gets the name of the cluster."""
         return self._name
 
-    def get_job(self, job_id: str) -> Optional[JobStatus]:
+    def get_job(self, job_id: str) -> JobStatus | None:
         """Gets the jobs on this cluster if it exists, else returns None."""
         for job in self.get_jobs():
             if job.id == job_id:
@@ -336,7 +336,7 @@ class FrontierCluster(BaseCluster):
         pass
 
     def get_logs_stream(
-        self, cluster_name: str, job_id: Optional[str] = None
+        self, cluster_name: str, job_id: str | None = None
     ) -> io.TextIOBase:
         """Gets a stream that tails the logs of the target job.
 

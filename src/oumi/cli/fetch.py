@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -32,7 +32,7 @@ def fetch(
         ),
     ],
     output_dir: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--output-dir",
             "-o",

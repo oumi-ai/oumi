@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 from oumi.core.types.conversation import Conversation
 
@@ -33,7 +33,7 @@ class BaseConversationFeatureGenerator(ABC):
 
     @abstractmethod
     def transform_conversation(
-        self, conversation: Conversation, options: Optional[FeatureGeneratorOptions]
+        self, conversation: Conversation, options: FeatureGeneratorOptions | None
     ) -> dict:
         """Transforms a single Oumi conversation into a dictionary of model inputs.
 
@@ -50,7 +50,7 @@ class BaseConversationFeatureGenerator(ABC):
     def transform_conversations(
         self,
         conversations: list[Conversation],
-        options: Optional[FeatureGeneratorOptions],
+        options: FeatureGeneratorOptions | None,
     ) -> dict:
         """Transforms a list of Oumi conversations into a dictionary of model inputs.
 
