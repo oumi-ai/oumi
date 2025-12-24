@@ -89,8 +89,9 @@ def build_model(
     ):
         if onebitllms is None:
             raise ValueError(
-                """Please install `onebitllms` in order to fine-tune
-                `Falcon-E` models - `pip install onebitllms`"""
+                "The `onebitllms` package is required to fine-tune Falcon-E models.\n\n"
+                "How to fix: Install the package with:\n"
+                "  pip install onebitllms"
             )
         model = replace_linear_with_bitnet_linear(model)
 
@@ -125,13 +126,20 @@ def _patch_model_for_liger_kernel(model: nn.Module) -> None:
     """
     if liger_kernel is None:
         raise ImportError(
-            "Liger Kernel not installed. Please install `pip install liger-kernel`."
+            "Liger Kernel is not installed but `enable_liger_kernel` is True.\n\n"
+            "How to fix: Install the package with:\n"
+            "  pip install liger-kernel"
         )
 
     model_type = _get_model_type(model)
 
     if model_type is None:
-        raise ValueError(f"Could not find model type for: {model}")
+        raise ValueError(
+            f"Could not determine model type for Liger Kernel patching: {model}\n\n"
+            "How to fix: Ensure the model has a valid `config.model_type` attribute. "
+            "If using a custom model, you may need to disable Liger Kernel by setting "
+            "`model.enable_liger_kernel = False`."
+        )
 
     liger_kernel.transformers._apply_liger_kernel(model_type)
 
@@ -418,9 +426,16 @@ def build_tokenizer(
             )
         else:
             raise ValueError(
-                "Tokenizer does not have a pad token. This is expected for older "
-                "models, but you need to set it manually in your model config as: "
-                "tokenizer_kwargs={'pad_token': 'user_defined_pad_token'}"
+                "Tokenizer does not have a pad token set.\n\n"
+                "This is expected for some older models, but a pad token is required "
+                "for training.\n\n"
+                "How to fix: Set the pad token in your config:\n"
+                "  model:\n"
+                "    tokenizer_pad_token: '<|pad|>'  # or '<pad>' or '<unk>'\n\n"
+                "Or use tokenizer_kwargs:\n"
+                "  model:\n"
+                "    tokenizer_kwargs:\n"
+                "      pad_token: '<|pad|>'"
             )
 
     if model_params.model_max_length:

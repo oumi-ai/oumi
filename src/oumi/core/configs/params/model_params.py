@@ -21,7 +21,7 @@ from omegaconf import MISSING
 from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.types.exceptions import HardwareException
+from oumi.core.types.exceptions import ConfigurationError, HardwareException
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
@@ -229,10 +229,11 @@ class ModelParams(BaseParams):
                 self.processor_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
-                    "processor_kwargs attempts to override the following "
-                    f"reserved fields: {conflicting_keys}. "
-                    "Use properties of ModelParams instead."
+                raise ConfigurationError(
+                    f"processor_kwargs attempts to override reserved fields: "
+                    f"{conflicting_keys}",
+                    fix="Use properties of ModelParams instead of processor_kwargs "
+                    "for these fields.",
                 )
 
         if "revision" in self.model_kwargs:
@@ -244,6 +245,17 @@ class ModelParams(BaseParams):
 
     def __finalize_and_validate__(self):
         """Finalizes and validates final config params."""
+        # Check for MISSING model_name with a helpful error message
+        if self.model_name is MISSING:
+            raise ConfigurationError(
+                "model_name is required but was not specified",
+                fix="Set model.model_name to a HuggingFace model ID "
+                "(e.g., 'meta-llama/Llama-3.2-1B') or a local path to model files. "
+                "Example:\n"
+                "  model:\n"
+                "    model_name: 'HuggingFaceTB/SmolLM2-135M-Instruct'",
+            )
+
         # If the user didn't specify a LoRA adapter, check to see if the dir/repo
         # specified by `model_name` contains an adapter, and set `adapter_name` if so.
         if self.adapter_model is None:
@@ -275,9 +287,12 @@ class ModelParams(BaseParams):
                         adapter_config = json.load(f)
                     model_name = adapter_config.get("base_model_name_or_path")
                     if not model_name:
-                        raise ValueError(
-                            "`model_name` specifies an adapter model only,"
-                            " but the base model could not be found!"
+                        raise ConfigurationError(
+                            "`model_name` specifies an adapter model only, "
+                            "but the base model could not be found",
+                            fix="Either place the base model files in the same directory "
+                            "as the adapter, or ensure 'base_model_name_or_path' is set "
+                            "in the adapter's config file.",
                         )
                     self.model_name = model_name
                     logger.info(
@@ -295,4 +310,9 @@ class ModelParams(BaseParams):
             )
 
         if self.model_max_length is not None and self.model_max_length <= 0:
-            raise ValueError("model_max_length must be a positive integer or None.")
+            raise ConfigurationError(
+                f"model_max_length must be a positive integer or None, "
+                f"got {self.model_max_length}",
+                fix="Set model.model_max_length to a positive integer "
+                "(e.g., 2048, 4096) or remove it to use the model's default.",
+            )

@@ -328,6 +328,26 @@ def _is_mixture_packed(dataset_split_params: DatasetSplitParams) -> bool:
     else:
         # Currently, registered datasets get packed and unregistered ones don't. We
         # don't support mixing both at the moment.
+        registered_datasets = []
+        unregistered_datasets = []
+        for dataset in dataset_split_params.datasets:
+            dataset_class = REGISTRY.get_dataset(
+                dataset.dataset_name, subset=dataset.subset
+            )
+            if dataset_class is not None and issubclass(
+                dataset_class,  # type: ignore
+                BasePretrainingDataset,
+            ):
+                registered_datasets.append(dataset.dataset_name)
+            else:
+                unregistered_datasets.append(dataset.dataset_name)
+
         raise ValueError(
-            "We currently don't support mixing registered and unregistered datasets."
+            "Mixing registered (packed) and unregistered (unpacked) datasets "
+            "is not currently supported.\n"
+            f"Registered datasets: {registered_datasets}\n"
+            f"Unregistered datasets: {unregistered_datasets}\n\n"
+            "How to fix: Either use all registered datasets or all unregistered "
+            "datasets. If you need to mix them, consider pre-processing all datasets "
+            "to a consistent format first."
         )

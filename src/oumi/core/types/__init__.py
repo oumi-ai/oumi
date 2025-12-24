@@ -41,10 +41,28 @@ from oumi.core.types.conversation import (
     TemplatedMessage,
     Type,
 )
-from oumi.core.types.exceptions import HardwareException
+from oumi.core.types.exceptions import (
+    ConfigurationError,
+    DatasetError,
+    HardwareException,
+    InferenceError,
+    ModelError,
+    ModelNotFoundError,
+    OumiError,
+    TrainingError,
+)
 
 __all__ = [
+    # Exceptions
+    "ConfigurationError",
+    "DatasetError",
     "HardwareException",
+    "InferenceError",
+    "ModelError",
+    "ModelNotFoundError",
+    "OumiError",
+    "TrainingError",
+    # Conversation types
     "ContentItem",
     "ContentItemCounts",
     "Conversation",

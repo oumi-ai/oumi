@@ -100,4 +100,8 @@ def build_inference_engine(
                 generation_params=generation_params,
             )
 
-    raise ValueError(f"Unsupported inference engine: {engine_type}")
+    supported_engines = ", ".join(e.name for e in ENGINE_MAP.keys())
+    raise ValueError(
+        f"Unsupported inference engine: {engine_type}. "
+        f"Supported engines are: {supported_engines}"
+    )

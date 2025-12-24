@@ -149,7 +149,16 @@ def build_data_collator(
             debug=debug,
             **kwargs,
         )
-    raise ValueError(f"Unknown data collator name: '{collator_name}'")
+    supported_collators = [
+        "text_with_padding",
+        "text_completions_only_with_padding",
+        "vision_language_with_padding",
+        "vision_language_sft",
+    ]
+    raise ValueError(
+        f"Unknown data collator name: '{collator_name}'. "
+        f"Supported collators are: {', '.join(supported_collators)}"
+    )
 
 
 def build_collator_from_config(

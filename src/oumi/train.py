@@ -107,12 +107,17 @@ def _find_checkpoint_to_resume_from(
 
 def _ensure_dir_exists(output_dir: str | Path, human_readable_name: str) -> None:
     if not output_dir:
-        raise ValueError(f"{human_readable_name} is not specified!")
+        raise ValueError(
+            f"{human_readable_name} is not specified.\n"
+            f"Please set {human_readable_name} in your config. Example:\n"
+            f"  {human_readable_name.replace('.', ': \\n    ')}: './outputs/my_experiment'"
+        )
     output_dir_path: Path = Path(output_dir)
     if output_dir_path.exists():
         if not output_dir_path.is_dir():
             raise ValueError(
-                f"{human_readable_name}='{output_dir}' is not a directory!"
+                f"{human_readable_name}='{output_dir}' exists but is not a directory. "
+                f"Please specify a directory path, not a file path."
             )
     elif is_local_process_zero():
         logger.info(f"Creating {human_readable_name}: {output_dir}...")

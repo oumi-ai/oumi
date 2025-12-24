@@ -148,26 +148,42 @@ class DatasetParams(BaseParams):
         """Verifies params."""
         if self.sample_count is not None:
             if self.sample_count < 0:
-                raise ValueError("`sample_count` must be greater than 0.")
+                raise ValueError(
+                    f"`sample_count` must be greater than 0, got {self.sample_count}.\n\n"
+                    "How to fix: Set sample_count to a positive integer or remove it "
+                    "to use the full dataset."
+                )
         if self.mixture_proportion is not None:
             if self.mixture_proportion < 0:
-                raise ValueError("`mixture_proportion` must be greater than 0.")
+                raise ValueError(
+                    f"`mixture_proportion` must be >= 0, got {self.mixture_proportion}.\n\n"
+                    "How to fix: Set mixture_proportion to a value between 0.0 and 1.0."
+                )
             if self.mixture_proportion > 1:
-                raise ValueError("`mixture_proportion` must not be greater than 1.0 .")
+                raise ValueError(
+                    f"`mixture_proportion` must be <= 1.0, got {self.mixture_proportion}.\n\n"
+                    "How to fix: Set mixture_proportion to a value between 0.0 and 1.0. "
+                    "The sum of all mixture_proportions in a dataset split must equal 1.0."
+                )
 
         if self.transform_num_workers is not None:
             if isinstance(self.transform_num_workers, str):
                 if not (self.transform_num_workers == "auto"):
                     raise ValueError(
-                        "Unknown value of transform_num_workers: "
-                        f"{self.transform_num_workers}. Must be 'auto' if string."
+                        f"Invalid transform_num_workers value: '{self.transform_num_workers}'.\n\n"
+                        "How to fix: Set transform_num_workers to:\n"
+                        "  - 'auto' (string) to let Oumi choose automatically\n"
+                        "  - A positive integer (e.g., 4) for explicit worker count\n"
+                        "  - null/None to disable multiprocessing"
                     )
             elif (not isinstance(self.transform_num_workers, int)) or (
                 self.transform_num_workers <= 0
             ):
                 raise ValueError(
-                    "Non-positive value of transform_num_workers: "
-                    f"{self.transform_num_workers}."
+                    f"transform_num_workers must be a positive integer, "
+                    f"got {self.transform_num_workers}.\n\n"
+                    "How to fix: Set transform_num_workers to a positive integer "
+                    "(e.g., 4) or 'auto'."
                 )
 
         if len(self.dataset_kwargs) > 0:
@@ -176,9 +192,11 @@ class DatasetParams(BaseParams):
             )
             if len(conflicting_keys) > 0:
                 raise ValueError(
-                    "dataset_kwargs attempts to override the following "
-                    f"reserved fields: {conflicting_keys}. "
-                    "Use properties of DatasetParams instead."
+                    f"dataset_kwargs attempts to override reserved fields: "
+                    f"{conflicting_keys}.\n\n"
+                    "How to fix: Use the dedicated DatasetParams properties instead of "
+                    "passing these as dataset_kwargs. For example, use 'split: train' "
+                    "instead of 'dataset_kwargs: {split: train}'."
                 )
 
         if self.trust_remote_code:
@@ -277,26 +295,44 @@ class DatasetSplitParams(BaseParams):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]
             ):
+                datasets_with = [
+                    d.dataset_name
+                    for d in self.datasets
+                    if d.mixture_proportion is not None
+                ]
+                datasets_without = [
+                    d.dataset_name
+                    for d in self.datasets
+                    if d.mixture_proportion is None
+                ]
                 raise ValueError(
-                    "If `mixture_proportion` is specified it must be "
-                    " specified for all datasets"
+                    "If `mixture_proportion` is specified for any dataset, it must be "
+                    "specified for all datasets in the split.\n"
+                    f"Datasets with mixture_proportion: {datasets_with}\n"
+                    f"Datasets without mixture_proportion: {datasets_without}\n\n"
+                    "How to fix: Either specify mixture_proportion for all datasets, "
+                    "or remove it from all datasets to use concatenation instead."
                 )
             mix_sum = sum(
                 filter(None, [dataset.mixture_proportion for dataset in self.datasets])
             )
             if not self._is_sum_normalized(mix_sum):
                 raise ValueError(
-                    "The sum of `mixture_proportion` must be 1.0. "
-                    f"The current sum is {mix_sum} ."
+                    f"The sum of `mixture_proportion` must be 1.0, got {mix_sum}.\n\n"
+                    "How to fix: Adjust the mixture_proportion values so they sum to 1.0. "
+                    "For example, for two datasets use 0.5 and 0.5, or 0.7 and 0.3."
                 )
         if (
             self.mixture_strategy != MixtureStrategy.ALL_EXHAUSTED
             and self.mixture_strategy != MixtureStrategy.FIRST_EXHAUSTED
         ):
             raise ValueError(
-                "`mixture_strategy` must be one of "
-                f'["{MixtureStrategy.FIRST_EXHAUSTED.value}", '
-                f'"{MixtureStrategy.ALL_EXHAUSTED.value}"].'
+                f"Invalid mixture_strategy: '{self.mixture_strategy}'.\n\n"
+                "How to fix: Set mixture_strategy to one of:\n"
+                f'  - "{MixtureStrategy.FIRST_EXHAUSTED.value}" (default): '
+                "Stop when any dataset is exhausted\n"
+                f'  - "{MixtureStrategy.ALL_EXHAUSTED.value}": '
+                "Continue until all datasets are exhausted (may oversample)"
             )
         if self.target_col is not None:
             warnings.warn(
@@ -331,12 +367,24 @@ class DataParams(BaseParams):
         elif split == DatasetSplit.VALIDATION:
             return self.validation
         else:
-            raise ValueError(f"Received invalid split: {split}.")
+            valid_splits = [s.value for s in DatasetSplit]
+            raise ValueError(
+                f"Invalid dataset split: '{split}'.\n\n"
+                f"How to fix: Use one of the valid splits: {valid_splits}"
+            )
 
     def __finalize_and_validate__(self):
         """Verifies params."""
         if len(self.train.datasets) == 0:
-            raise ValueError("At least one training dataset is required.")
+            raise ValueError(
+                "At least one training dataset is required.\n\n"
+                "How to fix: Add a dataset to the training split in your config:\n"
+                "  data:\n"
+                "    train:\n"
+                "      datasets:\n"
+                "        - dataset_name: 'your-dataset-name'\n"
+                "          split: 'train'"
+            )
 
         all_collators = set()
         if self.train.collator_name:
@@ -347,10 +395,17 @@ class DataParams(BaseParams):
             all_collators.add(self.test.collator_name)
         if len(all_collators) >= 2:
             raise ValueError(
-                f"Different data collators are not supported yet: {all_collators}"
+                f"Using different data collators across splits is not supported.\n"
+                f"Found collators: {all_collators}\n\n"
+                "How to fix: Use the same collator_name for all dataset splits "
+                "(train, validation, test)."
             )
         elif len(all_collators) == 1 and not self.train.collator_name:
             raise ValueError(
-                "Data collator must be also specified "
-                f"on the `train` split: {all_collators}"
+                f"Data collator must be specified on the train split.\n"
+                f"Found collator on other splits: {all_collators}\n\n"
+                "How to fix: Set collator_name on the train split:\n"
+                "  data:\n"
+                "    train:\n"
+                f"      collator_name: '{next(iter(all_collators))}'"
             )
