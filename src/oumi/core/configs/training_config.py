@@ -14,12 +14,16 @@
 
 import itertools
 from dataclasses import dataclass, field
-from typing import Final
+from typing import Any, Final
 
 import torch
 
 from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.params.data_params import DataParams
+from oumi.core.configs.params.data_params import (
+    DataParams,
+    DatasetParams,
+    DatasetSplitParams,
+)
 from oumi.core.configs.params.deepspeed_params import DeepSpeedParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.configs.params.model_params import ModelParams
@@ -34,6 +38,29 @@ from oumi.utils.logging import logger
 
 @dataclass
 class TrainingConfig(BaseConfig):
+    """Configuration for model training.
+
+    Example:
+        Creating config from a YAML file::
+
+            config = TrainingConfig.from_yaml("my_config.yaml")
+
+        Creating config programmatically::
+
+            config = TrainingConfig(
+                model=ModelParams(model_name="gpt2"),
+                data=DataParams(...),
+                training=TrainingParams(output_dir="./output"),
+            )
+
+        Using the convenience constructor::
+
+            config = TrainingConfig.for_model(
+                "meta-llama/Llama-3.2-1B",
+                dataset="tatsu-lab/alpaca",
+                output_dir="./output",
+            )
+    """
     data: DataParams = field(default_factory=DataParams)
     """Parameters for the dataset.
 
@@ -255,3 +282,144 @@ class TrainingConfig(BaseConfig):
             raise ValueError(
                 "At least one validation dataset is required for VERL_GRPO training."
             )
+
+    @classmethod
+    def for_model(
+        cls,
+        model_name: str,
+        dataset: str | list[str],
+        output_dir: str,
+        *,
+        epochs: int = 3,
+        batch_size: int = 8,
+        learning_rate: float = 5e-5,
+        torch_dtype: str = "auto",
+        trainer_type: TrainerType = TrainerType.TRL_SFT,
+        use_peft: bool = False,
+        lora_r: int = 8,
+        lora_alpha: int = 16,
+        dataset_split: str = "train",
+        trust_remote_code: bool = False,
+        **kwargs: Any,
+    ) -> "TrainingConfig":
+        """Create a TrainingConfig with sensible defaults for a specific model.
+
+        This is a convenience factory method for quickly setting up training
+        without manually constructing nested configuration objects.
+
+        Args:
+            model_name: Name or path of the model (HuggingFace model ID or local path).
+            dataset: Dataset name(s) to use for training. Can be a single string or
+                a list of dataset names.
+            output_dir: Directory to save model checkpoints and outputs.
+            epochs: Number of training epochs.
+            batch_size: Per-device training batch size.
+            learning_rate: Learning rate for the optimizer.
+            torch_dtype: Data type for model parameters ("auto", "float16", "bfloat16").
+            trainer_type: Type of trainer to use (default: TRL_SFT).
+            use_peft: Whether to use PEFT/LoRA for parameter-efficient fine-tuning.
+            lora_r: LoRA rank (only used if use_peft=True).
+            lora_alpha: LoRA alpha scaling factor (only used if use_peft=True).
+            dataset_split: Which split of the dataset to use for training.
+            trust_remote_code: Whether to trust remote code when loading model/dataset.
+            **kwargs: Additional keyword arguments for advanced configuration.
+
+        Returns:
+            A configured TrainingConfig instance.
+
+        Example:
+            Basic SFT training::
+
+                config = TrainingConfig.for_model(
+                    "meta-llama/Llama-3.2-1B",
+                    dataset="tatsu-lab/alpaca",
+                    output_dir="./output",
+                )
+
+            Training with LoRA::
+
+                config = TrainingConfig.for_model(
+                    "meta-llama/Llama-3.2-1B",
+                    dataset="tatsu-lab/alpaca",
+                    output_dir="./output",
+                    use_peft=True,
+                    lora_r=16,
+                )
+
+            Training with multiple datasets::
+
+                config = TrainingConfig.for_model(
+                    "gpt2",
+                    dataset=["dataset1", "dataset2"],
+                    output_dir="./output",
+                    epochs=5,
+                )
+        """
+        # Build dataset params
+        if isinstance(dataset, str):
+            dataset_list = [dataset]
+        else:
+            dataset_list = list(dataset)
+
+        datasets = [
+            DatasetParams(
+                dataset_name=ds_name,
+                split=dataset_split,
+                trust_remote_code=trust_remote_code,
+            )
+            for ds_name in dataset_list
+        ]
+
+        data_params = DataParams(
+            train=DatasetSplitParams(datasets=datasets),
+        )
+
+        # Build model params
+        model_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k in ModelParams.__dataclass_fields__
+        }
+        model_params = ModelParams(
+            model_name=model_name,
+            torch_dtype_str=torch_dtype,
+            trust_remote_code=trust_remote_code,
+            **model_kwargs,
+        )
+
+        # Build training params
+        training_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k in TrainingParams.__dataclass_fields__
+        }
+        training_params = TrainingParams(
+            output_dir=output_dir,
+            num_train_epochs=epochs,
+            per_device_train_batch_size=batch_size,
+            learning_rate=learning_rate,
+            trainer_type=trainer_type,
+            use_peft=use_peft,
+            **training_kwargs,
+        )
+
+        # Build PEFT params if using LoRA
+        peft_params = PeftParams()
+        if use_peft:
+            peft_kwargs = {
+                k: v
+                for k, v in kwargs.items()
+                if k in PeftParams.__dataclass_fields__
+            }
+            peft_params = PeftParams(
+                lora_r=lora_r,
+                lora_alpha=lora_alpha,
+                **peft_kwargs,
+            )
+
+        return cls(
+            model=model_params,
+            data=data_params,
+            training=training_params,
+            peft=peft_params,
+        )
