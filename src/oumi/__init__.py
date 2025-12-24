@@ -27,6 +27,7 @@ Modules:
     - :mod:`~oumi.judges`: Functions for judging datasets and conversations.
 
 Functions:
+    - :func:`~oumi.chat`: Simple one-line chat interface for model inference.
     - :func:`~oumi.train.train`: Train a machine learning model.
     - :func:`~oumi.evaluate_async.evaluate_async`: Asynchronously evaluate a model.
     - :func:`~oumi.evaluate.evaluate`: Evaluate a model using LM Harness.
@@ -36,6 +37,11 @@ Functions:
     - :func:`~oumi.judge.judge_dataset`: Judge a dataset using a model.
 
 Examples:
+    Simple chat (one-liner)::
+
+        >>> from oumi import chat
+        >>> response = chat("gpt-4o", "What is machine learning?")
+
     Training a model::
 
         >>> from oumi import train
@@ -104,6 +110,83 @@ if TYPE_CHECKING:
     from oumi.quantize.base import QuantizationResult
 
 logging.configure_dependency_warnings()
+
+
+def chat(
+    model: str,
+    message: str | None = None,
+    *,
+    messages: list[dict[str, str]] | None = None,
+    system_prompt: str | None = None,
+    conversation: Conversation | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    top_p: float | None = None,
+    return_conversation: bool = False,
+    use_cache: bool = True,
+) -> str | Conversation:
+    """Simple one-line chat interface for model inference.
+
+    This function provides a streamlined way to interact with various LLM providers
+    with automatic provider detection based on model name.
+
+    Args:
+        model: Model name with optional provider prefix.
+            - "gpt-4o" -> auto-detected as OpenAI
+            - "claude-3-opus" -> auto-detected as Anthropic
+            - "openai/gpt-4o" -> explicit OpenAI
+            - "meta-llama/Llama-3.1-8B-Instruct" -> HuggingFace model via vLLM
+            - "config.yaml" -> load full InferenceConfig from YAML
+        message: The user message to send. Required unless using messages/conversation.
+        messages: List of message dicts with 'role' and 'content' keys (OpenAI format).
+            Alternative to using message + system_prompt for multi-turn conversations.
+        system_prompt: Optional system prompt for the conversation.
+        conversation: Optional existing Conversation object to continue.
+        temperature: Sampling temperature (default: provider-specific).
+        max_tokens: Maximum tokens to generate (default: 1024).
+        top_p: Top-p sampling parameter.
+        return_conversation: If True, return full Conversation object instead of string.
+        use_cache: If True, cache and reuse inference engines for better performance.
+
+    Returns:
+        str: The assistant's response text (default).
+        Conversation: Full conversation object if return_conversation=True.
+
+    Examples:
+        Simple single message::
+
+            >>> response = chat("gpt-4o", "What is machine learning?")
+
+        With parameters::
+
+            >>> response = chat("claude-3-opus", "Explain AI", temperature=0.7)
+
+        Multi-turn with dict messages (OpenAI format)::
+
+            >>> response = chat("gpt-4o", messages=[
+            ...     {"role": "system", "content": "You are helpful."},
+            ...     {"role": "user", "content": "Hello!"},
+            ... ])
+
+        Continue a conversation::
+
+            >>> conv = chat("gpt-4o", "Hi!", return_conversation=True)
+            >>> response = chat("gpt-4o", "Tell me more", conversation=conv)
+    """
+    import oumi.infer
+
+    return oumi.infer.chat(
+        model,
+        message,
+        messages=messages,
+        system_prompt=system_prompt,
+        conversation=conversation,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        top_p=top_p,
+        return_conversation=return_conversation,
+        use_cache=use_cache,
+    )
 
 
 def evaluate_async(config: AsyncEvaluationConfig) -> None:
@@ -292,6 +375,7 @@ def tune(config: TuningConfig) -> None:
 
 
 __all__ = [
+    "chat",
     "evaluate_async",
     "evaluate",
     "infer_interactive",
