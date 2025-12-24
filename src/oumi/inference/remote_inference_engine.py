@@ -46,6 +46,11 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
+from oumi.core.types.exceptions import (
+    APIResponseError,
+    InvalidParameterValueError,
+    MissingParameterError,
+)
 from oumi.inference.adaptive_concurrency_controller import AdaptiveConcurrencyController
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.utils.conversation_utils import (
@@ -354,9 +359,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             json_schema = generation_params.guided_decoding.json
 
             if json_schema is None:
-                raise ValueError(
-                    "Only JSON schema guided decoding is supported, got '%s'",
-                    generation_params.guided_decoding,
+                raise InvalidParameterValueError(
+                    f"Only JSON schema guided decoding is supported, "
+                    f"got: {generation_params.guided_decoding}"
                 )
 
             if isinstance(json_schema, type) and issubclass(
@@ -374,10 +379,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 # Try to parse as JSON string
                 schema_value = json.loads(json_schema)
             else:
-                raise ValueError(
-                    f"Got unsupported JSON schema type: {type(json_schema)}"
-                    "Please provide a Pydantic model or a JSON schema as a "
-                    "string or dict."
+                raise InvalidParameterValueError(
+                    f"Unsupported JSON schema type: {type(json_schema)}. "
+                    "Provide a Pydantic model, dict, or JSON string."
                 )
 
             api_input["response_format"] = {
@@ -403,14 +407,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             Conversation: The conversation including the generated response.
         """
         if "error" in response:
-            raise RuntimeError(
+            raise APIResponseError(
                 f"API error: {response['error'].get('message', response['error'])}"
             )
         if "choices" not in response or not response["choices"]:
-            raise RuntimeError(f"No choices found in API response: {response}")
+            raise APIResponseError(f"No choices found in API response: {response}")
         message = response["choices"][0].get("message")
         if not message:
-            raise RuntimeError(f"No message found in API response: {response}")
+            raise APIResponseError(f"No message found in API response: {response}")
         return Conversation(
             messages=[
                 *original_conversation.messages,
@@ -492,14 +496,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         self._set_required_fields_for_inference(remote_params)
         if not remote_params.api_url:
-            raise ValueError("API URL is required for remote inference.")
+            raise MissingParameterError(
+                "api_url is required for remote inference. "
+                "Set remote_params.api_url to the API endpoint."
+            )
         if not self._get_api_key(remote_params):
             if remote_params.api_key_env_varname:
-                raise ValueError(
-                    "An API key is required for remote inference with the "
-                    f"`{self.__class__.__name__}` inference engine. "
-                    "Please set the environment variable "
-                    f"`{remote_params.api_key_env_varname}`."
+                raise MissingParameterError(
+                    f"API key required for {self.__class__.__name__}. "
+                    f"Set the {remote_params.api_key_env_varname} environment variable."
                 )
         semaphore_or_controller = (
             self._adaptive_concurrency_controller

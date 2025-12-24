@@ -24,6 +24,7 @@ from oumi.core.configs.params.judge_params import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.exceptions import InvalidParameterValueError, MissingParameterError
 from oumi.utils.placeholders import resolve_placeholders
 
 
@@ -71,8 +72,10 @@ class JudgeOutputField(pydantic.BaseModel):
 
         elif self.field_type == JudgeOutputType.ENUM:
             if not self.field_scores or not isinstance(self.field_scores, dict):
-                raise ValueError(
-                    "ENUM type requires field_scores to map values to scores."
+                raise MissingParameterError(
+                    f"ENUM type for field '{self.field_key}' requires field_scores "
+                    "to map categorical values to numeric scores. "
+                    "Example: field_scores={'good': 1.0, 'bad': 0.0}"
                 )
             # Only return the raw value if it exists in the scores mapping
             return raw_value if raw_value in self.field_scores else None
@@ -81,9 +84,9 @@ class JudgeOutputField(pydantic.BaseModel):
             return raw_value
 
         else:
-            raise ValueError(
-                f"Unsupported field type: {self.field_type}. "
-                "Supported types are: BOOL, INT, FLOAT, ENUM, TEXT."
+            raise InvalidParameterValueError(
+                f"Unsupported field type '{self.field_type}' for field '{self.field_key}'. "
+                "Supported types are: JudgeOutputType.BOOL, INT, FLOAT, ENUM, TEXT."
             )
 
 
@@ -215,9 +218,15 @@ class JudgeOutput(pydantic.BaseModel):
                             response_format is not supported.
         """
         if not self.response_format:
-            raise ValueError("response_format must be set before generating output")
+            raise MissingParameterError(
+                "response_format must be set before generating output. "
+                "Set response_format to JudgeResponseFormat.XML, JSON, or RAW."
+            )
         if not self.output_fields:
-            raise ValueError("output_fields must be set before generating output")
+            raise MissingParameterError(
+                "output_fields must be set before generating output. "
+                "Provide a list of JudgeOutputField objects defining expected outputs."
+            )
 
         # Extract required field keys from output_fields
         required_field_keys = {field.field_key for field in self.output_fields}
@@ -225,7 +234,7 @@ class JudgeOutput(pydantic.BaseModel):
         # Validate that all required fields are provided
         provided_keys = set(field_values.keys())
         if missing_keys := required_field_keys - provided_keys:
-            raise ValueError(
+            raise MissingParameterError(
                 f"Missing values for required output fields: {sorted(missing_keys)}. "
                 f"Required: {sorted(required_field_keys)}, "
                 f"Provided: {sorted(provided_keys)}"
@@ -249,7 +258,10 @@ class JudgeOutput(pydantic.BaseModel):
             ]
             return "\n".join(ordered_values)
         else:
-            raise ValueError(f"Unsupported response format: {self.response_format}")
+            raise InvalidParameterValueError(
+                f"Unsupported response format: {self.response_format}. "
+                "Must be JudgeResponseFormat.XML, JSON, or RAW."
+            )
 
     @classmethod
     def _generate_xml_output(cls, field_values: dict[str, str]) -> str:
@@ -323,7 +335,11 @@ class BaseJudge:
 
         # Validate the configuration
         if prompt_template is None or not prompt_template.strip():
-            raise ValueError("Prompt template cannot be empty or None")
+            raise MissingParameterError(
+                "Judge prompt_template cannot be empty or None. "
+                "Provide a template string with placeholders for input data in your "
+                "JudgeConfig."
+            )
         self._validate_output_fields(output_fields)
 
     def judge(
@@ -395,7 +411,7 @@ class BaseJudge:
         for index, input in enumerate(inputs):
             if missing_keys := self.prompt_template_placeholders - set(input.keys()):
                 if raise_on_error:
-                    raise ValueError(
+                    raise MissingParameterError(
                         f"Input {index} is missing keys: {sorted(missing_keys)}. "
                         f"Required: {sorted(self.prompt_template_placeholders)}, "
                         f"Found: {sorted(set(input.keys()))}."
@@ -406,16 +422,23 @@ class BaseJudge:
     def _validate_output_fields(self, output_fields: list[JudgeOutputField]) -> None:
         """Ensure all output fields are properly defined."""
         if not output_fields:
-            raise ValueError("Output fields cannot be empty")
+            raise MissingParameterError(
+                "Judge output_fields cannot be empty. "
+                "Define at least one JudgeOutputField in your JudgeConfig to specify "
+                "what outputs the judge should produce."
+            )
 
         for field in self.output_fields:
             if field.field_key is None or not field.field_key.strip():
-                raise ValueError(
-                    f"Output field `field_key` cannot be None or empty: {field}"
+                raise MissingParameterError(
+                    f"JudgeOutputField `field_key` cannot be None or empty. "
+                    f"Got field: {field}. Each output field must have a unique key name."
                 )
             if field.field_type == JudgeOutputType.ENUM and not field.field_scores:
-                raise ValueError(
-                    f"ENUM field type requires `field_scores` to be defined: {field}"
+                raise MissingParameterError(
+                    f"ENUM field type requires `field_scores` to map values to numeric scores. "
+                    f"Field '{field.field_key}' is missing field_scores. "
+                    "Example: field_scores={{'good': 1.0, 'bad': 0.0}}"
                 )
 
     def _build_judgment_prompt(self, judge_input: dict[str, str]) -> str:
@@ -478,7 +501,7 @@ class BaseJudge:
         """
         # Validate that examples are properly paired
         if len(example_user_prompts) != len(example_assistant_responses):
-            raise ValueError(
+            raise InvalidParameterValueError(
                 f"Number of prompts ({len(example_user_prompts)}) must match "
                 f"number of responses ({len(example_assistant_responses)})"
             )

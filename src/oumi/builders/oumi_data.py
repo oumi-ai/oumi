@@ -26,6 +26,7 @@ from oumi.core.configs import (
 from oumi.core.configs.params.data_params import DataParams
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
+from oumi.core.types.exceptions import InvalidParameterValueError, MissingParameterError
 from oumi.utils.packaging import require_torchdata
 
 
@@ -75,7 +76,10 @@ def build_dataset_mixture(
     dataset_split_params: DatasetSplitParams = data_params.get_split(dataset_split)
 
     if len(dataset_split_params.datasets) == 0:
-        raise ValueError("No datasets specified in the split.")
+        raise MissingParameterError(
+            f"No datasets specified for the '{dataset_split.value}' split. "
+            "Add at least one dataset to the split configuration."
+        )
 
     datapipes: list[IterDataPipe] = []
 
@@ -124,9 +128,9 @@ def build_dataset_mixture(
                 _, MultiplexerLongest, _, _ = _get_torchdata_imports()
                 combined_datapipe = MultiplexerLongest(*datapipes)
             else:
-                raise ValueError(
-                    "Unsupported mixture strategy: "
-                    f"{dataset_split_params.mixture_strategy}"
+                raise InvalidParameterValueError(
+                    f"Unsupported mixture_strategy: '{dataset_split_params.mixture_strategy}'. "
+                    f"Supported strategies: {[s.value for s in MixtureStrategy]}"
                 )
         else:
             # All mixture_proportions are not None.

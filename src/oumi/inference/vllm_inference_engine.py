@@ -26,6 +26,11 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.exceptions import (
+    InvalidParameterValueError,
+    MissingDependencyError,
+    MissingParameterError,
+)
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
@@ -90,9 +95,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         super().__init__(model_params=model_params, generation_params=generation_params)
 
         if not vllm:
-            raise RuntimeError(
-                "vLLM is not installed. "
-                "Please install the GPU dependencies for this package."
+            raise MissingDependencyError(
+                "vLLM is required for VLLMInferenceEngine but is not installed. "
+                "Install it with: pip install oumi[gpu]"
             )
 
         if not (
@@ -100,9 +105,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             and gpu_memory_utilization > 0
             and gpu_memory_utilization <= 1.0
         ):
-            raise ValueError(
-                "GPU memory utilization must be within (0, 1]. Got "
-                f"{gpu_memory_utilization}."
+            raise InvalidParameterValueError(
+                f"gpu_memory_utilization must be within (0, 1], got {gpu_memory_utilization}."
             )
 
         # Infer the `quantization` type from the model's kwargs.
@@ -133,9 +137,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                         not model_params.tokenizer_name
                         or model_params.tokenizer_name == model_params.model_name
                     ):
-                        raise ValueError(
-                            "GGUF quantization with the VLLM engine requires that you "
-                            "explicitly set the `tokenizer_name` in `model_params`."
+                        raise MissingParameterError(
+                            "GGUF quantization with vLLM requires an explicit tokenizer_name. "
+                            "Set model_params.tokenizer_name to the base model's tokenizer."
                         )
 
         vllm_kwargs = {}
@@ -189,9 +193,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         supported_quantization_methods = list(get_args(QuantizationMethods))
         if quantization and quantization not in supported_quantization_methods:
-            raise ValueError(
-                f"Unsupported quantization method: {quantization}. "
-                f"Supported methods are: {supported_quantization_methods}."
+            raise InvalidParameterValueError(
+                f"Unsupported quantization method: '{quantization}'. "
+                f"Supported methods: {supported_quantization_methods}"
             )
 
         final_vllm_kwargs = dict(

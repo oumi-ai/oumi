@@ -16,6 +16,7 @@ from collections.abc import Callable
 
 from oumi.core.configs import TrainingParams
 from oumi.core.registry import REGISTRY
+from oumi.core.types.exceptions import RegistryLookupError
 
 
 def build_rollout_function(config: TrainingParams) -> Callable | None:
@@ -27,8 +28,8 @@ def build_rollout_function(config: TrainingParams) -> Callable | None:
 
     rollout_function = REGISTRY.get_rollout_function(config.grpo.rollout_function)
     if not rollout_function:
-        raise KeyError(
-            f"rollout_function `{config.grpo.rollout_function}` "
-            "was not found in the registry."
+        raise RegistryLookupError(
+            f"rollout_function '{config.grpo.rollout_function}' not found in registry. "
+            "Ensure the function is registered before use."
         )
     return rollout_function

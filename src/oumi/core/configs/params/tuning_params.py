@@ -24,6 +24,7 @@ from oumi.core.configs.params.training_params import (
     TrainingParams,
 )
 from oumi.core.registry import REGISTRY, RegistryType
+from oumi.core.types.exceptions import InvalidParameterValueError, MissingParameterError
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import sanitize_run_name
 
@@ -52,15 +53,17 @@ class ParamType(Enum):
     ) -> None:
         """Verifies that a parameter specification is valid."""
         if param_name not in valid_training_params:
-            raise ValueError(
-                f"Invalid tunable parameter: {param_name}. "
-                f"Must be a valid `{type_name}` field."
+            raise InvalidParameterValueError(
+                f"Invalid tunable parameter: '{param_name}'. "
+                f"Must be a valid {type_name} field. "
+                f"Check the {type_name} documentation for available fields."
             )
         elif isinstance(param_spec, dict):
             # Validate required keys
             if "type" not in param_spec:
-                raise ValueError(
-                    f"Tunable parameter '{param_name}' must have 'type' key"
+                raise MissingParameterError(
+                    f"Tunable parameter '{param_name}' requires a 'type' key. "
+                    "Example: {'type': 'float', 'low': 1e-5, 'high': 1e-2}"
                 )
 
             param_type_str = param_spec["type"]
@@ -70,33 +73,41 @@ class ParamType(Enum):
                 param_type = ParamType(param_type_str)
             except ValueError:
                 valid_types = [t.value for t in ParamType]
-                raise ValueError(
-                    f"Invalid type '{param_type_str}' for parameter"
-                    f" '{param_name}'. Must be one of: {valid_types}"
+                raise InvalidParameterValueError(
+                    f"Invalid type '{param_type_str}' for '{param_name}'. "
+                    f"Must be one of: {valid_types}"
                 )
             # Validate based on parameter type
             if param_type == ParamType.CATEGORICAL:
                 if "choices" not in param_spec:
-                    raise ValueError(
-                        f"Categorical parameter '{param_name}' must have 'choices' key"
+                    raise MissingParameterError(
+                        f"Categorical parameter '{param_name}' requires a 'choices' key. "
+                        "Example: {'type': 'categorical', 'choices': ['adam', 'sgd']}"
                     )
                 if (
                     not isinstance(param_spec["choices"], list)
                     or len(param_spec["choices"]) == 0
                 ):
-                    raise ValueError(
-                        f"Categorical parameter '{param_name}' must have"
-                        " non-empty choices list"
+                    raise InvalidParameterValueError(
+                        f"Categorical parameter '{param_name}' requires a non-empty choices list. "
+                        f"Got: {param_spec.get('choices', None)}"
                     )
             else:
                 # All other types need low and high
                 required_keys = {"low", "high"}
                 if not required_keys.issubset(param_spec.keys()):
-                    raise ValueError(
-                        f"Parameter '{param_name}' must have 'low' and 'high' keys"
+                    missing = required_keys - set(param_spec.keys())
+                    raise MissingParameterError(
+                        f"Parameter '{param_name}' with type='{param_type.value}' requires "
+                        f"'low' and 'high' keys. Missing: {missing}. "
+                        f"Example: {{'type': '{param_type.value}', 'low': 1e-5, 'high': 1e-2}}"
                     )
         else:
-            raise ValueError(f"Tunable parameter '{param_name}' must be a dict")
+            raise InvalidParameterValueError(
+                f"Tunable parameter '{param_name}' must be a dict specifying the search space. "
+                f"Got type: {type(param_spec).__name__}. "
+                "Example: {'type': 'float', 'low': 1e-5, 'high': 1e-2}"
+            )
 
 
 @dataclass
@@ -284,9 +295,9 @@ class TuningParams(BaseParams):
         # Validate logging strategy
         valid_logging_strategies = {"trials", "epoch", "no"}
         if self.logging_strategy not in valid_logging_strategies:
-            raise ValueError(
-                f"Invalid logging_strategy: {self.logging_strategy}. "
-                f"Choose from {valid_logging_strategies}."
+            raise InvalidParameterValueError(
+                f"logging_strategy='{self.logging_strategy}' is invalid. "
+                f"Must be one of: {sorted(valid_logging_strategies)}."
             )
 
         # Validate evaluation metrics and directions
@@ -298,17 +309,19 @@ class TuningParams(BaseParams):
                     "Applying it to all evaluation_metrics."
                 )
             else:
-                raise ValueError(
-                    "Length of evaluation_metrics must match length of "
-                    "evaluation_direction, or evaluation_direction must be of length 1."
+                raise InvalidParameterValueError(
+                    f"evaluation_metrics has {len(self.evaluation_metrics)} items but "
+                    f"evaluation_direction has {len(self.evaluation_direction)} items. "
+                    "These must have matching lengths, or evaluation_direction should have "
+                    "exactly 1 item (which will be applied to all metrics)."
                 )
 
         # Validate each evaluation direction
-        for direction in self.evaluation_direction:
+        for i, direction in enumerate(self.evaluation_direction):
             if direction not in {"minimize", "maximize"}:
-                raise ValueError(
-                    f"Invalid evaluation_direction: {direction}. "
-                    'Choose either "minimize" or "maximize".'
+                raise InvalidParameterValueError(
+                    f"evaluation_direction[{i}]='{direction}' is invalid. "
+                    "Each direction must be 'minimize' or 'maximize'."
                 )
 
         # Warn if using multiple metrics with incompatible logging strategy
@@ -321,9 +334,9 @@ class TuningParams(BaseParams):
         # Validate trainer type
         # TODO: Add more options in the future.
         if self.trainer_type != TrainerType.TRL_SFT:
-            raise ValueError(
-                f"Invalid trainer_type: {self.trainer_type}. "
-                f"Choose from {[t.value for t in [TrainerType.TRL_SFT]]}."
+            raise InvalidParameterValueError(
+                f"trainer_type={self.trainer_type} is not supported for hyperparameter tuning. "
+                "Currently only TrainerType.TRL_SFT is supported."
             )
 
         # Validate that the params keys are valid TrainingParams fields
@@ -334,9 +347,10 @@ class TuningParams(BaseParams):
         # Verify fixed training params keys are valid TrainingParams fields
         for param_name in self.fixed_training_params.keys():
             if param_name not in valid_training_params:
-                raise ValueError(
-                    f"Invalid fixed parameter: {param_name}. "
-                    f"Must be a valid `TrainingParams` field."
+                raise InvalidParameterValueError(
+                    f"Invalid fixed_training_params key: '{param_name}'. "
+                    "Must be a valid TrainingParams field. "
+                    "Check TrainingParams documentation for available fields."
                 )
 
         # Ensure tunable_training_params values are valid
@@ -352,9 +366,10 @@ class TuningParams(BaseParams):
         # Verify fixed training params keys are valid PEFT fields
         for param_name in self.fixed_peft_params.keys():
             if param_name not in valid_training_params:
-                raise ValueError(
-                    f"Invalid fixed parameter: {param_name}. "
-                    f"Must be a valid `PeftParams` field."
+                raise InvalidParameterValueError(
+                    f"Invalid fixed_peft_params key: '{param_name}'. "
+                    "Must be a valid PeftParams field. "
+                    "Check PeftParams documentation for available fields."
                 )
 
         # Ensure tunable_training_params values are valid
@@ -385,9 +400,10 @@ class TuningParams(BaseParams):
                 available = sorted(
                     REGISTRY.get_all(RegistryType.EVALUATION_FUNCTION).keys()
                 )
-                raise ValueError(
-                    "Unregistered custom_eval_metrics detected: "
-                    f"{unknown}. Available evaluation functions: {available}"
+                raise InvalidParameterValueError(
+                    f"Unknown custom_eval_metrics: {unknown}. "
+                    f"These must be registered evaluation functions. "
+                    f"Available registered functions: {available}"
                 )
 
     @property

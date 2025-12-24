@@ -30,6 +30,7 @@ from oumi.core.configs.params.gold_params import GoldParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
+from oumi.core.types.exceptions import InvalidParameterValueError
 from oumi.utils.str_utils import sanitize_run_name
 
 
@@ -756,10 +757,9 @@ class TrainingParams(BaseParams):
         if isinstance(self.dataloader_num_workers, int):
             dataloader_num_workers = self.dataloader_num_workers
         else:
-            raise ValueError(
-                "Unexpected type of dataloader_num_workers: "
-                f"{type(self.dataloader_num_workers)} "
-                f"({self.dataloader_num_workers}). Must be `int`."
+            raise InvalidParameterValueError(
+                f"dataloader_num_workers must be an int, "
+                f"got {type(self.dataloader_num_workers).__name__}: {self.dataloader_num_workers}"
             )
 
         dispatch_batches = self.dataloader_main_process_only
@@ -822,10 +822,9 @@ class TrainingParams(BaseParams):
                 grpo_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
-                    "trainer_kwargs attempt to override the following "
-                    f"GRPO kwargs: {conflicting_keys}. "
-                    "Use properties of GrpoParams instead."
+                raise InvalidParameterValueError(
+                    f"trainer_kwargs conflicts with GRPO kwargs: {conflicting_keys}. "
+                    "Use GrpoParams properties instead of trainer_kwargs."
                 )
             trainer_kwargs.update(grpo_kwargs)
 
@@ -835,10 +834,9 @@ class TrainingParams(BaseParams):
                 gkd_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
-                    "trainer_kwargs attempt to override the following "
-                    f"GKD kwargs: {conflicting_keys}. "
-                    "Use properties of GkdParams instead."
+                raise InvalidParameterValueError(
+                    f"trainer_kwargs conflicts with GKD kwargs: {conflicting_keys}. "
+                    "Use GkdParams properties instead of trainer_kwargs."
                 )
             trainer_kwargs.update(gkd_kwargs)
 
@@ -848,10 +846,9 @@ class TrainingParams(BaseParams):
                 gold_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
-                    "trainer_kwargs attempt to override the following "
-                    f"GOLD kwargs: {conflicting_keys}. "
-                    "Use properties of GoldParams instead."
+                raise InvalidParameterValueError(
+                    f"trainer_kwargs conflicts with GOLD kwargs: {conflicting_keys}. "
+                    "Use GoldParams properties instead of trainer_kwargs."
                 )
             trainer_kwargs.update(gold_kwargs)
 
@@ -942,22 +939,27 @@ class TrainingParams(BaseParams):
         if isinstance(self.dataloader_num_workers, str) and not (
             self.dataloader_num_workers == "auto"
         ):
-            raise ValueError(
-                "Unknown value of "
-                f"dataloader_num_workers: {self.dataloader_num_workers}"
+            raise InvalidParameterValueError(
+                f"dataloader_num_workers must be an int or 'auto', "
+                f"got '{self.dataloader_num_workers}'."
             )
 
         if self.gradient_accumulation_steps < 1:
-            raise ValueError("gradient_accumulation_steps must be >= 1.")
+            raise InvalidParameterValueError(
+                f"gradient_accumulation_steps must be >= 1, "
+                f"got {self.gradient_accumulation_steps}."
+            )
 
         if self.max_grad_norm is not None and self.max_grad_norm < 0:
-            raise ValueError("max_grad_norm must be >= 0.")
+            raise InvalidParameterValueError(
+                f"max_grad_norm must be >= 0 (or None to disable gradient clipping). "
+                f"Got {self.max_grad_norm}."
+            )
 
         if not (self.max_steps > 0 or self.num_train_epochs > 0):
-            raise ValueError(
-                "At least one of max_steps and num_train_epochs must be positive. "
-                f"Actual: max_steps: {self.max_steps}, "
-                f"num_train_epochs: {self.num_train_epochs}."
+            raise InvalidParameterValueError(
+                f"At least one of max_steps ({self.max_steps}) or "
+                f"num_train_epochs ({self.num_train_epochs}) must be positive."
             )
 
         if (
@@ -967,15 +969,15 @@ class TrainingParams(BaseParams):
         ):
             function_names = [name for name in self.reward_functions if name]
             if len(function_names) > 0:
-                raise ValueError(
-                    "reward_functions may only be defined for the TRL_GRPO or VERL_GRPO"
-                    f"trainers. Actual: {self.trainer_type}"
+                raise InvalidParameterValueError(
+                    f"reward_functions is only valid for TRL_GRPO or VERL_GRPO trainers, "
+                    f"got trainer_type={self.trainer_type}."
                 )
             if self.trainer_type == TrainerType.VERL_GRPO:
                 if len(function_names) > 1:
-                    raise ValueError(
-                        "VERL_GRPO only supports a single reward function. "
-                        f"Actual: {function_names}"
+                    raise InvalidParameterValueError(
+                        f"VERL_GRPO supports only one reward function, "
+                        f"got {len(function_names)}: {function_names}"
                     )
 
         # TODO: #1540 - Remove when TRL bug is fixed.
@@ -983,8 +985,9 @@ class TrainingParams(BaseParams):
             self.trainer_type == TrainerType.TRL_GRPO
             and self.include_performance_metrics
         ):
-            raise ValueError(
-                "`include_performance_metrics` is not supported for TRL_GRPO trainer."
+            raise InvalidParameterValueError(
+                "include_performance_metrics=True is not supported for TRL_GRPO trainer "
+                "due to a TRL bug. Set include_performance_metrics=False to proceed."
             )
 
     @property

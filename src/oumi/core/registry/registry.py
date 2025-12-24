@@ -22,6 +22,7 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any
 
+from oumi.core.types.exceptions import RegistryLookupError
 from oumi.utils.logging import logger
 
 
@@ -237,7 +238,10 @@ class Registry:
         registry_key = RegistryKey(name, type)
 
         if not self._contains(registry_key):
-            raise KeyError(f"Registry: `{name}` of `{type}` does not exist.")
+            raise RegistryLookupError(
+                f"'{name}' not found in registry (type: {type}). "
+                "Check the name spelling or ensure the item is registered."
+            )
         else:
             return self._registry[registry_key]
 

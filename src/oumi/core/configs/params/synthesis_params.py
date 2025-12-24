@@ -21,6 +21,7 @@ from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.exceptions import InvalidParameterValueError, MissingParameterError
 
 _SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv"}
 
@@ -76,16 +77,20 @@ class DatasetSource:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.path:
-            raise ValueError("DatasetSource.path cannot be empty.")
+            raise MissingParameterError(
+                "DatasetSource.path is required. "
+                "Provide a path to a dataset file (e.g., 'data.jsonl') or "
+                "a HuggingFace dataset (e.g., 'hf:dataset_name')."
+            )
 
         file_path = Path(self.path)
         prefix = self.path.split(":")[0]
         if prefix == "hf" or prefix == "oumi":
             return
         if file_path.suffix.lower() not in _SUPPORTED_DATASET_FILE_TYPES:
-            raise ValueError(
-                f"Unsupported dataset file type: {self.path}\n"
-                f"Supported file types: {_SUPPORTED_DATASET_FILE_TYPES}"
+            raise InvalidParameterValueError(
+                f"Unsupported dataset file type: '{file_path.suffix}'. "
+                f"Supported types: {_SUPPORTED_DATASET_FILE_TYPES}"
             )
 
 
@@ -124,16 +129,22 @@ class DocumentSegmentationParams:
     def __post_init__(self):
         """Verifies/populates params."""
         if self.segment_length <= 0:
-            raise ValueError("Segment length must be positive.")
+            raise InvalidParameterValueError(
+                f"segment_length must be positive, got {self.segment_length}."
+            )
         if self.segment_overlap < 0:
-            raise ValueError("Segment overlap must be non-negative.")
+            raise InvalidParameterValueError(
+                f"segment_overlap must be non-negative, got {self.segment_overlap}."
+            )
         if self.segment_overlap >= self.segment_length:
-            raise ValueError("Segment overlap must be less than segment length.")
+            raise InvalidParameterValueError(
+                f"segment_overlap ({self.segment_overlap}) must be less than "
+                f"segment_length ({self.segment_length})."
+            )
         if self.segmentation_strategy == SegmentationStrategy.TOKENS:
             if not self.tokenizer:
-                raise ValueError(
-                    "DocumentSegmentationParams.tokenizer cannot be empty when "
-                    "segmentation_strategy is TOKENS."
+                raise MissingParameterError(
+                    "tokenizer is required when segmentation_strategy is TOKENS."
                 )
 
 
@@ -153,9 +164,15 @@ class DocumentSource:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.path:
-            raise ValueError("DocumentSource.path cannot be empty.")
+            raise MissingParameterError(
+                "DocumentSource.path is required. "
+                "Provide a path to a document file to use in synthesis."
+            )
         if not self.id:
-            raise ValueError("DocumentSource.id cannot be empty.")
+            raise MissingParameterError(
+                "DocumentSource.id is required. "
+                "Provide a unique ID to reference this document during synthesis."
+            )
 
 
 @dataclass
@@ -168,12 +185,24 @@ class ExampleSource:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.examples:
-            raise ValueError("ExampleSource.examples cannot be empty.")
+            raise MissingParameterError(
+                "ExampleSource.examples is required. "
+                "Provide a list of example dictionaries to use in synthesis."
+            )
 
-        keys = self.examples[0].keys()
-        for example in self.examples:
-            if example.keys() != keys:
-                raise ValueError("All examples must have the same keys.")
+        keys = set(self.examples[0].keys())
+        for i, example in enumerate(self.examples):
+            example_keys = set(example.keys())
+            if example_keys != keys:
+                missing = keys - example_keys
+                extra = example_keys - keys
+                raise InvalidParameterValueError(
+                    f"All examples must have the same keys. "
+                    f"Example at index {i} has inconsistent keys. "
+                    f"Expected keys: {sorted(keys)}. "
+                    + (f"Missing: {sorted(missing)}. " if missing else "")
+                    + (f"Extra: {sorted(extra)}." if extra else "")
+                )
 
 
 @dataclass
@@ -198,16 +227,26 @@ class SampledAttributeValue:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("SampledAttributeValue.id cannot be empty.")
+            raise MissingParameterError(
+                "SampledAttributeValue.id is required. "
+                "Provide a unique ID to reference this value during synthesis."
+            )
         if not self.name:
-            raise ValueError("SampledAttributeValue.name cannot be empty.")
+            raise MissingParameterError(
+                f"SampledAttributeValue.name is required for value '{self.id}'. "
+                "Provide a plaintext name for this attribute value."
+            )
         if not self.description:
-            raise ValueError("SampledAttributeValue.description cannot be empty.")
+            raise MissingParameterError(
+                f"SampledAttributeValue.description is required for value '{self.id}'. "
+                "Provide a description of this attribute value."
+            )
         if self.sample_rate is not None and (
             self.sample_rate < 0 or self.sample_rate > 1
         ):
-            raise ValueError(
-                "SampledAttributeValue.sample_rate must be between 0 and 1."
+            raise InvalidParameterValueError(
+                f"SampledAttributeValue '{self.id}' has invalid sample_rate={self.sample_rate}. "
+                "sample_rate must be between 0 and 1 (inclusive)."
             )
 
 
@@ -237,13 +276,25 @@ class SampledAttribute:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("SampledAttribute.id cannot be empty.")
+            raise MissingParameterError(
+                "SampledAttribute.id is required. "
+                "Provide a unique ID to reference this attribute during synthesis."
+            )
         if not self.name:
-            raise ValueError("SampledAttribute.name cannot be empty.")
+            raise MissingParameterError(
+                f"SampledAttribute.name is required for attribute '{self.id}'. "
+                "Provide a plaintext name for this attribute."
+            )
         if not self.description:
-            raise ValueError("SampledAttribute.description cannot be empty.")
+            raise MissingParameterError(
+                f"SampledAttribute.description is required for attribute '{self.id}'. "
+                "Provide a description of this attribute."
+            )
         if not self.possible_values:
-            raise ValueError("SampledAttribute.possible_values cannot be empty.")
+            raise MissingParameterError(
+                f"SampledAttribute.possible_values is required for attribute '{self.id}'. "
+                "Provide a list of SampledAttributeValue objects defining possible values."
+            )
 
         value_ids = []
         sample_rates = []
@@ -253,7 +304,11 @@ class SampledAttribute:
 
         value_ids_set = set(value_ids)
         if len(value_ids) != len(value_ids_set):
-            raise ValueError("SampledAttribute.possible_values must have unique IDs.")
+            duplicates = [vid for vid in value_ids if value_ids.count(vid) > 1]
+            raise InvalidParameterValueError(
+                f"SampledAttribute '{self.id}' has duplicate value IDs: {set(duplicates)}. "
+                "Each possible_value must have a unique ID."
+            )
 
         # Normalize sample rates
         normalized_sample_rates = []
@@ -267,8 +322,9 @@ class SampledAttribute:
                 undefined_sample_rate_count += 1
 
         if defined_sample_rate > 1.0 and not math.isclose(defined_sample_rate, 1.0):
-            raise ValueError(
-                "SampledAttribute.possible_values must sum to at most 1.0."
+            raise InvalidParameterValueError(
+                f"SampledAttribute '{self.id}' has sample_rates that sum to {defined_sample_rate:.3f}. "
+                "The total of all defined sample_rates must be at most 1.0."
             )
 
         # Assign remaining sample rate to undefined sample rates
@@ -299,25 +355,33 @@ class AttributeCombination:
     def __post_init__(self):
         """Verifies/populates params."""
         if self.sample_rate < 0 or self.sample_rate > 1:
-            raise ValueError(
-                "AttributeCombination.sample_rate must be between 0 and 1."
+            raise InvalidParameterValueError(
+                f"AttributeCombination has invalid sample_rate={self.sample_rate}. "
+                "sample_rate must be between 0 and 1 (inclusive)."
             )
         if not self.combination:
-            raise ValueError("AttributeCombination.combination cannot be empty.")
+            raise MissingParameterError(
+                "AttributeCombination.combination is required. "
+                "Provide a dict mapping attribute IDs to their values."
+            )
 
         for key, value in self.combination.items():
             if not key:
-                raise ValueError(
-                    "AttributeCombination.combination key cannot be empty."
+                raise InvalidParameterValueError(
+                    f"AttributeCombination.combination has an empty key. "
+                    f"All keys must be non-empty attribute IDs. Got combination: {self.combination}"
                 )
             if not value:
-                raise ValueError(
-                    "AttributeCombination.combination value cannot be empty."
+                raise InvalidParameterValueError(
+                    f"AttributeCombination.combination['{key}'] has an empty value. "
+                    "All values must be non-empty attribute value IDs."
                 )
 
         if len(self.combination.keys()) <= 1:
-            raise ValueError(
-                "AttributeCombination.combination must have at least two keys."
+            raise InvalidParameterValueError(
+                f"AttributeCombination.combination must have at least two keys. "
+                f"Got {len(self.combination)} key(s): {list(self.combination.keys())}. "
+                "A combination requires multiple attributes to be meaningful."
             )
 
 
@@ -354,16 +418,18 @@ class GeneratedAttributePostprocessingParams:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError(
-                "GeneratedAttributePostprocessingParams.id cannot be empty."
+            raise MissingParameterError(
+                "GeneratedAttributePostprocessingParams.id is required. "
+                "Provide a unique ID for the postprocessed output attribute."
             )
 
         if self.regex:
             try:
                 re.compile(self.regex)
             except Exception as e:
-                raise ValueError(
-                    f"Error compiling GeneratedAttributePostprocessingParams.regex: {e}"
+                raise InvalidParameterValueError(
+                    f"GeneratedAttributePostprocessingParams '{self.id}' has invalid regex pattern: "
+                    f"'{self.regex}'. Error: {e}"
                 )
 
 
@@ -383,15 +449,21 @@ class GeneratedAttribute:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("GeneratedAttribute.id cannot be empty.")
+            raise MissingParameterError(
+                "GeneratedAttribute.id is required. "
+                "Provide a unique ID to reference this generated attribute."
+            )
         if not self.instruction_messages:
-            raise ValueError("GeneratedAttribute.instruction_messages cannot be empty.")
+            raise MissingParameterError(
+                f"GeneratedAttribute '{self.id}' requires instruction_messages. "
+                "Provide a list of TextMessage objects defining the generation prompt."
+            )
         if self.postprocessing_params:
             if self.id == self.postprocessing_params.id:
-                raise ValueError(
-                    "GeneratedAttribute.id and "
-                    "GeneratedAttributePostprocessingParams.id "
-                    "cannot be the same."
+                raise InvalidParameterValueError(
+                    f"GeneratedAttribute.id ('{self.id}') and postprocessing_params.id "
+                    f"('{self.postprocessing_params.id}') cannot be the same. "
+                    "Use different IDs for the raw and postprocessed outputs."
                 )
 
 
@@ -431,7 +503,10 @@ class TransformationStrategy:
         """Verifies/populates params based on the type."""
         if self.type == TransformationType.STRING:
             if self.string_transform is None or self.string_transform == "":
-                raise ValueError("string_transform cannot be empty when type=STRING")
+                raise MissingParameterError(
+                    "TransformationStrategy with type=STRING requires string_transform. "
+                    "Provide a template string like '{attribute1} - {attribute2}'."
+                )
             # Clear other fields
             self.list_transform = None
             self.dict_transform = None
@@ -439,7 +514,10 @@ class TransformationStrategy:
 
         elif self.type == TransformationType.LIST:
             if not self.list_transform or len(self.list_transform) == 0:
-                raise ValueError("list_transform cannot be empty when type=LIST")
+                raise MissingParameterError(
+                    "TransformationStrategy with type=LIST requires list_transform. "
+                    "Provide a list of template strings."
+                )
             # Clear other fields
             self.string_transform = None
             self.dict_transform = None
@@ -447,7 +525,10 @@ class TransformationStrategy:
 
         elif self.type == TransformationType.DICT:
             if not self.dict_transform or len(self.dict_transform) == 0:
-                raise ValueError("dict_transform cannot be empty when type=DICT")
+                raise MissingParameterError(
+                    "TransformationStrategy with type=DICT requires dict_transform. "
+                    "Provide a dict mapping output keys to template strings."
+                )
             # Clear other fields
             self.string_transform = None
             self.list_transform = None
@@ -455,15 +536,24 @@ class TransformationStrategy:
 
         elif self.type == TransformationType.CHAT:
             if not self.chat_transform or len(self.chat_transform.messages) == 0:
-                raise ValueError("chat_transform cannot be empty when type=CHAT")
+                raise MissingParameterError(
+                    "TransformationStrategy with type=CHAT requires chat_transform. "
+                    "Provide a TextConversation with at least one message."
+                )
 
             messages = self.chat_transform.messages
-            for message in messages:
+            for i, message in enumerate(messages):
                 content = message.content
                 if not isinstance(content, str):
-                    raise ValueError("chat_transform message content must be a string")
+                    raise InvalidParameterValueError(
+                        f"chat_transform message at index {i} has non-string content "
+                        f"(type: {type(content).__name__}). Message content must be a string."
+                    )
                 if not content:
-                    raise ValueError("chat_transform message content cannot be empty")
+                    raise InvalidParameterValueError(
+                        f"chat_transform message at index {i} has empty content. "
+                        "Message content cannot be empty."
+                    )
 
             # Clear other fields
             self.string_transform = None
@@ -484,12 +574,15 @@ class TransformedAttribute:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("TransformedAttribute.id cannot be empty.")
+            raise MissingParameterError(
+                "TransformedAttribute.id is required. "
+                "Provide a unique ID to reference this transformed attribute."
+            )
 
         if not isinstance(self.transformation_strategy, TransformationStrategy):
-            raise ValueError(
-                "TransformedAttribute.transformation_strategy must be a "
-                f"TransformationStrategy, got {type(self.transformation_strategy)}"
+            raise InvalidParameterValueError(
+                f"TransformedAttribute '{self.id}' has invalid transformation_strategy. "
+                f"Expected TransformationStrategy, got {type(self.transformation_strategy).__name__}."
             )
 
     def get_strategy(self) -> TransformationStrategy:
@@ -592,8 +685,10 @@ class GeneralSynthesisParams(BaseParams):
     def _check_attribute_ids(self, attribute_ids: set[str], id: str):
         """Check if the attribute ID is already in the set."""
         if id in attribute_ids:
-            raise ValueError(
-                f"GeneralSynthesisParams contains duplicate attribute IDs: {id}"
+            raise InvalidParameterValueError(
+                f"Duplicate attribute ID: '{id}'. All attribute IDs must be unique "
+                "across all data sources, sampled attributes, generated attributes, "
+                "and transformed attributes."
             )
         attribute_ids.add(id)
 
@@ -603,7 +698,10 @@ class GeneralSynthesisParams(BaseParams):
             return
 
         if len(self.input_data) == 0:
-            raise ValueError("GeneralSynthesisParams.input_data cannot be empty.")
+            raise InvalidParameterValueError(
+                "GeneralSynthesisParams.input_data cannot be an empty list. "
+                "Either remove it entirely (set to None) or add at least one DatasetSource."
+            )
 
         for dataset_source in self.input_data:
             if dataset_source.attribute_map:
@@ -616,7 +714,10 @@ class GeneralSynthesisParams(BaseParams):
             return
 
         if len(self.input_documents) == 0:
-            raise ValueError("GeneralSynthesisParams.input_documents cannot be empty.")
+            raise InvalidParameterValueError(
+                "GeneralSynthesisParams.input_documents cannot be an empty list. "
+                "Either remove it entirely (set to None) or add at least one DocumentSource."
+            )
 
         for document_source in self.input_documents:
             if not document_source.segmentation_params:
@@ -631,7 +732,10 @@ class GeneralSynthesisParams(BaseParams):
             return
 
         if len(self.input_examples) == 0:
-            raise ValueError("GeneralSynthesisParams.input_examples cannot be empty.")
+            raise InvalidParameterValueError(
+                "GeneralSynthesisParams.input_examples cannot be an empty list. "
+                "Either remove it entirely (set to None) or add at least one ExampleSource."
+            )
 
         for example_source in self.input_examples:
             example_keys = example_source.examples[0].keys()
@@ -644,8 +748,9 @@ class GeneralSynthesisParams(BaseParams):
             return
 
         if len(self.sampled_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.sampled_attributes cannot be empty."
+            raise InvalidParameterValueError(
+                "GeneralSynthesisParams.sampled_attributes cannot be an empty list. "
+                "Either remove it entirely (set to None) or add at least one SampledAttribute."
             )
 
         for sampled_attribute in self.sampled_attributes:
@@ -658,8 +763,9 @@ class GeneralSynthesisParams(BaseParams):
             return
 
         if len(self.generated_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.generated_attributes cannot be empty."
+            raise InvalidParameterValueError(
+                "GeneralSynthesisParams.generated_attributes cannot be an empty list. "
+                "Either remove it entirely (set to None) or add at least one GeneratedAttribute."
             )
 
         for generated_attribute in self.generated_attributes:
@@ -675,8 +781,9 @@ class GeneralSynthesisParams(BaseParams):
             return
 
         if len(self.transformed_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.transformed_attributes cannot be empty."
+            raise InvalidParameterValueError(
+                "GeneralSynthesisParams.transformed_attributes cannot be an empty list. "
+                "Either remove it entirely (set to None) or add at least one TransformedAttribute."
             )
 
         for transformed_attribute in self.transformed_attributes:
@@ -689,17 +796,19 @@ class GeneralSynthesisParams(BaseParams):
             return
 
         if len(self.combination_sampling) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.combination_sampling cannot be empty."
+            raise InvalidParameterValueError(
+                "GeneralSynthesisParams.combination_sampling cannot be an empty list. "
+                "Either remove it entirely (set to None) or add at least one AttributeCombination."
             )
 
         sample_rates = [
             combination.sample_rate for combination in self.combination_sampling
         ]
-        if sum(sample_rates) > 1.0:
-            raise ValueError(
-                "GeneralSynthesisParams.combination_sampling sample rates must be "
-                "less than or equal to 1.0."
+        total_rate = sum(sample_rates)
+        if total_rate > 1.0:
+            raise InvalidParameterValueError(
+                f"combination_sampling sample_rates sum to {total_rate:.3f}, "
+                f"but must be at most 1.0. Individual rates: {sample_rates}"
             )
 
     def _check_passthrough_attribute_ids(self) -> None:
@@ -708,8 +817,10 @@ class GeneralSynthesisParams(BaseParams):
             return
 
         if len(self.passthrough_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.passthrough_attributes cannot be empty."
+            raise InvalidParameterValueError(
+                "GeneralSynthesisParams.passthrough_attributes cannot be an empty list. "
+                "Either remove it entirely (set to None) to pass through all attributes, "
+                "or specify which attribute IDs to include in the output."
             )
 
     def __post_init__(self):

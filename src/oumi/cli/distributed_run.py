@@ -26,6 +26,7 @@ from typing import Any, Final, NamedTuple
 import typer
 
 import oumi.cli.cli_utils as cli_utils
+from oumi.core.types.exceptions import InvalidParameterValueError, MissingParameterError
 from oumi.utils.logging import logger
 
 # Port range [1024, 65535] is generally available
@@ -80,22 +81,28 @@ class _ProcessRunInfo:
     ):
         """Initializes run info, and validates arguments."""
         if not (world_info.num_nodes > 0 and world_info.gpus_per_node > 0):
-            raise ValueError(
-                f"Non-positive number of nodes or GPUs per node: {world_info}"
+            raise InvalidParameterValueError(
+                f"num_nodes and gpus_per_node must be positive integers. "
+                f"Got num_nodes={world_info.num_nodes}, gpus_per_node={world_info.gpus_per_node}."
             )
         elif not (node_rank >= 0 and node_rank < world_info.num_nodes):
-            raise ValueError(
-                f"Node rank {node_rank} is out of range: [0, {world_info.num_nodes})."
+            raise InvalidParameterValueError(
+                f"node_rank={node_rank} is out of range [0, {world_info.num_nodes}). "
+                f"node_rank must be less than num_nodes={world_info.num_nodes}."
             )
         elif len(master_address) == 0:
-            raise ValueError(f"Empty master address: {master_address}.")
+            raise MissingParameterError(
+                "master_address is required for distributed training. "
+                "Set OUMI_MASTER_ADDR environment variable or use a cluster launcher."
+            )
         elif not (
             master_port >= _MASTER_PORT_MIN_VALID_VALUE
             and master_port <= _MASTER_PORT_MAX_VALID_VALUE
         ):
-            raise ValueError(
-                f"Master port: {master_port} is outside of valid range: "
-                f"[{_MASTER_PORT_MIN_VALID_VALUE}, {_MASTER_PORT_MAX_VALID_VALUE}]."
+            raise InvalidParameterValueError(
+                f"master_port={master_port} is out of valid range. "
+                f"Must be between {_MASTER_PORT_MIN_VALID_VALUE} and {_MASTER_PORT_MAX_VALID_VALUE} (inclusive). "
+                "Set OUMI_MASTER_PORT environment variable to a valid port."
             )
 
         self._world_info = world_info
@@ -335,26 +342,31 @@ def _verify_process_run_info(run_info: _ProcessRunInfo, env: dict[str, str]) -> 
     oumi_num_nodes: int | None = _get_optional_int_env_var("OUMI_NUM_NODES", env)
     oumi_master_address: str | None = env.get("OUMI_MASTER_ADDR", None)
     if oumi_master_address is not None and len(oumi_master_address) == 0:
-        raise ValueError("Empty master address in 'OUMI_MASTER_ADDR'!")
+        raise InvalidParameterValueError(
+            "OUMI_MASTER_ADDR environment variable is set but empty. "
+            "Either unset it to use auto-detection or provide a valid IP address."
+        )
 
     assert len(run_info.node_ips) > 0, "Empty list of nodes!"
     assert run_info.node_rank is not None
 
     if oumi_num_nodes is not None and oumi_num_nodes != run_info.num_nodes:
-        raise ValueError(
-            "Inconsistent number of nodes: "
-            f"{run_info.num_nodes} vs {oumi_num_nodes} in 'OUMI_NUM_NODES'."
+        raise InvalidParameterValueError(
+            f"OUMI_NUM_NODES={oumi_num_nodes} conflicts with cluster-detected "
+            f"num_nodes={run_info.num_nodes}. Either unset OUMI_NUM_NODES to use "
+            "auto-detection or ensure it matches your cluster configuration."
         )
     elif oumi_total_gpus is not None and (oumi_total_gpus != run_info.total_gpus):
-        raise ValueError(
-            "Inconsistent total number of GPUs: "
-            f"{run_info.total_gpus} vs {oumi_total_gpus} "
-            "in 'OUMI_TOTAL_NUM_GPUS'. "
-            f"Nodes: {run_info.num_nodes}. GPU-s per node: {run_info.gpus_per_node}."
+        raise InvalidParameterValueError(
+            f"OUMI_TOTAL_NUM_GPUS={oumi_total_gpus} conflicts with cluster-detected "
+            f"total GPUs={run_info.total_gpus} ({run_info.num_nodes} nodes x "
+            f"{run_info.gpus_per_node} GPUs/node). Either unset OUMI_TOTAL_NUM_GPUS "
+            "or ensure it matches your cluster configuration."
         )
     elif oumi_master_address and oumi_master_address not in run_info.node_ips:
-        raise ValueError(
-            f"Master address '{oumi_master_address}' not found in the list of nodes."
+        raise InvalidParameterValueError(
+            f"OUMI_MASTER_ADDR='{oumi_master_address}' is not in the detected node list: "
+            f"{run_info.node_ips}. Ensure the master address is a valid node IP."
         )
 
 
@@ -369,11 +381,15 @@ def _detect_polaris_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | N
     logger.debug("Running in Polaris environment!")
     for env_var_name in _POLARIS_ENV_VARS:
         if env.get(env_var_name, None) is None:
-            raise ValueError(
-                f"Polaris environment variable '{env_var_name}' is not defined!"
+            raise MissingParameterError(
+                f"Polaris environment variable '{env_var_name}' is required but not set. "
+                "Ensure you are running within a PBS job allocation."
             )
     if not polaris_node_file:
-        raise ValueError("Empty value in the 'PBS_NODEFILE' environment variable!")
+        raise MissingParameterError(
+            "PBS_NODEFILE environment variable is set but empty. "
+            "Ensure you have a valid PBS job allocation."
+        )
     with open(polaris_node_file) as f:
         nodes_str = f.read()
     node_ips = _parse_nodes_str(nodes_str)
@@ -402,11 +418,15 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | Non
     logger.debug("Running in Slurm environment!")
     for env_var_name in _SLURM_ENV_VARS:
         if env.get(env_var_name, None) is None:
-            raise ValueError(
-                f"Slurm environment variable '{env_var_name}' is not defined!"
+            raise MissingParameterError(
+                f"Slurm environment variable '{env_var_name}' is required but not set. "
+                "Ensure you are running within a Slurm job allocation (srun/sbatch)."
             )
     if not slurm_nodes_str:
-        raise ValueError("Empty value in the 'SLURM_NODELIST' environment variable!")
+        raise MissingParameterError(
+            "SLURM_NODELIST environment variable is set but empty. "
+            "Ensure you have a valid Slurm job allocation."
+        )
     # Parse slurm nodelist string (ex. "nid[001240-001241]") into a newline-separated
     # list of node IPs.
     nodes_str = subprocess.run(
@@ -426,9 +446,10 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | Non
     if node_rank is None and len(node_ips) == 1:
         node_rank = 0
     if node_rank is None:
-        raise ValueError(
-            "Unable to determine node rank on a multi-node setup. "
-            "'SLURM_NODEID' is not set."
+        raise MissingParameterError(
+            "SLURM_NODEID is required for multi-node Slurm jobs but not set. "
+            f"Detected {len(node_ips)} nodes. Ensure you are using 'srun' to launch "
+            "the job, which sets SLURM_NODEID automatically."
         )
 
     return _ProcessRunInfo(
@@ -448,8 +469,9 @@ def _detect_skypilot_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | 
     logger.debug("Running in SkyPilot environment!")
     for env_var_name in _SKY_ENV_VARS:
         if env.get(env_var_name, None) is None:
-            raise ValueError(
-                f"SkyPilot environment variable '{env_var_name}' is not defined!"
+            raise MissingParameterError(
+                f"SkyPilot environment variable '{env_var_name}' is required but not set. "
+                "Ensure you are running within a SkyPilot cluster."
             )
     node_ips = _parse_nodes_str(env.get("SKYPILOT_NODE_IPS", ""))
     if len(node_ips) == 0:
@@ -506,22 +528,29 @@ def _get_optional_int_env_var(var_name: str, env: dict[str, str]) -> int | None:
     try:
         int_value = int(str_value)
     except ValueError as e:
-        raise ValueError(f"Environment variable '{var_name}' is not an integer!") from e
+        raise InvalidParameterValueError(
+            f"Environment variable {var_name} must be an integer. "
+            f"Got '{str_value}' which cannot be parsed as an integer."
+        ) from e
     return int_value
 
 
 def _get_int_env_var(var_name: str, env: dict[str, str]) -> int:
     int_value = _get_optional_int_env_var(var_name, env)
     if int_value is None:
-        raise ValueError(f"Environment variable '{var_name}' is not defined!")
+        raise MissingParameterError(
+            f"Environment variable '{var_name}' is required but not set. "
+            "Check your cluster or launcher configuration."
+        )
     return int_value
 
 
 def _get_positive_int_env_var(var_name: str, env: dict[str, str]) -> int:
     int_value = _get_int_env_var(var_name, env)
     if not (int_value > 0):
-        raise ValueError(
-            f"Environment variable '{var_name}' is not positive: {int_value}!"
+        raise InvalidParameterValueError(
+            f"Environment variable {var_name} must be a positive integer. "
+            f"Got {int_value}."
         )
     return int_value
 

@@ -21,6 +21,7 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.inference import BaseInferenceEngine
+from oumi.core.types.exceptions import InvalidParameterValueError
 from oumi.inference import (
     AnthropicInferenceEngine,
     BedrockInferenceEngine,
@@ -100,4 +101,8 @@ def build_inference_engine(
                 generation_params=generation_params,
             )
 
-    raise ValueError(f"Unsupported inference engine: {engine_type}")
+    supported_engines = list(ENGINE_MAP.keys())
+    raise InvalidParameterValueError(
+        f"Unsupported inference engine: '{engine_type}'. "
+        f"Supported engines: {[e.value for e in supported_engines]}"
+    )

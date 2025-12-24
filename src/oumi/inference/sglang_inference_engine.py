@@ -36,6 +36,7 @@ from oumi.core.configs.internal.supported_models import (
 )
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.exceptions import MissingParameterError
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.conversation_utils import (
     base64encode_content_item_image_bytes,
@@ -90,7 +91,10 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             generation_params: The generation parameters to use for inference.
         """
         if remote_params is None:
-            raise ValueError("remote_params is required")
+            raise MissingParameterError(
+                "remote_params is required for SGLangInferenceEngine. "
+                "Provide remote_params with the SGLang server URL."
+            )
 
         super().__init__(
             model_params=model_params,

@@ -16,6 +16,7 @@ from collections.abc import Callable
 
 from oumi.core.configs import TrainingParams
 from oumi.core.registry import REGISTRY
+from oumi.core.types.exceptions import RegistryLookupError
 
 
 def build_metrics_function(config: TrainingParams) -> Callable | None:
@@ -24,9 +25,9 @@ def build_metrics_function(config: TrainingParams) -> Callable | None:
     if config.metrics_function:
         metrics_function = REGISTRY.get_metrics_function(config.metrics_function)
         if not metrics_function:
-            raise KeyError(
-                f"metrics_function `{config.metrics_function}` "
-                "was not found in the registry."
+            raise RegistryLookupError(
+                f"metrics_function '{config.metrics_function}' not found in registry. "
+                "Ensure the function is registered before use."
             )
 
     return metrics_function

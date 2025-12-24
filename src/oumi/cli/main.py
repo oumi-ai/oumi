@@ -200,13 +200,19 @@ def get_app() -> typer.Typer:
 
 def run():
     """The entrypoint for the CLI."""
-    from oumi.core.types.exceptions import ConfigNotFoundError
+    from oumi.core.types.exceptions import ConfigNotFoundError, OumiError
+    from oumi.utils.logging import logger
 
     app = get_app()
     try:
         return app()
-    except ConfigNotFoundError as e:
+    except (ConfigNotFoundError, OumiError) as e:
+        # Log full stack trace at debug level for troubleshooting
+        logger.debug("User-facing error occurred:", exc_info=True)
         CONSOLE.print(f"\n[red]Error:[/red] {e}")
+        CONSOLE.print(
+            "[dim]Run with OUMI_LOG_LEVEL=debug to see the full stack trace.[/dim]"
+        )
         sys.exit(1)
     except Exception as e:
         tb_str = traceback.format_exc()

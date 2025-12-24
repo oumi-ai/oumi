@@ -19,6 +19,8 @@ from sklearn.metrics import balanced_accuracy_score
 from sklearn.metrics import f1_score as sklearn_f1_score
 from sklearn.utils import resample
 
+from oumi.core.types.exceptions import InvalidParameterValueError, MissingParameterError
+
 
 class Metric:
     """Base class for all metrics."""
@@ -74,15 +76,29 @@ def bootstrap(
     """
     # Ensure that our inputs are correct.
     if not y_true or not y_pred:
-        raise ValueError("`y_true` and `y_pred` must not be empty.")
+        raise MissingParameterError(
+            "`y_true` and `y_pred` must not be empty. "
+            f"Got y_true length={len(y_true) if y_true else 0}, "
+            f"y_pred length={len(y_pred) if y_pred else 0}."
+        )
     if len(y_true) != len(y_pred):
-        raise ValueError("`y_true` and `y_pred` must have the same length.")
+        raise InvalidParameterValueError(
+            f"`y_true` and `y_pred` must have the same length. "
+            f"Got y_true length={len(y_true)}, y_pred length={len(y_pred)}."
+        )
     if not (0 < alpha < 1):
-        raise ValueError("`alpha` must be between 0 and 1.")
+        raise InvalidParameterValueError(
+            f"`alpha` must be between 0 and 1 (exclusive). Got alpha={alpha}."
+        )
     if n_iter <= 0:
-        raise ValueError("`n_iter` must be a positive integer.")
+        raise InvalidParameterValueError(
+            f"`n_iter` must be a positive integer. Got n_iter={n_iter}."
+        )
     if not (0 < sample_prop <= 1):
-        raise ValueError("`sample_prop` must be between 0 and 1.")
+        raise InvalidParameterValueError(
+            f"`sample_prop` must be between 0 (exclusive) and 1 (inclusive). "
+            f"Got sample_prop={sample_prop}."
+        )
 
     # Combine the true values and predictions into paired data points.
     data = list(zip(y_true, y_pred))
@@ -125,17 +141,35 @@ def f1_score(
     """Calculate the F1 score and its confidence interval."""
     # Ensure that our inputs are correct.
     if not y_true or not y_pred:
-        raise ValueError("`y_true` and `y_pred` must not be empty.")
+        raise MissingParameterError(
+            "`y_true` and `y_pred` must not be empty. "
+            f"Got y_true length={len(y_true) if y_true else 0}, "
+            f"y_pred length={len(y_pred) if y_pred else 0}."
+        )
     if len(y_true) != len(y_pred):
-        raise ValueError("`y_true` and `y_pred` must have the same length.")
-    if average not in ["micro", "macro", "samples", "weighted", "binary"]:
-        raise ValueError("Invalid value for `average`.")
+        raise InvalidParameterValueError(
+            f"`y_true` and `y_pred` must have the same length. "
+            f"Got y_true length={len(y_true)}, y_pred length={len(y_pred)}."
+        )
+    valid_averages = ["micro", "macro", "samples", "weighted", "binary"]
+    if average not in valid_averages:
+        raise InvalidParameterValueError(
+            f"Invalid value for `average`: '{average}'. "
+            f"Must be one of: {valid_averages}."
+        )
     if not (0 < alpha < 1):
-        raise ValueError("`alpha` must be between 0 and 1.")
+        raise InvalidParameterValueError(
+            f"`alpha` must be between 0 and 1 (exclusive). Got alpha={alpha}."
+        )
     if n_iter <= 0:
-        raise ValueError("`n_iter` must be a positive integer.")
+        raise InvalidParameterValueError(
+            f"`n_iter` must be a positive integer. Got n_iter={n_iter}."
+        )
     if not (0 < sample_prop <= 1):
-        raise ValueError("`sample_prop` must be between 0 and 1.")
+        raise InvalidParameterValueError(
+            f"`sample_prop` must be between 0 (exclusive) and 1 (inclusive). "
+            f"Got sample_prop={sample_prop}."
+        )
 
     def f1_fn(y_true: list[int], y_pred: list[int]) -> float:
         return float(
@@ -178,15 +212,29 @@ def bacc_score(
     """Calculate the balanced accuracy score."""
     # Ensure that our inputs are correct.
     if not y_true or not y_pred:
-        raise ValueError("`y_true` and `y_pred` must not be empty.")
+        raise MissingParameterError(
+            "`y_true` and `y_pred` must not be empty. "
+            f"Got y_true length={len(y_true) if y_true else 0}, "
+            f"y_pred length={len(y_pred) if y_pred else 0}."
+        )
     if len(y_true) != len(y_pred):
-        raise ValueError("`y_true` and `y_pred` must have the same length.")
+        raise InvalidParameterValueError(
+            f"`y_true` and `y_pred` must have the same length. "
+            f"Got y_true length={len(y_true)}, y_pred length={len(y_pred)}."
+        )
     if not (0 < alpha < 1):
-        raise ValueError("`alpha` must be between 0 and 1.")
+        raise InvalidParameterValueError(
+            f"`alpha` must be between 0 and 1 (exclusive). Got alpha={alpha}."
+        )
     if n_iter <= 0:
-        raise ValueError("`n_iter` must be a positive integer.")
+        raise InvalidParameterValueError(
+            f"`n_iter` must be a positive integer. Got n_iter={n_iter}."
+        )
     if not (0 < sample_prop <= 1):
-        raise ValueError("`sample_prop` must be between 0 and 1.")
+        raise InvalidParameterValueError(
+            f"`sample_prop` must be between 0 (exclusive) and 1 (inclusive). "
+            f"Got sample_prop={sample_prop}."
+        )
 
     if populate_ci:
         # Calculate balanced accuracy score with bootstrap
