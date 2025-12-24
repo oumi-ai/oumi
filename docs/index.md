@@ -15,6 +15,22 @@
 
 <h4> Everything you need to build state-of-the-art foundation models, end-to-end. </h4>
 
+## What is Oumi?
+
+Oumi is an open-source platform designed for ML engineers and researchers who want to train, fine-tune, evaluate, and deploy foundation models. Whether you're fine-tuning a small language model on a single GPU or training a 405B parameter model across a cluster, Oumi provides a unified interface that scales with your needs.
+
+**Who is Oumi for?**
+
+- **ML Engineers** building production AI systems who need reliable training pipelines and deployment options
+- **Researchers** experimenting with new training methods, architectures, or datasets
+- **Teams** who want a consistent workflow from local development to cloud-scale training
+
+**What problems does Oumi solve?**
+
+- **Fragmented tooling**: Instead of stitching together different libraries for training, evaluation, and deployment, Oumi provides one cohesive platform
+- **Scaling complexity**: The same configuration works locally and on cloud infrastructure (AWS, GCP, Azure, Lambda Labs)
+- **Reproducibility**: YAML-based configs make experiments easy to track, share, and reproduce
+
 ```{toctree}
 :maxdepth: 2
 :hidden:
@@ -95,14 +111,22 @@ about/license
 about/citations
 ```
 
-Oumi is a fully open-source platform that streamlines the entire lifecycle of foundation models - from data preparation and training to evaluation and deployment.
+```{admonition} New to Oumi? Start here
+:class: tip
+
+1. **{doc}`Quickstart <get_started/quickstart>`** - Install and run your first training job (5 minutes)
+2. **{doc}`Core Concepts <get_started/core_concepts>`** - Understand configs, models, and workflows
+3. **{doc}`Training Guide <user_guides/train/train>`** - Deep dive into training options
+```
 
 ## Quick Start
+
+**Prerequisites:** Python 3.10+, pip. GPU recommended for larger models (CPU works for small models like SmolLM-135M).
 
 Install Oumi and start training in minutes:
 
 ```bash
-# Install with GPU support
+# Install with GPU support (or use `pip install oumi` for CPU-only)
 pip install oumi[gpu]
 
 # Train a model
@@ -112,7 +136,7 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml --interactive
 ```
 
-For detailed setup instructions, see the {doc}`installation guide <get_started/installation>`.
+For detailed setup instructions including virtual environments and cloud setup, see the {doc}`installation guide <get_started/installation>`.
 
 ## 🚀 Go Deeper
 
