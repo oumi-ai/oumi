@@ -194,7 +194,7 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
         bad_args = " ".join(ctx.args)
         raise typer.BadParameter(
             "Extra arguments must be in `--argname value` pairs. "
-            f"Recieved: `{bad_args}`"
+            f"Received: `{bad_args}`"
         )
     logger.debug(f"\n\nParsed CLI args:\n{args}\n\n")
     return args
