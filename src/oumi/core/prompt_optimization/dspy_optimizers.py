@@ -82,7 +82,7 @@ class DSPyOptimizer(BaseOptimizer):
                                 # bool, etc.). Skip methods and complex objects
                                 if value is not None and not callable(value):
                                     if isinstance(
-                                        value, (str, int, float, bool, list, dict)
+                                        value, str | int | float | bool | list | dict
                                     ):
                                         demo_dict[field_name] = value
                             except Exception:
@@ -298,7 +298,7 @@ class MiproOptimizer(DSPyOptimizer):
                 auto=None,  # Disable auto mode to allow manual trial configuration
                 num_candidates=self.config.optimization.num_trials,
                 init_temperature=0.7,
-                max_errors=max_errors,
+                max_errors=max_errors if max_errors is not None else 10,
             )
         except Exception as e:
             raise RuntimeError(
@@ -456,7 +456,7 @@ class GepaOptimizer(DSPyOptimizer):
 
         # Check if GEPA is available
         try:
-            from dspy.teleprompt import GEPA
+            from dspy.teleprompt import GEPA  # type: ignore[attr-defined]
         except ImportError as e:
             raise ImportError(
                 "GEPA optimizer is not available in your DSPy version. "
@@ -703,7 +703,7 @@ class BootstrapFewShotOptimizer(DSPyOptimizer):
                 metric=metric,
                 max_bootstrapped_demos=max_demos,
                 max_labeled_demos=max_labeled,
-                max_errors=max_errors,
+                max_errors=max_errors if max_errors is not None else 10,
             )
         except Exception as e:
             raise RuntimeError(
