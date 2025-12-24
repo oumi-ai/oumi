@@ -70,8 +70,160 @@ def _infer_importance_level(weight: int) -> str:
         return "Pitfall"
 
 
+def normalize_rar_rubrics(rubrics_raw: list) -> list[dict[str, Any]]:
+    """Normalize RaR rubrics to weighted format.
+
+    Converts from RaR format:
+        {"title": "...", "description": "...", "weight": 5}
+
+    To our format:
+        {"name": "...", "description": "...", "weight": 5,
+         "importance_level": "Essential", "evaluation_type": "binary"}
+
+    Args:
+        rubrics_raw: List of rubric dicts from the RaR dataset.
+
+    Returns:
+        List of normalized rubric dicts.
+    """
+    normalized = []
+    for i, rubric in enumerate(rubrics_raw):
+        if isinstance(rubric, dict):
+            weight = int(rubric.get("weight", 1))
+            normalized.append(
+                {
+                    "name": rubric.get("title", f"rubric_{i + 1}"),
+                    "description": rubric.get("description", ""),
+                    "weight": weight,
+                    "importance_level": _infer_importance_level(weight),
+                    "evaluation_type": "binary",
+                }
+            )
+        elif isinstance(rubric, str):
+            # Handle string format (from rubric_list)
+            normalized.append(
+                {
+                    "name": f"rubric_{i + 1}",
+                    "description": rubric,
+                    "weight": 1,
+                    "importance_level": "Optional",
+                    "evaluation_type": "binary",
+                }
+            )
+    return normalized
+
+
+class _RaRBaseDataset(BaseMapDataset):
+    """Base class for RaR (Rubrics as Rewards) datasets.
+
+    Provides shared implementation for loading RaR datasets from HuggingFace Hub.
+    Subclasses only need to set `default_dataset` and register themselves.
+    """
+
+    def __init__(
+        self,
+        *,
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        split: str | None = "train",
+        **kwargs,
+    ) -> None:
+        """Initialize the RaR dataset.
+
+        Args:
+            dataset_name: Name of the dataset.
+            dataset_path: Optional local path to the dataset.
+            split: Dataset split to load ("train", "val", or "test").
+            **kwargs: Additional arguments passed to BaseMapDataset.
+        """
+        super().__init__(
+            dataset_name=dataset_name,
+            dataset_path=dataset_path,
+            split=split,
+            **kwargs,
+        )
+        self._data = self._load_data()
+
+    @override
+    def transform(self, sample: pd.Series) -> dict[str, Any]:
+        """Transform a sample into the format expected by GRPO trainer.
+
+        Maps the RaR dataset format to our rubric format:
+        - question -> prompt
+        - rubric -> rubrics (normalized to our weighted format)
+        - reference_answer -> reference_answer (optional, for evaluation)
+
+        Args:
+            sample: A pandas Series containing the raw data.
+
+        Returns:
+            A dict with 'prompt', 'rubrics', and optional fields.
+        """
+        prompt = sample.get("question", "")
+        rubrics_raw = sample.get("rubric", [])
+        reference_answer = sample.get("reference_answer", None)
+        question_source = sample.get("question_source", None)
+        rubric_count = sample.get("rubric_count", None)
+
+        # Normalize rubrics to our format (handle None case)
+        rubrics = normalize_rar_rubrics(rubrics_raw if rubrics_raw is not None else [])
+
+        result = {
+            "prompt": str(prompt).strip(),
+            "rubrics": rubrics,
+        }
+
+        # Add optional fields if present
+        if reference_answer:
+            result["reference_answer"] = str(reference_answer).strip()
+        if question_source:
+            result["question_source"] = str(question_source)
+        if rubric_count is not None:
+            result["rubric_count"] = int(rubric_count)
+
+        return result
+
+    def conversation(self, idx: int) -> Conversation:
+        """Returns the conversation at the specified index.
+
+        Args:
+            idx: The index of the conversation to retrieve.
+
+        Returns:
+            The conversation at the specified index.
+        """
+        sample = self.raw(idx)
+        return self.transform_conversation(sample)
+
+    def conversations(self) -> list[Conversation]:
+        """Returns a list of all conversations."""
+        return [self.conversation(i) for i in range(len(self))]
+
+    def transform_conversation(self, sample: dict | pd.Series) -> Conversation:
+        """Converts the input sample to a Conversation.
+
+        Args:
+            sample: The input example.
+
+        Returns:
+            The resulting conversation.
+        """
+        # Convert dict to Series if needed for transform()
+        if isinstance(sample, dict):
+            sample = pd.Series(sample)
+        transformed = self.transform(sample)
+        messages = [
+            {
+                "content": transformed["prompt"],
+                "role": "user",
+            }
+        ]
+        conversation_dict = {"messages": messages}
+        return Conversation.from_dict(conversation_dict)
+
+
 @register_dataset("rar-medicine")
-class RaRMedicineDataset(BaseMapDataset):
+class RaRMedicineDataset(_RaRBaseDataset):
     """Dataset for RaR-Medicine from the Rubrics as Rewards paper.
 
     This dataset contains 22.4k medical prompts with structured rubric annotations
@@ -82,7 +234,7 @@ class RaRMedicineDataset(BaseMapDataset):
 
     Example:
         >>> dataset = RaRMedicineDataset(split="train")
-        >>> sample = dataset[0]
+        >>> sample = dataset.raw(0)
         >>> print(sample["prompt"])
         >>> print(sample["rubrics"])  # List of weighted rubric dicts
 
@@ -98,154 +250,9 @@ class RaRMedicineDataset(BaseMapDataset):
 
     default_dataset = "anisha2102/RaR-Medicine"
 
-    def __init__(
-        self,
-        *,
-        dataset_name: str | None = None,
-        dataset_path: str | None = None,
-        split: str | None = "train",
-        **kwargs,
-    ) -> None:
-        """Initialize the RaR-Medicine dataset.
-
-        Args:
-            dataset_name: Name of the dataset (default: anisha2102/RaR-Medicine).
-            dataset_path: Optional local path to the dataset.
-            split: Dataset split to load ("train", "val", or "test").
-            **kwargs: Additional arguments passed to BaseMapDataset.
-        """
-        super().__init__(
-            dataset_name=dataset_name,
-            dataset_path=dataset_path,
-            split=split,
-            **kwargs,
-        )
-        self._data = self._load_data()
-
-    @override
-    def transform(self, sample: pd.Series) -> dict[str, Any]:
-        """Transform a sample into the format expected by GRPO trainer.
-
-        Maps the RaR dataset format to our rubric format:
-        - question -> prompt
-        - rubric -> rubrics (normalized to our weighted format)
-        - reference_answer -> reference_answer (optional, for evaluation)
-
-        Args:
-            sample: A pandas Series containing the raw data.
-
-        Returns:
-            A dict with 'prompt', 'rubrics', and optional fields.
-        """
-        prompt = sample.get("question", "")
-        rubrics_raw = sample.get("rubric", [])
-        reference_answer = sample.get("reference_answer", None)
-        question_source = sample.get("question_source", None)
-        rubric_count = sample.get("rubric_count", None)
-
-        # Normalize rubrics to our format (handle None case)
-        rubrics = self._normalize_rubrics(
-            rubrics_raw if rubrics_raw is not None else []
-        )
-
-        result = {
-            "prompt": str(prompt).strip(),
-            "rubrics": rubrics,
-        }
-
-        # Add optional fields if present
-        if reference_answer:
-            result["reference_answer"] = str(reference_answer).strip()
-        if question_source:
-            result["question_source"] = str(question_source)
-        if rubric_count is not None:
-            result["rubric_count"] = int(rubric_count)
-
-        return result
-
-    def _normalize_rubrics(self, rubrics_raw: list) -> list[dict[str, Any]]:
-        """Normalize RaR rubrics to our weighted format.
-
-        Converts from RaR format:
-            {"title": "...", "description": "...", "weight": 5}
-
-        To our format:
-            {"name": "...", "description": "...", "weight": 5,
-             "importance_level": "Essential", "evaluation_type": "binary"}
-
-        Args:
-            rubrics_raw: List of rubric dicts from the RaR dataset.
-
-        Returns:
-            List of normalized rubric dicts.
-        """
-        normalized = []
-        for i, rubric in enumerate(rubrics_raw):
-            if isinstance(rubric, dict):
-                weight = int(rubric.get("weight", 1))
-                normalized.append(
-                    {
-                        "name": rubric.get("title", f"rubric_{i + 1}"),
-                        "description": rubric.get("description", ""),
-                        "weight": weight,
-                        "importance_level": _infer_importance_level(weight),
-                        "evaluation_type": "binary",
-                    }
-                )
-            elif isinstance(rubric, str):
-                # Handle string format (from rubric_list)
-                normalized.append(
-                    {
-                        "name": f"rubric_{i + 1}",
-                        "description": rubric,
-                        "weight": 1,
-                        "importance_level": "Optional",
-                        "evaluation_type": "binary",
-                    }
-                )
-        return normalized
-
-    def conversation(self, idx: int) -> Conversation:
-        """Returns the conversation at the specified index.
-
-        Args:
-            idx: The index of the conversation to retrieve.
-
-        Returns:
-            The conversation at the specified index.
-        """
-        sample = self.raw(idx)
-        return self.transform_conversation(sample)
-
-    def conversations(self) -> list[Conversation]:
-        """Returns a list of all conversations."""
-        return [self.conversation(i) for i in range(len(self))]
-
-    def transform_conversation(self, sample: dict | pd.Series) -> Conversation:
-        """Converts the input sample to a Conversation.
-
-        Args:
-            sample: The input example.
-
-        Returns:
-            The resulting conversation.
-        """
-        # Convert dict to Series if needed for transform()
-        if isinstance(sample, dict):
-            sample = pd.Series(sample)
-        transformed = self.transform(sample)
-        messages = [
-            {
-                "content": transformed["prompt"],
-                "role": "user",
-            }
-        ]
-        conversation_dict = {"messages": messages}
-        return Conversation.from_dict(conversation_dict)
-
 
 @register_dataset("rar-science")
-class RaRScienceDataset(BaseMapDataset):
+class RaRScienceDataset(_RaRBaseDataset):
     """Dataset for RaR-Science from the Rubrics as Rewards paper.
 
     This dataset contains 22.9k expert-level science prompts with structured
@@ -257,7 +264,7 @@ class RaRScienceDataset(BaseMapDataset):
 
     Example:
         >>> dataset = RaRScienceDataset(split="train")
-        >>> sample = dataset[0]
+        >>> sample = dataset.raw(0)
         >>> print(sample["prompt"])
         >>> print(sample["rubrics"])  # List of weighted rubric dicts
 
@@ -272,148 +279,3 @@ class RaRScienceDataset(BaseMapDataset):
     """
 
     default_dataset = "anisha2102/RaR-Science"
-
-    def __init__(
-        self,
-        *,
-        dataset_name: str | None = None,
-        dataset_path: str | None = None,
-        split: str | None = "train",
-        **kwargs,
-    ) -> None:
-        """Initialize the RaR-Science dataset.
-
-        Args:
-            dataset_name: Name of the dataset (default: anisha2102/RaR-Science).
-            dataset_path: Optional local path to the dataset.
-            split: Dataset split to load ("train", "val", or "test").
-            **kwargs: Additional arguments passed to BaseMapDataset.
-        """
-        super().__init__(
-            dataset_name=dataset_name,
-            dataset_path=dataset_path,
-            split=split,
-            **kwargs,
-        )
-        self._data = self._load_data()
-
-    @override
-    def transform(self, sample: pd.Series) -> dict[str, Any]:
-        """Transform a sample into the format expected by GRPO trainer.
-
-        Maps the RaR dataset format to our rubric format:
-        - question -> prompt
-        - rubric -> rubrics (normalized to our weighted format)
-        - reference_answer -> reference_answer (optional, for evaluation)
-
-        Args:
-            sample: A pandas Series containing the raw data.
-
-        Returns:
-            A dict with 'prompt', 'rubrics', and optional fields.
-        """
-        prompt = sample.get("question", "")
-        rubrics_raw = sample.get("rubric", [])
-        reference_answer = sample.get("reference_answer", None)
-        question_source = sample.get("question_source", None)
-        rubric_count = sample.get("rubric_count", None)
-
-        # Normalize rubrics to our format (handle None case)
-        rubrics = self._normalize_rubrics(
-            rubrics_raw if rubrics_raw is not None else []
-        )
-
-        result = {
-            "prompt": str(prompt).strip(),
-            "rubrics": rubrics,
-        }
-
-        # Add optional fields if present
-        if reference_answer:
-            result["reference_answer"] = str(reference_answer).strip()
-        if question_source:
-            result["question_source"] = str(question_source)
-        if rubric_count is not None:
-            result["rubric_count"] = int(rubric_count)
-
-        return result
-
-    def _normalize_rubrics(self, rubrics_raw: list) -> list[dict[str, Any]]:
-        """Normalize RaR rubrics to our weighted format.
-
-        Converts from RaR format:
-            {"title": "...", "description": "...", "weight": 5}
-
-        To our format:
-            {"name": "...", "description": "...", "weight": 5,
-             "importance_level": "Essential", "evaluation_type": "binary"}
-
-        Args:
-            rubrics_raw: List of rubric dicts from the RaR dataset.
-
-        Returns:
-            List of normalized rubric dicts.
-        """
-        normalized = []
-        for i, rubric in enumerate(rubrics_raw):
-            if isinstance(rubric, dict):
-                weight = int(rubric.get("weight", 1))
-                normalized.append(
-                    {
-                        "name": rubric.get("title", f"rubric_{i + 1}"),
-                        "description": rubric.get("description", ""),
-                        "weight": weight,
-                        "importance_level": _infer_importance_level(weight),
-                        "evaluation_type": "binary",
-                    }
-                )
-            elif isinstance(rubric, str):
-                # Handle string format (from rubric_list)
-                normalized.append(
-                    {
-                        "name": f"rubric_{i + 1}",
-                        "description": rubric,
-                        "weight": 1,
-                        "importance_level": "Optional",
-                        "evaluation_type": "binary",
-                    }
-                )
-        return normalized
-
-    def conversation(self, idx: int) -> Conversation:
-        """Returns the conversation at the specified index.
-
-        Args:
-            idx: The index of the conversation to retrieve.
-
-        Returns:
-            The conversation at the specified index.
-        """
-        sample = self.raw(idx)
-        return self.transform_conversation(sample)
-
-    def conversations(self) -> list[Conversation]:
-        """Returns a list of all conversations."""
-        return [self.conversation(i) for i in range(len(self))]
-
-    def transform_conversation(self, sample: dict | pd.Series) -> Conversation:
-        """Converts the input sample to a Conversation.
-
-        Args:
-            sample: The input example.
-
-        Returns:
-            The resulting conversation.
-        """
-        # Convert dict to Series if needed for transform()
-        if isinstance(sample, dict):
-            sample = pd.Series(sample)
-        transformed = self.transform(sample)
-        messages = [
-            {
-                "content": transformed["prompt"],
-                "role": "user",
-            }
-        ]
-        conversation_dict = {"messages": messages}
-        return Conversation.from_dict(conversation_dict)

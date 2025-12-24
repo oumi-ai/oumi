@@ -465,6 +465,87 @@ def reset_rubric_reward_stats() -> None:
     _REWARD_STATS = RubricRewardStats()
 
 
+def _build_judge_config(
+    model: str,
+    temperature: float,
+    weighted_rubrics: bool,
+    role: str | None = None,
+) -> JudgeConfig:
+    """Build a JudgeConfig for rubric evaluation.
+
+    Args:
+        model: The model name to use for judging.
+        temperature: The temperature for generation.
+        weighted_rubrics: Whether to use weighted rubric evaluation.
+        role: Optional role description for the judge.
+
+    Returns:
+        A JudgeConfig instance.
+    """
+    from oumi.core.configs.inference_config import InferenceConfig
+    from oumi.core.configs.inference_engine_type import InferenceEngineType
+    from oumi.core.configs.params.generation_params import GenerationParams
+    from oumi.core.configs.params.model_params import ModelParams
+
+    role_suffix = f"\n\nYour specific focus is: {role}" if role else ""
+
+    if weighted_rubrics:
+        prompt_template = (
+            "You are evaluating a response based on specific weighted rubrics.\n\n"
+            "## Task\n{prompt}\n\n"
+            "## Response to Evaluate\n{response}\n\n"
+            "## Rubrics (with weights)\n{rubrics}\n\n"
+            "Evaluate the response against EACH rubric independently.\n"
+            "For each rubric, determine if it is satisfied (1) or not (0).\n\n"
+            "Return a JSON object with two keys:\n"
+            '- "scores": a dict mapping each rubric name to 0 or 1\n'
+            '- "weighted_score": weighted avg (sum(weight*score)/sum(weights))\n\n'
+            "Output only valid JSON, no other text."
+        )
+        system_instruction = (
+            "You are an expert evaluator. Assess responses against weighted "
+            "rubrics fairly and consistently. For each rubric, give 1 if "
+            "satisfied, 0 if not. Calculate weighted score as "
+            f"sum(weight*score)/sum(weights). Return valid JSON only.{role_suffix}"
+        )
+        max_tokens = 500
+    else:
+        prompt_template = (
+            "You are evaluating a response based on specific rubrics.\n\n"
+            "## Task\n{prompt}\n\n"
+            "## Response to Evaluate\n{response}\n\n"
+            "## Rubrics\n{rubrics}\n\n"
+            "Evaluate the response against EACH rubric. "
+            "Count how many rubrics the response satisfies.\n"
+            "Your judgment should be a float between 0.0 and 1.0, "
+            "representing the fraction of rubrics satisfied."
+        )
+        system_instruction = (
+            "You are an expert evaluator. Assess responses against rubrics "
+            "fairly and consistently. Return only the fraction of rubrics "
+            f"that are satisfied (0.0 to 1.0).{role_suffix}"
+        )
+        max_tokens = 100
+
+    return JudgeConfig(
+        judge_params=JudgeParams(
+            prompt_template=prompt_template,
+            response_format=JudgeResponseFormat.XML,
+            judgment_type=JudgeOutputType.FLOAT,
+            include_explanation=False,
+            system_instruction=system_instruction,
+        ),
+        inference_config=InferenceConfig(
+            engine=InferenceEngineType.OPENAI,
+            model=ModelParams(model_name=model),
+            generation=GenerationParams(
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+            ),
+        ),
+    )
+
+
 def _get_or_create_judge(
     judge_model: str = "gpt-4o-mini",
     judge_config_path: str | None = None,
@@ -482,7 +563,6 @@ def _get_or_create_judge(
     """
     global _JUDGE_INSTANCE, _REWARD_STATS
 
-    # Update stats tracker with the judge model for cost calculation
     _REWARD_STATS.judge_model = judge_model
 
     if _JUDGE_INSTANCE is not None:
@@ -491,76 +571,8 @@ def _get_or_create_judge(
     if judge_config_path and Path(judge_config_path).exists():
         _JUDGE_INSTANCE = SimpleJudge(judge_config_path)
     else:
-        # Create judge config based on rubric type
-        if weighted_rubrics:
-            # Weighted rubrics: ask for per-rubric evaluation
-            prompt_template = (
-                "You are evaluating a response based on specific weighted rubrics.\n\n"
-                "## Task\n{prompt}\n\n"
-                "## Response to Evaluate\n{response}\n\n"
-                "## Rubrics (with weights)\n{rubrics}\n\n"
-                "Evaluate the response against EACH rubric independently.\n"
-                "For each rubric, determine if it is satisfied (1) or not (0).\n\n"
-                "Return a JSON object with two keys:\n"
-                '- "scores": a dict mapping each rubric name to 0 or 1\n'
-                '- "weighted_score": weighted avg (sum(weight*score)/sum(weights))\n\n'
-                "Output only valid JSON, no other text."
-            )
-            system_instruction = (
-                "You are an expert evaluator. Assess responses against weighted "
-                "rubrics fairly and consistently. For each rubric, give 1 if "
-                "satisfied, 0 if not. Calculate weighted score as "
-                "sum(weight*score)/sum(weights). Return valid JSON only."
-            )
-            max_tokens = 500  # More tokens for per-rubric JSON response
-        else:
-            # Simple rubrics: ask for overall score
-            prompt_template = (
-                "You are evaluating a response based on specific rubrics.\n\n"
-                "## Task\n{prompt}\n\n"
-                "## Response to Evaluate\n{response}\n\n"
-                "## Rubrics\n{rubrics}\n\n"
-                "Evaluate the response against EACH rubric. "
-                "Count how many rubrics the response satisfies.\n"
-                "Your judgment should be a float between 0.0 and 1.0, "
-                "representing the fraction of rubrics satisfied."
-            )
-            system_instruction = (
-                "You are an expert evaluator. Assess responses against rubrics "
-                "fairly and consistently. Return only the fraction of rubrics "
-                "that are satisfied (0.0 to 1.0)."
-            )
-            max_tokens = 100
-
-        judge_params = JudgeParams(
-            prompt_template=prompt_template,
-            response_format=JudgeResponseFormat.XML,
-            judgment_type=JudgeOutputType.FLOAT,
-            include_explanation=False,
-            system_instruction=system_instruction,
-        )
-
-        # Create inference config for the judge model using OpenAI
-        from oumi.core.configs.inference_config import InferenceConfig
-        from oumi.core.configs.inference_engine_type import InferenceEngineType
-        from oumi.core.configs.params.generation_params import GenerationParams
-        from oumi.core.configs.params.model_params import ModelParams
-
-        inference_config = InferenceConfig(
-            engine=InferenceEngineType.OPENAI,
-            model=ModelParams(model_name=judge_model),
-            generation=GenerationParams(
-                max_new_tokens=max_tokens,
-                temperature=0.0,
-            ),
-        )
-
-        judge_config = JudgeConfig(
-            judge_params=judge_params,
-            inference_config=inference_config,
-        )
-
-        _JUDGE_INSTANCE = SimpleJudge(judge_config)
+        config = _build_judge_config(judge_model, 0.0, weighted_rubrics)
+        _JUDGE_INSTANCE = SimpleJudge(config)
 
     return _JUDGE_INSTANCE
 
@@ -580,83 +592,14 @@ def _create_judge_for_panel(
     """
     global _JUDGE_PANEL
 
-    # Check cache first
     cache_key = f"{member.model}_{member.temperature}_{weighted_rubrics}"
     if cache_key in _JUDGE_PANEL:
         return _JUDGE_PANEL[cache_key]
 
-    # Build role-specific system instruction if role is specified
-    role_instruction = ""
-    if member.role:
-        role_instruction = f"\n\nYour specific focus is: {member.role}"
-
-    # Create judge config based on rubric type
-    if weighted_rubrics:
-        prompt_template = (
-            "You are evaluating a response based on specific weighted rubrics.\n\n"
-            "## Task\n{prompt}\n\n"
-            "## Response to Evaluate\n{response}\n\n"
-            "## Rubrics (with weights)\n{rubrics}\n\n"
-            "Evaluate the response against EACH rubric independently.\n"
-            "For each rubric, determine if it is satisfied (1) or not (0).\n\n"
-            "Return a JSON object with two keys:\n"
-            '- "scores": a dict mapping each rubric name to 0 or 1\n'
-            '- "weighted_score": weighted avg (sum(weight*score)/sum(weights))\n\n'
-            "Output only valid JSON, no other text."
-        )
-        system_instruction = (
-            "You are an expert evaluator. Assess responses against weighted "
-            "rubrics fairly and consistently. For each rubric, give 1 if "
-            "satisfied, 0 if not. Calculate weighted score as "
-            f"sum(weight*score)/sum(weights). Return valid JSON only.{role_instruction}"
-        )
-        max_tokens = 500
-    else:
-        prompt_template = (
-            "You are evaluating a response based on specific rubrics.\n\n"
-            "## Task\n{prompt}\n\n"
-            "## Response to Evaluate\n{response}\n\n"
-            "## Rubrics\n{rubrics}\n\n"
-            "Evaluate the response against EACH rubric. "
-            "Count how many rubrics the response satisfies.\n"
-            "Your judgment should be a float between 0.0 and 1.0, "
-            "representing the fraction of rubrics satisfied."
-        )
-        system_instruction = (
-            "You are an expert evaluator. Assess responses against rubrics "
-            f"fairly and consistently. Return only the fraction of rubrics "
-            f"that are satisfied (0.0 to 1.0).{role_instruction}"
-        )
-        max_tokens = 100
-
-    judge_params = JudgeParams(
-        prompt_template=prompt_template,
-        response_format=JudgeResponseFormat.XML,
-        judgment_type=JudgeOutputType.FLOAT,
-        include_explanation=False,
-        system_instruction=system_instruction,
+    config = _build_judge_config(
+        member.model, member.temperature, weighted_rubrics, member.role
     )
-
-    from oumi.core.configs.inference_config import InferenceConfig
-    from oumi.core.configs.inference_engine_type import InferenceEngineType
-    from oumi.core.configs.params.generation_params import GenerationParams
-    from oumi.core.configs.params.model_params import ModelParams
-
-    inference_config = InferenceConfig(
-        engine=InferenceEngineType.OPENAI,
-        model=ModelParams(model_name=member.model),
-        generation=GenerationParams(
-            max_new_tokens=max_tokens,
-            temperature=member.temperature,
-        ),
-    )
-
-    judge_config = JudgeConfig(
-        judge_params=judge_params,
-        inference_config=inference_config,
-    )
-
-    judge = SimpleJudge(judge_config)
+    judge = SimpleJudge(config)
     _JUDGE_PANEL[cache_key] = judge
     return judge
 
@@ -1474,91 +1417,3 @@ def rubric_reward(
     logger.info(f"[RLVR] {_REWARD_STATS.get_cost_summary()}")
 
     return rewards
-
-
-@register("rubric_reward_batch", RegistryType.REWARD_FUNCTION)
-def rubric_reward_batch(
-    completions: list[list[dict[str, Any]]],
-    prompts: list[str] | None = None,
-    rubrics: list[list[str]] | None = None,
-    **kwargs: Any,
-) -> list[float]:
-    """Batched rubric-based reward function for GRPO training.
-
-    This is an optimized version that batches judge calls for better throughput.
-    Use this when you have a remote judge API that supports batching efficiently.
-
-    Args:
-        completions: List of completions from the LLM.
-        prompts: List of original prompts/tasks (passed by TRL).
-        rubrics: List of rubric lists from the dataset.
-        kwargs: Additional keyword arguments.
-
-    Returns:
-        List of float rewards in [0.0, 1.0] for each completion.
-    """
-    # TRL passes 'prompts' (plural), dataset may have 'prompt' (singular)
-    prompt_list = prompts
-    if prompt_list is None:
-        prompt_list = kwargs.get("prompt", [])
-
-    # Rubrics come from the dataset
-    rubric_list = rubrics
-    if rubric_list is None:
-        rubric_list = kwargs.get("rubrics", [])
-
-    # Validate we have the required data
-    if not prompt_list or not rubric_list:
-        prompt_count = len(prompt_list) if prompt_list else 0
-        rubric_count = len(rubric_list) if rubric_list else 0
-        logger.warning(
-            f"Missing prompts or rubrics. prompts={prompt_count}, "
-            f"rubrics={rubric_count}. Returning zero rewards."
-        )
-        return [0.0] * len(completions)
-
-    # Get or create the judge
-    judge_model = kwargs.get("judge_model", "gpt-4o-mini")
-    judge_config_path = kwargs.get("judge_config_path")
-    judge = _get_or_create_judge(
-        judge_model=str(judge_model) if judge_model else "gpt-4o-mini",
-        judge_config_path=str(judge_config_path) if judge_config_path else None,
-    )
-
-    # Extract completion strings - handle different formats from TRL
-    completion_strs = _extract_completion_strings(completions)
-
-    # Prepare all judge inputs
-    judge_inputs = []
-    for comp, p, r in zip(completion_strs, prompt_list, rubric_list):
-        r_list = r if isinstance(r, list) else [r]
-        rubrics_text = "\n".join(f"{i + 1}. {rb}" for i, rb in enumerate(r_list))
-        judge_inputs.append(
-            {
-                "prompt": p,
-                "response": comp,
-                "rubrics": rubrics_text,
-            }
-        )
-
-    try:
-        # Batch call the judge
-        outputs = judge.judge(judge_inputs)
-
-        rewards = []
-        for output in outputs:
-            score = output.field_scores.get("judgment")
-            if score is not None:
-                rewards.append(max(0.0, min(1.0, float(score))))
-            else:
-                value = output.field_values.get("judgment")
-                if value is not None:
-                    rewards.append(max(0.0, min(1.0, float(value))))
-                else:
-                    rewards.append(0.0)
-
-        return rewards
-
-    except Exception as e:
-        logger.warning(f"Error during batched rubric evaluation: {e}")
-        return [0.0] * len(completions)

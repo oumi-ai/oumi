@@ -34,7 +34,6 @@ from oumi.datasets.grpo.rewards.rubric_reward import (
     load_panel_config,
     reset_rubric_reward_stats,
     rubric_reward,
-    rubric_reward_batch,
     set_panel_config,
 )
 
@@ -55,7 +54,6 @@ __all__ = [
     "load_panel_config",
     "reset_rubric_reward_stats",
     "rubric_reward",
-    "rubric_reward_batch",
     "RubricRewardStats",
     "set_panel_config",
 ]
