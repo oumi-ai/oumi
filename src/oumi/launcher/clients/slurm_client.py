@@ -245,7 +245,6 @@ class SlurmLogStream(io.TextIOBase):
                 if not line.strip():
                     return self.readline()
                 if "Starting training" in line:
-                    print("starting")
                     return line
                 # Convert progress bar lines to use \r instead of \n for updates
                 if self._is_progress_line(line):

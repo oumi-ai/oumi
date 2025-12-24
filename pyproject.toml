@@ -43,7 +43,7 @@ dependencies = [
     "aiofiles>=24.1.0,<26",       # Allows to use async file operations
     "aioresponses>=0.7,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
-    "click<8.3.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
+    "click<8.4.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2,<5",
     "hdrhistogram>=0.10,<0.11",
     "jsonlines",
@@ -75,7 +75,7 @@ dependencies = [
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
     "transformers>=4.57,<4.58",
     "trl>=0.24,<0.27",
-    "typer",                    # Used by CLI
+    "typer<0.20.1",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
     "uvicorn<0.41.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.24",        # Logging to Weights and Biases.
@@ -118,7 +118,7 @@ docs = [
 gpu = [
     "liger-kernel>=0.6,<0.7",
     "nvidia-ml-py>=13.580,<13.591",
-    "bitsandbytes>=0.47,<0.49",     # Used for QLora, and PagedAdam implementation
+    "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
@@ -141,6 +141,7 @@ gcp = [
     "google-cloud-storage>=3.3",
     "skypilot[gcp]",
 ]
+kubernetes = ["skypilot[kubernetes]"]
 lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
@@ -165,7 +166,7 @@ evaluation = [
     "sentencepiece>=0.2.0",
 ]
 
-quantization = ["autoawq>=0.2,<0.3", "bitsandbytes>=0.47,<0.49"]
+quantization = ["autoawq>=0.2,<0.3", "bitsandbytes>=0.47,<0.50"]
 
 tune = ["optuna>=4.0.0,<5.0"]
 
@@ -260,6 +261,31 @@ pythonVersion = "3.10"
 pythonPlatform = "All" # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
+
+[tool.ty.src]
+include = ["src/oumi/**"]
+exclude = [
+    "src/oumi/core/types/proto/**",
+    "src/oumi/utils/verl_model_merger.py",
+]
+
+[tool.ty.environment]
+python-version = "3.10"
+python-platform = "all"
+
+[tool.ty.rules]
+# Match pyright's basic mode - be lenient on complex type issues
+unresolved-import = "warn"  # Many optional deps (vllm, llama_cpp, boto3, etc.)
+redundant-cast = "ignore"  # Too noisy, casts are often intentional for clarity
+invalid-method-override = "ignore"  # Subclasses often change param types (duck typing)
+unresolved-attribute = "warn"  # Often due to dynamic types, callable attributes
+invalid-argument-type = "warn"  # TypeVar constraints, generics
+invalid-assignment = "warn"  # Union type narrowing
+invalid-return-type = "warn"  # Generic return type issues
+call-non-callable = "warn"  # Dynamic callables
+unsupported-operator = "warn"  # Type narrowing limitations with isinstance
+too-many-positional-arguments = "warn"  # Loose typing (Callable) doesn't capture signatures
+parameter-already-assigned = "warn"  # False positives with *args/**kwargs patterns
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"

@@ -17,6 +17,7 @@ import os
 import datasets as hf_datasets
 
 from oumi.core.types.conversation import Conversation, Role
+from oumi.utils.logging import logger
 
 
 def extract_prompt_images_completion_from_single_turn_conversation(
@@ -116,5 +117,5 @@ def try_prepare_trl_grpo_dataset(
             remove_columns=["conversation_json"],
         )
 
-    print(f"Transformed GRPO Dataset columns: {dataset.column_names}")
+    logger.info(f"Transformed GRPO Dataset columns: {dataset.column_names}")
     return dataset
