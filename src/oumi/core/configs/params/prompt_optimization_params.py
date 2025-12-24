@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 from oumi.core.configs.params.base_params import BaseParams
 
@@ -31,9 +30,6 @@ class PromptOptimizationParams(BaseParams):
         - bootstrap: BootstrapFewShot optimizer for simple few-shot example selection
         - optuna: BootstrapFewShot with Bayesian optimization (Optuna) for
           hyperparameters
-
-    Deprecated optimizers (will raise an error):
-        - evolutionary: DEPRECATED - use mipro, gepa, or bootstrap instead
     """
 
     num_trials: int = 50
@@ -53,31 +49,6 @@ class PromptOptimizationParams(BaseParams):
 
     seed: int | None = None
     """Random seed for reproducibility."""
-
-    optimize_instructions: bool = True
-    """Whether to optimize prompt instructions."""
-
-    optimize_demos: bool = True
-    """Whether to optimize few-shot demonstrations."""
-
-    optimize_hyperparameters: bool = False
-    """Whether to optimize generation hyperparameters (temperature, top_p, etc.)."""
-
-    hyperparameter_ranges: dict[str, list[Any]] = field(default_factory=dict)
-    """Ranges for hyperparameters to optimize.
-
-    Each range is a list of [min, max] values.
-
-    Example:
-        {
-            "temperature": [0.0, 1.0],
-            "top_p": [0.5, 1.0],
-            "max_new_tokens": [50, 500]
-        }
-    """
-
-    save_intermediate_results: bool = True
-    """Whether to save intermediate optimization results."""
 
     enable_checkpointing: bool = True
     """Whether to enable checkpointing for resuming interrupted runs."""
@@ -113,13 +84,6 @@ class PromptOptimizationParams(BaseParams):
     def __finalize_and_validate__(self) -> None:
         """Validates the prompt optimization parameters."""
         valid_optimizers = {"mipro", "gepa", "bootstrap", "optuna"}
-        deprecated_optimizers = {"evolutionary"}
-
-        if self.optimizer in deprecated_optimizers:
-            raise ValueError(
-                f"Optimizer '{self.optimizer}' is deprecated. "
-                f"Please use one of: {', '.join(valid_optimizers)}"
-            )
 
         if self.optimizer not in valid_optimizers:
             raise ValueError(

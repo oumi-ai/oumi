@@ -21,7 +21,6 @@ from oumi.core.prompt_optimization import (
     BaseOptimizer,
     BootstrapFewShotOptimizer,
     BootstrapFewShotWithOptunaOptimizer,
-    EvolutionaryOptimizer,
     GepaOptimizer,
     MiproOptimizer,
     OptimizationResult,
@@ -56,7 +55,6 @@ def _load_dataset(
     path = validate_dataset_file(dataset_path, dataset_name)
 
     data = []
-    skipped_lines = []
     line_num = 0
 
     logger.info(f"Loading {dataset_name} from {dataset_path}...")
@@ -102,11 +100,6 @@ def _load_dataset(
         )
 
     logger.info(f"Loaded {len(data)} valid examples from {dataset_name}")
-    if skipped_lines:
-        logger.warning(
-            f"Skipped {len(skipped_lines)} invalid lines in {dataset_name}: "
-            f"{skipped_lines[:5]}"
-        )
 
     return data
 
@@ -183,12 +176,10 @@ def _get_optimizer(config: PromptOptimizationConfig) -> BaseOptimizer:
         return BootstrapFewShotOptimizer(config, metric_fn)
     elif optimizer_name == "optuna":
         return BootstrapFewShotWithOptunaOptimizer(config, metric_fn)
-    elif optimizer_name == "evolutionary":
-        return EvolutionaryOptimizer(config, metric_fn)
     else:
         raise ValueError(
             f"Unknown optimizer: {optimizer_name}. "
-            f"Supported: mipro, gepa, bootstrap, optuna, evolutionary"
+            f"Supported: mipro, gepa, bootstrap, optuna"
         )
 
 
@@ -340,7 +331,7 @@ def optimize_prompt(config: PromptOptimizationConfig) -> dict[str, Any]:  # type
         logger.info(f"  Total Time: {stats.get_elapsed_time():.1f}s")
         logger.info(f"  Examples Processed: {stats.num_examples_processed}")
         logger.info(f"  Inference Calls: {stats.num_inference_calls}")
-        if stats.num_failed_calls > 0:
+        if stats.num_failed_calls > 0 and stats.num_inference_calls > 0:
             logger.info(
                 f"  Failed Calls: {stats.num_failed_calls} "
                 f"({(stats.num_failed_calls / stats.num_inference_calls * 100):.1f}%)"

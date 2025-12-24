@@ -33,7 +33,6 @@ from oumi.core.prompt_optimization.dspy_optimizers import (
     GepaOptimizer,
     MiproOptimizer,
 )
-from oumi.core.prompt_optimization.evolutionary_optimizer import EvolutionaryOptimizer
 from oumi.core.prompt_optimization.metrics import get_metric_fn
 from oumi.core.prompt_optimization.validation import (
     ConfigValidationError,
@@ -47,7 +46,6 @@ __all__ = [
     "GepaOptimizer",
     "BootstrapFewShotOptimizer",
     "BootstrapFewShotWithOptunaOptimizer",
-    "EvolutionaryOptimizer",
     "get_metric_fn",
     "DatasetValidationError",
     "ConfigValidationError",
