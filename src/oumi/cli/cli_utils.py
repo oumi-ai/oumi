@@ -72,10 +72,9 @@ def get_command_help(base_help: str, alias_type: AliasType) -> str:
     else:
         examples = aliases
 
-    # Double newline preserves line breaks in typer help output
-    config_lines = "\n\n".join(f"• {config}" for config in examples)
+    config_lines = "\n".join(f"• {config}" for config in examples)
 
-    lines = [base_help, "", "Example configs:", "", config_lines]
+    lines = [base_help, "", "Example configs:", config_lines]
     if total > NUM_EXAMPLE_CONFIGS:
         lines.append("")
         lines.append(f"Use --list to see all {total} configs.")
