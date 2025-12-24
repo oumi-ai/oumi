@@ -60,7 +60,6 @@ _HELP_FOOTER = """
   [cyan]oumi train -c config.yaml --training.max_steps 100[/cyan]  [dim]# Override config value[/dim]
 
 [bold]Tips:[/bold]
-  • Override nested config values: [cyan]--section.subsection.key value[/cyan]
   • List available model configs: [cyan]oumi train --list[/cyan]
   • Enable shell completion: [cyan]oumi --install-completion[/cyan]
 """  # noqa: E501
