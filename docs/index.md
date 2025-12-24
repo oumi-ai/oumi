@@ -138,7 +138,7 @@ oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml --interactive
 
 For detailed setup instructions including virtual environments and cloud setup, see the {doc}`installation guide <get_started/installation>`.
 
-## 🚀 Go Deeper
+## Hands on Notebooks
 
 | **Notebook** | **Try in Colab** | **Goal** |
 |----------|--------------|-------------|
