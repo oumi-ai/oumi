@@ -43,7 +43,12 @@ Examples:
         >>> config = TrainingConfig(...)
         >>> train(config)
 
-    Evaluating a model::
+    Simple evaluation::
+
+        >>> from oumi import evaluate
+        >>> results = evaluate("meta-llama/Llama-3.1-8B", tasks=["mmlu"])
+
+    Evaluating with full config::
 
         >>> from oumi import evaluate
         >>> from oumi.core.configs import EvaluationConfig
@@ -126,19 +131,72 @@ def evaluate_async(config: AsyncEvaluationConfig) -> None:
     return oumi.evaluate_async.evaluate_async(config)
 
 
-def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
-    """Evaluates a model using the provided configuration.
+def evaluate(
+    config_or_model: EvaluationConfig | str,
+    tasks: list[str] | None = None,
+    *,
+    num_samples: int | None = None,
+    batch_size: int = 8,
+    output_dir: str = "./eval_output",
+    enable_wandb: bool = False,
+) -> list[dict[str, Any]]:
+    """Evaluate a model using LM Harness or custom evaluation tasks.
+
+    This function supports two modes:
+
+    1. **Config mode**: Pass an EvaluationConfig object or YAML path
+        >>> evaluate(EvaluationConfig.from_yaml("eval.yaml"))
+        >>> evaluate("eval_config.yaml")
+
+    2. **Simple mode**: Pass model name and task list
+        >>> evaluate("meta-llama/Llama-3.1-8B", tasks=["mmlu", "hellaswag"])
 
     Args:
-        config: The desired configuration for evaluation.
+        config_or_model: Either an EvaluationConfig object, a YAML config path,
+            or a model name (HuggingFace model ID or provider-prefixed name).
+        tasks: List of evaluation task names (e.g., ["mmlu", "hellaswag"]).
+            Only used in simple mode. See LM Harness for available tasks.
+        num_samples: Number of samples per task (None = all samples).
+            Only used in simple mode.
+        batch_size: Batch size for evaluation. Only used in simple mode.
+        output_dir: Output directory for evaluation results. Only used in simple mode.
+        enable_wandb: Whether to enable W&B logging. Only used in simple mode.
 
     Returns:
         A list of evaluation results (one for each task). Each evaluation result is a
         dictionary of metric names and their corresponding values.
+
+    Examples:
+        Simple evaluation with default settings::
+
+            >>> results = evaluate("meta-llama/Llama-3.1-8B", tasks=["mmlu"])
+
+        Evaluation with sampling::
+
+            >>> results = evaluate(
+            ...     "gpt-4o",
+            ...     tasks=["mmlu", "hellaswag"],
+            ...     num_samples=100,
+            ... )
+
+        From YAML config::
+
+            >>> results = evaluate("eval_config.yaml")
+
+        Full config object::
+
+            >>> results = evaluate(EvaluationConfig(...))
     """
     import oumi.evaluate
 
-    return oumi.evaluate.evaluate(config)
+    return oumi.evaluate.evaluate(
+        config_or_model,
+        tasks,
+        num_samples=num_samples,
+        batch_size=batch_size,
+        output_dir=output_dir,
+        enable_wandb=enable_wandb,
+    )
 
 
 def infer_interactive(
