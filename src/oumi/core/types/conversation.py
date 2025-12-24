@@ -184,6 +184,18 @@ class Message(pydantic.BaseModel):
 
     This class represents a single message within a conversation, containing
     various attributes such as role, content, identifier.
+
+    Example:
+        Creating messages with explicit constructor::
+
+            msg = Message(role=Role.USER, content="Hello")
+
+        Using factory methods (simpler)::
+
+            msg = Message.user("Hello")
+            msg = Message.assistant("Hi there!")
+            msg = Message.system("You are a helpful assistant.")
+            msg = Message.tool("Function result: 42")
     """
 
     model_config = pydantic.ConfigDict(frozen=True)
@@ -332,9 +344,130 @@ class Message(pydantic.BaseModel):
             [repr(item) for item in self._iter_all_content_items()]
         )
 
+    @classmethod
+    def user(
+        cls,
+        content: str | list[ContentItem],
+        *,
+        id: str | None = None,
+    ) -> "Message":
+        """Create a user message.
+
+        This is a convenience factory method for creating user messages.
+
+        Args:
+            content: The message content (text string or list of ContentItems).
+            id: Optional unique identifier for the message.
+
+        Returns:
+            A new Message with role=Role.USER.
+
+        Example:
+            >>> msg = Message.user("What is the weather today?")
+            >>> msg.role
+            <Role.USER: 'user'>
+        """
+        return cls(role=Role.USER, content=content, id=id)
+
+    @classmethod
+    def assistant(
+        cls,
+        content: str | list[ContentItem],
+        *,
+        id: str | None = None,
+    ) -> "Message":
+        """Create an assistant message.
+
+        This is a convenience factory method for creating assistant messages.
+
+        Args:
+            content: The message content (text string or list of ContentItems).
+            id: Optional unique identifier for the message.
+
+        Returns:
+            A new Message with role=Role.ASSISTANT.
+
+        Example:
+            >>> msg = Message.assistant("The weather is sunny today.")
+            >>> msg.role
+            <Role.ASSISTANT: 'assistant'>
+        """
+        return cls(role=Role.ASSISTANT, content=content, id=id)
+
+    @classmethod
+    def system(
+        cls,
+        content: str | list[ContentItem],
+        *,
+        id: str | None = None,
+    ) -> "Message":
+        """Create a system message.
+
+        This is a convenience factory method for creating system messages.
+
+        Args:
+            content: The message content (text string or list of ContentItems).
+            id: Optional unique identifier for the message.
+
+        Returns:
+            A new Message with role=Role.SYSTEM.
+
+        Example:
+            >>> msg = Message.system("You are a helpful assistant.")
+            >>> msg.role
+            <Role.SYSTEM: 'system'>
+        """
+        return cls(role=Role.SYSTEM, content=content, id=id)
+
+    @classmethod
+    def tool(
+        cls,
+        content: str | list[ContentItem],
+        *,
+        id: str | None = None,
+    ) -> "Message":
+        """Create a tool message.
+
+        This is a convenience factory method for creating tool messages,
+        typically used for function call results.
+
+        Args:
+            content: The message content (text string or list of ContentItems).
+            id: Optional unique identifier for the message.
+
+        Returns:
+            A new Message with role=Role.TOOL.
+
+        Example:
+            >>> msg = Message.tool("{'result': 42}")
+            >>> msg.role
+            <Role.TOOL: 'tool'>
+        """
+        return cls(role=Role.TOOL, content=content, id=id)
+
 
 class Conversation(pydantic.BaseModel):
-    """Represents a conversation, which is a sequence of messages."""
+    """Represents a conversation, which is a sequence of messages.
+
+    Example:
+        Creating a conversation with explicit Message objects::
+
+            conv = Conversation(messages=[
+                Message(role=Role.USER, content="Hello"),
+                Message(role=Role.ASSISTANT, content="Hi there!")
+            ])
+
+        Creating a conversation from turns (simplified)::
+
+            conv = Conversation.from_turns([
+                ("user", "Hello"),
+                ("assistant", "Hi there!")
+            ])
+
+        Creating a single-message conversation::
+
+            conv = Conversation.user("What is 2+2?")
+    """
 
     conversation_id: str | None = None
     """Optional unique identifier for the conversation.
@@ -352,6 +485,89 @@ class Conversation(pydantic.BaseModel):
     This attribute allows for storing additional information about the conversation
     in a key-value format. It can be used to include any relevant contextual data.
     """
+
+    @classmethod
+    def from_turns(
+        cls,
+        turns: list[tuple[str, str]],
+        *,
+        conversation_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> "Conversation":
+        """Create a conversation from a list of (role, content) tuples.
+
+        This is a convenience factory method for creating conversations without
+        having to explicitly construct Message objects.
+
+        Args:
+            turns: List of (role, content) tuples. Role can be "user", "assistant",
+                "system", or "tool".
+            conversation_id: Optional unique identifier for the conversation.
+            metadata: Optional metadata dictionary.
+
+        Returns:
+            A new Conversation instance.
+
+        Raises:
+            ValueError: If an invalid role string is provided.
+
+        Example:
+            >>> conv = Conversation.from_turns([
+            ...     ("system", "You are a helpful assistant."),
+            ...     ("user", "What is 2+2?"),
+            ...     ("assistant", "2+2 equals 4."),
+            ... ])
+            >>> len(conv.messages)
+            3
+        """
+        valid_roles = {r.value for r in Role}
+        messages = []
+        for role_str, content in turns:
+            role_lower = role_str.lower()
+            if role_lower not in valid_roles:
+                raise ValueError(
+                    f"Invalid role: '{role_str}'. "
+                    f"Valid roles are: {', '.join(sorted(valid_roles))}"
+                )
+            messages.append(Message(role=Role(role_lower), content=content))
+
+        return cls(
+            messages=messages,
+            conversation_id=conversation_id,
+            metadata=metadata or {},
+        )
+
+    @classmethod
+    def user(
+        cls,
+        content: str,
+        *,
+        conversation_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> "Conversation":
+        """Create a conversation with a single user message.
+
+        This is a convenience factory method for the common case of creating
+        a conversation with just a user prompt.
+
+        Args:
+            content: The user message content.
+            conversation_id: Optional unique identifier for the conversation.
+            metadata: Optional metadata dictionary.
+
+        Returns:
+            A new Conversation instance with a single user message.
+
+        Example:
+            >>> conv = Conversation.user("What is the capital of France?")
+            >>> conv.messages[0].role
+            <Role.USER: 'user'>
+        """
+        return cls(
+            messages=[Message(role=Role.USER, content=content)],
+            conversation_id=conversation_id,
+            metadata=metadata or {},
+        )
 
     def __getitem__(self, idx: int) -> Message:
         """Gets the message at the specified index.
