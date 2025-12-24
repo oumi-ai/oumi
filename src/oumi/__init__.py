@@ -33,6 +33,7 @@ Functions:
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
     - :func:`~oumi.infer.infer_interactive`: Run interactive inference with a model.
     - :func:`~oumi.quantize.quantize`: Quantize a model to reduce size and memory usage.
+    - :func:`~oumi.judge.judge`: Judge a dataset using an LLM-as-judge approach.
     - :func:`~oumi.judge.judge_dataset`: Judge a dataset using a model.
 
 Examples:
@@ -64,7 +65,13 @@ Examples:
         >>> config = QuantizationConfig(...)
         >>> result = quantize(config)
 
-    Judging a dataset::
+    Simple judging::
+
+        >>> from oumi import judge
+        >>> results = judge("gpt-4o", dataset, criteria="truthfulness")
+
+    Judging with full config::
+
         >>> from oumi import judge_dataset
         >>> from oumi.core.configs import JudgeConfig
         >>> config = JudgeConfig(...)
@@ -182,6 +189,77 @@ def infer(
     )
 
 
+def judge(
+    config_or_model: JudgeConfig | str,
+    dataset: list[dict[str, str]],
+    *,
+    criteria: str | None = None,
+    prompt_template: str | None = None,
+    judgment_type: str = "bool",
+    include_explanation: bool = True,
+    output_file: str | None = None,
+) -> list[JudgeOutput]:
+    """Judge a dataset using an LLM-as-judge approach.
+
+    This function supports two modes:
+
+    1. **Config mode**: Pass a JudgeConfig object or YAML path
+        >>> judge(JudgeConfig(...), dataset)
+        >>> judge("judge_config.yaml", dataset)
+
+    2. **Simple mode**: Pass model name with criteria or custom prompt
+        >>> judge("gpt-4o", dataset, criteria="truthfulness")
+        >>> judge("gpt-4o", dataset, prompt_template="Is this accurate? {request} {response}")
+
+    Args:
+        config_or_model: Either a JudgeConfig object, a YAML config path,
+            or a judge model name (HuggingFace model ID or provider-prefixed name).
+        dataset: List of dictionaries containing input data. Each dictionary should
+            have 'request' and 'response' keys (or keys matching your prompt placeholders).
+        criteria: Predefined criteria name for simple mode. Available criteria:
+            "truthfulness", "helpfulness", "safety", "relevance", "coherence".
+        prompt_template: Custom prompt template with {request}, {response} placeholders.
+            Use this instead of criteria for custom evaluation logic.
+        judgment_type: Type of judgment output - "bool", "int", "float", "text", "enum".
+            Only used in simple mode with custom prompt_template.
+        include_explanation: Whether to request explanations from the judge.
+            Only used in simple mode.
+        output_file: Optional path to save results as JSONL.
+
+    Returns:
+        List of JudgeOutput objects containing judgment results.
+
+    Examples:
+        Simple judging with predefined criteria::
+
+            >>> results = judge("gpt-4o", dataset, criteria="truthfulness")
+
+        Custom prompt template::
+
+            >>> results = judge(
+            ...     "claude-3-opus",
+            ...     dataset,
+            ...     prompt_template="Is this response accurate? Q: {request} A: {response}",
+            ...     judgment_type="bool",
+            ... )
+
+        From config file::
+
+            >>> results = judge("judge_config.yaml", dataset)
+    """
+    import oumi.judge
+
+    return oumi.judge.judge(
+        config_or_model,
+        dataset,
+        criteria=criteria,
+        prompt_template=prompt_template,
+        judgment_type=judgment_type,
+        include_explanation=include_explanation,
+        output_file=output_file,
+    )
+
+
 def judge_dataset(
     judge_config: JudgeConfig | str,
     dataset: list[dict[str, str]],
@@ -296,6 +374,8 @@ __all__ = [
     "evaluate",
     "infer_interactive",
     "infer",
+    "judge",
+    "judge_dataset",
     "quantize",
     "synthesize",
     "train",
