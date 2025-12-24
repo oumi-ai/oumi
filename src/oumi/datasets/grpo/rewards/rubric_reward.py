@@ -26,7 +26,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.configs.params.judge_params import (
@@ -64,9 +64,9 @@ class JudgePanelMember:
 
     model: str = "gpt-4o-mini"
     weight: float = 1.0
-    name: Optional[str] = None
+    name: str | None = None
     temperature: float = 0.0
-    role: Optional[str] = None
+    role: str | None = None
 
     def __post_init__(self) -> None:
         """Set default name to model name if not provided."""
@@ -193,7 +193,7 @@ def _aggregate_scores(
 
 
 # Global judge instances (lazily initialized)
-_JUDGE_INSTANCE: Optional[SimpleJudge] = None
+_JUDGE_INSTANCE: SimpleJudge | None = None
 _JUDGE_PANEL: dict[str, SimpleJudge] = {}  # Cache for panel judges by model name
 
 
@@ -467,7 +467,7 @@ def reset_rubric_reward_stats() -> None:
 
 def _get_or_create_judge(
     judge_model: str = "gpt-4o-mini",
-    judge_config_path: Optional[str] = None,
+    judge_config_path: str | None = None,
     weighted_rubrics: bool = False,
 ) -> SimpleJudge:
     """Get or create a SimpleJudge instance.
@@ -682,10 +682,10 @@ def _get_or_create_panel(
 
 
 # Global panel config (can be set via environment or load_panel_config)
-_PANEL_CONFIG: Optional[JudgePanelConfig] = None
+_PANEL_CONFIG: JudgePanelConfig | None = None
 
 
-def load_panel_config(config_path: Optional[str] = None) -> Optional[JudgePanelConfig]:
+def load_panel_config(config_path: str | None = None) -> JudgePanelConfig | None:
     """Load judge panel configuration from file or environment.
 
     Configuration sources (in priority order):
@@ -1039,7 +1039,7 @@ def compute_rubric_reward_panel(
                             s = output.field_scores.get("judgment")
                             if s is not None:
                                 score = max(0.0, min(1.0, float(s)))
-                    elif isinstance(raw_response, (int, float)):
+                    elif isinstance(raw_response, int | float):
                         score = max(0.0, min(1.0, float(raw_response)))
                 else:
                     s = output.field_scores.get("judgment")
@@ -1212,7 +1212,7 @@ def compute_rubric_reward(
                         score = output.field_scores.get("judgment")
                         if score is not None:
                             reward = max(0.0, min(1.0, float(score)))
-                elif isinstance(raw_response, (int, float)):
+                elif isinstance(raw_response, int | float):
                     reward = max(0.0, min(1.0, float(raw_response)))
             else:
                 # Simple rubrics: get the overall score
@@ -1269,7 +1269,7 @@ def _log_reward_example(
     rubrics: list,
     reward: float,
     judge_time_ms: float,
-    per_rubric_details: Optional[dict[str, tuple[float, float, bool]]] = None,
+    per_rubric_details: dict[str, tuple[float, float, bool]] | None = None,
 ) -> None:
     """Log a detailed example of reward computation."""
     logger.info("=" * 60)
@@ -1309,8 +1309,8 @@ def _log_reward_example(
 @register("rubric_reward", RegistryType.REWARD_FUNCTION)
 def rubric_reward(
     completions: list[list[dict[str, Any]]],
-    prompts: Optional[list[str]] = None,
-    rubrics: Optional[list[list]] = None,
+    prompts: list[str] | None = None,
+    rubrics: list[list] | None = None,
     **kwargs: Any,
 ) -> list[float]:
     """Rubric-based reward function for GRPO training.
@@ -1479,8 +1479,8 @@ def rubric_reward(
 @register("rubric_reward_batch", RegistryType.REWARD_FUNCTION)
 def rubric_reward_batch(
     completions: list[list[dict[str, Any]]],
-    prompts: Optional[list[str]] = None,
-    rubrics: Optional[list[list[str]]] = None,
+    prompts: list[str] | None = None,
+    rubrics: list[list[str]] | None = None,
     **kwargs: Any,
 ) -> list[float]:
     """Batched rubric-based reward function for GRPO training.

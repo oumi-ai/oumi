@@ -49,7 +49,7 @@ import json
 import os
 import sys
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 try:
     from openai import OpenAI
@@ -148,10 +148,10 @@ class RubricGenerationResult:
 
     prompt: str
     rubrics: list[Rubric]
-    reference_answer: Optional[str] = None
+    reference_answer: str | None = None
     model_used: str = "gpt-4o-mini"
     success: bool = True
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format compatible with RaR dataset."""
@@ -188,7 +188,7 @@ class RubricGenerator:
     def generate(
         self,
         prompt: str,
-        reference_answer: Optional[str] = None,
+        reference_answer: str | None = None,
     ) -> RubricGenerationResult:
         """Generate rubrics for a single prompt.
 

@@ -42,7 +42,7 @@ Supports two rubric formats:
 """
 
 import json
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 from typing_extensions import override
@@ -96,9 +96,9 @@ class RlvrRubricDataset(BaseMapDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
-        dataset_path: Optional[str] = None,
-        split: Optional[str] = None,
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        split: str | None = None,
         **kwargs,
     ) -> None:
         """Initialize the RLVR Rubric dataset.
@@ -230,7 +230,7 @@ class RlvrRubricDataset(BaseMapDataset):
         """Returns a list of all conversations."""
         return [self.conversation(i) for i in range(len(self))]
 
-    def transform_conversation(self, sample: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, sample: dict | pd.Series) -> Conversation:
         """Converts the input sample to a Conversation.
 
         Args:

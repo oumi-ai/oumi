@@ -32,7 +32,7 @@ Weight categories:
 - Pitfall (weight=-1 to -2): Common mistakes to avoid (negative criteria)
 """
 
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 from typing_extensions import override
@@ -101,9 +101,9 @@ class RaRMedicineDataset(BaseMapDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
-        dataset_path: Optional[str] = None,
-        split: Optional[str] = "train",
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        split: str | None = "train",
         **kwargs,
     ) -> None:
         """Initialize the RaR-Medicine dataset.
@@ -221,7 +221,7 @@ class RaRMedicineDataset(BaseMapDataset):
         """Returns a list of all conversations."""
         return [self.conversation(i) for i in range(len(self))]
 
-    def transform_conversation(self, sample: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, sample: dict | pd.Series) -> Conversation:
         """Converts the input sample to a Conversation.
 
         Args:
@@ -276,9 +276,9 @@ class RaRScienceDataset(BaseMapDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
-        dataset_path: Optional[str] = None,
-        split: Optional[str] = "train",
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        split: str | None = "train",
         **kwargs,
     ) -> None:
         """Initialize the RaR-Science dataset.
@@ -396,7 +396,7 @@ class RaRScienceDataset(BaseMapDataset):
         """Returns a list of all conversations."""
         return [self.conversation(i) for i in range(len(self))]
 
-    def transform_conversation(self, sample: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, sample: dict | pd.Series) -> Conversation:
         """Converts the input sample to a Conversation.
 
         Args:
