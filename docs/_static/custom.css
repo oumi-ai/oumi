@@ -1,0 +1,908 @@
+/* ============================================================================
+   OUMI DOCUMENTATION - CUSTOM THEME
+   "Geometric Precision" - A refined technical aesthetic
+   ============================================================================ */
+
+/* --------------------------------------------------------------------------
+   FONTS
+   Using JetBrains Mono for code and IBM Plex Sans for body text
+   -------------------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+/* --------------------------------------------------------------------------
+   CSS VARIABLES - COLOR SYSTEM
+   -------------------------------------------------------------------------- */
+:root {
+    /* Primary palette - Electric Teal meets Deep Space */
+    --oumi-accent: #00D4AA;
+    --oumi-accent-light: #33DDBB;
+    --oumi-accent-dark: #00A888;
+    --oumi-accent-glow: rgba(0, 212, 170, 0.15);
+    --oumi-accent-subtle: rgba(0, 212, 170, 0.08);
+
+    /* Neutral palette */
+    --oumi-bg-deep: #0D1117;
+    --oumi-bg-primary: #161B22;
+    --oumi-bg-secondary: #1C2128;
+    --oumi-bg-elevated: #242B35;
+    --oumi-bg-hover: #2D3640;
+
+    /* Text colors */
+    --oumi-text-primary: #E6EDF3;
+    --oumi-text-secondary: #8B949E;
+    --oumi-text-muted: #6E7681;
+
+    /* Borders & dividers */
+    --oumi-border: #30363D;
+    --oumi-border-light: #21262D;
+
+    /* Semantic colors */
+    --oumi-success: #3FB950;
+    --oumi-warning: #D29922;
+    --oumi-error: #F85149;
+    --oumi-info: #58A6FF;
+
+    /* Code block colors */
+    --oumi-code-bg: #0D1117;
+    --oumi-code-border: #30363D;
+
+    /* Spacing scale */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-2xl: 48px;
+
+    /* Typography */
+    --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+    /* Border radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+
+    /* Transitions */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Light mode overrides */
+html:not([data-theme="dark"]) {
+    --oumi-bg-deep: #FAFBFC;
+    --oumi-bg-primary: #FFFFFF;
+    --oumi-bg-secondary: #F6F8FA;
+    --oumi-bg-elevated: #FFFFFF;
+    --oumi-bg-hover: #F0F2F5;
+    --oumi-text-primary: #1F2328;
+    --oumi-text-secondary: #57606A;
+    --oumi-text-muted: #8B949E;
+    --oumi-border: #D0D7DE;
+    --oumi-border-light: #E8ECF0;
+    --oumi-code-bg: #F6F8FA;
+    --oumi-code-border: #D0D7DE;
+    --oumi-accent: #00A888;
+    --oumi-accent-light: #00C9A0;
+    --oumi-accent-glow: rgba(0, 168, 136, 0.12);
+    --oumi-accent-subtle: rgba(0, 168, 136, 0.06);
+}
+
+/* --------------------------------------------------------------------------
+   BASE STYLES
+   -------------------------------------------------------------------------- */
+html {
+    scroll-behavior: smooth;
+    font-feature-settings: 'liga' 1, 'calt' 1;
+}
+
+body {
+    font-family: var(--font-body) !important;
+    background-color: var(--oumi-bg-secondary) !important;
+    color: var(--oumi-text-primary) !important;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom selection color */
+::selection {
+    background-color: var(--oumi-accent);
+    color: var(--oumi-bg-deep);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--oumi-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--oumi-border);
+    border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--oumi-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   TYPOGRAPHY
+   -------------------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6,
+.bd-content h1, .bd-content h2, .bd-content h3,
+.bd-content h4, .bd-content h5, .bd-content h6 {
+    font-family: var(--font-display) !important;
+    font-weight: 600;
+    color: var(--oumi-text-primary);
+    letter-spacing: -0.02em;
+    margin-top: 2em;
+    margin-bottom: 0.75em;
+}
+
+h1, .bd-content h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    position: relative;
+}
+
+h2, .bd-content h2 {
+    font-size: 1.875rem;
+    padding-bottom: 0.5em;
+    border-bottom: 1px solid var(--oumi-border);
+}
+
+h3, .bd-content h3 {
+    font-size: 1.5rem;
+}
+
+h4, .bd-content h4 {
+    font-size: 1.25rem;
+}
+
+p, li, td, th {
+    font-family: var(--font-body);
+    color: var(--oumi-text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   LINKS
+   -------------------------------------------------------------------------- */
+a {
+    color: var(--oumi-accent) !important;
+    text-decoration: none;
+    transition: color var(--transition-fast), text-decoration var(--transition-fast);
+}
+
+a:hover {
+    color: var(--oumi-accent-light) !important;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   MAIN LAYOUT
+   -------------------------------------------------------------------------- */
+.bd-main {
+    background-color: var(--oumi-bg-secondary);
+}
+
+/* Card-based content area */
+.bd-article-container {
+    background-color: var(--oumi-bg-primary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--oumi-border-light);
+    margin: var(--space-xs);
+}
+
+.bd-content {
+    padding: var(--space-lg) var(--space-xl);
+}
+
+/* Page container - consistent background with sidebar */
+.bd-page-width {
+    background-color: var(--oumi-bg-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   SIDEBAR NAVIGATION
+   -------------------------------------------------------------------------- */
+.bd-sidebar-primary,
+.bd-sidebar-secondary {
+    background-color: var(--oumi-bg-secondary) !important;
+    border-right: 1px solid var(--oumi-border-light);
+}
+
+/* Left sidebar */
+.bd-sidebar-primary .sidebar-primary-items__start {
+    padding: var(--space-md);
+}
+
+.bd-sidebar-primary .nav-link,
+.bd-sidebar-secondary .nav-link {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: var(--oumi-text-secondary) !important;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    margin: 2px 0;
+    transition: all var(--transition-fast);
+    border-left: 3px solid transparent;
+}
+
+.bd-sidebar-primary .nav-link:hover,
+.bd-sidebar-secondary .nav-link:hover {
+    color: var(--oumi-text-primary) !important;
+    background-color: var(--oumi-bg-hover);
+    text-decoration: none;
+}
+
+.bd-sidebar-primary .nav-link.active,
+.bd-sidebar-secondary .nav-link.active {
+    color: var(--oumi-accent) !important;
+    background-color: var(--oumi-accent-subtle);
+    border-left-color: var(--oumi-accent);
+    font-weight: 500;
+}
+
+/* Section titles in sidebar */
+.bd-sidebar-primary .caption,
+.sidebar-primary-items__start .caption-text {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--oumi-text-muted) !important;
+    padding: var(--space-lg) var(--space-md) var(--space-sm);
+    margin: 0;
+}
+
+/* Nested navigation */
+.bd-sidebar-primary .nav.bd-sidenav {
+    padding-left: var(--space-md);
+    border-left: 1px solid var(--oumi-border-light);
+    margin-left: var(--space-md);
+}
+
+/* --------------------------------------------------------------------------
+   TABLE OF CONTENTS (Right Sidebar)
+   -------------------------------------------------------------------------- */
+.bd-toc {
+    font-size: 0.85rem;
+}
+
+.bd-toc .nav-link {
+    padding: var(--space-xs) var(--space-sm) !important;
+    font-size: 0.85rem;
+}
+
+/* --------------------------------------------------------------------------
+   CODE BLOCKS
+   -------------------------------------------------------------------------- */
+code, pre, kbd, samp,
+.highlight pre, .literal-block {
+    font-family: var(--font-mono) !important;
+    font-size: 0.875rem;
+    font-feature-settings: 'liga' 0;
+}
+
+/* Inline code */
+code:not([class*="language-"]),
+p code, li code, td code {
+    background-color: var(--oumi-accent-subtle);
+    color: var(--oumi-accent);
+    padding: 0.15em 0.4em;
+    border-radius: var(--radius-sm);
+    font-size: 0.875em;
+    border: 1px solid var(--oumi-accent-glow);
+}
+
+/* Code blocks */
+pre, .highlight pre, div[class*="highlight-"] pre {
+    background-color: var(--oumi-code-bg) !important;
+    border: 1px solid var(--oumi-code-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md) !important;
+    margin: var(--space-lg) 0;
+    overflow-x: auto;
+    position: relative;
+}
+
+/* Code block header (language indicator) */
+div[class*="highlight-"]::before {
+    content: attr(class);
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--oumi-text-muted);
+    background: var(--oumi-bg-elevated);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: 0 var(--radius-md) 0 var(--radius-sm);
+    border-left: 1px solid var(--oumi-border);
+    border-bottom: 1px solid var(--oumi-border);
+}
+
+/* Copy button for code blocks */
+button.copybtn {
+    background-color: var(--oumi-bg-elevated) !important;
+    border: 1px solid var(--oumi-border) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--oumi-text-secondary) !important;
+    opacity: 0;
+    transition: all var(--transition-fast);
+}
+
+div[class*="highlight-"]:hover button.copybtn,
+.highlight:hover button.copybtn {
+    opacity: 1;
+}
+
+button.copybtn:hover {
+    background-color: var(--oumi-accent) !important;
+    border-color: var(--oumi-accent) !important;
+    color: var(--oumi-bg-deep) !important;
+}
+
+/* --------------------------------------------------------------------------
+   TABLES
+   -------------------------------------------------------------------------- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--space-lg) 0;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--oumi-border);
+}
+
+thead {
+    background-color: var(--oumi-bg-elevated);
+}
+
+th {
+    font-family: var(--font-display);
+    font-weight: 600;
+    text-align: left;
+    padding: var(--space-md);
+    color: var(--oumi-text-primary);
+    border-bottom: 2px solid var(--oumi-accent);
+    font-size: 0.9rem;
+}
+
+td {
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--oumi-border-light);
+    vertical-align: top;
+}
+
+tbody tr {
+    transition: background-color var(--transition-fast);
+}
+
+tbody tr:hover {
+    background-color: var(--oumi-bg-hover);
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* --------------------------------------------------------------------------
+   ADMONITIONS / CALLOUTS
+   -------------------------------------------------------------------------- */
+.admonition {
+    border-radius: var(--radius-md);
+    border: 1px solid var(--oumi-border);
+    margin: var(--space-lg) 0;
+    overflow: hidden;
+    background-color: var(--oumi-bg-secondary);
+}
+
+.admonition-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: var(--space-sm) var(--space-md);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.admonition > :not(.admonition-title) {
+    padding: 0 var(--space-md);
+}
+
+.admonition > :last-child {
+    padding-bottom: var(--space-md);
+}
+
+/* Note */
+.admonition.note {
+    border-left: 4px solid var(--oumi-info);
+}
+
+.admonition.note .admonition-title {
+    background-color: rgba(88, 166, 255, 0.1);
+    color: var(--oumi-info);
+}
+
+/* Warning */
+.admonition.warning {
+    border-left: 4px solid var(--oumi-warning);
+}
+
+.admonition.warning .admonition-title {
+    background-color: rgba(210, 153, 34, 0.1);
+    color: var(--oumi-warning);
+}
+
+/* Tip / Hint */
+.admonition.tip, .admonition.hint {
+    border-left: 4px solid var(--oumi-success);
+}
+
+.admonition.tip .admonition-title,
+.admonition.hint .admonition-title {
+    background-color: rgba(63, 185, 80, 0.1);
+    color: var(--oumi-success);
+}
+
+/* Danger / Error */
+.admonition.danger, .admonition.error {
+    border-left: 4px solid var(--oumi-error);
+}
+
+.admonition.danger .admonition-title,
+.admonition.error .admonition-title {
+    background-color: rgba(248, 81, 73, 0.1);
+    color: var(--oumi-error);
+}
+
+/* Important */
+.admonition.important {
+    border-left: 4px solid var(--oumi-accent);
+}
+
+.admonition.important .admonition-title {
+    background-color: var(--oumi-accent-subtle);
+    color: var(--oumi-accent);
+}
+
+/* --------------------------------------------------------------------------
+   CARDS (sphinx-design)
+   -------------------------------------------------------------------------- */
+.sd-card {
+    background-color: var(--oumi-bg-secondary) !important;
+    border: 1px solid var(--oumi-border) !important;
+    border-radius: var(--radius-md) !important;
+    transition: all var(--transition-base);
+    overflow: hidden;
+}
+
+.sd-card:hover {
+    border-color: var(--oumi-accent) !important;
+    box-shadow: 0 4px 20px var(--oumi-accent-glow);
+    transform: translateY(-2px);
+}
+
+.sd-card-header {
+    background-color: var(--oumi-bg-elevated) !important;
+    border-bottom: 1px solid var(--oumi-border) !important;
+    font-family: var(--font-display);
+    font-weight: 600;
+}
+
+.sd-card-body {
+    padding: var(--space-md) !important;
+}
+
+.sd-card-footer {
+    background-color: var(--oumi-bg-elevated) !important;
+    border-top: 1px solid var(--oumi-border) !important;
+}
+
+/* --------------------------------------------------------------------------
+   BADGES & BUTTONS
+   -------------------------------------------------------------------------- */
+.badge, .sd-badge {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+}
+
+.btn, button, .sd-btn {
+    font-family: var(--font-body);
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.btn-primary, .sd-btn-primary {
+    background-color: var(--oumi-accent) !important;
+    border-color: var(--oumi-accent) !important;
+    color: var(--oumi-bg-deep) !important;
+}
+
+.btn-primary:hover, .sd-btn-primary:hover {
+    background-color: var(--oumi-accent-light) !important;
+    border-color: var(--oumi-accent-light) !important;
+    box-shadow: 0 4px 12px var(--oumi-accent-glow);
+}
+
+/* --------------------------------------------------------------------------
+   HEADER / NAVBAR
+   -------------------------------------------------------------------------- */
+.bd-header {
+    background-color: var(--oumi-bg-secondary) !important;
+    border-bottom: 1px solid var(--oumi-border) !important;
+    backdrop-filter: blur(10px);
+}
+
+.bd-header .navbar-nav .nav-link {
+    font-family: var(--font-body);
+    font-weight: 500;
+    color: var(--oumi-text-secondary) !important;
+    transition: color var(--transition-fast);
+}
+
+.bd-header .navbar-nav .nav-link:hover {
+    color: var(--oumi-accent) !important;
+}
+
+/* Logo styling */
+.navbar-brand img {
+    transition: transform var(--transition-base);
+}
+
+.navbar-brand:hover img {
+    transform: scale(1.05);
+}
+
+/* --------------------------------------------------------------------------
+   SEARCH
+   -------------------------------------------------------------------------- */
+.bd-search {
+    background-color: var(--oumi-bg-elevated) !important;
+    border: 1px solid var(--oumi-border) !important;
+    border-radius: var(--radius-md) !important;
+    transition: all var(--transition-fast);
+}
+
+.bd-search:focus-within {
+    border-color: var(--oumi-accent) !important;
+    box-shadow: 0 0 0 3px var(--oumi-accent-glow);
+}
+
+.bd-search input {
+    font-family: var(--font-body);
+    background-color: transparent !important;
+    color: var(--oumi-text-primary) !important;
+}
+
+.bd-search input::placeholder {
+    color: var(--oumi-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   API DOCUMENTATION SPECIFICS
+   -------------------------------------------------------------------------- */
+.sig, .sig-name {
+    font-family: var(--font-mono) !important;
+}
+
+.sig-prename {
+    color: var(--oumi-text-muted);
+}
+
+.sig-name {
+    color: var(--oumi-accent) !important;
+    font-weight: 600;
+}
+
+dl.py.class, dl.py.function, dl.py.method, dl.py.attribute {
+    background-color: var(--oumi-bg-secondary);
+    border: 1px solid var(--oumi-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin: var(--space-lg) 0;
+}
+
+dl.py dt {
+    font-family: var(--font-mono);
+    background-color: var(--oumi-bg-elevated);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-md);
+    border-left: 3px solid var(--oumi-accent);
+}
+
+.field-list {
+    margin: var(--space-md) 0;
+}
+
+.field-list dt {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--oumi-text-primary);
+}
+
+.field-list dd {
+    margin-left: var(--space-lg);
+    color: var(--oumi-text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   VERSION SWITCHER
+   -------------------------------------------------------------------------- */
+.version-switcher__button {
+    background-color: var(--oumi-bg-elevated) !important;
+    border: 1px solid var(--oumi-border) !important;
+    border-radius: var(--radius-md) !important;
+    color: var(--oumi-text-secondary) !important;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+}
+
+.version-switcher__button:hover {
+    border-color: var(--oumi-accent) !important;
+    color: var(--oumi-accent) !important;
+}
+
+/* --------------------------------------------------------------------------
+   FOOTER
+   -------------------------------------------------------------------------- */
+.bd-footer {
+    background-color: var(--oumi-bg-secondary) !important;
+    border-top: 1px solid var(--oumi-border) !important;
+    padding: var(--space-lg) 0;
+}
+
+.bd-footer a {
+    color: var(--oumi-text-secondary) !important;
+}
+
+.bd-footer a:hover {
+    color: var(--oumi-accent) !important;
+}
+
+/* --------------------------------------------------------------------------
+   HOME PAGE SPECIFIC STYLES
+   -------------------------------------------------------------------------- */
+/* Hero section styling */
+.bd-content > div[align="center"]:first-child {
+    padding: var(--space-2xl) 0;
+    margin-bottom: var(--space-xl);
+    position: relative;
+}
+
+.bd-content > div[align="center"]:first-child::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--oumi-accent), transparent);
+}
+
+/* Feature badges on home page */
+.bd-content > div[align="center"] + p img {
+    transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.bd-content > div[align="center"] + p img:hover {
+    transform: scale(1.05);
+    opacity: 0.9;
+}
+
+/* --------------------------------------------------------------------------
+   ANIMATIONS
+   -------------------------------------------------------------------------- */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Apply fade-in to main content */
+.bd-content {
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* Staggered animation for sidebar items */
+.bd-sidebar-primary .nav-link {
+    animation: slideIn 0.3s ease-out backwards;
+}
+
+.bd-sidebar-primary .nav-link:nth-child(1) { animation-delay: 0.05s; }
+.bd-sidebar-primary .nav-link:nth-child(2) { animation-delay: 0.1s; }
+.bd-sidebar-primary .nav-link:nth-child(3) { animation-delay: 0.15s; }
+.bd-sidebar-primary .nav-link:nth-child(4) { animation-delay: 0.2s; }
+.bd-sidebar-primary .nav-link:nth-child(5) { animation-delay: 0.25s; }
+
+/* Code block focus effect */
+pre:focus-within {
+    border-color: var(--oumi-accent);
+    box-shadow: 0 0 0 3px var(--oumi-accent-glow);
+}
+
+/* --------------------------------------------------------------------------
+   RESPONSIVE ADJUSTMENTS
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+    .bd-article-container {
+        margin: var(--space-sm);
+        border-radius: var(--radius-md);
+    }
+
+    .bd-content {
+        padding: var(--space-md);
+    }
+
+    h1, .bd-content h1 {
+        font-size: 2rem;
+    }
+
+    h2, .bd-content h2 {
+        font-size: 1.5rem;
+    }
+
+    pre, .highlight pre {
+        padding: var(--space-sm) !important;
+        font-size: 0.8rem;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   PRINT STYLES
+   -------------------------------------------------------------------------- */
+@media print {
+    .bd-sidebar-primary,
+    .bd-sidebar-secondary,
+    .bd-header,
+    .bd-footer {
+        display: none !important;
+    }
+
+    .bd-content {
+        background: white;
+        color: black;
+        border: none;
+        box-shadow: none;
+    }
+
+    a {
+        color: black !important;
+        text-decoration: underline;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   GEOMETRIC DECORATIONS
+   -------------------------------------------------------------------------- */
+/* Subtle grid pattern overlay for headers */
+/* Removed h1::before - the teal underline provides sufficient visual accent */
+
+/* Accent line under main title */
+.bd-content h1:first-of-type {
+    padding-bottom: var(--space-md);
+    margin-bottom: var(--space-xl);
+}
+
+.bd-content h1:first-of-type::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background: var(--oumi-accent);
+    border-radius: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   MERMAID DIAGRAMS
+   -------------------------------------------------------------------------- */
+.mermaid {
+    background-color: var(--oumi-bg-secondary) !important;
+    border: 1px solid var(--oumi-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin: var(--space-lg) 0;
+}
+
+/* --------------------------------------------------------------------------
+   JUPYTER NOTEBOOK CELLS
+   -------------------------------------------------------------------------- */
+.cell {
+    border: 1px solid var(--oumi-border);
+    border-radius: var(--radius-md);
+    margin: var(--space-md) 0;
+    overflow: hidden;
+}
+
+.cell_input {
+    background-color: var(--oumi-code-bg);
+    border-bottom: 1px solid var(--oumi-border);
+}
+
+.cell_output {
+    background-color: var(--oumi-bg-secondary);
+    padding: var(--space-md);
+}
+
+/* --------------------------------------------------------------------------
+   SPECIAL HOVER EFFECTS
+   -------------------------------------------------------------------------- */
+/* Glowing accent on important elements */
+.sd-card:hover,
+.admonition.important:hover,
+dl.py:hover {
+    box-shadow: 0 0 20px var(--oumi-accent-glow);
+}
+
+/* Smooth underline animation for links in content */
+.bd-content p a,
+.bd-content li a {
+    position: relative;
+    text-decoration: none !important;
+}
+
+.bd-content p a::after,
+.bd-content li a::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background-color: var(--oumi-accent);
+    transition: width var(--transition-base);
+}
+
+.bd-content p a:hover::after,
+.bd-content li a:hover::after {
+    width: 100%;
+}
