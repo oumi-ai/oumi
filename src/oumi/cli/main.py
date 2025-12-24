@@ -103,6 +103,7 @@ def get_app() -> typer.Typer:
         pretty_exceptions_enable=False,
         rich_markup_mode="rich",
         context_settings=_HELP_OPTION_NAMES,
+        add_completion=False,
     )
     app.callback(invoke_without_command=True, help=_APP_HELP)(_oumi_welcome)
 
