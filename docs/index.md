@@ -90,7 +90,6 @@ development/docs_guide
 :hidden:
 :caption: About
 
-about/changelog
 about/acknowledgements
 about/license
 about/citations
