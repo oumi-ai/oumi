@@ -1,34 +1,16 @@
-/* ============================================================================
-   OUMI DOCUMENTATION - CUSTOM THEME
-   "Digital Horizon" - Professional innovation meets technical precision
-   Inspired by oumi.ai website aesthetic
-   ============================================================================ */
-
-/* --------------------------------------------------------------------------
-   FONTS
-   Plus Jakarta Sans for confident headings, Inter for readable body text,
-   JetBrains Mono for crisp code
-   -------------------------------------------------------------------------- */
+/* Oumi Documentation Theme */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
-/* --------------------------------------------------------------------------
-   CSS VARIABLES - COLOR SYSTEM
-   Deep navy to electric blue gradient palette
-   -------------------------------------------------------------------------- */
 :root {
-    /* Primary palette - Deep Navy to Electric Blue */
     --oumi-primary-deep: #062c82;
     --oumi-primary-accent: #3763ff;
     --oumi-primary-light: #5b7fff;
     --oumi-primary-glow: rgba(55, 99, 255, 0.25);
     --oumi-primary-subtle: rgba(55, 99, 255, 0.08);
 
-    /* Gradient definitions */
     --oumi-gradient-primary: linear-gradient(100.89deg, #062c82 0%, #3763ff 100%);
     --oumi-gradient-hover: linear-gradient(100.89deg, #0a3a9d 0%, #4a75ff 100%);
     --oumi-gradient-subtle: linear-gradient(135deg, rgba(55, 99, 255, 0.15) 0%, rgba(6, 44, 130, 0.05) 100%);
 
-    /* Background palette - Near black with depth */
     --oumi-bg-base: #0a0a0f;
     --oumi-bg-primary: #0e0e14;
     --oumi-bg-secondary: #12121a;
@@ -36,18 +18,15 @@
     --oumi-bg-card: #1e1e2a;
     --oumi-bg-hover: #262633;
 
-    /* Text colors */
     --oumi-text-primary: #ffffff;
     --oumi-text-secondary: #73738c;
     --oumi-text-muted: #4a4a5c;
 
-    /* Borders & overlays */
     --oumi-border: rgba(255, 255, 255, 0.08);
     --oumi-border-hover: rgba(255, 255, 255, 0.15);
     --oumi-border-accent: rgba(55, 99, 255, 0.3);
     --oumi-overlay: rgba(10, 10, 15, 0.85);
 
-    /* Semantic colors */
     --oumi-success: #22c55e;
     --oumi-success-bg: rgba(34, 197, 94, 0.12);
     --oumi-warning: #eab308;
@@ -57,11 +36,9 @@
     --oumi-info: #3b82f6;
     --oumi-info-bg: rgba(59, 130, 246, 0.12);
 
-    /* Code block colors - slightly elevated from page bg for contrast */
     --oumi-code-bg: #13131a;
     --oumi-code-border: rgba(55, 99, 255, 0.25);
 
-    /* Spacing scale */
     --space-1: 0.25rem;
     --space-2: 0.5rem;
     --space-3: 0.75rem;
@@ -74,12 +51,10 @@
     --space-16: 4rem;
     --space-20: 5rem;
 
-    /* Typography */
     --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 
-    /* Type scale */
     --text-xs: 0.75rem;
     --text-sm: 0.875rem;
     --text-base: 1rem;
@@ -90,14 +65,12 @@
     --text-4xl: clamp(2rem, 3vw, 2.5rem);
     --text-5xl: clamp(2.5rem, 4vw, 3.5rem);
 
-    /* Border radius */
     --radius-sm: 0.375rem;
     --radius-md: 0.5rem;
     --radius-lg: 0.75rem;
     --radius-xl: 1rem;
     --radius-2xl: 1.5rem;
 
-    /* Shadows */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15);
     --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.2);
@@ -105,16 +78,13 @@
     --shadow-glow: 0 0 30px rgba(55, 99, 255, 0.3);
     --shadow-glow-lg: 0 0 50px rgba(55, 99, 255, 0.4);
 
-    /* Transitions */
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Light mode overrides - matching oumi.ai's clean white aesthetic */
 html:not([data-theme="dark"]) {
-    /* Pure white backgrounds like oumi.ai */
     --oumi-bg-base: #ffffff;
     --oumi-bg-primary: #ffffff;
     --oumi-bg-secondary: #f8f9fa;
@@ -122,31 +92,25 @@ html:not([data-theme="dark"]) {
     --oumi-bg-card: #ffffff;
     --oumi-bg-hover: #f1f3f5;
 
-    /* Black headings, gray body - matching oumi.ai */
     --oumi-text-primary: #111111;
     --oumi-text-secondary: #6b7280;
     --oumi-text-muted: #9ca3af;
 
-    /* Subtle borders */
     --oumi-border: rgba(0, 0, 0, 0.08);
     --oumi-border-hover: rgba(0, 0, 0, 0.15);
 
-    /* Code blocks - light gray */
     --oumi-code-bg: #f4f5f7;
     --oumi-code-border: rgba(55, 99, 255, 0.2);
 
-    /* Keep the same vibrant blue accent as oumi.ai */
     --oumi-primary-deep: #062c82;
     --oumi-primary-accent: #3763ff;
     --oumi-primary-light: #5b7fff;
     --oumi-primary-glow: rgba(55, 99, 255, 0.2);
     --oumi-primary-subtle: rgba(55, 99, 255, 0.08);
 
-    /* Gradient stays the same */
     --oumi-gradient-primary: linear-gradient(100.89deg, #062c82 0%, #3763ff 100%);
     --oumi-gradient-subtle: linear-gradient(135deg, rgba(55, 99, 255, 0.1) 0%, rgba(6, 44, 130, 0.03) 100%);
 
-    /* Lighter shadows for light mode */
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
     --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
     --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1), 0 6px 10px rgba(0, 0, 0, 0.06);
@@ -154,9 +118,6 @@ html:not([data-theme="dark"]) {
     --shadow-glow: 0 0 30px rgba(55, 99, 255, 0.2);
 }
 
-/* --------------------------------------------------------------------------
-   BASE STYLES
-   -------------------------------------------------------------------------- */
 html {
     scroll-behavior: smooth;
     font-feature-settings: 'liga' 1, 'calt' 1, 'kern' 1;
@@ -172,13 +133,11 @@ body {
     text-rendering: optimizeLegibility;
 }
 
-/* Custom selection */
 ::selection {
     background-color: var(--oumi-primary-accent);
     color: white;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -198,9 +157,6 @@ body {
     background: var(--oumi-primary-accent);
 }
 
-/* --------------------------------------------------------------------------
-   TYPOGRAPHY
-   -------------------------------------------------------------------------- */
 h1, h2, h3, h4, h5, h6,
 .bd-content h1, .bd-content h2, .bd-content h3,
 .bd-content h4, .bd-content h5, .bd-content h6 {
@@ -254,16 +210,11 @@ p, li, td, th {
     color: var(--oumi-text-primary);
 }
 
-/* H1 title styling - clean, no underline accent */
 .bd-content h1:first-of-type {
     padding-bottom: var(--space-4);
     margin-bottom: var(--space-6);
 }
 
-/* --------------------------------------------------------------------------
-   LINKS
-   -------------------------------------------------------------------------- */
-/* Content links - blue with animated underline */
 .bd-content a {
     color: var(--oumi-primary-accent) !important;
     text-decoration: none;
@@ -274,7 +225,6 @@ p, li, td, th {
     color: var(--oumi-primary-light) !important;
 }
 
-/* Animated underline for content links */
 .bd-content p a,
 .bd-content li a {
     position: relative;
@@ -299,7 +249,6 @@ p, li, td, th {
     width: 100%;
 }
 
-/* Disable animated underline for TOC and sidebar nav links */
 .bd-toc a::after,
 .bd-sidebar-primary a::after,
 .bd-sidebar-secondary a::after,
@@ -307,9 +256,6 @@ p, li, td, th {
     display: none !important;
 }
 
-/* --------------------------------------------------------------------------
-   MAIN LAYOUT
-   -------------------------------------------------------------------------- */
 .bd-main {
     background-color: var(--oumi-bg-base);
 }
@@ -318,7 +264,6 @@ p, li, td, th {
     background-color: var(--oumi-bg-base);
 }
 
-/* Flat content area - matches original oumi.ai docs */
 .bd-article-container {
     background-color: transparent;
     border-radius: 0;
@@ -333,9 +278,6 @@ p, li, td, th {
     animation: fadeInUp 0.5s ease-out;
 }
 
-/* --------------------------------------------------------------------------
-   SIDEBAR NAVIGATION
-   -------------------------------------------------------------------------- */
 .bd-sidebar-primary,
 .bd-sidebar-secondary {
     background-color: var(--oumi-bg-base) !important;
@@ -346,7 +288,6 @@ p, li, td, th {
     padding: var(--space-4);
 }
 
-/* Navigation links - use text color, not blue */
 .bd-sidebar-primary .nav-link,
 .bd-sidebar-secondary .nav-link,
 .bd-sidebar-primary a.nav-link,
@@ -384,7 +325,6 @@ p, li, td, th {
     font-weight: 500;
 }
 
-/* Active link glow */
 .bd-sidebar-primary .nav-link.active::before {
     content: '';
     position: absolute;
@@ -398,7 +338,6 @@ p, li, td, th {
     box-shadow: 0 0 10px var(--oumi-primary-glow);
 }
 
-/* Section titles in sidebar */
 .bd-sidebar-primary .caption,
 .sidebar-primary-items__start .caption-text {
     font-family: var(--font-heading);
@@ -411,16 +350,12 @@ p, li, td, th {
     margin: 0;
 }
 
-/* Nested navigation */
 .bd-sidebar-primary .nav.bd-sidenav {
     padding-left: var(--space-4);
     border-left: 1px solid var(--oumi-border);
     margin-left: var(--space-4);
 }
 
-/* --------------------------------------------------------------------------
-   TABLE OF CONTENTS (Right Sidebar)
-   -------------------------------------------------------------------------- */
 .bd-toc {
     font-size: var(--text-sm);
 }
@@ -464,9 +399,6 @@ p, li, td, th {
     font-weight: 500;
 }
 
-/* --------------------------------------------------------------------------
-   CODE BLOCKS
-   -------------------------------------------------------------------------- */
 code, pre, kbd, samp,
 .highlight pre, .literal-block {
     font-family: var(--font-mono) !important;
@@ -474,7 +406,6 @@ code, pre, kbd, samp,
     font-feature-settings: 'liga' 0;
 }
 
-/* Inline code */
 code:not([class*="language-"]),
 p code, li code, td code {
     background: var(--oumi-primary-subtle);
@@ -485,7 +416,6 @@ p code, li code, td code {
     border: 1px solid var(--oumi-border-accent);
 }
 
-/* Code block container - reset theme styling */
 div[class*="highlight-"],
 .highlight {
     position: relative;
@@ -496,7 +426,6 @@ div[class*="highlight-"],
     padding: 0 !important;
 }
 
-/* Code blocks - single clean style */
 pre, .highlight pre, div[class*="highlight-"] pre {
     background-color: var(--oumi-code-bg) !important;
     border: 1px solid var(--oumi-code-border) !important;
@@ -507,7 +436,6 @@ pre, .highlight pre, div[class*="highlight-"] pre {
     position: relative;
 }
 
-/* Hide theme's language indicator - it overlaps with copy button */
 div[class*="highlight-"]::before,
 div[class*="highlight-"]::after,
 .highlight::before,
@@ -517,7 +445,6 @@ span.pre-bg {
     display: none !important;
 }
 
-/* Copy button - positioned top right */
 button.copybtn {
     position: absolute !important;
     top: var(--space-2) !important;
@@ -543,9 +470,6 @@ button.copybtn:hover {
     box-shadow: var(--shadow-glow);
 }
 
-/* --------------------------------------------------------------------------
-   TABLES
-   -------------------------------------------------------------------------- */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -580,7 +504,6 @@ td {
     color: var(--oumi-text-secondary);
 }
 
-/* First column in tables often contains code/commands */
 td:first-child {
     color: var(--oumi-text-primary);
 }
@@ -601,9 +524,6 @@ tbody tr:last-child td {
     border-bottom: none;
 }
 
-/* --------------------------------------------------------------------------
-   ADMONITIONS / CALLOUTS
-   -------------------------------------------------------------------------- */
 .admonition {
     border-radius: var(--radius-lg);
     border: 1px solid var(--oumi-border);
@@ -674,7 +594,6 @@ tbody tr:last-child td {
     color: var(--oumi-error);
 }
 
-/* Important - uses gradient */
 .admonition.important {
     border-left: 4px solid var(--oumi-primary-accent);
     position: relative;
@@ -695,9 +614,6 @@ tbody tr:last-child td {
     color: var(--oumi-primary-accent);
 }
 
-/* --------------------------------------------------------------------------
-   CARDS (sphinx-design)
-   -------------------------------------------------------------------------- */
 .sd-card {
     background-color: var(--oumi-bg-card) !important;
     border: 1px solid var(--oumi-border) !important;
@@ -707,7 +623,6 @@ tbody tr:last-child td {
     position: relative;
 }
 
-/* Gradient border on hover */
 .sd-card::before {
     content: '';
     position: absolute;
@@ -755,9 +670,6 @@ tbody tr:last-child td {
     gap: var(--space-4);
 }
 
-/* --------------------------------------------------------------------------
-   BADGES & BUTTONS
-   -------------------------------------------------------------------------- */
 .badge, .sd-badge {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
@@ -802,9 +714,6 @@ tbody tr:last-child td {
     background: var(--oumi-primary-subtle) !important;
 }
 
-/* --------------------------------------------------------------------------
-   HEADER / NAVBAR
-   -------------------------------------------------------------------------- */
 .bd-header {
     background-color: rgba(10, 10, 15, 0.8) !important;
     border-bottom: 1px solid var(--oumi-border) !important;
@@ -828,7 +737,6 @@ html:not([data-theme="dark"]) .bd-header {
     color: var(--oumi-primary-accent) !important;
 }
 
-/* Logo styling */
 .navbar-brand img {
     transition: all var(--transition-base);
 }
@@ -838,9 +746,6 @@ html:not([data-theme="dark"]) .bd-header {
     filter: drop-shadow(0 0 8px var(--oumi-primary-glow));
 }
 
-/* --------------------------------------------------------------------------
-   SEARCH
-   -------------------------------------------------------------------------- */
 .bd-search {
     background-color: var(--oumi-bg-elevated) !important;
     border: 1px solid var(--oumi-border) !important;
@@ -863,7 +768,6 @@ html:not([data-theme="dark"]) .bd-header {
     color: var(--oumi-text-muted);
 }
 
-/* Search keyboard hint */
 .bd-search .search-button-field::after {
     content: 'K';
     font-family: var(--font-mono);
@@ -875,9 +779,6 @@ html:not([data-theme="dark"]) .bd-header {
     margin-left: var(--space-2);
 }
 
-/* --------------------------------------------------------------------------
-   API DOCUMENTATION SPECIFICS
-   -------------------------------------------------------------------------- */
 .sig, .sig-name {
     font-family: var(--font-mono) !important;
 }
@@ -941,9 +842,6 @@ dl.py dt::before {
     color: var(--oumi-text-secondary);
 }
 
-/* --------------------------------------------------------------------------
-   VERSION SWITCHER
-   -------------------------------------------------------------------------- */
 .version-switcher__button {
     background-color: var(--oumi-bg-elevated) !important;
     border: 1px solid var(--oumi-border) !important;
@@ -960,7 +858,6 @@ dl.py dt::before {
     box-shadow: var(--shadow-glow);
 }
 
-/* Custom sidebar: logo + version switcher combo */
 .sidebar-logo-version {
     display: flex;
     flex-direction: column;
@@ -990,9 +887,6 @@ dl.py dt::before {
     border: 1px solid var(--oumi-border) !important;
 }
 
-/* --------------------------------------------------------------------------
-   FOOTER
-   -------------------------------------------------------------------------- */
 .bd-footer {
     background-color: var(--oumi-bg-base) !important;
     border-top: 1px solid var(--oumi-border) !important;
@@ -1008,10 +902,6 @@ dl.py dt::before {
     color: var(--oumi-primary-accent) !important;
 }
 
-/* --------------------------------------------------------------------------
-   HOME PAGE SPECIFIC STYLES
-   -------------------------------------------------------------------------- */
-/* Hero section */
 .bd-content > div[align="center"]:first-child {
     padding: var(--space-16) 0;
     margin-bottom: var(--space-10);
@@ -1030,7 +920,6 @@ dl.py dt::before {
     border-radius: var(--radius-sm);
 }
 
-/* Feature badges on home page - grayscale hover */
 .bd-content > div[align="center"] + p img,
 .bd-content img[alt*="badge"],
 .bd-content img[src*="badge"] {
@@ -1047,9 +936,6 @@ dl.py dt::before {
     opacity: 1;
 }
 
-/* --------------------------------------------------------------------------
-   MERMAID DIAGRAMS
-   -------------------------------------------------------------------------- */
 .mermaid {
     background-color: var(--oumi-bg-secondary) !important;
     border: 1px solid var(--oumi-border);
@@ -1058,9 +944,6 @@ dl.py dt::before {
     margin: var(--space-6) 0;
 }
 
-/* --------------------------------------------------------------------------
-   JUPYTER NOTEBOOK CELLS
-   -------------------------------------------------------------------------- */
 .cell {
     border: 1px solid var(--oumi-border);
     border-radius: var(--radius-lg);
@@ -1079,7 +962,6 @@ dl.py dt::before {
     padding: var(--space-4);
 }
 
-/* Cell execution indicator */
 .cell[data-execution-count]::before {
     content: 'In [' attr(data-execution-count) ']:';
     font-family: var(--font-mono);
@@ -1090,9 +972,6 @@ dl.py dt::before {
     display: block;
 }
 
-/* --------------------------------------------------------------------------
-   ANIMATIONS
-   -------------------------------------------------------------------------- */
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -1131,12 +1010,10 @@ dl.py dt::before {
     100% { background-position: 0% 50%; }
 }
 
-/* Apply animations */
 .bd-content {
     animation: fadeInUp 0.5s ease-out;
 }
 
-/* Staggered sidebar animation */
 .bd-sidebar-primary .nav-link {
     animation: slideInLeft 0.4s ease-out backwards;
 }
@@ -1150,16 +1027,12 @@ dl.py dt::before {
 .bd-sidebar-primary .nav-link:nth-child(7) { animation-delay: 0.23s; }
 .bd-sidebar-primary .nav-link:nth-child(8) { animation-delay: 0.26s; }
 
-/* Cards - visible by default with subtle entrance animation */
 .sd-card {
     opacity: 1;
     transform: translateY(0);
     transition: opacity 0.5s ease-out, transform 0.5s ease-out, box-shadow var(--transition-base);
 }
 
-/* --------------------------------------------------------------------------
-   RESPONSIVE ADJUSTMENTS
-   -------------------------------------------------------------------------- */
 @media (max-width: 992px) {
     .bd-content {
         padding: var(--space-6) var(--space-8);
@@ -1213,9 +1086,6 @@ dl.py dt::before {
     }
 }
 
-/* --------------------------------------------------------------------------
-   PRINT STYLES
-   -------------------------------------------------------------------------- */
 @media print {
     .bd-sidebar-primary,
     .bd-sidebar-secondary,
@@ -1255,17 +1125,12 @@ dl.py dt::before {
     }
 }
 
-/* --------------------------------------------------------------------------
-   SPECIAL HOVER EFFECTS
-   -------------------------------------------------------------------------- */
-/* Glowing accent on important elements */
 .sd-card:hover,
 .admonition.important:hover,
 dl.py:hover {
     box-shadow: var(--shadow-lg), var(--shadow-glow);
 }
 
-/* Focus states for accessibility */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible {
@@ -1273,16 +1138,11 @@ input:focus-visible {
     outline-offset: 2px;
 }
 
-/* Code block focus */
 pre:focus-within {
     border-color: var(--oumi-primary-accent);
     box-shadow: var(--shadow-glow);
 }
 
-/* --------------------------------------------------------------------------
-   LOGO WALL / PARTNER LOGOS (grayscale hover)
-   Only apply to logos in specific containers, not the main hero logo
-   -------------------------------------------------------------------------- */
 .logo-grid img,
 .partner-logos img,
 .bd-footer img[alt*="logo"],
@@ -1300,9 +1160,6 @@ pre:focus-within {
     opacity: 1;
 }
 
-/* --------------------------------------------------------------------------
-   TABS (sphinx-design) - Clean styling with bottom border like oumi.ai
-   -------------------------------------------------------------------------- */
 .sd-tab-set {
     border: none !important;
     border-radius: 0 !important;
@@ -1341,9 +1198,6 @@ pre:focus-within {
     padding: var(--space-4);
 }
 
-/* --------------------------------------------------------------------------
-   DROPDOWN / ACCORDION (Content area only - exclude sidebar)
-   -------------------------------------------------------------------------- */
 .bd-content details {
     border: 1px solid var(--oumi-border);
     border-radius: var(--radius-lg);

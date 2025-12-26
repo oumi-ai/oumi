@@ -1,12 +1,6 @@
-/**
- * OUMI Documentation - Custom JavaScript
- * Enhanced interactions and visual effects
- */
-
 (function() {
     'use strict';
 
-    // Wait for DOM to be ready
     document.addEventListener('DOMContentLoaded', function() {
         initScrollProgress();
         initSmoothScrolling();
@@ -17,12 +11,7 @@
         initAnimations();
     });
 
-    /**
-     * Reading Progress Indicator
-     * Shows a progress bar at the top of the page
-     */
     function initScrollProgress() {
-        // Create progress bar element
         const progressBar = document.createElement('div');
         progressBar.id = 'oumi-scroll-progress';
         progressBar.style.cssText = `
@@ -38,7 +27,6 @@
         `;
         document.body.appendChild(progressBar);
 
-        // Update progress on scroll
         function updateProgress() {
             const scrollTop = window.scrollY;
             const docHeight = document.documentElement.scrollHeight - window.innerHeight;
@@ -50,9 +38,6 @@
         updateProgress();
     }
 
-    /**
-     * Smooth Scrolling for Anchor Links
-     */
     function initSmoothScrolling() {
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
@@ -71,19 +56,13 @@
                         behavior: 'smooth'
                     });
 
-                    // Update URL without triggering navigation
                     history.pushState(null, null, href);
                 }
             });
         });
     }
 
-    /**
-     * Code Block Enhancements
-     * - Language label display
-     */
     function initCodeBlockEnhancements() {
-        // Add language labels to code blocks
         document.querySelectorAll('div[class*="highlight-"]').forEach(block => {
             const classes = block.className.split(' ');
             const langClass = classes.find(c => c.startsWith('highlight-'));
@@ -115,13 +94,11 @@
             }
         });
 
-        // Add click-to-copy feedback using safe DOM methods
         document.querySelectorAll('button.copybtn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const originalBg = this.style.backgroundColor;
                 const originalBorder = this.style.borderColor;
 
-                // Show copied state with color change
                 this.style.backgroundColor = 'var(--oumi-success, #3FB950)';
                 this.style.borderColor = 'var(--oumi-success, #3FB950)';
 
@@ -133,9 +110,6 @@
         });
     }
 
-    /**
-     * Table of Contents - Active Section Highlighting
-     */
     function initTableOfContentsHighlight() {
         const tocLinks = document.querySelectorAll('.bd-toc .nav-link');
         if (tocLinks.length === 0) return;
@@ -178,14 +152,9 @@
         highlightActiveSection();
     }
 
-    /**
-     * Search Enhancements
-     */
     function initSearchEnhancements() {
-        // Add keyboard shortcut hint to search
         const searchInput = document.querySelector('.bd-search input, input[type="search"]');
         if (searchInput) {
-            // Create shortcut hint
             const hint = document.createElement('kbd');
             hint.textContent = '/';
             hint.style.cssText = `
@@ -208,7 +177,6 @@
                 searchContainer.style.position = 'relative';
                 searchContainer.appendChild(hint);
 
-                // Hide hint when input is focused
                 searchInput.addEventListener('focus', () => hint.style.display = 'none');
                 searchInput.addEventListener('blur', () => {
                     if (!searchInput.value) hint.style.display = '';
@@ -217,21 +185,15 @@
         }
     }
 
-    /**
-     * Keyboard Navigation
-     */
     function initKeyboardNavigation() {
         document.addEventListener('keydown', function(e) {
-            // Skip if user is typing in an input
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                // ESC to blur input
                 if (e.key === 'Escape') {
                     e.target.blur();
                 }
                 return;
             }
 
-            // "/" to focus search
             if (e.key === '/') {
                 const searchInput = document.querySelector('.bd-search input, input[type="search"]');
                 if (searchInput) {
@@ -240,12 +202,10 @@
                 }
             }
 
-            // "t" to scroll to top
             if (e.key === 't' && !e.ctrlKey && !e.metaKey) {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
 
-            // "g" + "h" for home (gg style)
             if (e.key === 'g') {
                 const waitForH = function(e2) {
                     if (e2.key === 'h') {
@@ -259,17 +219,11 @@
         });
     }
 
-    /**
-     * Animation Enhancements
-     * Intersection Observer for scroll-triggered animations
-     */
     function initAnimations() {
-        // Check for reduced motion preference
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             return;
         }
 
-        // Animate elements when they come into view
         const animatableElements = document.querySelectorAll(
             '.sd-card, .admonition, table, dl.py, .cell'
         );
@@ -296,7 +250,6 @@
             observer.observe(el);
         });
 
-        // Add hover effect to navigation items
         document.querySelectorAll('.bd-sidebar-primary .nav-link').forEach(link => {
             link.addEventListener('mouseenter', function() {
                 this.style.transform = 'translateX(4px)';
@@ -307,10 +260,6 @@
         });
     }
 
-    /**
-     * Dark/Light Mode Toggle Enhancement
-     * Smooth transition when switching themes
-     */
     function initThemeTransition() {
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
@@ -326,7 +275,6 @@
         observer.observe(document.documentElement, { attributes: true });
     }
 
-    // Initialize theme transition on load
     initThemeTransition();
 
 })();

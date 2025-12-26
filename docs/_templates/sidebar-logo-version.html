@@ -1,11 +1,6 @@
-{# Custom sidebar template: Logo + Version Switcher #}
 {# This places the version switcher directly below the logo like ReadTheDocs #}
-
 <div class="sidebar-logo-version">
-  {# Include the standard navbar logo #}
   {% include "components/navbar-logo.html" %}
-
-  {# Version switcher below logo #}
   {% if theme_switcher %}
     <div class="version-switcher-below-logo">
       {% include "components/version-switcher.html" %}

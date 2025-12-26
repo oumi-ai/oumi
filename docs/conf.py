@@ -145,10 +145,9 @@ html_theme_options = {
     },
 }
 
-# Custom sidebar configuration - logo with version switcher below
 html_sidebars = {
     "**": [
-        "sidebar-logo-version.html",  # Custom: logo + version switcher
+        "sidebar-logo-version.html",
         "search-field.html",
         "sbt-sidebar-nav.html",
     ]
