@@ -143,7 +143,15 @@ html_theme_options = {
         "json_url": "https://oumi.ai/docs/version.json",
         "version_match": os.environ.get("OUMI_VERSION", "latest"),
     },
-    "navbar_start": ["version-switcher"],
+}
+
+# Custom sidebar configuration - logo with version switcher below
+html_sidebars = {
+    "**": [
+        "sidebar-logo-version.html",  # Custom: logo + version switcher
+        "search-field.html",
+        "sbt-sidebar-nav.html",
+    ]
 }
 
 # see https://pygments.org/demo/ for options

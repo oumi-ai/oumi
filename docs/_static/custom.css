@@ -1,93 +1,157 @@
 /* ============================================================================
    OUMI DOCUMENTATION - CUSTOM THEME
-   "Geometric Precision" - A refined technical aesthetic
+   "Digital Horizon" - Professional innovation meets technical precision
+   Inspired by oumi.ai website aesthetic
    ============================================================================ */
 
 /* --------------------------------------------------------------------------
    FONTS
-   Using JetBrains Mono for code and IBM Plex Sans for body text
+   Plus Jakarta Sans for confident headings, Inter for readable body text,
+   JetBrains Mono for crisp code
    -------------------------------------------------------------------------- */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* --------------------------------------------------------------------------
    CSS VARIABLES - COLOR SYSTEM
+   Deep navy to electric blue gradient palette
    -------------------------------------------------------------------------- */
 :root {
-    /* Primary palette - Electric Teal meets Deep Space */
-    --oumi-accent: #00D4AA;
-    --oumi-accent-light: #33DDBB;
-    --oumi-accent-dark: #00A888;
-    --oumi-accent-glow: rgba(0, 212, 170, 0.15);
-    --oumi-accent-subtle: rgba(0, 212, 170, 0.08);
+    /* Primary palette - Deep Navy to Electric Blue */
+    --oumi-primary-deep: #062c82;
+    --oumi-primary-accent: #3763ff;
+    --oumi-primary-light: #5b7fff;
+    --oumi-primary-glow: rgba(55, 99, 255, 0.25);
+    --oumi-primary-subtle: rgba(55, 99, 255, 0.08);
 
-    /* Neutral palette */
-    --oumi-bg-deep: #0D1117;
-    --oumi-bg-primary: #161B22;
-    --oumi-bg-secondary: #1C2128;
-    --oumi-bg-elevated: #242B35;
-    --oumi-bg-hover: #2D3640;
+    /* Gradient definitions */
+    --oumi-gradient-primary: linear-gradient(100.89deg, #062c82 0%, #3763ff 100%);
+    --oumi-gradient-hover: linear-gradient(100.89deg, #0a3a9d 0%, #4a75ff 100%);
+    --oumi-gradient-subtle: linear-gradient(135deg, rgba(55, 99, 255, 0.15) 0%, rgba(6, 44, 130, 0.05) 100%);
+
+    /* Background palette - Near black with depth */
+    --oumi-bg-base: #0a0a0f;
+    --oumi-bg-primary: #0e0e14;
+    --oumi-bg-secondary: #12121a;
+    --oumi-bg-elevated: #1a1a24;
+    --oumi-bg-card: #1e1e2a;
+    --oumi-bg-hover: #262633;
 
     /* Text colors */
-    --oumi-text-primary: #E6EDF3;
-    --oumi-text-secondary: #8B949E;
-    --oumi-text-muted: #6E7681;
+    --oumi-text-primary: #ffffff;
+    --oumi-text-secondary: #73738c;
+    --oumi-text-muted: #4a4a5c;
 
-    /* Borders & dividers */
-    --oumi-border: #30363D;
-    --oumi-border-light: #21262D;
+    /* Borders & overlays */
+    --oumi-border: rgba(255, 255, 255, 0.08);
+    --oumi-border-hover: rgba(255, 255, 255, 0.15);
+    --oumi-border-accent: rgba(55, 99, 255, 0.3);
+    --oumi-overlay: rgba(10, 10, 15, 0.85);
 
     /* Semantic colors */
-    --oumi-success: #3FB950;
-    --oumi-warning: #D29922;
-    --oumi-error: #F85149;
-    --oumi-info: #58A6FF;
+    --oumi-success: #22c55e;
+    --oumi-success-bg: rgba(34, 197, 94, 0.12);
+    --oumi-warning: #eab308;
+    --oumi-warning-bg: rgba(234, 179, 8, 0.12);
+    --oumi-error: #ef4444;
+    --oumi-error-bg: rgba(239, 68, 68, 0.12);
+    --oumi-info: #3b82f6;
+    --oumi-info-bg: rgba(59, 130, 246, 0.12);
 
-    /* Code block colors */
-    --oumi-code-bg: #0D1117;
-    --oumi-code-border: #30363D;
+    /* Code block colors - slightly elevated from page bg for contrast */
+    --oumi-code-bg: #13131a;
+    --oumi-code-border: rgba(55, 99, 255, 0.25);
 
     /* Spacing scale */
-    --space-xs: 4px;
-    --space-sm: 8px;
-    --space-md: 16px;
-    --space-lg: 24px;
-    --space-xl: 32px;
-    --space-2xl: 48px;
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+    --space-20: 5rem;
 
     /* Typography */
-    --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 
+    /* Type scale */
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: clamp(1.25rem, 2vw, 1.5rem);
+    --text-3xl: clamp(1.5rem, 2.5vw, 2rem);
+    --text-4xl: clamp(2rem, 3vw, 2.5rem);
+    --text-5xl: clamp(2.5rem, 4vw, 3.5rem);
+
     /* Border radius */
-    --radius-sm: 4px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.5rem;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15);
+    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.2);
+    --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.35), 0 10px 10px rgba(0, 0, 0, 0.25);
+    --shadow-glow: 0 0 30px rgba(55, 99, 255, 0.3);
+    --shadow-glow-lg: 0 0 50px rgba(55, 99, 255, 0.4);
 
     /* Transitions */
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Light mode overrides */
+/* Light mode overrides - matching oumi.ai's clean white aesthetic */
 html:not([data-theme="dark"]) {
-    --oumi-bg-deep: #FAFBFC;
-    --oumi-bg-primary: #FFFFFF;
-    --oumi-bg-secondary: #F6F8FA;
-    --oumi-bg-elevated: #FFFFFF;
-    --oumi-bg-hover: #F0F2F5;
-    --oumi-text-primary: #1F2328;
-    --oumi-text-secondary: #57606A;
-    --oumi-text-muted: #8B949E;
-    --oumi-border: #D0D7DE;
-    --oumi-border-light: #E8ECF0;
-    --oumi-code-bg: #F6F8FA;
-    --oumi-code-border: #D0D7DE;
-    --oumi-accent: #00A888;
-    --oumi-accent-light: #00C9A0;
-    --oumi-accent-glow: rgba(0, 168, 136, 0.12);
-    --oumi-accent-subtle: rgba(0, 168, 136, 0.06);
+    /* Pure white backgrounds like oumi.ai */
+    --oumi-bg-base: #ffffff;
+    --oumi-bg-primary: #ffffff;
+    --oumi-bg-secondary: #f8f9fa;
+    --oumi-bg-elevated: #ffffff;
+    --oumi-bg-card: #ffffff;
+    --oumi-bg-hover: #f1f3f5;
+
+    /* Black headings, gray body - matching oumi.ai */
+    --oumi-text-primary: #111111;
+    --oumi-text-secondary: #6b7280;
+    --oumi-text-muted: #9ca3af;
+
+    /* Subtle borders */
+    --oumi-border: rgba(0, 0, 0, 0.08);
+    --oumi-border-hover: rgba(0, 0, 0, 0.15);
+
+    /* Code blocks - light gray */
+    --oumi-code-bg: #f4f5f7;
+    --oumi-code-border: rgba(55, 99, 255, 0.2);
+
+    /* Keep the same vibrant blue accent as oumi.ai */
+    --oumi-primary-deep: #062c82;
+    --oumi-primary-accent: #3763ff;
+    --oumi-primary-light: #5b7fff;
+    --oumi-primary-glow: rgba(55, 99, 255, 0.2);
+    --oumi-primary-subtle: rgba(55, 99, 255, 0.08);
+
+    /* Gradient stays the same */
+    --oumi-gradient-primary: linear-gradient(100.89deg, #062c82 0%, #3763ff 100%);
+    --oumi-gradient-subtle: linear-gradient(135deg, rgba(55, 99, 255, 0.1) 0%, rgba(6, 44, 130, 0.03) 100%);
+
+    /* Lighter shadows for light mode */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1), 0 6px 10px rgba(0, 0, 0, 0.06);
+    --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.12), 0 10px 15px rgba(0, 0, 0, 0.08);
+    --shadow-glow: 0 0 30px rgba(55, 99, 255, 0.2);
 }
 
 /* --------------------------------------------------------------------------
@@ -95,28 +159,29 @@ html:not([data-theme="dark"]) {
    -------------------------------------------------------------------------- */
 html {
     scroll-behavior: smooth;
-    font-feature-settings: 'liga' 1, 'calt' 1;
+    font-feature-settings: 'liga' 1, 'calt' 1, 'kern' 1;
 }
 
 body {
     font-family: var(--font-body) !important;
-    background-color: var(--oumi-bg-secondary) !important;
+    background-color: var(--oumi-bg-base) !important;
     color: var(--oumi-text-primary) !important;
     line-height: 1.7;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
-/* Custom selection color */
+/* Custom selection */
 ::selection {
-    background-color: var(--oumi-accent);
-    color: var(--oumi-bg-deep);
+    background-color: var(--oumi-primary-accent);
+    color: white;
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -124,12 +189,13 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--oumi-border);
-    border-radius: var(--radius-sm);
+    background: var(--oumi-bg-hover);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--oumi-bg-secondary);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--oumi-text-muted);
+    background: var(--oumi-primary-accent);
 }
 
 /* --------------------------------------------------------------------------
@@ -138,33 +204,49 @@ body {
 h1, h2, h3, h4, h5, h6,
 .bd-content h1, .bd-content h2, .bd-content h3,
 .bd-content h4, .bd-content h5, .bd-content h6 {
-    font-family: var(--font-display) !important;
+    font-family: var(--font-heading) !important;
     font-weight: 600;
     color: var(--oumi-text-primary);
     letter-spacing: -0.02em;
-    margin-top: 2em;
+    margin-top: 2.5em;
     margin-bottom: 0.75em;
+    line-height: 1.2;
 }
 
 h1, .bd-content h1 {
-    font-size: 2.5rem;
+    font-size: var(--text-4xl);
     font-weight: 700;
     letter-spacing: -0.03em;
     position: relative;
+    margin-top: 0;
 }
 
 h2, .bd-content h2 {
-    font-size: 1.875rem;
-    padding-bottom: 0.5em;
+    font-size: var(--text-3xl);
+    padding-bottom: var(--space-4);
     border-bottom: 1px solid var(--oumi-border);
+    margin-top: var(--space-12);
 }
 
 h3, .bd-content h3 {
-    font-size: 1.5rem;
+    font-size: var(--text-2xl);
 }
 
 h4, .bd-content h4 {
-    font-size: 1.25rem;
+    font-size: var(--text-xl);
+}
+
+h5, .bd-content h5 {
+    font-size: var(--text-lg);
+    font-weight: 600;
+}
+
+h6, .bd-content h6 {
+    font-size: var(--text-base);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--oumi-text-secondary);
 }
 
 p, li, td, th {
@@ -172,43 +254,83 @@ p, li, td, th {
     color: var(--oumi-text-primary);
 }
 
+/* H1 title styling - clean, no underline accent */
+.bd-content h1:first-of-type {
+    padding-bottom: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
 /* --------------------------------------------------------------------------
    LINKS
    -------------------------------------------------------------------------- */
-a {
-    color: var(--oumi-accent) !important;
+/* Content links - blue with animated underline */
+.bd-content a {
+    color: var(--oumi-primary-accent) !important;
     text-decoration: none;
-    transition: color var(--transition-fast), text-decoration var(--transition-fast);
+    transition: color var(--transition-fast);
 }
 
-a:hover {
-    color: var(--oumi-accent-light) !important;
-    text-decoration: underline;
-    text-underline-offset: 3px;
+.bd-content a:hover {
+    color: var(--oumi-primary-light) !important;
+}
+
+/* Animated underline for content links */
+.bd-content p a,
+.bd-content li a {
+    position: relative;
+    text-decoration: none !important;
+}
+
+.bd-content p a::after,
+.bd-content li a:not(.nav-link)::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--oumi-gradient-primary);
+    transition: width var(--transition-base);
+    border-radius: 1px;
+}
+
+.bd-content p a:hover::after,
+.bd-content li a:not(.nav-link):hover::after {
+    width: 100%;
+}
+
+/* Disable animated underline for TOC and sidebar nav links */
+.bd-toc a::after,
+.bd-sidebar-primary a::after,
+.bd-sidebar-secondary a::after,
+.nav-link::after {
+    display: none !important;
 }
 
 /* --------------------------------------------------------------------------
    MAIN LAYOUT
    -------------------------------------------------------------------------- */
 .bd-main {
-    background-color: var(--oumi-bg-secondary);
+    background-color: var(--oumi-bg-base);
 }
 
-/* Card-based content area */
+.bd-page-width {
+    background-color: var(--oumi-bg-base);
+}
+
+/* Flat content area - matches original oumi.ai docs */
 .bd-article-container {
-    background-color: var(--oumi-bg-primary);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--oumi-border-light);
-    margin: var(--space-xs);
+    background-color: transparent;
+    border-radius: 0;
+    border: none;
+    margin: 0;
+    position: relative;
+    box-shadow: none;
 }
 
 .bd-content {
-    padding: var(--space-lg) var(--space-xl);
-}
-
-/* Page container - consistent background with sidebar */
-.bd-page-width {
-    background-color: var(--oumi-bg-secondary);
+    padding: var(--space-8) var(--space-10);
+    animation: fadeInUp 0.5s ease-out;
 }
 
 /* --------------------------------------------------------------------------
@@ -216,73 +338,130 @@ a:hover {
    -------------------------------------------------------------------------- */
 .bd-sidebar-primary,
 .bd-sidebar-secondary {
-    background-color: var(--oumi-bg-secondary) !important;
-    border-right: 1px solid var(--oumi-border-light);
+    background-color: var(--oumi-bg-base) !important;
+    border-right: 1px solid var(--oumi-border);
 }
 
-/* Left sidebar */
 .bd-sidebar-primary .sidebar-primary-items__start {
-    padding: var(--space-md);
+    padding: var(--space-4);
 }
 
+/* Navigation links - use text color, not blue */
 .bd-sidebar-primary .nav-link,
-.bd-sidebar-secondary .nav-link {
+.bd-sidebar-secondary .nav-link,
+.bd-sidebar-primary a.nav-link,
+.bd-sidebar-secondary a.nav-link {
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-sm);
     font-weight: 400;
     color: var(--oumi-text-secondary) !important;
-    padding: var(--space-sm) var(--space-md);
+    padding: var(--space-2) var(--space-4);
     border-radius: var(--radius-md);
     margin: 2px 0;
     transition: all var(--transition-fast);
     border-left: 3px solid transparent;
+    position: relative;
+    text-decoration: none !important;
 }
 
 .bd-sidebar-primary .nav-link:hover,
-.bd-sidebar-secondary .nav-link:hover {
+.bd-sidebar-secondary .nav-link:hover,
+.bd-sidebar-primary a.nav-link:hover,
+.bd-sidebar-secondary a.nav-link:hover {
     color: var(--oumi-text-primary) !important;
-    background-color: var(--oumi-bg-hover);
-    text-decoration: none;
+    background-color: var(--oumi-bg-elevated);
+    text-decoration: none !important;
+    border-left-color: var(--oumi-border-hover);
 }
 
 .bd-sidebar-primary .nav-link.active,
-.bd-sidebar-secondary .nav-link.active {
-    color: var(--oumi-accent) !important;
-    background-color: var(--oumi-accent-subtle);
-    border-left-color: var(--oumi-accent);
+.bd-sidebar-secondary .nav-link.active,
+.bd-sidebar-primary a.nav-link.active,
+.bd-sidebar-secondary a.nav-link.active {
+    color: var(--oumi-primary-accent) !important;
+    background: var(--oumi-primary-subtle);
+    border-left-color: var(--oumi-primary-accent);
     font-weight: 500;
+}
+
+/* Active link glow */
+.bd-sidebar-primary .nav-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: var(--oumi-gradient-primary);
+    border-radius: 0 2px 2px 0;
+    box-shadow: 0 0 10px var(--oumi-primary-glow);
 }
 
 /* Section titles in sidebar */
 .bd-sidebar-primary .caption,
 .sidebar-primary-items__start .caption-text {
-    font-family: var(--font-display);
-    font-size: 0.75rem;
+    font-family: var(--font-heading);
+    font-size: var(--text-xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--oumi-text-muted) !important;
-    padding: var(--space-lg) var(--space-md) var(--space-sm);
+    padding: var(--space-8) var(--space-4) var(--space-2);
     margin: 0;
 }
 
 /* Nested navigation */
 .bd-sidebar-primary .nav.bd-sidenav {
-    padding-left: var(--space-md);
-    border-left: 1px solid var(--oumi-border-light);
-    margin-left: var(--space-md);
+    padding-left: var(--space-4);
+    border-left: 1px solid var(--oumi-border);
+    margin-left: var(--space-4);
 }
 
 /* --------------------------------------------------------------------------
    TABLE OF CONTENTS (Right Sidebar)
    -------------------------------------------------------------------------- */
 .bd-toc {
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
 }
 
-.bd-toc .nav-link {
-    padding: var(--space-xs) var(--space-sm) !important;
-    font-size: 0.85rem;
+.bd-toc-title {
+    font-family: var(--font-heading);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--oumi-text-muted);
+    margin-bottom: var(--space-4);
+}
+
+.bd-toc .nav-link,
+.bd-toc a.nav-link {
+    padding: var(--space-1) var(--space-3) !important;
+    font-size: var(--text-sm);
+    color: var(--oumi-text-secondary) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    text-decoration: none !important;
+    transition: all var(--transition-fast);
+    background: transparent !important;
+}
+
+.bd-toc .nav-link:hover,
+.bd-toc a.nav-link:hover {
+    color: var(--oumi-primary-accent) !important;
+    text-decoration: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+}
+
+.bd-toc .nav-link.active,
+.bd-toc a.nav-link.active {
+    color: var(--oumi-primary-accent) !important;
+    background: transparent !important;
+    text-decoration: none !important;
+    border-radius: 0 !important;
+    font-weight: 500;
 }
 
 /* --------------------------------------------------------------------------
@@ -291,57 +470,64 @@ a:hover {
 code, pre, kbd, samp,
 .highlight pre, .literal-block {
     font-family: var(--font-mono) !important;
-    font-size: 0.875rem;
+    font-size: var(--text-sm);
     font-feature-settings: 'liga' 0;
 }
 
 /* Inline code */
 code:not([class*="language-"]),
 p code, li code, td code {
-    background-color: var(--oumi-accent-subtle);
-    color: var(--oumi-accent);
-    padding: 0.15em 0.4em;
+    background: var(--oumi-primary-subtle);
+    color: var(--oumi-primary-accent);
+    padding: 0.2em 0.5em;
     border-radius: var(--radius-sm);
-    font-size: 0.875em;
-    border: 1px solid var(--oumi-accent-glow);
+    font-size: 0.9em;
+    border: 1px solid var(--oumi-border-accent);
 }
 
-/* Code blocks */
+/* Code block container - reset theme styling */
+div[class*="highlight-"],
+.highlight {
+    position: relative;
+    margin: var(--space-4) 0;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+}
+
+/* Code blocks - single clean style */
 pre, .highlight pre, div[class*="highlight-"] pre {
     background-color: var(--oumi-code-bg) !important;
-    border: 1px solid var(--oumi-code-border);
-    border-radius: var(--radius-md);
-    padding: var(--space-md) !important;
-    margin: var(--space-lg) 0;
+    border: 1px solid var(--oumi-code-border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: var(--space-5) !important;
+    margin: 0 !important;
     overflow-x: auto;
     position: relative;
 }
 
-/* Code block header (language indicator) */
-div[class*="highlight-"]::before {
-    content: attr(class);
-    position: absolute;
-    top: 0;
-    right: 0;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--oumi-text-muted);
-    background: var(--oumi-bg-elevated);
-    padding: var(--space-xs) var(--space-sm);
-    border-radius: 0 var(--radius-md) 0 var(--radius-sm);
-    border-left: 1px solid var(--oumi-border);
-    border-bottom: 1px solid var(--oumi-border);
+/* Hide theme's language indicator - it overlaps with copy button */
+div[class*="highlight-"]::before,
+div[class*="highlight-"]::after,
+.highlight::before,
+.highlight::after,
+.code-block-caption,
+span.pre-bg {
+    display: none !important;
 }
 
-/* Copy button for code blocks */
+/* Copy button - positioned top right */
 button.copybtn {
+    position: absolute !important;
+    top: var(--space-2) !important;
+    right: var(--space-2) !important;
     background-color: var(--oumi-bg-elevated) !important;
     border: 1px solid var(--oumi-border) !important;
-    border-radius: var(--radius-sm) !important;
+    border-radius: var(--radius-md) !important;
     color: var(--oumi-text-secondary) !important;
     opacity: 0;
+    z-index: 10;
     transition: all var(--transition-fast);
 }
 
@@ -351,9 +537,10 @@ div[class*="highlight-"]:hover button.copybtn,
 }
 
 button.copybtn:hover {
-    background-color: var(--oumi-accent) !important;
-    border-color: var(--oumi-accent) !important;
-    color: var(--oumi-bg-deep) !important;
+    background: var(--oumi-gradient-primary) !important;
+    border-color: var(--oumi-primary-accent) !important;
+    color: white !important;
+    box-shadow: var(--shadow-glow);
 }
 
 /* --------------------------------------------------------------------------
@@ -362,38 +549,52 @@ button.copybtn:hover {
 table {
     width: 100%;
     border-collapse: collapse;
-    margin: var(--space-lg) 0;
-    border-radius: var(--radius-md);
+    margin: var(--space-6) 0;
+    border-radius: var(--radius-lg);
     overflow: hidden;
     border: 1px solid var(--oumi-border);
+    background: var(--oumi-bg-secondary);
+    box-shadow: var(--shadow-sm);
 }
 
 thead {
-    background-color: var(--oumi-bg-elevated);
+    background: var(--oumi-gradient-primary);
 }
 
 th {
-    font-family: var(--font-display);
+    font-family: var(--font-heading);
     font-weight: 600;
     text-align: left;
-    padding: var(--space-md);
-    color: var(--oumi-text-primary);
-    border-bottom: 2px solid var(--oumi-accent);
-    font-size: 0.9rem;
+    padding: var(--space-4);
+    color: white;
+    border-bottom: none;
+    font-size: var(--text-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 td {
-    padding: var(--space-md);
-    border-bottom: 1px solid var(--oumi-border-light);
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--oumi-border);
     vertical-align: top;
+    color: var(--oumi-text-secondary);
+}
+
+/* First column in tables often contains code/commands */
+td:first-child {
+    color: var(--oumi-text-primary);
 }
 
 tbody tr {
-    transition: background-color var(--transition-fast);
+    transition: all var(--transition-fast);
 }
 
 tbody tr:hover {
     background-color: var(--oumi-bg-hover);
+}
+
+tbody tr:hover td {
+    color: var(--oumi-text-primary);
 }
 
 tbody tr:last-child td {
@@ -404,30 +605,31 @@ tbody tr:last-child td {
    ADMONITIONS / CALLOUTS
    -------------------------------------------------------------------------- */
 .admonition {
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     border: 1px solid var(--oumi-border);
-    margin: var(--space-lg) 0;
+    margin: var(--space-6) 0;
     overflow: hidden;
     background-color: var(--oumi-bg-secondary);
+    box-shadow: var(--shadow-sm);
 }
 
 .admonition-title {
-    font-family: var(--font-display);
+    font-family: var(--font-heading);
     font-weight: 600;
-    font-size: 0.9rem;
-    padding: var(--space-sm) var(--space-md);
+    font-size: var(--text-sm);
+    padding: var(--space-3) var(--space-4);
     margin: 0;
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
+    gap: var(--space-2);
 }
 
 .admonition > :not(.admonition-title) {
-    padding: 0 var(--space-md);
+    padding: 0 var(--space-4);
 }
 
 .admonition > :last-child {
-    padding-bottom: var(--space-md);
+    padding-bottom: var(--space-4);
 }
 
 /* Note */
@@ -436,7 +638,7 @@ tbody tr:last-child td {
 }
 
 .admonition.note .admonition-title {
-    background-color: rgba(88, 166, 255, 0.1);
+    background-color: var(--oumi-info-bg);
     color: var(--oumi-info);
 }
 
@@ -446,7 +648,7 @@ tbody tr:last-child td {
 }
 
 .admonition.warning .admonition-title {
-    background-color: rgba(210, 153, 34, 0.1);
+    background-color: var(--oumi-warning-bg);
     color: var(--oumi-warning);
 }
 
@@ -457,7 +659,7 @@ tbody tr:last-child td {
 
 .admonition.tip .admonition-title,
 .admonition.hint .admonition-title {
-    background-color: rgba(63, 185, 80, 0.1);
+    background-color: var(--oumi-success-bg);
     color: var(--oumi-success);
 }
 
@@ -468,51 +670,89 @@ tbody tr:last-child td {
 
 .admonition.danger .admonition-title,
 .admonition.error .admonition-title {
-    background-color: rgba(248, 81, 73, 0.1);
+    background-color: var(--oumi-error-bg);
     color: var(--oumi-error);
 }
 
-/* Important */
+/* Important - uses gradient */
 .admonition.important {
-    border-left: 4px solid var(--oumi-accent);
+    border-left: 4px solid var(--oumi-primary-accent);
+    position: relative;
+}
+
+.admonition.important::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--oumi-gradient-primary);
 }
 
 .admonition.important .admonition-title {
-    background-color: var(--oumi-accent-subtle);
-    color: var(--oumi-accent);
+    background: var(--oumi-primary-subtle);
+    color: var(--oumi-primary-accent);
 }
 
 /* --------------------------------------------------------------------------
    CARDS (sphinx-design)
    -------------------------------------------------------------------------- */
 .sd-card {
-    background-color: var(--oumi-bg-secondary) !important;
+    background-color: var(--oumi-bg-card) !important;
     border: 1px solid var(--oumi-border) !important;
-    border-radius: var(--radius-md) !important;
+    border-radius: var(--radius-xl) !important;
     transition: all var(--transition-base);
     overflow: hidden;
+    position: relative;
+}
+
+/* Gradient border on hover */
+.sd-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: var(--radius-xl);
+    background: var(--oumi-gradient-primary);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity var(--transition-base);
 }
 
 .sd-card:hover {
-    border-color: var(--oumi-accent) !important;
-    box-shadow: 0 4px 20px var(--oumi-accent-glow);
-    transform: translateY(-2px);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl), var(--shadow-glow);
+}
+
+.sd-card:hover::before {
+    opacity: 1;
 }
 
 .sd-card-header {
     background-color: var(--oumi-bg-elevated) !important;
     border-bottom: 1px solid var(--oumi-border) !important;
-    font-family: var(--font-display);
+    font-family: var(--font-heading);
     font-weight: 600;
+    padding: var(--space-4) !important;
 }
 
 .sd-card-body {
-    padding: var(--space-md) !important;
+    padding: var(--space-5) !important;
 }
 
 .sd-card-footer {
     background-color: var(--oumi-bg-elevated) !important;
     border-top: 1px solid var(--oumi-border) !important;
+    padding: var(--space-4) !important;
+}
+
+/* Card grid responsive */
+.sd-row {
+    gap: var(--space-4);
 }
 
 /* --------------------------------------------------------------------------
@@ -520,10 +760,13 @@ tbody tr:last-child td {
    -------------------------------------------------------------------------- */
 .badge, .sd-badge {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     font-weight: 500;
-    padding: var(--space-xs) var(--space-sm);
-    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-3);
+    border-radius: 9999px;
+    background: var(--oumi-primary-subtle);
+    color: var(--oumi-primary-accent);
+    border: 1px solid var(--oumi-border-accent);
 }
 
 .btn, button, .sd-btn {
@@ -531,27 +774,46 @@ tbody tr:last-child td {
     font-weight: 500;
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
+    padding: var(--space-2) var(--space-4);
 }
 
 .btn-primary, .sd-btn-primary {
-    background-color: var(--oumi-accent) !important;
-    border-color: var(--oumi-accent) !important;
-    color: var(--oumi-bg-deep) !important;
+    background: var(--oumi-gradient-primary) !important;
+    border: none !important;
+    color: white !important;
+    box-shadow: var(--shadow-md);
 }
 
 .btn-primary:hover, .sd-btn-primary:hover {
-    background-color: var(--oumi-accent-light) !important;
-    border-color: var(--oumi-accent-light) !important;
-    box-shadow: 0 4px 12px var(--oumi-accent-glow);
+    background: var(--oumi-gradient-hover) !important;
+    box-shadow: var(--shadow-lg), var(--shadow-glow);
+    transform: translateY(-1px);
+}
+
+.btn-secondary, .sd-btn-secondary {
+    background: transparent !important;
+    border: 1px solid var(--oumi-border) !important;
+    color: var(--oumi-text-primary) !important;
+}
+
+.btn-secondary:hover, .sd-btn-secondary:hover {
+    border-color: var(--oumi-primary-accent) !important;
+    color: var(--oumi-primary-accent) !important;
+    background: var(--oumi-primary-subtle) !important;
 }
 
 /* --------------------------------------------------------------------------
    HEADER / NAVBAR
    -------------------------------------------------------------------------- */
 .bd-header {
-    background-color: var(--oumi-bg-secondary) !important;
+    background-color: rgba(10, 10, 15, 0.8) !important;
     border-bottom: 1px solid var(--oumi-border) !important;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+html:not([data-theme="dark"]) .bd-header {
+    background-color: rgba(255, 255, 255, 0.85) !important;
 }
 
 .bd-header .navbar-nav .nav-link {
@@ -559,19 +821,21 @@ tbody tr:last-child td {
     font-weight: 500;
     color: var(--oumi-text-secondary) !important;
     transition: color var(--transition-fast);
+    padding: var(--space-2) var(--space-3);
 }
 
 .bd-header .navbar-nav .nav-link:hover {
-    color: var(--oumi-accent) !important;
+    color: var(--oumi-primary-accent) !important;
 }
 
 /* Logo styling */
 .navbar-brand img {
-    transition: transform var(--transition-base);
+    transition: all var(--transition-base);
 }
 
 .navbar-brand:hover img {
     transform: scale(1.05);
+    filter: drop-shadow(0 0 8px var(--oumi-primary-glow));
 }
 
 /* --------------------------------------------------------------------------
@@ -580,13 +844,13 @@ tbody tr:last-child td {
 .bd-search {
     background-color: var(--oumi-bg-elevated) !important;
     border: 1px solid var(--oumi-border) !important;
-    border-radius: var(--radius-md) !important;
+    border-radius: var(--radius-lg) !important;
     transition: all var(--transition-fast);
 }
 
 .bd-search:focus-within {
-    border-color: var(--oumi-accent) !important;
-    box-shadow: 0 0 0 3px var(--oumi-accent-glow);
+    border-color: var(--oumi-primary-accent) !important;
+    box-shadow: 0 0 0 3px var(--oumi-primary-glow), var(--shadow-glow);
 }
 
 .bd-search input {
@@ -597,6 +861,18 @@ tbody tr:last-child td {
 
 .bd-search input::placeholder {
     color: var(--oumi-text-muted);
+}
+
+/* Search keyboard hint */
+.bd-search .search-button-field::after {
+    content: 'K';
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--oumi-text-muted);
+    background: var(--oumi-bg-hover);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    margin-left: var(--space-2);
 }
 
 /* --------------------------------------------------------------------------
@@ -611,39 +887,57 @@ tbody tr:last-child td {
 }
 
 .sig-name {
-    color: var(--oumi-accent) !important;
+    color: var(--oumi-primary-accent) !important;
     font-weight: 600;
 }
 
 dl.py.class, dl.py.function, dl.py.method, dl.py.attribute {
     background-color: var(--oumi-bg-secondary);
     border: 1px solid var(--oumi-border);
-    border-radius: var(--radius-md);
-    padding: var(--space-md);
-    margin: var(--space-lg) 0;
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin: var(--space-6) 0;
+    transition: all var(--transition-fast);
+}
+
+dl.py:hover {
+    border-color: var(--oumi-border-hover);
+    box-shadow: var(--shadow-md);
 }
 
 dl.py dt {
     font-family: var(--font-mono);
-    background-color: var(--oumi-bg-elevated);
-    padding: var(--space-sm) var(--space-md);
-    border-radius: var(--radius-sm);
-    margin-bottom: var(--space-md);
-    border-left: 3px solid var(--oumi-accent);
+    background: var(--oumi-bg-elevated);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-4);
+    border-left: 3px solid var(--oumi-primary-accent);
+    position: relative;
+}
+
+dl.py dt::before {
+    content: '';
+    position: absolute;
+    left: -3px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--oumi-gradient-primary);
 }
 
 .field-list {
-    margin: var(--space-md) 0;
+    margin: var(--space-4) 0;
 }
 
 .field-list dt {
-    font-family: var(--font-display);
+    font-family: var(--font-heading);
     font-weight: 600;
     color: var(--oumi-text-primary);
+    font-size: var(--text-sm);
 }
 
 .field-list dd {
-    margin-left: var(--space-lg);
+    margin-left: var(--space-6);
     color: var(--oumi-text-secondary);
 }
 
@@ -656,38 +950,71 @@ dl.py dt {
     border-radius: var(--radius-md) !important;
     color: var(--oumi-text-secondary) !important;
     font-family: var(--font-mono);
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
+    transition: all var(--transition-fast);
 }
 
 .version-switcher__button:hover {
-    border-color: var(--oumi-accent) !important;
-    color: var(--oumi-accent) !important;
+    border-color: var(--oumi-primary-accent) !important;
+    color: var(--oumi-primary-accent) !important;
+    box-shadow: var(--shadow-glow);
+}
+
+/* Custom sidebar: logo + version switcher combo */
+.sidebar-logo-version {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--space-4);
+    margin-bottom: var(--space-2);
+}
+
+.sidebar-logo-version .navbar-brand {
+    margin-bottom: var(--space-3);
+}
+
+.version-switcher-below-logo {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.version-switcher-below-logo .version-switcher__container {
+    width: auto;
+}
+
+.version-switcher-below-logo .version-switcher__button {
+    font-size: var(--text-xs);
+    padding: var(--space-1) var(--space-3);
+    background: transparent !important;
+    border: 1px solid var(--oumi-border) !important;
 }
 
 /* --------------------------------------------------------------------------
    FOOTER
    -------------------------------------------------------------------------- */
 .bd-footer {
-    background-color: var(--oumi-bg-secondary) !important;
+    background-color: var(--oumi-bg-base) !important;
     border-top: 1px solid var(--oumi-border) !important;
-    padding: var(--space-lg) 0;
+    padding: var(--space-8) 0;
 }
 
 .bd-footer a {
     color: var(--oumi-text-secondary) !important;
+    transition: color var(--transition-fast);
 }
 
 .bd-footer a:hover {
-    color: var(--oumi-accent) !important;
+    color: var(--oumi-primary-accent) !important;
 }
 
 /* --------------------------------------------------------------------------
    HOME PAGE SPECIFIC STYLES
    -------------------------------------------------------------------------- */
-/* Hero section styling */
+/* Hero section */
 .bd-content > div[align="center"]:first-child {
-    padding: var(--space-2xl) 0;
-    margin-bottom: var(--space-xl);
+    padding: var(--space-16) 0;
+    margin-bottom: var(--space-10);
     position: relative;
 }
 
@@ -697,28 +1024,79 @@ dl.py dt {
     bottom: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: 100px;
-    height: 3px;
-    background: linear-gradient(90deg, transparent, var(--oumi-accent), transparent);
+    width: 120px;
+    height: 4px;
+    background: var(--oumi-gradient-primary);
+    border-radius: var(--radius-sm);
 }
 
-/* Feature badges on home page */
-.bd-content > div[align="center"] + p img {
-    transition: transform var(--transition-fast), opacity var(--transition-fast);
-}
-
-.bd-content > div[align="center"] + p img:hover {
-    transform: scale(1.05);
+/* Feature badges on home page - grayscale hover */
+.bd-content > div[align="center"] + p img,
+.bd-content img[alt*="badge"],
+.bd-content img[src*="badge"] {
+    transition: all var(--transition-base);
+    filter: grayscale(20%);
     opacity: 0.9;
+}
+
+.bd-content > div[align="center"] + p img:hover,
+.bd-content img[alt*="badge"]:hover,
+.bd-content img[src*="badge"]:hover {
+    transform: scale(1.05);
+    filter: grayscale(0%);
+    opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   MERMAID DIAGRAMS
+   -------------------------------------------------------------------------- */
+.mermaid {
+    background-color: var(--oumi-bg-secondary) !important;
+    border: 1px solid var(--oumi-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    margin: var(--space-6) 0;
+}
+
+/* --------------------------------------------------------------------------
+   JUPYTER NOTEBOOK CELLS
+   -------------------------------------------------------------------------- */
+.cell {
+    border: 1px solid var(--oumi-border);
+    border-radius: var(--radius-lg);
+    margin: var(--space-4) 0;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.cell_input {
+    background-color: var(--oumi-code-bg);
+    border-bottom: 1px solid var(--oumi-border);
+}
+
+.cell_output {
+    background-color: var(--oumi-bg-secondary);
+    padding: var(--space-4);
+}
+
+/* Cell execution indicator */
+.cell[data-execution-count]::before {
+    content: 'In [' attr(data-execution-count) ']:';
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--oumi-primary-accent);
+    padding: var(--space-2) var(--space-4);
+    background: var(--oumi-bg-elevated);
+    display: block;
 }
 
 /* --------------------------------------------------------------------------
    ANIMATIONS
    -------------------------------------------------------------------------- */
-@keyframes fadeIn {
+@keyframes fadeInUp {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(20px);
     }
     to {
         opacity: 1;
@@ -726,19 +1104,15 @@ dl.py dt {
     }
 }
 
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.7;
-    }
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
-@keyframes slideIn {
+@keyframes slideInLeft {
     from {
         opacity: 0;
-        transform: translateX(-10px);
+        transform: translateX(-15px);
     }
     to {
         opacity: 1;
@@ -746,52 +1120,96 @@ dl.py dt {
     }
 }
 
-/* Apply fade-in to main content */
-.bd-content {
-    animation: fadeIn 0.4s ease-out;
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
 }
 
-/* Staggered animation for sidebar items */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Apply animations */
+.bd-content {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+/* Staggered sidebar animation */
 .bd-sidebar-primary .nav-link {
-    animation: slideIn 0.3s ease-out backwards;
+    animation: slideInLeft 0.4s ease-out backwards;
 }
 
 .bd-sidebar-primary .nav-link:nth-child(1) { animation-delay: 0.05s; }
-.bd-sidebar-primary .nav-link:nth-child(2) { animation-delay: 0.1s; }
-.bd-sidebar-primary .nav-link:nth-child(3) { animation-delay: 0.15s; }
-.bd-sidebar-primary .nav-link:nth-child(4) { animation-delay: 0.2s; }
-.bd-sidebar-primary .nav-link:nth-child(5) { animation-delay: 0.25s; }
+.bd-sidebar-primary .nav-link:nth-child(2) { animation-delay: 0.08s; }
+.bd-sidebar-primary .nav-link:nth-child(3) { animation-delay: 0.11s; }
+.bd-sidebar-primary .nav-link:nth-child(4) { animation-delay: 0.14s; }
+.bd-sidebar-primary .nav-link:nth-child(5) { animation-delay: 0.17s; }
+.bd-sidebar-primary .nav-link:nth-child(6) { animation-delay: 0.20s; }
+.bd-sidebar-primary .nav-link:nth-child(7) { animation-delay: 0.23s; }
+.bd-sidebar-primary .nav-link:nth-child(8) { animation-delay: 0.26s; }
 
-/* Code block focus effect */
-pre:focus-within {
-    border-color: var(--oumi-accent);
-    box-shadow: 0 0 0 3px var(--oumi-accent-glow);
+/* Cards - visible by default with subtle entrance animation */
+.sd-card {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out, box-shadow var(--transition-base);
 }
 
 /* --------------------------------------------------------------------------
    RESPONSIVE ADJUSTMENTS
    -------------------------------------------------------------------------- */
+@media (max-width: 992px) {
+    .bd-content {
+        padding: var(--space-6) var(--space-8);
+    }
+}
+
 @media (max-width: 768px) {
     .bd-article-container {
-        margin: var(--space-sm);
-        border-radius: var(--radius-md);
+        margin: 0;
+        border-radius: 0;
     }
 
     .bd-content {
-        padding: var(--space-md);
+        padding: var(--space-4) var(--space-5);
     }
 
     h1, .bd-content h1 {
-        font-size: 2rem;
+        font-size: var(--text-3xl);
     }
 
     h2, .bd-content h2 {
-        font-size: 1.5rem;
+        font-size: var(--text-2xl);
     }
 
     pre, .highlight pre {
-        padding: var(--space-sm) !important;
-        font-size: 0.8rem;
+        padding: var(--space-4) !important;
+        font-size: var(--text-xs);
+        border-radius: var(--radius-md);
+    }
+
+    .sd-card {
+        border-radius: var(--radius-lg) !important;
+    }
+
+    table {
+        font-size: var(--text-sm);
+    }
+
+    th, td {
+        padding: var(--space-3);
+    }
+}
+
+@media (max-width: 480px) {
+    .bd-content {
+        padding: var(--space-3) var(--space-4);
+    }
+
+    h1, .bd-content h1 {
+        font-size: var(--text-2xl);
     }
 }
 
@@ -802,75 +1220,39 @@ pre:focus-within {
     .bd-sidebar-primary,
     .bd-sidebar-secondary,
     .bd-header,
-    .bd-footer {
+    .bd-footer,
+    button.copybtn {
         display: none !important;
+    }
+
+    .bd-article-container {
+        border: none;
+        box-shadow: none;
+        margin: 0;
+        border-radius: 0;
     }
 
     .bd-content {
         background: white;
         color: black;
-        border: none;
-        box-shadow: none;
+        padding: 0;
+        animation: none;
     }
 
     a {
-        color: black !important;
+        color: #062c82 !important;
         text-decoration: underline;
     }
-}
 
-/* --------------------------------------------------------------------------
-   GEOMETRIC DECORATIONS
-   -------------------------------------------------------------------------- */
-/* Subtle grid pattern overlay for headers */
-/* Removed h1::before - the teal underline provides sufficient visual accent */
+    pre, .highlight pre {
+        border: 1px solid #ccc;
+        background: #f5f5f5 !important;
+    }
 
-/* Accent line under main title */
-.bd-content h1:first-of-type {
-    padding-bottom: var(--space-md);
-    margin-bottom: var(--space-xl);
-}
-
-.bd-content h1:first-of-type::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 60px;
-    height: 4px;
-    background: var(--oumi-accent);
-    border-radius: 2px;
-}
-
-/* --------------------------------------------------------------------------
-   MERMAID DIAGRAMS
-   -------------------------------------------------------------------------- */
-.mermaid {
-    background-color: var(--oumi-bg-secondary) !important;
-    border: 1px solid var(--oumi-border);
-    border-radius: var(--radius-md);
-    padding: var(--space-md);
-    margin: var(--space-lg) 0;
-}
-
-/* --------------------------------------------------------------------------
-   JUPYTER NOTEBOOK CELLS
-   -------------------------------------------------------------------------- */
-.cell {
-    border: 1px solid var(--oumi-border);
-    border-radius: var(--radius-md);
-    margin: var(--space-md) 0;
-    overflow: hidden;
-}
-
-.cell_input {
-    background-color: var(--oumi-code-bg);
-    border-bottom: 1px solid var(--oumi-border);
-}
-
-.cell_output {
-    background-color: var(--oumi-bg-secondary);
-    padding: var(--space-md);
+    .admonition {
+        border: 1px solid #ccc;
+        page-break-inside: avoid;
+    }
 }
 
 /* --------------------------------------------------------------------------
@@ -880,29 +1262,137 @@ pre:focus-within {
 .sd-card:hover,
 .admonition.important:hover,
 dl.py:hover {
-    box-shadow: 0 0 20px var(--oumi-accent-glow);
+    box-shadow: var(--shadow-lg), var(--shadow-glow);
 }
 
-/* Smooth underline animation for links in content */
-.bd-content p a,
-.bd-content li a {
-    position: relative;
-    text-decoration: none !important;
+/* Focus states for accessibility */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+    outline: 2px solid var(--oumi-primary-accent);
+    outline-offset: 2px;
 }
 
-.bd-content p a::after,
-.bd-content li a::after {
+/* Code block focus */
+pre:focus-within {
+    border-color: var(--oumi-primary-accent);
+    box-shadow: var(--shadow-glow);
+}
+
+/* --------------------------------------------------------------------------
+   LOGO WALL / PARTNER LOGOS (grayscale hover)
+   Only apply to logos in specific containers, not the main hero logo
+   -------------------------------------------------------------------------- */
+.logo-grid img,
+.partner-logos img,
+.bd-footer img[alt*="logo"],
+.bd-footer img[alt*="Logo"] {
+    filter: grayscale(100%) brightness(1.5);
+    opacity: 0.6;
+    transition: all var(--transition-base);
+}
+
+.logo-grid img:hover,
+.partner-logos img:hover,
+.bd-footer img[alt*="logo"]:hover,
+.bd-footer img[alt*="Logo"]:hover {
+    filter: grayscale(0%) brightness(1);
+    opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   TABS (sphinx-design) - Clean styling with bottom border like oumi.ai
+   -------------------------------------------------------------------------- */
+.sd-tab-set {
+    border: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+}
+
+.sd-tab-set > input:checked + label {
+    background: transparent !important;
+    color: var(--oumi-primary-accent) !important;
+    border: none !important;
+    border-bottom: 2px solid var(--oumi-primary-accent) !important;
+}
+
+.sd-tab-set > label {
+    font-family: var(--font-heading);
+    font-weight: 500;
+    font-size: var(--text-sm);
+    color: var(--oumi-text-secondary) !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    padding: var(--space-2) var(--space-4);
+    transition: all var(--transition-fast);
+}
+
+.sd-tab-set > label:hover {
+    color: var(--oumi-primary-accent) !important;
+    background: transparent !important;
+}
+
+.sd-tab-content {
+    background: var(--oumi-bg-elevated);
+    border: 1px solid var(--oumi-border) !important;
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+}
+
+/* --------------------------------------------------------------------------
+   DROPDOWN / ACCORDION (Content area only - exclude sidebar)
+   -------------------------------------------------------------------------- */
+.bd-content details {
+    border: 1px solid var(--oumi-border);
+    border-radius: var(--radius-lg);
+    margin: var(--space-4) 0;
+    overflow: hidden;
+    transition: all var(--transition-base);
+}
+
+.bd-content details:hover {
+    border-color: var(--oumi-border-hover);
+}
+
+.bd-content details[open] {
+    box-shadow: var(--shadow-md);
+}
+
+.bd-content summary {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    padding: var(--space-4);
+    background: var(--oumi-bg-elevated);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.bd-content summary::-webkit-details-marker {
+    display: none;
+}
+
+.bd-content summary::before {
     content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 0;
-    height: 2px;
-    background-color: var(--oumi-accent);
-    transition: width var(--transition-base);
+    font-size: var(--text-sm);
+    color: var(--oumi-primary-accent);
+    transition: transform var(--transition-fast);
 }
 
-.bd-content p a:hover::after,
-.bd-content li a:hover::after {
-    width: 100%;
+.bd-content details[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.bd-content summary:hover {
+    background: var(--oumi-bg-hover);
+    color: var(--oumi-primary-accent);
+}
+
+.bd-content details > :not(summary) {
+    padding: var(--space-4);
 }
