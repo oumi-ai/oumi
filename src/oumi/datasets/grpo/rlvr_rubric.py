@@ -102,33 +102,39 @@ def normalize_rubrics(rubrics: list) -> list[dict[str, Any]]:
     for i, rubric in enumerate(rubrics):
         if isinstance(rubric, str):
             # Simple string format
-            normalized.append({
-                "name": f"rubric_{i + 1}",
-                "description": rubric,
-                "weight": 1.0,
-                "importance_level": "Optional",
-                "evaluation_type": "binary",
-            })
+            normalized.append(
+                {
+                    "name": f"rubric_{i + 1}",
+                    "description": rubric,
+                    "weight": 1.0,
+                    "importance_level": "Optional",
+                    "evaluation_type": "binary",
+                }
+            )
         elif isinstance(rubric, dict):
             # Dict format - handle both RaR (title) and RLVR (name) formats
             name = rubric.get("name") or rubric.get("title") or f"rubric_{i + 1}"
             weight = float(rubric.get("weight", 1.0))
-            normalized.append({
-                "name": name,
-                "description": rubric.get("description", str(rubric)),
-                "weight": weight,
-                "importance_level": _infer_importance_level(weight),
-                "evaluation_type": rubric.get("evaluation_type", "binary"),
-            })
+            normalized.append(
+                {
+                    "name": name,
+                    "description": rubric.get("description", str(rubric)),
+                    "weight": weight,
+                    "importance_level": _infer_importance_level(weight),
+                    "evaluation_type": rubric.get("evaluation_type", "binary"),
+                }
+            )
         else:
             # Unknown format, convert to string
-            normalized.append({
-                "name": f"rubric_{i + 1}",
-                "description": str(rubric),
-                "weight": 1.0,
-                "importance_level": "Optional",
-                "evaluation_type": "binary",
-            })
+            normalized.append(
+                {
+                    "name": f"rubric_{i + 1}",
+                    "description": str(rubric),
+                    "weight": 1.0,
+                    "importance_level": "Optional",
+                    "evaluation_type": "binary",
+                }
+            )
     return normalized
 
 
@@ -199,16 +205,20 @@ class _RubricDatasetBase(BaseMapDataset):
 
         # Add system message if present
         if "system_prompt" in transformed and transformed["system_prompt"]:
-            messages.append({
-                "content": transformed["system_prompt"],
-                "role": "system",
-            })
+            messages.append(
+                {
+                    "content": transformed["system_prompt"],
+                    "role": "system",
+                }
+            )
 
         # Add user message
-        messages.append({
-            "content": transformed["prompt"],
-            "role": "user",
-        })
+        messages.append(
+            {
+                "content": transformed["prompt"],
+                "role": "user",
+            }
+        )
 
         return Conversation.from_dict({"messages": messages})
 
