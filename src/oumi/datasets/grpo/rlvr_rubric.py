@@ -14,7 +14,7 @@
 
 """RLVR (RL from Verifiable Rewards) dataset with rubric-based evaluation.
 
-This module provides a dataset class for loading prompts with associated rubrics
+This module provides dataset classes for loading prompts with associated rubrics
 for use with the rubric-based reward function in GRPO training.
 
 Supports two rubric formats:
@@ -51,9 +51,170 @@ from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation
 
+# Weight mapping from categorical importance levels to numeric weights
+# Based on the RaR paper's default scheme
+IMPORTANCE_WEIGHTS = {
+    "Essential": 5,
+    "Important": 4,
+    "Optional": 2,
+    "Pitfall": -1,  # Negative weight for anti-patterns
+}
+
+
+def _infer_importance_level(weight: int | float) -> str:
+    """Infer importance level from numeric weight.
+
+    Args:
+        weight: The numeric weight value.
+
+    Returns:
+        The importance level string.
+    """
+    if weight >= 5:
+        return "Essential"
+    elif weight >= 3:
+        return "Important"
+    elif weight >= 1:
+        return "Optional"
+    else:
+        return "Pitfall"
+
+
+def normalize_rubrics(rubrics: list) -> list[dict[str, Any]]:
+    """Normalize rubrics to the weighted format.
+
+    Handles multiple input formats:
+    - Simple strings: ["criterion 1", "criterion 2"]
+    - RaR format: [{"title": "...", "description": "...", "weight": 5}]
+    - RLVR format: [{"name": "...", "description": "...", "weight": 1.0}]
+
+    Args:
+        rubrics: List of rubrics in any supported format.
+
+    Returns:
+        List of normalized rubric dicts with name, description, weight,
+        importance_level, and evaluation_type fields.
+    """
+    if rubrics is None:
+        return []
+
+    normalized = []
+    for i, rubric in enumerate(rubrics):
+        if isinstance(rubric, str):
+            # Simple string format
+            normalized.append({
+                "name": f"rubric_{i + 1}",
+                "description": rubric,
+                "weight": 1.0,
+                "importance_level": "Optional",
+                "evaluation_type": "binary",
+            })
+        elif isinstance(rubric, dict):
+            # Dict format - handle both RaR (title) and RLVR (name) formats
+            name = rubric.get("name") or rubric.get("title") or f"rubric_{i + 1}"
+            weight = float(rubric.get("weight", 1.0))
+            normalized.append({
+                "name": name,
+                "description": rubric.get("description", str(rubric)),
+                "weight": weight,
+                "importance_level": _infer_importance_level(weight),
+                "evaluation_type": rubric.get("evaluation_type", "binary"),
+            })
+        else:
+            # Unknown format, convert to string
+            normalized.append({
+                "name": f"rubric_{i + 1}",
+                "description": str(rubric),
+                "weight": 1.0,
+                "importance_level": "Optional",
+                "evaluation_type": "binary",
+            })
+    return normalized
+
+
+class _RubricDatasetBase(BaseMapDataset):
+    """Base class for rubric-based datasets.
+
+    Provides common functionality for datasets that contain prompts with
+    associated rubrics for GRPO training with rubric-based rewards.
+
+    Subclasses should implement the `transform` method to handle their
+    specific data format.
+    """
+
+    def __init__(
+        self,
+        *,
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        split: str | None = None,
+        **kwargs,
+    ) -> None:
+        """Initialize the rubric dataset.
+
+        Args:
+            dataset_name: Name of the dataset.
+            dataset_path: Path to the dataset file or HuggingFace dataset.
+            split: Dataset split to load.
+            **kwargs: Additional arguments passed to BaseMapDataset.
+        """
+        super().__init__(
+            dataset_name=dataset_name,
+            dataset_path=dataset_path,
+            split=split,
+            **kwargs,
+        )
+        self._data = self._load_data()
+
+    def conversation(self, idx: int) -> Conversation:
+        """Returns the conversation at the specified index.
+
+        Args:
+            idx: The index of the conversation to retrieve.
+
+        Returns:
+            The conversation at the specified index.
+        """
+        sample = self.raw(idx)
+        return self.transform_conversation(sample)
+
+    def conversations(self) -> list[Conversation]:
+        """Returns a list of all conversations."""
+        return [self.conversation(i) for i in range(len(self))]
+
+    def transform_conversation(self, sample: dict | pd.Series) -> Conversation:
+        """Converts the input sample to a Conversation.
+
+        Args:
+            sample: The input example.
+
+        Returns:
+            The resulting conversation.
+        """
+        if isinstance(sample, dict):
+            sample = pd.Series(sample)
+        transformed = self.transform(sample)
+
+        messages = []
+
+        # Add system message if present
+        if "system_prompt" in transformed and transformed["system_prompt"]:
+            messages.append({
+                "content": transformed["system_prompt"],
+                "role": "system",
+            })
+
+        # Add user message
+        messages.append({
+            "content": transformed["prompt"],
+            "role": "user",
+        })
+
+        return Conversation.from_dict({"messages": messages})
+
 
 @register_dataset("oumi-rlvr-rubric")
-class RlvrRubricDataset(BaseMapDataset):
+class RlvrRubricDataset(_RubricDatasetBase):
     """Dataset for RLVR training with rubric-based rewards.
 
     This dataset loads prompts with associated rubrics from a JSONL file.
@@ -93,30 +254,6 @@ class RlvrRubricDataset(BaseMapDataset):
 
     default_dataset = "oumi-rlvr-rubric"
 
-    def __init__(
-        self,
-        *,
-        dataset_name: str | None = None,
-        dataset_path: str | None = None,
-        split: str | None = None,
-        **kwargs,
-    ) -> None:
-        """Initialize the RLVR Rubric dataset.
-
-        Args:
-            dataset_name: Name of the dataset (optional).
-            dataset_path: Path to the JSONL file containing the data.
-            split: Dataset split (optional, not used for local files).
-            **kwargs: Additional arguments passed to BaseMapDataset.
-        """
-        super().__init__(
-            dataset_name=dataset_name,
-            dataset_path=dataset_path,
-            split=split,
-            **kwargs,
-        )
-        self._data = self._load_data()
-
     @override
     def transform(self, sample: pd.Series) -> dict[str, Any]:
         """Transform a sample into the format expected by GRPO trainer.
@@ -144,9 +281,6 @@ class RlvrRubricDataset(BaseMapDataset):
         if not isinstance(rubrics, list):
             rubrics = [str(rubrics)]
 
-        # Normalize rubrics to the weighted format
-        normalized_rubrics = self._normalize_rubrics(rubrics)
-
         # Handle metadata that might be stored as JSON string
         if isinstance(metadata, str):
             try:
@@ -156,7 +290,7 @@ class RlvrRubricDataset(BaseMapDataset):
 
         result = {
             "prompt": str(prompt).strip(),
-            "rubrics": normalized_rubrics,
+            "rubrics": normalize_rubrics(rubrics),
         }
 
         # Add optional fields if present
@@ -168,110 +302,3 @@ class RlvrRubricDataset(BaseMapDataset):
             result["metadata"] = metadata
 
         return result
-
-    def _normalize_rubrics(self, rubrics: list) -> list[dict[str, Any]]:
-        """Normalize rubrics to the weighted format.
-
-        Converts simple string rubrics to the full dict format with default weights.
-
-        Args:
-            rubrics: List of strings or dicts.
-
-        Returns:
-            List of normalized rubric dicts.
-        """
-        normalized = []
-        for i, rubric in enumerate(rubrics):
-            if isinstance(rubric, str):
-                # Simple string format -> convert to weighted format
-                normalized.append(
-                    {
-                        "name": f"rubric_{i + 1}",
-                        "description": rubric,
-                        "weight": 1.0,
-                        "evaluation_type": "binary",
-                    }
-                )
-            elif isinstance(rubric, dict):
-                # Already in dict format, ensure required fields
-                normalized.append(
-                    {
-                        "name": rubric.get("name", f"rubric_{i + 1}"),
-                        "description": rubric.get("description", str(rubric)),
-                        "weight": float(rubric.get("weight", 1.0)),
-                        "evaluation_type": rubric.get("evaluation_type", "binary"),
-                    }
-                )
-            else:
-                # Unknown format, convert to string
-                normalized.append(
-                    {
-                        "name": f"rubric_{i + 1}",
-                        "description": str(rubric),
-                        "weight": 1.0,
-                        "evaluation_type": "binary",
-                    }
-                )
-        return normalized
-
-    def conversation(self, idx: int) -> Conversation:
-        """Returns the conversation at the specified index.
-
-        Args:
-            idx: The index of the conversation to retrieve.
-
-        Returns:
-            The conversation at the specified index.
-        """
-        sample = self.raw(idx)
-        return self.transform_conversation(sample)
-
-    def conversations(self) -> list[Conversation]:
-        """Returns a list of all conversations."""
-        return [self.conversation(i) for i in range(len(self))]
-
-    def transform_conversation(self, sample: dict | pd.Series) -> Conversation:
-        """Converts the input sample to a Conversation.
-
-        Args:
-            sample: The input example.
-
-        Returns:
-            The resulting conversation.
-        """
-        # Convert dict to Series if needed for transform()
-        if isinstance(sample, dict):
-            sample = pd.Series(sample)
-        transformed = self.transform(sample)
-        messages = []
-
-        # Add system message if present
-        if "system_prompt" in transformed:
-            messages.append(
-                {
-                    "content": transformed["system_prompt"],
-                    "role": "system",
-                }
-            )
-
-        # Add user message
-        messages.append(
-            {
-                "content": transformed["prompt"],
-                "role": "user",
-            }
-        )
-
-        conversation_dict = {"messages": messages}
-        return Conversation.from_dict(conversation_dict)
-
-
-@register_dataset("oumi-rlvr-rubric-hf")
-class RlvrRubricHfDataset(RlvrRubricDataset):
-    """RLVR Rubric dataset that can load from HuggingFace Hub.
-
-    This is a convenience class for loading RLVR datasets from
-    HuggingFace Hub. The dataset should have 'prompt' and 'rubrics' columns.
-    """
-
-    pass
