@@ -109,6 +109,8 @@ html_show_sphinx = False
 html_title = "Oumi"
 html_favicon = "_static/logo/favicon.png"
 html_static_path = ["_static"]
+html_css_files = ["custom.css"]
+html_js_files = ["custom.js"]
 
 add_module_names = True
 
@@ -141,7 +143,14 @@ html_theme_options = {
         "json_url": "https://oumi.ai/docs/version.json",
         "version_match": os.environ.get("OUMI_VERSION", "latest"),
     },
-    "navbar_start": ["version-switcher"],
+}
+
+html_sidebars = {
+    "**": [
+        "sidebar-logo-version.html",
+        "search-field.html",
+        "sbt-sidebar-nav.html",
+    ]
 }
 
 # see https://pygments.org/demo/ for options
