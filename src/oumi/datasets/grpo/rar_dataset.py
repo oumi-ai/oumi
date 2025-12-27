@@ -38,7 +38,7 @@ import pandas as pd
 from typing_extensions import override
 
 from oumi.core.registry import register_dataset
-from oumi.datasets.grpo.rlvr_rubric import _RubricDatasetBase, normalize_rubrics
+from oumi.datasets.grpo.rlvr_rubric import _RubricDatasetBase
 
 
 @register_dataset("rar-medicine")
@@ -62,7 +62,6 @@ class RaRMedicineDataset(_RubricDatasetBase):
             "name": "Identify Most Sensitive Modality",
             "description": "Essential Criteria: Identifies non-contrast helical CT...",
             "weight": 5,
-            "importance_level": "Essential",
             "evaluation_type": "binary"
         }
     """
@@ -75,7 +74,7 @@ class RaRMedicineDataset(_RubricDatasetBase):
 
         Maps the RaR dataset format to our rubric format:
         - question -> prompt
-        - rubric -> rubrics (normalized to our weighted format)
+        - rubric -> rubrics (with title -> name mapping)
         - reference_answer -> reference_answer (optional, for evaluation)
 
         Args:
@@ -85,18 +84,28 @@ class RaRMedicineDataset(_RubricDatasetBase):
             A dict with 'prompt', 'rubrics', and optional fields.
         """
         prompt = sample.get("question", "")
-        rubrics_raw = sample.get("rubric", [])
+        rubrics_raw = sample.get("rubric", []) or []
         reference_answer = sample.get("reference_answer", None)
         question_source = sample.get("question_source", None)
         rubric_count = sample.get("rubric_count", None)
 
-        rubrics = rubrics_raw if rubrics_raw is not None else []
+        # Convert RaR format (title) to standard format (name)
+        rubrics = [
+            {
+                "name": r.get("title", r.get("name", "")),
+                "description": r.get("description", ""),
+                "weight": float(r.get("weight", 1.0)),
+                "evaluation_type": r.get("evaluation_type", "binary"),
+            }
+            for r in rubrics_raw
+            if isinstance(r, dict)
+        ]
+
         result: dict[str, Any] = {
             "prompt": str(prompt).strip(),
-            "rubrics": normalize_rubrics(rubrics),
+            "rubrics": rubrics,
         }
 
-        # Add optional fields if present
         if reference_answer:
             result["reference_answer"] = str(reference_answer).strip()
         if question_source:
@@ -129,7 +138,6 @@ class RaRScienceDataset(RaRMedicineDataset):
             "name": "Temperature Conversion",
             "description": "Essential Criteria: The response must mention...",
             "weight": 5,
-            "importance_level": "Essential",
             "evaluation_type": "binary"
         }
     """
