@@ -53,6 +53,9 @@ jobs:
 
       - name: Build documentation
         run: |
+          python docs/_manage_doclinks.py copy docs/_doclinks.config
+          bash docs/_docsummaries.sh
+          sphinx-apidoc src/oumi --output-dir docs/api --remove-old --force --module-first --implicit-namespaces --maxdepth 2 --templatedir docs/_templates/apidoc
           sphinx-build -M html docs docs/_build -v
 
     # - name: Run doctests
