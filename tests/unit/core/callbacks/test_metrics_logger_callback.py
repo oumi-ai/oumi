@@ -78,6 +78,7 @@ class TestMetricsLoggerCallback:
             callback.on_log(args=None, state=None, control=None, logs=metrics)
 
         # Verify all entries were written
+        assert callback._metrics_log_file is not None
         with open(callback._metrics_log_file) as f:
             lines = f.readlines()
         assert len(lines) == 3
@@ -165,6 +166,7 @@ class TestMetricsLoggerCallback:
         # Should not raise
         callback.on_log(args=None, state=None, control=None, logs=metrics)
 
+        assert callback._metrics_log_file is not None
         with open(callback._metrics_log_file) as f:
             logged = json.loads(f.readline())
 

@@ -16,7 +16,6 @@
 
 import json
 import pathlib
-from typing import Optional, Union
 
 import transformers
 
@@ -41,13 +40,13 @@ class MetricsLoggerCallback(BaseTrainerCallback):
             output_dir: Directory where the metrics JSONL file will be written.
         """
         self._output_dir = output_dir
-        self._metrics_log_file: Optional[pathlib.Path] = None
+        self._metrics_log_file: pathlib.Path | None = None
 
     def on_log(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams | None,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called after logging metrics."""

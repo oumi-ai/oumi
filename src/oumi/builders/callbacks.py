@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -60,7 +61,9 @@ def build_training_callbacks(
     result: list[BaseTrainerCallback] = []
 
     if config.training.output_dir:
-        result.append(MetricsLoggerCallback(output_dir=config.training.output_dir))
+        result.append(
+            MetricsLoggerCallback(output_dir=Path(config.training.output_dir))
+        )
 
     if not config.training.include_performance_metrics:
         return result
