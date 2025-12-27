@@ -8,6 +8,7 @@ on:
     paths:
       - "docs/**"
       - "README.md"
+      - ".github/workflows/doctests.yaml"
   merge_group:
 
 jobs:
@@ -49,6 +50,10 @@ jobs:
       - name: Run pre-commit checks
         run: |
           pre-commit run --all-files --show-diff-on-failure
+
+      - name: Build documentation
+        run: |
+          sphinx-build -M html docs docs/_build -v
 
     # - name: Run doctests
     #   run: |
