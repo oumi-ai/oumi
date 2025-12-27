@@ -19,6 +19,7 @@ import torch
 from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from oumi.core.callbacks.bitnet_callback import BitNetCallback
 from oumi.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
+from oumi.core.callbacks.metrics_logger_callback import MetricsLoggerCallback
 from oumi.core.callbacks.mfu_callback import MfuTrainerCallback
 from oumi.core.callbacks.nan_inf_detection_callback import NanInfDetectionCallback
 from oumi.core.callbacks.profiler_step_callback import ProfilerStepCallback
@@ -57,6 +58,10 @@ def build_training_callbacks(
           training with non-packed datasets.
     """
     result: list[BaseTrainerCallback] = []
+
+    if config.training.output_dir:
+        result.append(MetricsLoggerCallback(output_dir=config.training.output_dir))
+
     if not config.training.include_performance_metrics:
         return result
 
