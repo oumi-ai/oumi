@@ -69,3 +69,7 @@ training:
 
   trainer_kwargs:
     vllm_mode: "colocate"
+    # Use Dr. GRPO loss to eliminate length and difficulty biases
+    # See: https://arxiv.org/abs/2503.20783
+    loss_type: "dr_grpo"
+    scale_rewards: False
