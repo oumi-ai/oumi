@@ -68,7 +68,7 @@ dependencies = [
     "skypilot>=0.10.2,<0.12",  # 0.10.2 and above is needed
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "torch>=2.6,<2.10.0",      # vllm only supports up to torch==2.7
-    "torchao>=0.12,<0.15",     # Used by transformers
+    "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.25", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
