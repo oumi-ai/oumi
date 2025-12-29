@@ -22,7 +22,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -109,7 +109,9 @@ class CostAnalyzer(SampleAnalyzer):
         effective_count = token_count + self.packing_overhead_tokens
 
         fits = effective_count <= context_size
-        utilization = min(effective_count / context_size, 1.0) if context_size > 0 else 0
+        utilization = (
+            min(effective_count / context_size, 1.0) if context_size > 0 else 0
+        )
         wasted = max(0, context_size - effective_count) if fits else 0
 
         return {
@@ -221,6 +223,13 @@ class CostAnalyzer(SampleAnalyzer):
         token_col = token_count_cols[0]
         analyzer_id = getattr(self, "analyzer_id", "cost")
 
+        # Extract the base column name (remove "_length_token_count" suffix)
+        # e.g., "conversation_text_content_length_token_count" -> "conversation_text_content"
+        # e.g., "text_content_length_token_count" -> "text_content"
+        base_col_name = token_col.replace("_length_token_count", "").replace(
+            "_token_count", ""
+        )
+
         # Compute per-sample context metrics for each window size
         for context_size in self.target_context_windows:
             size_name = self._get_context_window_name(context_size)
@@ -232,16 +241,39 @@ class CostAnalyzer(SampleAnalyzer):
                 )
             )
 
-            # Extract individual metrics
-            result_df[f"{analyzer_id}_fits_context_{size_name}"] = context_metrics.apply(
+            # Extract individual metrics - prefix with base column name
+            col_name = f"{base_col_name}_{analyzer_id}_fits_context_{size_name}"
+            result_df[col_name] = context_metrics.apply(
                 lambda m: m[f"fits_context_{size_name}"]
             )
-            result_df[
-                f"{analyzer_id}_context_utilization_{size_name}"
-            ] = context_metrics.apply(lambda m: m[f"context_utilization_{size_name}"])
-            result_df[
-                f"{analyzer_id}_tokens_wasted_{size_name}"
-            ] = context_metrics.apply(lambda m: m[f"tokens_wasted_{size_name}"])
+            generated_schema[col_name] = {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": f"Whether sample fits in {context_size} token context",
+            }
+
+            col_name = f"{base_col_name}_{analyzer_id}_context_utilization_{size_name}"
+            result_df[col_name] = context_metrics.apply(
+                lambda m: m[f"context_utilization_{size_name}"]
+            )
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": (
+                    f"Context window utilization ratio for {context_size} tokens "
+                    "(0.0 = empty, 1.0 = full)"
+                ),
+            }
+
+            col_name = f"{base_col_name}_{analyzer_id}_tokens_wasted_{size_name}"
+            result_df[col_name] = context_metrics.apply(
+                lambda m: m[f"tokens_wasted_{size_name}"]
+            )
+            generated_schema[col_name] = {
+                "type": ColumnType.INT,
+                "content_type": ContentType.NUMERIC,
+                "description": f"Unused tokens in {context_size} token context window",
+            }
 
         return result_df, generated_schema
 
@@ -290,12 +322,16 @@ class CostAnalyzer(SampleAnalyzer):
             fits_pct = (fits_count / len(token_counts)) * 100
 
             metrics[f"fits_context_{size_name}_pct"] = round(fits_pct, 2)
-            metrics[f"exceeds_context_{size_name}_count"] = len(token_counts) - fits_count
+            metrics[f"exceeds_context_{size_name}_count"] = (
+                len(token_counts) - fits_count
+            )
 
             # Packing efficiency for this context size
             if self.compute_packing_efficiency:
                 packing = self._compute_packing_efficiency(token_counts, context_size)
-                metrics[f"packing_efficiency_{size_name}"] = packing["packing_efficiency"]
+                metrics[f"packing_efficiency_{size_name}"] = packing[
+                    "packing_efficiency"
+                ]
                 metrics[f"estimated_batches_{size_name}"] = packing["estimated_batches"]
                 metrics[f"avg_batch_utilization_{size_name}"] = packing[
                     "avg_batch_utilization"
