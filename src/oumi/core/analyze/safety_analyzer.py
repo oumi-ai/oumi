@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -344,19 +344,41 @@ class SafetyAnalyzer(SampleAnalyzer):
             analysis_results = df[column].astype(str).apply(self._analyze_text)
 
             # Extract results to columns
-            result_df[f"{column}_{analyzer_id}_score"] = analysis_results.apply(
+            col_name = f"{column}_{analyzer_id}_score"
+            result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("safety_score")
             )
-            result_df[f"{column}_{analyzer_id}_is_safe"] = analysis_results.apply(
-                lambda r: r.get("is_safe")
-            )
-            result_df[f"{column}_{analyzer_id}_risk_level"] = analysis_results.apply(
-                lambda r: r.get("risk_level")
-            )
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Safety score (0.0 = unsafe, 1.0 = safe)",
+            }
+
+            col_name = f"{column}_{analyzer_id}_is_safe"
+            result_df[col_name] = analysis_results.apply(lambda r: r.get("is_safe"))
+            generated_schema[col_name] = {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether content is considered safe",
+            }
+
+            col_name = f"{column}_{analyzer_id}_risk_level"
+            result_df[col_name] = analysis_results.apply(lambda r: r.get("risk_level"))
+            generated_schema[col_name] = {
+                "type": ColumnType.STRING,
+                "content_type": ContentType.CATEGORICAL,
+                "description": "Risk level category (low/medium/high)",
+            }
 
             if self.include_categories:
-                result_df[
-                    f"{column}_{analyzer_id}_categories"
-                ] = analysis_results.apply(lambda r: r.get("safety_categories"))
+                col_name = f"{column}_{analyzer_id}_categories_triggered"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("safety_categories")
+                )
+                generated_schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.LIST,
+                    "description": "Comma-separated list of safety categories triggered",
+                }
 
         return result_df, generated_schema

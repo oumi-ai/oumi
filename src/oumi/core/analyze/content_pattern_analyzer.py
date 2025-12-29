@@ -25,7 +25,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -269,8 +269,8 @@ class ContentPatternAnalyzer(SampleAnalyzer):
 
         # Hallucinated experience detection
         if self.detect_hallucinated_experiences:
-            results["has_hallucinated_experience"] = self._detect_hallucinated_experience(
-                text
+            results["has_hallucinated_experience"] = (
+                self._detect_hallucinated_experience(text)
             )
 
         # Nooutput detection
@@ -349,31 +349,67 @@ class ContentPatternAnalyzer(SampleAnalyzer):
 
             # Add columns for each metric
             if self.detect_placeholders:
-                result_df[f"{column}_{analyzer_id}_has_placeholder"] = (
-                    analysis_results.apply(lambda r: r.get("has_placeholder", None))
+                col_name = f"{column}_{analyzer_id}_has_placeholder"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("has_placeholder", None)
                 )
-                result_df[f"{column}_{analyzer_id}_placeholder_count"] = (
-                    analysis_results.apply(lambda r: r.get("placeholder_count", None))
+                generated_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether text contains placeholder patterns",
+                }
+
+                col_name = f"{column}_{analyzer_id}_placeholder_count"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("placeholder_count", None)
                 )
-                result_df[f"{column}_{analyzer_id}_placeholder_types"] = (
-                    analysis_results.apply(lambda r: r.get("placeholder_types", None))
+                generated_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Number of placeholder patterns detected",
+                }
+
+                col_name = f"{column}_{analyzer_id}_placeholder_types"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("placeholder_types", None)
                 )
+                generated_schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.LIST,
+                    "description": "Comma-separated list of placeholder types detected",
+                }
 
             if self.detect_hallucinated_experiences:
-                result_df[f"{column}_{analyzer_id}_has_hallucinated_experience"] = (
-                    analysis_results.apply(
-                        lambda r: r.get("has_hallucinated_experience", None)
-                    )
+                col_name = f"{column}_{analyzer_id}_has_hallucinated_experience"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("has_hallucinated_experience", None)
                 )
+                generated_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether text contains hallucinated personal experience",
+                }
 
             if self.detect_nooutput:
-                result_df[f"{column}_{analyzer_id}_has_nooutput"] = (
-                    analysis_results.apply(lambda r: r.get("has_nooutput", None))
+                col_name = f"{column}_{analyzer_id}_has_nooutput"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("has_nooutput", None)
                 )
+                generated_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether response indicates no output/empty response",
+                }
 
             if self.detect_refusals:
-                result_df[f"{column}_{analyzer_id}_has_refusal"] = (
-                    analysis_results.apply(lambda r: r.get("has_refusal", None))
+                col_name = f"{column}_{analyzer_id}_has_refusal"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("has_refusal", None)
                 )
+                generated_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether response contains a refusal pattern",
+                }
 
         return result_df, generated_schema

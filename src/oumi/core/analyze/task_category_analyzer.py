@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -401,17 +401,42 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
                 analysis_results = df[column].astype(str).apply(self._classify_text)
 
             # Extract results to columns
-            result_df[f"{column}_{analyzer_id}_category"] = analysis_results.apply(
+            col_name = f"{column}_{analyzer_id}_category"
+            result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("task_category")
             )
-            result_df[f"{column}_{analyzer_id}_confidence"] = analysis_results.apply(
+            generated_schema[col_name] = {
+                "type": ColumnType.STRING,
+                "content_type": ContentType.CATEGORICAL,
+                "description": "Predicted task category",
+            }
+            
+            col_name = f"{column}_{analyzer_id}_confidence"
+            result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("task_confidence")
             )
-            result_df[f"{column}_{analyzer_id}_is_stem"] = analysis_results.apply(
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Confidence score for predicted category (0.0-1.0)",
+            }
+            
+            col_name = f"{column}_{analyzer_id}_is_stem"
+            result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("is_stem")
             )
-            result_df[
-                f"{column}_{analyzer_id}_is_conversational"
-            ] = analysis_results.apply(lambda r: r.get("is_conversational"))
+            generated_schema[col_name] = {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether task is in STEM category",
+            }
+            
+            col_name = f"{column}_{analyzer_id}_is_conversational"
+            result_df[col_name] = analysis_results.apply(lambda r: r.get("is_conversational"))
+            generated_schema[col_name] = {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether task is conversational in nature",
+            }
 
         return result_df, generated_schema
