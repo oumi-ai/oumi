@@ -410,7 +410,7 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
                 "content_type": ContentType.CATEGORICAL,
                 "description": "Predicted task category",
             }
-            
+
             col_name = f"{column}_{analyzer_id}_confidence"
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("task_confidence")
@@ -420,19 +420,19 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
                 "content_type": ContentType.NUMERIC,
                 "description": "Confidence score for predicted category (0.0-1.0)",
             }
-            
+
             col_name = f"{column}_{analyzer_id}_is_stem"
-            result_df[col_name] = analysis_results.apply(
-                lambda r: r.get("is_stem")
-            )
+            result_df[col_name] = analysis_results.apply(lambda r: r.get("is_stem"))
             generated_schema[col_name] = {
                 "type": ColumnType.BOOL,
                 "content_type": ContentType.BOOLEAN,
                 "description": "Whether task is in STEM category",
             }
-            
+
             col_name = f"{column}_{analyzer_id}_is_conversational"
-            result_df[col_name] = analysis_results.apply(lambda r: r.get("is_conversational"))
+            result_df[col_name] = analysis_results.apply(
+                lambda r: r.get("is_conversational")
+            )
             generated_schema[col_name] = {
                 "type": ColumnType.BOOL,
                 "content_type": ContentType.BOOLEAN,
