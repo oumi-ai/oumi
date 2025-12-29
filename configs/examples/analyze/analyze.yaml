@@ -75,7 +75,7 @@ analyzers:
       detect_json: true
       detect_code_blocks: true
       detect_urls: true
-      detect_emails: false
+      detect_emails: true
       compute_complexity: true
 
   # ---------------------------------------------------------------------------
