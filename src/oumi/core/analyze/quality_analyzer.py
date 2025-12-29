@@ -385,7 +385,10 @@ class QualityAnalyzer(SampleAnalyzer):
                 generated_schema[col_name] = {
                     "type": ColumnType.FLOAT,
                     "content_type": ContentType.NUMERIC,
-                    "description": "Ratio of repeated n-grams (0.0 = no repetition, 1.0 = complete repetition)",
+                    "description": (
+                        "Ratio of repeated n-grams "
+                        "(0.0 = no repetition, 1.0 = complete repetition)"
+                    ),
                 }
 
                 col_name = f"{column}_{analyzer_id}_has_high_repetition"
