@@ -19,7 +19,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -47,18 +47,10 @@ class QualityAnalyzer(SampleAnalyzer):
     """
 
     # PII detection patterns
-    _EMAIL_PATTERN = re.compile(
-        r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-    )
-    _PHONE_PATTERN = re.compile(
-        r"(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}"
-    )
-    _SSN_PATTERN = re.compile(
-        r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b"
-    )
-    _CREDIT_CARD_PATTERN = re.compile(
-        r"\b(?:\d{4}[-\s]?){3}\d{4}\b"
-    )
+    _EMAIL_PATTERN = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+    _PHONE_PATTERN = re.compile(r"(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}")
+    _SSN_PATTERN = re.compile(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b")
+    _CREDIT_CARD_PATTERN = re.compile(r"\b(?:\d{4}[-\s]?){3}\d{4}\b")
     _API_KEY_PATTERN = re.compile(
         r"(?:api[_-]?key|secret|token|password|auth)[\"']?\s*[:=]\s*[\"']?[\w-]{16,}",
         re.IGNORECASE,
@@ -281,7 +273,9 @@ class QualityAnalyzer(SampleAnalyzer):
         if self.detect_repetition:
             repetition_ratio = self._compute_repetition_ratio(text)
             results["repetition_ratio"] = repetition_ratio
-            results["has_high_repetition"] = repetition_ratio > self.repetition_threshold
+            results["has_high_repetition"] = (
+                repetition_ratio > self.repetition_threshold
+            )
 
         return results
 
@@ -327,35 +321,81 @@ class QualityAnalyzer(SampleAnalyzer):
 
             # Add columns for each metric
             if self.detect_pii:
-                result_df[f"{column}_{analyzer_id}_has_pii"] = analysis_results.apply(
-                    lambda r: r["has_pii"]
-                )
-                result_df[f"{column}_{analyzer_id}_pii_types"] = analysis_results.apply(
-                    lambda r: r["pii_types"]
-                )
-                result_df[f"{column}_{analyzer_id}_pii_count"] = analysis_results.apply(
-                    lambda r: r["pii_count"]
-                )
+                col_name = f"{column}_{analyzer_id}_has_pii"
+                result_df[col_name] = analysis_results.apply(lambda r: r["has_pii"])
+                generated_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": f"Whether text contains PII",
+                }
+
+                col_name = f"{column}_{analyzer_id}_pii_types"
+                result_df[col_name] = analysis_results.apply(lambda r: r["pii_types"])
+                generated_schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.LIST,
+                    "description": (f"Comma-separated list of PII types detected."),
+                }
+
+                col_name = f"{column}_{analyzer_id}_pii_count"
+                result_df[col_name] = analysis_results.apply(lambda r: r["pii_count"])
+                generated_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Total count of PII instances.",
+                }
 
             if self.detect_language:
-                result_df[
-                    f"{column}_{analyzer_id}_detected_language"
-                ] = analysis_results.apply(lambda r: r.get("detected_language", ""))
-                result_df[
-                    f"{column}_{analyzer_id}_language_confidence"
-                ] = analysis_results.apply(lambda r: r.get("language_confidence", 0.0))
+                col_name = f"{column}_{analyzer_id}_detected_language"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("detected_language", "")
+                )
+                generated_schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": f"Detected language.",
+                }
+
+                col_name = f"{column}_{analyzer_id}_language_confidence"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("language_confidence", 0.0)
+                )
+                generated_schema[col_name] = {
+                    "type": ColumnType.FLOAT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Language detection confidence score.",
+                }
 
             if self.detect_encoding_issues:
-                result_df[
-                    f"{column}_{analyzer_id}_has_encoding_issues"
-                ] = analysis_results.apply(lambda r: r["has_encoding_issues"])
+                col_name = f"{column}_{analyzer_id}_has_encoding_issues"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r["has_encoding_issues"]
+                )
+                generated_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": f"Whether text has encoding issues",
+                }
 
             if self.detect_repetition:
-                result_df[
-                    f"{column}_{analyzer_id}_repetition_ratio"
-                ] = analysis_results.apply(lambda r: r["repetition_ratio"])
-                result_df[
-                    f"{column}_{analyzer_id}_has_high_repetition"
-                ] = analysis_results.apply(lambda r: r["has_high_repetition"])
+                col_name = f"{column}_{analyzer_id}_repetition_ratio"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r["repetition_ratio"]
+                )
+                generated_schema[col_name] = {
+                    "type": ColumnType.FLOAT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Repetition ratio.",
+                }
+
+                col_name = f"{column}_{analyzer_id}_has_high_repetition"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r["has_high_repetition"]
+                )
+                generated_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": f"Whether text has high repetition",
+                }
 
         return result_df, generated_schema
