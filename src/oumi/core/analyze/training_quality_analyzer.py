@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -204,27 +204,54 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
                 )
             else:
                 # No role column - analyze as generic text
-                analysis_results = df[column].astype(str).apply(
-                    lambda text: self._analyze_message(text, "")
+                analysis_results = (
+                    df[column]
+                    .astype(str)
+                    .apply(lambda text: self._analyze_message(text, ""))
                 )
 
             # Extract response completeness metrics (for assistant messages)
             if self.compute_response_completeness:
-                result_df[
-                    f"{column}_{analyzer_id}_response_completeness_score"
-                ] = analysis_results.apply(
+                col_name = f"{column}_{analyzer_id}_response_completeness_score"
+                result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("response_completeness_score", None)
                 )
-                result_df[
-                    f"{column}_{analyzer_id}_has_proper_ending"
-                ] = analysis_results.apply(lambda r: r.get("has_proper_ending", None))
-                result_df[
-                    f"{column}_{analyzer_id}_has_structure"
-                ] = analysis_results.apply(lambda r: r.get("has_structure", None))
-                result_df[
-                    f"{column}_{analyzer_id}_response_word_count"
-                ] = analysis_results.apply(
+                generated_schema[col_name] = {
+                    "type": ColumnType.FLOAT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": (
+                        "Response completeness score (0.0 = incomplete, 1.0 = complete)"
+                    ),
+                }
+
+                col_name = f"{column}_{analyzer_id}_has_proper_ending"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("has_proper_ending", None)
+                )
+                generated_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether response has proper sentence ending",
+                }
+
+                col_name = f"{column}_{analyzer_id}_has_structure"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("has_structure", None)
+                )
+                generated_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether response has clear structure",
+                }
+
+                col_name = f"{column}_{analyzer_id}_response_word_count"
+                result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("response_word_count", None)
                 )
+                generated_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Word count of response",
+                }
 
         return result_df, generated_schema
