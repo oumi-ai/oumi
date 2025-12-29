@@ -121,7 +121,7 @@ gpu = [
     "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
-    "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
+    "verl>=0.5,<0.7; python_version >= '3.10'", # Used for the VERL_GRPO trainer
     "vllm>=0.10,<0.11",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
 ]
 
