@@ -137,7 +137,6 @@ class LengthAnalyzer(SampleAnalyzer):
         analyzer_id = getattr(self, "analyzer_id", "length")
 
         for column in text_columns:
-<<<<<<< HEAD
             if self.char_count:
                 col_name = f"{column}_{analyzer_id}_char_count"
                 result_df[col_name] = df[column].astype(str).str.len()

@@ -15,7 +15,7 @@
 import warnings
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from omegaconf import MISSING
 
@@ -165,7 +165,7 @@ class AnalyzeConfig(BaseConfig):
     HTML file.
     """
 
-    report_title: Optional[str] = None
+    report_title: str | None = None
     """Custom title for the HTML report.
 
     If not provided, a default title will be generated based on the dataset name.

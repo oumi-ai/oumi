@@ -340,7 +340,7 @@ class DistributionAnalysisResult:
     num_modes: int
     global_statistics: dict
     mode_statistics: list[ModeStatistics] = field(default_factory=list)
-    mode_assignments: Optional[list[int]] = None  # Per-sample mode assignment
+    mode_assignments: list[int] | None = None  # Per-sample mode assignment
     confidence: float = 0.0  # Mode separation confidence (0-1)
 
 
@@ -461,7 +461,11 @@ def detect_distribution_type(
 
         # Get mode assignments and compute per-mode statistics
         labels = best_gmm.predict(X)
-        mode_stats = compute_mode_statistics(clean_series, labels, best_gmm.weights_)
+        mode_stats = compute_mode_statistics(
+            clean_series,
+            labels,
+            best_gmm.weights_,  # type: ignore
+        )
 
         # Determine distribution type
         if best_n_components == 1:
@@ -722,7 +726,6 @@ def compute_statistics_with_distribution(
         ]
 
     return base_stats
->>>>>>> c36161e6 (milestone)
 
 
 def conversation_to_dataframes(
