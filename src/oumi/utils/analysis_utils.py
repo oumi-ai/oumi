@@ -1040,12 +1040,12 @@ def get_conversation_schema() -> dict:
         # Conversation DataFrame columns
         "conversation_index": {
             "type": ColumnType.INT,
-            "content_type": ContentType.METADATA,
+            "content_type": ContentType.IDENTIFIER,
             "description": "Conversation index in dataset",
         },
         "conversation_id": {
             "type": ColumnType.STRING,
-            "content_type": ContentType.METADATA,
+            "content_type": ContentType.IDENTIFIER,
             "description": "Conversation identifier",
         },
         "num_messages": {
@@ -1061,12 +1061,12 @@ def get_conversation_schema() -> dict:
         # Message DataFrame columns
         "message_index": {
             "type": ColumnType.INT,
-            "content_type": ContentType.METADATA,
+            "content_type": ContentType.IDENTIFIER,
             "description": "Message index within conversation",
         },
         "message_id": {
             "type": ColumnType.STRING,
-            "content_type": ContentType.METADATA,
+            "content_type": ContentType.IDENTIFIER,
             "description": "Message identifier",
         },
         "role": {
@@ -1078,32 +1078,6 @@ def get_conversation_schema() -> dict:
             "type": ColumnType.STRING,
             "content_type": ContentType.TEXT,
             "description": "Message text content",
-        },
-        # Additional fields that might be present
-        "timestamp": {
-            "type": ColumnType.TIMESTAMP,
-            "content_type": ContentType.METADATA,
-            "description": "Message timestamp",
-        },
-        "processing_time": {
-            "type": ColumnType.FLOAT,
-            "content_type": ContentType.NUMERIC,
-            "description": "AI processing time in seconds",
-        },
-        "model": {
-            "type": ColumnType.STRING,
-            "content_type": ContentType.METADATA,
-            "description": "Model used for generation",
-        },
-        "temperature": {
-            "type": ColumnType.FLOAT,
-            "content_type": ContentType.METADATA,
-            "description": "Sampling temperature",
-        },
-        "max_tokens": {
-            "type": ColumnType.INT,
-            "content_type": ContentType.METADATA,
-            "description": "Maximum tokens to generate",
         },
     }
 
@@ -1230,37 +1204,6 @@ def get_pretraining_schema() -> dict:
             "type": ColumnType.STRING,
             "content_type": ContentType.TEXT,
             "description": "Text content (alternative field name)",
-        },
-        # Metadata fields common in pretraining datasets
-        "url": {
-            "type": ColumnType.STRING,
-            "content_type": ContentType.METADATA,
-            "description": "Source URL",
-        },
-        "timestamp": {
-            "type": ColumnType.TIMESTAMP,
-            "content_type": ContentType.METADATA,
-            "description": "Content timestamp",
-        },
-        "source": {
-            "type": ColumnType.STRING,
-            "content_type": ContentType.CATEGORICAL,
-            "description": "Data source identifier",
-        },
-        "language": {
-            "type": ColumnType.STRING,
-            "content_type": ContentType.CATEGORICAL,
-            "description": "Content language",
-        },
-        "quality_score": {
-            "type": ColumnType.FLOAT,
-            "content_type": ContentType.NUMERIC,
-            "description": "Content quality score",
-        },
-        "length": {
-            "type": ColumnType.INT,
-            "content_type": ContentType.NUMERIC,
-            "description": "Content length in characters",
         },
     }
 

@@ -326,7 +326,7 @@ class DifficultyAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields for difficulty estimation.
 
         Args:
@@ -334,9 +334,11 @@ class DifficultyAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added difficulty analysis columns.
+            Tuple of (DataFrame with added difficulty analysis columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -352,7 +354,7 @@ class DifficultyAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         # Find the role column if needed
         role_column = None
@@ -409,4 +411,4 @@ class DifficultyAnalyzer(SampleAnalyzer):
                     f"{column}_{analyzer_id}_constraint_count"
                 ] = analysis_results.apply(lambda r: r.get("constraint_count"))
 
-        return result_df
+        return result_df, generated_schema

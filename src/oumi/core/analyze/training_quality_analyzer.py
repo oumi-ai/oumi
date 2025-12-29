@@ -147,7 +147,7 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields for training quality metrics.
 
         This analyzer is role-aware:
@@ -158,9 +158,11 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added training quality analysis columns.
+            Tuple of (DataFrame with added training quality analysis columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -176,7 +178,7 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         # Find the role column
         role_column = None
@@ -225,4 +227,4 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
                     lambda r: r.get("response_word_count", None)
                 )
 
-        return result_df
+        return result_df, generated_schema

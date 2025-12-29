@@ -293,7 +293,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields using embedding-based diversity scoring.
 
         This method computes diversity scores for each sample based on their
@@ -304,13 +304,15 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added diversity analysis columns:
+            Tuple of (DataFrame with added diversity analysis columns,
+            generated column schema dict).
             - {col}_repr_diversity_nn_distance: Distance to nearest neighbor
             - {col}_repr_diversity_score: Mean distance to K nearest neighbors
             - {col}_repr_diversity_is_redundant: True if below threshold
             - {col}_repr_diversity_percentile: Percentile rank of diversity score
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -326,7 +328,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         # Get analyzer ID for column naming
         analyzer_id = getattr(self, "analyzer_id", "repr_diversity")
@@ -496,7 +498,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 f"({redundant_count/len(texts_to_embed)*100:.1f}%) are redundant"
             )
 
-        return result_df
+        return result_df, generated_schema
 
     def compute_dataset_metrics(
         self,

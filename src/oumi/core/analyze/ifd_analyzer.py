@@ -469,7 +469,7 @@ class IFDAnalyzer(SampleAnalyzer):
             f"out of {total_assistant_msgs} total."
         )
 
-        return result_df
+        return result_df, generated_schema
 
     def _analyze_flat_format(
         self,
@@ -525,13 +525,13 @@ class IFDAnalyzer(SampleAnalyzer):
             r["response_loss"] for r in results
         ]
 
-        return result_df
+        return result_df, generated_schema
 
     def analyze_sample(
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze instruction-response pairs for IFD scores.
 
         This analyzer supports two data formats:
@@ -548,9 +548,11 @@ class IFDAnalyzer(SampleAnalyzer):
             schema: Column schema dict (used to identify columns if not set).
 
         Returns:
-            DataFrame with added IFD analysis columns.
+            Tuple of (DataFrame with added IFD analysis columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
         analyzer_id = getattr(self, "analyzer_id", "ifd")
 
         # Load model
@@ -577,7 +579,7 @@ class IFDAnalyzer(SampleAnalyzer):
                 "For conversation format, ensure 'text_content' and 'role' exist. "
                 f"Available columns: {list(df.columns)}"
             )
-            return result_df
+            return result_df, generated_schema
 
         logger.info(
             f"Computing IFD scores using instruction='{instruction_col}', "
@@ -598,4 +600,4 @@ class IFDAnalyzer(SampleAnalyzer):
                 f"Min: {min(ifd_scores):.3f}, Max: {max(ifd_scores):.3f}"
             )
 
-        return result_df
+        return result_df, generated_schema

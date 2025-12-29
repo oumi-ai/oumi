@@ -137,41 +137,6 @@ class LengthAnalyzer(SampleAnalyzer):
         analyzer_id = getattr(self, "analyzer_id", "length")
 
         for column in text_columns:
-            if self.char_count:
-                col_name = f"{column}_{analyzer_id}_char_count"
-                result_df[col_name] = df[column].astype(str).str.len()
-                generated_schema[col_name] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": f"Character count for {column}",
-                }
-
-            if self.word_count:
-                col_name = f"{column}_{analyzer_id}_word_count"
-                result_df[col_name] = df[column].astype(str).str.split().str.len()
-                generated_schema[col_name] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": f"Word count for {column}",
-                }
-
-            if self.sentence_count:
-                col_name = f"{column}_{analyzer_id}_sentence_count"
-                result_df[col_name] = (
-                    df[column]
-                    .astype(str)
-                    .apply(
-                        lambda text: len(
-                            [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
-                        )
-                    )
-                )
-                generated_schema[col_name] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": f"Sentence count for {column}",
-                }
-
             if self.token_count:
                 col_name = f"{column}_{analyzer_id}_token_count"
                 if self.tokenizer is not None:

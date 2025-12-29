@@ -470,7 +470,7 @@ class EmbeddingAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields using embeddings for semantic analysis.
 
         Args:
@@ -478,9 +478,11 @@ class EmbeddingAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added embedding analysis columns.
+            Tuple of (DataFrame with added embedding analysis columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -497,7 +499,7 @@ class EmbeddingAnalyzer(SampleAnalyzer):
 
         if not text_columns:
             # No text columns to analyze in this DataFrame, return unchanged
-            return result_df
+            return result_df, generated_schema
 
         # Get analyzer ID for column naming
         analyzer_id = getattr(self, "analyzer_id", "embedding")
@@ -664,4 +666,4 @@ class EmbeddingAnalyzer(SampleAnalyzer):
                     emb.tolist() for emb in embeddings
                 ]
 
-        return result_df
+        return result_df, generated_schema

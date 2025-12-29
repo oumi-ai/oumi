@@ -289,7 +289,7 @@ class QualityAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields for quality and safety issues.
 
         Args:
@@ -297,9 +297,11 @@ class QualityAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added quality analysis columns.
+            Tuple of (DataFrame with added quality analysis columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -315,7 +317,7 @@ class QualityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         analyzer_id = getattr(self, "analyzer_id", "quality")
 
@@ -356,4 +358,4 @@ class QualityAnalyzer(SampleAnalyzer):
                     f"{column}_{analyzer_id}_has_high_repetition"
                 ] = analysis_results.apply(lambda r: r["has_high_repetition"])
 
-        return result_df
+        return result_df, generated_schema

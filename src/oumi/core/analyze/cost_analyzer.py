@@ -186,7 +186,7 @@ class CostAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze samples for cost optimization metrics.
 
         This method looks for token count columns in the DataFrame and
@@ -197,9 +197,11 @@ class CostAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added cost analysis columns.
+            Tuple of (DataFrame with added cost analysis columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -213,7 +215,7 @@ class CostAnalyzer(SampleAnalyzer):
 
         if not token_count_cols:
             # No token count columns - return unchanged
-            return result_df
+            return result_df, generated_schema
 
         # Use the first token count column found
         token_col = token_count_cols[0]
@@ -241,7 +243,7 @@ class CostAnalyzer(SampleAnalyzer):
                 f"{analyzer_id}_tokens_wasted_{size_name}"
             ] = context_metrics.apply(lambda m: m[f"tokens_wasted_{size_name}"])
 
-        return result_df
+        return result_df, generated_schema
 
     def compute_dataset_metrics(
         self,

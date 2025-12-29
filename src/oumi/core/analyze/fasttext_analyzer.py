@@ -396,7 +396,7 @@ class FastTextAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields for language and script detection.
 
         Args:
@@ -404,9 +404,11 @@ class FastTextAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added language analysis columns.
+            Tuple of (DataFrame with added language analysis columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -422,7 +424,7 @@ class FastTextAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         # Initialize detector
         self._init_detector()
@@ -460,7 +462,7 @@ class FastTextAnalyzer(SampleAnalyzer):
                     analysis_results.apply(lambda r: r.get("is_multilingual"))
                 )
 
-        return result_df
+        return result_df, generated_schema
 
     def compute_dataset_metrics(
         self,

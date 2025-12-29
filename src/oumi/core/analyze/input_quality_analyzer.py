@@ -321,7 +321,7 @@ class InputQualityAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields for input quality metrics.
 
         Args:
@@ -329,9 +329,11 @@ class InputQualityAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added input quality analysis columns.
+            Tuple of (DataFrame with added input quality analysis columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -347,7 +349,7 @@ class InputQualityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         # Find the role column if needed
         role_column = None
@@ -402,4 +404,4 @@ class InputQualityAnalyzer(SampleAnalyzer):
                     f"{column}_{analyzer_id}_has_sufficient_context"
                 ] = analysis_results.apply(lambda r: r.get("has_sufficient_context"))
 
-        return result_df
+        return result_df, generated_schema

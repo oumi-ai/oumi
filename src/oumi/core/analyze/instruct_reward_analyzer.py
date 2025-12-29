@@ -349,7 +349,7 @@ class InstructRewardAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields for instruct reward metrics.
 
         Args:
@@ -357,9 +357,11 @@ class InstructRewardAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added instruct reward analysis columns.
+            Tuple of (DataFrame with added instruct reward analysis columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -375,7 +377,7 @@ class InstructRewardAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         # Find the role column if needed
         role_column = None
@@ -430,4 +432,4 @@ class InstructRewardAnalyzer(SampleAnalyzer):
                     lambda r: r.get("clarity_score")
                 )
 
-        return result_df
+        return result_df, generated_schema

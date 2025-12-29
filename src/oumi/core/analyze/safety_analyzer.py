@@ -308,7 +308,7 @@ class SafetyAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields for safety concerns.
 
         Args:
@@ -316,9 +316,11 @@ class SafetyAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added safety analysis columns.
+            Tuple of (DataFrame with added safety analysis columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -334,7 +336,7 @@ class SafetyAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         analyzer_id = getattr(self, "analyzer_id", "safety")
 
@@ -357,4 +359,4 @@ class SafetyAnalyzer(SampleAnalyzer):
                     f"{column}_{analyzer_id}_categories"
                 ] = analysis_results.apply(lambda r: r.get("safety_categories"))
 
-        return result_df
+        return result_df, generated_schema

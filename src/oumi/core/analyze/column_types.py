@@ -60,8 +60,14 @@ class ContentType(str, Enum):
     NUMERIC = "numeric"
     """Numeric content that can be analyzed statistically."""
 
-    METADATA = "metadata"
-    """Metadata content that provides context but is not analyzed."""
+    BOOLEAN = "boolean"
+    """Boolean flags that can be analyzed for true/false distributions."""
 
     CATEGORICAL = "categorical"
-    """Categorical content that can be analyzed for distributions."""
+    """Single-valued categorical content that can be analyzed for distributions."""
+
+    LIST = "list"
+    """Multi-valued list/array content (e.g., comma-separated values)."""
+
+    IDENTIFIER = "identifier"
+    """Unique identifiers, keys, or IDs used for indexing and joins."""

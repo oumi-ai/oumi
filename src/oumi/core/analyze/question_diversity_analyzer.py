@@ -381,7 +381,7 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze question diversity in the dataset.
 
         This analyzer focuses on user messages (questions) to measure
@@ -395,10 +395,11 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text and role fields.
 
         Returns:
-            DataFrame with added question diversity columns:
+            Tuple of (DataFrame with added question diversity columns:
             - question_cluster_id: Which cluster this question belongs to
               For DBSCAN clustering, -1 indicates "noise" points - questions
-              that are unique/diverse and don't match any cluster. This is
+              that are unique/diverse and don't match any cluster.
+            generated column schema dict). This is
               a positive indicator of diversity, not an error.
             - question_cluster_size: Number of questions in same cluster
             - is_in_concentrated_cluster: True if in a cluster with >threshold samples
@@ -406,6 +407,7 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
               because they represent unique, diverse questions.
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -421,7 +423,7 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         # Find role column to filter for user messages
         role_column = None
@@ -561,7 +563,7 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
                         largest_ratio, 4
                     )
 
-        return result_df
+        return result_df, generated_schema
 
     def compute_dataset_metrics(
         self,

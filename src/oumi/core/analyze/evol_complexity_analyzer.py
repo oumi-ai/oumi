@@ -261,7 +261,7 @@ JSON ranking:"""
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze instruction complexity using evolved variant ranking.
 
         Args:
@@ -269,12 +269,14 @@ JSON ranking:"""
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added complexity analysis columns:
+            Tuple of (DataFrame with added complexity analysis columns,
+            generated column schema dict).
             - {col}_evol_complexity_score: Normalized score 0-1
             - {col}_evol_complexity_rank: Raw rank position
             - {col}_evol_complexity_headroom: Potential for more complexity
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -288,7 +290,7 @@ JSON ranking:"""
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         analyzer_id = getattr(self, "analyzer_id", "evol_complexity")
         role_column = self._find_role_column(df, schema)
@@ -393,7 +395,7 @@ JSON ranking:"""
                     f"{self._dataset_metrics[column]['mean_complexity_score']:.3f}"
                 )
 
-        return result_df
+        return result_df, generated_schema
 
     def compute_dataset_metrics(
         self,

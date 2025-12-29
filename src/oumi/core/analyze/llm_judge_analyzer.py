@@ -646,7 +646,7 @@ JSON response:""",
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields using LLM evaluation.
 
         Args:
@@ -654,9 +654,11 @@ JSON response:""",
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added LLM judge columns.
+            Tuple of (DataFrame with added LLM judge columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -672,7 +674,7 @@ JSON response:""",
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         analyzer_id = getattr(self, "analyzer_id", "llm_judge")
 
@@ -700,4 +702,4 @@ JSON response:""",
                 r["raw_response"] for r in all_results
             ]
 
-        return result_df
+        return result_df, generated_schema

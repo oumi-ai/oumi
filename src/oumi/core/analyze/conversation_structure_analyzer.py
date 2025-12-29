@@ -152,7 +152,7 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze conversation structure.
 
         This analyzer works at the conversation level, not message level.
@@ -164,9 +164,11 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             schema: Column schema dict.
 
         Returns:
-            DataFrame with added conversation structure columns.
+            Tuple of (DataFrame with added conversation structure columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         # Check for conversation_id column
         if "conversation_id" not in df.columns:
@@ -184,7 +186,7 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             result_df[f"{analyzer_id}_role_balance"] = 0.5
             result_df[f"{analyzer_id}_has_system_prompt"] = False
 
-            return result_df
+            return result_df, generated_schema
 
         # Find role and content columns
         role_column = None
@@ -214,7 +216,7 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
 
         if role_column is None or content_column is None:
             # Cannot analyze without role and content
-            return result_df
+            return result_df, generated_schema
 
         # Group by conversation and analyze
         analyzer_id = getattr(self, "analyzer_id", "conversation_structure")
@@ -251,4 +253,4 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
                 lambda cid: conv_metrics.get(cid, {}).get("turn_length_variance")
             )
 
-        return result_df
+        return result_df, generated_schema

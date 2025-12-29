@@ -337,7 +337,7 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields for task category classification.
 
         Args:
@@ -345,9 +345,11 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added task category analysis columns.
+            Tuple of (DataFrame with added task category analysis columns.
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -363,7 +365,7 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df
+            return result_df, generated_schema
 
         # Find the role column if we need to filter
         role_column = None
@@ -412,4 +414,4 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
                 f"{column}_{analyzer_id}_is_conversational"
             ] = analysis_results.apply(lambda r: r.get("is_conversational"))
 
-        return result_df
+        return result_df, generated_schema

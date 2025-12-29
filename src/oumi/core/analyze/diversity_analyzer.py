@@ -18,7 +18,7 @@ from typing import Optional
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -89,7 +89,7 @@ class DiversityAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields and return diversity metrics.
 
         Args:
@@ -97,9 +97,11 @@ class DiversityAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            DataFrame with added diversity analysis columns.
+            Tuple of (DataFrame with added diversity analysis columns,
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -116,7 +118,7 @@ class DiversityAnalyzer(SampleAnalyzer):
 
         if not text_columns:
             # No text columns to analyze in this DataFrame, return unchanged
-            return result_df
+            return result_df, generated_schema
 
         # Get analyzer ID for column naming
         analyzer_id = getattr(self, "analyzer_id", "diversity")
@@ -127,5 +129,10 @@ class DiversityAnalyzer(SampleAnalyzer):
                 result_df[col_name] = (
                     df[column].astype(str).apply(self._compute_unique_words_ratio)
                 )
+                generated_schema[col_name] = {
+                    "type": ColumnType.FLOAT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Unique words ratio for {column}",
+                }
 
-        return result_df
+        return result_df, generated_schema
