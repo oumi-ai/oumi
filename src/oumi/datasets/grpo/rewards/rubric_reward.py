@@ -191,6 +191,7 @@ class RubricRewardEvaluator:
         model: str,
         temperature: float,
         weighted_rubrics: bool,
+        group_rubrics: bool,
         role: str | None = None,
     ) -> JudgeConfig:
         """Build a JudgeConfig for rubric evaluation."""
@@ -201,49 +202,73 @@ class RubricRewardEvaluator:
 
         role_suffix = f"\n\nYour specific focus is: {role}" if role else ""
 
-        if weighted_rubrics:
-            prompt_template = (
-                "You are evaluating a response based on specific weighted rubrics.\n\n"
-                "## Task\n{prompt}\n\n"
-                "## Response to Evaluate\n{response}\n\n"
-                "## Rubrics (with weights)\n{rubrics}\n\n"
-                "Evaluate the response against EACH rubric independently.\n"
-                "For each rubric, determine if it is satisfied (1) or not (0).\n\n"
-                "Return a JSON object with two keys:\n"
-                '- "scores": a dict mapping each rubric name to 0 or 1\n'
-                '- "weighted_score": weighted avg (sum(weight*score)/sum(weights))\n\n'
-                "Output only valid JSON, no other text."
-            )
-            system_instruction = (
-                "You are an expert evaluator. Assess responses against weighted "
-                "rubrics fairly and consistently. For each rubric, give 1 if "
-                "satisfied, 0 if not. Calculate weighted score as "
-                f"sum(weight*score)/sum(weights). Return valid JSON only.{role_suffix}"
-            )
-            max_tokens = 500
+        if group_rubrics:
+            if weighted_rubrics:
+                prompt_template = (
+                    "You are evaluating a response based on specific weighted "
+                    "rubrics.\n\n"
+                    "## Task\n{prompt}\n\n"
+                    "## Response to Evaluate\n{response}\n\n"
+                    "## Rubrics (with weights)\n{rubrics}\n\n"
+                    "Evaluate the response against EACH rubric independently.\n"
+                    "For each rubric, determine if it is satisfied (1) or not (0).\n\n"
+                    "Return a JSON object with two keys:\n"
+                    '- "scores": a dict mapping each rubric name to 0 or 1\n'
+                    '- "weighted_score": weighted avg (sum(weight*score)/sum(weights))\n\n'
+                    "Output only valid JSON, no other text."
+                )
+                system_instruction = (
+                    "You are an expert evaluator. Assess responses against weighted "
+                    "rubrics fairly and consistently. For each rubric, give 1 if "
+                    "satisfied, 0 if not. Calculate weighted score as "
+                    f"sum(weight*score)/sum(weights). Return valid JSON only."
+                    f"{role_suffix}"
+                )
+                response_format = JudgeResponseFormat.RAW
+                judgment_type = JudgeOutputType.TEXT
+                max_tokens = 500
+            else:
+                prompt_template = (
+                    "You are evaluating a response based on specific rubrics.\n\n"
+                    "## Task\n{prompt}\n\n"
+                    "## Response to Evaluate\n{response}\n\n"
+                    "## Rubrics\n{rubrics}\n\n"
+                    "Evaluate the response against EACH rubric. "
+                    "Count how many rubrics the response satisfies.\n"
+                    "Your judgment should be a float between 0.0 and 1.0, "
+                    "representing the fraction of rubrics satisfied."
+                )
+                system_instruction = (
+                    "You are an expert evaluator. Assess responses against rubrics "
+                    "fairly and consistently. Return only the fraction of rubrics "
+                    f"that are satisfied (0.0 to 1.0).{role_suffix}"
+                )
+                response_format = JudgeResponseFormat.XML
+                judgment_type = JudgeOutputType.FLOAT
+                max_tokens = 100
         else:
             prompt_template = (
-                "You are evaluating a response based on specific rubrics.\n\n"
+                "You are evaluating a response based on a single rubric.\n\n"
                 "## Task\n{prompt}\n\n"
                 "## Response to Evaluate\n{response}\n\n"
-                "## Rubrics\n{rubrics}\n\n"
-                "Evaluate the response against EACH rubric. "
-                "Count how many rubrics the response satisfies.\n"
-                "Your judgment should be a float between 0.0 and 1.0, "
-                "representing the fraction of rubrics satisfied."
+                "## Rubric\n{rubrics}\n\n"
+                "Determine if the response satisfies the rubric.\n"
+                "Return 1 if satisfied, 0 if not."
             )
             system_instruction = (
-                "You are an expert evaluator. Assess responses against rubrics "
-                "fairly and consistently. Return only the fraction of rubrics "
-                f"that are satisfied (0.0 to 1.0).{role_suffix}"
+                "You are an expert evaluator. Assess responses against a rubric "
+                "fairly and consistently. Return 1 if satisfied, 0 if not."
+                f"{role_suffix}"
             )
+            response_format = JudgeResponseFormat.XML
+            judgment_type = JudgeOutputType.FLOAT
             max_tokens = 100
 
         return JudgeConfig(
             judge_params=JudgeParams(
                 prompt_template=prompt_template,
-                response_format=JudgeResponseFormat.XML,
-                judgment_type=JudgeOutputType.FLOAT,
+                response_format=response_format,
+                judgment_type=judgment_type,
                 include_explanation=False,
                 system_instruction=system_instruction,
             ),
@@ -262,13 +287,14 @@ class RubricRewardEvaluator:
         model: str = "gpt-4o-mini",
         temperature: float = 0.0,
         weighted_rubrics: bool = False,
+        group_rubrics: bool = False,
         role: str | None = None,
     ) -> SimpleJudge:
         """Get or create a cached judge instance."""
-        cache_key = f"{model}_{temperature}_{weighted_rubrics}"
+        cache_key = f"{model}_{temperature}_{weighted_rubrics}_{group_rubrics}_{role}"
         if cache_key not in self._judges:
             config = self._build_judge_config(
-                model, temperature, weighted_rubrics, role
+                model, temperature, weighted_rubrics, group_rubrics, role
             )
             self._judges[cache_key] = SimpleJudge(config)
         return self._judges[cache_key]
@@ -285,7 +311,7 @@ class RubricRewardEvaluator:
         if weighted:
             lines = []
             for i, rubric in enumerate(rubrics, 1):
-                name = rubric.get("name", f"rubric_{i}")
+                name = rubric.get("name") or f"rubric_{i}"
                 description = rubric.get("description", "")
                 weight = rubric.get("weight", 1.0)
                 eval_type = rubric.get("evaluation_type", "binary")
@@ -338,8 +364,8 @@ class RubricRewardEvaluator:
         total_weight = 0.0
         weighted_sum = 0.0
 
-        for rubric in rubrics:
-            name = rubric.get("name", "")
+        for i, rubric in enumerate(rubrics, 1):
+            name = rubric.get("name") or f"rubric_{i}"
             weight = float(rubric.get("weight", 1.0))
             is_pitfall = weight < 0
 
@@ -402,6 +428,7 @@ class RubricRewardEvaluator:
         rubrics: list,
         judge: SimpleJudge,
         is_weighted: bool,
+        group_rubrics: bool,
     ) -> tuple[float, float]:
         """Core evaluation logic for a single judge. Returns (score, time_ms)."""
         rubrics_text = self._format_rubrics(rubrics, is_weighted)
@@ -421,6 +448,18 @@ class RubricRewardEvaluator:
             score = 0.0
 
             if is_weighted:
+                if group_rubrics:
+                    raw_response = output.raw_output or ""
+                    per_rubric_scores = self._parse_weighted_response(raw_response)
+                    if per_rubric_scores:
+                        score = self._compute_weighted_score(rubrics, per_rubric_scores)
+                    else:
+                        try:
+                            score = float(raw_response.strip())
+                        except (TypeError, ValueError):
+                            score = 0.0
+                    return max(0.0, min(1.0, float(score))), judge_time_ms
+
                 raw_response = output.field_values.get("judgment", "")
                 if isinstance(raw_response, str):
                     per_rubric_scores = self._parse_weighted_response(raw_response)
@@ -453,6 +492,7 @@ class RubricRewardEvaluator:
         completion: str,
         rubrics: list,
         judge_model: str = "gpt-4o-mini",
+        group_rubrics: bool = False,
     ) -> float:
         """Evaluate a single completion against rubrics.
 
@@ -460,12 +500,27 @@ class RubricRewardEvaluator:
         """
         is_weighted = self._is_weighted_rubrics(rubrics)
 
-        if self._panel_config and self._panel_config.judges:
-            return self._evaluate_with_panel(prompt, completion, rubrics, is_weighted)
-        else:
+        if group_rubrics:
+            if self._panel_config and self._panel_config.judges:
+                return self._evaluate_with_panel(
+                    prompt, completion, rubrics, is_weighted, group_rubrics=True
+                )
             return self._evaluate_with_single_judge(
-                prompt, completion, rubrics, judge_model, is_weighted
+                prompt,
+                completion,
+                rubrics,
+                judge_model,
+                is_weighted,
+                group_rubrics=True,
             )
+
+        if self._panel_config and self._panel_config.judges:
+            return self._evaluate_per_rubric_with_panel(
+                prompt, completion, rubrics, is_weighted
+            )
+        return self._evaluate_per_rubric_with_single_judge(
+            prompt, completion, rubrics, judge_model, is_weighted
+        )
 
     def _evaluate_with_single_judge(
         self,
@@ -474,11 +529,14 @@ class RubricRewardEvaluator:
         rubrics: list,
         judge_model: str,
         is_weighted: bool,
+        group_rubrics: bool,
     ) -> float:
         """Evaluate using a single judge."""
-        judge = self._get_judge(judge_model, 0.0, is_weighted)
+        judge = self._get_judge(
+            judge_model, 0.0, is_weighted, group_rubrics=group_rubrics
+        )
         score, judge_time_ms = self._evaluate_single_judge(
-            prompt, completion, rubrics, judge, is_weighted
+            prompt, completion, rubrics, judge, is_weighted, group_rubrics
         )
 
         if score > 0:
@@ -497,6 +555,7 @@ class RubricRewardEvaluator:
         completion: str,
         rubrics: list,
         is_weighted: bool,
+        group_rubrics: bool,
     ) -> float:
         """Evaluate using a panel of judges."""
         assert self._panel_config is not None  # Guaranteed by caller
@@ -507,10 +566,14 @@ class RubricRewardEvaluator:
 
         for member in self._panel_config.judges:
             judge = self._get_judge(
-                member.model, member.temperature, is_weighted, member.role
+                member.model,
+                member.temperature,
+                is_weighted,
+                group_rubrics=group_rubrics,
+                role=member.role,
             )
             score, judge_time_ms = self._evaluate_single_judge(
-                prompt, completion, rubrics, judge, is_weighted
+                prompt, completion, rubrics, judge, is_weighted, group_rubrics
             )
             scores.append(score)
             weights.append(member.weight)
@@ -528,6 +591,140 @@ class RubricRewardEvaluator:
             self._stats.record_panel_variance(variance)
 
         self._stats.record_success(reward, total_time_ms)
+
+        if self._stats.should_log():
+            logger.info(self._stats.get_summary())
+
+        return reward
+
+    def _evaluate_per_rubric_with_single_judge(
+        self,
+        prompt: str,
+        completion: str,
+        rubrics: list,
+        judge_model: str,
+        is_weighted: bool,
+    ) -> float:
+        """Evaluate by scoring each rubric independently with one judge."""
+        if not rubrics:
+            self._stats.record_failure()
+            return 0.0
+
+        judge = self._get_judge(
+            judge_model, 0.0, is_weighted, group_rubrics=False
+        )
+        scores = []
+        per_rubric_scores = {}
+        total_time_ms = 0.0
+
+        for i, rubric in enumerate(rubrics, 1):
+            score, judge_time_ms = self._evaluate_single_judge(
+                prompt, completion, [rubric], judge, is_weighted, group_rubrics=False
+            )
+            scores.append(score)
+            total_time_ms += judge_time_ms
+
+            if is_weighted:
+                if isinstance(rubric, dict):
+                    name = rubric.get("name") or f"rubric_{i}"
+                else:
+                    name = f"rubric_{i}"
+                per_rubric_scores[name] = score
+
+        if not scores:
+            self._stats.record_failure()
+            return 0.0
+
+        if is_weighted:
+            reward = self._compute_weighted_score(rubrics, per_rubric_scores)
+        else:
+            reward = sum(scores) / len(scores)
+
+        if reward > 0:
+            self._stats.record_success(reward, total_time_ms)
+        else:
+            self._stats.record_failure()
+
+        if self._stats.should_log():
+            logger.info(self._stats.get_summary())
+
+        return reward
+
+    def _evaluate_per_rubric_with_panel(
+        self,
+        prompt: str,
+        completion: str,
+        rubrics: list,
+        is_weighted: bool,
+    ) -> float:
+        """Evaluate by scoring each rubric independently with a judge panel."""
+        assert self._panel_config is not None  # Guaranteed by caller
+
+        if not rubrics:
+            self._stats.record_failure()
+            return 0.0
+
+        scores = []
+        per_rubric_scores = {}
+        total_time_ms = 0.0
+
+        for i, rubric in enumerate(rubrics, 1):
+            panel_scores = []
+            panel_weights = []
+            rubric_time_ms = 0.0
+
+            for member in self._panel_config.judges:
+                judge = self._get_judge(
+                    member.model,
+                    member.temperature,
+                    is_weighted,
+                    group_rubrics=False,
+                    role=member.role,
+                )
+                score, judge_time_ms = self._evaluate_single_judge(
+                    prompt,
+                    completion,
+                    [rubric],
+                    judge,
+                    is_weighted,
+                    group_rubrics=False,
+                )
+                panel_scores.append(score)
+                panel_weights.append(member.weight)
+                rubric_time_ms += judge_time_ms
+
+            if not panel_scores:
+                continue
+
+            rubric_score, variance = self._aggregate_scores(
+                panel_scores, panel_weights, self._panel_config.aggregation
+            )
+            if len(panel_scores) > 1:
+                self._stats.record_panel_variance(variance)
+
+            scores.append(rubric_score)
+            total_time_ms += rubric_time_ms
+
+            if is_weighted:
+                if isinstance(rubric, dict):
+                    name = rubric.get("name") or f"rubric_{i}"
+                else:
+                    name = f"rubric_{i}"
+                per_rubric_scores[name] = rubric_score
+
+        if not scores:
+            self._stats.record_failure()
+            return 0.0
+
+        if is_weighted:
+            reward = self._compute_weighted_score(rubrics, per_rubric_scores)
+        else:
+            reward = sum(scores) / len(scores)
+
+        if reward > 0:
+            self._stats.record_success(reward, total_time_ms)
+        else:
+            self._stats.record_failure()
 
         if self._stats.should_log():
             logger.info(self._stats.get_summary())
@@ -595,6 +792,7 @@ def rubric_reward(
         kwargs: Additional arguments:
             - judge_model: Model to use (default: gpt-4o-mini)
             - judge_panel: Dict or JudgePanelConfig for panel evaluation
+            - group_rubrics: If True, a single judge processes all rubrics
             - system_prompt: System prompts from dataset
 
     Returns:
@@ -622,6 +820,11 @@ def rubric_reward(
             evaluator.set_panel_config(judge_panel_config)
 
     judge_model = str(kwargs.get("judge_model", "gpt-4o-mini"))
+    group_rubrics = kwargs.get("group_rubrics", False)
+    if isinstance(group_rubrics, str):
+        group_rubrics = group_rubrics.strip().lower() in ("1", "true", "yes", "y")
+    else:
+        group_rubrics = bool(group_rubrics)
     completion_strs = _extract_completion_strings(completions)
 
     # Compute rewards
@@ -633,7 +836,11 @@ def rubric_reward(
 
         rubric_list_for_prompt = r if isinstance(r, list) else [r]
         reward = evaluator.evaluate(
-            full_prompt, comp, rubric_list_for_prompt, judge_model
+            full_prompt,
+            comp,
+            rubric_list_for_prompt,
+            judge_model,
+            group_rubrics=group_rubrics,
         )
         rewards.append(reward)
 
