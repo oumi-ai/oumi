@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -231,6 +231,17 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             conv_metrics[conv_id] = self._analyze_conversation(messages)
 
         # Add metrics to each row based on its conversation_id
+        metric_schemas = {
+            "turn_count": {"type": ColumnType.INT, "content_type": ContentType.NUMERIC, "description": "Total number of turns in conversation"},
+            "user_turn_count": {"type": ColumnType.INT, "content_type": ContentType.NUMERIC, "description": "Number of user turns"},
+            "assistant_turn_count": {"type": ColumnType.INT, "content_type": ContentType.NUMERIC, "description": "Number of assistant turns"},
+            "is_single_turn": {"type": ColumnType.BOOL, "content_type": ContentType.BOOLEAN, "description": "Whether conversation is single-turn"},
+            "is_multi_turn": {"type": ColumnType.BOOL, "content_type": ContentType.BOOLEAN, "description": "Whether conversation is multi-turn"},
+            "conversation_depth": {"type": ColumnType.INT, "content_type": ContentType.NUMERIC, "description": "Maximum conversation depth"},
+            "role_balance": {"type": ColumnType.FLOAT, "content_type": ContentType.NUMERIC, "description": "Balance between user and assistant turns (0.0-1.0)"},
+            "has_system_prompt": {"type": ColumnType.BOOL, "content_type": ContentType.BOOLEAN, "description": "Whether conversation has system prompt"},
+        }
+        
         for metric_name in [
             "turn_count",
             "user_turn_count",
@@ -241,16 +252,31 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             "role_balance",
             "has_system_prompt",
         ]:
-            result_df[f"{analyzer_id}_{metric_name}"] = df["conversation_id"].map(
+            col_name = f"{analyzer_id}_{metric_name}"
+            result_df[col_name] = df["conversation_id"].map(
                 lambda cid: conv_metrics.get(cid, {}).get(metric_name)
             )
+            generated_schema[col_name] = metric_schemas[metric_name]
 
         if self.compute_length_stats:
-            result_df[f"{analyzer_id}_avg_turn_length"] = df["conversation_id"].map(
+            col_name = f"{analyzer_id}_avg_turn_length"
+            result_df[col_name] = df["conversation_id"].map(
                 lambda cid: conv_metrics.get(cid, {}).get("avg_turn_length")
             )
-            result_df[f"{analyzer_id}_turn_length_variance"] = df["conversation_id"].map(
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Average turn length in conversation",
+            }
+            
+            col_name = f"{analyzer_id}_turn_length_variance"
+            result_df[col_name] = df["conversation_id"].map(
                 lambda cid: conv_metrics.get(cid, {}).get("turn_length_variance")
             )
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Variance in turn lengths",
+            }
 
         return result_df, generated_schema

@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -357,22 +357,53 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
                 analysis_results = df[column].astype(str).apply(self._analyze_response)
 
             # Extract results to columns
-            result_df[f"{column}_{analyzer_id}_is_complete"] = analysis_results.apply(
+            col_name = f"{column}_{analyzer_id}_is_complete"
+            result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("is_complete")
             )
-            result_df[f"{column}_{analyzer_id}_score"] = analysis_results.apply(
+            generated_schema[col_name] = {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether response appears complete",
+            }
+            
+            col_name = f"{column}_{analyzer_id}_score"
+            result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("completeness_score")
             )
-            result_df[f"{column}_{analyzer_id}_ends_naturally"] = analysis_results.apply(
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Completeness score (0.0 = incomplete, 1.0 = complete)",
+            }
+            
+            col_name = f"{column}_{analyzer_id}_ends_naturally"
+            result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("ends_naturally")
             )
-            result_df[f"{column}_{analyzer_id}_has_conclusion"] = analysis_results.apply(
+            generated_schema[col_name] = {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether response ends naturally",
+            }
+            
+            col_name = f"{column}_{analyzer_id}_has_conclusion"
+            result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("has_conclusion")
             )
+            generated_schema[col_name] = {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether response has a conclusion",
+            }
 
             if self.include_truncation_type:
-                result_df[
-                    f"{column}_{analyzer_id}_truncation_type"
-                ] = analysis_results.apply(lambda r: r.get("truncation_type"))
+                col_name = f"{column}_{analyzer_id}_truncation_type"
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("truncation_type"))
+                generated_schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Type of truncation detected (if any)",
+                }
 
         return result_df, generated_schema
