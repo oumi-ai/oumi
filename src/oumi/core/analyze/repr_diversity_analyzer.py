@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -218,15 +218,16 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
         from sklearn.metrics.pairwise import cosine_similarity
 
         n_samples = len(embeddings)
-        k = min(self.k_neighbors, n_samples - 1)  # Can't have more neighbors than samples
+        k = min(
+            self.k_neighbors, n_samples - 1
+        )  # Can't have more neighbors than samples
 
         if k <= 0:
             # Not enough samples for neighbor computation
             return np.zeros(n_samples), np.zeros(n_samples)
 
         logger.info(
-            f"Computing nearest neighbor distances for {n_samples} samples "
-            f"(k={k})..."
+            f"Computing nearest neighbor distances for {n_samples} samples (k={k})..."
         )
 
         # Compute cosine similarity matrix
@@ -381,13 +382,19 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 # Role-specific threshold mode
                 is_redundant = np.zeros(len(diversity_scores), dtype=bool)
                 for local_idx, global_idx in enumerate(analyze_indices):
-                    role = df.loc[global_idx, role_column].lower() if isinstance(df.loc[global_idx, role_column], str) else str(df.loc[global_idx, role_column]).lower()
+                    role = (
+                        df.loc[global_idx, role_column].lower()
+                        if isinstance(df.loc[global_idx, role_column], str)
+                        else str(df.loc[global_idx, role_column]).lower()
+                    )
                     threshold = self.role_specific_thresholds.get(
                         role,
-                        self.diversity_threshold  # Fall back to default
+                        self.diversity_threshold,  # Fall back to default
                     )
                     if threshold is not None:
-                        is_redundant[local_idx] = diversity_scores[local_idx] < threshold
+                        is_redundant[local_idx] = (
+                            diversity_scores[local_idx] < threshold
+                        )
             else:
                 # Single threshold mode (original behavior)
                 is_redundant = diversity_scores < self.diversity_threshold
@@ -407,10 +414,13 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
 
                 # Handle role-specific exclusion (threshold = None)
                 if self.role_specific_thresholds and role_column:
-                    role = df.loc[global_idx, role_column].lower() if isinstance(df.loc[global_idx, role_column], str) else str(df.loc[global_idx, role_column]).lower()
+                    role = (
+                        df.loc[global_idx, role_column].lower()
+                        if isinstance(df.loc[global_idx, role_column], str)
+                        else str(df.loc[global_idx, role_column]).lower()
+                    )
                     threshold = self.role_specific_thresholds.get(
-                        role,
-                        self.diversity_threshold
+                        role, self.diversity_threshold
                     )
                     if threshold is None:
                         # Exclude this role from redundancy analysis
@@ -423,17 +433,50 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 all_percentiles[global_idx] = float(diversity_percentiles[local_idx])
 
             # Add columns to result DataFrame
-            result_df[f"{column}_{analyzer_id}_nn_distance"] = all_nn_distances
-            result_df[f"{column}_{analyzer_id}_score"] = all_diversity_scores
-            result_df[f"{column}_{analyzer_id}_is_redundant"] = all_is_redundant
-            result_df[f"{column}_{analyzer_id}_percentile"] = all_percentiles
+            col_name = f"{column}_{analyzer_id}_nn_distance"
+            result_df[col_name] = all_nn_distances
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Distance to nearest neighbor in embedding space",
+            }
+
+            col_name = f"{column}_{analyzer_id}_score"
+            result_df[col_name] = all_diversity_scores
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Diversity score based on embedding distance (higher = more diverse)",
+            }
+
+            col_name = f"{column}_{analyzer_id}_is_redundant"
+            result_df[col_name] = all_is_redundant
+            generated_schema[col_name] = {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether sample is redundant (too similar to others)",
+            }
+
+            col_name = f"{column}_{analyzer_id}_percentile"
+            result_df[col_name] = all_percentiles
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Diversity percentile rank (0.0-100.0)",
+            }
 
             # Optionally store embeddings
             if self.store_embeddings:
                 all_embeddings = [None] * n_samples
                 for local_idx, global_idx in enumerate(analyze_indices):
                     all_embeddings[global_idx] = embeddings[local_idx].tolist()
-                result_df[f"{column}_{analyzer_id}_embedding"] = all_embeddings
+                col_name = f"{column}_{analyzer_id}_embedding"
+                result_df[col_name] = all_embeddings
+                generated_schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Embedding vector as list of floats",
+                }
 
             # Store dataset-level metrics
             redundant_count = int(np.sum(is_redundant))
@@ -456,8 +499,14 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 role_metrics = {}
                 for role_name, threshold in self.role_specific_thresholds.items():
                     role_indices = [
-                        local_idx for local_idx, global_idx in enumerate(analyze_indices)
-                        if (df.loc[global_idx, role_column].lower() if isinstance(df.loc[global_idx, role_column], str) else str(df.loc[global_idx, role_column]).lower()) == role_name
+                        local_idx
+                        for local_idx, global_idx in enumerate(analyze_indices)
+                        if (
+                            df.loc[global_idx, role_column].lower()
+                            if isinstance(df.loc[global_idx, role_column], str)
+                            else str(df.loc[global_idx, role_column]).lower()
+                        )
+                        == role_name
                     ]
                     if role_indices and threshold is not None:
                         role_scores = diversity_scores[role_indices]
@@ -466,16 +515,26 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                             "threshold": threshold,
                             "total_samples": len(role_indices),
                             "redundant_samples": int(role_redundant),
-                            "redundant_ratio": round(float(role_redundant / len(role_indices)), 4),
+                            "redundant_ratio": round(
+                                float(role_redundant / len(role_indices)), 4
+                            ),
                             "mean_score": round(float(np.mean(role_scores)), 4),
                             "median_score": round(float(np.median(role_scores)), 4),
                         }
                     elif threshold is None:
                         # Count excluded samples
-                        excluded_count = len([
-                            local_idx for local_idx, global_idx in enumerate(analyze_indices)
-                            if (df.loc[global_idx, role_column].lower() if isinstance(df.loc[global_idx, role_column], str) else str(df.loc[global_idx, role_column]).lower()) == role_name
-                        ])
+                        excluded_count = len(
+                            [
+                                local_idx
+                                for local_idx, global_idx in enumerate(analyze_indices)
+                                if (
+                                    df.loc[global_idx, role_column].lower()
+                                    if isinstance(df.loc[global_idx, role_column], str)
+                                    else str(df.loc[global_idx, role_column]).lower()
+                                )
+                                == role_name
+                            ]
+                        )
                         role_metrics[role_name] = {
                             "threshold": None,
                             "total_samples": excluded_count,
@@ -487,7 +546,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
             redundant_ratio = redundant_count / len(texts_to_embed)
             if redundant_ratio > 0.5:
                 metrics["threshold_warning"] = (
-                    f"High redundancy rate ({redundant_ratio*100:.1f}%). "
+                    f"High redundancy rate ({redundant_ratio * 100:.1f}%). "
                     f"Consider increasing threshold or using role-specific thresholds."
                 )
 
@@ -495,7 +554,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
 
             logger.info(
                 f"Column '{column}': {redundant_count}/{len(texts_to_embed)} samples "
-                f"({redundant_count/len(texts_to_embed)*100:.1f}%) are redundant"
+                f"({redundant_count / len(texts_to_embed) * 100:.1f}%) are redundant"
             )
 
         return result_df, generated_schema
