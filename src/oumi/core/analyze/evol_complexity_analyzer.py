@@ -31,7 +31,8 @@ from typing import Any, Optional
 import pandas as pd
 from tqdm import tqdm
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.evol_base import EvolBaseAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -366,9 +367,29 @@ JSON ranking:"""
                     all_headroom[idx] = 0.5
 
             # Add columns to result DataFrame
-            result_df[f"{column}_{analyzer_id}_score"] = all_scores
-            result_df[f"{column}_{analyzer_id}_rank"] = all_ranks
-            result_df[f"{column}_{analyzer_id}_headroom"] = all_headroom
+            col_name = make_analyzer_column_name(column, analyzer_id, "score")
+            result_df[col_name] = all_scores
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Evol-Instruct complexity score (0.0-1.0, higher = more complex)",
+            }
+            
+            col_name = make_analyzer_column_name(column, analyzer_id, "rank")
+            result_df[col_name] = all_ranks
+            generated_schema[col_name] = {
+                "type": ColumnType.INT,
+                "content_type": ContentType.NUMERIC,
+                "description": f"Complexity evolution rank (1-{self.num_evolutions}, lower = simpler)",
+            }
+            
+            col_name = make_analyzer_column_name(column, analyzer_id, "headroom")
+            result_df[col_name] = all_headroom
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Complexity headroom (0.0-1.0, higher = more room to increase complexity)",
+            }
 
             # Compute dataset-level metrics
             valid_scores = [s for s in all_scores if s is not None]
