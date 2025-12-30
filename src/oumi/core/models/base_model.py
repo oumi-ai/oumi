@@ -16,7 +16,7 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import safetensors.torch
 import torch
@@ -68,7 +68,7 @@ class BaseModel(nn.Module, ABC):
 
     def save_pretrained(
         self,
-        save_directory: Union[str, Path],
+        save_directory: str | Path,
         *,
         save_config: bool = True,
         weights_filename: str = "model.safetensors",
@@ -117,13 +117,13 @@ class BaseModel(nn.Module, ABC):
     @classmethod
     def from_pretrained(
         cls,
-        load_directory: Union[str, Path],
+        load_directory: str | Path,
         *,
-        map_location: Optional[Union[str, torch.device]] = None,
+        map_location: str | torch.device | None = None,
         strict: bool = True,
         weights_filename: str = "model.safetensors",
         config_filename: str = "config.json",
-        override_kwargs: Optional[dict[str, Any]] = None,
+        override_kwargs: dict[str, Any] | None = None,
     ) -> "BaseModel":
         """Loads a model from a directory saved with `save_pretrained()`.
 

@@ -15,7 +15,7 @@
 import json
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from omegaconf import MISSING
 from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
@@ -98,7 +98,7 @@ class ModelParams(BaseParams):
     weights.
     """
 
-    custom_pretrained_dir: Optional[str] = None
+    custom_pretrained_dir: str | None = None
     """Path to pretrained weights directory for custom (registry) models.
 
     This field is only used for custom models registered in the Oumi registry.
