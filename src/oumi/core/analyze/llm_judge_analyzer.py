@@ -199,6 +199,28 @@ JSON response:""",
         """
         return list(cls.PRESET_PROMPTS.keys())
 
+    # Role filtering defaults for presets
+    # None means evaluate all messages regardless of role
+    PRESET_ROLE_FILTERS = {
+        "instruction_quality": "system",  # Only evaluate system instructions
+        "response_quality": "assistant",  # Only evaluate assistant responses
+        "conversation_coherence": None,  # Evaluate all messages
+        "safety": None,  # Evaluate all messages for safety
+        "helpfulness": "assistant",  # Only evaluate assistant responses
+        "factuality": "assistant",  # Only evaluate assistant responses
+    }
+
+    # Which data levels to analyze for each preset
+    # Format: (analyze_message_level, analyze_conversation_level)
+    PRESET_ANALYSIS_LEVELS = {
+        "instruction_quality": (True, False),  # Only message-level (system prompts)
+        "response_quality": (True, False),  # Only message-level (assistant responses)
+        "conversation_coherence": (False, True),  # Only conversation-level
+        "safety": (True, True),  # Both levels (check all content)
+        "helpfulness": (True, False),  # Only message-level (assistant responses)
+        "factuality": (True, False),  # Only message-level (assistant responses)
+    }
+
     @classmethod
     def get_preset_prompt(cls, preset_name: str) -> str:
         """Get a preset prompt by name.
@@ -232,6 +254,9 @@ JSON response:""",
         default_score: float = 5.0,
         default_label: str = "unknown",
         cache_responses: bool = True,
+        filter_role: Optional[str] = None,
+        analyze_message_level: Optional[bool] = None,
+        analyze_conversation_level: Optional[bool] = None,
     ):
         """Initialize the LLMJudgeAnalyzer.
 
@@ -264,6 +289,14 @@ JSON response:""",
             default_score: Default score when parsing fails.
             default_label: Default label when parsing fails.
             cache_responses: Whether to cache LLM responses for identical texts.
+            filter_role: Only evaluate messages from this role (e.g., "user", "assistant").
+                If None, uses the preset's default role filter (if any), or evaluates
+                all messages. Set to "none" to explicitly disable role filtering.
+            analyze_message_level: Whether to analyze message-level data.
+                If None, uses the preset's default. If False, skips message-level analysis.
+            analyze_conversation_level: Whether to analyze conversation-level data.
+                If None, uses the preset's default. If False, skips conversation-level
+                analysis to save API calls.
         """
         # Handle preset prompts
         if prompt_preset is not None:
@@ -288,6 +321,38 @@ JSON response:""",
         self.default_score = default_score
         self.default_label = default_label
         self.cache_responses = cache_responses
+
+        # Determine role filtering: explicit > preset default > None
+        if filter_role == "none":
+            self.filter_role = None  # Explicitly disable filtering
+        elif filter_role is not None:
+            self.filter_role = filter_role  # Explicit role specified
+        elif prompt_preset and prompt_preset in self.PRESET_ROLE_FILTERS:
+            self.filter_role = self.PRESET_ROLE_FILTERS[
+                prompt_preset
+            ]  # Use preset default
+        else:
+            self.filter_role = None  # No filtering
+
+        # Determine analysis levels: explicit > preset default > (True, True)
+        if prompt_preset and prompt_preset in self.PRESET_ANALYSIS_LEVELS:
+            preset_msg_level, preset_conv_level = self.PRESET_ANALYSIS_LEVELS[
+                prompt_preset
+            ]
+        else:
+            preset_msg_level, preset_conv_level = (True, True)  # Default: analyze both
+
+        # Apply explicit overrides if provided
+        self.analyze_message_level = (
+            analyze_message_level
+            if analyze_message_level is not None
+            else preset_msg_level
+        )
+        self.analyze_conversation_level = (
+            analyze_conversation_level
+            if analyze_conversation_level is not None
+            else preset_conv_level
+        )
 
         # Initialize inference engine lazily
         self._inference_engine = None
@@ -574,23 +639,47 @@ JSON response:""",
 
         from oumi.core.types.conversation import Conversation, Message, Role
 
-        # Build conversations, checking cache
+        # Build conversations, checking cache and deduplicating within batch
         conversations = []
         cached_results: dict[int, dict[str, Any]] = {}
         texts_to_evaluate: list[tuple[int, str]] = []
+        text_to_indices: dict[
+            str, list[int]
+        ] = {}  # Map text to indices for deduplication
 
         for i, text in enumerate(texts):
+            # Check global cache first
             if self.cache_responses:
                 cache_key = str(hash(text))
                 if cache_key in self._response_cache:
                     cached_results[i] = self._response_cache[cache_key]
+                    logger.debug(f"Cache hit for text {i} (hash: {cache_key[:8]}...)")
                     continue
 
+            # Check for duplicates within this batch
+            if text in text_to_indices:
+                # Duplicate within batch - will copy result later
+                text_to_indices[text].append(i)
+                logger.debug(f"Duplicate text at index {i}, will reuse result")
+                continue
+
+            # New unique text to evaluate
+            text_to_indices[text] = [i]
             prompt = self._format_prompt(text)
             conversations.append(
                 Conversation(messages=[Message(role=Role.USER, content=prompt)])
             )
             texts_to_evaluate.append((i, text))
+
+        # Log cache/deduplication stats
+        num_cached = len([i for i in range(len(texts)) if i in cached_results])
+        num_unique = len(conversations)
+        num_duplicates = len(texts) - num_cached - num_unique
+        if num_cached > 0 or num_duplicates > 0:
+            logger.info(
+                f"Batch of {len(texts)}: {num_unique} unique to evaluate, "
+                f"{num_duplicates} duplicates, {num_cached} from cache"
+            )
 
         # Run inference on non-cached items
         results: list[dict[str, Any]] = []
@@ -612,21 +701,31 @@ JSON response:""",
                             break
 
                     parsed = self._parse_json_response(response)
-                    cached_results[orig_idx] = parsed
 
-                    # Update cache
+                    # Copy result to all indices with this text (handles duplicates)
+                    for idx in text_to_indices[text]:
+                        cached_results[idx] = parsed
+
+                    # Update cache for future batches
                     if self.cache_responses:
-                        self._response_cache[str(hash(text))] = parsed
+                        cache_key = str(hash(text))
+                        self._response_cache[cache_key] = parsed
+                        logger.debug(
+                            f"Cached result for text (hash: {cache_key[:8]}...)"
+                        )
 
             except Exception as e:
                 logger.warning(f"Batch LLM evaluation failed: {e}")
                 for orig_idx, text in texts_to_evaluate:
-                    cached_results[orig_idx] = {
+                    error_result = {
                         "score": self.default_score,
                         "label": self.default_label,
                         "reasoning": f"Error: {str(e)}",
                         "raw_response": "",
                     }
+                    # Copy error result to all indices with this text
+                    for idx in text_to_indices[text]:
+                        cached_results[idx] = error_result
 
         # Reconstruct results in original order
         for i in range(len(texts)):
@@ -669,6 +768,28 @@ JSON response:""",
                 "columns contain text content."
             )
 
+        # Check if this is conversation-level or message-level data
+        has_role_column = any(
+            "role" in col.lower() and col in df.columns for col in schema.keys()
+        )
+        is_message_level = has_role_column
+        is_conversation_level = not has_role_column
+
+        # Skip based on analysis level flags
+        if is_message_level and not self.analyze_message_level:
+            logger.info(
+                f"Skipping message-level analysis (analyze_message_level=False). "
+                f"Set analyze_message_level=True to enable."
+            )
+            return result_df, generated_schema
+
+        if is_conversation_level and not self.analyze_conversation_level:
+            logger.info(
+                f"Skipping conversation-level analysis (analyze_conversation_level=False). "
+                f"Set analyze_conversation_level=True to enable."
+            )
+            return result_df, generated_schema
+
         text_columns = [
             col
             for col, config in schema.items()
@@ -680,19 +801,61 @@ JSON response:""",
 
         analyzer_id = getattr(self, "analyzer_id", "llm_judge")
 
+        # Find role column for filtering if needed
+        role_column = None
+        if self.filter_role:
+            for col, config in schema.items():
+                if (
+                    config.get("content_type") == ContentType.CATEGORICAL
+                    and "role" in col.lower()
+                    and col in df.columns
+                ):
+                    role_column = col
+                    break
+
+            if role_column is None:
+                logger.warning(
+                    f"Role filtering requested (filter_role='{self.filter_role}') "
+                    f"but no role column found in schema. Evaluating all messages."
+                )
+
         for column in text_columns:
-            texts = df[column].astype(str).tolist()
+            # Determine which rows to evaluate
+            if self.filter_role and role_column:
+                # Filter to only specified role
+                role_mask = df[role_column].str.lower() == self.filter_role.lower()
+                indices_to_evaluate = df[role_mask].index.tolist()
+                logger.info(
+                    f"Evaluating {len(indices_to_evaluate)} '{self.filter_role}' messages "
+                    f"(filtered from {len(df)} total)"
+                )
+            else:
+                # Evaluate all rows
+                indices_to_evaluate = df.index.tolist()
 
-            # Process in batches
-            all_results = []
-            for i in range(0, len(texts), self.batch_size):
-                batch = texts[i : i + self.batch_size]
-                batch_results = self._evaluate_batch(batch)
-                all_results.extend(batch_results)
+            # Initialize results for all rows (None for filtered-out rows)
+            all_results = [None] * len(df)
 
-            # Add columns with schema
+            if indices_to_evaluate:
+                # Get texts for rows to evaluate
+                texts_to_evaluate = [
+                    str(df.loc[idx, column]) for idx in indices_to_evaluate
+                ]
+
+                # Process in batches
+                evaluated_results = []
+                for i in range(0, len(texts_to_evaluate), self.batch_size):
+                    batch = texts_to_evaluate[i : i + self.batch_size]
+                    batch_results = self._evaluate_batch(batch)
+                    evaluated_results.extend(batch_results)
+
+                # Place results in correct positions
+                for idx, result in zip(indices_to_evaluate, evaluated_results):
+                    all_results[idx] = result
+
+            # Add columns with schema (None for filtered-out rows)
             col_name = make_analyzer_column_name(column, analyzer_id, "score")
-            result_df[col_name] = [r["score"] for r in all_results]
+            result_df[col_name] = [r["score"] if r else None for r in all_results]
             generated_schema[col_name] = {
                 "type": ColumnType.FLOAT,
                 "content_type": ContentType.NUMERIC,
@@ -700,7 +863,7 @@ JSON response:""",
             }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "label")
-            result_df[col_name] = [r["label"] for r in all_results]
+            result_df[col_name] = [r["label"] if r else None for r in all_results]
             generated_schema[col_name] = {
                 "type": ColumnType.STRING,
                 "content_type": ContentType.CATEGORICAL,
@@ -708,7 +871,7 @@ JSON response:""",
             }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "reasoning")
-            result_df[col_name] = [r["reasoning"] for r in all_results]
+            result_df[col_name] = [r["reasoning"] if r else None for r in all_results]
             generated_schema[col_name] = {
                 "type": ColumnType.STRING,
                 "content_type": ContentType.TEXT,
@@ -716,7 +879,9 @@ JSON response:""",
             }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "raw_response")
-            result_df[col_name] = [r["raw_response"] for r in all_results]
+            result_df[col_name] = [
+                r["raw_response"] if r else None for r in all_results
+            ]
             generated_schema[col_name] = {
                 "type": ColumnType.STRING,
                 "content_type": ContentType.TEXT,
