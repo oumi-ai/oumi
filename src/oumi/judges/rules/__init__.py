@@ -12,24 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""This module provides access to various judge configurations for the Oumi project.
+"""Rules module for deterministic judge evaluations."""
 
-The judges are used to evaluate the quality of AI-generated responses based on
-different criteria such as helpfulness, honesty, and safety.
-"""
+from oumi.judges.rules.base_rule import BaseRule
+from oumi.judges.rules.regex import RegexRule
 
-from oumi.judges.base_judge import (
-    BaseJudge,
-    JudgeOutput,
-    JudgeOutputField,
-)
-from oumi.judges.rule_based_judge import RuleBasedJudge
-from oumi.judges.simple_judge import SimpleJudge
-
-__all__ = [
-    "BaseJudge",
-    "SimpleJudge",
-    "JudgeOutputField",
-    "JudgeOutput",
-    "RuleBasedJudge",
-]
+__all__ = ["BaseRule", "RegexRule"]
