@@ -24,6 +24,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -212,7 +213,7 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
 
             # Extract response completeness metrics (for assistant messages)
             if self.compute_response_completeness:
-                col_name = f"{column}_{analyzer_id}_response_completeness_score"
+                col_name = make_analyzer_column_name(column, analyzer_id, "response_completeness_score")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("response_completeness_score", None)
                 )
@@ -224,7 +225,7 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
                     ),
                 }
 
-                col_name = f"{column}_{analyzer_id}_has_proper_ending"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_proper_ending")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("has_proper_ending", None)
                 )
@@ -234,7 +235,7 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
                     "description": "Whether response has proper sentence ending",
                 }
 
-                col_name = f"{column}_{analyzer_id}_has_structure"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_structure")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("has_structure", None)
                 )
@@ -244,7 +245,7 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
                     "description": "Whether response has clear structure",
                 }
 
-                col_name = f"{column}_{analyzer_id}_response_word_count"
+                col_name = make_analyzer_column_name(column, analyzer_id, "response_word_count")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("response_word_count", None)
                 )

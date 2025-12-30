@@ -19,6 +19,7 @@ from typing import Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -125,7 +126,9 @@ class DiversityAnalyzer(SampleAnalyzer):
 
         for column in text_columns:
             if self.unique_words_ratio:
-                col_name = f"{column}_{analyzer_id}_unique_words_ratio"
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "unique_words_ratio"
+                )
                 result_df[col_name] = (
                     df[column].astype(str).apply(self._compute_unique_words_ratio)
                 )

@@ -31,6 +31,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -433,7 +434,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 all_percentiles[global_idx] = float(diversity_percentiles[local_idx])
 
             # Add columns to result DataFrame
-            col_name = f"{column}_{analyzer_id}_nn_distance"
+            col_name = make_analyzer_column_name(column, analyzer_id, "nn_distance")
             result_df[col_name] = all_nn_distances
             generated_schema[col_name] = {
                 "type": ColumnType.FLOAT,
@@ -441,7 +442,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 "description": "Distance to nearest neighbor in embedding space",
             }
 
-            col_name = f"{column}_{analyzer_id}_score"
+            col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = all_diversity_scores
             generated_schema[col_name] = {
                 "type": ColumnType.FLOAT,
@@ -449,7 +450,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 "description": "Diversity score based on embedding distance (higher = more diverse)",
             }
 
-            col_name = f"{column}_{analyzer_id}_is_redundant"
+            col_name = make_analyzer_column_name(column, analyzer_id, "is_redundant")
             result_df[col_name] = all_is_redundant
             generated_schema[col_name] = {
                 "type": ColumnType.BOOL,
@@ -457,7 +458,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 "description": "Whether sample is redundant (too similar to others)",
             }
 
-            col_name = f"{column}_{analyzer_id}_percentile"
+            col_name = make_analyzer_column_name(column, analyzer_id, "percentile")
             result_df[col_name] = all_percentiles
             generated_schema[col_name] = {
                 "type": ColumnType.FLOAT,

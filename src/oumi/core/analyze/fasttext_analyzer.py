@@ -24,6 +24,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -439,7 +440,7 @@ class FastTextAnalyzer(SampleAnalyzer):
 
             # Extract results into columns
             if self.detect_language:
-                col_name = f"{column}_{analyzer_id}_detected_language"
+                col_name = make_analyzer_column_name(column, analyzer_id, "detected_language")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("detected_language")
                 )
@@ -449,7 +450,7 @@ class FastTextAnalyzer(SampleAnalyzer):
                     "description": "ISO 639-1 language code detected",
                 }
 
-                col_name = f"{column}_{analyzer_id}_language_confidence"
+                col_name = make_analyzer_column_name(column, analyzer_id, "language_confidence")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("language_confidence")
                 )
@@ -459,7 +460,7 @@ class FastTextAnalyzer(SampleAnalyzer):
                     "description": "Confidence score for language detection (0.0-1.0)",
                 }
 
-                col_name = f"{column}_{analyzer_id}_language_name"
+                col_name = make_analyzer_column_name(column, analyzer_id, "language_name")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("language_name")
                 )
@@ -469,7 +470,7 @@ class FastTextAnalyzer(SampleAnalyzer):
                     "description": "Full language name",
                 }
 
-                col_name = f"{column}_{analyzer_id}_low_confidence"
+                col_name = make_analyzer_column_name(column, analyzer_id, "low_confidence")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("low_confidence")
                 )
@@ -480,7 +481,7 @@ class FastTextAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_script:
-                col_name = f"{column}_{analyzer_id}_detected_script"
+                col_name = make_analyzer_column_name(column, analyzer_id, "detected_script")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("detected_script")
                 )
@@ -491,7 +492,7 @@ class FastTextAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_multilingual:
-                col_name = f"{column}_{analyzer_id}_is_multilingual"
+                col_name = make_analyzer_column_name(column, analyzer_id, "is_multilingual")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("is_multilingual")
                 )

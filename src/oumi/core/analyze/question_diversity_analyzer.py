@@ -30,6 +30,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -513,7 +514,7 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
                             )
 
                 # Add columns
-                col_name = f"{column}_{analyzer_id}_cluster_id"
+                col_name = make_analyzer_column_name(column, analyzer_id, "cluster_id")
                 result_df[col_name] = all_cluster_ids
                 generated_schema[col_name] = {
                     "type": ColumnType.INT,
@@ -521,7 +522,7 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
                     "description": "Question cluster ID (-1 for unique/diverse questions)",
                 }
 
-                col_name = f"{column}_{analyzer_id}_cluster_size"
+                col_name = make_analyzer_column_name(column, analyzer_id, "cluster_size")
                 result_df[col_name] = all_cluster_sizes
                 generated_schema[col_name] = {
                     "type": ColumnType.INT,
@@ -530,7 +531,7 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
                 }
 
                 if self.flag_concentrated_clusters:
-                    col_name = f"{column}_{analyzer_id}_is_concentrated"
+                    col_name = make_analyzer_column_name(column, analyzer_id, "is_concentrated")
                     result_df[col_name] = all_concentrated_flags
                     generated_schema[col_name] = {
                         "type": ColumnType.BOOL,

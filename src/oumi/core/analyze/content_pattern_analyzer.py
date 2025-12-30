@@ -26,6 +26,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -349,7 +350,7 @@ class ContentPatternAnalyzer(SampleAnalyzer):
 
             # Add columns for each metric
             if self.detect_placeholders:
-                col_name = f"{column}_{analyzer_id}_has_placeholder"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_placeholder")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("has_placeholder", None)
                 )
@@ -359,7 +360,7 @@ class ContentPatternAnalyzer(SampleAnalyzer):
                     "description": "Whether text contains placeholder patterns",
                 }
 
-                col_name = f"{column}_{analyzer_id}_placeholder_count"
+                col_name = make_analyzer_column_name(column, analyzer_id, "placeholder_count")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("placeholder_count", None)
                 )
@@ -369,7 +370,7 @@ class ContentPatternAnalyzer(SampleAnalyzer):
                     "description": "Number of placeholder patterns detected",
                 }
 
-                col_name = f"{column}_{analyzer_id}_placeholder_types"
+                col_name = make_analyzer_column_name(column, analyzer_id, "placeholder_types")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("placeholder_types", None)
                 )
@@ -380,7 +381,7 @@ class ContentPatternAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_hallucinated_experiences:
-                col_name = f"{column}_{analyzer_id}_has_hallucinated_experience"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_hallucinated_experience")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("has_hallucinated_experience", None)
                 )
@@ -391,7 +392,7 @@ class ContentPatternAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_nooutput:
-                col_name = f"{column}_{analyzer_id}_has_nooutput"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_nooutput")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("has_nooutput", None)
                 )
@@ -402,7 +403,7 @@ class ContentPatternAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_refusals:
-                col_name = f"{column}_{analyzer_id}_has_refusal"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_refusal")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("has_refusal", None)
                 )

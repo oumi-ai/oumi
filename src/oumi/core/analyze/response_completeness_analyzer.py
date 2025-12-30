@@ -24,6 +24,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -359,7 +360,7 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
                 analysis_results = df[column].astype(str).apply(self._analyze_response)
 
             # Extract results to columns
-            col_name = f"{column}_{analyzer_id}_is_complete"
+            col_name = make_analyzer_column_name(column, analyzer_id, "is_complete")
             result_df[col_name] = analysis_results.apply(lambda r: r.get("is_complete"))
             generated_schema[col_name] = {
                 "type": ColumnType.BOOL,
@@ -367,7 +368,7 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
                 "description": "Whether response appears complete",
             }
 
-            col_name = f"{column}_{analyzer_id}_score"
+            col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("completeness_score")
             )
@@ -377,7 +378,7 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
                 "description": "Completeness score (0.0 = incomplete, 1.0 = complete)",
             }
 
-            col_name = f"{column}_{analyzer_id}_ends_naturally"
+            col_name = make_analyzer_column_name(column, analyzer_id, "ends_naturally")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("ends_naturally")
             )
@@ -387,7 +388,7 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
                 "description": "Whether response ends naturally",
             }
 
-            col_name = f"{column}_{analyzer_id}_has_conclusion"
+            col_name = make_analyzer_column_name(column, analyzer_id, "has_conclusion")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("has_conclusion")
             )
@@ -398,7 +399,7 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
             }
 
             if self.include_truncation_type:
-                col_name = f"{column}_{analyzer_id}_truncation_type"
+                col_name = make_analyzer_column_name(column, analyzer_id, "truncation_type")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("truncation_type")
                 )

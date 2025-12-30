@@ -25,6 +25,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -344,7 +345,7 @@ class SafetyAnalyzer(SampleAnalyzer):
             analysis_results = df[column].astype(str).apply(self._analyze_text)
 
             # Extract results to columns
-            col_name = f"{column}_{analyzer_id}_score"
+            col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("safety_score")
             )
@@ -354,7 +355,7 @@ class SafetyAnalyzer(SampleAnalyzer):
                 "description": "Safety score (0.0 = unsafe, 1.0 = safe)",
             }
 
-            col_name = f"{column}_{analyzer_id}_is_safe"
+            col_name = make_analyzer_column_name(column, analyzer_id, "is_safe")
             result_df[col_name] = analysis_results.apply(lambda r: r.get("is_safe"))
             generated_schema[col_name] = {
                 "type": ColumnType.BOOL,
@@ -362,7 +363,7 @@ class SafetyAnalyzer(SampleAnalyzer):
                 "description": "Whether content is considered safe",
             }
 
-            col_name = f"{column}_{analyzer_id}_risk_level"
+            col_name = make_analyzer_column_name(column, analyzer_id, "risk_level")
             result_df[col_name] = analysis_results.apply(lambda r: r.get("risk_level"))
             generated_schema[col_name] = {
                 "type": ColumnType.STRING,
@@ -371,7 +372,9 @@ class SafetyAnalyzer(SampleAnalyzer):
             }
 
             if self.include_categories:
-                col_name = f"{column}_{analyzer_id}_categories_triggered"
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "categories_triggered"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("safety_categories")
                 )

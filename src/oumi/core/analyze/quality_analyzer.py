@@ -20,6 +20,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -321,7 +322,7 @@ class QualityAnalyzer(SampleAnalyzer):
 
             # Add columns for each metric
             if self.detect_pii:
-                col_name = f"{column}_{analyzer_id}_has_pii"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_pii")
                 result_df[col_name] = analysis_results.apply(lambda r: r["has_pii"])
                 generated_schema[col_name] = {
                     "type": ColumnType.BOOL,
@@ -329,7 +330,7 @@ class QualityAnalyzer(SampleAnalyzer):
                     "description": f"Whether text contains PII",
                 }
 
-                col_name = f"{column}_{analyzer_id}_pii_types"
+                col_name = make_analyzer_column_name(column, analyzer_id, "pii_types")
                 result_df[col_name] = analysis_results.apply(lambda r: r["pii_types"])
                 generated_schema[col_name] = {
                     "type": ColumnType.STRING,
@@ -337,7 +338,7 @@ class QualityAnalyzer(SampleAnalyzer):
                     "description": (f"Comma-separated list of PII types detected."),
                 }
 
-                col_name = f"{column}_{analyzer_id}_pii_count"
+                col_name = make_analyzer_column_name(column, analyzer_id, "pii_count")
                 result_df[col_name] = analysis_results.apply(lambda r: r["pii_count"])
                 generated_schema[col_name] = {
                     "type": ColumnType.INT,
@@ -346,7 +347,7 @@ class QualityAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_language:
-                col_name = f"{column}_{analyzer_id}_detected_language"
+                col_name = make_analyzer_column_name(column, analyzer_id, "detected_language")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("detected_language", "")
                 )
@@ -356,7 +357,7 @@ class QualityAnalyzer(SampleAnalyzer):
                     "description": f"Detected language.",
                 }
 
-                col_name = f"{column}_{analyzer_id}_language_confidence"
+                col_name = make_analyzer_column_name(column, analyzer_id, "language_confidence")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("language_confidence", 0.0)
                 )
@@ -367,7 +368,7 @@ class QualityAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_encoding_issues:
-                col_name = f"{column}_{analyzer_id}_has_encoding_issues"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_encoding_issues")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r["has_encoding_issues"]
                 )
@@ -378,7 +379,7 @@ class QualityAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_repetition:
-                col_name = f"{column}_{analyzer_id}_repetition_ratio"
+                col_name = make_analyzer_column_name(column, analyzer_id, "repetition_ratio")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r["repetition_ratio"]
                 )
@@ -391,7 +392,7 @@ class QualityAnalyzer(SampleAnalyzer):
                     ),
                 }
 
-                col_name = f"{column}_{analyzer_id}_has_high_repetition"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_high_repetition")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r["has_high_repetition"]
                 )

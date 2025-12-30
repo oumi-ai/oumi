@@ -24,6 +24,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -177,14 +178,32 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             analyzer_id = getattr(self, "analyzer_id", "conversation_structure")
 
             # For flat format, determine structure from available columns
-            result_df[f"{analyzer_id}_turn_count"] = 2  # instruction + response
-            result_df[f"{analyzer_id}_user_turn_count"] = 1
-            result_df[f"{analyzer_id}_assistant_turn_count"] = 1
-            result_df[f"{analyzer_id}_is_single_turn"] = True
-            result_df[f"{analyzer_id}_is_multi_turn"] = False
-            result_df[f"{analyzer_id}_conversation_depth"] = 1
-            result_df[f"{analyzer_id}_role_balance"] = 0.5
-            result_df[f"{analyzer_id}_has_system_prompt"] = False
+            # Use "conversation" as the pseudo-source column for consistency
+            source_col = "conversation"
+            result_df[
+                make_analyzer_column_name(source_col, analyzer_id, "turn_count")
+            ] = 2  # instruction + response
+            result_df[
+                make_analyzer_column_name(source_col, analyzer_id, "user_turn_count")
+            ] = 1
+            result_df[
+                make_analyzer_column_name(source_col, analyzer_id, "assistant_turn_count")
+            ] = 1
+            result_df[
+                make_analyzer_column_name(source_col, analyzer_id, "is_single_turn")
+            ] = True
+            result_df[
+                make_analyzer_column_name(source_col, analyzer_id, "is_multi_turn")
+            ] = False
+            result_df[
+                make_analyzer_column_name(source_col, analyzer_id, "conversation_depth")
+            ] = 1
+            result_df[
+                make_analyzer_column_name(source_col, analyzer_id, "role_balance")
+            ] = 0.5
+            result_df[
+                make_analyzer_column_name(source_col, analyzer_id, "has_system_prompt")
+            ] = False
 
             return result_df, generated_schema
 
@@ -252,14 +271,17 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             "role_balance",
             "has_system_prompt",
         ]:
-            col_name = f"{analyzer_id}_{metric_name}"
+            # Use "conversation" as the pseudo-source column for consistency
+            source_col = "conversation"
+            col_name = make_analyzer_column_name(source_col, analyzer_id, metric_name)
             result_df[col_name] = df["conversation_id"].map(
                 lambda cid: conv_metrics.get(cid, {}).get(metric_name)
             )
             generated_schema[col_name] = metric_schemas[metric_name]
 
         if self.compute_length_stats:
-            col_name = f"{analyzer_id}_avg_turn_length"
+            source_col = "conversation"
+            col_name = make_analyzer_column_name(source_col, analyzer_id, "avg_turn_length")
             result_df[col_name] = df["conversation_id"].map(
                 lambda cid: conv_metrics.get(cid, {}).get("avg_turn_length")
             )
@@ -269,7 +291,9 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
                 "description": "Average turn length in conversation",
             }
             
-            col_name = f"{analyzer_id}_turn_length_variance"
+            col_name = make_analyzer_column_name(
+                source_col, analyzer_id, "turn_length_variance"
+            )
             result_df[col_name] = df["conversation_id"].map(
                 lambda cid: conv_metrics.get(cid, {}).get("turn_length_variance")
             )

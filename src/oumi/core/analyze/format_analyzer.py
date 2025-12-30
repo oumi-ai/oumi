@@ -21,6 +21,7 @@ from typing import Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -342,7 +343,9 @@ class FormatAnalyzer(SampleAnalyzer):
 
             # Add columns for each detected feature
             if self.detect_markdown:
-                col_name = f"{column}_{analyzer_id}_has_markdown"
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "has_markdown"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r["has_markdown"]
                 )
@@ -353,7 +356,7 @@ class FormatAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_json:
-                col_name = f"{column}_{analyzer_id}_has_json"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_json")
                 result_df[col_name] = analysis_results.apply(lambda r: r["has_json"])
                 generated_schema[col_name] = {
                     "type": ColumnType.BOOL,
@@ -362,7 +365,9 @@ class FormatAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_code_blocks:
-                col_name = f"{column}_{analyzer_id}_has_code_blocks"
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "has_code_blocks"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r["has_code_blocks"]
                 )
@@ -372,7 +377,9 @@ class FormatAnalyzer(SampleAnalyzer):
                     "description": f"Whether {column} contains code blocks",
                 }
 
-                col_name = f"{column}_{analyzer_id}_code_block_count"
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "code_block_count"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r["code_block_count"]
                 )
@@ -382,7 +389,9 @@ class FormatAnalyzer(SampleAnalyzer):
                     "description": f"Number of code blocks in {column}",
                 }
 
-                col_name = f"{column}_{analyzer_id}_code_block_languages"
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "code_block_languages"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r["code_block_languages"]
                 )
@@ -396,7 +405,7 @@ class FormatAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_urls:
-                col_name = f"{column}_{analyzer_id}_has_urls"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_urls")
                 result_df[col_name] = analysis_results.apply(lambda r: r["has_urls"])
                 generated_schema[col_name] = {
                     "type": ColumnType.BOOL,
@@ -405,7 +414,7 @@ class FormatAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_emails:
-                col_name = f"{column}_{analyzer_id}_has_emails"
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_emails")
                 result_df[col_name] = analysis_results.apply(lambda r: r["has_emails"])
                 generated_schema[col_name] = {
                     "type": ColumnType.BOOL,
@@ -414,7 +423,9 @@ class FormatAnalyzer(SampleAnalyzer):
                 }
 
             if self.compute_complexity:
-                col_name = f"{column}_{analyzer_id}_format_complexity_score"
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "format_complexity_score"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r["format_complexity_score"]
                 )

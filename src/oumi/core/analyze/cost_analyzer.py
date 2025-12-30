@@ -23,6 +23,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -229,12 +230,17 @@ class CostAnalyzer(SampleAnalyzer):
         token_col = token_count_cols[0]
         analyzer_id = getattr(self, "analyzer_id", "cost")
 
-        # Extract the base column name (remove "_length_token_count" suffix)
-        # e.g., "conversation_text_content_length_token_count" -> "conversation_text_content"
-        # e.g., "text_content_length_token_count" -> "text_content"
-        base_col_name = token_col.replace("_length_token_count", "").replace(
-            "_token_count", ""
-        )
+        # Extract the base column name from the token count column
+        # New format: "text_content__length__token_count" -> "text_content"
+        # Old format fallback: "text_content_length_token_count" -> "text_content"
+        if "__" in token_col:
+            # New format with __ separator
+            base_col_name = token_col.split("__")[0]
+        else:
+            # Old format fallback
+            base_col_name = token_col.replace("_length_token_count", "").replace(
+                "_token_count", ""
+            )
 
         # Compute per-sample context metrics for each window size
         for context_size in self.target_context_windows:
@@ -248,7 +254,9 @@ class CostAnalyzer(SampleAnalyzer):
             )
 
             # Extract individual metrics - prefix with base column name
-            col_name = f"{base_col_name}_{analyzer_id}_fits_context_{size_name}"
+            col_name = make_analyzer_column_name(
+                base_col_name, analyzer_id, f"fits_context_{size_name}"
+            )
             result_df[col_name] = context_metrics.apply(
                 lambda m: m[f"fits_context_{size_name}"]
             )
@@ -258,7 +266,9 @@ class CostAnalyzer(SampleAnalyzer):
                 "description": f"Whether sample fits in {context_size} token context",
             }
 
-            col_name = f"{base_col_name}_{analyzer_id}_context_utilization_{size_name}"
+            col_name = make_analyzer_column_name(
+                base_col_name, analyzer_id, f"context_utilization_{size_name}"
+            )
             result_df[col_name] = context_metrics.apply(
                 lambda m: m[f"context_utilization_{size_name}"]
             )
@@ -271,7 +281,9 @@ class CostAnalyzer(SampleAnalyzer):
                 ),
             }
 
-            col_name = f"{base_col_name}_{analyzer_id}_tokens_wasted_{size_name}"
+            col_name = make_analyzer_column_name(
+                base_col_name, analyzer_id, f"tokens_wasted_{size_name}"
+            )
             result_df[col_name] = context_metrics.apply(
                 lambda m: m[f"tokens_wasted_{size_name}"]
             )

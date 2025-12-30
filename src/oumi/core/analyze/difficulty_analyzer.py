@@ -25,6 +25,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -393,7 +394,7 @@ class DifficultyAnalyzer(SampleAnalyzer):
                 )
 
             # Extract results to columns
-            col_name = f"{column}_{analyzer_id}_score"
+            col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("difficulty_score")
             )
@@ -403,7 +404,7 @@ class DifficultyAnalyzer(SampleAnalyzer):
                 "description": "Difficulty score (0.0 = easy, 1.0 = hard)",
             }
 
-            col_name = f"{column}_{analyzer_id}_tier"
+            col_name = make_analyzer_column_name(column, analyzer_id, "tier")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("difficulty_tier")
             )
@@ -414,7 +415,7 @@ class DifficultyAnalyzer(SampleAnalyzer):
             }
 
             if self.include_component_scores:
-                col_name = f"{column}_{analyzer_id}_requires_reasoning"
+                col_name = make_analyzer_column_name(column, analyzer_id, "requires_reasoning")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("requires_reasoning")
                 )
@@ -424,7 +425,7 @@ class DifficultyAnalyzer(SampleAnalyzer):
                     "description": "Whether task requires reasoning",
                 }
 
-                col_name = f"{column}_{analyzer_id}_requires_domain_knowledge"
+                col_name = make_analyzer_column_name(column, analyzer_id, "requires_domain_knowledge")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("requires_domain_knowledge")
                 )
@@ -434,7 +435,7 @@ class DifficultyAnalyzer(SampleAnalyzer):
                     "description": "Whether task requires domain knowledge",
                 }
 
-                col_name = f"{column}_{analyzer_id}_constraint_count"
+                col_name = make_analyzer_column_name(column, analyzer_id, "constraint_count")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("constraint_count")
                 )

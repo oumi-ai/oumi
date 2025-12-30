@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Optional, Union
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -138,7 +139,7 @@ class LengthAnalyzer(SampleAnalyzer):
 
         for column in text_columns:
             if self.token_count:
-                col_name = f"{column}_{analyzer_id}_token_count"
+                col_name = make_analyzer_column_name(column, analyzer_id, "token_count")
                 if self.tokenizer is not None:
                     # Use HuggingFace tokenizer (takes precedence)
                     tokenizer = self.tokenizer  # Type assertion for pyright

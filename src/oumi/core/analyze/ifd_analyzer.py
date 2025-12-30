@@ -29,6 +29,7 @@ import pandas as pd
 import torch
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -390,28 +391,45 @@ class IFDAnalyzer(SampleAnalyzer):
         base_column = "text_content"
 
         # Initialize result columns with None
-        result_df[f"{base_column}_{analyzer_id}_score"] = None
-        result_df[f"{base_column}_{analyzer_id}_ppl_with_instruction"] = None
-        result_df[f"{base_column}_{analyzer_id}_ppl_without_instruction"] = None
-        result_df[f"{base_column}_{analyzer_id}_response_loss"] = None
+        result_df[make_analyzer_column_name(base_column, analyzer_id, "score")] = None
+        result_df[
+            make_analyzer_column_name(base_column, analyzer_id, "ppl_with_instruction")
+        ] = None
+        result_df[
+            make_analyzer_column_name(base_column, analyzer_id, "ppl_without_instruction")
+        ] = None
+        result_df[
+            make_analyzer_column_name(base_column, analyzer_id, "response_loss")
+        ] = None
 
         # Add schema entries for IFD columns
-        generated_schema[f"{base_column}_{analyzer_id}_score"] = {
+        col_name = make_analyzer_column_name(base_column, analyzer_id, "score")
+        generated_schema[col_name] = {
             "type": ColumnType.FLOAT,
             "content_type": ContentType.NUMERIC,
             "description": "Instruction-following difficulty score (higher = more difficult)",
         }
-        generated_schema[f"{base_column}_{analyzer_id}_ppl_with_instruction"] = {
+        
+        col_name = make_analyzer_column_name(
+            base_column, analyzer_id, "ppl_with_instruction"
+        )
+        generated_schema[col_name] = {
             "type": ColumnType.FLOAT,
             "content_type": ContentType.NUMERIC,
             "description": "Perplexity when instruction is provided",
         }
-        generated_schema[f"{base_column}_{analyzer_id}_ppl_without_instruction"] = {
+        
+        col_name = make_analyzer_column_name(
+            base_column, analyzer_id, "ppl_without_instruction"
+        )
+        generated_schema[col_name] = {
             "type": ColumnType.FLOAT,
             "content_type": ContentType.NUMERIC,
             "description": "Perplexity without instruction context",
         }
-        generated_schema[f"{base_column}_{analyzer_id}_response_loss"] = {
+        
+        col_name = make_analyzer_column_name(base_column, analyzer_id, "response_loss")
+        generated_schema[col_name] = {
             "type": ColumnType.FLOAT,
             "content_type": ContentType.NUMERIC,
             "description": "Response generation loss value",
@@ -467,21 +485,27 @@ class IFDAnalyzer(SampleAnalyzer):
                 try:
                     ifd_result = self._compute_ifd_for_sample(instruction, response)
 
-                    result_df.loc[asst_idx, f"{base_column}_{analyzer_id}_score"] = (
-                        ifd_result["ifd_score"]
+                    score_col = make_analyzer_column_name(base_column, analyzer_id, "score")
+                    result_df.loc[asst_idx, score_col] = ifd_result["ifd_score"]
+                    
+                    ppl_with_col = make_analyzer_column_name(
+                        base_column, analyzer_id, "ppl_with_instruction"
                     )
-                    result_df.loc[
-                        asst_idx, f"{base_column}_{analyzer_id}_ppl_with_instruction"
-                    ] = ifd_result["ppl_with_instruction"]
-                    ppl_without_col = (
-                        f"{base_column}_{analyzer_id}_ppl_without_instruction"
+                    result_df.loc[asst_idx, ppl_with_col] = ifd_result[
+                        "ppl_with_instruction"
+                    ]
+                    
+                    ppl_without_col = make_analyzer_column_name(
+                        base_column, analyzer_id, "ppl_without_instruction"
                     )
                     result_df.loc[asst_idx, ppl_without_col] = ifd_result[
                         "ppl_without_instruction"
                     ]
-                    result_df.loc[
-                        asst_idx, f"{base_column}_{analyzer_id}_response_loss"
-                    ] = ifd_result["response_loss"]
+                    
+                    loss_col = make_analyzer_column_name(
+                        base_column, analyzer_id, "response_loss"
+                    )
+                    result_df.loc[asst_idx, loss_col] = ifd_result["response_loss"]
                     processed += 1
 
                 except Exception as e:
@@ -547,7 +571,7 @@ class IFDAnalyzer(SampleAnalyzer):
 
         # Add columns to result DataFrame
         # Prefix with response column for consistency with other analyzers
-        col_name = f"{response_col}_{analyzer_id}_score"
+        col_name = make_analyzer_column_name(response_col, analyzer_id, "score")
         result_df[col_name] = [r["ifd_score"] for r in results]
         generated_schema[col_name] = {
             "type": ColumnType.FLOAT,
@@ -555,7 +579,7 @@ class IFDAnalyzer(SampleAnalyzer):
             "description": "Instruction-following difficulty score (higher = more difficult)",
         }
 
-        col_name = f"{response_col}_{analyzer_id}_ppl_with_instruction"
+        col_name = make_analyzer_column_name(response_col, analyzer_id, "ppl_with_instruction")
         result_df[col_name] = [r["ppl_with_instruction"] for r in results]
         generated_schema[col_name] = {
             "type": ColumnType.FLOAT,
@@ -563,7 +587,9 @@ class IFDAnalyzer(SampleAnalyzer):
             "description": "Perplexity when instruction is provided",
         }
 
-        col_name = f"{response_col}_{analyzer_id}_ppl_without_instruction"
+        col_name = make_analyzer_column_name(
+            response_col, analyzer_id, "ppl_without_instruction"
+        )
         result_df[col_name] = [r["ppl_without_instruction"] for r in results]
         generated_schema[col_name] = {
             "type": ColumnType.FLOAT,
@@ -571,7 +597,7 @@ class IFDAnalyzer(SampleAnalyzer):
             "description": "Perplexity without instruction context",
         }
 
-        col_name = f"{response_col}_{analyzer_id}_response_loss"
+        col_name = make_analyzer_column_name(response_col, analyzer_id, "response_loss")
         result_df[col_name] = [r["response_loss"] for r in results]
         generated_schema[col_name] = {
             "type": ColumnType.FLOAT,
@@ -645,7 +671,7 @@ class IFDAnalyzer(SampleAnalyzer):
         )
 
         # Log summary statistics
-        ifd_col = f"{response_col}_{analyzer_id}_score"
+        ifd_col = make_analyzer_column_name(response_col, analyzer_id, "score")
         ifd_scores = result_df[ifd_col].dropna().tolist()
         if ifd_scores:
             logger.info(

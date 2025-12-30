@@ -25,6 +25,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -401,7 +402,7 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
                 analysis_results = df[column].astype(str).apply(self._classify_text)
 
             # Extract results to columns
-            col_name = f"{column}_{analyzer_id}_category"
+            col_name = make_analyzer_column_name(column, analyzer_id, "category")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("task_category")
             )
@@ -411,7 +412,7 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
                 "description": "Predicted task category",
             }
 
-            col_name = f"{column}_{analyzer_id}_confidence"
+            col_name = make_analyzer_column_name(column, analyzer_id, "confidence")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("task_confidence")
             )
@@ -421,7 +422,7 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
                 "description": "Confidence score for predicted category (0.0-1.0)",
             }
 
-            col_name = f"{column}_{analyzer_id}_is_stem"
+            col_name = make_analyzer_column_name(column, analyzer_id, "is_stem")
             result_df[col_name] = analysis_results.apply(lambda r: r.get("is_stem"))
             generated_schema[col_name] = {
                 "type": ColumnType.BOOL,
@@ -429,7 +430,7 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
                 "description": "Whether task is in STEM category",
             }
 
-            col_name = f"{column}_{analyzer_id}_is_conversational"
+            col_name = make_analyzer_column_name(column, analyzer_id, "is_conversational")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("is_conversational")
             )

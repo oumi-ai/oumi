@@ -25,6 +25,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
@@ -414,7 +415,7 @@ class InstructRewardAnalyzer(SampleAnalyzer):
                 analysis_results = df[column].astype(str).apply(self._analyze_response)
 
             # Extract results to columns
-            col_name = f"{column}_{analyzer_id}_score"
+            col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("reward_score")
             )
@@ -424,7 +425,7 @@ class InstructRewardAnalyzer(SampleAnalyzer):
                 "description": "Instruction-following reward score (0.0-5.0)",
             }
             
-            col_name = f"{column}_{analyzer_id}_tier"
+            col_name = make_analyzer_column_name(column, analyzer_id, "tier")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("reward_tier")
             )
@@ -435,7 +436,7 @@ class InstructRewardAnalyzer(SampleAnalyzer):
             }
 
             if self.include_component_scores:
-                col_name = f"{column}_{analyzer_id}_helpfulness"
+                col_name = make_analyzer_column_name(column, analyzer_id, "helpfulness")
                 result_df[col_name] = analysis_results.apply(lambda r: r.get("helpfulness_score"))
                 generated_schema[col_name] = {
                     "type": ColumnType.FLOAT,
@@ -443,7 +444,7 @@ class InstructRewardAnalyzer(SampleAnalyzer):
                     "description": "Helpfulness component score (0.0-1.0)",
                 }
                 
-                col_name = f"{column}_{analyzer_id}_completeness"
+                col_name = make_analyzer_column_name(column, analyzer_id, "completeness")
                 result_df[col_name] = analysis_results.apply(lambda r: r.get("completeness_score"))
                 generated_schema[col_name] = {
                     "type": ColumnType.FLOAT,
@@ -451,7 +452,7 @@ class InstructRewardAnalyzer(SampleAnalyzer):
                     "description": "Completeness component score (0.0-1.0)",
                 }
                 
-                col_name = f"{column}_{analyzer_id}_clarity"
+                col_name = make_analyzer_column_name(column, analyzer_id, "clarity")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("clarity_score")
                 )
