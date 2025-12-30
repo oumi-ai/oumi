@@ -87,7 +87,7 @@ class PromptOptimizationConfig(BaseConfig):
     engine: InferenceEngineType | None = None
     """The inference engine to use for evaluation during optimization.
 
-    If not specified, the "NATIVE" engine will be used.
+    This field is required.
     """
 
     remote_params: RemoteParams | None = None
@@ -109,6 +109,11 @@ class PromptOptimizationConfig(BaseConfig):
         """Validates the prompt optimization configuration."""
         if self.train_dataset_path is None:
             raise ValueError("train_dataset_path must be specified")
+
+        if self.engine is None:
+            raise ValueError(
+                "engine must be specified for prompt optimization inference"
+            )
 
         valid_metrics = {
             "accuracy",

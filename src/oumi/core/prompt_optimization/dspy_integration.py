@@ -98,9 +98,15 @@ class OumiDSPyBridge:
         if self._inference_engine is None:
             from oumi.builders.inference_engines import build_inference_engine
 
+            if self.config.engine is None:
+                raise ValueError(
+                    "Prompt optimization requires an inference engine to be specified."
+                )
+
             self._inference_engine = build_inference_engine(
-                engine_type=self.config.engine,  # type: ignore[arg-type]
+                engine_type=self.config.engine,
                 model_params=self.config.model,
+                remote_params=self.config.remote_params,
                 generation_params=self.config.generation,
             )
         return self._inference_engine
