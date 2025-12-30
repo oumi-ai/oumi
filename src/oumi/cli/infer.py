@@ -247,7 +247,11 @@ def infer(
                 "Input path provided, skipping interactive inference. "
                 "To run in interactive mode, do not provide an input path."
             )
-        generations = oumi_infer(parsed_config)
+        # Display loading spinner while running batch inference
+        with cli_utils.CONSOLE.status(
+            "[green]Running inference...[/green]", spinner="dots"
+        ):
+            generations = oumi_infer(parsed_config)
         # Don't print results if output_filepath is provided.
         if parsed_config.output_path:
             return
@@ -271,4 +275,5 @@ def infer(
         parsed_config,
         input_image_bytes=input_image_png_bytes,
         system_prompt=system_prompt,
+        console=cli_utils.CONSOLE,
     )
