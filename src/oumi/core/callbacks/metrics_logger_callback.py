@@ -16,12 +16,15 @@
 
 import json
 import pathlib
-
-import transformers
+from typing import TYPE_CHECKING
 
 from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
-from oumi.core.configs import TrainingParams
 from oumi.core.distributed import get_device_rank_info, is_world_process_zero
+
+if TYPE_CHECKING:
+    import transformers
+
+    from oumi.core.configs import TrainingParams
 
 _LOGS_KWARG = "logs"
 
@@ -44,9 +47,9 @@ class MetricsLoggerCallback(BaseTrainerCallback):
 
     def on_log(
         self,
-        args: transformers.TrainingArguments | TrainingParams | None,
-        state: transformers.TrainerState | None = None,
-        control: transformers.TrainerControl | None = None,
+        args: "transformers.TrainingArguments | TrainingParams | None",
+        state: "transformers.TrainerState | None" = None,
+        control: "transformers.TrainerControl | None" = None,
         **kwargs,
     ):
         """Event called after logging metrics."""
