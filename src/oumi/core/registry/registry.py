@@ -36,6 +36,7 @@ class RegistryType(Enum):
     JUDGE_CONFIG = auto()
     EVALUATION_FUNCTION = auto()
     SAMPLE_ANALYZER = auto()
+    RULE = auto()
 
 
 class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):

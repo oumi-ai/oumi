@@ -300,7 +300,7 @@ class BaseJudge:
         example_field_values: list[dict[str, str]],
         response_format: JudgeResponseFormat,
         output_fields: list[JudgeOutputField],
-        inference_engine: BaseInferenceEngine,
+        inference_engine: BaseInferenceEngine | None = None,
     ):
         """Initialize the judge.
 
@@ -537,7 +537,14 @@ class BaseJudge:
         original_metadata = [conv.metadata for conv in conversations]
 
         # Run batch inference
-        response_conversations = self.inference_engine.infer(input=conversations)
+        if self.inference_engine:
+            response_conversations = self.inference_engine.infer(input=conversations)
+        else:
+            raise ValueError(
+                "Cannot run inference: inference_engine is None. "
+                "Subclasses that don't use inference should override the "
+                "judge() method."
+            )
 
         if len(response_conversations) != len(original_metadata):
             raise ValueError(
