@@ -54,6 +54,20 @@ _ASCII_LOGO = r"""
   \____/ \____/|_|  |_|_____|
 """
 
+_APP_HELP = """\
+Examples:
+
+• oumi train -c llama3.1-8b
+• oumi infer -c llama3.1-8b --interactive
+• oumi train -c config.yaml --training.max_steps 100
+"""
+
+_TIPS_FOOTER = """
+[bold]Tips:[/bold]
+  • List available model configs: [cyan]oumi train --list[/cyan]
+  • Enable shell completion: [cyan]oumi --install-completion[/cyan]
+"""
+
 
 def experimental_features_enabled():
     """Check if experimental features are enabled."""
@@ -61,7 +75,12 @@ def experimental_features_enabled():
     return is_enabled.lower() in ("1", "true", "yes", "on")
 
 
-def _oumi_welcome(ctx: typer.Context):
+def _oumi_welcome(
+    ctx: typer.Context,
+    help_flag: bool = typer.Option(
+        False, "--help", "-h", is_eager=True, help="Show this message and exit."
+    ),
+):
     if ctx.invoked_subcommand == "distributed":
         return
     # Skip logo for rank>0 for multi-GPU jobs to reduce noise in logs.
@@ -69,13 +88,25 @@ def _oumi_welcome(ctx: typer.Context):
         return
     CONSOLE.print(_ASCII_LOGO, style="green", highlight=False)
 
+    # Show help when no subcommand is provided or help is requested
+    if help_flag or ctx.invoked_subcommand is None:
+        CONSOLE.print(ctx.get_help(), end="")
+        CONSOLE.print(_TIPS_FOOTER)
+        raise typer.Exit
+
+
+_HELP_OPTION_NAMES = {"help_option_names": ["--help", "-h"]}
+
 
 def get_app() -> typer.Typer:
     """Create the Typer CLI app."""
-    app = typer.Typer(pretty_exceptions_enable=False)
-    app.callback(context_settings={"help_option_names": ["-h", "--help"]})(
-        _oumi_welcome
+    app = typer.Typer(
+        pretty_exceptions_enable=False,
+        rich_markup_mode="rich",
+        context_settings=_HELP_OPTION_NAMES,
+        add_completion=False,
     )
+    app.callback(invoke_without_command=True, help=_APP_HELP)(_oumi_welcome)
 
     # Model
     app.command(
@@ -147,6 +178,9 @@ def get_app() -> typer.Typer:
         help="Optimize prompts for language models.",
     )(prompt)
     judge_app = typer.Typer(pretty_exceptions_enable=False)
+    judge_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
 
     # Create callback for --list on top-level judge command
     from oumi.cli.cli_utils import create_list_configs_callback
@@ -192,7 +226,9 @@ def get_app() -> typer.Typer:
     )
 
     # Compute
-    launch_app = typer.Typer(pretty_exceptions_enable=False)
+    launch_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
     launch_app.command(help="Cancel a running job.")(cancel)
     launch_app.command(help="Tear down a cluster and release resources.")(down)
     launch_app.command(
@@ -211,7 +247,9 @@ def get_app() -> typer.Typer:
         help="Deploy and manage jobs on cloud infrastructure.",
         rich_help_panel="Compute",
     )
-    distributed_app = typer.Typer(pretty_exceptions_enable=False)
+    distributed_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
     distributed_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(accelerate)
     distributed_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(torchrun)
     app.add_typer(
@@ -234,7 +272,9 @@ def get_app() -> typer.Typer:
         help="Download example configs from the Oumi repository.",
         rich_help_panel="Tools",
     )(fetch)
-    cache_app = typer.Typer(pretty_exceptions_enable=False)
+    cache_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
     cache_app.command(name="ls", help="List cached models and datasets.")(cache_ls)
     cache_app.command(
         name="get", help="Download a model or dataset from Hugging Face."

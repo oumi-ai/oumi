@@ -59,7 +59,7 @@ dependencies = [
     "pandas>=2.3,<3",
     "peft>=0.17,<0.19",
     "pexpect>=4.9,<4.10",      # Used by Polaris client
-    "pillow>=11.3,<11.4",      # Used by image datasets
+    "pillow>=11.3,<12.1",      # Used by image datasets
     "protobuf>=6.32",
     "pycares<5.0.0",
     "pydantic>=2.11,<2.13",
@@ -68,14 +68,14 @@ dependencies = [
     "skypilot>=0.10.2,<0.12",  # 0.10.2 and above is needed
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "torch>=2.6,<2.10.0",      # vllm only supports up to torch==2.7
-    "torchao>=0.12,<0.15",     # Used by transformers
+    "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.25", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
     "transformers>=4.57,<4.58",
     "trl>=0.24,<0.27",
-    "typer<0.20.1",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
+    "typer<0.21.1",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
     "uvicorn<0.41.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.24",        # Logging to Weights and Biases.
