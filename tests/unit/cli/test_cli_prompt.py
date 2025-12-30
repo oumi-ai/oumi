@@ -23,7 +23,7 @@ from typer.testing import CliRunner
 import oumi
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.prompt import prompt
-from oumi.core.configs import ModelParams
+from oumi.core.configs import InferenceEngineType, ModelParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.prompt_optimization_params import (
     PromptOptimizationParams,
@@ -53,6 +53,7 @@ def _create_prompt_optimization_config(temp_dir: str) -> PromptOptimizationConfi
         train_dataset_path=str(Path(temp_dir) / "train.jsonl"),
         output_dir=str(Path(temp_dir) / "output"),
         metric="accuracy",
+        engine=InferenceEngineType.NATIVE,
     )
 
 

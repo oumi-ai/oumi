@@ -153,6 +153,7 @@ class TestGEPAFeedbackMetricSupport:
 
     def test_gepa_metric_signature_detection(self):
         """Test detection of GEPA-compatible metric signatures."""
+        from oumi.core.configs import InferenceEngineType
         from oumi.core.configs.params.generation_params import GenerationParams
         from oumi.core.configs.params.model_params import ModelParams
         from oumi.core.configs.prompt_config import PromptOptimizationConfig
@@ -164,6 +165,7 @@ class TestGEPAFeedbackMetricSupport:
             model=ModelParams(model_name="test-model"),
             generation=GenerationParams(),
             optimization=PromptOptimizationParams(optimizer="gepa"),
+            engine=InferenceEngineType.NATIVE,
         )
 
         def standard_metric(predictions, references):
@@ -204,6 +206,7 @@ class TestOptimizerFactory:
 
     def test_create_optuna_optimizer(self):
         """Test that optuna optimizer can be instantiated directly."""
+        from oumi.core.configs import InferenceEngineType
         from oumi.core.configs.params.generation_params import GenerationParams
         from oumi.core.configs.params.model_params import ModelParams
         from oumi.core.configs.prompt_config import PromptOptimizationConfig
@@ -214,6 +217,7 @@ class TestOptimizerFactory:
             model=ModelParams(model_name="test-model"),
             generation=GenerationParams(),
             optimization=PromptOptimizationParams(optimizer="optuna", num_trials=20),
+            engine=InferenceEngineType.NATIVE,
         )
 
         optimizer = BootstrapFewShotWithOptunaOptimizer(config, lambda p, r: 1.0)
@@ -223,6 +227,7 @@ class TestOptimizerFactory:
 
     def test_optimizer_factory_supports_all_optimizers(self):
         """Test that all optimizers can be instantiated."""
+        from oumi.core.configs import InferenceEngineType
         from oumi.core.configs.params.generation_params import GenerationParams
         from oumi.core.configs.params.model_params import ModelParams
         from oumi.core.configs.prompt_config import PromptOptimizationConfig
@@ -246,6 +251,7 @@ class TestOptimizerFactory:
                 model=ModelParams(model_name="test-model"),
                 generation=GenerationParams(),
                 optimization=PromptOptimizationParams(optimizer=optimizer_name),
+                engine=InferenceEngineType.NATIVE,
             )
 
             optimizer = optimizer_class(config, lambda p, r: 1.0)

@@ -16,6 +16,7 @@
 
 import pytest
 
+from oumi.core.configs import InferenceEngineType, RemoteParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.prompt_optimization_params import (
@@ -42,6 +43,7 @@ def mock_config():
         ),
         train_dataset_path="dummy_train.jsonl",
         output_dir="dummy_output",
+        engine=InferenceEngineType.NATIVE,
     )
 
 
@@ -130,6 +132,58 @@ class TestContextManager:
         # Both should be restored
         assert bridge.config.generation.temperature == original_temp
         assert bridge.config.generation.top_p == original_top_p
+
+
+class TestInferenceEngineConfig:
+    """Test inference engine configuration for prompt optimization."""
+
+    def test_get_inference_engine_passes_remote_params(self, mock_config, monkeypatch):
+        """Test that remote params are passed to engine builder."""
+        mock_config.engine = InferenceEngineType.OPENAI
+        mock_config.remote_params = RemoteParams(
+            api_url="https://example.com/v1",
+            api_key="test-key",
+            num_workers=3,
+        )
+
+        captured = {}
+        sentinel_engine = object()
+
+        def _fake_builder(
+            *,
+            engine_type,
+            model_params,
+            remote_params=None,
+            generation_params=None,
+        ):
+            captured["engine_type"] = engine_type
+            captured["model_params"] = model_params
+            captured["remote_params"] = remote_params
+            captured["generation_params"] = generation_params
+            return sentinel_engine
+
+        monkeypatch.setattr(
+            "oumi.builders.inference_engines.build_inference_engine",
+            _fake_builder,
+        )
+
+        bridge = OumiDSPyBridge(mock_config)
+        engine = bridge._get_inference_engine()
+
+        assert engine is sentinel_engine
+        assert captured["engine_type"] == mock_config.engine
+        assert captured["remote_params"] is mock_config.remote_params
+
+    def test_get_inference_engine_requires_engine(self, mock_config):
+        """Test that missing engine raises a clear error."""
+        mock_config.engine = None
+        bridge = OumiDSPyBridge(mock_config)
+
+        with pytest.raises(
+            ValueError,
+            match="requires an inference engine to be specified",
+        ):
+            bridge._get_inference_engine()
 
 
 class TestResponseAttributes:

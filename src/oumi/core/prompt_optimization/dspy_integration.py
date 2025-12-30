@@ -19,6 +19,7 @@ optimization framework, including the LM wrapper and dataset conversion.
 """
 
 import asyncio
+import re
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -233,6 +234,8 @@ class OumiDSPyBridge:
         except ImportError:
             raise ImportError(_DSPY_INSTALL_ERROR)
 
+        from dspy.utils.callback import with_callbacks
+
         bridge = self
 
         class OumiDSPyLM(dspy.LM):
@@ -247,6 +250,24 @@ class OumiDSPyBridge:
                 self.history: list[dict[str, Any]] = []
                 self.num_calls = 0
                 self.failed_calls = 0
+
+            @with_callbacks
+            def __call__(
+                self,
+                prompt: str | None = None,
+                messages: list[dict[str, Any]] | None = None,
+                **kwargs,
+            ) -> list[str]:
+                """DSPy entrypoint that routes through the Oumi engine."""
+                prompt_text = self._extract_prompt(prompt, messages)
+                response = self.forward(prompt=prompt, messages=messages, **kwargs)
+                return [
+                    self._ensure_dspy_output_format(
+                        choice.get("text", ""),
+                        prompt_text,
+                    )
+                    for choice in response.choices
+                ]
 
             def forward(
                 self,
@@ -282,6 +303,43 @@ class OumiDSPyBridge:
 
                 outputs = self._extract_outputs(results)
                 return self._build_response(prompt, outputs, kwargs)
+
+            def _ensure_dspy_output_format(self, output: str, prompt_text: str) -> str:
+                """Ensure output includes DSPy field markers for parsing."""
+                markers_all = re.findall(r"\[\[ ## (\w+) ## \]\]", prompt_text)
+                output_fields = re.findall(r"`\[\[ ## (\w+) ## \]\]`", prompt_text)
+                markers = output_fields or markers_all
+                if not markers:
+                    return output
+
+                if output_fields and all(
+                    f"[[ ## {field} ## ]]" in output for field in output_fields
+                ):
+                    return output
+
+                if "completed" in markers_all and "completed" not in markers:
+                    markers.append("completed")
+
+                target = "answer" if "answer" in markers else None
+                if target is None:
+                    for name in reversed(markers):
+                        if name != "completed":
+                            target = name
+                            break
+
+                if target is None:
+                    return output
+
+                parts = []
+                for name in markers:
+                    if name == "completed":
+                        content = ""
+                    elif name == target:
+                        content = output.strip()
+                    else:
+                        content = ""
+                    parts.append(f"[[ ## {name} ## ]]\n{content}".rstrip())
+                return "\n\n".join(parts).strip()
 
             def _extract_prompt(
                 self,

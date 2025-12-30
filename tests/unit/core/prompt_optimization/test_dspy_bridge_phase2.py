@@ -19,6 +19,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from oumi.core.configs import InferenceEngineType
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.prompt_optimization_params import (
@@ -45,6 +46,7 @@ def mock_config():
         ),
         train_dataset_path="dummy_train.jsonl",
         output_dir="dummy_output",
+        engine=InferenceEngineType.NATIVE,
     )
 
 

@@ -15,6 +15,7 @@
 """DSPy-based prompt optimizers using registry pattern."""
 
 from collections.abc import Callable
+import sys
 from dataclasses import dataclass
 from typing import Any
 
@@ -85,6 +86,7 @@ def _compile_mipro(optimizer, program, train_examples, val_examples, config):
     minibatch_size = min(
         _MIPRO_MAX_MINIBATCH_SIZE, max(_MIPRO_MIN_MINIBATCH_SIZE, val_size // 2)
     )
+    requires_permission_to_run = bool(sys.stdin and sys.stdin.isatty())
 
     try:
         return optimizer.compile(
@@ -95,6 +97,7 @@ def _compile_mipro(optimizer, program, train_examples, val_examples, config):
             max_labeled_demos=config.optimization.max_labeled_demos,
             minibatch_size=minibatch_size,
             minibatch_full_eval_steps=_MIPRO_MINIBATCH_EVAL_STEPS,
+            requires_permission_to_run=requires_permission_to_run,
         )
     except Exception as e:
         raise RuntimeError(f"MIPROv2 compilation failed: {e}") from e

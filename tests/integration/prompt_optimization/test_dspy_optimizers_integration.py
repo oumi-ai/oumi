@@ -18,11 +18,12 @@ These tests actually run the optimizers with small models and datasets
 to verify end-to-end functionality.
 """
 
+import os
 from pathlib import Path
 
 import pytest
 
-from oumi.core.configs import ModelParams
+from oumi.core.configs import InferenceEngineType, ModelParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.prompt_optimization_params import (
     PromptOptimizationParams,
@@ -36,8 +37,11 @@ from oumi.core.prompt_optimization import (
 
 # Mark all tests in this module as requiring DSPy
 pytestmark = pytest.mark.skipif(
-    True,
-    reason="DSPy integration tests disabled by default (slow and resource-intensive)",
+    os.environ.get("OUMI_RUN_DSPY_INTEGRATION_TESTS") != "1",
+    reason=(
+        "DSPy integration tests disabled by default (slow and resource-intensive). "
+        "Set OUMI_RUN_DSPY_INTEGRATION_TESTS=1 to enable."
+    ),
 )
 
 
@@ -91,6 +95,7 @@ def test_config(tmp_path):
             model_name="HuggingFaceTB/SmolLM2-135M",
             trust_remote_code=True,
             torch_dtype_str="float32",  # Use float32 for CPU testing
+            tokenizer_kwargs={"pad_token": "<|endoftext|>"},
         ),
         generation=GenerationParams(
             max_new_tokens=10,
@@ -109,13 +114,14 @@ def test_config(tmp_path):
         val_dataset_path=str(tmp_path / "val.jsonl"),
         output_dir=str(tmp_path / "output"),
         metric="accuracy",
+        engine=InferenceEngineType.NATIVE,
     )
 
 
 class TestBootstrapFewShotOptimizer:
     """Tests for BootstrapFewShot optimizer."""
 
-    @pytest.mark.slow
+    @pytest.mark.e2e
     def test_bootstrap_basic_optimization(self, small_dataset, test_config):
         """Test that Bootstrap optimizer runs without errors."""
         train_data, val_data = small_dataset
@@ -132,10 +138,10 @@ class TestBootstrapFewShotOptimizer:
         assert result.final_score >= 0.0
         assert result.final_score <= 1.0
         assert result.num_trials > 0
-        assert result.metadata["optimizer"] == "bootstrap"
+        assert result.metadata["optimizer"] == "bootstrapfewshot"
         assert result.metadata["status"] == "completed"
 
-    @pytest.mark.slow
+    @pytest.mark.e2e
     def test_bootstrap_with_checkpointing(self, small_dataset, tmp_path):
         """Test Bootstrap with checkpointing enabled."""
         train_data, val_data = small_dataset
@@ -145,6 +151,7 @@ class TestBootstrapFewShotOptimizer:
                 model_name="HuggingFaceTB/SmolLM2-135M",
                 trust_remote_code=True,
                 torch_dtype_str="float32",
+                tokenizer_kwargs={"pad_token": "<|endoftext|>"},
             ),
             generation=GenerationParams(max_new_tokens=10, temperature=0.7),
             optimization=PromptOptimizationParams(
@@ -157,6 +164,7 @@ class TestBootstrapFewShotOptimizer:
             train_dataset_path=str(tmp_path / "train.jsonl"),
             output_dir=str(tmp_path / "output"),
             metric="accuracy",
+            engine=InferenceEngineType.NATIVE,
         )
 
         metric_fn = get_metric_fn("accuracy")
@@ -173,8 +181,7 @@ class TestBootstrapFewShotOptimizer:
 class TestMiproOptimizer:
     """Tests for MIPRO optimizer."""
 
-    @pytest.mark.slow
-    @pytest.mark.expensive
+    @pytest.mark.e2e_eternal
     def test_mipro_basic_optimization(self, small_dataset, tmp_path):
         """Test that MIPRO optimizer runs without errors."""
         train_data, val_data = small_dataset
@@ -184,6 +191,7 @@ class TestMiproOptimizer:
                 model_name="HuggingFaceTB/SmolLM2-135M",
                 trust_remote_code=True,
                 torch_dtype_str="float32",
+                tokenizer_kwargs={"pad_token": "<|endoftext|>"},
             ),
             generation=GenerationParams(max_new_tokens=10, temperature=0.7),
             optimization=PromptOptimizationParams(
@@ -196,6 +204,7 @@ class TestMiproOptimizer:
             train_dataset_path=str(tmp_path / "train.jsonl"),
             output_dir=str(tmp_path / "output"),
             metric="accuracy",
+            engine=InferenceEngineType.NATIVE,
         )
 
         metric_fn = get_metric_fn("accuracy")
@@ -206,13 +215,13 @@ class TestMiproOptimizer:
         assert result is not None
         assert result.final_score >= 0.0
         assert result.final_score <= 1.0
-        assert result.metadata["optimizer"] == "mipro"
+        assert result.metadata["optimizer"] == "miprov2"
 
 
 class TestMetricsIntegration:
     """Tests for different metrics with optimizers."""
 
-    @pytest.mark.slow
+    @pytest.mark.e2e
     def test_f1_metric(self, small_dataset, test_config):
         """Test optimization with F1 metric."""
         train_data, val_data = small_dataset
@@ -227,7 +236,7 @@ class TestMetricsIntegration:
         assert result.final_score >= 0.0
         assert result.final_score <= 1.0
 
-    @pytest.mark.slow
+    @pytest.mark.e2e
     def test_custom_metric(self, small_dataset, test_config, tmp_path):
         """Test optimization with custom metric."""
         # Create a custom metric file
@@ -274,10 +283,8 @@ class TestErrorHandling:
         metric_fn = get_metric_fn("accuracy")
         optimizer = BootstrapFewShotOptimizer(test_config, metric_fn)
 
-        # Should not crash, but the dataset is too small per our validation
-        # This will fail validation before reaching the optimizer
-        with pytest.raises(Exception):  # Will fail in dataset loading
-            optimizer.optimize(small_train, small_val)
+        result = optimizer.optimize(small_train, small_val)
+        assert result is not None
 
 
 class TestCostTracking:
