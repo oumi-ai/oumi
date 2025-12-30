@@ -374,7 +374,7 @@ JSON ranking:"""
                 "content_type": ContentType.NUMERIC,
                 "description": "Evol-Instruct complexity score (0.0-1.0, higher = more complex)",
             }
-            
+
             col_name = make_analyzer_column_name(column, analyzer_id, "rank")
             result_df[col_name] = all_ranks
             generated_schema[col_name] = {
@@ -382,7 +382,7 @@ JSON ranking:"""
                 "content_type": ContentType.NUMERIC,
                 "description": f"Complexity evolution rank (1-{self.num_evolutions}, lower = simpler)",
             }
-            
+
             col_name = make_analyzer_column_name(column, analyzer_id, "headroom")
             result_df[col_name] = all_headroom
             generated_schema[col_name] = {
