@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -439,28 +439,67 @@ class FastTextAnalyzer(SampleAnalyzer):
 
             # Extract results into columns
             if self.detect_language:
-                result_df[f"{column}_{analyzer_id}_detected_language"] = (
-                    analysis_results.apply(lambda r: r.get("detected_language"))
+                col_name = f"{column}_{analyzer_id}_detected_language"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("detected_language")
                 )
-                result_df[f"{column}_{analyzer_id}_language_confidence"] = (
-                    analysis_results.apply(lambda r: r.get("language_confidence"))
+                generated_schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "ISO 639-1 language code detected",
+                }
+
+                col_name = f"{column}_{analyzer_id}_language_confidence"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("language_confidence")
                 )
-                result_df[f"{column}_{analyzer_id}_language_name"] = (
-                    analysis_results.apply(lambda r: r.get("language_name"))
+                generated_schema[col_name] = {
+                    "type": ColumnType.FLOAT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Confidence score for language detection (0.0-1.0)",
+                }
+
+                col_name = f"{column}_{analyzer_id}_language_name"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("language_name")
                 )
-                result_df[f"{column}_{analyzer_id}_low_confidence"] = (
-                    analysis_results.apply(lambda r: r.get("low_confidence"))
+                generated_schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Full language name",
+                }
+
+                col_name = f"{column}_{analyzer_id}_low_confidence"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("low_confidence")
                 )
+                generated_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether language detection confidence is low",
+                }
 
             if self.detect_script:
-                result_df[f"{column}_{analyzer_id}_detected_script"] = (
-                    analysis_results.apply(lambda r: r.get("detected_script"))
+                col_name = f"{column}_{analyzer_id}_detected_script"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("detected_script")
                 )
+                generated_schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Detected script/writing system",
+                }
 
             if self.detect_multilingual:
-                result_df[f"{column}_{analyzer_id}_is_multilingual"] = (
-                    analysis_results.apply(lambda r: r.get("is_multilingual"))
+                col_name = f"{column}_{analyzer_id}_is_multilingual"
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("is_multilingual")
                 )
+                generated_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether text contains multiple languages",
+                }
 
         return result_df, generated_schema
 
@@ -493,7 +532,9 @@ class FastTextAnalyzer(SampleAnalyzer):
         lang_counts = df[lang_col].value_counts().to_dict()
         metrics["language_distribution"] = lang_counts
         metrics["num_languages"] = len([l for l in lang_counts if l != "unknown"])
-        metrics["primary_language"] = df[lang_col].mode().iloc[0] if len(df) > 0 else "unknown"
+        metrics["primary_language"] = (
+            df[lang_col].mode().iloc[0] if len(df) > 0 else "unknown"
+        )
 
         # Confidence statistics
         if conf_col in df.columns:
