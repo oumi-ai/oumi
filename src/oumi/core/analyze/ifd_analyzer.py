@@ -28,6 +28,7 @@ from typing import Any, Optional
 import pandas as pd
 import torch
 
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -368,7 +369,7 @@ class IFDAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         analyzer_id: str,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze DataFrame in conversation format.
 
         For each assistant message, pairs it with the preceding user message(s)
@@ -379,15 +380,42 @@ class IFDAnalyzer(SampleAnalyzer):
             analyzer_id: ID prefix for output columns.
 
         Returns:
-            DataFrame with IFD columns added for assistant messages.
+            Tuple of (DataFrame with IFD columns added for assistant messages,
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
+
+        # IFD analyzes the text_content column, so prefix with that for consistency
+        base_column = "text_content"
 
         # Initialize result columns with None
-        result_df[f"{analyzer_id}_score"] = None
-        result_df[f"{analyzer_id}_ppl_with_instruction"] = None
-        result_df[f"{analyzer_id}_ppl_without_instruction"] = None
-        result_df[f"{analyzer_id}_response_loss"] = None
+        result_df[f"{base_column}_{analyzer_id}_score"] = None
+        result_df[f"{base_column}_{analyzer_id}_ppl_with_instruction"] = None
+        result_df[f"{base_column}_{analyzer_id}_ppl_without_instruction"] = None
+        result_df[f"{base_column}_{analyzer_id}_response_loss"] = None
+
+        # Add schema entries for IFD columns
+        generated_schema[f"{base_column}_{analyzer_id}_score"] = {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Instruction-following difficulty score (higher = more difficult)",
+        }
+        generated_schema[f"{base_column}_{analyzer_id}_ppl_with_instruction"] = {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Perplexity when instruction is provided",
+        }
+        generated_schema[f"{base_column}_{analyzer_id}_ppl_without_instruction"] = {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Perplexity without instruction context",
+        }
+        generated_schema[f"{base_column}_{analyzer_id}_response_loss"] = {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Response generation loss value",
+        }
 
         # Group by conversation
         conv_col = "conversation_index" if "conversation_index" in df.columns else None
@@ -439,19 +467,21 @@ class IFDAnalyzer(SampleAnalyzer):
                 try:
                     ifd_result = self._compute_ifd_for_sample(instruction, response)
 
-                    result_df.loc[asst_idx, f"{analyzer_id}_score"] = (
+                    result_df.loc[asst_idx, f"{base_column}_{analyzer_id}_score"] = (
                         ifd_result["ifd_score"]
                     )
-                    result_df.loc[asst_idx, f"{analyzer_id}_ppl_with_instruction"] = (
-                        ifd_result["ppl_with_instruction"]
+                    result_df.loc[
+                        asst_idx, f"{base_column}_{analyzer_id}_ppl_with_instruction"
+                    ] = ifd_result["ppl_with_instruction"]
+                    ppl_without_col = (
+                        f"{base_column}_{analyzer_id}_ppl_without_instruction"
                     )
-                    ppl_without_col = f"{analyzer_id}_ppl_without_instruction"
-                    result_df.loc[asst_idx, ppl_without_col] = (
-                        ifd_result["ppl_without_instruction"]
-                    )
-                    result_df.loc[asst_idx, f"{analyzer_id}_response_loss"] = (
-                        ifd_result["response_loss"]
-                    )
+                    result_df.loc[asst_idx, ppl_without_col] = ifd_result[
+                        "ppl_without_instruction"
+                    ]
+                    result_df.loc[
+                        asst_idx, f"{base_column}_{analyzer_id}_response_loss"
+                    ] = ifd_result["response_loss"]
                     processed += 1
 
                 except Exception as e:
@@ -477,7 +507,7 @@ class IFDAnalyzer(SampleAnalyzer):
         instruction_col: str,
         response_col: str,
         analyzer_id: str,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze DataFrame in flat instruction-response format.
 
         Args:
@@ -487,9 +517,11 @@ class IFDAnalyzer(SampleAnalyzer):
             analyzer_id: ID prefix for output columns.
 
         Returns:
-            DataFrame with IFD columns added.
+            Tuple of (DataFrame with IFD columns added,
+            generated column schema dict).
         """
         result_df = df.copy()
+        generated_schema = {}
         results = []
 
         for idx in range(len(df)):
@@ -514,16 +546,38 @@ class IFDAnalyzer(SampleAnalyzer):
                 logger.info(f"Processed {idx + 1}/{len(df)} samples")
 
         # Add columns to result DataFrame
-        result_df[f"{analyzer_id}_score"] = [r["ifd_score"] for r in results]
-        result_df[f"{analyzer_id}_ppl_with_instruction"] = [
-            r["ppl_with_instruction"] for r in results
-        ]
-        result_df[f"{analyzer_id}_ppl_without_instruction"] = [
-            r["ppl_without_instruction"] for r in results
-        ]
-        result_df[f"{analyzer_id}_response_loss"] = [
-            r["response_loss"] for r in results
-        ]
+        # Prefix with response column for consistency with other analyzers
+        col_name = f"{response_col}_{analyzer_id}_score"
+        result_df[col_name] = [r["ifd_score"] for r in results]
+        generated_schema[col_name] = {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Instruction-following difficulty score (higher = more difficult)",
+        }
+
+        col_name = f"{response_col}_{analyzer_id}_ppl_with_instruction"
+        result_df[col_name] = [r["ppl_with_instruction"] for r in results]
+        generated_schema[col_name] = {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Perplexity when instruction is provided",
+        }
+
+        col_name = f"{response_col}_{analyzer_id}_ppl_without_instruction"
+        result_df[col_name] = [r["ppl_without_instruction"] for r in results]
+        generated_schema[col_name] = {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Perplexity without instruction context",
+        }
+
+        col_name = f"{response_col}_{analyzer_id}_response_loss"
+        result_df[col_name] = [r["response_loss"] for r in results]
+        generated_schema[col_name] = {
+            "type": ColumnType.FLOAT,
+            "content_type": ContentType.NUMERIC,
+            "description": "Response generation loss value",
+        }
 
         return result_df, generated_schema
 
@@ -586,17 +640,17 @@ class IFDAnalyzer(SampleAnalyzer):
             f"response='{response_col}'"
         )
 
-        result_df = self._analyze_flat_format(
+        result_df, generated_schema = self._analyze_flat_format(
             df, instruction_col, response_col, analyzer_id
         )
 
         # Log summary statistics
-        ifd_col = f"{analyzer_id}_score"
+        ifd_col = f"{response_col}_{analyzer_id}_score"
         ifd_scores = result_df[ifd_col].dropna().tolist()
         if ifd_scores:
             logger.info(
                 f"IFD analysis complete. "
-                f"Mean IFD: {sum(ifd_scores)/len(ifd_scores):.3f}, "
+                f"Mean IFD: {sum(ifd_scores) / len(ifd_scores):.3f}, "
                 f"Min: {min(ifd_scores):.3f}, Max: {max(ifd_scores):.3f}"
             )
 
