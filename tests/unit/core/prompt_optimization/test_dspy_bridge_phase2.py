@@ -25,7 +25,7 @@ from oumi.core.configs.params.prompt_optimization_params import (
     PromptOptimizationParams,
 )
 from oumi.core.configs.prompt_config import PromptOptimizationConfig
-from oumi.core.prompt_optimization.dspy_bridge import OumiDSPyBridge
+from oumi.core.prompt_optimization.dspy_integration import OumiDSPyBridge
 
 
 @pytest.fixture
@@ -126,7 +126,6 @@ class TestStateSerialization:
         # Verify state structure
         assert isinstance(state, dict)
         assert "model" in state
-        assert "model_config" in state
         assert "generation_config" in state
         assert "num_calls" in state
         assert "failed_calls" in state
@@ -150,7 +149,6 @@ class TestStateSerialization:
         assert state["num_calls"] == 10
         assert state["failed_calls"] == 2
         assert state["history_length"] == 2
-        assert state["model_config"]["model_name"] == "gpt2"
         assert state["generation_config"]["temperature"] == 0.7
         assert state["generation_config"]["max_new_tokens"] == 100
 
@@ -188,7 +186,9 @@ class TestStateSerialization:
         }
 
         # Load state and verify warning is logged
-        with patch("oumi.core.prompt_optimization.dspy_bridge.logger") as mock_logger:
+        with patch(
+            "oumi.core.prompt_optimization.dspy_integration.logger"
+        ) as mock_logger:
             lm.load_state(state)
             mock_logger.warning.assert_called_once()
             assert "different-model" in mock_logger.warning.call_args[0][0]

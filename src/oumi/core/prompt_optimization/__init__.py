@@ -30,6 +30,7 @@ from oumi.core.prompt_optimization.cost_tracking import (
 from oumi.core.prompt_optimization.dspy_optimizers import (
     BootstrapFewShotOptimizer,
     BootstrapFewShotWithOptunaOptimizer,
+    DSPyOptimizer,
     GepaOptimizer,
     MiproOptimizer,
 )
@@ -42,6 +43,7 @@ from oumi.core.prompt_optimization.validation import (
 __all__ = [
     "BaseOptimizer",
     "OptimizationResult",
+    "DSPyOptimizer",
     "MiproOptimizer",
     "GepaOptimizer",
     "BootstrapFewShotOptimizer",

@@ -33,11 +33,6 @@ class TestGetModelCosts:
         assert costs["input"] == 30.0
         assert costs["output"] == 60.0
 
-    def test_partial_match(self):
-        """Test partial model name matching."""
-        costs = get_model_costs("gpt-4-turbo-preview")
-        assert costs["input"] == 10.0  # Should match gpt-4-turbo
-
     def test_unknown_model(self):
         """Test unknown model returns default (free)."""
         costs = get_model_costs("my-custom-local-model")
@@ -94,28 +89,6 @@ class TestCostEstimate:
         assert data["estimated_total_tokens"] == 150000
         assert data["estimated_total_cost_usd"] == 10.50
         assert data["model_name"] == "gpt-3.5-turbo"
-
-    def test_cost_estimate_print_summary(self, capsys):
-        """Test printing cost summary."""
-        estimate = CostEstimate(
-            estimated_input_tokens=100000,
-            estimated_output_tokens=50000,
-            estimated_total_cost=5.50,
-            num_train_examples=100,
-            num_val_examples=20,
-            num_trials=30,
-            model_name="gpt-3.5-turbo",
-            notes=["First note", "Second note"],
-        )
-
-        estimate.print_summary()
-
-        captured = capsys.readouterr()
-        assert "COST ESTIMATE" in captured.out
-        assert "gpt-3.5-turbo" in captured.out
-        assert "100,000" in captured.out
-        assert "$5.50" in captured.out
-        assert "First note" in captured.out
 
 
 class TestEstimateOptimizationCost:

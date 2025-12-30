@@ -22,7 +22,7 @@ from oumi.core.configs.params.prompt_optimization_params import (
     PromptOptimizationParams,
 )
 from oumi.core.configs.prompt_config import PromptOptimizationConfig
-from oumi.core.prompt_optimization.dspy_bridge import OumiDSPyBridge
+from oumi.core.prompt_optimization.dspy_integration import OumiDSPyBridge
 
 
 @pytest.fixture

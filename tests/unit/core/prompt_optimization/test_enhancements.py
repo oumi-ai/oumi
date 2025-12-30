@@ -156,7 +156,7 @@ class TestGEPAFeedbackMetricSupport:
         from oumi.core.configs.params.generation_params import GenerationParams
         from oumi.core.configs.params.model_params import ModelParams
         from oumi.core.configs.prompt_config import PromptOptimizationConfig
-        from oumi.core.prompt_optimization.dspy_bridge import OumiDSPyBridge
+        from oumi.core.prompt_optimization.dspy_integration import OumiDSPyBridge
 
         # Mock config (simplified for testing)
         config = PromptOptimizationConfig(

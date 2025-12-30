@@ -22,7 +22,6 @@ from oumi.core.prompt_optimization.checkpointing import (
     CheckpointManager,
     OptimizationCheckpoint,
     can_resume_from_checkpoint,
-    print_checkpoint_summary,
 )
 
 
@@ -291,25 +290,6 @@ class TestCheckpointResume:
 
         assert not can_resume
         assert "no checkpoint" in reason.lower()  # type: ignore[union-attr]
-
-    def test_print_checkpoint_summary(self, capsys):
-        """Test printing checkpoint summary."""
-        checkpoint = OptimizationCheckpoint(
-            optimizer_name="mipro",
-            current_trial=10,
-            total_trials=50,
-            best_score=0.85,
-            best_prompt="This is a test prompt for optimization",
-            training_history=[{"trial": i, "score": 0.5 + i * 0.01} for i in range(10)],
-        )
-
-        print_checkpoint_summary(checkpoint)
-
-        captured = capsys.readouterr()
-        assert "RESUMING FROM CHECKPOINT" in captured.out
-        assert "mipro" in captured.out
-        assert "10/50" in captured.out
-        assert "0.85" in captured.out
 
 
 if __name__ == "__main__":

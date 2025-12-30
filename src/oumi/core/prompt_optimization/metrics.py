@@ -12,10 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Metrics for prompt optimization evaluation."""
+
 import importlib.util
 import sys
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
+
+from oumi.utils.logging import logger
+
+# Type alias for metric functions
+MetricFn = Callable[[list[str], list[str]], float]
 
 
 def accuracy_metric(predictions: list[str], references: list[str]) -> float:
@@ -28,12 +37,7 @@ def accuracy_metric(predictions: list[str], references: list[str]) -> float:
     Returns:
         Accuracy score between 0 and 1.
     """
-    if len(predictions) != len(references):
-        raise ValueError(
-            f"predictions and references must have same length, "
-            f"got {len(predictions)} and {len(references)}"
-        )
-
+    _validate_lengths(predictions, references)
     if len(predictions) == 0:
         return 0.0
 
@@ -54,12 +58,7 @@ def f1_metric(predictions: list[str], references: list[str]) -> float:
     Returns:
         Average F1 score between 0 and 1.
     """
-    if len(predictions) != len(references):
-        raise ValueError(
-            f"predictions and references must have same length, "
-            f"got {len(predictions)} and {len(references)}"
-        )
-
+    _validate_lengths(predictions, references)
     if len(predictions) == 0:
         return 0.0
 
@@ -70,27 +69,22 @@ def f1_metric(predictions: list[str], references: list[str]) -> float:
 
         if len(pred_tokens) == 0 and len(ref_tokens) == 0:
             f1_scores.append(1.0)
-            continue
-
-        if len(pred_tokens) == 0 or len(ref_tokens) == 0:
-            f1_scores.append(0.0)
-            continue
-
-        common = pred_tokens & ref_tokens
-        precision = len(common) / len(pred_tokens)
-        recall = len(common) / len(ref_tokens)
-
-        if precision + recall == 0:
+        elif len(pred_tokens) == 0 or len(ref_tokens) == 0:
             f1_scores.append(0.0)
         else:
-            f1 = 2 * (precision * recall) / (precision + recall)
-            f1_scores.append(f1)
+            common = pred_tokens & ref_tokens
+            precision = len(common) / len(pred_tokens)
+            recall = len(common) / len(ref_tokens)
+            if precision + recall == 0:
+                f1_scores.append(0.0)
+            else:
+                f1_scores.append(2 * (precision * recall) / (precision + recall))
 
     return sum(f1_scores) / len(f1_scores)
 
 
 def bleu_metric(predictions: list[str], references: list[str]) -> float:
-    """Calculate BLEU score using sacrebleu if available.
+    """Calculate BLEU score using sacrebleu.
 
     Args:
         predictions: List of predicted strings.
@@ -107,23 +101,17 @@ def bleu_metric(predictions: list[str], references: list[str]) -> float:
             "Install it with: pip install sacrebleu"
         )
 
-    if len(predictions) != len(references):
-        raise ValueError(
-            f"predictions and references must have same length, "
-            f"got {len(predictions)} and {len(references)}"
-        )
-
+    _validate_lengths(predictions, references)
     if len(predictions) == 0:
         return 0.0
 
-    # sacrebleu expects references as list of lists
     refs = [[ref] for ref in references]
     bleu = sacrebleu.corpus_bleu(predictions, list(zip(*refs)))
-    return bleu.score / 100.0  # Convert to 0-1 range
+    return bleu.score / 100.0
 
 
 def rouge_metric(predictions: list[str], references: list[str]) -> float:
-    """Calculate ROUGE-L score using rouge-score if available.
+    """Calculate ROUGE-L score.
 
     Args:
         predictions: List of predicted strings.
@@ -140,25 +128,164 @@ def rouge_metric(predictions: list[str], references: list[str]) -> float:
             "Install it with: pip install rouge-score"
         )
 
+    _validate_lengths(predictions, references)
+    if len(predictions) == 0:
+        return 0.0
+
+    scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
+    scores = [
+        scorer.score(ref, pred)["rougeL"].fmeasure
+        for pred, ref in zip(predictions, references)
+    ]
+    return sum(scores) / len(scores)
+
+
+def bertscore_metric(predictions: list[str], references: list[str]) -> float:
+    """Calculate BERTScore F1.
+
+    Args:
+        predictions: List of predicted strings.
+        references: List of reference strings.
+
+    Returns:
+        Average BERTScore F1 between 0 and 1.
+    """
+    try:
+        from bert_score import score
+    except ImportError:
+        raise ImportError(
+            "bert-score is required for BERTScore metric. "
+            "Install it with: pip install bert-score"
+        )
+
+    _validate_lengths(predictions, references)
+    if len(predictions) == 0:
+        return 0.0
+
+    P, R, F1 = score(predictions, references, lang="en", verbose=False)
+    return F1.mean().item()
+
+
+def _validate_lengths(predictions: list[str], references: list[str]) -> None:
+    """Validate that prediction and reference lists have the same length."""
     if len(predictions) != len(references):
         raise ValueError(
             f"predictions and references must have same length, "
             f"got {len(predictions)} and {len(references)}"
         )
 
-    if len(predictions) == 0:
-        return 0.0
 
-    scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
-    scores = []
-    for pred, ref in zip(predictions, references):
-        score = scorer.score(ref, pred)
-        scores.append(score["rougeL"].fmeasure)
-
-    return sum(scores) / len(scores)
+# =============================================================================
+# Parameterized Metric Factories
+# =============================================================================
 
 
-def load_custom_metric(metric_path: str) -> Callable[[list[str], list[str]], float]:
+def _create_embedding_similarity_metric(
+    model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+) -> MetricFn:
+    """Create an embedding similarity metric with specified model.
+
+    Args:
+        model_name: Name of the sentence transformer model to use.
+
+    Returns:
+        Metric function that computes embedding cosine similarity.
+    """
+
+    def metric(predictions: list[str], references: list[str]) -> float:
+        try:
+            import numpy as np
+            from sentence_transformers import SentenceTransformer
+        except ImportError:
+            raise ImportError(
+                "sentence-transformers is required for embedding similarity metric. "
+                "Install it with: pip install sentence-transformers"
+            )
+
+        _validate_lengths(predictions, references)
+        if len(predictions) == 0:
+            return 0.0
+
+        model = SentenceTransformer(model_name)
+        pred_embeddings = model.encode(predictions, convert_to_numpy=True)
+        ref_embeddings = model.encode(references, convert_to_numpy=True)
+
+        similarities = []
+        for pred_emb, ref_emb in zip(pred_embeddings, ref_embeddings):
+            cos_sim = np.dot(pred_emb, ref_emb) / (
+                np.linalg.norm(pred_emb) * np.linalg.norm(ref_emb)
+            )
+            similarities.append((cos_sim + 1) / 2)  # Convert [-1, 1] to [0, 1]
+
+        return sum(similarities) / len(similarities)
+
+    return metric
+
+
+def _create_llm_judge_metric(
+    judge_model: str = "gpt-3.5-turbo",
+    api_key: str | None = None,
+) -> MetricFn:
+    """Create an LLM judge metric with specified model.
+
+    Args:
+        judge_model: Name of the model to use as judge.
+        api_key: API key for the judge model.
+
+    Returns:
+        Metric function that uses LLM as judge.
+    """
+
+    def metric(predictions: list[str], references: list[str]) -> float:
+        try:
+            import openai
+        except ImportError:
+            raise ImportError(
+                "openai is required for LLM judge metric. "
+                "Install it with: pip install openai"
+            )
+
+        _validate_lengths(predictions, references)
+        if len(predictions) == 0:
+            return 0.0
+
+        if api_key:
+            openai.api_key = api_key
+
+        scores = []
+        for pred, ref in zip(predictions, references):
+            prompt = (
+                "You are an objective judge evaluating the quality of a response.\n\n"
+                f"Reference answer: {ref}\n\n"
+                f"Candidate answer: {pred}\n\n"
+                "Rate the candidate answer on a scale from 0 to 10, where:\n"
+                "- 0-2: Completely wrong or irrelevant\n"
+                "- 3-4: Partially correct but missing key information\n"
+                "- 5-6: Mostly correct with minor errors\n"
+                "- 7-8: Correct with good quality\n"
+                "- 9-10: Excellent, comprehensive answer\n\n"
+                "Output ONLY a single number from 0 to 10, nothing else."
+            )
+
+            try:
+                response = openai.ChatCompletion.create(
+                    model=judge_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.0,
+                    max_tokens=10,
+                )
+                score_text = response.choices[0].message.content.strip()
+                scores.append(float(score_text) / 10.0)
+            except Exception as e:
+                logger.warning(f"LLM judge failed for prediction: {e}")
+                scores.append(0.0)
+
+        return sum(scores) / len(scores) if scores else 0.0
+
+    return metric
+
+
+def _load_custom_metric(metric_path: str) -> MetricFn:
     """Load a custom metric function from a Python file.
 
     The file should define a function named 'metric_fn' that takes
@@ -174,10 +301,9 @@ def load_custom_metric(metric_path: str) -> Callable[[list[str], list[str]], flo
     if not path.exists():
         raise FileNotFoundError(f"Metric file not found: {metric_path}")
 
-    if not path.suffix == ".py":
+    if path.suffix != ".py":
         raise ValueError(f"Metric file must be a Python file: {metric_path}")
 
-    # Load the module
     spec = importlib.util.spec_from_file_location("custom_metric", path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Could not load metric module from: {metric_path}")
@@ -186,7 +312,6 @@ def load_custom_metric(metric_path: str) -> Callable[[list[str], list[str]], flo
     sys.modules["custom_metric"] = module
     spec.loader.exec_module(module)
 
-    # Get the metric function
     if not hasattr(module, "metric_fn"):
         raise AttributeError(
             f"Metric module must define a 'metric_fn' function: {metric_path}"
@@ -199,232 +324,84 @@ def load_custom_metric(metric_path: str) -> Callable[[list[str], list[str]], flo
     return metric_fn  # type: ignore[return-value]
 
 
-def embedding_similarity_metric(
-    predictions: list[str],
-    references: list[str],
-    model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
-) -> float:
-    """Calculate cosine similarity between embeddings.
+@dataclass(frozen=True)
+class _MetricSpec:
+    """Internal specification for a metric type."""
 
-    Args:
-        predictions: List of predicted strings.
-        references: List of reference strings.
-        model_name: Name of the sentence transformer model to use.
+    metric_fn: MetricFn | None = None
+    """Direct metric function (for simple metrics)."""
 
-    Returns:
-        Average cosine similarity score between 0 and 1.
-    """
-    try:
-        import numpy as np
-        from sentence_transformers import SentenceTransformer  # type: ignore
-    except ImportError:
-        raise ImportError(
-            "sentence-transformers is required for embedding similarity metric. "
-            "Install it with: pip install sentence-transformers"
-        )
+    factory_fn: Callable[..., MetricFn] | None = None
+    """Factory function for parameterized metrics."""
 
-    if len(predictions) != len(references):
-        raise ValueError(
-            f"predictions and references must have same length, "
-            f"got {len(predictions)} and {len(references)}"
-        )
-
-    if len(predictions) == 0:
-        return 0.0
-
-    # Load model (cached after first use)
-    model = SentenceTransformer(model_name)
-
-    # Encode all texts
-    pred_embeddings = model.encode(predictions, convert_to_numpy=True)
-    ref_embeddings = model.encode(references, convert_to_numpy=True)
-
-    # Calculate cosine similarities
-    similarities = []
-    for pred_emb, ref_emb in zip(pred_embeddings, ref_embeddings):
-        # Cosine similarity
-        cos_sim = np.dot(pred_emb, ref_emb) / (
-            np.linalg.norm(pred_emb) * np.linalg.norm(ref_emb)
-        )
-        # Convert from [-1, 1] to [0, 1]
-        normalized_sim = (cos_sim + 1) / 2
-        similarities.append(normalized_sim)
-
-    return sum(similarities) / len(similarities)
+    requires_path: bool = False
+    """Whether this metric requires a file path."""
 
 
-def bertscore_metric(predictions: list[str], references: list[str]) -> float:
-    """Calculate BERTScore F1.
-
-    Args:
-        predictions: List of predicted strings.
-        references: List of reference strings.
-
-    Returns:
-        Average BERTScore F1 between 0 and 1.
-    """
-    try:
-        from bert_score import score  # type: ignore
-    except ImportError:
-        raise ImportError(
-            "bert-score is required for BERTScore metric. "
-            "Install it with: pip install bert-score"
-        )
-
-    if len(predictions) != len(references):
-        raise ValueError(
-            f"predictions and references must have same length, "
-            f"got {len(predictions)} and {len(references)}"
-        )
-
-    if len(predictions) == 0:
-        return 0.0
-
-    # Calculate BERTScore
-    # Returns precision, recall, F1
-    P, R, F1 = score(predictions, references, lang="en", verbose=False)
-
-    # Return average F1 score
-    return F1.mean().item()
+_METRIC_REGISTRY: dict[str, _MetricSpec] = {
+    "accuracy": _MetricSpec(metric_fn=accuracy_metric),
+    "f1": _MetricSpec(metric_fn=f1_metric),
+    "bleu": _MetricSpec(metric_fn=bleu_metric),
+    "rouge": _MetricSpec(metric_fn=rouge_metric),
+    "bertscore": _MetricSpec(metric_fn=bertscore_metric),
+    "embedding_similarity": _MetricSpec(factory_fn=_create_embedding_similarity_metric),
+    "llm_judge": _MetricSpec(factory_fn=_create_llm_judge_metric),
+    "custom": _MetricSpec(factory_fn=_load_custom_metric, requires_path=True),
+}
 
 
-def llm_judge_metric(
-    predictions: list[str],
-    references: list[str],
-    judge_model: str = "gpt-3.5-turbo",
-    api_key: str | None = None,
-) -> float:
-    """Use an LLM as a judge to evaluate predictions.
-
-    Args:
-        predictions: List of predicted strings.
-        references: List of reference strings.
-        judge_model: Name of the model to use as judge.
-        api_key: API key for the judge model (if needed).
-
-    Returns:
-        Average quality score between 0 and 1.
-
-    Note:
-        This metric requires an API key and will make API calls.
-        It can be expensive for large datasets.
-    """
-    try:
-        import openai  # type: ignore
-    except ImportError:
-        raise ImportError(
-            "openai is required for LLM judge metric. "
-            "Install it with: pip install openai"
-        )
-
-    if len(predictions) != len(references):
-        raise ValueError(
-            f"predictions and references must have same length, "
-            f"got {len(predictions)} and {len(references)}"
-        )
-
-    if len(predictions) == 0:
-        return 0.0
-
-    if api_key:
-        openai.api_key = api_key
-
-    scores = []
-    for pred, ref in zip(predictions, references):
-        prompt = f"""You are an objective judge evaluating the quality of a response.
-
-Reference answer: {ref}
-
-Candidate answer: {pred}
-
-Rate the candidate answer on a scale from 0 to 10, where:
-- 0-2: Completely wrong or irrelevant
-- 3-4: Partially correct but missing key information
-- 5-6: Mostly correct with minor errors
-- 7-8: Correct with good quality
-- 9-10: Excellent, comprehensive answer
-
-Output ONLY a single number from 0 to 10, nothing else."""
-
-        try:
-            response = openai.ChatCompletion.create(  # type: ignore[attr-defined]
-                model=judge_model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
-                max_tokens=10,
-            )
-
-            # Extract score
-            score_text = response.choices[0].message.content.strip()  # type: ignore[attr-defined]
-            score = float(score_text)
-
-            # Normalize to 0-1 range
-            normalized_score = score / 10.0
-            scores.append(normalized_score)
-
-        except Exception as e:
-            # If judgment fails, return 0
-            from oumi.utils.logging import logger
-
-            logger.warning(f"LLM judge failed for prediction: {e}")
-            scores.append(0.0)
-
-    return sum(scores) / len(scores) if scores else 0.0
+# =============================================================================
+# Public API
+# =============================================================================
 
 
 def get_metric_fn(
-    metric_name: str, custom_metric_path: str | None = None, **metric_kwargs
-) -> Callable[[list[str], list[str]], float]:
+    metric_name: str,
+    custom_metric_path: str | None = None,
+    **metric_kwargs: Any,
+) -> MetricFn:
     """Get a metric function by name.
 
     Args:
-        metric_name: Name of the metric (accuracy, f1, bleu, rouge,
-            embedding_similarity, bertscore, llm_judge, custom).
-        custom_metric_path: Path to custom metric file (required for custom metric).
-        **metric_kwargs: Additional keyword arguments for specific metrics
-            (e.g., model_name for embedding_similarity, judge_model for llm_judge).
+        metric_name: Name of the metric. Supported values:
+            - accuracy: Exact match accuracy
+            - f1: Token-level F1 score
+            - bleu: BLEU score (requires sacrebleu)
+            - rouge: ROUGE-L score (requires rouge-score)
+            - bertscore: BERTScore F1 (requires bert-score)
+            - embedding_similarity: Cosine similarity of embeddings
+            - llm_judge: LLM-as-a-judge evaluation
+            - custom: Custom metric from file
+        custom_metric_path: Path to custom metric file (required for 'custom').
+        **metric_kwargs: Additional arguments for parameterized metrics:
+            - model_name: For embedding_similarity (default: all-MiniLM-L6-v2)
+            - judge_model: For llm_judge (default: gpt-3.5-turbo)
+            - api_key: For llm_judge
 
     Returns:
         The metric function.
+
+    Raises:
+        ValueError: If metric_name is unknown or required path is missing.
     """
-    if metric_name == "accuracy":
-        return accuracy_metric
-    elif metric_name == "f1":
-        return f1_metric
-    elif metric_name == "bleu":
-        return bleu_metric
-    elif metric_name == "rouge":
-        return rouge_metric
-    elif metric_name == "embedding_similarity":
-        # Create a partial function with the model_name
-        model_name = metric_kwargs.get(
-            "model_name", "sentence-transformers/all-MiniLM-L6-v2"
-        )
+    if metric_name not in _METRIC_REGISTRY:
+        available = ", ".join(_METRIC_REGISTRY.keys())
+        raise ValueError(f"Unknown metric: {metric_name}. Supported: {available}")
 
-        def wrapped_embedding_metric(preds: list[str], refs: list[str]) -> float:
-            return embedding_similarity_metric(preds, refs, model_name=model_name)
+    spec = _METRIC_REGISTRY[metric_name]
 
-        return wrapped_embedding_metric
-    elif metric_name == "bertscore":
-        return bertscore_metric
-    elif metric_name == "llm_judge":
-        # Create a partial function with judge model and API key
-        judge_model = metric_kwargs.get("judge_model", "gpt-3.5-turbo")
-        api_key = metric_kwargs.get("api_key")
-
-        def wrapped_llm_judge(preds: list[str], refs: list[str]) -> float:
-            return llm_judge_metric(
-                preds, refs, judge_model=judge_model, api_key=api_key
-            )
-
-        return wrapped_llm_judge
-    elif metric_name == "custom":
+    # Handle custom metric path requirement
+    if spec.requires_path:
         if custom_metric_path is None:
-            raise ValueError("custom_metric_path required for custom metric")
-        return load_custom_metric(custom_metric_path)
-    else:
-        raise ValueError(
-            f"Unknown metric: {metric_name}. "
-            f"Supported: accuracy, f1, bleu, rouge, embedding_similarity, "
-            f"bertscore, llm_judge, custom"
-        )
+            raise ValueError(f"custom_metric_path required for '{metric_name}' metric")
+        return spec.factory_fn(custom_metric_path)  # type: ignore[misc]
+
+    # Simple metrics - return directly
+    if spec.metric_fn is not None:
+        return spec.metric_fn
+
+    # Parameterized metrics - use factory
+    if spec.factory_fn is not None:
+        return spec.factory_fn(**metric_kwargs)
+
+    raise ValueError(f"Invalid metric spec for '{metric_name}'")
