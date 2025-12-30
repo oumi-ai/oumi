@@ -134,6 +134,19 @@ rewards = rubric_reward(
 )
 ```
 
+By default, `rubric_reward` evaluates each rubric independently (one judge call per
+rubric) and aggregates the results. To have a single judge evaluate all rubrics in
+one call, pass `group_rubrics=True`:
+
+```python
+rewards = rubric_reward(
+    completions=completions,
+    prompts=prompts,
+    rubrics=rubrics,
+    group_rubrics=True,
+)
+```
+
 **Pitfall Handling:**
 - Pitfalls are phrased positively (e.g., "Avoids hallucination")
 - Score=1 means pitfall was avoided (good) → positive contribution
