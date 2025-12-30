@@ -20,7 +20,8 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -213,9 +214,7 @@ JSON response:""",
         """
         if preset_name not in cls.PRESET_PROMPTS:
             available = ", ".join(cls.PRESET_PROMPTS.keys())
-            raise ValueError(
-                f"Unknown preset: '{preset_name}'. Available: {available}"
-            )
+            raise ValueError(f"Unknown preset: '{preset_name}'. Available: {available}")
         return cls.PRESET_PROMPTS[preset_name]
 
     def __init__(
@@ -507,9 +506,7 @@ JSON response:""",
         from oumi.core.types.conversation import Conversation, Message, Role
 
         prompt = self._format_prompt(text)
-        conversation = Conversation(
-            messages=[Message(role=Role.USER, content=prompt)]
-        )
+        conversation = Conversation(messages=[Message(role=Role.USER, content=prompt)])
 
         try:
             # Run inference
@@ -633,12 +630,17 @@ JSON response:""",
 
         # Reconstruct results in original order
         for i in range(len(texts)):
-            results.append(cached_results.get(i, {
-                "score": self.default_score,
-                "label": self.default_label,
-                "reasoning": "Missing result",
-                "raw_response": "",
-            }))
+            results.append(
+                cached_results.get(
+                    i,
+                    {
+                        "score": self.default_score,
+                        "label": self.default_label,
+                        "reasoning": "Missing result",
+                        "raw_response": "",
+                    },
+                )
+            )
 
         return results
 
@@ -688,18 +690,37 @@ JSON response:""",
                 batch_results = self._evaluate_batch(batch)
                 all_results.extend(batch_results)
 
-            # Add columns
-            result_df[f"{column}_{analyzer_id}_score"] = [
-                r["score"] for r in all_results
-            ]
-            result_df[f"{column}_{analyzer_id}_label"] = [
-                r["label"] for r in all_results
-            ]
-            result_df[f"{column}_{analyzer_id}_reasoning"] = [
-                r["reasoning"] for r in all_results
-            ]
-            result_df[f"{column}_{analyzer_id}_raw_response"] = [
-                r["raw_response"] for r in all_results
-            ]
+            # Add columns with schema
+            col_name = make_analyzer_column_name(column, analyzer_id, "score")
+            result_df[col_name] = [r["score"] for r in all_results]
+            generated_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "LLM judge score (0-10, higher = better quality)",
+            }
+
+            col_name = make_analyzer_column_name(column, analyzer_id, "label")
+            result_df[col_name] = [r["label"] for r in all_results]
+            generated_schema[col_name] = {
+                "type": ColumnType.STRING,
+                "content_type": ContentType.CATEGORICAL,
+                "description": "LLM judge label/category for the sample",
+            }
+
+            col_name = make_analyzer_column_name(column, analyzer_id, "reasoning")
+            result_df[col_name] = [r["reasoning"] for r in all_results]
+            generated_schema[col_name] = {
+                "type": ColumnType.STRING,
+                "content_type": ContentType.TEXT,
+                "description": "LLM judge reasoning/explanation",
+            }
+
+            col_name = make_analyzer_column_name(column, analyzer_id, "raw_response")
+            result_df[col_name] = [r["raw_response"] for r in all_results]
+            generated_schema[col_name] = {
+                "type": ColumnType.STRING,
+                "content_type": ContentType.TEXT,
+                "description": "Raw LLM response before parsing",
+            }
 
         return result_df, generated_schema

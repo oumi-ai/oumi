@@ -143,11 +143,29 @@ class DataFrameAnalyzer:
 
         for analyzer_id, analyzer in self.sample_analyzers.items():
             try:
+                # Track columns before analyzer runs
+                cols_before = set(result_df.columns)
+
                 # Run the analyzer - it returns both the DataFrame and generated schema
                 result_df, generated_schema = analyzer.analyze_sample(
                     result_df,
                     schema=input_data.schema,
                 )
+
+                # Validate: all new columns must have schema entries
+                cols_after = set(result_df.columns)
+                new_columns = cols_after - cols_before
+                missing_schema = new_columns - set(generated_schema.keys())
+
+                if missing_schema:
+                    error_msg = (
+                        f"Analyzer '{analyzer_id}' created {len(missing_schema)} columns "
+                        f"without schema entries: {sorted(missing_schema)}\n"
+                        f"All analyzer-generated columns must have entries in generated_schema."
+                    )
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+
                 all_generated_schema.update(generated_schema)
             except Exception as e:
                 logger.warning(f"Analyzer {analyzer_id} failed: {e}")

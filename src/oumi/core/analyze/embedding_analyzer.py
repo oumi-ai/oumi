@@ -20,7 +20,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
+from oumi.core.analyze.column_utils import make_analyzer_column_name
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -519,8 +520,12 @@ class EmbeddingAnalyzer(SampleAnalyzer):
 
             # Detect semantic duplicates
             if self.detect_duplicates:
-                dup_group_col = f"{column}_{analyzer_id}_duplicate_group"
-                has_dup_col = f"{column}_{analyzer_id}_has_semantic_duplicate"
+                dup_group_col = make_analyzer_column_name(
+                    column, analyzer_id, "duplicate_group"
+                )
+                has_dup_col = make_analyzer_column_name(
+                    column, analyzer_id, "has_semantic_duplicate"
+                )
 
                 # Determine if we should use role-aware detection
                 use_role_aware = (
@@ -585,11 +590,29 @@ class EmbeddingAnalyzer(SampleAnalyzer):
                                 local_idx
                             ]
 
+                # Add schema entries for semantic duplicate detection
+                generated_schema[dup_group_col] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Semantic duplicate group ID (samples with same ID are duplicates)",
+                }
+                generated_schema[has_dup_col] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether sample has semantic duplicates",
+                }
+
             # Detect fuzzy (near) duplicates using MinHash
             if self.detect_fuzzy_duplicates:
-                fuzzy_group_col = f"{column}_{analyzer_id}_fuzzy_duplicate_group"
-                has_fuzzy_col = f"{column}_{analyzer_id}_has_fuzzy_duplicate"
-                jaccard_col = f"{column}_{analyzer_id}_fuzzy_jaccard_score"
+                fuzzy_group_col = make_analyzer_column_name(
+                    column, analyzer_id, "fuzzy_duplicate_group"
+                )
+                has_fuzzy_col = make_analyzer_column_name(
+                    column, analyzer_id, "has_fuzzy_duplicate"
+                )
+                jaccard_col = make_analyzer_column_name(
+                    column, analyzer_id, "fuzzy_jaccard_score"
+                )
 
                 # Determine if we should use role-aware detection
                 use_role_aware = (
@@ -653,17 +676,44 @@ class EmbeddingAnalyzer(SampleAnalyzer):
                                 local_idx
                             ]
 
+                # Add schema entries for fuzzy duplicate detection
+                generated_schema[fuzzy_group_col] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Fuzzy duplicate group ID (samples with same ID are near-duplicates)",
+                }
+                generated_schema[has_fuzzy_col] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether sample has fuzzy duplicates",
+                }
+                generated_schema[jaccard_col] = {
+                    "type": ColumnType.FLOAT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Jaccard similarity score for fuzzy matching (0.0-1.0)",
+                }
+
             # Cluster samples
             if self.cluster_samples:
                 logger.info(f"Clustering samples using {self.clustering_method}...")
                 cluster_labels = self._cluster_embeddings(embeddings)
-                result_df[f"{column}_{analyzer_id}_cluster"] = cluster_labels
+                col_name = make_analyzer_column_name(column, analyzer_id, "cluster")
+                result_df[col_name] = cluster_labels
+                generated_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": f"Cluster assignment using {self.clustering_method}",
+                }
 
             # Optionally store embeddings (can be large)
             if self.store_embeddings:
                 # Store as list per row (not ideal for large datasets)
-                result_df[f"{column}_{analyzer_id}_embedding"] = [
-                    emb.tolist() for emb in embeddings
-                ]
+                col_name = make_analyzer_column_name(column, analyzer_id, "embedding")
+                result_df[col_name] = [emb.tolist() for emb in embeddings]
+                generated_schema[col_name] = {
+                    "type": ColumnType.STRING,  # Stored as JSON string
+                    "content_type": ContentType.LIST,
+                    "description": "Text embedding vector",
+                }
 
         return result_df, generated_schema
