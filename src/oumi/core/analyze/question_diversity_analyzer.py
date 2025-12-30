@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
@@ -236,9 +236,9 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
             if n_clusters_to_use >= len(embeddings):
                 with warnings.catch_warnings():
                     warnings.filterwarnings(
-                        'ignore',
-                        message='.*Number of distinct clusters.*',
-                        category=Warning
+                        "ignore",
+                        message=".*Number of distinct clusters.*",
+                        category=Warning,
                     )
                     clustering = KMeans(
                         n_clusters=n_clusters_to_use,
@@ -513,13 +513,30 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
                             )
 
                 # Add columns
-                result_df[f"{column}_{analyzer_id}_cluster_id"] = all_cluster_ids
-                result_df[f"{column}_{analyzer_id}_cluster_size"] = all_cluster_sizes
+                col_name = f"{column}_{analyzer_id}_cluster_id"
+                result_df[col_name] = all_cluster_ids
+                generated_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Question cluster ID (-1 for unique/diverse questions)",
+                }
+
+                col_name = f"{column}_{analyzer_id}_cluster_size"
+                result_df[col_name] = all_cluster_sizes
+                generated_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Number of questions in the same cluster",
+                }
 
                 if self.flag_concentrated_clusters:
-                    result_df[f"{column}_{analyzer_id}_is_concentrated"] = (
-                        all_concentrated_flags
-                    )
+                    col_name = f"{column}_{analyzer_id}_is_concentrated"
+                    result_df[col_name] = all_concentrated_flags
+                    generated_schema[col_name] = {
+                        "type": ColumnType.BOOL,
+                        "content_type": ContentType.BOOLEAN,
+                        "description": "Whether question is in a concentrated cluster (>threshold)",
+                    }
 
                 # Compute dataset-level metrics
                 n_clusters = len([c for c in cluster_sizes.keys() if c != -1])
