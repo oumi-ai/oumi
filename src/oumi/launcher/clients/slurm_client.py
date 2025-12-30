@@ -20,9 +20,9 @@ import signal
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Union
 
 from oumi.core.launcher import JobState, JobStatus
 from oumi.utils.logging import logger
@@ -245,7 +245,6 @@ class SlurmLogStream(io.TextIOBase):
                 if not line.strip():
                     return self.readline()
                 if "Starting training" in line:
-                    print("starting")
                     return line
                 # Convert progress bar lines to use \r instead of \n for updates
                 if self._is_progress_line(line):
@@ -512,17 +511,17 @@ class SlurmClient:
         job_path: str,
         working_dir: str,
         node_count: int,
-        name: Optional[str],
+        name: str | None,
         *,
-        export: Optional[Union[str, list[str]]] = None,
-        account: Optional[str] = None,
-        ntasks: Optional[int] = None,
-        threads_per_core: Optional[int] = None,
-        distribution: Optional[str] = None,
-        partition: Optional[str] = None,
-        qos: Optional[str] = None,
-        stdout_file: Optional[str] = _LOG_DIR.format(job_id="%j"),
-        stderr_file: Optional[str] = None,
+        export: str | list[str] | None = None,
+        account: str | None = None,
+        ntasks: int | None = None,
+        threads_per_core: int | None = None,
+        distribution: str | None = None,
+        partition: str | None = None,
+        qos: str | None = None,
+        stdout_file: str | None = _LOG_DIR.format(job_id="%j"),
+        stderr_file: str | None = None,
         **kwargs,
     ) -> str:
         """Submits the specified job script to Slurm.
@@ -657,7 +656,7 @@ class SlurmClient:
             jobs.append(status)
         return jobs
 
-    def get_job(self, job_id: str) -> Optional[JobStatus]:
+    def get_job(self, job_id: str) -> JobStatus | None:
         """Gets the specified job's status.
 
         Args:
@@ -672,14 +671,14 @@ class SlurmClient:
                 return job
         return None
 
-    def get_latest_job(self) -> Optional[JobStatus]:
+    def get_latest_job(self) -> JobStatus | None:
         """Gets the most recent job on this cluster."""
         job_list = self.list_jobs()
         if len(job_list) == 0:
             return None
         return job_list[-1]
 
-    def cancel(self, job_id) -> Optional[JobStatus]:
+    def cancel(self, job_id) -> JobStatus | None:
         """Cancels the specified job.
 
         Args:
@@ -751,7 +750,7 @@ class SlurmClient:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
 
     def get_logs_stream(
-        self, cluster_name: str, job_id: Optional[str] = None
+        self, cluster_name: str, job_id: str | None = None
     ) -> SlurmLogStream:
         """Gets a stream that tails the logs of the target job.
 

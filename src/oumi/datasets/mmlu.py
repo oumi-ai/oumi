@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Any
 
 from datasets import Dataset, DatasetDict, load_dataset
 
@@ -121,7 +121,7 @@ class MmluDataset:
             for example in shots  # type: ignore
         )
 
-    def __init__(self, subject: str = "all", num_shots: Optional[int] = None):
+    def __init__(self, subject: str = "all", num_shots: int | None = None):
         """Initializes the class MmluDataset."""
         if subject not in SUBJECTS:
             raise ValueError(f"MMLU: unknown subject `{subject}`")
@@ -192,20 +192,20 @@ class MmluDataset:
         few_shots = MmluDataset.few_shots(dev_dataset, self._num_shots)
         self._few_shot_dict[subject] = few_shots
 
-    def _get_dataset(self, split: str, num_entries: Optional[int] = None) -> Dataset:
+    def _get_dataset(self, split: str, num_entries: int | None = None) -> Dataset:
         dataset: Dataset = self._dataset_dict[split]
         if num_entries:
             dataset = dataset.select(range(num_entries))
         return dataset
 
     def _get_formatted_dataset(
-        self, split: str, num_entries: Optional[int] = None
+        self, split: str, num_entries: int | None = None
     ) -> list[str]:
         dataset: Dataset = self._get_dataset(split=split, num_entries=num_entries)
         dataset_formatted: list[str] = list(map(self._prompt_template, dataset))  # type: ignore
         return dataset_formatted
 
-    def _get_labels(self, split: str, num_entries: Optional[int] = None) -> list[int]:
+    def _get_labels(self, split: str, num_entries: int | None = None) -> list[int]:
         dataset: Dataset = self._dataset_dict[split]
         if num_entries:
             dataset = dataset.select(range(num_entries))
@@ -213,18 +213,18 @@ class MmluDataset:
 
     # Instance methods (global).
     # All these will potentially be required by the base `BaseMapDataset`.
-    def get_test_split(self, num_entries: Optional[int] = None) -> list[str]:
+    def get_test_split(self, num_entries: int | None = None) -> list[str]:
         """Returns the test split of this dataset."""
         return self._get_formatted_dataset(split="test", num_entries=num_entries)
 
-    def get_validation_split(self, num_entries: Optional[int] = None) -> list[str]:
+    def get_validation_split(self, num_entries: int | None = None) -> list[str]:
         """Returns the validation split of this dataset."""
         return self._get_formatted_dataset(split="validation", num_entries=num_entries)
 
-    def get_test_labels(self, num_entries: Optional[int] = None) -> list[int]:
+    def get_test_labels(self, num_entries: int | None = None) -> list[int]:
         """Returns the labels of the test dataset."""
         return self._get_labels(split="test", num_entries=num_entries)
 
-    def get_validation_labels(self, num_entries: Optional[int] = None) -> list[int]:
+    def get_validation_labels(self, num_entries: int | None = None) -> list[int]:
         """Returns the labels of the validation dataset."""
         return self._get_labels(split="validation", num_entries=num_entries)

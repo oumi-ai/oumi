@@ -14,7 +14,7 @@
 
 import math
 from dataclasses import dataclass, field, fields
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 
@@ -24,20 +24,20 @@ class GrpoParams(BaseParams):
     model_init_kwargs: dict[str, Any] = field(default_factory=dict)
     """Keyword arguments for `AutoModelForCausalLM.from_pretrained(...)`"""
 
-    max_prompt_length: Optional[int] = None
+    max_prompt_length: int | None = None
     """Maximum length of the prompt.
 
     If the prompt is longer than this value, it will be truncated left.
     If unspecified (`None`), defaults to 512.
     """
 
-    max_completion_length: Optional[int] = None
+    max_completion_length: int | None = None
     """Maximum length of the generated completion.
 
     If unspecified (`None`), defaults to 256.
     """
 
-    num_generations: Optional[int] = None
+    num_generations: int | None = None
     """Number of generations per prompt to sample.
 
     The global batch size (num_processes * per_device_batch_size) must be divisible
@@ -57,7 +57,7 @@ class GrpoParams(BaseParams):
     and `"completions"`, you should set it to `False`.
     """
 
-    repetition_penalty: Optional[float] = 1.0
+    repetition_penalty: float | None = 1.0
     """Float that penalizes new tokens if they appear in the prompt/response so far.
 
     Values > 1.0 encourage the model to use new tokens, while values < 1.0 encourage
@@ -71,7 +71,7 @@ class GrpoParams(BaseParams):
     as vLLM will require one for generation.
     """
 
-    vllm_mode: Optional[str] = None
+    vllm_mode: str | None = None
     """The mode to use for vLLM generation ("colocate" or "server").
 
     If set to `None`, defaults to "server".
@@ -104,7 +104,7 @@ class GrpoParams(BaseParams):
     log_completions: bool = False
     """Whether to log prompt and completion pairs every `logging_steps` steps."""
 
-    rollout_function: Optional[str] = None
+    rollout_function: str | None = None
     """The name of the rollout function in the Oumi registry to use for generation in
     trl's GRPO trainer. This field is ignored if not using trl' GRPO trainer. If not
     specified, the default rollout function will be used."""

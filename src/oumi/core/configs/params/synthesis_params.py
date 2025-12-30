@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -42,7 +43,7 @@ class TextConversation:
 
     messages: list[TextMessage]
 
-    conversation_id: Optional[str] = None
+    conversation_id: str | None = None
 
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -62,13 +63,13 @@ class DatasetSource:
     path: str
     """Path to the dataset source."""
 
-    hf_split: Optional[str] = None
+    hf_split: str | None = None
     """Split of the huggingface dataset to be used in synthesis."""
 
-    hf_revision: Optional[str] = None
+    hf_revision: str | None = None
     """Revision of the huggingface dataset to be used in synthesis."""
 
-    attribute_map: Optional[dict[str, str]] = None
+    attribute_map: dict[str, str] | None = None
     """Map of attributes to be used in synthesis.
     Will use the existing keys in the dataset if not specified."""
 
@@ -146,7 +147,7 @@ class DocumentSource:
     id: str
     """ID to be used when referencing the document during synthesis."""
 
-    segmentation_params: Optional[DocumentSegmentationParams] = None
+    segmentation_params: DocumentSegmentationParams | None = None
     """Segmentation parameters to be used when segmenting the document."""
 
     def __post_init__(self):
@@ -190,7 +191,7 @@ class SampledAttributeValue:
     """Description of the attribute value.
     Referenced as {attribute_id.description}"""
 
-    sample_rate: Optional[float] = None
+    sample_rate: float | None = None
     """Sample rate for the attribute value. If not specified, will assume uniform
     sampling among possible values."""
 
@@ -258,17 +259,20 @@ class SampledAttribute:
         normalized_sample_rates = []
         undefined_sample_rate_count = 0
         defined_sample_rate = 0.0
+
         for sample_rate in sample_rates:
             if sample_rate is not None:
                 defined_sample_rate += sample_rate
             else:
                 undefined_sample_rate_count += 1
 
-            if defined_sample_rate > 1.0:
-                raise ValueError("SampledAttribute.possible_values must sum to 1.0.")
+        if defined_sample_rate > 1.0 and not math.isclose(defined_sample_rate, 1.0):
+            raise ValueError(
+                "SampledAttribute.possible_values must sum to at most 1.0."
+            )
 
         # Assign remaining sample rate to undefined sample rates
-        remaining_sample_rate = 1.0 - defined_sample_rate
+        remaining_sample_rate = max(0.0, 1.0 - defined_sample_rate)
         for sample_rate in sample_rates:
             if sample_rate is None:
                 normalized_sample_rates.append(
@@ -329,22 +333,22 @@ class GeneratedAttributePostprocessingParams:
     If True, the original text will be returned as an attribute.
     If False, the original text will be discarded."""
 
-    cut_prefix: Optional[str] = None
+    cut_prefix: str | None = None
     """Cut off value before and including prefix."""
 
-    cut_suffix: Optional[str] = None
+    cut_suffix: str | None = None
     """Cut off value after and including suffix."""
 
-    regex: Optional[str] = None
+    regex: str | None = None
     """Regex to be used to pull out the value from the generated text."""
 
     strip_whitespace: bool = True
     """Whether to strip whitespace from the value."""
 
-    added_prefix: Optional[str] = None
+    added_prefix: str | None = None
     """Prefix to be added to the value."""
 
-    added_suffix: Optional[str] = None
+    added_suffix: str | None = None
     """Suffix to be added to the value."""
 
     def __post_init__(self):
@@ -373,7 +377,7 @@ class GeneratedAttribute:
     instruction_messages: list[TextMessage]
     """List of messages providing instructions for generating this attribute."""
 
-    postprocessing_params: Optional[GeneratedAttributePostprocessingParams] = None
+    postprocessing_params: GeneratedAttributePostprocessingParams | None = None
     """Postprocessing parameters for the generated attribute."""
 
     def __post_init__(self):
@@ -408,19 +412,19 @@ class TransformationStrategy:
     """The type of transformation strategy."""
 
     # For string transformations
-    string_transform: Optional[str] = None
+    string_transform: str | None = None
     """String transformation template (used when type=STRING)."""
 
     # For list transformations
-    list_transform: Optional[list[str]] = None
+    list_transform: list[str] | None = None
     """List of transforms for each element (used when type=LIST)."""
 
     # For dict transformations
-    dict_transform: Optional[dict[str, str]] = None
+    dict_transform: dict[str, str] | None = None
     """Mapping of dictionary keys to their transforms (used when type=DICT)."""
 
     # For chat transformations
-    chat_transform: Optional[TextConversation] = None
+    chat_transform: TextConversation | None = None
     """Chat transform for chat messages (used when type=CHAT)."""
 
     def __post_init__(self):
@@ -497,25 +501,25 @@ class TransformedAttribute:
 class GeneralSynthesisParams(BaseParams):
     """General synthesis parameters."""
 
-    input_data: Optional[list[DatasetSource]] = None
+    input_data: list[DatasetSource] | None = None
     """Datasets whose rows and columns will be used in synthesis.
 
     Rows will be enumerated during sampling, and columns can be referenced as attributes
     when generating new attributes."""
 
-    input_documents: Optional[list[DocumentSource]] = None
+    input_documents: list[DocumentSource] | None = None
     """Documents to be used in synthesis.
 
     Documents will be enumerated during sampling, and both documents and document
     segments can be referenced as attributes when generating new attributes."""
 
-    input_examples: Optional[list[ExampleSource]] = None
+    input_examples: list[ExampleSource] | None = None
     """In-line examples to be used in synthesis.
 
     Examples will be enumerated during sampling, and attributes can be referenced as
     attributes when generating new attributes."""
 
-    sampled_attributes: Optional[list[SampledAttribute]] = None
+    sampled_attributes: list[SampledAttribute] | None = None
     """Attributes to be varied across the dataset.
 
     Attributes each have a set of possible values which will be randomly sampled
@@ -529,14 +533,14 @@ class GeneralSynthesisParams(BaseParams):
     be sampled 20% of the time. If the last two attributes have no sample rate, they
     will be sampled 25% of the time each as (1.0 - 0.5) / 2 = 0.25."""
 
-    combination_sampling: Optional[list[AttributeCombination]] = None
+    combination_sampling: list[AttributeCombination] | None = None
     """Sampling rates for combinations of attributes.
 
     Each combination is a dictionary of attribute IDs to their values. The sample rate
     is the probability of sampling this combination. The sample rate of all combinations
     must sum to <= 1.0."""
 
-    generated_attributes: Optional[list[GeneratedAttribute]] = None
+    generated_attributes: list[GeneratedAttribute] | None = None
     """Attributes to be generated.
 
     Generated attributes are created by running a chat with the model. The chat is
@@ -563,7 +567,7 @@ class GeneralSynthesisParams(BaseParams):
     The model's response to these messages will be the value of the "name" attribute
     for that data point."""
 
-    transformed_attributes: Optional[list[TransformedAttribute]] = None
+    transformed_attributes: list[TransformedAttribute] | None = None
     """Transformation of existing attributes.
 
     Transformed attributes involve no model interaction and instead are for the
@@ -580,7 +584,7 @@ class GeneralSynthesisParams(BaseParams):
 
     """
 
-    passthrough_attributes: Optional[list[str]] = None
+    passthrough_attributes: list[str] | None = None
     """When specified, will ONLY pass through these attributes in final output.
     If left unspecified, all attributes are saved. If an attribute is specified in
     passthrough_attributes but doesn't exist, it will be ignored."""

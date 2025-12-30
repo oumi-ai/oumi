@@ -14,7 +14,6 @@
 
 import json
 import re
-from typing import Optional, Union
 
 import pydantic
 from typing_extensions import Self
@@ -39,9 +38,9 @@ class JudgeOutputField(pydantic.BaseModel):
 
     field_key: str
     field_type: JudgeOutputType
-    field_scores: Optional[dict[str, float]]
+    field_scores: dict[str, float] | None
 
-    def get_typed_value(self, raw_value: str) -> Optional[Union[float, int, str, bool]]:
+    def get_typed_value(self, raw_value: str) -> float | int | str | bool | None:
         """Convert the field's raw string value to the appropriate type.
 
         Args:
@@ -102,10 +101,10 @@ class JudgeOutput(pydantic.BaseModel):
 
     raw_output: str
     parsed_output: dict[str, str] = {}
-    output_fields: Optional[list[JudgeOutputField]] = None
-    field_values: dict[str, Optional[Union[float, int, str, bool]]] = {}
-    field_scores: dict[str, Optional[float]] = {}
-    response_format: Optional[JudgeResponseFormat] = None
+    output_fields: list[JudgeOutputField] | None = None
+    field_values: dict[str, float | int | str | bool | None] = {}
+    field_scores: dict[str, float | None] = {}
+    response_format: JudgeResponseFormat | None = None
 
     @classmethod
     def from_raw_output(
@@ -159,7 +158,7 @@ class JudgeOutput(pydantic.BaseModel):
         )
 
     @classmethod
-    def _parse_xml_output(cls, xml_output: Optional[str]) -> dict[str, str]:
+    def _parse_xml_output(cls, xml_output: str | None) -> dict[str, str]:
         """Parses an XML judge output."""
         if not xml_output:
             return {}
@@ -175,7 +174,7 @@ class JudgeOutput(pydantic.BaseModel):
     # TODO: Consider leveraging structured-outputs for better JSON parsing
     # https://oumi.ai/docs/en/latest/user_guides/infer/common_workflows.html#structured-outputs
     @classmethod
-    def _parse_json_output(cls, json_output: Optional[str]) -> dict[str, str]:
+    def _parse_json_output(cls, json_output: str | None) -> dict[str, str]:
         """Parse judgment data from JSON format.
 
         Args:
@@ -296,12 +295,12 @@ class BaseJudge:
     def __init__(
         self,
         prompt_template: str,
-        prompt_template_placeholders: Optional[set[str]],
-        system_instruction: Optional[str],
+        prompt_template_placeholders: set[str] | None,
+        system_instruction: str | None,
         example_field_values: list[dict[str, str]],
         response_format: JudgeResponseFormat,
         output_fields: list[JudgeOutputField],
-        inference_engine: BaseInferenceEngine,
+        inference_engine: BaseInferenceEngine | None = None,
     ):
         """Initialize the judge.
 
@@ -453,7 +452,7 @@ class BaseJudge:
     @classmethod
     def _build_judge_conversation(
         cls,
-        system_instruction: Optional[str],
+        system_instruction: str | None,
         example_user_prompts: list[str],
         example_assistant_responses: list[str],
         judgment_prompt: str,
@@ -538,7 +537,14 @@ class BaseJudge:
         original_metadata = [conv.metadata for conv in conversations]
 
         # Run batch inference
-        response_conversations = self.inference_engine.infer(input=conversations)
+        if self.inference_engine:
+            response_conversations = self.inference_engine.infer(input=conversations)
+        else:
+            raise ValueError(
+                "Cannot run inference: inference_engine is None. "
+                "Subclasses that don't use inference should override the "
+                "judge() method."
+            )
 
         if len(response_conversations) != len(original_metadata):
             raise ValueError(

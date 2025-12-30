@@ -15,9 +15,10 @@
 import io
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from multiprocessing.pool import Pool
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Callable, Optional
+from typing import TYPE_CHECKING, Annotated, Optional
 
 import typer
 from rich.columns import Columns
@@ -35,7 +36,7 @@ if TYPE_CHECKING:
     from oumi.core.launcher import BaseCluster, JobStatus
 
 
-def _get_working_dir(current: Optional[str]) -> Optional[str]:
+def _get_working_dir(current: str | None) -> str | None:
     """Prompts the user to select the working directory, if relevant."""
     if not is_dev_build():
         return current
@@ -102,9 +103,7 @@ def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-def _tail_logs(
-    log_stream: io.TextIOBase, output_filepath: Optional[str] = None
-) -> None:
+def _tail_logs(log_stream: io.TextIOBase, output_filepath: str | None = None) -> None:
     """Tails logs with pretty CLI output.
 
     This function reads from a log stream and displays the output with rich formatting
@@ -150,7 +149,7 @@ def _tail_logs(
         log_stream.close()
 
 
-def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
+def _down_worker(cluster: str, cloud: str | None) -> bool:
     """Turns down a cluster.
 
     All workers must return a boolean to indicate whether the task is done.
@@ -190,7 +189,7 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]:
+def _find_cluster(cluster: str, cloud: str | None) -> Optional["BaseCluster"]:
     """Finds the cluster matching the given name and cloud.
 
     Returns:
@@ -230,7 +229,7 @@ def _find_cluster(cluster: str, cloud: Optional[str]) -> Optional["BaseCluster"]
     return None
 
 
-def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
+def _stop_worker(cluster: str, cloud: str | None) -> bool:
     """Stops a cluster.
 
     All workers must return a boolean to indicate whether the task is done.
@@ -256,7 +255,7 @@ def _poll_job(
     detach: bool,
     cloud: str,
     running_cluster: Optional["BaseCluster"] = None,
-    output_filepath: Optional[str] = None,
+    output_filepath: str | None = None,
 ) -> None:
     """Polls a job until it is complete.
 
@@ -343,7 +342,7 @@ def cancel(
 def down(
     cluster: Annotated[str, typer.Option(help="The cluster to turn down.")],
     cloud: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="If specified, only clusters on this cloud will be affected."
         ),
@@ -375,7 +374,7 @@ def run(
         ),
     ],
     cluster: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help=(
                 "The cluster to use for this job. If unspecified, a new cluster will "
@@ -387,7 +386,7 @@ def run(
         bool, typer.Option(help="Run the job in the background.")
     ] = False,
     output_filepath: Annotated[
-        Optional[str], typer.Option(help="Path to save job logs to a file.")
+        str | None, typer.Option(help="Path to save job logs to a file.")
     ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
@@ -439,14 +438,14 @@ def run(
 
 def status(
     cloud: Annotated[
-        Optional[str], typer.Option(help="Filter results by this cloud.")
+        str | None, typer.Option(help="Filter results by this cloud.")
     ] = None,
     cluster: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="Filter results by clusters matching this name."),
     ] = None,
     id: Annotated[
-        Optional[str], typer.Option(help="Filter results by jobs matching this job ID.")
+        str | None, typer.Option(help="Filter results by jobs matching this job ID.")
     ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ) -> None:
@@ -511,7 +510,7 @@ def status(
 def stop(
     cluster: Annotated[str, typer.Option(help="The cluster to stop.")],
     cloud: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="If specified, only clusters on this cloud will be affected."
         ),
@@ -546,7 +545,7 @@ def up(
         ),
     ],
     cluster: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help=(
                 "The cluster to use for this job. If unspecified, a new cluster will "
@@ -558,7 +557,7 @@ def up(
         bool, typer.Option(help="Run the job in the background.")
     ] = False,
     output_filepath: Annotated[
-        Optional[str], typer.Option(help="Path to save job logs to a file.")
+        str | None, typer.Option(help="Path to save job logs to a file.")
     ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
@@ -636,18 +635,18 @@ def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
 def logs(
     cluster: Annotated[str, typer.Option(help="The cluster to get the logs of.")],
     cloud: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(help="If specified, will filter for clusters on this cloud."),
     ] = None,
     job_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="The job ID to get the logs of. If unspecified, the most recent "
             "job will be used."
         ),
     ] = None,
     output_filepath: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             help="Path to save job logs to a file. If unspecified, the logs will "
             "be printed to the console."
@@ -666,9 +665,7 @@ def logs(
     _tail_logs(log_stream, output_filepath)
 
 
-def _log_worker(
-    cluster: str, cloud: Optional[str], job_id: Optional[str]
-) -> io.TextIOBase:
+def _log_worker(cluster: str, cloud: str | None, job_id: str | None) -> io.TextIOBase:
     """Gets logs from a cluster.
 
     Returns a text stream containing the cluster logs.

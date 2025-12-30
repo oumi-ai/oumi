@@ -17,7 +17,7 @@
 For more info see: https://github.com/tatsu-lab/alpaca_eval
 """
 
-from typing import Union, cast
+from typing import cast
 
 import pandas as pd
 
@@ -65,7 +65,7 @@ class AlpacaEvalDataset(BaseSftDataset):
 
         super().__init__(**kwargs, trust_remote_code=trust_remote_code)
 
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict | pd.Series) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.
 
         Args:

@@ -1,10 +1,10 @@
 import glob
 import os
-from typing import Optional
 
 import pytest
 
 from oumi.core.configs import (
+    AnalyzeConfig,
     AsyncEvaluationConfig,
     EvaluationConfig,
     InferenceConfig,
@@ -26,7 +26,7 @@ def _backtrack_on_path(path, n):
     return output_path
 
 
-def _get_all_config_paths(exclude_yaml_suffixes: Optional[set[str]]) -> list[str]:
+def _get_all_config_paths(exclude_yaml_suffixes: set[str] | None) -> list[str]:
     """Recursively returns all configs in the /configs/ dir of the repo."""
     path_to_current_file = os.path.realpath(__file__)
     repo_root = _backtrack_on_path(path_to_current_file, 5)
@@ -54,6 +54,7 @@ def _get_all_config_paths(exclude_yaml_suffixes: Optional[set[str]]) -> list[str
 )
 def test_parse_configs(config_path: str):
     valid_config_classes = [
+        AnalyzeConfig,
         AsyncEvaluationConfig,
         EvaluationConfig,
         InferenceConfig,
@@ -87,6 +88,7 @@ def test_parse_configs(config_path: str):
 )
 def test_parse_configs_from_yaml_and_arg_list(config_path: str):
     valid_config_classes = [
+        AnalyzeConfig,
         AsyncEvaluationConfig,
         EvaluationConfig,
         InferenceConfig,

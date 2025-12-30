@@ -15,7 +15,6 @@
 import functools
 import pathlib
 from contextlib import contextmanager
-from typing import Optional
 
 import torch
 
@@ -28,7 +27,7 @@ _PROFILER_DEFAULT_SUB_DIR = "profiler"
 
 
 def _configure_torch_profile_save_dir(
-    params: ProfilerParams, training_output_dir: Optional[str]
+    params: ProfilerParams, training_output_dir: str | None
 ) -> ProfilerParams:
     """Auto-generates ProfilerParams.saved_dir if not specified explicitly."""
     if not params.save_dir and training_output_dir:
@@ -45,7 +44,7 @@ def _on_trace_ready(
     enable_cpu_profiling: bool,
     enable_cuda_profiling: bool,
     params: ProfilerParams,
-    save_dir_path: Optional[pathlib.Path],
+    save_dir_path: pathlib.Path | None,
 ) -> None:
     logger.info(f"{_PROFILER_LOG_PREFIX} on_trace_ready(out_prefix={out_prefix})")
     sort_by = []
@@ -110,7 +109,7 @@ def _on_trace_ready(
 def torch_profile(
     params: ProfilerParams,
     *,
-    training_output_dir: Optional[str],
+    training_output_dir: str | None,
     record_function_name: str = "oumi.train",
 ):
     """Creates PyTorch Profiler context manager.
@@ -167,7 +166,7 @@ def torch_profile(
 
     logger.info(f"{_PROFILER_LOG_PREFIX} Starting profiling...")
     logger.info(f"{_PROFILER_LOG_PREFIX} Save dir: {params.save_dir}")
-    save_dir_path: Optional[pathlib.Path] = (
+    save_dir_path: pathlib.Path | None = (
         pathlib.Path(params.save_dir) if params.save_dir else None
     )
     if save_dir_path:

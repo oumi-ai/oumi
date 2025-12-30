@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from omegaconf import MISSING
 
@@ -23,7 +24,13 @@ from oumi.core.configs.params.base_params import BaseParams
 
 
 class DatasetSource(Enum):
-    """Source of the dataset for analysis."""
+    """Source of the dataset for analysis.
+
+    .. deprecated::
+        This enum is deprecated and will be removed in a future release.
+        The dataset source is now automatically determined based on whether
+        a dataset is passed directly to DatasetAnalyzer.__init__().
+    """
 
     CONFIG = "config"
     """Load dataset from config parameters (dataset_name, dataset_path, etc.)"""
@@ -46,26 +53,29 @@ class SampleAnalyzerParams(BaseParams):
 class AnalyzeConfig(BaseConfig):
     """Configuration for dataset analysis and aggregation."""
 
-    # Required field - must come first
-    dataset_source: DatasetSource = MISSING
-    """Source of the dataset for analysis. Use CONFIG to load from config parameters
-    or DIRECT to pass dataset directly to DatasetAnalyzer.__init__().
+    dataset_source: DatasetSource | None = None
+    """Source of the dataset for analysis.
 
-    This field is required and must be explicitly set.
+    .. deprecated::
+        This field is deprecated and will be removed in a future release.
+        The dataset source is now automatically determined based on whether
+        a dataset is passed directly to DatasetAnalyzer.__init__().
     """
 
-    # Simple fields for common use cases
-    dataset_name: Optional[str] = None
+    dataset_format: str | None = None
+    """Format of the custom dataset.
+
+    .. deprecated::
+        This field is deprecated and will be removed in a future release.
+        The dataset format is now automatically detected from the file contents.
+    """
+
+    dataset_name: str | None = None
     """Dataset name."""
 
-    dataset_path: Optional[str] = None
+    dataset_path: str | None = None
     """Path to a custom dataset file (JSON or JSONL format).
     If provided, this takes precedence over dataset_name for loading custom datasets.
-    """
-
-    dataset_format: Optional[str] = None
-    """Format of the custom dataset. Either 'oumi' (conversation format) or 'alpaca'.
-    Only used when dataset_path is provided.
     """
 
     split: str = "train"
@@ -73,10 +83,10 @@ class AnalyzeConfig(BaseConfig):
     This is typically one of "train", "test", or "validation". Defaults to "train".
     """
 
-    subset: Optional[str] = None
+    subset: str | None = None
     """The subset of the dataset to load. If None, uses the base dataset."""
 
-    sample_count: Optional[int] = None
+    sample_count: int | None = None
     """The number of examples to sample from the dataset.
     If None, uses the full dataset. If specified, must be non-negative.
     """
@@ -90,80 +100,103 @@ class AnalyzeConfig(BaseConfig):
     analyzers: list[SampleAnalyzerParams] = field(default_factory=list)
     """List of analyzer configurations (plugin-style)."""
 
-    tokenizer_config: Optional[dict[str, Any]] = None
-    """Tokenizer configuration for building a tokenizer.
-    If None, no tokenizer will be used.
+    # Tokenizer configuration
+    tokenizer_name: str | None = None
+    """The name or path of the tokenizer to use for token counting metrics.
 
-    Expected format::
-
-        {
-            "model_name": "gpt2",  # Required: model name for tokenizer
-            "tokenizer_kwargs": {},  # Optional: additional tokenizer parameters
-            "trust_remote_code": False  # Optional: whether to trust remote code
-        }
-
+    If None, no tokenizer will be used. This is typically a model identifier
+    from HuggingFace Hub (e.g., "openai-community/gpt2").
     """
 
-    # Add processor parameters for vision-language datasets
-    processor_name: Optional[str] = None
-    """Processor name for vision-language datasets."""
+    tokenizer_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass to the tokenizer constructor."""
+
+    tokenizer_config: dict[str, Any] | None = None
+    """Tokenizer configuration for building a tokenizer.
+
+    .. deprecated::
+        This field is deprecated and will be removed in a future release.
+        Use 'tokenizer_name' and 'tokenizer_kwargs' instead.
+    """
+
+    # Processor parameters for vision-language datasets
+    processor_name: str | None = None
+    """Processor name for vision-language datasets.
+
+    If provided, the dataset will be treated as multimodal (vision-language).
+    """
 
     processor_kwargs: dict[str, Any] = field(default_factory=dict)
     """Processor-specific parameters."""
 
     trust_remote_code: bool = False
-    """Whether to trust remote code for processor loading."""
+    """Whether to trust remote code for tokenizer/processor loading."""
 
-    is_multimodal: Optional[bool] = None
-    """If True, treat the dataset as multimodal (vision-language) when using a
-    custom dataset_path. If False, treat as text-only.
+    is_multimodal: bool | None = None
+    """Whether to treat the dataset as multimodal (vision-language).
+
+    .. deprecated::
+        This field is deprecated and will be removed in a future release.
+        Multimodality is now automatically detected based on whether
+        'processor_name' is provided.
     """
 
     def __post_init__(self):
         """Validates the configuration parameters."""
-        if self.dataset_source == DatasetSource.CONFIG:
-            # Only require dataset info when loading from config
-            if not self.dataset_name and not self.dataset_path:
-                raise ValueError(
-                    "Either 'dataset_name' or 'dataset_path' must be provided when "
-                    "dataset_source=DatasetSource.CONFIG"
-                )
-        else:
-            # When using direct dataset, dataset_name is optional but recommended
-            if not self.dataset_name:
-                self.dataset_name = "Custom Dataset"
+        # Emit deprecation warnings for deprecated fields
+        if self.dataset_source is not None:
+            warnings.warn(
+                "The 'dataset_source' field is deprecated and will be removed in a "
+                "future release. The dataset source is now automatically determined "
+                "based on whether a dataset is passed directly to "
+                "DatasetAnalyzer.__init__(). This field is ignored.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
-        # Validate dataset_format requirements
-        if self.dataset_path is not None:
-            if self.dataset_format is None:
-                raise ValueError(
-                    "'dataset_format' must be specified when using 'dataset_path'. "
-                    "Use 'oumi' for conversation format or 'alpaca' for instruction "
-                    "format."
-                )
-            elif self.dataset_format not in ["oumi", "alpaca"]:
-                raise ValueError("'dataset_format' must be either 'oumi' or 'alpaca'")
+        if self.dataset_format is not None:
+            warnings.warn(
+                "The 'dataset_format' field is deprecated and will be removed in a "
+                "future release. The dataset format is now automatically detected "
+                "from the file contents. This field is ignored.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
-            # Require explicit is_multimodal setting for custom datasets
-            if self.is_multimodal is None:
-                raise ValueError(
-                    "'is_multimodal' must be specified when using 'dataset_path'. "
-                    "Set to 'True' for vision-language datasets or 'False' for "
-                    "text-only datasets."
-                )
+        # Handle deprecated tokenizer_config field
+        if self.tokenizer_config is not None:
+            warnings.warn(
+                "The 'tokenizer_config' field is deprecated and will be removed in a "
+                "future release. Use 'tokenizer_name' and 'tokenizer_kwargs' instead. "
+                "Values from 'tokenizer_config' will be used for this run.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Migrate values from tokenizer_config to new fields if not already set
+            if self.tokenizer_name is None and "model_name" in self.tokenizer_config:
+                self.tokenizer_name = self.tokenizer_config["model_name"]
+            if (
+                not self.tokenizer_kwargs
+                and "tokenizer_kwargs" in self.tokenizer_config
+            ):
+                self.tokenizer_kwargs = self.tokenizer_config["tokenizer_kwargs"]
+            # trust_remote_code from tokenizer_config only applies if not explicitly set
+            if (
+                "trust_remote_code" in self.tokenizer_config
+                and self.tokenizer_config["trust_remote_code"]
+                and not self.trust_remote_code
+            ):
+                self.trust_remote_code = self.tokenizer_config["trust_remote_code"]
 
-            # Additional validation for multimodal
-            if self.is_multimodal is True:
-                # Currently VLJsonlinesDataset expects oumi conversation format
-                if self.dataset_format != "oumi":
-                    raise ValueError(
-                        "Multimodal datasets require dataset_format='oumi'"
-                    )
-                if not self.processor_name:
-                    raise ValueError(
-                        "'processor_name' must be specified when 'is_multimodal' "
-                        "is True"
-                    )
+        # Handle deprecated is_multimodal field
+        if self.is_multimodal is not None:
+            warnings.warn(
+                "The 'is_multimodal' field is deprecated and will be removed in a "
+                "future release. Multimodality is now automatically detected based "
+                "on whether 'processor_name' is provided. This field is ignored.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         # Validate sample_count
         if self.sample_count is not None and self.sample_count <= 0:

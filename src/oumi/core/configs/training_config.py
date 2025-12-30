@@ -118,6 +118,7 @@ class TrainingConfig(BaseConfig):
                 TrainerType.TRL_KTO,
                 TrainerType.TRL_GRPO,
                 TrainerType.TRL_GKD,
+                TrainerType.TRL_GOLD,
             )
             and self.deepspeed.train_batch_size != "auto"
         ):
@@ -146,6 +147,7 @@ class TrainingConfig(BaseConfig):
                 TrainerType.TRL_SFT,
                 TrainerType.TRL_DPO,
                 TrainerType.TRL_GKD,
+                TrainerType.TRL_GOLD,
             ):
                 # TODO: DPOTrainer also defines "max_prompt_length" and
                 # "max_target_length". How to handle them?
@@ -177,6 +179,7 @@ class TrainingConfig(BaseConfig):
                 TrainerType.TRL_DPO,
                 TrainerType.TRL_GRPO,
                 TrainerType.TRL_GKD,
+                TrainerType.TRL_GOLD,
                 TrainerType.HF,
             ):
                 self.training.trainer_kwargs["use_liger_kernel"] = True

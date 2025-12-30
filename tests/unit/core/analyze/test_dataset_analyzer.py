@@ -2,18 +2,17 @@
 
 import tempfile
 from pathlib import Path
-from typing import Optional
 from unittest.mock import patch
 
 import jsonlines
 import pandas as pd
 import pytest
 
-from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.dataset_analyzer import (
     DatasetAnalyzer,
 )
-from oumi.core.configs import AnalyzeConfig, DatasetSource, SampleAnalyzerParams
+from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 from oumi.core.datasets import BaseMapDataset
 from oumi.datasets import TextSftJsonLinesDataset
 
@@ -23,13 +22,13 @@ def check_no_nans(obj):
     if isinstance(obj, dict):
         for key, value in obj.items():
             # Only check for NaN in numeric values, not lists or strings
-            if isinstance(value, (int, float)) and pd.isna(value):
+            if isinstance(value, int | float) and pd.isna(value):
                 raise AssertionError(f"Found NaN value in key '{key}': {value}")
             check_no_nans(value)
     elif isinstance(obj, list):
         for item in obj:
             check_no_nans(item)
-    elif isinstance(obj, (int, float)) and pd.isna(obj):
+    elif isinstance(obj, int | float) and pd.isna(obj):
         raise AssertionError(f"Found NaN value: {obj}")
     else:
         # Other types (str, bool, None, etc.) are not checked for NaN
@@ -46,14 +45,15 @@ class MockSampleAnalyzer:
         self.analyzer_id = kwargs.get("analyzer_id", "mock")
 
     def analyze_sample(
-        self, df: pd.DataFrame, schema: Optional[dict] = None
-    ) -> pd.DataFrame:
+        self, df: pd.DataFrame, schema: dict | None = None
+    ) -> tuple[pd.DataFrame, dict]:
         """
         Mock analysis that adds analyzer metrics to the DataFrame.
         """
         self.analyze_calls.append(df)
 
         result_df = df.copy()
+        generated_schema = {}
 
         # Add mock analyzer metrics for text content columns
         if schema:
@@ -65,14 +65,23 @@ class MockSampleAnalyzer:
 
             for text_col in text_columns:
                 # Add char_count and word_count metrics for each text column
-                result_df[f"{text_col}_{self.analyzer_id}_char_count"] = (
-                    df[text_col].astype(str).str.len()
-                )
-                result_df[f"{text_col}_{self.analyzer_id}_word_count"] = (
-                    df[text_col].astype(str).str.split().str.len()
-                )
+                char_col = f"{text_col}_{self.analyzer_id}_char_count"
+                word_col = f"{text_col}_{self.analyzer_id}_word_count"
+                result_df[char_col] = df[text_col].astype(str).str.len()
+                result_df[word_col] = df[text_col].astype(str).str.split().str.len()
 
-        return result_df
+                generated_schema[char_col] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Character count for {text_col}",
+                }
+                generated_schema[word_col] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Word count for {text_col}",
+                }
+
+        return result_df, generated_schema
 
 
 class MockFailingAnalyzer:
@@ -82,8 +91,8 @@ class MockFailingAnalyzer:
         self.config = kwargs
 
     def analyze_sample(
-        self, df: pd.DataFrame, schema: Optional[dict] = None
-    ) -> pd.DataFrame:
+        self, df: pd.DataFrame, schema: dict | None = None
+    ) -> tuple[pd.DataFrame, dict]:
         raise ValueError("Analyzer failed")
 
 
@@ -231,7 +240,6 @@ def single_conversation_test_data_path(single_conversation_test_data):
 def mock_config():
     """Create a mock analyzer configuration."""
     return AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,  # Required field
         dataset_name="text_sft",
         split="train",
         sample_count=2,
@@ -286,9 +294,7 @@ def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_
     # Create a real dataset from test data
     dataset = TextSftJsonLinesDataset(dataset_path=test_data_path)
 
-    # Create a config with DIRECT mode for this test
     direct_config = AnalyzeConfig(
-        dataset_source=DatasetSource.DIRECT,
         dataset_name="text_sft",
         sample_count=2,
         output_path="./test_output",
@@ -319,56 +325,20 @@ def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_
     assert "analyzer_2" in analyzer.sample_analyzers
 
 
-def test_dataset_source_direct_with_dataset_success():
-    """Test that DatasetSource.DIRECT works when dataset is provided."""
-
+@patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry())
+def test_dataset_provided_directly():
+    """Test that providing a dataset directly works and uses that dataset."""
     dataset = MockDataset()
 
     config = AnalyzeConfig(
-        dataset_source=DatasetSource.DIRECT,
         dataset_name="test_dataset",
         analyzers=[SampleAnalyzerParams(id="test_analyzer", params={})],
     )
 
-    # This should work without error
+    # When dataset is provided, it should be used directly
     analyzer = DatasetAnalyzer(config, dataset=dataset)
     assert analyzer.dataset == dataset
     assert analyzer.dataset_name == "test_dataset"
-
-
-def test_dataset_source_direct_without_dataset_failure():
-    """Test that DatasetSource.DIRECT fails when no dataset is provided."""
-    config = AnalyzeConfig(
-        dataset_source=DatasetSource.DIRECT,
-        dataset_name="test_dataset",
-        analyzers=[SampleAnalyzerParams(id="test_analyzer", params={})],
-    )
-
-    with pytest.raises(
-        ValueError,
-        match="Config specifies dataset_source=DatasetSource.DIRECT but no dataset "
-        "was provided",
-    ):
-        DatasetAnalyzer(config)
-
-
-def test_dataset_source_config_with_dataset_failure():
-    """Test that DatasetSource.CONFIG fails when dataset is provided."""
-
-    dataset = MockDataset()
-
-    config = AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,
-        dataset_name="test_dataset",
-        analyzers=[SampleAnalyzerParams(id="test_analyzer", params={})],
-    )
-
-    with pytest.raises(
-        ValueError,
-        match="Dataset provided but config.dataset_source is 'config'. When using "
-        "DatasetSource.CONFIG, do not pass a dataset to the constructor",
-    ):
-        DatasetAnalyzer(config, dataset=dataset)
 
 
 def test_analyze_dataset_integration(test_data_path, mock_config):
@@ -397,7 +367,6 @@ def test_analyze_dataset_with_sample_limit(test_data_path, mock_config):
     """Test analysis with sample count limit."""
     # Create config with sample_count=1 (only analyze first conversation)
     config = AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,  # Required field
         dataset_name="text_sft",
         split="train",
         sample_count=1,
@@ -424,7 +393,6 @@ def test_analyze_dataset_analyzer_failure(test_data_path):
     """Test analysis when an analyzer fails."""
     # Create config with failing analyzer
     config = AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,  # Required field
         dataset_name="text_sft",
         split="train",
         sample_count=2,  # Limit to first 2 conversations
@@ -454,7 +422,6 @@ def test_analyze_dataset_no_analyzers(test_data_path):
     """Test that DatasetAnalyzer raises an error when no analyzers are configured."""
     # Create config with no analyzers
     config = AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,  # Required field
         dataset_name="text_sft",
         analyzers=[],
     )
@@ -470,7 +437,6 @@ def test_analyze_dataset_sample_count_none(test_data_path, mock_config):
     """Test analysis with sample_count=None (analyze all conversations)."""
     # Create config with sample_count=None
     config = AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,  # Required field
         dataset_name="text_sft",
         split="train",
         sample_count=None,
@@ -497,7 +463,6 @@ def test_analyze_dataset_sample_count_zero(test_data_path, mock_config):
     # Create config with sample_count=0
     with pytest.raises(ValueError, match="`sample_count` must be greater than 0."):
         AnalyzeConfig(
-            dataset_source=DatasetSource.CONFIG,  # Required field
             dataset_name="text_sft",
             split="train",
             sample_count=0,
@@ -510,7 +475,6 @@ def test_analyze_dataset_sample_count_negative(test_data_path, mock_config):
     # Create config with negative sample_count
     with pytest.raises(ValueError, match="`sample_count` must be greater than 0."):
         AnalyzeConfig(
-            dataset_source=DatasetSource.CONFIG,  # Required field
             dataset_name="text_sft",
             split="train",
             sample_count=-5,
@@ -522,7 +486,6 @@ def test_analyze_dataset_sample_count_exceeds_total(test_data_path, mock_config)
     """Test analysis when sample_count exceeds total conversations."""
     # Create config with sample_count exceeding total
     config = AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,  # Required field
         dataset_name="text_sft",
         split="train",
         sample_count=10,  # More than total conversations
@@ -547,7 +510,6 @@ def test_analyze_dataset_sample_count_exceeds_total(test_data_path, mock_config)
 def test_analyze_dataset_missing_conversation_id(test_data_path, mock_config):
     """Test analysis when conversation_id is None."""
     config = AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,  # Required field
         dataset_name="text_sft",
         split="train",
         sample_count=4,  # Include the conversation with null ID
@@ -571,7 +533,6 @@ def test_analyze_dataset_missing_conversation_id(test_data_path, mock_config):
 def test_analyze_dataset_missing_message_id(test_data_path, mock_config):
     """Test analysis when message_id is None."""
     config = AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,  # Required field
         dataset_name="text_sft",
         split="train",
         sample_count=4,  # Include the conversation with null message ID
@@ -595,7 +556,6 @@ def test_analyze_dataset_missing_message_id(test_data_path, mock_config):
 def test_analyze_dataset_empty_conversation(test_data_path, mock_config):
     """Test analysis with empty conversation."""
     config = AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,  # Required field
         dataset_name="text_sft",
         split="train",
         sample_count=5,  # Include the empty conversation
@@ -819,14 +779,16 @@ def test_generate_analysis_summary(test_data_path, mock_config):
     assert "total_messages" in overview
     assert "analyzers_used" in overview
 
-    # Test message level summary - analyzer names with underscores get split
+    # Test message level summary - now flattened structure (metric_name -> stats)
     message_summary = summary["message_level_summary"]
-    # The analyzer names get split on underscores, so check for the actual keys
     assert len(message_summary) > 0
-    # Check that we have some analyzer metrics
-    for analyzer_name, metrics in message_summary.items():
-        assert isinstance(metrics, dict)
-        assert len(metrics) > 0
+    # Check that we have some metrics
+    for metric_name, stats in message_summary.items():
+        assert isinstance(stats, dict)
+        required_stats = ["count", "mean", "std", "min", "max", "median"]
+        for stat_name in required_stats:
+            assert stat_name in stats
+        break  # Only check first metric
 
     # Test conversation level summary - may be empty if no conversation-level metrics
     conversation_summary = summary["conversation_level_summary"]
@@ -848,7 +810,6 @@ def test_generate_analysis_summary_single_conversation_no_nan(
     """Test single conversation and no NaN values."""
     # Create a config with sample_count=1 to only analyze 1 conversation
     config = AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,
         dataset_name="text_sft",
         split="train",
         sample_count=1,
@@ -897,12 +858,11 @@ def test_generate_analysis_summary_single_conversation_no_nan(
 def test_analyzer_with_tokenizer(test_data_path):
     """Test that tokenizer is properly built from config and passed to analyzers."""
     config = AnalyzeConfig(
-        dataset_source=DatasetSource.CONFIG,  # Required field
         dataset_name="text_sft",
         split="train",
         sample_count=2,
         tokenizer_config={
-            "model_name": "gpt2"
+            "model_name": "openai-community/gpt2"
         },  # This will be used to build a real tokenizer
         analyzers=[
             SampleAnalyzerParams(

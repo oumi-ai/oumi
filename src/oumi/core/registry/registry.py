@@ -17,9 +17,10 @@ import importlib.util
 import os
 import sys
 from collections import namedtuple
+from collections.abc import Callable
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 from oumi.utils.logging import logger
 
@@ -35,6 +36,7 @@ class RegistryType(Enum):
     JUDGE_CONFIG = auto()
     EVALUATION_FUNCTION = auto()
     SAMPLE_ANALYZER = auto()
+    RULE = auto()
 
 
 class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
@@ -153,7 +155,7 @@ class Registry:
         self,
         name: str,
         type: RegistryType,
-    ) -> Optional[Callable]:
+    ) -> Callable | None:
         """Gets a record by name and type."""
         registry_key = RegistryKey(name, type)
         return self._registry.get(registry_key)
@@ -170,41 +172,39 @@ class Registry:
     #
     # Convenience public function wrappers.
     #
-    def get_model(self, name: str) -> Optional[Callable]:
+    def get_model(self, name: str) -> Callable | None:
         """Gets a record that corresponds to a registered model."""
         return self.get(name, RegistryType.MODEL)
 
-    def get_model_config(self, name: str) -> Optional[Callable]:
+    def get_model_config(self, name: str) -> Callable | None:
         """Gets a record that corresponds to a registered config."""
         return self.get(name, RegistryType.MODEL_CONFIG)
 
-    def get_metrics_function(self, name: str) -> Optional[Callable]:
+    def get_metrics_function(self, name: str) -> Callable | None:
         """Gets a record that corresponds to a registered metrics function."""
         return self.get(name, RegistryType.METRICS_FUNCTION)
 
-    def get_reward_function(self, name: str) -> Optional[Callable]:
+    def get_reward_function(self, name: str) -> Callable | None:
         """Gets a record that corresponds to a registered rewards function."""
         return self.get(name, RegistryType.REWARD_FUNCTION)
 
-    def get_rollout_function(self, name: str) -> Optional[Callable]:
+    def get_rollout_function(self, name: str) -> Callable | None:
         """Gets a record that corresponds to a registered rollout function."""
         return self.get(name, RegistryType.ROLLOUT_FUNCTION)
 
-    def get_judge_config(self, name: str) -> Optional[Callable]:
+    def get_judge_config(self, name: str) -> Callable | None:
         """Gets a record that corresponds to a registered judge config."""
         return self.get(name, RegistryType.JUDGE_CONFIG)
 
-    def get_evaluation_function(self, name: str) -> Optional[Callable]:
+    def get_evaluation_function(self, name: str) -> Callable | None:
         """Gets a record that corresponds to a registered evaluation function."""
         return self.get(name, RegistryType.EVALUATION_FUNCTION)
 
-    def get_sample_analyzer(self, name: str) -> Optional[Callable]:
+    def get_sample_analyzer(self, name: str) -> Callable | None:
         """Gets a record that corresponds to a registered sample analyzer."""
         return self.get(name, RegistryType.SAMPLE_ANALYZER)
 
-    def get_dataset(
-        self, name: str, subset: Optional[str] = None
-    ) -> Optional[Callable]:
+    def get_dataset(self, name: str, subset: str | None = None) -> Callable | None:
         """Gets a record that corresponds to a registered dataset."""
         if subset:
             # If a subset is provided, first check for subset-specific dataset.
@@ -269,7 +269,7 @@ def register(registry_name: str, registry_type: RegistryType) -> Callable:
     return decorator_register
 
 
-def register_dataset(registry_name: str, subset: Optional[str] = None) -> Callable:
+def register_dataset(registry_name: str, subset: str | None = None) -> Callable:
     """Returns function to register decorated `obj` in the Oumi global registry.
 
     Args:

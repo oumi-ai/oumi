@@ -1,0 +1,38 @@
+# Inference config for Qwen3-Next 80B A3B Instruct.
+#
+# Model highlights:
+#   - 80B total params, 3B activated per token
+#   - Hybrid attention: Gated DeltaNet + Gated Attention
+#   - 512 experts, 10 activated per token
+#   - Native 262K context, extensible to 1M+ with YaRN
+#
+# Requirements:
+#   - transformers >= 4.57.0
+#   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/qwen3_next/inference/80b_a3b_instruct_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "Qwen/Qwen3-Next-80B-A3B-Instruct"
+  model_max_length: 32768
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 8192
+  # Recommended settings for Qwen3-Next models
+  temperature: 0.6
+  top_p: 0.95
+  min_p: 0.0
+  use_sampling: True
+  presence_penalty: 0.0
+
+engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.

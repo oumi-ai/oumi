@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
@@ -28,7 +28,7 @@ class GenerationParams(BaseParams):
     Default is 1024 tokens.
     """
 
-    batch_size: Optional[int] = 1
+    batch_size: int | None = 1
     """The number of sequences to generate in parallel.
 
     Larger batch sizes can improve throughput but require more memory. Default is 1.
@@ -43,7 +43,7 @@ class GenerationParams(BaseParams):
     exclude_prompt_from_response: bool = True
     """Whether to trim the model's response and remove the prepended prompt."""
 
-    seed: Optional[int] = None
+    seed: int | None = None
     """Seed to use for random number determinism.
     If specified, APIs may use this parameter to make a best-effort at determinism.
     """
@@ -55,12 +55,13 @@ class GenerationParams(BaseParams):
     make it more focused and deterministic.
     """
 
-    top_p: float = 1.0
+    top_p: float | None = None
     """An alternative to temperature, called nucleus sampling.
 
     It sets the cumulative probability threshold for token selection.
     For example, 0.9 means only considering the tokens comprising
-    the top 90% probability mass.
+    the top 90% probability mass. If not specified, defaults to None
+    to allow APIs that only support temperature OR top_p (not both).
     """
 
     frequency_penalty: float = 0.0
@@ -73,10 +74,10 @@ class GenerationParams(BaseParams):
     so far, increasing the model's likelihood to talk about new topics.
     """
 
-    stop_strings: Optional[list[str]] = None
+    stop_strings: list[str] | None = None
     """List of sequences where the API will stop generating further tokens."""
 
-    stop_token_ids: Optional[list[int]] = None
+    stop_token_ids: list[int] | None = None
     """List of token ids for which the API will stop generating further tokens. This
     is only supported in `VLLMInferenceEngine` and `NativeTextInferenceEngine`."""
 
@@ -117,7 +118,7 @@ class GenerationParams(BaseParams):
     decoding.
     Default is False."""
 
-    guided_decoding: Optional[GuidedDecodingParams] = None
+    guided_decoding: GuidedDecodingParams | None = None
     """Parameters for guided decoding."""
 
     skip_special_tokens: bool = True
@@ -140,11 +141,11 @@ class GenerationParams(BaseParams):
         if self.temperature < 0:
             raise ValueError("Temperature must be non-negative.")
 
-        if not 0 <= self.top_p <= 1:
+        if self.top_p is not None and not 0 <= self.top_p <= 1:
             raise ValueError("top_p must be between 0 and 1.")
 
         for token_id, bias in self.logit_bias.items():
-            if not isinstance(token_id, (str, int)):
+            if not isinstance(token_id, str | int):
                 raise ValueError(
                     f"Logit bias token ID {token_id} must be an integer or a string."
                 )

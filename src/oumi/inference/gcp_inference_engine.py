@@ -14,7 +14,7 @@
 
 import json
 import os
-from typing import Any, Optional
+from typing import Any
 
 import pydantic
 from typing_extensions import override
@@ -40,22 +40,22 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
     _DEFAULT_REGION_ENV_KEY: str = "REGION"
     """The default region environment key for the GCP project."""
 
-    _project_id: Optional[str] = None
+    _project_id: str | None = None
     """The project ID for the GCP project."""
 
-    _region: Optional[str] = None
+    _region: str | None = None
     """The region for the GCP project."""
 
     def __init__(
         self,
         model_params: ModelParams,
         *,
-        generation_params: Optional[GenerationParams] = None,
-        remote_params: Optional[RemoteParams] = None,
-        project_id_env_key: Optional[str] = None,
-        region_env_key: Optional[str] = None,
-        project_id: Optional[str] = None,
-        region: Optional[str] = None,
+        generation_params: GenerationParams | None = None,
+        remote_params: RemoteParams | None = None,
+        project_id_env_key: str | None = None,
+        region_env_key: str | None = None,
+        project_id: str | None = None,
+        region: str | None = None,
     ):
         """Initializes the inference Engine.
 
@@ -152,7 +152,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
 
     @override
     def _get_request_headers(
-        self, remote_params: Optional[RemoteParams]
+        self, remote_params: RemoteParams | None
     ) -> dict[str, str]:
         """Gets the request headers for GCP."""
         if not remote_params:
@@ -195,11 +195,13 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             ),
             "max_completion_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
             "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_params.seed,
             "logit_bias": generation_params.logit_bias,
         }
+
+        if generation_params.top_p is not None:
+            api_input["top_p"] = generation_params.top_p
 
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings

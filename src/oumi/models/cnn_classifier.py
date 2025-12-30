@@ -14,7 +14,7 @@
 
 """The CNNClassifier model provides a basic example how to use ConvNets in Oumi."""
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -86,7 +86,7 @@ class CNNClassifier(BaseModel):
     def forward(
         self,
         images: torch.Tensor,
-        labels: Optional[torch.LongTensor] = None,
+        labels: torch.LongTensor | None = None,
         **kwargs,
     ) -> dict[str, torch.Tensor]:
         """Forward pass of the model."""

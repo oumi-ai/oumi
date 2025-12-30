@@ -15,7 +15,6 @@
 """Based on MFU from PaLM paper: https://arxiv.org/pdf/2204.02311."""
 
 import time
-from typing import Optional, Union
 
 import torch
 import transformers
@@ -46,9 +45,9 @@ class MfuTrainerCallback(BaseTrainerCallback):
         dtype: torch.dtype,
         num_params: int,
         sequence_length: int,
-        num_layers: Optional[int] = None,
-        num_attention_heads: Optional[int] = None,
-        attention_head_size: Optional[int] = None,
+        num_layers: int | None = None,
+        num_attention_heads: int | None = None,
+        attention_head_size: int | None = None,
         add_rematerialization: bool = False,
     ):
         """Initialize the MfuTrainerCallback.
@@ -65,7 +64,7 @@ class MfuTrainerCallback(BaseTrainerCallback):
         """
         self._dtype = dtype
         self._num_params = num_params
-        self._time_of_second_step: Optional[float] = None
+        self._time_of_second_step: float | None = None
         self._time_for_train_steps = 0.0
         self._tokens_seen_so_far = 0
         self._sequence_length = sequence_length
@@ -92,9 +91,9 @@ class MfuTrainerCallback(BaseTrainerCallback):
 
     def on_step_begin(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the beginning of each train step."""
@@ -117,9 +116,9 @@ class MfuTrainerCallback(BaseTrainerCallback):
 
     def on_step_end(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called at the end of each train step.
@@ -141,9 +140,9 @@ class MfuTrainerCallback(BaseTrainerCallback):
 
     def on_log(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called after logging the last logs."""

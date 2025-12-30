@@ -27,12 +27,12 @@ class TestBitsAndBytesQuantization:
         """Set up test fixtures."""
         self.bnb_quantizer = BitsAndBytesQuantization()
         self.valid_config_4bit = QuantizationConfig(
-            model=ModelParams(model_name="gpt2"),
+            model=ModelParams(model_name="openai-community/gpt2"),
             method="bnb_4bit",
             output_path="test_model_4bit",
         )
         self.valid_config_8bit = QuantizationConfig(
-            model=ModelParams(model_name="gpt2"),
+            model=ModelParams(model_name="openai-community/gpt2"),
             method="bnb_8bit",
             output_path="test_model_8bit",
         )

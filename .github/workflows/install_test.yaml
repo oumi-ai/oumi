@@ -7,7 +7,6 @@ on:
   pull_request:
     paths:
       - "pyproject.toml"
-      - ".github/workflows/**"
   workflow_dispatch:
 
 jobs:
@@ -17,8 +16,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
-        torch-version: ["2.6.0", "2.7.1", "2.8.0"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        torch-version: ["2.6.0", "2.7.1", "2.8.0", "2.9.0"]
+        exclude:
+          # Python 3.14 requires PyTorch 2.9
+          - python-version: "3.14"
+            torch-version: "2.6.0"
+          - python-version: "3.14"
+            torch-version: "2.7.1"
+          - python-version: "3.14"
+            torch-version: "2.8.0"
 
     steps:
       - name: Checkout
@@ -35,6 +42,15 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+
+      - name: Cache HuggingFace Models
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/huggingface
+          key: hf-models-${{ runner.os }}
+          restore-keys: |
+            hf-models-${{ runner.os }}-
 
       - name: Install oumi
         run: |
@@ -57,12 +73,4 @@ jobs:
       - name: Run tests
         run: |
           cd ./tests/unit/
-          if [ "${{ matrix.python-version }}" = "3.9" ]; then
-            # There are some asyncio tests that fail on 3.9.
-            # We ignore them for now.
-            pytest -q -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300 --ignore=inference/
-            cd inference/
-            pytest -q -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300
-          else
-            pytest -q -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300
-          fi
+          pytest -q -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300

@@ -15,7 +15,7 @@
 import json
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from omegaconf import MISSING
 from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
@@ -40,14 +40,14 @@ class ModelParams(BaseParams):
     specified in the adapter's config file.
     """
 
-    adapter_model: Optional[str] = None
+    adapter_model: str | None = None
     """The path to an adapter model to be applied on top of the base model.
 
     If provided, this adapter will be loaded and applied to the base model. The
     adapter path could alternatively be specified in `model_name`.
     """
 
-    tokenizer_name: Optional[str] = None
+    tokenizer_name: str | None = None
     """The name or path of the tokenizer to use.
 
     If None, the tokenizer associated with `model_name` will be used.
@@ -55,7 +55,7 @@ class ModelParams(BaseParams):
     for the model.
     """
 
-    tokenizer_pad_token: Optional[str] = None
+    tokenizer_pad_token: str | None = None
     """The padding token used by the tokenizer.
 
     If this is set, it will override the default padding token of the tokenizer and the
@@ -79,7 +79,7 @@ class ModelParams(BaseParams):
     These params override model-specific default values for these kwargs, if present.
     """
 
-    model_max_length: Optional[int] = None
+    model_max_length: int | None = None
     """The maximum sequence length the model can handle.
 
     If specified, this will override the default max length of the model's config.
@@ -149,7 +149,7 @@ class ModelParams(BaseParams):
     For training, do not set this param, and instead set `TrainingParams.compile`.
     """
 
-    chat_template: Optional[str] = None
+    chat_template: str | None = None
     """The chat template to use for formatting inputs.
 
     Options:
@@ -164,13 +164,13 @@ class ModelParams(BaseParams):
         documentation for the appropriate template to use.
     """
 
-    chat_template_kwargs: Optional[dict[str, Any]] = None
+    chat_template_kwargs: dict[str, Any] | None = None
     """Additional keyword args to pass to the chat template renderer.
     Currently, it is only used by the vLLM inference engine to pass additional kwargs
     for generation of assistant messages.
     """
 
-    attn_implementation: Optional[str] = None
+    attn_implementation: str | None = None
     """The attention implementation to use.
 
     Valid options include:
@@ -185,7 +185,7 @@ class ModelParams(BaseParams):
     - Custom kernel paths: Any HuggingFace Hub path to attention kernels
     """
 
-    device_map: Optional[str] = "auto"
+    device_map: str | None = "auto"
     """Specifies how to distribute the model's layers across available devices.
 
     - "auto": Automatically distribute the model across available devices
@@ -232,7 +232,7 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
-    model_revision: Optional[str] = None
+    model_revision: str | None = None
     """The revision of the model to use.
 
     This is used to specify the version of the model to use.

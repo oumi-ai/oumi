@@ -49,6 +49,5 @@ data:
         split: "train"
         dataset_kwargs:
           seq_length: 32_768
-    target_col: "text"
     stream: True
     pack: True

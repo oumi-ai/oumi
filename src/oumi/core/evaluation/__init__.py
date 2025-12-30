@@ -15,9 +15,9 @@
 """Core evaluator module for the Oumi library.
 
 This module provides an evaluator for evaluating models with popular evaluation
-libraries, such as `LM Harness` and `AlpacaEval`. It also allows users to define their
-own custom evaluation function. The evaluator is designed to be modular and provide a
-consistent interface for evaluating across different tasks.
+libraries, such as `LM Harness`. It also allows users to define their own custom
+evaluation function. The evaluator is designed to be modular and provide a consistent
+interface for evaluating across different tasks.
 
 Example:
     >>> from oumi.core.configs import EvaluationConfig

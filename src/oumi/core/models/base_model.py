@@ -14,8 +14,9 @@
 
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union
 
 import safetensors.torch
 import torch

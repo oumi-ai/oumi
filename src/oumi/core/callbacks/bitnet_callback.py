@@ -15,7 +15,6 @@
 """Simple Bitnet model saving callback."""
 
 from pathlib import Path
-from typing import Optional, Union
 
 import transformers
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
@@ -40,9 +39,9 @@ class BitNetCallback(BaseTrainerCallback):
 
     def on_save(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Saving callback.

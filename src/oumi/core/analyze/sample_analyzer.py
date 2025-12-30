@@ -15,7 +15,6 @@
 """Base classes for sample analyzer plugins."""
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import pandas as pd
 
@@ -30,19 +29,22 @@ class SampleAnalyzer(ABC):
     def analyze_sample(
         self,
         df: pd.DataFrame,
-        schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
+        schema: dict | None = None,
+    ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields and return analysis results.
 
         This method performs analysis on the input DataFrame and returns
-        the DataFrame with added analysis columns. All analyzers must implement this
-        method.
+        the DataFrame with added analysis columns along with schema information
+        for the generated columns. All analyzers must implement this method.
 
         Args:
             df: Input DataFrame with text fields
             schema: Column schema dict to identify text fields
 
         Returns:
-            DataFrame with added analysis columns
+            Tuple of (DataFrame with added analysis columns,
+            generated column schema dict).
+            The schema dict maps column names to their schema config with keys:
+            'type', 'content_type', 'description'.
         """
         pass

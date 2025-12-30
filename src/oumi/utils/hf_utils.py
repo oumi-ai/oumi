@@ -15,7 +15,6 @@
 import functools
 import os
 from pathlib import Path
-from typing import Optional, Union
 
 import transformers
 
@@ -25,7 +24,7 @@ from oumi.core.configs.internal.supported_models import (
 from oumi.utils.logging import logger
 
 
-def is_cached_to_disk_hf_dataset(dataset_folder: Union[str, Path]) -> bool:
+def is_cached_to_disk_hf_dataset(dataset_folder: str | Path) -> bool:
     """Detects whether a dataset was saved using `dataset.save_to_disk()`.
 
     Such datasets should be loaded using `datasets.Dataset.load_from_disk()`
@@ -52,7 +51,7 @@ def is_cached_to_disk_hf_dataset(dataset_folder: Union[str, Path]) -> bool:
     return False
 
 
-def find_hf_token() -> Optional[str]:
+def find_hf_token() -> str | None:
     """Attempts to find HuggingFace access token.
 
     Returns:
@@ -86,7 +85,7 @@ def find_hf_token() -> Optional[str]:
 @functools.cache
 def get_hf_chat_template(
     tokenizer_name: str, *, trust_remote_code: bool = False
-) -> Optional[str]:
+) -> str | None:
     """Returns chat template provided by HF for `tokenizer_name`."""
     if not tokenizer_name or is_custom_model(tokenizer_name):
         return None

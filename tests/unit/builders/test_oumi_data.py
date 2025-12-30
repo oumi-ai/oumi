@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import pytest
 import torch
 import torch.utils.data.datapipes as dp
@@ -19,6 +17,9 @@ from oumi.core.configs import (
 from oumi.core.datasets import BaseIterableDataset, BaseMapDataset
 from oumi.core.registry import register_dataset
 from oumi.core.tokenizers import BaseTokenizer
+from tests.markers import requires_torchdata
+
+pytestmark = requires_torchdata()
 
 
 #
@@ -75,13 +76,13 @@ class CustomProxyIterableDataset(BaseIterableDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str],
-        dataset_path: Optional[str] = None,
-        subset: Optional[str] = None,
-        split: Optional[str] = None,
+        dataset_name: str | None,
+        dataset_path: str | None = None,
+        subset: str | None = None,
+        split: str | None = None,
         trust_remote_code: bool = False,
-        transform_num_workers: Optional[Union[str, int]] = None,
-        tokenizer: Optional[BaseTokenizer] = None,
+        transform_num_workers: str | int | None = None,
+        tokenizer: BaseTokenizer | None = None,
         **kwargs,
     ):
         if dataset_name is None:
@@ -191,10 +192,23 @@ def test_load_custom_proxy_iterable_dataset_using_name_override(tokenizer):
 
 
 def test_load_dataset_huggingface(tokenizer, monkeypatch):
+    def mock_get_torchdata_imports():
+        from torchdata.datapipes.iter import MultiplexerLongest, SampleMultiplexer
+        from torchdata.datapipes.map.util.converter import (
+            MapToIterConverterIterDataPipe,
+        )
+
+        return (
+            mock_hf_hub_reader,  # HuggingFaceHubReader
+            MultiplexerLongest,
+            SampleMultiplexer,
+            MapToIterConverterIterDataPipe,
+        )
+
     monkeypatch.setattr(
         oumi.builders.oumi_data,
-        "HuggingFaceHubReader",
-        mock_hf_hub_reader,
+        "_get_torchdata_imports",
+        mock_get_torchdata_imports,
     )
 
     dataset_params = create_dataset_params("huggingface_dataset")

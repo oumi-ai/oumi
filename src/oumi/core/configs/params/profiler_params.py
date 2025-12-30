@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
 
@@ -88,7 +87,7 @@ class ProfilerScheduleParams(BaseParams):
 
 @dataclass
 class ProfilerParams(BaseParams):
-    save_dir: Optional[str] = None
+    save_dir: str | None = None
     """Directory where the profiling data will be saved to.
 
     If not specified and profiling is enabled, then the `profiler` sub-dir will be

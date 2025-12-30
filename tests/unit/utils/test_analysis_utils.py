@@ -21,14 +21,10 @@ import jsonlines
 import pandas as pd
 import pytest
 
-from oumi.core.configs.analyze_config import (
-    AnalyzeConfig,
-    DatasetSource,
-)
+from oumi.core.configs.analyze_config import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.datasets import TextSftJsonLinesDataset, VLJsonlinesDataset
 from oumi.utils.analysis_utils import (
-    build_tokenizer_from_config,
     compute_statistics,
     load_dataset_from_config,
 )
@@ -184,19 +180,14 @@ def test_load_dataset_from_config_success(
     assert mock_registry.get_dataset.called
 
 
-def test_load_dataset_from_config_missing_dataset_name():
-    """Test error handling when dataset_name is not provided."""
+def test_load_dataset_from_config_missing_dataset_info():
+    """Test error handling when no dataset info is provided."""
+    config = AnalyzeConfig(split="train")
+
     with pytest.raises(
-        ValueError,
-        match="Either 'dataset_name' or 'dataset_path' must be provided when "
-        "dataset_source=DatasetSource.CONFIG",
+        ValueError, match="Either dataset_name or dataset_path must be provided"
     ):
-        AnalyzeConfig(
-            dataset_source=DatasetSource.CONFIG,  # Required field
-            dataset_name=None,
-            dataset_path=None,
-            split="train",
-        )
+        load_dataset_from_config(config)
 
 
 def test_load_dataset_from_config_dataset_not_registered(mock_registry):
@@ -279,41 +270,6 @@ def test_load_dataset_from_config_with_processor_parameters(
     assert result == mock_dataset_instance
 
 
-def test_build_tokenizer_from_config_success():
-    """Test successful tokenizer building from config."""
-    tokenizer_config = {
-        "model_name": "gpt2",
-        "tokenizer_kwargs": {"padding_side": "left"},
-        "trust_remote_code": False,
-    }
-
-    tokenizer = build_tokenizer_from_config(tokenizer_config)
-
-    assert tokenizer is not None
-    assert hasattr(tokenizer, "encode")
-    assert hasattr(tokenizer, "decode")
-
-
-def test_build_tokenizer_from_config_none():
-    """Test tokenizer building with None config."""
-    tokenizer = build_tokenizer_from_config(None)
-
-    assert tokenizer is None
-
-
-def test_build_tokenizer_from_config_missing_model_name():
-    """Test error handling when model_name is missing from config."""
-    tokenizer_config = {
-        "tokenizer_kwargs": {"padding_side": "left"},
-        "trust_remote_code": False,
-    }
-
-    with pytest.raises(
-        ValueError, match="tokenizer_config must contain 'model_name' field"
-    ):
-        build_tokenizer_from_config(tokenizer_config)
-
-
 def test_load_dataset_from_config_with_tokenizer(
     mock_dataset_class_and_instance, mock_registry
 ):
@@ -359,10 +315,9 @@ def test_load_dataset_from_config_without_tokenizer(
 
 # Custom dataset loading tests
 def test_load_custom_dataset_conversation_format(temp_conversation_file):
-    """Test loading custom dataset in conversation format."""
+    """Test loading custom dataset in conversation format (auto-detected)."""
     config = AnalyzeConfig(
         dataset_path=temp_conversation_file,
-        dataset_format="oumi",
         is_multimodal=False,  # Explicitly set as text-only
     )
 
@@ -381,10 +336,9 @@ def test_load_custom_dataset_conversation_format(temp_conversation_file):
 
 
 def test_load_custom_dataset_alpaca_format(temp_alpaca_file):
-    """Test loading custom dataset in alpaca format."""
+    """Test loading custom dataset in alpaca format (auto-detected)."""
     config = AnalyzeConfig(
         dataset_path=temp_alpaca_file,
-        dataset_format="alpaca",
         is_multimodal=False,  # Explicitly set as text-only
     )
 
@@ -405,11 +359,11 @@ def test_load_custom_dataset_multi_modal(temp_vision_language_file):
     # Create a mock tokenizer with required attributes
     mock_tokenizer = Mock()
     mock_tokenizer.pad_token_id = 0  # Set a valid pad_token_id
+    mock_tokenizer.convert_tokens_to_ids.return_value = 0
 
     config = AnalyzeConfig(
         dataset_path=temp_vision_language_file,
-        dataset_format="oumi",
-        processor_name="openai/clip-vit-base-patch32",  # Processor provided
+        processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",  # Processor provided
         is_multimodal=True,  # Explicitly mark as multimodal
     )
 
@@ -423,7 +377,6 @@ def test_load_custom_dataset_text(temp_conversation_file):
     TextSftJsonLinesDataset."""
     config = AnalyzeConfig(
         dataset_path=temp_conversation_file,
-        dataset_format="oumi",
         is_multimodal=False,  # Explicitly set as text-only
     )
 
@@ -438,7 +391,6 @@ def test_load_custom_dataset_file_not_found():
     """Test error handling when custom dataset file doesn't exist."""
     config = AnalyzeConfig(
         dataset_path="nonexistent_file.json",
-        dataset_format="oumi",  # Required for custom datasets
         is_multimodal=False,  # Required for custom datasets
     )
 
@@ -453,7 +405,6 @@ def test_load_custom_dataset_directory_path():
     with tempfile.TemporaryDirectory() as temp_dir:
         config = AnalyzeConfig(
             dataset_path=temp_dir,
-            dataset_format="oumi",  # Required for custom datasets
             is_multimodal=False,  # Required for custom datasets
         )
 

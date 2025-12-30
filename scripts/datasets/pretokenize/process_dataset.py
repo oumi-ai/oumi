@@ -7,9 +7,7 @@ from collections.abc import Iterator
 from typing import (
     Any,
     NamedTuple,
-    Optional,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -39,7 +37,7 @@ def _list_input_files(
 
 
 def _tokenize_examples(
-    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
+    tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast,
     target_col: str,
     examples: dict[str, Any],
 ) -> dict[str, Any]:
@@ -52,7 +50,7 @@ def _tokenize_examples(
 
 def _tokenize_dataset_impl(
     dataset: DatasetType,
-    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
+    tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast,
     target_col: str,
     num_proc: int,
     keep_in_memory: bool,
@@ -70,7 +68,7 @@ def _tokenize_dataset_impl(
 
 
 def _process_file(
-    tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]],
+    tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast | None,
     target_col: str,
     input_file: pathlib.Path,
     input_format: str,
@@ -102,11 +100,11 @@ def _process_file(
 
 def _process_dataset(
     *,
-    tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]],
+    tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast | None,
     target_col: str,
     input_dataset: str,
-    dataset_subset: Optional[str],
-    dataset_split: Optional[str],
+    dataset_subset: str | None,
+    dataset_split: str | None,
     trust_remote_code: bool,
     output_dataset_path: pathlib.Path,
     num_shards: int,
@@ -131,7 +129,7 @@ def _process_dataset(
         )
 
         if isinstance(
-            splits_or_dataset, (datasets.IterableDataset, datasets.IterableDatasetDict)
+            splits_or_dataset, datasets.IterableDataset | datasets.IterableDatasetDict
         ):
             raise ValueError("IterableDataset is not supported with this class.")
 
@@ -215,7 +213,7 @@ def parse_cli() -> tuple[ParsedArgs, list[str]]:
     parser.add_argument(
         "--target_col",
         type=str,
-        default="",
+        default="text",
         help="Target text column to tokenize.",
     )
     parser.add_argument(
@@ -328,25 +326,10 @@ def main() -> None:
     logger.info(f"Parsed arguments: {parsed_args}")
     logger.info(f"Unknown arguments: {arg_list}")
 
-    config: TrainingConfig = None
-    target_col: str = ""
-    tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None
+    tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast | None = None
     if not parsed_args.skip_tokenize:
         config = TrainingConfig.from_yaml_and_arg_list(
             parsed_args.config_path, arg_list, logger=logger
-        )
-
-        # Find first non-empty value as target column name.
-        target_col = next(
-            s
-            for s in [
-                parsed_args.target_col,
-                config.data.train.target_col,
-                config.data.validation.target_col,
-                config.data.test.target_col,
-                "text",
-            ]
-            if s
         )
         logger.info("Initializing the tokenizer...")
         tokenizer = build_tokenizer(config.model)
@@ -364,7 +347,7 @@ def main() -> None:
         logger.info(f"Processing the dataset {parsed_args.input_dataset}...")
         _process_dataset(
             tokenizer=tokenizer,
-            target_col=target_col,
+            target_col=parsed_args.target_col,
             input_dataset=parsed_args.input_dataset,
             dataset_subset=parsed_args.dataset_subset,
             dataset_split=parsed_args.dataset_split,
@@ -392,7 +375,7 @@ def main() -> None:
                 continue
             _process_file(
                 tokenizer,
-                target_col,
+                parsed_args.target_col,
                 input_file,
                 parsed_args.input_format,
                 output_file,

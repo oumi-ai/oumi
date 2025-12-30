@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union
 
 from typing_extensions import override
 
@@ -76,7 +75,7 @@ class SimpleJudge(BaseJudge):
 
     def __init__(
         self,
-        judge_config: Union[JudgeConfig, str],
+        judge_config: JudgeConfig | str,
     ):
         """Initialize the Judge.
 
@@ -98,6 +97,11 @@ class SimpleJudge(BaseJudge):
         output_fields.append(self._create_judgment_output_field(self._judge_params))
 
         # Generate an inference engine from inference config
+        if self._inference_config is None:
+            raise ValueError(
+                "inference_config must be provided in JudgeConfig for SimpleJudge. "
+                "Please ensure your JudgeConfig includes a valid inference_config."
+            )
         inference_engine = self._create_inference_engine(self._inference_config)
 
         # Append format suffix to system instruction if it exists
