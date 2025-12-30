@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from oumi.core.distributed import get_device_rank_info, is_world_process_zero
+from oumi.utils.logging import logger
 
 if TYPE_CHECKING:
     import transformers
@@ -77,5 +78,8 @@ class MetricsLoggerCallback(BaseTrainerCallback):
                 self._output_dir / f"metrics_rank{device_rank_info.rank:04}.jsonl"
             )
 
-        with open(self._metrics_log_file, "a") as f:
-            f.write(json.dumps(metrics, default=str) + "\n")
+        try:
+            with open(self._metrics_log_file, "a") as f:
+                f.write(json.dumps(metrics, default=str) + "\n")
+        except OSError as e:
+            logger.warning(f"Failed to write metrics to {self._metrics_log_file}: {e}")
