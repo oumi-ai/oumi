@@ -73,7 +73,9 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
     # Patterns indicating incomplete lists
     _INCOMPLETE_LIST_PATTERNS = [
         # Numbered list that ends abruptly
-        re.compile(r"^\s*(?:1\.|\(1\)|\*|-)\s+.+(?:\n\s*(?:2\.|\(2\)|\*|-).+)?$", re.MULTILINE),
+        re.compile(
+            r"^\s*(?:1\.|\(1\)|\*|-)\s+.+(?:\n\s*(?:2\.|\(2\)|\*|-).+)?$", re.MULTILINE
+        ),
         # List that mentions "first" but no "second/finally"
         re.compile(
             r"\b(?:first(?:ly)?|1\))\b(?!.*\b(?:second(?:ly)?|finally|lastly|2\)|3\))\b)",
@@ -190,7 +192,7 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
             True if has conclusion.
         """
         # Check last 20% of text for conclusion patterns
-        text_end = text[int(len(text) * 0.8):]
+        text_end = text[int(len(text) * 0.8) :]
         for pattern in self._CONCLUSION_PATTERNS:
             if pattern.search(text_end):
                 return True
@@ -358,15 +360,13 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
 
             # Extract results to columns
             col_name = f"{column}_{analyzer_id}_is_complete"
-            result_df[col_name] = analysis_results.apply(
-                lambda r: r.get("is_complete")
-            )
+            result_df[col_name] = analysis_results.apply(lambda r: r.get("is_complete"))
             generated_schema[col_name] = {
                 "type": ColumnType.BOOL,
                 "content_type": ContentType.BOOLEAN,
                 "description": "Whether response appears complete",
             }
-            
+
             col_name = f"{column}_{analyzer_id}_score"
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("completeness_score")
@@ -376,7 +376,7 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
                 "content_type": ContentType.NUMERIC,
                 "description": "Completeness score (0.0 = incomplete, 1.0 = complete)",
             }
-            
+
             col_name = f"{column}_{analyzer_id}_ends_naturally"
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("ends_naturally")
@@ -386,7 +386,7 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
                 "content_type": ContentType.BOOLEAN,
                 "description": "Whether response ends naturally",
             }
-            
+
             col_name = f"{column}_{analyzer_id}_has_conclusion"
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("has_conclusion")
@@ -399,7 +399,9 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
 
             if self.include_truncation_type:
                 col_name = f"{column}_{analyzer_id}_truncation_type"
-                result_df[col_name] = analysis_results.apply(lambda r: r.get("truncation_type"))
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r.get("truncation_type")
+                )
                 generated_schema[col_name] = {
                     "type": ColumnType.STRING,
                     "content_type": ContentType.CATEGORICAL,
