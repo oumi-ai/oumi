@@ -371,6 +371,16 @@ class TrainingParams(BaseParams):
     for documentation about the function signature.
     """
 
+    reward_function_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Keyword arguments passed to reward functions.
+
+    For a single reward function, this is a flat kwargs dict. For multiple reward
+    functions, you can instead provide a dict keyed by reward function name, with
+    each value being that function's kwargs dict.
+
+    This is only supported for the TRL_GRPO and VERL_GRPO trainers.
+    """
+
     grpo: GrpoParams = field(default_factory=GrpoParams)
     """Parameters for GRPO training."""
 
@@ -977,6 +987,15 @@ class TrainingParams(BaseParams):
                         "VERL_GRPO only supports a single reward function. "
                         f"Actual: {function_names}"
                     )
+        if (
+            self.reward_function_kwargs
+            and self.trainer_type not in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO)
+        ):
+            raise ValueError(
+                "reward_function_kwargs is only supported for the TRL_GRPO or "
+                "VERL_GRPO trainers. Either remove reward_function_kwargs or set "
+                f"trainer_type accordingly. Actual: {self.trainer_type}"
+            )
 
         # TODO: #1540 - Remove when TRL bug is fixed.
         if (

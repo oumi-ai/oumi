@@ -45,6 +45,8 @@ training:
 
   # Use rubric reward with judge panel for evaluation
   reward_functions: ["rubric_reward"]
+  reward_function_kwargs:
+    judge_panel_path: "configs/examples/grpo_rlvr/judge_panel.yaml"
 
   enable_gradient_checkpointing: False
   gradient_checkpointing_kwargs:
