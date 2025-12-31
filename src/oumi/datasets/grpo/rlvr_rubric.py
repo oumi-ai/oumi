@@ -19,65 +19,12 @@ from typing import Any
 import pandas as pd
 from typing_extensions import override
 
-from oumi.core.datasets.base_map_dataset import BaseMapDataset
+from oumi.core.datasets import BaseRubricDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.conversation import Conversation
-
-
-class _RubricDatasetBase(BaseMapDataset):
-    """Base class for rubric-based datasets."""
-
-    def __init__(
-        self,
-        *,
-        dataset_name: str | None = None,
-        dataset_path: str | None = None,
-        split: str | None = None,
-        **kwargs,
-    ) -> None:
-        super().__init__(
-            dataset_name=dataset_name,
-            dataset_path=dataset_path,
-            split=split,
-            **kwargs,
-        )
-        self._data = self._load_data()
-
-    def conversation(self, idx: int) -> Conversation:
-        """Returns the conversation at the specified index."""
-        sample = self.raw(idx)
-        return self.transform_conversation(sample)
-
-    def conversations(self) -> list[Conversation]:
-        """Returns a list of all conversations."""
-        return [self.conversation(i) for i in range(len(self))]
-
-    def transform_conversation(self, sample: dict | pd.Series) -> Conversation:
-        """Converts the input sample to a Conversation."""
-        if isinstance(sample, dict):
-            sample = pd.Series(sample)
-        transformed = self.transform(sample)
-
-        messages = []
-        if "system_prompt" in transformed and transformed["system_prompt"]:
-            messages.append(
-                {
-                    "content": transformed["system_prompt"],
-                    "role": "system",
-                }
-            )
-        messages.append(
-            {
-                "content": transformed["prompt"],
-                "role": "user",
-            }
-        )
-
-        return Conversation.from_dict({"messages": messages})
 
 
 @register_dataset("oumi-rlvr-rubric")
-class RlvrRubricDataset(_RubricDatasetBase):
+class RlvrRubricDataset(BaseRubricDataset):
     """Dataset for RLVR training with rubric-based rewards."""
 
     default_dataset = "oumi-rlvr-rubric"

@@ -37,12 +37,12 @@ from typing import Any
 import pandas as pd
 from typing_extensions import override
 
+from oumi.core.datasets import BaseRubricDataset
 from oumi.core.registry import register_dataset
-from oumi.datasets.grpo.rlvr_rubric import _RubricDatasetBase
 
 
 @register_dataset("rar-medicine")
-class RaRMedicineDataset(_RubricDatasetBase):
+class RaRMedicineDataset(BaseRubricDataset):
     """Dataset for RaR-Medicine from the Rubrics as Rewards paper.
 
     This dataset contains 22.4k medical prompts with structured rubric annotations

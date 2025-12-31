@@ -27,6 +27,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+import yaml
+
 from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.configs.params.judge_params import (
     JudgeOutputType,
@@ -71,8 +73,6 @@ class JudgePanelConfig:
 
     judges: list[JudgePanelMember] = field(default_factory=list)
     aggregation: AggregationStrategy = AggregationStrategy.WEIGHTED_MEAN
-    require_unanimous: bool = False
-    min_agreement: float = 0.0
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]) -> "JudgePanelConfig":
@@ -93,8 +93,6 @@ class JudgePanelConfig:
         return cls(
             judges=judges,
             aggregation=aggregation,
-            require_unanimous=config.get("require_unanimous", False),
-            min_agreement=config.get("min_agreement", 0.0),
         )
 
 
@@ -792,6 +790,7 @@ def rubric_reward(
         kwargs: Additional arguments:
             - judge_model: Model to use (default: gpt-4o-mini)
             - judge_panel: Dict or JudgePanelConfig for panel evaluation
+            - judge_panel_path: Path to YAML file with panel configuration
             - group_rubrics: If True, a single judge processes all rubrics
             - system_prompt: System prompts from dataset
 
@@ -813,6 +812,13 @@ def rubric_reward(
     evaluator = get_evaluator()
 
     judge_panel_config = kwargs.get("judge_panel")
+    judge_panel_path = kwargs.get("judge_panel_path")
+
+    # Load from file path if provided
+    if judge_panel_path and not judge_panel_config:
+        with open(judge_panel_path) as f:
+            judge_panel_config = yaml.safe_load(f)
+
     if judge_panel_config:
         if isinstance(judge_panel_config, dict):
             evaluator.set_panel_config(JudgePanelConfig.from_dict(judge_panel_config))
