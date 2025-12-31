@@ -80,8 +80,7 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          platforms: linux/amd64
-          # platforms: linux/amd64,linux/arm64  # Skip ARM64 until OPE-1782 is resolved
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
