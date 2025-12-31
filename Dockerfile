@@ -40,8 +40,10 @@ RUN apt-get update && \
         rsync \
         screen \
         tree \
+        unzip \
         vim \
         wget \
+        zip \
         $([ "$TARGETARCH" = "arm64" ] && echo "build-essential" || echo "") && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
