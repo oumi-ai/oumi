@@ -435,6 +435,7 @@ class DatasetAnalyzer:
                 dataset=self.dataset,
                 items_to_analyze=items_to_analyze,
                 dataset_name=self.dataset_name or "Unknown Dataset",
+                chat_template=self.config.chat_template,
             )
 
             schema = self._get_schema_for_dataset()
@@ -757,9 +758,7 @@ class DatasetAnalyzer:
             logger.warning(f"Failed to generate recommendations: {e}")
             return []
 
-    def _generate_observations(
-        self, summary: dict[str, Any]
-    ) -> list[dict[str, Any]]:
+    def _generate_observations(self, summary: dict[str, Any]) -> list[dict[str, Any]]:
         """Generate observations (key findings) based on analysis results.
 
         Args:

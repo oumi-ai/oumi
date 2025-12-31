@@ -18,10 +18,12 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import jinja2
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from oumi.builders.models import build_chat_template
 from oumi.core.configs.analyze_config import AnalyzeConfig
 from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
@@ -276,34 +278,64 @@ def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[st
 
 
 def render_conversation_as_text(
-    conversation: Conversation, separator: str = "\n"
+    conversation: Conversation,
+    separator: str = "\n",
+    template_name: str | None = None,
+    add_generation_prompt: bool = False,
 ) -> str:
     """Render a full conversation as a single text string.
 
-    This extracts only text content from messages and formats them as
-    "ROLE: content", which is suitable for text-based analysis.
+    This extracts only text content from messages and formats them either using
+    a simple "ROLE: content" format or by applying a chat template.
 
     Args:
         conversation: The conversation to render
-        separator: String to separate messages (default: newline)
+        separator: String to separate messages (default: newline).
+            Only used when template_name is None.
+        template_name: Optional name of a chat template to use (e.g., 'default',
+            'llama3-instruct', 'chat_ml').
+            If None, uses simple "ROLE: content" format.
+        add_generation_prompt: Whether to append generation prompt when using
+            a template. Only used when template_name is provided. Default: False.
 
     Returns:
         Full conversation rendered as text
+
     Note:
         This is different from Conversation.__repr__() which includes message IDs
         and uses repr() for content items (showing <IMAGE_BINARY> for images).
         This function extracts only text content and is optimized for analysis.
+
+        When using a chat template, the conversation is rendered exactly as the model
+        would see it during training/inference.
     """
-    message_texts = []
-    for message in conversation.messages:
-        # Get text content from message using existing method
-        text = message.compute_flattened_text_content()
+    if template_name is not None:
+        # Use chat template rendering
+        template_str = build_chat_template(template_name)
+        template = jinja2.Template(template_str)
 
-        # Format as "ROLE: content"
-        role_str = message.role.value.upper()
-        message_texts.append(f"{role_str}: {text}")
+        # Convert conversation to format expected by chat templates
+        messages = []
+        for message in conversation.messages:
+            text = message.compute_flattened_text_content()
+            messages.append({"role": message.role.value, "content": text})
 
-    return separator.join(message_texts)
+        # Render using the template
+        return template.render(
+            messages=messages, add_generation_prompt=add_generation_prompt
+        )
+    else:
+        # Use simple format (original implementation)
+        message_texts = []
+        for message in conversation.messages:
+            # Get text content from message using existing method
+            text = message.compute_flattened_text_content()
+
+            # Format as "ROLE: content"
+            role_str = message.role.value.upper()
+            message_texts.append(f"{role_str}: {text}")
+
+        return separator.join(message_texts)
 
 
 # =============================================================================
@@ -729,7 +761,10 @@ def compute_statistics_with_distribution(
 
 
 def conversation_to_dataframes(
-    conversation: Conversation, conversation_id: str, conversation_idx: int
+    conversation: Conversation,
+    conversation_id: str,
+    conversation_idx: int,
+    chat_template: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Convert a single conversation to separate conversation and message DataFrames.
 
@@ -740,6 +775,8 @@ def conversation_to_dataframes(
         conversation: The conversation object to convert
         conversation_id: ID of the conversation
         conversation_idx: Index of the conversation
+        chat_template: Optional chat template name for formatting the conversation text.
+            If None, uses simple 'ROLE: content' format.
 
     Returns:
         Tuple of (conversation_df, message_df)
@@ -749,7 +786,9 @@ def conversation_to_dataframes(
         "conversation_index": conversation_idx,
         "conversation_id": conversation_id,
         "num_messages": len(conversation.messages),
-        "conversation_text_content": render_conversation_as_text(conversation),
+        "conversation_text_content": render_conversation_as_text(
+            conversation, template_name=chat_template
+        ),
     }
     conversation_df = pd.DataFrame([conversation_data])
 
@@ -780,6 +819,7 @@ def convert_dataset_to_dataframes(
     dataset,  # Union[BaseMapDataset, BaseIterableDataset]
     items_to_analyze: int,
     dataset_name: str = "Dataset",
+    chat_template: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Convert a dataset to conversations and messages DataFrames.
 
@@ -792,6 +832,8 @@ def convert_dataset_to_dataframes(
         dataset: The dataset to process (BaseMapDataset or BaseIterableDataset)
         items_to_analyze: Number of items to analyze
         dataset_name: Name of the dataset for progress display
+        chat_template: Optional chat template name for conversation formatting.
+            If provided, conversations will be formatted using the specified template.
 
     Returns:
         Tuple of (conversations_df, messages_df) ready for analysis
@@ -813,7 +855,7 @@ def convert_dataset_to_dataframes(
         getattr(dataset, "conversation")
     ):
         return _convert_conversation_dataset_to_dataframes(
-            dataset, items_to_analyze, dataset_name
+            dataset, items_to_analyze, dataset_name, chat_template
         )
     else:
         # For non-conversation datasets (DPO, KTO, pretraining), convert raw data
@@ -898,9 +940,19 @@ def _convert_iterable_dataset_to_dataframes(
 
 
 def _convert_conversation_dataset_to_dataframes(
-    dataset, items_to_analyze: int, dataset_name: str
+    dataset,
+    items_to_analyze: int,
+    dataset_name: str,
+    chat_template: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Convert datasets with conversation() method to DataFrames."""
+    """Convert datasets with conversation() method to DataFrames.
+
+    Args:
+        dataset: Dataset with conversation() method
+        items_to_analyze: Number of items to analyze
+        dataset_name: Name of the dataset for progress display
+        chat_template: Optional chat template name for conversation formatting
+    """
     conversation_df_list = []
     message_df_list = []
 
@@ -912,7 +964,7 @@ def _convert_conversation_dataset_to_dataframes(
         conversation = dataset.conversation(conversation_idx)
         conversation_id = conversation.conversation_id or str(conversation_idx)
         conversation_df, message_df = conversation_to_dataframes(
-            conversation, conversation_id, conversation_idx
+            conversation, conversation_id, conversation_idx, chat_template
         )
 
         # Collect all DataFrames for concatenation

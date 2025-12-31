@@ -119,6 +119,22 @@ class AnalyzeConfig(BaseConfig):
         Use 'tokenizer_name' and 'tokenizer_kwargs' instead.
     """
 
+    chat_template: str | None = None
+    """Optional chat template to use for conversation rendering.
+    
+    When specified, conversations will be formatted using the specified chat template
+    (e.g., 'chat_ml', 'llama3-instruct', 'default') instead of the simple
+    'ROLE: content' format. This is useful for LLM judge analyzers to see
+    conversations in the same format the model was trained on.
+    
+    Common templates:
+    - 'chat_ml': ChatML format with <|im_start|> tokens
+    - 'llama3-instruct': Llama 3 instruction format
+    - 'default': Basic template with role markers
+    
+    If None, uses simple 'ROLE: content' format for backward compatibility.
+    """
+
     # Processor parameters for vision-language datasets
     processor_name: str | None = None
     """Processor name for vision-language datasets.
