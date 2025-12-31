@@ -34,6 +34,7 @@ RUN apt-get update && \
         htop \
         iputils-ping \
         less \
+        nano \
         net-tools \
         openssh-client \
         procps \
