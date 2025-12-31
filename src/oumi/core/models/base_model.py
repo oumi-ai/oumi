@@ -176,10 +176,10 @@ class BaseModel(nn.Module, ABC):
                 "model_type" in config_data
                 and config_data["model_type"] != cls.__name__
             ):
-                logger.warning(
+                raise ValueError(
                     f"Model type mismatch: config has "
                     f"'{config_data['model_type']}' but loading into "
-                    f"'{cls.__name__}'. This may cause issues."
+                    f"'{cls.__name__}'."
                 )
 
             if "init_kwargs" in config_data:

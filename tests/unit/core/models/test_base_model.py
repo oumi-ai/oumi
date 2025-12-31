@@ -10,6 +10,7 @@ import torch
 from oumi.builders.models import build_model
 from oumi.core.configs import ModelParams
 from oumi.core.models.base_model import BaseModel
+from oumi.models.cnn_classifier import CNNClassifier
 from oumi.models.mlp import MLPEncoder
 
 
@@ -146,6 +147,19 @@ def test_from_pretrained_without_config():
             override_kwargs={"input_dim": 20, "hidden_dim": 16, "output_dim": 5},
         )
         assert isinstance(loaded_model, MLPEncoder)
+
+
+def test_from_pretrained_model_type_mismatch_raises():
+    model = MLPEncoder(input_dim=20, hidden_dim=16, output_dim=5)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        save_dir = Path(temp_dir) / "mlp_checkpoint"
+        model.save_pretrained(save_dir)
+
+        with pytest.raises(ValueError, match="Model type mismatch"):
+            CNNClassifier.from_pretrained(
+                save_dir, override_kwargs={"image_width": 28, "image_height": 28}
+            )
 
 
 def test_from_pretrained_strict_mode():

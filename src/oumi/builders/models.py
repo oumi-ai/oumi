@@ -138,6 +138,26 @@ def _patch_model_for_liger_kernel(model: nn.Module) -> None:
     liger_kernel.transformers._apply_liger_kernel(model_type)
 
 
+def _resolve_custom_model_type(pretrained_dir: str) -> str:
+    model_type = get_custom_model_type_from_path(pretrained_dir)
+    if model_type:
+        return model_type
+
+    config_path = Path(pretrained_dir) / "config.json"
+    if not config_path.exists():
+        raise ValueError(
+            f"Cannot load pretrained custom model from '{pretrained_dir}'. "
+            "Expected a directory containing 'config.json' and "
+            "'model.safetensors' files created by "
+            "BaseModel.save_pretrained()."
+        )
+
+    raise ValueError(
+        f"Config at '{config_path}' does not contain a valid 'model_type' "
+        "or the model type is not registered in the Oumi registry."
+    )
+
+
 def build_oumi_model(
     model_params: ModelParams,
     peft_params: PeftParams | None = None,
@@ -152,21 +172,7 @@ def build_oumi_model(
     # Determine if we should load from pretrained weights
     if model_params.load_pretrained_weights:
         pretrained_dir = model_params.model_name
-        model_type = get_custom_model_type_from_path(pretrained_dir)
-        if not model_type:
-            config_path = Path(pretrained_dir) / "config.json"
-            if not config_path.exists():
-                raise ValueError(
-                    f"Cannot load pretrained custom model from '{pretrained_dir}'. "
-                    "Expected a directory containing 'config.json' and "
-                    "'model.safetensors' files created by "
-                    "BaseModel.save_pretrained()."
-                )
-            raise ValueError(
-                f"Config at '{config_path}' does not contain a valid 'model_type' "
-                "or the model type is not registered in the Oumi registry."
-            )
-
+        model_type = _resolve_custom_model_type(pretrained_dir)
         model_class = REGISTRY[model_type, RegistryType.MODEL]
         logger.info(f"Loading custom model '{model_type}' from {pretrained_dir}")
         model = model_class.from_pretrained(
