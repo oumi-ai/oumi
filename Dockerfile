@@ -26,13 +26,22 @@ RUN chown -R oumi:oumi /oumi_workdir
 ARG TARGETARCH
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        git \
-        vim \
-        htop \
-        tree \
-        screen \
-        curl \
         ca-certificates \
+        curl \
+        findutils \
+        git \
+        grep \
+        htop \
+        iputils-ping \
+        less \
+        net-tools \
+        openssh-client \
+        procps \
+        rsync \
+        screen \
+        tree \
+        vim \
+        wget \
         $([ "$TARGETARCH" = "arm64" ] && echo "build-essential" || echo "") && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
