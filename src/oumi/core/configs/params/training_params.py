@@ -970,23 +970,21 @@ class TrainingParams(BaseParams):
                 f"num_train_epochs: {self.num_train_epochs}."
             )
 
-        if (
-            self.trainer_type != TrainerType.TRL_GRPO
-            and self.trainer_type != TrainerType.VERL_GRPO
-            and self.reward_functions is not None
-        ):
+        if self.reward_functions is not None:
             function_names = [name for name in self.reward_functions if name]
-            if len(function_names) > 0:
+            if (
+                self.trainer_type not in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO)
+                and len(function_names) > 0
+            ):
                 raise ValueError(
                     "reward_functions may only be defined for the TRL_GRPO or VERL_GRPO"
                     f"trainers. Actual: {self.trainer_type}"
                 )
-            if self.trainer_type == TrainerType.VERL_GRPO:
-                if len(function_names) > 1:
-                    raise ValueError(
-                        "VERL_GRPO only supports a single reward function. "
-                        f"Actual: {function_names}"
-                    )
+            if self.trainer_type == TrainerType.VERL_GRPO and len(function_names) > 1:
+                raise ValueError(
+                    "VERL_GRPO only supports a single reward function. "
+                    f"Actual: {function_names}"
+                )
         if (
             self.reward_function_kwargs
             and self.trainer_type not in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO)
