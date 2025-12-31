@@ -34,11 +34,9 @@ class BaseModel(nn.Module, ABC):
             - The weights should not be loaded or moved to devices at this point.
 
         Args:
-            **kwargs: should contain all the parameters needed
-                to build the model scaffold.
+            **kwargs: Parameters needed to build the model scaffold.
         """
         super().__init__()
-        # Store initialization kwargs for reproducible reload
         self._init_kwargs = kwargs
 
     @abstractmethod
@@ -97,12 +95,10 @@ class BaseModel(nn.Module, ABC):
         save_directory = Path(save_directory)
         save_directory.mkdir(parents=True, exist_ok=True)
 
-        # Saving weights using safetensors
         weights_path = save_directory / weights_filename
         safetensors.torch.save_model(model=self, filename=str(weights_path))
         logger.info(f"Model weights saved to {weights_path}")
 
-        # Saving initialization config if available
         if save_config and hasattr(self, "_init_kwargs"):
             config_path = save_directory / config_filename
             config_data = {
@@ -163,7 +159,6 @@ class BaseModel(nn.Module, ABC):
         load_directory = Path(load_directory)
         weights_path = load_directory / weights_filename
 
-        # Checking if weights file exists
         if not weights_path.exists():
             raise FileNotFoundError(
                 f"Pretrained weights file not found: {weights_path}. "
@@ -171,27 +166,25 @@ class BaseModel(nn.Module, ABC):
                 "Ensure the model was saved with save_pretrained()."
             )
 
-        # Loading config if available
         init_kwargs: dict[str, Any] = {}
         config_path = load_directory / config_filename
         if config_path.exists():
             with config_path.open("r", encoding="utf-8") as f:
                 config_data = json.load(f)
 
-            # Validating model type matches
-            if "model_type" in config_data:
-                if config_data["model_type"] != cls.__name__:
-                    logger.warning(
-                        f"Model type mismatch: config has "
-                        f"'{config_data['model_type']}' but loading into "
-                        f"'{cls.__name__}'. This may cause issues."
-                    )
+            if (
+                "model_type" in config_data
+                and config_data["model_type"] != cls.__name__
+            ):
+                logger.warning(
+                    f"Model type mismatch: config has "
+                    f"'{config_data['model_type']}' but loading into "
+                    f"'{cls.__name__}'. This may cause issues."
+                )
 
-            # Extracting init kwargs
             if "init_kwargs" in config_data:
                 init_kwargs = config_data["init_kwargs"]
 
-            # Logging version info if available
             if "oumi_version" in config_data:
                 logger.info(
                     f"Loading model saved with Oumi version "
@@ -200,65 +193,36 @@ class BaseModel(nn.Module, ABC):
         else:
             logger.warning(
                 f"Config file not found at {config_path}. "
-                "Model will be instantiated with override_kwargs only. "
-                "Ensure you provide all necessary initialization parameters."
+                "Model will be instantiated with override_kwargs only."
             )
 
-        # Applying overrides
         if override_kwargs:
-            logger.info(f"Applying initialization kwargs overrides: {override_kwargs}")
             init_kwargs.update(override_kwargs)
 
-        # Instantiating model
         try:
             model = cls(**init_kwargs)
         except TypeError as e:
             raise TypeError(
                 f"Failed to instantiate {cls.__name__} with kwargs: {init_kwargs}. "
-                f"Error: {e}. If the config is missing required parameters, "
-                "provide them via override_kwargs."
+                f"Error: {e}. Provide missing parameters via override_kwargs."
             ) from e
 
-        # Loading state dict
-        if map_location is None:
-            map_location = "cpu"
-
-        try:
-            state_dict = safetensors.torch.load_file(
-                str(weights_path), device=str(map_location)
-            )
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to load weights from {weights_path}. Error: {e}"
-            ) from e
-
-        # Loading state dict into model
+        state_dict = safetensors.torch.load_file(
+            str(weights_path), device=str(map_location or "cpu")
+        )
         missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=strict)
 
-        if strict:
-            if missing_keys:
-                raise RuntimeError(
-                    f"Missing keys when loading pretrained custom model: "
-                    f"{missing_keys}. This indicates the saved weights don't "
-                    f"match the model architecture. Set strict=False to load "
-                    f"anyway (not recommended)."
-                )
-            if unexpected_keys:
-                raise RuntimeError(
-                    f"Unexpected keys when loading pretrained custom model: "
-                    f"{unexpected_keys}. This indicates the saved weights "
-                    f"contain extra parameters. Set strict=False to load "
-                    f"anyway (not recommended)."
-                )
-        else:
-            if missing_keys:
-                logger.warning(f"Missing keys in state_dict: {missing_keys}")
-            if unexpected_keys:
-                logger.warning(f"Unexpected keys in state_dict: {unexpected_keys}")
+        if strict and (missing_keys or unexpected_keys):
+            raise RuntimeError(
+                f"State dict mismatch: missing={missing_keys}, "
+                f"unexpected={unexpected_keys}"
+            )
+        if missing_keys:
+            logger.warning(f"Missing keys in state_dict: {missing_keys}")
+        if unexpected_keys:
+            logger.warning(f"Unexpected keys in state_dict: {unexpected_keys}")
 
-        logger.info(
-            f"Successfully loaded pretrained {cls.__name__} from {load_directory}"
-        )
+        logger.info(f"Loaded pretrained {cls.__name__} from {load_directory}")
         return model
 
     @staticmethod

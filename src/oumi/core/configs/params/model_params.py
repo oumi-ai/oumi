@@ -96,26 +96,10 @@ class ModelParams(BaseParams):
     If True, the model will be initialized with pretrained weights.
     If False, the model will be initialized from the pretrained config without loading
     weights.
-    """
 
-    custom_pretrained_dir: str | None = None
-    """Path to pretrained weights directory for custom (registry) models.
-
-    This field is only used for custom models registered in the Oumi registry.
-    When `load_pretrained_weights=True` and this field is set, the custom model
-    will be loaded from this directory using `BaseModel.from_pretrained()`.
-
-    The directory should contain:
-        - model.safetensors: The model weights
-        - config.json: The model initialization configuration (optional but recommended)
-
-    For HuggingFace models, use `model_name` instead - this field is ignored.
-
-    Example:
-        model:
-          model_name: "MlpEncoder"  # Custom model from registry
-          load_pretrained_weights: true
-          custom_pretrained_dir: "outputs/my_mlp_run/final_model"
+    For custom Oumi models, when True, `model_name` should be a path to a directory
+    containing 'config.json' and 'model.safetensors' files created by
+    `BaseModel.save_pretrained()`.
     """
 
     trust_remote_code: bool = False

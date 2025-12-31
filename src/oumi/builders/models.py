@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 from pathlib import Path
 from typing import cast
 
@@ -28,6 +27,7 @@ from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
     find_model_hf_config,
     get_all_models_map,
+    get_custom_model_type_from_path,
     is_custom_model,
 )
 from oumi.core.distributed import get_device_rank_info
@@ -71,13 +71,13 @@ def build_model(
         model = build_oumi_model(
             model_params=model_params,
             peft_params=peft_params,
-            *kwargs,
+            **kwargs,
         )
     else:
         model = build_huggingface_model(
             model_params=model_params,
             peft_params=peft_params,
-            *kwargs,
+            **kwargs,
         )
 
     if model_params.enable_liger_kernel:
@@ -145,74 +145,43 @@ def build_oumi_model(
 ) -> nn.Module:
     """Builds a custom model from our Oumi registry.
 
-    Supports loading pretrained weights saved with BaseModel.save_pretrained().
+    The model_name can be either:
+    - A registry name (e.g., "MLPEncoder") for creating models from scratch
+    - A path to a saved model directory.
     """
     # Determine if we should load from pretrained weights
     if model_params.load_pretrained_weights:
-        # Get pretrained directory from custom_pretrained_dir or model_kwargs
-        custom_pretrained_dir = (
-            model_params.custom_pretrained_dir
-            or model_params.model_kwargs.get("pretrained_dir", None)
-        )
-
-        if not custom_pretrained_dir:
+        pretrained_dir = model_params.model_name
+        model_type = get_custom_model_type_from_path(pretrained_dir)
+        if not model_type:
+            config_path = Path(pretrained_dir) / "config.json"
+            if not config_path.exists():
+                raise ValueError(
+                    f"Cannot load pretrained custom model from '{pretrained_dir}'. "
+                    "Expected a directory containing 'config.json' and "
+                    "'model.safetensors' files created by "
+                    "BaseModel.save_pretrained()."
+                )
             raise ValueError(
-                f"For custom model '{model_params.model_name}', "
-                "'load_pretrained_weights=True' requires either:\n"
-                "  1. Setting 'custom_pretrained_dir' in ModelParams, or\n"
-                "  2. Providing 'pretrained_dir' in model_kwargs.\n\n"
-                "Example YAML config:\n"
-                "  model:\n"
-                "    model_name: 'MlpEncoder'\n"
-                "    load_pretrained_weights: true\n"
-                "    custom_pretrained_dir: 'path/to/saved/model'\n\n"
-                "The pretrained directory should contain files created by "
-                "BaseModel.save_pretrained()."
+                f"Config at '{config_path}' does not contain a valid 'model_type' "
+                "or the model type is not registered in the Oumi registry."
             )
 
-        # Load model class from saved config
-        config_path = Path(custom_pretrained_dir) / "config.json"
-        if config_path.exists():
-            with open(config_path, encoding="utf-8") as f:
-                config_data = json.load(f)
-
-            model_type = config_data.get("model_type")
-            if model_type:
-                # Use model type from config
-                model_class = REGISTRY[model_type, RegistryType.MODEL]
-                logger.info(
-                    f"Loading model class '{model_type}' from saved config at "
-                    f"{custom_pretrained_dir}"
-                )
-            else:
-                # Fall back to model_params.model_name if model_type not in config
-                model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
-                logger.warning(
-                    f"Config at {config_path} does not contain 'model_type'. "
-                    f"Using model_name '{model_params.model_name}' instead."
-                )
-        else:
-            # Fall back to model_params.model_name if config doesn't exist
-            model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
-            logger.warning(
-                f"Config file not found at {config_path}. "
-                f"Using model_name '{model_params.model_name}' instead."
-            )
-
-        # Extract override kwargs from kwargs if provided
-        override_kwargs = kwargs.get("override_init_kwargs", None)
-
-        logger.info(f"Loading pretrained custom model from {custom_pretrained_dir}")
-
-        # Load model using from_pretrained classmethod
+        model_class = REGISTRY[model_type, RegistryType.MODEL]
+        logger.info(f"Loading custom model '{model_type}' from {pretrained_dir}")
         model = model_class.from_pretrained(
-            load_directory=custom_pretrained_dir,
-            override_kwargs=override_kwargs,
-            map_location="cpu",  # Load to CPU first
+            load_directory=pretrained_dir,
+            override_kwargs=kwargs.get("override_init_kwargs"),
+            map_location="cpu",
             strict=True,
         )
     else:
-        # Initialize model from scratch
+        if not REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
+            raise ValueError(
+                f"Model '{model_params.model_name}' is not registered in the Oumi "
+                "registry. For custom models with load_pretrained_weights=False, "
+                "model_name must be a registered model class name (e.g., 'MLPEncoder')."
+            )
         model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
         model = model_class(**model_params.model_kwargs)
 

@@ -480,11 +480,7 @@ class Trainer(BaseTrainer):
     # Checkpointing
     #
     def save_model(self, config: TrainingConfig, final: bool = True) -> None:
-        """Saves the model.
-
-        For custom models (BaseModel instances), also saves in pretrained format
-        for easy reloading with from_pretrained().
-        """
+        """Saves the model."""
         self._cuda_sync_and_empty_cache()
         if is_world_process_zero():
             output_dir = Path(config.training.output_dir)
@@ -493,17 +489,12 @@ class Trainer(BaseTrainer):
             safetensors.torch.save_model(model=self.model, filename=str(model_path))
             self.log(f"Model saved to {model_path}.")
 
-            # For custom models, also saving in pretrained format for easy reloading
             if isinstance(self.model, BaseModel):
                 pretrained_dir = output_dir / "pretrained"
-                self.log(
-                    f"Saving custom model in pretrained format to {pretrained_dir}..."
-                )
                 self.model.save_pretrained(pretrained_dir)
                 self.log(
-                    f"Custom model saved in pretrained format. "
-                    f"Reload with: model_params.load_pretrained_weights=True, "
-                    f"model_params.custom_pretrained_dir='{pretrained_dir}'"
+                    f"Custom model saved. Reload with: "
+                    f"model_name='{pretrained_dir}', load_pretrained_weights=True"
                 )
 
             if self._processor is not None:
