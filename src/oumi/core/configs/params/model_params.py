@@ -96,6 +96,10 @@ class ModelParams(BaseParams):
     If True, the model will be initialized with pretrained weights.
     If False, the model will be initialized from the pretrained config without loading
     weights.
+
+    For custom Oumi models, when True, `model_name` should be a path to a directory
+    containing 'config.json' and 'model.safetensors' files created by
+    `BaseModel.save_pretrained()`.
     """
 
     trust_remote_code: bool = False
