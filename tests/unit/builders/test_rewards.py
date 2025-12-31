@@ -82,14 +82,6 @@ def test_build_reward_functions_multiple():
     ).__name__
 
 
-def test_build_reward_functions_global_kwargs():
-    params = TrainingParams()
-    params.reward_functions = ["my_reward_func_kwargs_one"]
-    params.reward_function_kwargs = {"value": 7}
-    reward_funcs = build_reward_functions(params)
-    assert reward_funcs[0](["a", "b"]) == [7, 7]
-
-
 def test_build_reward_functions_per_function_kwargs():
     params = TrainingParams()
     params.reward_functions = [
@@ -109,5 +101,21 @@ def test_build_reward_functions_per_function_kwargs_invalid():
     params = TrainingParams()
     params.reward_functions = ["my_reward_func_kwargs_one"]
     params.reward_function_kwargs = {"my_reward_func_kwargs_one": "not-a-dict"}
-    with pytest.raises(ValueError, match=r"reward_function_kwargs.*not a mapping"):
+    with pytest.raises(ValueError, match=r"entries must be dicts"):
+        build_reward_functions(params)
+
+
+def test_build_reward_functions_reward_function_kwargs_flat_invalid():
+    params = TrainingParams()
+    params.reward_functions = ["my_reward_func_kwargs_one"]
+    params.reward_function_kwargs = {"value": 7}
+    with pytest.raises(ValueError, match=r"dict keyed by reward function name"):
+        build_reward_functions(params)
+
+
+def test_build_reward_functions_reward_function_kwargs_unknown_key():
+    params = TrainingParams()
+    params.reward_functions = ["my_reward_func_kwargs_one"]
+    params.reward_function_kwargs = {"unknown_reward": {"value": 7}}
+    with pytest.raises(ValueError, match=r"not listed in reward_functions"):
         build_reward_functions(params)

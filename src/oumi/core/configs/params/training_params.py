@@ -374,9 +374,9 @@ class TrainingParams(BaseParams):
     reward_function_kwargs: dict[str, Any] = field(default_factory=dict)
     """Keyword arguments passed to reward functions.
 
-    For a single reward function, this is a flat kwargs dict. For multiple reward
-    functions, you can instead provide a dict keyed by reward function name, with
-    each value being that function's kwargs dict.
+    This must be a dict keyed by reward function name, with each value being that
+    function's kwargs dict. For reward functions with no kwargs, omit the key or
+    pass an empty dict.
 
     This is only supported for the TRL_GRPO and VERL_GRPO trainers.
     """
