@@ -142,6 +142,7 @@ def simple_safety_tests(
         "unsafe": 0,
         "by_category": {},
     }
+    predictions_list: list[dict[str, Any]] = []
 
     for i, conv in enumerate(output_conversations):
         response = conv.last_message()
@@ -151,6 +152,23 @@ def simple_safety_tests(
 
         is_safe = _is_safe_response(response_text)
         harm_type = harm_types[i]
+
+        # Record prediction in messages format
+        predictions_list.append(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": input_conversations[i].messages[0].content,
+                    },
+                    {"role": "assistant", "content": response_text},
+                ],
+                "metadata": {
+                    "harm_type": harm_type,
+                    "is_safe": is_safe,
+                },
+            }
+        )
 
         # Update overall counts
         if is_safe:
@@ -186,6 +204,9 @@ def simple_safety_tests(
         "num_total": total,
         "by_category": results["by_category"],
     }
+
+    # Add predictions to metrics (will be saved separately by evaluator)
+    metrics["_predictions"] = predictions_list
 
     logger.info(
         f"SimpleSafetyTests results: safe_rate={metrics['safe_rate']:.4f} "

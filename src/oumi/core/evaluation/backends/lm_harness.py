@@ -225,6 +225,109 @@ def _set_random_seeds(random_seed, numpy_random_seed, torch_random_seed) -> None
         torch.manual_seed(torch_random_seed)
 
 
+def _convert_lm_harness_samples_to_predictions(
+    raw_samples: dict[str, list[dict[str, Any]]],
+    task_name: str,
+) -> list[dict[str, Any]]:
+    """Convert lm-evaluation-harness samples to Oumi prediction format.
+
+    Args:
+        raw_samples: Dict mapping task names to lists of sample dicts from lm-eval.
+            Each sample typically contains: doc, resps, filtered_resps, arguments, etc.
+        task_name: The name of the task to extract samples for.
+
+    Returns:
+        List of prediction dicts in Oumi messages format with metadata.
+    """
+    predictions = []
+
+    # Get samples for this specific task
+    task_samples = raw_samples.get(task_name, [])
+
+    # Debug: log first sample structure to help diagnose extraction issues
+    if task_samples:
+        first_sample = task_samples[0]
+        logger.debug(f"Sample keys: {list(first_sample.keys())}")
+        if "resps" in first_sample:
+            logger.debug(
+                f"resps structure: {type(first_sample['resps'])}, "
+                f"len={len(first_sample['resps']) if first_sample['resps'] else 0}"
+            )
+            if first_sample["resps"]:
+                logger.debug(
+                    f"resps[0]: {first_sample['resps'][0][:100] if first_sample['resps'][0] else 'empty'}..."
+                )
+
+    for sample in task_samples:
+        doc = sample.get("doc", {})
+
+        # Get the model's response - prefer raw resps over filtered_resps
+        # resps structure: [[response_text]] for generate_until tasks
+        response_text = ""
+        for resp_key in ["resps", "filtered_resps"]:
+            resps = sample.get(resp_key, [])
+            if resps:
+                first_resp = resps[0] if resps else []
+                if isinstance(first_resp, list) and first_resp:
+                    candidate = str(first_resp[0]).strip()
+                    if candidate:
+                        response_text = candidate
+                        break
+                elif isinstance(first_resp, str) and first_resp.strip():
+                    response_text = first_resp.strip()
+                    break
+
+        # Get the prompt from doc (IFEval uses "prompt" key)
+        prompt = doc.get("prompt", doc.get("question", doc.get("input", "")))
+
+        # Build the prediction record
+        prediction = {
+            "messages": [
+                {"role": "user", "content": str(prompt)},
+                {"role": "assistant", "content": response_text},
+            ],
+            "metadata": {
+                "doc_id": sample.get("doc_id"),
+            },
+        }
+
+        # Add any available ground truth or target info
+        if "target" in sample:
+            prediction["metadata"]["target"] = sample["target"]
+        if "doc" in sample:
+            # Include relevant doc fields as metadata
+            for key in ["key", "instruction_id_list", "kwargs"]:
+                if key in doc:
+                    prediction["metadata"][key] = doc[key]
+
+        # Include per-sample metrics from process_results (e.g., IFEval scores)
+        for metric_key in [
+            "prompt_level_strict_acc",
+            "inst_level_strict_acc",
+            "prompt_level_loose_acc",
+            "inst_level_loose_acc",
+            "exact_match",
+            "acc",
+            "acc_norm",
+        ]:
+            if metric_key in sample:
+                prediction["metadata"][metric_key] = sample[metric_key]
+
+        # Debug: include both raw and filtered resps for troubleshooting
+        if "resps" in sample and sample["resps"]:
+            raw = sample["resps"]
+            if raw and isinstance(raw[0], list) and raw[0]:
+                prediction["metadata"]["_raw_resps"] = str(raw[0][0])
+        if "filtered_resps" in sample and sample["filtered_resps"]:
+            filtered = sample["filtered_resps"]
+            if filtered and isinstance(filtered[0], list) and filtered[0]:
+                prediction["metadata"]["_filtered_resps"] = str(filtered[0][0])
+
+        predictions.append(prediction)
+
+    return predictions
+
+
 def evaluate(
     task_params: LMHarnessTaskParams,
     config: EvaluationConfig,
@@ -320,13 +423,20 @@ def evaluate(
 
     logger.info("Starting evaluation...")
 
+    # Build eval kwargs with defaults that can be overridden
+    eval_kwargs = {
+        "log_samples": task_params.log_samples or False,
+        "limit": task_params.num_samples,
+        # Default to chat template for multimodal; can be overridden for instruct models
+        "apply_chat_template": is_multimodal,
+    }
+    # Allow user to override defaults via eval_kwargs
+    eval_kwargs.update(task_params.eval_kwargs or {})
+
     lm_eval_output = lm_harness_evaluate(
         lm,
         task_dict,
-        log_samples=task_params.log_samples or False,
-        limit=task_params.num_samples,
-        apply_chat_template=is_multimodal,
-        **task_params.eval_kwargs,  # type: ignore
+        **eval_kwargs,  # type: ignore
     )
 
     # Metrics are only available on the main process, and `None` on others.
@@ -366,6 +476,17 @@ def evaluate(
         for key in ["results", "groups"]
         if key in backend_task_config
     }
+
+    # Extract samples if log_samples was enabled, and convert to _predictions format
+    if task_params.log_samples and "samples" in backend_task_config:
+        raw_samples = backend_task_config.pop("samples")
+        # TODO is this assertion needed?
+        assert task_params.task_name is not None  # Validated earlier in _get_task_dict
+        predictions = _convert_lm_harness_samples_to_predictions(
+            raw_samples, task_params.task_name
+        )
+        if predictions:
+            backend_results["_predictions"] = predictions
 
     # Add LM Harness-specific configuration settings to the results.
     backend_task_config.setdefault("config", {})

@@ -58,6 +58,51 @@ def _normalize_label(label: str) -> str:
     return label.strip().lower()
 
 
+def _build_predictions_list(
+    input_conversations: list[Conversation],
+    predictions: list[str],
+    ground_truths: list[str],
+) -> list[dict]:
+    """Build a list of prediction records for saving in Oumi conversation format.
+
+    Args:
+        input_conversations: List of input conversations (user prompts)
+        predictions: List of model predictions
+        ground_truths: List of ground truth labels
+
+    Returns:
+        List of prediction dictionaries in messages format with metadata
+    """
+    records = []
+    for i, (conv, pred, gt) in enumerate(
+        zip(input_conversations, predictions, ground_truths)
+    ):
+        pred_normalized = _normalize_label(pred)
+        gt_normalized = _normalize_label(gt)
+        is_correct = (
+            pred_normalized == gt_normalized or gt_normalized in pred_normalized
+        )
+
+        # Get user prompt from input conversation
+        user_content = ""
+        if conv.messages:
+            user_content = conv.messages[0].content or ""
+
+        records.append(
+            {
+                "messages": [
+                    {"role": "user", "content": user_content},
+                    {"role": "assistant", "content": pred},
+                ],
+                "metadata": {
+                    "ground_truth": gt,
+                    "is_correct": is_correct,
+                },
+            }
+        )
+    return records
+
+
 def _compute_accuracy(predictions: list[str], ground_truths: list[str]) -> dict:
     """Compute classification accuracy metrics."""
     if len(predictions) != len(ground_truths):
@@ -73,6 +118,7 @@ def _compute_accuracy(predictions: list[str], ground_truths: list[str]) -> dict:
         pred_normalized = _normalize_label(pred)
         gt_normalized = _normalize_label(gt)
 
+        # TODO revisit this -- makes sense for some tasks but not others
         # Check for exact match or if prediction contains the ground truth
         if pred_normalized == gt_normalized or gt_normalized in pred_normalized:
             correct += 1
@@ -83,7 +129,6 @@ def _compute_accuracy(predictions: list[str], ground_truths: list[str]) -> dict:
         "accuracy": accuracy,
         "num_correct": correct,
         "num_total": total,
-        "num_incorrect": total - correct,
     }
 
 
@@ -139,6 +184,11 @@ def enterprise_banking77(
 
     # Compute metrics
     metrics = _compute_accuracy(predictions, ground_truths)
+
+    # Add predictions to metrics (will be saved separately by evaluator)
+    metrics["_predictions"] = _build_predictions_list(
+        input_conversations, predictions, ground_truths
+    )
 
     logger.info(
         f"Banking77 results: accuracy={metrics['accuracy']:.4f} "
@@ -205,31 +255,63 @@ def enterprise_pubmedqa(
         else:
             predictions.append("")
 
-    # Compute metrics
+    # --- Accuracy (simple correct/total) ---
     metrics = _compute_accuracy(predictions, ground_truths)
 
-    # Add per-class breakdown
-    class_counts = {label: {"correct": 0, "total": 0} for label in valid_labels}
+    # --- Per-class stats ---
+    class_stats = {
+        label: {"tp": 0, "fp": 0, "fn": 0, "total": 0} for label in valid_labels
+    }
     for pred, gt in zip(predictions, ground_truths):
+        pred_normalized = _normalize_label(pred)
         gt_normalized = _normalize_label(gt)
-        if gt_normalized in class_counts:
-            class_counts[gt_normalized]["total"] += 1
-            if _normalize_label(pred) == gt_normalized:
-                class_counts[gt_normalized]["correct"] += 1
+
+        if gt_normalized in class_stats:
+            class_stats[gt_normalized]["total"] += 1
+            if pred_normalized == gt_normalized:
+                class_stats[gt_normalized]["tp"] += 1
+            else:
+                class_stats[gt_normalized]["fn"] += 1
+
+        if pred_normalized in class_stats and pred_normalized != gt_normalized:
+            class_stats[pred_normalized]["fp"] += 1
 
     metrics["per_class"] = {
         label: {
-            "accuracy": (
-                counts["correct"] / counts["total"] if counts["total"] > 0 else 0.0
-            ),
-            "correct": counts["correct"],
-            "total": counts["total"],
+            "accuracy": (stats["tp"] / stats["total"] if stats["total"] > 0 else 0.0),
+            "correct": stats["tp"],
+            "total": stats["total"],
         }
-        for label, counts in class_counts.items()
+        for label, stats in class_stats.items()
     }
 
+    # --- Micro F1 (can remove this block if not needed) ---
+    total_tp = sum(s["tp"] for s in class_stats.values())
+    total_fp = sum(s["fp"] for s in class_stats.values())
+    total_fn = sum(s["fn"] for s in class_stats.values())
+
+    micro_precision = (
+        total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0.0
+    )
+    micro_recall = (
+        total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0.0
+    )
+    micro_f1 = (
+        2 * micro_precision * micro_recall / (micro_precision + micro_recall)
+        if (micro_precision + micro_recall) > 0
+        else 0.0
+    )
+    metrics["micro_f1"] = micro_f1
+    # --- End Micro F1 ---
+
+    # Add predictions to metrics (will be saved separately by evaluator)
+    metrics["_predictions"] = _build_predictions_list(
+        input_conversations, predictions, ground_truths
+    )
+
     logger.info(
-        f"PubMedQA results: accuracy={metrics['accuracy']:.4f} "
+        f"PubMedQA results: accuracy={metrics['accuracy']:.4f}, "
+        f"micro_f1={metrics['micro_f1']:.4f} "
         f"({metrics['num_correct']}/{metrics['num_total']})"
     )
 

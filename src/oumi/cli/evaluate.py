@@ -117,9 +117,17 @@ def evaluate(
                     # Get corresponding stderr if it exists
                     stderr_key = f"{base_name}_stderr,{metric_type[0] if metric_type else 'none'}"  # noqa E501
                     stderr_value = metrics.get(stderr_key)
-                    stderr_display = (
-                        f"±{stderr_value:.2%}" if stderr_value is not None else "-"
-                    )
+                    if stderr_value is None:
+                        stderr_display = "-"
+                    elif isinstance(stderr_value, (int, float)):
+                        stderr_display = f"±{stderr_value:.2%}"
+                    else:
+                        # Non-numeric stderr value (e.g., "N/A" from some backends)
+                        logger.debug(
+                            f"Non-numeric stderr for {base_name}: "
+                            f"{stderr_value!r} (type: {type(stderr_value).__name__})"
+                        )
+                        stderr_display = f"±{stderr_value}"
 
                     # Clean up metric name
                     clean_metric = base_name.replace("_", " ").title()

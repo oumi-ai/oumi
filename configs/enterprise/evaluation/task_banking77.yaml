@@ -19,9 +19,11 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: true
+  tokenizer_kwargs:
+    padding_side: "left"  # required for batch inference with decoder-only models
 
 generation:
-  batch_size: 8
+  batch_size: 8  # 1 to bypass padding issues in batch inference
   max_new_tokens: 64
   temperature: 0.0
 

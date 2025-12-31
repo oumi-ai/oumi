@@ -1,15 +1,18 @@
-# Task evaluation config for TAT-QA tabular question answering.
+# Task evaluation config for NL2SQL (Natural Language to SQL).
 #
-# Metrics: Exact Match, F1 Score
+# Metrics: Edit Distance / Similarity, Exact Match
+#
+# NOTE: The test data needs ground truth SQL in the assistant turn.
+# If empty, re-run prepare_datasets.py or get properly formatted data.
 #
 # Usage:
 #   # Evaluate baseline model
-#   oumi evaluate -c configs/enterprise/evaluation/task_tatqa.yaml \
+#   oumi evaluate -c configs/enterprise/evaluation/task_nl2sql.yaml \
 #     --model.model_name "Qwen/Qwen3-4B-Instruct"
 #
 #   # Evaluate fine-tuned model
-#   oumi evaluate -c configs/enterprise/evaluation/task_tatqa.yaml \
-#     --model.model_name "output/enterprise/qwen3_4b_tatqa/best_checkpoint"
+#   oumi evaluate -c configs/enterprise/evaluation/task_nl2sql.yaml \
+#     --model.model_name "output/enterprise/qwen3_4b_nl2sql/best_checkpoint"
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
@@ -26,16 +29,16 @@ model:
 
 generation:
   batch_size: 4
-  max_new_tokens: 256
+  max_new_tokens: 512  # SQL can be long
   temperature: 0.0
 
 tasks:
   - evaluation_backend: custom
-    task_name: enterprise_tatqa
+    task_name: enterprise_nl2sql
     eval_kwargs:
-      test_data_path: data/enterprise/tatqa/test.jsonl
+      test_data_path: data/enterprise/nl2sql/test.jsonl
 
 inference_engine: NATIVE
 enable_wandb: true
 
-output_dir: "output/enterprise/evaluation/tatqa"
+output_dir: "output/enterprise/evaluation/nl2sql"

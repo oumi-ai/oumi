@@ -54,9 +54,29 @@ def _create_input_conversation(conversation: dict) -> Conversation:
     return Conversation(messages=messages)
 
 
+def _extract_sql(response: str) -> str:
+    """Extract SQL from response, handling markdown code blocks.
+
+    Looks for ```sql ... ``` or ``` ... ``` blocks and extracts the content.
+    Falls back to the full response if no markdown block found.
+    """
+    # Try to find ```sql ... ``` block first
+    sql_block_match = re.search(r"```sql\s*(.*?)\s*```", response, re.DOTALL)
+    if sql_block_match:
+        return sql_block_match.group(1).strip()
+
+    # Try generic ``` ... ``` block
+    generic_block_match = re.search(r"```\s*(.*?)\s*```", response, re.DOTALL)
+    if generic_block_match:
+        return generic_block_match.group(1).strip()
+
+    # Fall back to full response
+    return response.strip()
+
+
 def _normalize_sql(sql: str) -> str:
     """Normalize SQL for comparison."""
-    # Remove markdown code blocks if present
+    # Remove any remaining markdown artifacts
     sql = re.sub(r"```sql\s*", "", sql)
     sql = re.sub(r"```\s*", "", sql)
 
@@ -169,27 +189,31 @@ def enterprise_nl2sql(
     logger.info("Running inference...")
     output_conversations = inference_engine.infer(input_conversations)
 
-    # Extract predictions
-    predictions = []
+    # Extract predictions (raw and extracted SQL)
+    raw_predictions = []
+    extracted_predictions = []
     for conv in output_conversations:
         response = conv.last_message()
         if response and isinstance(response.content, str):
-            predictions.append(response.content)
+            raw = response.content
+            raw_predictions.append(raw)
+            extracted_predictions.append(_extract_sql(raw))
         else:
-            predictions.append("")
+            raw_predictions.append("")
+            extracted_predictions.append("")
 
-    # Compute metrics
+    # Compute metrics on extracted SQL
     edit_distances = []
     exact_matches = 0
 
-    for pred, gt in zip(predictions, ground_truths):
-        edit_dist = _compute_normalized_edit_distance(pred, gt)
+    for extracted, gt in zip(extracted_predictions, ground_truths):
+        edit_dist = _compute_normalized_edit_distance(extracted, gt)
         edit_distances.append(edit_dist)
 
-        if _compute_exact_match(pred, gt):
+        if _compute_exact_match(extracted, gt):
             exact_matches += 1
 
-    total = len(predictions)
+    total = len(extracted_predictions)
     avg_edit_distance = (
         sum(edit_distances) / len(edit_distances) if edit_distances else 0.0
     )
@@ -204,6 +228,25 @@ def enterprise_nl2sql(
         "num_exact_match": exact_matches,
         "num_total": total,
     }
+
+    # Add predictions to metrics (will be saved separately by evaluator)
+    metrics["_predictions"] = [
+        {
+            "messages": [
+                {"role": "user", "content": conv.messages[0].content or ""},
+                {"role": "assistant", "content": raw},
+            ],
+            "metadata": {
+                "ground_truth": gt,
+                "extracted_sql": extracted,
+                "edit_distance": _compute_normalized_edit_distance(extracted, gt),
+                "exact_match": _compute_exact_match(extracted, gt),
+            },
+        }
+        for conv, raw, extracted, gt in zip(
+            input_conversations, raw_predictions, extracted_predictions, ground_truths
+        )
+    ]
 
     logger.info(
         f"NL2SQL results: EditSim={metrics['edit_similarity']:.4f}, "

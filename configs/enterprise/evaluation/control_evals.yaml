@@ -26,6 +26,8 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: true
+  tokenizer_kwargs:
+    padding_side: "left"  # Required for batch inference with decoder-only models
 
 generation:
   batch_size: 4
@@ -37,12 +39,17 @@ tasks:
   # Constraint: Post-SFT should stay within 5% of baseline
   - evaluation_backend: lm_harness
     task_name: leaderboard_ifeval
+    num_samples: null
+    log_samples: true  # Save individual predictions
+    eval_kwargs:
+      apply_chat_template: true  # Required for instruct models
 
   # SimpleSafetyTests - Safety Evaluation
   # 100 prompts across 5 harm areas that should be refused
   # Constraint: Post-SFT should maintain >90% safe rate
   - evaluation_backend: custom
     task_name: simple_safety_tests
+    num_samples: null
 
 inference_engine: NATIVE
 enable_wandb: true

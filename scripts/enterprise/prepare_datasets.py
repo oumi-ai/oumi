@@ -75,25 +75,54 @@ def prepare_banking77(output_dir: Path) -> None:
     dataset = load_dataset("legacy-datasets/banking77")
 
     # Get label names
-    label_names = dataset["train"].features["label"].names
+    label_names = dataset["train"].features["label"].names  # type: ignore[attr-defined]
+
+    # Build instruction with all intent IDs
+    intent_list = "\n".join(f"{i}: {name}" for i, name in enumerate(label_names))
+    instruction = f"""You are a banking intent classifier. Classify the user's query into one of 77 banking intents (output is a single integer ID).
+
+IDs:
+
+{intent_list}
+
+CRITICAL INSTRUCTIONS:
+1. Choose exactly one integer ID (0-76).
+2. Reply with ONLY that number. No words, no reasoning, no punctuation.
+Examples: 0, 1, 42
+
+Remember: Respond with ONLY the numeric ID, nothing else."""
 
     def convert_example(example: dict) -> dict:
         text = example["text"]
-        label = label_names[example["label"]]
+        label_id = example["label"]
+        label_name = label_names[label_id]
 
-        user_content = (
-            "Classify this customer query into one of the banking categories.\n\n"
-            f"Query: {text}\n\n"
-            "Category:"
-        )
-        return format_conversation(user_content, label)
+        user_content = f"{instruction}\n\n<query>\n{text}\n</query>"
+
+        # Create conversation with metadata
+        return {
+            "messages": [
+                {"role": "user", "content": user_content},
+                {"role": "assistant", "content": str(label_id)},
+            ],
+            "metadata": {
+                "label": label_id,
+                "label_name": label_name,
+            },
+        }
 
     # Convert train and test splits
-    train_data = [convert_example(ex) for ex in tqdm(dataset["train"], desc="Train")]
-    test_data = [convert_example(ex) for ex in tqdm(dataset["test"], desc="Test")]
+    train_data = [convert_example(ex) for ex in tqdm(dataset["train"], desc="Train")]  # type: ignore[attr-defined]
+    test_data = [convert_example(ex) for ex in tqdm(dataset["test"], desc="Test")]  # type: ignore[attr-defined]
+
+    # Carve out validation set from train
+    val_size = 100
+    val_data = train_data[-val_size:]
+    train_data = train_data[:-val_size]
 
     # Save
     save_jsonl(train_data, output_dir / "banking77" / "train.jsonl")
+    save_jsonl(val_data, output_dir / "banking77" / "val.jsonl")
     save_jsonl(test_data, output_dir / "banking77" / "test.jsonl")
 
     # Save label mapping for evaluation
@@ -102,8 +131,8 @@ def prepare_banking77(output_dir: Path) -> None:
         json.dump(label_mapping, f, indent=2)
 
     logger.info(
-        f"Banking77: {len(train_data)} train, {len(test_data)} test, "
-        f"{len(label_names)} classes"
+        f"Banking77: {len(train_data)} train, {len(val_data)} val, "
+        f"{len(test_data)} test, {len(label_names)} classes"
     )
 
 
@@ -133,21 +162,27 @@ def prepare_pubmedqa(output_dir: Path) -> None:
         )
         return format_conversation(user_content, answer)
 
-    # PubMedQA labeled only has train split, we'll create our own test split
+    # PubMedQA labeled only has train split, we'll create our own splits
     full_data = [
-        convert_example(ex) for ex in tqdm(dataset["train"], desc="Converting")
+        convert_example(ex)
+        for ex in tqdm(dataset["train"], desc="Converting")  # type: ignore[attr-defined]
     ]
 
-    # 90/10 train/test split
-    split_idx = int(len(full_data) * 0.9)
-    train_data = full_data[:split_idx]
-    test_data = full_data[split_idx:]
+    # Split: train / val (100) / test (100)
+    val_size = 100
+    test_size = 100
+    test_data = full_data[-test_size:]
+    val_data = full_data[-(test_size + val_size) : -test_size]
+    train_data = full_data[: -(test_size + val_size)]
 
     # Save
     save_jsonl(train_data, output_dir / "pubmedqa" / "train.jsonl")
+    save_jsonl(val_data, output_dir / "pubmedqa" / "val.jsonl")
     save_jsonl(test_data, output_dir / "pubmedqa" / "test.jsonl")
 
-    logger.info(f"PubMedQA: {len(train_data)} train, {len(test_data)} test")
+    logger.info(
+        f"PubMedQA: {len(train_data)} train, {len(val_data)} val, {len(test_data)} test"
+    )
 
 
 def prepare_tatqa(output_dir: Path) -> None:
@@ -230,6 +265,7 @@ def prepare_tatqa(output_dir: Path) -> None:
                 "Answer the question based on the following table and text.\n\n"
                 f"{context}\n\n"
                 f"Question: {question}\n\n"
+                "Put your final answer in \\boxed{}.\n\n"
                 "Answer:"
             )
             conversations.append(format_conversation(user_content, str(answer)))
@@ -245,11 +281,19 @@ def prepare_tatqa(output_dir: Path) -> None:
     for doc in tqdm(dev_raw, desc="Dev"):
         test_data.extend(convert_document(doc))
 
+    # Carve out validation set from train
+    val_size = 100
+    val_data = train_data[-val_size:]
+    train_data = train_data[:-val_size]
+
     # Save
     save_jsonl(train_data, output_dir / "tatqa" / "train.jsonl")
+    save_jsonl(val_data, output_dir / "tatqa" / "val.jsonl")
     save_jsonl(test_data, output_dir / "tatqa" / "test.jsonl")
 
-    logger.info(f"TAT-QA: {len(train_data)} train, {len(test_data)} test")
+    logger.info(
+        f"TAT-QA: {len(train_data)} train, {len(val_data)} val, {len(test_data)} test"
+    )
 
 
 def prepare_nl2sql(output_dir: Path) -> None:
@@ -263,32 +307,37 @@ def prepare_nl2sql(output_dir: Path) -> None:
     dataset = load_dataset("NovaSky-AI/SkyRL-SQL-653-data")
 
     def convert_example(example: dict) -> dict:
-        # Extract question and SQL from the prompt/response format
-        prompt = example.get("prompt", "")
-        response = example.get("response", "")
+        # Extract content from prompt messages and SQL from reward_model.ground_truth
+        prompt_messages = example.get("prompt", [])
+        reward_model = example.get("reward_model", {})
+        ground_truth = reward_model.get("ground_truth", "") if reward_model else ""
 
-        # The dataset has prompt containing the question and schema
-        # Response contains the SQL query
+        # The dataset has prompt as a list of messages (system + user)
+        # System message has task instructions, user message has schema and question
+        system_content = ""
+        user_content_raw = ""
+        for msg in prompt_messages:
+            if msg.get("role") == "system":
+                system_content = msg.get("content", "")
+            elif msg.get("role") == "user":
+                user_content_raw = msg.get("content", "")
+
+        # Combine system instructions with user content (schema + question)
+        # Simplify the system prompt for our use case
         user_content = (
-            "Convert the following natural language question to SQL.\n\n"
-            f"{prompt}\n\n"
-            "SQL:"
+            "You are a SQL expert. Generate a valid SQL query to answer the question "
+            "based on the provided database schema.\n\n"
+            f"{user_content_raw}\n\n"
+            "Provide your solution as a SQL query within a ```sql markdown block.\n\n"
         )
 
-        # Clean up response - extract just the SQL
-        sql = response.strip()
-        if sql.startswith("```sql"):
-            sql = sql[6:]
-        if sql.startswith("```"):
-            sql = sql[3:]
-        if sql.endswith("```"):
-            sql = sql[:-3]
-        sql = sql.strip()
+        # Clean up SQL
+        sql = ground_truth.strip() if ground_truth else ""
 
         return format_conversation(user_content, sql)
 
     # Convert all data
-    train_split = dataset.get("train", dataset.get("all", None))
+    train_split = dataset.get("train", dataset.get("all", None))  # type: ignore[attr-defined]
     if train_split is None:
         # Try loading without split
         dataset = load_dataset("NovaSky-AI/SkyRL-SQL-653-data", split="train")
@@ -296,16 +345,21 @@ def prepare_nl2sql(output_dir: Path) -> None:
     else:
         full_data = [convert_example(ex) for ex in tqdm(train_split, desc="Converting")]
 
-    # 90/10 train/test split
-    split_idx = int(len(full_data) * 0.9)
-    train_data = full_data[:split_idx]
-    test_data = full_data[split_idx:]
+    # Split: train / val (50) / test (100)
+    val_size = 50
+    test_size = 100
+    test_data = full_data[-test_size:]
+    val_data = full_data[-(test_size + val_size) : -test_size]
+    train_data = full_data[: -(test_size + val_size)]
 
     # Save
     save_jsonl(train_data, output_dir / "nl2sql" / "train.jsonl")
+    save_jsonl(val_data, output_dir / "nl2sql" / "val.jsonl")
     save_jsonl(test_data, output_dir / "nl2sql" / "test.jsonl")
 
-    logger.info(f"NL2SQL: {len(train_data)} train, {len(test_data)} test")
+    logger.info(
+        f"NL2SQL: {len(train_data)} train, {len(val_data)} val, {len(test_data)} test"
+    )
 
 
 TASK_PREPARERS = {

@@ -1,0 +1,41 @@
+# Task evaluation config for PubMedQA classification.
+#
+# Usage:
+#   # Evaluate baseline model
+#   oumi evaluate -c configs/enterprise/evaluation/task_pubmedqa.yaml \
+#     --model.model_name "Qwen/Qwen3-4B-Instruct" \
+#     --tasks.0.eval_kwargs.test_data_path "/path/to/pubmedqa/test.jsonl"
+#
+#   # Evaluate fine-tuned model
+#   oumi evaluate -c configs/enterprise/evaluation/task_pubmedqa.yaml \
+#     --model.model_name "output/enterprise/qwen3_4b_pubmedqa/best_checkpoint" \
+#     --tasks.0.eval_kwargs.test_data_path "/path/to/pubmedqa/test.jsonl"
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+
+model:
+  model_name: "Qwen/Qwen3-4B-Instruct"  # Override via CLI
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: true
+  tokenizer_kwargs:
+    padding_side: "left"  # Required for batch inference with decoder-only models
+
+generation:
+  batch_size: 8
+  max_new_tokens: 64
+  temperature: 0.0
+
+tasks:
+  - evaluation_backend: custom
+    task_name: enterprise_pubmedqa
+    eval_kwargs:
+      test_data_path: data/enterprise/pubmedqa/test.jsonl
+
+inference_engine: NATIVE
+enable_wandb: true
+
+output_dir: "output/enterprise/evaluation/pubmedqa"

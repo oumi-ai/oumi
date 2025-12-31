@@ -54,6 +54,27 @@ def _create_input_conversation(conversation: dict) -> Conversation:
     return Conversation(messages=messages)
 
 
+def _extract_boxed(text: str) -> str:
+    """Extract content from \\boxed{} if present, empty string otherwise.
+
+    No fallback - if no \\boxed{}, returns empty string which will fail EM.
+    """
+    # Match \boxed{...} pattern
+    match = re.search(r"\\boxed\{([^}]+)\}", text)
+    if match:
+        return match.group(1).strip()
+    return ""
+
+
+def _extract_answer(response: str) -> str:
+    """Extract the answer from a model response.
+
+    Only extracts from \\boxed{} format. No fallback - responses without
+    \\boxed{} will return empty string and fail exact match.
+    """
+    return _extract_boxed(response)
+
+
 def _normalize_answer(answer: str) -> str:
     """Normalize answer for comparison."""
     # Remove extra whitespace
@@ -62,8 +83,10 @@ def _normalize_answer(answer: str) -> str:
     answer = answer.lower()
     # Remove punctuation at the end
     answer = re.sub(r"[.,;:!?]+$", "", answer)
-    # Remove common prefixes like "the answer is"
-    answer = re.sub(r"^(the answer is|answer:|the result is)\s*", "", answer)
+    # Remove common prefixes like "the answer is" (in case extraction didn't catch it)
+    answer = re.sub(
+        r"^(the answer is|answer:|the result is|the value is)\s*", "", answer
+    )
     return answer.strip()
 
 
@@ -134,38 +157,72 @@ def enterprise_tatqa(
     logger.info("Running inference...")
     output_conversations = inference_engine.infer(input_conversations)
 
-    # Extract predictions
+    # Extract predictions (with answer extraction for better matching)
+    raw_predictions = []
     predictions = []
     for conv in output_conversations:
         response = conv.last_message()
         if response and isinstance(response.content, str):
-            predictions.append(response.content)
+            raw = response.content
+            raw_predictions.append(raw)
+            predictions.append(_extract_answer(raw))
         else:
+            raw_predictions.append("")
             predictions.append("")
 
     # Compute metrics
     exact_matches = 0
+    boxed_count = 0
     f1_scores = []
 
-    for pred, gt in zip(predictions, ground_truths):
+    for pred, raw, gt in zip(predictions, raw_predictions, ground_truths):
+        # EM only counts if boxed extraction matches
         if _compute_exact_match(pred, gt):
             exact_matches += 1
-        f1_scores.append(_compute_f1(pred, gt))
+        # Track how often model uses \boxed{} format
+        if "\\boxed{" in raw:
+            boxed_count += 1
+        # F1 computed on raw response to retain signal even without \boxed{}
+        f1_scores.append(_compute_f1(raw, gt))
 
     total = len(predictions)
     exact_match_accuracy = exact_matches / total if total > 0 else 0.0
     avg_f1 = sum(f1_scores) / len(f1_scores) if f1_scores else 0.0
+    boxed_rate = boxed_count / total if total > 0 else 0.0
 
     metrics = {
         "exact_match": exact_match_accuracy,
         "f1": avg_f1,
+        "boxed_rate": boxed_rate,
         "num_exact_match": exact_matches,
+        "num_boxed": boxed_count,
         "num_total": total,
     }
 
+    # Add predictions to metrics (will be saved separately by evaluator)
+    metrics["_predictions"] = [
+        {
+            "messages": [
+                {"role": "user", "content": conv.messages[0].content or ""},
+                {"role": "assistant", "content": raw},
+            ],
+            "metadata": {
+                "ground_truth": gt,
+                "extracted_answer": pred,
+                "exact_match": _compute_exact_match(pred, gt),
+                "f1": _compute_f1(raw, gt),  # F1 on raw response
+            },
+        }
+        for conv, raw, pred, gt in zip(
+            input_conversations, raw_predictions, predictions, ground_truths
+        )
+    ]
+
     logger.info(
-        f"TAT-QA results: EM={metrics['exact_match']:.4f}, F1={metrics['f1']:.4f} "
-        f"(EM: {metrics['num_exact_match']}/{metrics['num_total']})"
+        f"TAT-QA results: EM={metrics['exact_match']:.4f}, F1={metrics['f1']:.4f}, "
+        f"boxed_rate={metrics['boxed_rate']:.4f} "
+        f"(EM: {metrics['num_exact_match']}/{metrics['num_total']}, "
+        f"boxed: {metrics['num_boxed']}/{metrics['num_total']})"
     )
 
     return metrics
