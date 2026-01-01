@@ -1,0 +1,26 @@
+# Judge panel configuration for multi-judge evaluation.
+# Multiple judges evaluate each completion and scores are aggregated.
+#
+# Usage: Pass to rubric_reward via kwargs:
+#   - judge_panel: dict (inline config)
+#   - judge_panel_path: str (path to this YAML file)
+#
+# Aggregation strategies:
+#   - mean: Simple average of all judge scores
+#   - weighted_mean: Weighted average using judge weights
+#   - median: Median score
+#   - min: Minimum score (most conservative)
+#   - max: Maximum score (most lenient)
+#   - majority_vote: 1.0 if >50% of judges score >= 0.5, else 0.0
+
+judges:
+  - model: "gpt-4o-mini"
+    weight: 1.0
+    name: "gpt-4o-mini"
+    temperature: 0.0
+  - model: "gpt-4o"
+    weight: 2.0
+    name: "gpt-4o"
+    temperature: 0.0
+
+aggregation: "weighted_mean"

@@ -1,0 +1,83 @@
+# RLVR (RL from Verifiable Rewards) training config with judge panel.
+#
+# This config demonstrates GRPO training with a panel of LLM judges.
+# Multiple judges evaluate each completion, and scores are aggregated
+# for more robust reward signals.
+#
+# Panel benefits:
+#   - Reduced variance from individual judge biases
+#   - More robust evaluation through aggregation
+#   - Ability to combine different model perspectives
+#   - Support for specialized judges (e.g., one for tone, one for accuracy)
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Set OPENAI_API_KEY environment variable (for OpenAI judges)
+#
+# Usage:
+#   oumi train -c configs/examples/grpo_rlvr/train_panel.yaml
+#
+# See Also:
+#   - Judge panel config: configs/examples/grpo_rlvr/judge_panel.yaml
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+
+model:
+  model_name: "Qwen/Qwen2-0.5B-Instruct"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "oumi-rlvr-rubric"
+        dataset_path: "configs/examples/grpo_rlvr/sample_data_weighted.jsonl"
+
+training:
+  trainer_type: "TRL_GRPO"
+  save_steps: 100
+  max_steps: 100
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 1
+  learning_rate: 5e-7
+  lr_scheduler_type: "cosine"
+  warmup_steps: 10
+
+  # Use rubric reward with judge panel for evaluation
+  reward_functions: ["rubric_reward"]
+  reward_function_kwargs:
+    rubric_reward:
+      judge_panel_path: "configs/examples/grpo_rlvr/judge_panel.yaml"
+
+  enable_gradient_checkpointing: False
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch"
+  empty_device_cache_steps: 1
+
+  grpo:
+    num_generations: 4
+    max_prompt_length: 512
+    max_completion_length: 512
+    temperature: 0.7
+    use_vllm: True
+    vllm_gpu_memory_utilization: 0.4
+    epsilon: 0.2
+    remove_unused_columns: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 16
+
+  logging_steps: 5
+  log_model_summary: False
+  output_dir: "output/rlvr_panel.grpo"
+  include_performance_metrics: False
+  enable_wandb: True
+
+  trainer_kwargs:
+    vllm_mode: "colocate"
+    # Use Dr. GRPO loss to eliminate length and difficulty biases
+    # See: https://arxiv.org/abs/2503.20783
+    loss_type: "dr_grpo"
+    scale_rewards: False

@@ -1,0 +1,82 @@
+# RaR (Rubrics as Rewards) training config for RaR-Science dataset.
+#
+# This config reproduces the RaR paper experiment on the science domain.
+# Paper: "Rubrics as Rewards: Reinforcement Learning Beyond Verifiable Domains"
+#        (arXiv:2507.17746)
+#
+# The RaR-Science dataset contains ~23k expert-level science prompts aligned
+# with the GPQA Diamond benchmark, covering quantum mechanics, molecular biology, etc.
+#
+# Key hyperparameters from the paper:
+#   - Base model: Qwen2.5-7B
+#   - num_generations (k): 16
+#   - Batch size: 96
+#   - Learning rate: 5e-6
+#   - Temperature: 1.0
+#   - Training steps: 300
+#
+# Requirements:
+#   - Set OPENAI_API_KEY environment variable (for the judge model)
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - ~40GB+ GPU memory
+#
+# Usage:
+#   oumi train -c configs/examples/grpo_rlvr/train_rar_science.yaml
+
+model:
+  model_name: "Qwen/Qwen2.5-7B-Instruct"
+  model_max_length: 3584
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "rar-science"
+        split: "train"
+
+training:
+  trainer_type: "TRL_GRPO"
+  save_steps: 50
+  max_steps: 300
+
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 3
+  learning_rate: 5e-6
+  lr_scheduler_type: "constant_with_warmup"
+  warmup_ratio: 0.1
+
+  reward_functions: ["rubric_reward"]
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch"
+  empty_device_cache_steps: 1
+
+  grpo:
+    num_generations: 16
+    max_prompt_length: 1024
+    max_completion_length: 2048
+    temperature: 1.0
+    use_vllm: True
+    vllm_gpu_memory_utilization: 0.5
+    epsilon: 0.2
+    remove_unused_columns: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 16
+
+  logging_steps: 5
+  log_model_summary: False
+  output_dir: "output/rar_science.grpo"
+  include_performance_metrics: False
+  enable_wandb: True
+
+  trainer_kwargs:
+    vllm_mode: "colocate"
+    # Use Dr. GRPO loss to eliminate length and difficulty biases
+    # See: https://arxiv.org/abs/2503.20783
+    loss_type: "dr_grpo"
+    scale_rewards: False

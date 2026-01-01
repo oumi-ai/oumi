@@ -1,0 +1,99 @@
+# RaR (Rubrics as Rewards) training config for RaR-Medicine dataset.
+#
+# This config reproduces the RaR paper experiment on the medical domain.
+# Paper: "Rubrics as Rewards: Reinforcement Learning Beyond Verifiable Domains"
+#        (arXiv:2507.17746)
+#
+# Key hyperparameters from the paper:
+#   - Base model: Qwen2.5-7B
+#   - num_generations (k): 16 (critical for GRPO diversity)
+#   - Batch size: 96
+#   - Learning rate: 5e-6
+#   - Temperature: 1.0 (for diverse sampling)
+#   - Training steps: 300
+#   - Warmup: 10%
+#   - Judge model: gpt-4o-mini
+#
+# Requirements:
+#   - Set OPENAI_API_KEY environment variable (for the judge model)
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - ~40GB+ GPU memory (8x H100 in paper, can use DeepSpeed for smaller GPUs)
+#
+# Usage:
+#   oumi train -c configs/examples/grpo_rlvr/train_rar_medicine.yaml
+#
+# For smaller GPUs, reduce batch_size and num_generations proportionally.
+
+model:
+  model_name: "Qwen/Qwen2.5-7B-Instruct"
+  model_max_length: 3584  # Paper uses 3584 context length
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "rar-medicine"
+        split: "train"
+
+training:
+  trainer_type: "TRL_GRPO"
+  save_steps: 50
+  max_steps: 300  # Paper uses 300 steps
+
+  # Batch size configuration
+  # Paper uses effective batch size of 96
+  # With num_generations=16, we need 96/16 = 6 prompts per batch
+  # Adjust per_device_train_batch_size and gradient_accumulation based on your GPU memory
+  per_device_train_batch_size: 2  # Adjust based on GPU memory
+  gradient_accumulation_steps: 3  # 2 * 3 = 6 prompts per device
+
+  # Learning rate from paper
+  learning_rate: 5e-6  # Paper uses 5×10⁻⁶
+  lr_scheduler_type: "constant_with_warmup"
+  warmup_ratio: 0.1  # Paper uses 10% warmup
+
+  # Use our rubric-based reward function
+  reward_functions: ["rubric_reward"]
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch"
+  empty_device_cache_steps: 1
+
+  grpo:
+    # Critical: Paper uses k=16 generations per prompt
+    num_generations: 16
+    max_prompt_length: 1024  # Medical questions can be long
+    max_completion_length: 2048  # Allow detailed medical responses
+
+    # Paper uses temperature=1.0 for diverse sampling
+    temperature: 1.0
+
+    # VLLM settings for efficient generation
+    use_vllm: True
+    vllm_gpu_memory_utilization: 0.5
+
+    # GRPO hyperparameters
+    epsilon: 0.2
+
+    # Keep all columns so rubrics are passed to reward function
+    remove_unused_columns: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 16
+
+  logging_steps: 5
+  log_model_summary: False
+  output_dir: "output/rar_medicine.grpo"
+  include_performance_metrics: False
+  enable_wandb: True
+
+  trainer_kwargs:
+    vllm_mode: "colocate"
+    # Use Dr. GRPO loss to eliminate length and difficulty biases
+    # See: https://arxiv.org/abs/2503.20783
+    loss_type: "dr_grpo"
+    scale_rewards: False
