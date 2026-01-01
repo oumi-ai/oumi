@@ -53,17 +53,19 @@ def test_build_reward_functions_single(function_name: str):
     params.reward_functions = [function_name]
     reward_funcs = build_reward_functions(params)
     assert len(reward_funcs) == 1
-    assert reward_funcs[0].__name__ == REGISTRY.get(
-        function_name, RegistryType.REWARD_FUNCTION
-    ).__name__
+    assert (
+        reward_funcs[0].__name__
+        == REGISTRY.get(function_name, RegistryType.REWARD_FUNCTION).__name__
+    )
 
     params = TrainingParams()
     params.reward_functions = ["", function_name, ""]
     reward_funcs = build_reward_functions(params)
     assert len(reward_funcs) == 1
-    assert reward_funcs[0].__name__ == REGISTRY.get(
-        function_name, RegistryType.REWARD_FUNCTION
-    ).__name__
+    assert (
+        reward_funcs[0].__name__
+        == REGISTRY.get(function_name, RegistryType.REWARD_FUNCTION).__name__
+    )
 
 
 def test_build_reward_functions_multiple():
@@ -74,12 +76,16 @@ def test_build_reward_functions_multiple():
     ]
     reward_funcs = build_reward_functions(params)
     assert len(reward_funcs) == 2
-    assert reward_funcs[0].__name__ == REGISTRY.get(
-        "my_reward_func_starts_with_tldr", RegistryType.REWARD_FUNCTION
-    ).__name__
-    assert reward_funcs[1].__name__ == REGISTRY.get(
-        "my_reward_func_brevity", RegistryType.REWARD_FUNCTION
-    ).__name__
+    assert (
+        reward_funcs[0].__name__
+        == REGISTRY.get(
+            "my_reward_func_starts_with_tldr", RegistryType.REWARD_FUNCTION
+        ).__name__
+    )
+    assert (
+        reward_funcs[1].__name__
+        == REGISTRY.get("my_reward_func_brevity", RegistryType.REWARD_FUNCTION).__name__
+    )
 
 
 def test_build_reward_functions_per_function_kwargs():

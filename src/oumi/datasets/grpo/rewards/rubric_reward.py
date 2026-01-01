@@ -301,8 +301,21 @@ class RubricRewardEvaluator:
         """Check if rubrics are in the weighted format."""
         if not rubrics:
             return False
-        first = rubrics[0]
-        return isinstance(first, dict) and "description" in first
+        are_dicts = [isinstance(rubric, dict) for rubric in rubrics]
+        if any(are_dicts) and not all(are_dicts):
+            raise ValueError(
+                "Rubrics must be all dicts (weighted) or all strings. "
+                f"Actual types: {[type(r).__name__ for r in rubrics]}"
+            )
+        if all(are_dicts):
+            for i, rubric in enumerate(rubrics, 1):
+                if "description" not in rubric and "weight" not in rubric:
+                    raise ValueError(
+                        "Weighted rubrics must include 'description' or 'weight'. "
+                        f"Missing in rubric_{i}: {rubric}"
+                    )
+            return True
+        return False
 
     def _format_rubrics(self, rubrics: list, weighted: bool) -> str:
         """Format rubrics for the judge prompt."""
@@ -320,34 +333,108 @@ class RubricRewardEvaluator:
         else:
             return "\n".join(f"{i + 1}. {r}" for i, r in enumerate(rubrics))
 
-    def _parse_weighted_response(self, response_text: str) -> dict[str, float]:
-        """Parse per-rubric scores from judge response."""
-        # Try to find JSON with scores
-        json_pattern = r'\{[^{}]*"scores"\s*:\s*\{[^{}]*\}[^{}]*\}'
-        match = re.search(json_pattern, response_text, re.DOTALL)
-        if match:
+    def _extract_json_object(self, response_text: str) -> str | None:
+        """Extract the first JSON object found in the response text."""
+        start = response_text.find("{")
+        if start == -1:
+            return None
+
+        depth = 0
+        in_string = False
+        escape = False
+
+        for i in range(start, len(response_text)):
+            ch = response_text[i]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return response_text[start : i + 1]
+        return None
+
+    def _coerce_score_map(self, data: Any) -> dict[str, float]:
+        """Coerce a mapping of rubric scores into float values."""
+        if not isinstance(data, dict):
+            return {}
+        scores: dict[str, float] = {}
+        for key, value in data.items():
             try:
-                data = json.loads(match.group())
-                return data.get("scores", {})
+                scores[str(key)] = float(value)
+            except (TypeError, ValueError):
+                continue
+        return scores
+
+    def _parse_weighted_response(
+        self, response_text: str
+    ) -> tuple[dict[str, float], float | None]:
+        """Parse per-rubric scores and weighted score from judge response."""
+        scores: dict[str, float] = {}
+        weighted_score: float | None = None
+
+        json_text = self._extract_json_object(response_text)
+        if json_text:
+            try:
+                data = json.loads(json_text)
+                if isinstance(data, dict):
+                    scores = self._coerce_score_map(data.get("scores", data))
+                    try:
+                        if "weighted_score" in data:
+                            weighted_score = float(data["weighted_score"])
+                    except (TypeError, ValueError):
+                        weighted_score = None
+                    return scores, weighted_score
             except json.JSONDecodeError:
                 pass
 
-        # Fallback: try whole response as JSON
         try:
             data = json.loads(response_text.strip())
             if isinstance(data, dict):
-                return data.get("scores", data)
+                scores = self._coerce_score_map(data.get("scores", data))
+                try:
+                    if "weighted_score" in data:
+                        weighted_score = float(data["weighted_score"])
+                except (TypeError, ValueError):
+                    weighted_score = None
+                return scores, weighted_score
         except json.JSONDecodeError:
             pass
 
-        # Fallback: look for individual scores
-        scores = {}
-        score_pattern = r'"?(\w+)"?\s*:\s*([01](?:\.\d+)?)'
+        weighted_match = re.search(
+            r'"?weighted_score"?\s*:\s*([+-]?\d+(?:\.\d+)?)',
+            response_text,
+        )
+        if weighted_match:
+            try:
+                weighted_score = float(weighted_match.group(1))
+            except ValueError:
+                weighted_score = None
+
+        score_pattern = r'"([^"]+)"\s*:\s*([+-]?\d+(?:\.\d+)?)'
         for match in re.finditer(score_pattern, response_text):
             name, score = match.groups()
             if name not in ("scores", "weighted_score"):
                 scores[name] = float(score)
-        return scores
+
+        if not scores:
+            score_pattern = r"(?:^|[,{])\s*([A-Za-z0-9_\-]+)\s*:\s*([+-]?\d+(?:\.\d+)?)"
+            for match in re.finditer(score_pattern, response_text):
+                name, score = match.groups()
+                if name not in ("scores", "weighted_score"):
+                    scores[name] = float(score)
+
+        return scores, weighted_score
 
     def _compute_weighted_score(
         self,
@@ -357,15 +444,19 @@ class RubricRewardEvaluator:
         """Compute weighted score from per-rubric scores.
 
         Supports negative weights for Pitfall criteria from the RaR paper.
-        Formula: r(x, y) = sum(w_j * c_j(x, y)) / sum(|w_j|)
+        If any weights are negative, scores are normalized to [0, 1] after
+        applying pitfall semantics. Otherwise uses a standard weighted mean.
         """
         total_weight = 0.0
         weighted_sum = 0.0
+        has_negative = False
 
         for i, rubric in enumerate(rubrics, 1):
             name = rubric.get("name") or f"rubric_{i}"
             weight = float(rubric.get("weight", 1.0))
             is_pitfall = weight < 0
+            if is_pitfall:
+                has_negative = True
 
             raw_score = float(per_rubric_scores.get(name, 0))
             raw_score = max(0.0, min(1.0, raw_score))
@@ -383,7 +474,10 @@ class RubricRewardEvaluator:
         if total_weight == 0:
             return 0.0
 
-        # Normalize to [0, 1]
+        if not has_negative:
+            return max(0.0, min(1.0, weighted_sum / total_weight))
+
+        # Normalize to [0, 1] for pitfall-style scoring.
         normalized = (weighted_sum + total_weight) / (2 * total_weight)
         return max(0.0, min(1.0, normalized))
 
@@ -448,8 +542,22 @@ class RubricRewardEvaluator:
             if is_weighted:
                 if group_rubrics:
                     raw_response = output.raw_output or ""
-                    per_rubric_scores = self._parse_weighted_response(raw_response)
-                    if per_rubric_scores:
+                    per_rubric_scores, weighted_score = self._parse_weighted_response(
+                        raw_response
+                    )
+                    if weighted_score is not None:
+                        score = float(weighted_score)
+                    elif per_rubric_scores:
+                        missing = []
+                        for i, rubric in enumerate(rubrics, 1):
+                            name = rubric.get("name") or f"rubric_{i}"
+                            if name not in per_rubric_scores:
+                                missing.append(name)
+                        if missing:
+                            logger.warning(
+                                "Weighted rubric scores missing keys: "
+                                f"{missing}. Response: {raw_response}"
+                            )
                         score = self._compute_weighted_score(rubrics, per_rubric_scores)
                     else:
                         try:
@@ -460,8 +568,12 @@ class RubricRewardEvaluator:
 
                 raw_response = output.field_values.get("judgment", "")
                 if isinstance(raw_response, str):
-                    per_rubric_scores = self._parse_weighted_response(raw_response)
-                    if per_rubric_scores:
+                    per_rubric_scores, weighted_score = self._parse_weighted_response(
+                        raw_response
+                    )
+                    if weighted_score is not None:
+                        score = float(weighted_score)
+                    elif per_rubric_scores:
                         score = self._compute_weighted_score(rubrics, per_rubric_scores)
                     else:
                         s = output.field_scores.get("judgment")
@@ -608,9 +720,7 @@ class RubricRewardEvaluator:
             self._stats.record_failure()
             return 0.0
 
-        judge = self._get_judge(
-            judge_model, 0.0, is_weighted, group_rubrics=False
-        )
+        judge = self._get_judge(judge_model, 0.0, is_weighted, group_rubrics=False)
         scores = []
         per_rubric_scores = {}
         total_time_ms = 0.0
@@ -824,6 +934,8 @@ def rubric_reward(
             evaluator.set_panel_config(JudgePanelConfig.from_dict(judge_panel_config))
         elif isinstance(judge_panel_config, JudgePanelConfig):
             evaluator.set_panel_config(judge_panel_config)
+    else:
+        evaluator.set_panel_config(None)
 
     judge_model = str(kwargs.get("judge_model", "gpt-4o-mini"))
     group_rubrics = kwargs.get("group_rubrics", False)
@@ -832,6 +944,20 @@ def rubric_reward(
     else:
         group_rubrics = bool(group_rubrics)
     completion_strs = _extract_completion_strings(completions)
+
+    lengths = {
+        "completions": len(completion_strs),
+        "prompts": len(prompt_list),
+        "rubrics": len(rubric_list),
+    }
+    min_len = min(lengths.values()) if lengths else 0
+    if len(set(lengths.values())) > 1:
+        logger.warning(f"Mismatched input lengths: {lengths}. Truncating to {min_len}.")
+        completion_strs = completion_strs[:min_len]
+        prompt_list = prompt_list[:min_len]
+        rubric_list = rubric_list[:min_len]
+        if system_prompts:
+            system_prompts = system_prompts[:min_len]
 
     # Compute rewards
     rewards = []

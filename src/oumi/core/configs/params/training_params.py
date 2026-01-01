@@ -985,9 +985,9 @@ class TrainingParams(BaseParams):
                     "VERL_GRPO only supports a single reward function. "
                     f"Actual: {function_names}"
                 )
-        if (
-            self.reward_function_kwargs
-            and self.trainer_type not in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO)
+        if self.reward_function_kwargs and self.trainer_type not in (
+            TrainerType.TRL_GRPO,
+            TrainerType.VERL_GRPO,
         ):
             raise ValueError(
                 "reward_function_kwargs is only supported for the TRL_GRPO or "
