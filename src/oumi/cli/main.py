@@ -15,7 +15,6 @@
 import os
 import sys
 import traceback
-from contextlib import nullcontext
 
 import typer
 
@@ -302,21 +301,15 @@ def run():
     telemetry = TelemetryManager.get_instance()
     app = get_app()
 
-    # Determine command for telemetry (skip for --help flags)
     command = _get_cli_command()
-    is_help = "--help" in sys.argv or "-h" in sys.argv
-    should_capture = command and not is_help
     event_name = f"cli-{command}" if command else "cli"
 
     try:
-        with (
-            telemetry.capture_operation(event_name) if should_capture else nullcontext()
-        ):
+        with telemetry.capture_operation(event_name):
             return app()
     except SystemExit:
         raise
     except Exception as e:
-        # Exception already captured by PostHog context above
         tb_str = traceback.format_exc()
         CONSOLE.print(tb_str)
         issue_url = create_github_issue_url(e, tb_str)
