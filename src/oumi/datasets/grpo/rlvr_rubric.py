@@ -25,19 +25,20 @@ from oumi.core.registry import register_dataset
 
 @register_dataset("oumi-rlvr-rubric")
 class RlvrRubricDataset(BaseRubricDataset):
-    """Dataset for RLVR training with rubric-based rewards."""
+    """Dataset for RLVR training with rubric-based rewards.
+
+    Expects input in rubric format:
+        - prompt: str
+        - rubrics: list of {name, description, weight}
+        - system_prompt: str (optional)
+        - metadata: dict (optional)
+    """
 
     default_dataset = "oumi-rlvr-rubric"
 
     @override
     def transform(self, sample: pd.Series) -> dict[str, Any]:
-        """Transform the sample into the format expected by GRPO trainer.
-
-        Expects well-formed input with:
-        - prompt: str
-        - rubrics: list of dicts with name, description, weight, evaluation_type
-        - system_prompt: optional str
-        """
+        """Transform the sample into the format expected by GRPO trainer."""
         result: dict[str, Any] = {
             "prompt": sample["prompt"],
             "rubrics": sample["rubrics"],
@@ -45,5 +46,8 @@ class RlvrRubricDataset(BaseRubricDataset):
 
         if system_prompt := sample.get("system_prompt"):
             result["system_prompt"] = system_prompt
+
+        if metadata := sample.get("metadata"):
+            result["metadata"] = metadata
 
         return result
