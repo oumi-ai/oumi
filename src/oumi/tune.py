@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import time
-from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
 from typing import Any
@@ -50,7 +49,7 @@ from oumi.utils.torch_utils import (
     log_peak_gpu_memory,
     log_versioning_info,
 )
-from oumi.utils.version_utils import is_dev_build
+from oumi.utils.version_utils import get_oumi_version, is_dev_build
 
 
 def _create_tuning_dirs(config: TuningConfig) -> None:
@@ -81,8 +80,7 @@ def _log_tuning_info(config: TuningConfig) -> None:
             if telemetry_dir and is_world_process_zero()
             else None
         )
-        oumi_version = version("oumi")
-        logger.info(f"Oumi version: {oumi_version}")
+        logger.info(f"Oumi version: {get_oumi_version()}")
         if is_dev_build():
             logger.info(f"Git revision hash: {get_git_revision_hash()}")
             logger.info(f"Git tag: {get_git_tag()}")
