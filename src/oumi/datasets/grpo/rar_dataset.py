@@ -70,50 +70,23 @@ class RaRMedicineDataset(BaseRubricDataset):
 
     @override
     def transform(self, sample: pd.Series) -> dict[str, Any]:
-        """Transform a sample into the format expected by GRPO trainer.
-
-        Maps the RaR dataset format to our rubric format:
-        - question -> prompt
-        - rubric -> rubrics (with title -> name mapping)
-        - reference_answer -> reference_answer (optional, for evaluation)
-
-        Args:
-            sample: A pandas Series containing the raw data.
-
-        Returns:
-            A dict with 'prompt', 'rubrics', and optional fields.
-        """
-        prompt = sample.get("question", "")
-        rubrics_raw = sample.get("rubric", []) or []
-        reference_answer = sample.get("reference_answer", None)
-        question_source = sample.get("question_source", None)
-        rubric_count = sample.get("rubric_count", None)
-
-        # Convert RaR format (title) to standard format (name)
-        rubrics = [
-            {
-                "name": r.get("title", r.get("name", "")),
-                "description": r.get("description", ""),
-                "weight": float(r.get("weight", 1.0)),
-                "evaluation_type": r.get("evaluation_type", "binary"),
-            }
-            for r in rubrics_raw
-            if isinstance(r, dict)
-        ]
-
-        result: dict[str, Any] = {
-            "prompt": str(prompt).strip(),
-            "rubrics": rubrics,
+        """Transform a sample into the format expected by GRPO trainer."""
+        return {
+            "prompt": sample["question"],
+            "rubrics": [
+                {
+                    "name": r["title"],
+                    "description": r["description"],
+                    "weight": float(r["weight"]),
+                }
+                for r in sample["rubric"]
+            ],
+            "metadata": {
+                "reference_answer": sample["reference_answer"],
+                "question_source": sample["question_source"],
+                "rubric_count": sample["rubric_count"],
+            },
         }
-
-        if reference_answer:
-            result["reference_answer"] = str(reference_answer).strip()
-        if question_source:
-            result["question_source"] = str(question_source)
-        if rubric_count is not None:
-            result["rubric_count"] = int(rubric_count)
-
-        return result
 
 
 @register_dataset("rar-science")
