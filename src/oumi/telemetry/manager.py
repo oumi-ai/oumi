@@ -34,7 +34,7 @@ from oumi.utils.version_utils import get_oumi_version
 
 OPT_OUT_MESSAGE = (
     "Anonymous analytics are enabled by default to help improve Oumi. "
-    "Set OUMI_ANALYTICS=0 to disable. "
+    "Set DO_NOT_TRACK=1 to disable. "
     "See https://docs.oumi.ai/latest/about/telemetry.html for details."
 )
 
@@ -50,7 +50,7 @@ class _TelemetryConfig:
 class TelemetryManager:
     """Singleton manager for telemetry collection via PostHog.
 
-    Analytics is enabled by default but can be disabled by setting OUMI_ANALYTICS=0.
+    Analytics is enabled by default but can be disabled by setting DO_NOT_TRACK=1.
 
     Example:
         telemetry = TelemetryManager.get_instance()
@@ -107,12 +107,8 @@ class TelemetryManager:
         if rank != 0:
             return False, None
 
-        # Check opt-out environment variables
+        # Check opt-out environment variable
         if os.getenv("DO_NOT_TRACK", "").lower() in ("1", "true"):
-            return False, None
-
-        env_value = os.getenv("OUMI_ANALYTICS", "").lower()
-        if env_value in ("0", "false"):
             return False, None
 
         config = self._read_config()
@@ -123,9 +119,6 @@ class TelemetryManager:
             config.install_id = str(uuid.uuid4())
             config.analytics_enabled = True
             self._write_config(config)
-
-        if env_value in ("1", "true"):
-            return True, config.install_id
 
         return config.analytics_enabled, config.install_id
 
@@ -210,7 +203,7 @@ class TelemetryManager:
 
         Example:
             with telemetry.capture_operation("cli-train"):
-                telemetry.tag("trainer_type", "TRL_SFT")
+                telemetry.tags(trainer_type="TRL_SFT")
                 run_training()
         """
         if not self._client:

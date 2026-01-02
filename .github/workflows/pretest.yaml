@@ -12,6 +12,9 @@ on:
       - "README.md"
   merge_group:
 
+env:
+  DO_NOT_TRACK: "1"
+
 jobs:
   static-checks:
     permissions:

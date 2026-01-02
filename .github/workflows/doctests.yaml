@@ -11,6 +11,9 @@ on:
       - ".github/workflows/doctests.yaml"
   merge_group:
 
+env:
+  DO_NOT_TRACK: "1"
+
 jobs:
   static-checks:
     permissions:

@@ -16,7 +16,7 @@
 
 This module provides anonymous usage telemetry to help improve Oumi.
 Analytics is enabled by default but can be disabled by setting
-the environment variable OUMI_ANALYTICS=0.
+the environment variable DO_NOT_TRACK=1.
 
 Use `TelemetryManager.capture_operation()` to track operations with
 automatic timing, success/failure, and exception capture.

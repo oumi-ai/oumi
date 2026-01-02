@@ -17,11 +17,9 @@ We never collect:
 
 ## Opting Out
 
-Set either environment variable:
+Set the environment variable:
 
 ```bash
-export OUMI_ANALYTICS=0
-# or
 export DO_NOT_TRACK=1
 ```
 
