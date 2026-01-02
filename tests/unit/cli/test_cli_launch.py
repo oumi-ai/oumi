@@ -24,6 +24,7 @@ from oumi.core.configs import (
 from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher import JobConfig, JobResources
 from oumi.utils.logging import logger
+from oumi.utils.version_utils import get_oumi_version
 
 
 @pytest.fixture
@@ -109,9 +110,13 @@ def mock_confirm():
 
 @pytest.fixture
 def mock_version():
+    # Clear the lru_cache to ensure fresh version checks in each test
+    get_oumi_version.cache_clear()
     with patch("oumi.utils.version_utils.version") as version_mock:
         version_mock.return_value = ""
         yield version_mock
+    # Clear again after the test to avoid polluting other tests
+    get_oumi_version.cache_clear()
 
 
 @pytest.fixture
