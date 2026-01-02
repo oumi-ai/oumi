@@ -203,7 +203,7 @@ class TelemetryManager:
 
         Example:
             with telemetry.capture_operation("cli-train"):
-                telemetry.tag("trainer_type", "TRL_SFT")
+                telemetry.tags(trainer_type="TRL_SFT")
                 run_training()
         """
         if not self._client:
