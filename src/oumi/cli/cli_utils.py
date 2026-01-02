@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.metadata
-import importlib.util
 import logging
 import os
 import platform
@@ -32,6 +30,7 @@ from rich.table import Table
 
 from oumi.cli.alias import _ALIASES, AliasType
 from oumi.utils.logging import logger, update_logger_level
+from oumi.utils.version_utils import get_oumi_version
 
 CONTEXT_ALLOW_EXTRA_ARGS = {"allow_extra_args": True, "ignore_unknown_options": True}
 CONFIG_FLAGS = ["--config", "-c"]
@@ -351,7 +350,7 @@ def create_github_issue_url(exception: Exception, traceback_str: str) -> str:
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
     system_info = f"{platform.system()} {platform.release()}"
-    oumi_version = importlib.metadata.version("oumi")
+    oumi_version = get_oumi_version()
     system_info_content = (
         f"**Please paste the output of `oumi env` here.** "
         f"If you can't run this command, here's basic system info:\n\n"
