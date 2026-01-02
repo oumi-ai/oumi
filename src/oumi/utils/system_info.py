@@ -122,6 +122,7 @@ def get_gpu_info() -> dict[str, Any]:
         return {"accelerator_type": "none", "accelerator_count": 0}
 
     import torch
+    import torch.version
 
     accelerator_info: list[dict[str, Any]] = []
     accelerator_type = "none"
