@@ -15,6 +15,7 @@
 import os
 import sys
 import traceback
+from typing import Any
 
 import typer
 
@@ -285,13 +286,32 @@ def get_app() -> typer.Typer:
     return app
 
 
-def _get_cli_command() -> str | None:
-    """Extract the CLI command from sys.argv."""
-    # Skip program name and any flags before the command
-    for arg in sys.argv[1:]:
-        if not arg.startswith("-"):
-            return arg
-    return None
+def _get_cli_event() -> tuple[str, dict[str, Any]]:
+    """Extract the CLI command and context from sys.argv."""
+    args = sys.argv[1:]
+    help_requested = "--help" in args or "-h" in args
+
+    # Extract positional arguments that appear before any flag.
+    # This correctly handles the common CLI patterns where commands/subcommands
+    # come first, followed by flags and their values.
+    positional_args = []
+    for arg in args:
+        if arg.startswith("-"):
+            break
+        positional_args.append(arg)
+        if len(positional_args) >= 2:
+            break
+
+    command = positional_args[0] if positional_args else None
+    subcommand = positional_args[1] if len(positional_args) > 1 else None
+
+    event_name = f"cli-{command}" if command else "cli"
+    properties: dict[str, Any] = {
+        "subcommand": subcommand,
+        "help": help_requested,
+    }
+
+    return event_name, properties
 
 
 def run():
@@ -301,11 +321,9 @@ def run():
     telemetry = TelemetryManager.get_instance()
     app = get_app()
 
-    command = _get_cli_command()
-    event_name = f"cli-{command}" if command else "cli"
-
     try:
-        with telemetry.capture_operation(event_name):
+        event_name, event_properties = _get_cli_event()
+        with telemetry.capture_operation(event_name, event_properties):
             return app()
     except SystemExit:
         raise
