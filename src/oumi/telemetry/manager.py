@@ -32,11 +32,6 @@ import posthog
 from oumi.utils.logging import get_logger
 from oumi.utils.version_utils import get_oumi_version
 
-_POSTHOG_HOST = "https://us.i.posthog.com"
-_POSTHOG_API_KEY = "phc_k5jx6NF3FXzWjDWWcj8hKF6RpPHfuimXUz7i3DZxoDZ"
-_OUMI_DIR = Path("~/.oumi").expanduser()
-_TELEMETRY_CONFIG_FILE = _OUMI_DIR / "telemetry.json"
-
 OPT_OUT_MESSAGE = (
     "Anonymous analytics are enabled by default to help improve Oumi. "
     "Set OUMI_ANALYTICS=0 to disable. "
@@ -64,6 +59,10 @@ class TelemetryManager:
     """
 
     _instance: TelemetryManager | None = None
+    _POSTHOG_HOST = "https://us.i.posthog.com"
+    _POSTHOG_API_KEY = "phc_k5jx6NF3FXzWjDWWcj8hKF6RpPHfuimXUz7i3DZxoDZ"
+    _OUMI_DIR = Path("~/.oumi").expanduser()
+    _TELEMETRY_CONFIG_FILE = _OUMI_DIR / "telemetry.json"
 
     def __init__(self) -> None:
         """Initialize the telemetry manager. Use get_instance() instead."""
@@ -78,8 +77,8 @@ class TelemetryManager:
 
         self._distinct_id = install_id
         self._client = posthog.Posthog(
-            project_api_key=_POSTHOG_API_KEY,
-            host=_POSTHOG_HOST,
+            project_api_key=self._POSTHOG_API_KEY,
+            host=self._POSTHOG_HOST,
             enable_exception_autocapture=True,
             disable_geoip=True,
             super_properties={
@@ -130,13 +129,13 @@ class TelemetryManager:
 
         return config.analytics_enabled, config.install_id
 
-    @staticmethod
-    def _read_config() -> _TelemetryConfig:
+    @classmethod
+    def _read_config(cls) -> _TelemetryConfig:
         """Read telemetry config from ~/.oumi/telemetry.json."""
-        if not _TELEMETRY_CONFIG_FILE.exists():
+        if not cls._TELEMETRY_CONFIG_FILE.exists():
             return _TelemetryConfig()
         try:
-            with open(_TELEMETRY_CONFIG_FILE) as f:
+            with open(cls._TELEMETRY_CONFIG_FILE) as f:
                 data = json.load(f)
                 return _TelemetryConfig(
                     analytics_enabled=data.get("analytics_enabled", True),
@@ -145,12 +144,12 @@ class TelemetryManager:
         except Exception:
             return _TelemetryConfig()
 
-    @staticmethod
-    def _write_config(config: _TelemetryConfig) -> None:
+    @classmethod
+    def _write_config(cls, config: _TelemetryConfig) -> None:
         """Write telemetry config to ~/.oumi/telemetry.json."""
         try:
-            _OUMI_DIR.mkdir(parents=True, exist_ok=True)
-            with open(_TELEMETRY_CONFIG_FILE, "w") as f:
+            cls._OUMI_DIR.mkdir(parents=True, exist_ok=True)
+            with open(cls._TELEMETRY_CONFIG_FILE, "w") as f:
                 json.dump(asdict(config), f, indent=2)
         except OSError:
             pass

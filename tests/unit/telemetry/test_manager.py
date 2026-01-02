@@ -3,7 +3,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from oumi.telemetry import manager as telemetry_manager
 from oumi.telemetry.manager import TelemetryManager
 
 
@@ -14,8 +13,8 @@ def _reset_manager() -> None:
 def _patch_telemetry_paths(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     oumi_dir = tmp_path / "oumi"
     config_file = oumi_dir / "telemetry.json"
-    monkeypatch.setattr(telemetry_manager, "_OUMI_DIR", oumi_dir)
-    monkeypatch.setattr(telemetry_manager, "_TELEMETRY_CONFIG_FILE", config_file)
+    monkeypatch.setattr(TelemetryManager, "_OUMI_DIR", oumi_dir)
+    monkeypatch.setattr(TelemetryManager, "_TELEMETRY_CONFIG_FILE", config_file)
 
 
 def _patch_telemetry_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -34,7 +33,7 @@ def test_config_created_on_first_run(monkeypatch: pytest.MonkeyPatch, tmp_path) 
         manager = TelemetryManager.get_instance()
 
     assert manager.enabled is True
-    config_path = telemetry_manager._TELEMETRY_CONFIG_FILE
+    config_path = TelemetryManager._TELEMETRY_CONFIG_FILE
     assert config_path.exists()
 
     config = json.loads(config_path.read_text())
@@ -50,7 +49,7 @@ def test_env_opt_out_overrides_config(
     _patch_telemetry_paths(monkeypatch, tmp_path)
     _patch_telemetry_runtime(monkeypatch)
 
-    config_path = telemetry_manager._TELEMETRY_CONFIG_FILE
+    config_path = TelemetryManager._TELEMETRY_CONFIG_FILE
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         json.dumps({"analytics_enabled": True, "install_id": "install-123"})
@@ -67,7 +66,7 @@ def test_env_opt_in_overrides_config(monkeypatch: pytest.MonkeyPatch, tmp_path) 
     _patch_telemetry_paths(monkeypatch, tmp_path)
     _patch_telemetry_runtime(monkeypatch)
 
-    config_path = telemetry_manager._TELEMETRY_CONFIG_FILE
+    config_path = TelemetryManager._TELEMETRY_CONFIG_FILE
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         json.dumps({"analytics_enabled": False, "install_id": "install-456"})
