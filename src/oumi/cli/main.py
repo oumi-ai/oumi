@@ -15,6 +15,7 @@
 import os
 import sys
 import traceback
+from typing import Any
 
 import typer
 
@@ -285,11 +286,46 @@ def get_app() -> typer.Typer:
     return app
 
 
+def _get_cli_event() -> tuple[str, dict[str, Any]]:
+    """Extract the CLI command and context from sys.argv."""
+    args = sys.argv[1:]
+    help_requested = "--help" in args or "-h" in args
+
+    # Extract positional arguments that appear before any flag.
+    # This correctly handles the common CLI patterns where commands/subcommands
+    # come first, followed by flags and their values.
+    positional_args = []
+    for arg in args:
+        if arg.startswith("-"):
+            break
+        positional_args.append(arg)
+        if len(positional_args) >= 2:
+            break
+
+    command = positional_args[0] if positional_args else None
+    subcommand = positional_args[1] if len(positional_args) > 1 else None
+
+    event_name = f"cli-{command}" if command else "cli"
+    properties: dict[str, Any] = {
+        "subcommand": subcommand,
+        "help": help_requested,
+    }
+
+    return event_name, properties
+
+
 def run():
     """The entrypoint for the CLI."""
     app = get_app()
+
     try:
-        return app()
+        from oumi.telemetry import TelemetryManager
+
+        telemetry = TelemetryManager.get_instance()
+
+        event_name, event_properties = _get_cli_event()
+        with telemetry.capture_operation(event_name, event_properties):
+            return app()
     except Exception as e:
         tb_str = traceback.format_exc()
         CONSOLE.print(tb_str)

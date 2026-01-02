@@ -6,6 +6,11 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import get_logger
 
 
+@pytest.fixture(autouse=True)
+def disable_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OUMI_ANALYTICS", "0")
+
+
 @pytest.fixture
 def root_testdata_dir() -> Path:
     return Path(__file__).parent / "testdata"
