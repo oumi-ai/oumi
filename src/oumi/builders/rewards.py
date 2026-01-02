@@ -83,9 +83,7 @@ def build_reward_functions(config: TrainingParams) -> list[Callable]:
     for name in function_names:
         reward_function = REGISTRY.get_reward_function(name)
         if not reward_function:
-            raise KeyError(
-                f"reward_function `{name}` was not found in the registry."
-            )
+            raise KeyError(f"reward_function `{name}` was not found in the registry.")
         result.append(
             _apply_reward_function_kwargs(reward_function, kwargs_map.get(name))
         )
