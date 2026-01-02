@@ -9,6 +9,9 @@ on:
       - "pyproject.toml"
   workflow_dispatch:
 
+env:
+  DO_NOT_TRACK: "1"
+
 jobs:
   install-test:
     runs-on: ubuntu-latest

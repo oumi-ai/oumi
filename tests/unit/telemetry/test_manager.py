@@ -20,13 +20,13 @@ def _patch_telemetry_paths(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
 def _patch_telemetry_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("RANK", raising=False)
     monkeypatch.delenv("LOCAL_RANK", raising=False)
+    monkeypatch.delenv("DO_NOT_TRACK", raising=False)
 
 
 def test_config_created_on_first_run(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     _reset_manager()
     _patch_telemetry_paths(monkeypatch, tmp_path)
     _patch_telemetry_runtime(monkeypatch)
-    monkeypatch.delenv("OUMI_ANALYTICS", raising=False)
 
     # Mock PostHog to avoid real connections
     with patch("posthog.Posthog", MagicMock()):
@@ -42,7 +42,7 @@ def test_config_created_on_first_run(monkeypatch: pytest.MonkeyPatch, tmp_path) 
     assert config["install_id"]
 
 
-def test_env_opt_out_overrides_config(
+def test_do_not_track_disables_telemetry(
     monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
     _reset_manager()
@@ -55,13 +55,13 @@ def test_env_opt_out_overrides_config(
         json.dumps({"analytics_enabled": True, "install_id": "install-123"})
     )
 
-    monkeypatch.setenv("OUMI_ANALYTICS", "0")
+    monkeypatch.setenv("DO_NOT_TRACK", "1")
 
     manager = TelemetryManager.get_instance()
     assert manager.enabled is False
 
 
-def test_env_opt_in_overrides_config(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def test_config_disables_telemetry(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     _reset_manager()
     _patch_telemetry_paths(monkeypatch, tmp_path)
     _patch_telemetry_runtime(monkeypatch)
@@ -72,10 +72,5 @@ def test_env_opt_in_overrides_config(monkeypatch: pytest.MonkeyPatch, tmp_path) 
         json.dumps({"analytics_enabled": False, "install_id": "install-456"})
     )
 
-    monkeypatch.setenv("OUMI_ANALYTICS", "1")
-
-    # Mock PostHog to avoid real connections
-    with patch("posthog.Posthog", MagicMock()):
-        manager = TelemetryManager.get_instance()
-
-    assert manager.enabled is True
+    manager = TelemetryManager.get_instance()
+    assert manager.enabled is False

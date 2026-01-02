@@ -12,6 +12,7 @@ on:
 env:
   SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI: v0.0.1
   NCCL_DEBUG: INFO
+  DO_NOT_TRACK: "1"
 
 jobs:
   gpu-tests:

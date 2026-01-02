@@ -8,7 +8,7 @@ from oumi.utils.logging import get_logger
 
 @pytest.fixture(autouse=True)
 def disable_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OUMI_ANALYTICS", "0")
+    monkeypatch.setenv("DO_NOT_TRACK", "1")
 
 
 @pytest.fixture
