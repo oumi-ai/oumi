@@ -14,12 +14,25 @@
 
 """Base class for rubric-based datasets."""
 
-from typing import Any
+from abc import abstractmethod
+from typing import Any, TypedDict
 
 import pandas as pd
 
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
-from oumi.core.types.conversation import Conversation
+
+
+class Rubric(TypedDict):
+    """A single rubric criterion for evaluating responses."""
+
+    name: str
+    """Short identifier for the criterion (e.g., 'Correct Diagnosis')."""
+
+    description: str
+    """Detailed description of what the criterion evaluates."""
+
+    weight: float
+    """Importance weight. Positive for desired criteria, negative for pitfalls."""
 
 
 class BaseRubricDataset(BaseMapDataset):
@@ -27,7 +40,15 @@ class BaseRubricDataset(BaseMapDataset):
 
     This provides common functionality for datasets used with rubric-based
     reward functions in GRPO training. Subclasses should implement the
-    `transform` method to extract prompt, rubrics, and optional system_prompt.
+    `transform` method to return the expected format.
+
+    Expected transform() output format:
+        {
+            "prompt": str,                # The user prompt/question
+            "rubrics": list[Rubric],      # List of evaluation criteria
+            "system_prompt": str | None,  # Optional system prompt
+            "metadata": dict | None,      # Optional dataset-specific metadata
+        }
     """
 
     def __init__(
@@ -38,6 +59,7 @@ class BaseRubricDataset(BaseMapDataset):
         split: str | None = None,
         **kwargs,
     ) -> None:
+        """Initializes the BaseRubricDataset."""
         super().__init__(
             dataset_name=dataset_name,
             dataset_path=dataset_path,
@@ -46,38 +68,15 @@ class BaseRubricDataset(BaseMapDataset):
         )
         self._data = self._load_data()
 
-    def conversation(self, idx: int) -> Conversation:
-        """Returns the conversation at the specified index."""
-        sample = self.raw(idx)
-        return self.transform_conversation(sample)
-
-    def conversations(self) -> list[Conversation]:
-        """Returns a list of all conversations."""
-        return [self.conversation(i) for i in range(len(self))]
-
-    def transform_conversation(self, sample: dict | pd.Series) -> Conversation:
-        """Converts the input sample to a Conversation."""
-        if isinstance(sample, dict):
-            sample = pd.Series(sample)
-        transformed = self.transform(sample)
-
-        messages = []
-        if "system_prompt" in transformed and transformed["system_prompt"]:
-            messages.append(
-                {
-                    "content": transformed["system_prompt"],
-                    "role": "system",
-                }
-            )
-        messages.append(
-            {
-                "content": transformed["prompt"],
-                "role": "user",
-            }
-        )
-
-        return Conversation.from_dict({"messages": messages})
-
+    @abstractmethod
     def transform(self, sample: pd.Series) -> dict[str, Any]:
-        """Transform the sample. Subclasses should override this method."""
-        raise NotImplementedError("Subclasses must implement transform()")
+        """Transform a raw sample into the standard rubric format.
+
+        Subclasses must override this method to return:
+            {
+                "prompt": str,
+                "rubrics": list[Rubric],
+                "system_prompt": str | None,  # optional
+                "metadata": dict | None,      # optional
+            }
+        """
