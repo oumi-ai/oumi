@@ -316,17 +316,16 @@ def _get_cli_event() -> tuple[str, dict[str, Any]]:
 
 def run():
     """The entrypoint for the CLI."""
-    from oumi.telemetry import TelemetryManager
-
-    telemetry = TelemetryManager.get_instance()
     app = get_app()
 
     try:
+        from oumi.telemetry import TelemetryManager
+
+        telemetry = TelemetryManager.get_instance()
+
         event_name, event_properties = _get_cli_event()
         with telemetry.capture_operation(event_name, event_properties):
             return app()
-    except SystemExit:
-        raise
     except Exception as e:
         tb_str = traceback.format_exc()
         CONSOLE.print(tb_str)
@@ -343,6 +342,7 @@ def run():
             CONSOLE.print(
                 "https://github.com/oumi-ai/oumi/issues/new?template=bug-report.yaml"
             )
+
         sys.exit(1)
 
 
