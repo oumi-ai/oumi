@@ -790,6 +790,10 @@ def conversation_to_dataframes(
             conversation, template_name=chat_template
         ),
     }
+
+    if conversation.metadata:
+        conversation_data.update(conversation.metadata)
+
     conversation_df = pd.DataFrame([conversation_data])
 
     # Create message-level data
@@ -1291,3 +1295,60 @@ def get_kto_schema() -> dict:
             "description": "Numeric score for the completion",
         },
     }
+
+
+def augment_schema_with_dataframe_columns(schema: dict, df: pd.DataFrame) -> dict:
+    """Augment schema with entries for columns not already in the schema.
+
+    This function detects columns in the DataFrame that don't have schema
+    entries (e.g., dynamic metadata columns) and adds default schema entries
+    for them. This is useful for handling metadata fields that vary by dataset.
+
+    Args:
+        schema: Base schema dictionary
+        df: DataFrame that may contain additional columns
+
+    Returns:
+        Updated schema dictionary with entries for all DataFrame columns
+    """
+    from oumi.core.analyze.column_types import ColumnType, ContentType
+
+    augmented_schema = schema.copy()
+
+    # Find columns in DataFrame that aren't in the schema
+    missing_columns = set(df.columns) - set(schema.keys())
+
+    if missing_columns:
+        logger.info(
+            f"Adding default schema entries for {len(missing_columns)} "
+            f"columns not in base schema: {sorted(missing_columns)}"
+        )
+
+        # Add default schema entries for missing columns
+        for col in missing_columns:
+            # Infer type from the column data
+            col_data = df[col]
+
+            # Try to infer a reasonable type
+            if pd.api.types.is_integer_dtype(col_data):
+                col_type = ColumnType.INT
+                content_type = ContentType.NUMERIC
+            elif pd.api.types.is_float_dtype(col_data):
+                col_type = ColumnType.FLOAT
+                content_type = ContentType.NUMERIC
+            elif pd.api.types.is_bool_dtype(col_data):
+                col_type = ColumnType.BOOL
+                content_type = ContentType.CATEGORICAL
+            else:
+                # Default to STRING/CATEGORICAL for unknown types
+                # This is appropriate for metadata fields
+                col_type = ColumnType.STRING
+                content_type = ContentType.CATEGORICAL
+
+            augmented_schema[col] = {
+                "type": col_type,
+                "content_type": content_type,
+                "description": f"Additional field: {col}",
+            }
+
+    return augmented_schema

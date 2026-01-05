@@ -438,7 +438,18 @@ class DatasetAnalyzer:
                 chat_template=self.config.chat_template,
             )
 
+            # Get base schema for the dataset type
             schema = self._get_schema_for_dataset()
+
+            # Augment schema with any additional columns (e.g., metadata fields)
+            # that may be present in the dataframes but not in the base schema
+            from oumi.utils.analysis_utils import augment_schema_with_dataframe_columns
+
+            # Augment with columns from both dataframes
+            if not conversations_df.empty:
+                schema = augment_schema_with_dataframe_columns(schema, conversations_df)
+            if not messages_df.empty:
+                schema = augment_schema_with_dataframe_columns(schema, messages_df)
 
             dataframe_list = [
                 DataFrameWithSchema(conversations_df, schema, "conversations"),
