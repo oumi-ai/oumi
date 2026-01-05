@@ -43,7 +43,18 @@ class SampleAnalyzerParams(BaseParams):
     """Params for a single sample analyzer plugin."""
 
     id: str = MISSING
-    """Unique identifier for the analyzer."""
+    """Analyzer type identifier (registered name in the registry)."""
+
+    instance_id: str | None = None
+    """Optional unique instance identifier for this analyzer instance.
+    
+    If provided, this ID will be used to uniquely identify this analyzer instance
+    and will be used in generated column names. This allows multiple instances of
+    the same analyzer type with different configurations.
+    
+    If None, the 'id' field will be used as the instance identifier.
+
+    """
 
     params: dict[str, Any] = field(default_factory=dict)
     """Analyzer-specific parameters passed to the analyzer constructor."""
@@ -249,11 +260,20 @@ class AnalyzeConfig(BaseConfig):
             raise ValueError("`sample_count` must be greater than 0.")
 
         # Validate analyzer configurations
-        analyzer_ids = set()
+        instance_ids = set()
         for analyzer in self.analyzers:
-            # Validate analyzer ID
+            # Validate analyzer ID (type)
             if not analyzer.id:
                 raise ValueError("Analyzer 'id' must be provided")
-            if analyzer.id in analyzer_ids:
-                raise ValueError(f"Duplicate analyzer ID found: '{analyzer.id}'")
-            analyzer_ids.add(analyzer.id)
+
+            # Determine the instance ID (use instance_id if provided, otherwise use id)
+            instance_id = analyzer.instance_id if analyzer.instance_id else analyzer.id
+
+            # Check for duplicate instance IDs
+            if instance_id in instance_ids:
+                raise ValueError(
+                    f"Duplicate analyzer instance ID found: '{instance_id}'. "
+                    f"Each analyzer instance must have a unique 'instance_id' "
+                    f"(or unique 'id' if instance_id is not specified)."
+                )
+            instance_ids.add(instance_id)

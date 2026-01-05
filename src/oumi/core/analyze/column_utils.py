@@ -14,8 +14,14 @@
 
 """Utilities for analyzer column naming and parsing.
 
-This module provides standardized column naming conventions for analyzer outputs.
-All analyzer-generated columns follow the format: {source_column}__{analyzer_id}__{metric_name}
+This module provides standardized column naming conventions for analyzer
+outputs. All analyzer-generated columns follow the format:
+{source_column}__{analyzer_id}__{metric_name}
+
+Note: The analyzer_id in column names refers to the analyzer instance
+identifier. When using multiple instances of the same analyzer type (e.g.,
+multiple llm_judge instances), each instance has a unique instance_id that
+becomes the analyzer_id in column names.
 
 The double underscore separator makes it easy to:
 1. Split column names: col.split('__') → [source, analyzer, metric]
@@ -23,7 +29,6 @@ The double underscore separator makes it easy to:
 3. Distinguish from internal underscores in each component
 """
 
-import re
 from typing import NamedTuple
 
 
@@ -34,7 +39,12 @@ class AnalyzerColumnInfo(NamedTuple):
     """The original source column that was analyzed."""
 
     analyzer_id: str
-    """The ID of the analyzer that generated this column."""
+    """The instance ID of the analyzer that generated this column.
+
+    This is the unique identifier for the analyzer instance, which may
+    differ from the analyzer type (e.g., 'response_quality' vs
+    'llm_judge').
+    """
 
     metric_name: str
     """The specific metric name for this column."""
@@ -46,8 +56,11 @@ def make_analyzer_column_name(
     """Create a standardized analyzer column name.
 
     Args:
-        source_column: The source column being analyzed (e.g., 'text_content').
-        analyzer_id: The analyzer identifier (e.g., 'quality', 'ifd').
+        source_column: The source column being analyzed (e.g.,
+            'text_content').
+        analyzer_id: The analyzer instance identifier. This is the unique
+            ID for this analyzer instance (e.g., 'response_quality',
+            'llm_judge', 'ifd').
         metric_name: The metric name (e.g., 'has_pii', 'score').
 
     Returns:
@@ -57,7 +70,12 @@ def make_analyzer_column_name(
         >>> make_analyzer_column_name('text_content', 'quality', 'has_pii')
         'text_content__quality__has_pii'
 
-        >>> make_analyzer_column_name('conversation_text_content', 'cost', 'fits_context_4k')
+        >>> make_analyzer_column_name('text_content', 'response_quality', 'score')
+        'text_content__response_quality__score'
+
+        >>> make_analyzer_column_name(
+        ...     'conversation_text_content', 'cost', 'fits_context_4k'
+        ... )
         'conversation_text_content__cost__fits_context_4k'
     """
     return f"{source_column}__{analyzer_id}__{metric_name}"
@@ -70,12 +88,20 @@ def parse_analyzer_column_name(column_name: str) -> AnalyzerColumnInfo | None:
         column_name: Column name to parse.
 
     Returns:
-        AnalyzerColumnInfo with source_column, analyzer_id, and metric_name,
-        or None if the column name doesn't match the analyzer format.
+        AnalyzerColumnInfo with source_column, analyzer_id (instance ID),
+        and metric_name, or None if the column name doesn't match the
+        analyzer format.
 
     Examples:
         >>> parse_analyzer_column_name('text_content__quality__has_pii')
-        AnalyzerColumnInfo(source_column='text_content', analyzer_id='quality', metric_name='has_pii')
+        AnalyzerColumnInfo(source_column='text_content', \
+analyzer_id='quality', metric_name='has_pii')
+
+        >>> parse_analyzer_column_name(
+        ...     'text_content__response_quality__score'
+        ... )
+        AnalyzerColumnInfo(source_column='text_content', \
+analyzer_id='response_quality', metric_name='score')
 
         >>> parse_analyzer_column_name('regular_column')
         None
@@ -114,19 +140,33 @@ def filter_analyzer_columns(
 
     Args:
         columns: List of column names to filter.
-        analyzer_id: Optional analyzer ID to filter by.
+        analyzer_id: Optional analyzer instance ID to filter by. This
+            filters by the specific analyzer instance (e.g.,
+            'response_quality' for a specific llm_judge instance), not
+            the analyzer type.
         source_column: Optional source column to filter by.
 
     Returns:
         List of analyzer column names matching the filters.
 
     Examples:
-        >>> cols = ['text_content__quality__has_pii', 'text_content__ifd__score', 'regular_col']
+        >>> cols = [
+        ...     'text_content__quality__has_pii',
+        ...     'text_content__ifd__score', 'regular_col'
+        ... ]
         >>> filter_analyzer_columns(cols)
         ['text_content__quality__has_pii', 'text_content__ifd__score']
 
         >>> filter_analyzer_columns(cols, analyzer_id='quality')
         ['text_content__quality__has_pii']
+
+        >>> # Filter by instance ID (multiple instances of same analyzer)
+        >>> cols = [
+        ...     'text_content__response_quality__score',
+        ...     'text_content__instruction_quality__score'
+        ... ]
+        >>> filter_analyzer_columns(cols, analyzer_id='response_quality')
+        ['text_content__response_quality__score']
 
         >>> filter_analyzer_columns(cols, source_column='text_content')
         ['text_content__quality__has_pii', 'text_content__ifd__score']
@@ -175,13 +215,15 @@ def get_analyzer_columns_by_source(columns: list[str]) -> dict[str, list[str]]:
 
 
 def get_analyzer_columns_by_analyzer(columns: list[str]) -> dict[str, list[str]]:
-    """Group analyzer columns by their analyzer ID.
+    """Group analyzer columns by their analyzer instance ID.
 
     Args:
         columns: List of column names.
 
     Returns:
-        Dictionary mapping analyzer ID to list of analyzer columns.
+        Dictionary mapping analyzer instance ID to list of analyzer columns.
+        When using multiple instances of the same analyzer type, each instance
+        will have a separate entry in the dictionary.
 
     Examples:
         >>> cols = ['text_content__quality__has_pii', 'text_content__ifd__score',
@@ -189,6 +231,16 @@ def get_analyzer_columns_by_analyzer(columns: list[str]) -> dict[str, list[str]]
         >>> get_analyzer_columns_by_analyzer(cols)
         {'quality': ['text_content__quality__has_pii', 'other_col__quality__score'],
          'ifd': ['text_content__ifd__score']}
+
+        >>> # With multiple instances of same analyzer type
+        >>> cols = [
+        ...     'text_content__response_quality__score',
+        ...     'text_content__instruction_quality__score'
+        ... ]
+        >>> get_analyzer_columns_by_analyzer(cols)
+        {'response_quality': ['text_content__response_quality__score'],
+         'instruction_quality': \
+['text_content__instruction_quality__score']}
     """
     result: dict[str, list[str]] = {}
     for col in columns:

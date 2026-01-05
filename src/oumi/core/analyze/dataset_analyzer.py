@@ -270,14 +270,21 @@ class DatasetAnalyzer:
                         f"Sample analyzer '{analyzer_params.id}' not found in registry"
                     )
 
+                # Determine instance ID (use instance_id if provided, otherwise use id)
+                instance_id = (
+                    analyzer_params.instance_id
+                    if analyzer_params.instance_id
+                    else analyzer_params.id
+                )
+
                 # Check if this analyzer requires LLM and should be skipped
                 if self.skip_llm_analyzers and getattr(
                     analyzer_class, "requires_llm", False
                 ):
-                    skipped_analyzers.append(analyzer_params.id)
+                    skipped_analyzers.append(instance_id)
                     logger.info(
-                        f"Skipping LLM-based analyzer: {analyzer_params.id} "
-                        f"(--skip-llm flag set)"
+                        f"Skipping LLM-based analyzer: {instance_id} "
+                        f"(type: {analyzer_params.id}, --skip-llm flag set)"
                     )
                     continue
 
@@ -285,10 +292,10 @@ class DatasetAnalyzer:
                 if self.skip_remote_llm_analyzers and getattr(
                     analyzer_class, "requires_remote_llm", False
                 ):
-                    skipped_analyzers.append(analyzer_params.id)
+                    skipped_analyzers.append(instance_id)
                     logger.info(
-                        f"Skipping remote LLM analyzer: {analyzer_params.id} "
-                        f"(--skip-remote-llm flag set)"
+                        f"Skipping remote LLM analyzer: {instance_id} "
+                        f"(type: {analyzer_params.id}, --skip-remote-llm flag set)"
                     )
                     continue
 
@@ -300,8 +307,17 @@ class DatasetAnalyzer:
 
                 # Create analyzer instance with keyword arguments
                 sample_analyzer = analyzer_class(**analyzer_kwargs)
-                sample_analyzers[analyzer_params.id] = sample_analyzer
-                logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
+
+                # Set the instance ID on the analyzer so it can use it for column naming
+                sample_analyzer.analyzer_id = instance_id
+
+                # Store analyzer instance using the instance_id
+                sample_analyzers[instance_id] = sample_analyzer
+
+                log_msg = f"Initialized sample analyzer: {instance_id}"
+                if analyzer_params.instance_id:
+                    log_msg += f" (type: {analyzer_params.id})"
+                logger.info(log_msg)
             except Exception as e:
                 logger.error(
                     f"Failed to initialize sample analyzer {analyzer_params.id}: {e}"
