@@ -227,3 +227,23 @@ def test_load_xlsx_all_sheets_different_columns(sample_xlsx_different_columns):
     # Check that NaN values are present where columns don't match
     assert pd.isna(result.iloc[0]["salary"])  # First sheet has no salary
     assert pd.isna(result.iloc[2]["age"])  # Second sheet has no age
+
+
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
+def test_load_xlsx_all_sheets_zero_sheets(tmp_path, monkeypatch):
+    """Test loading XLSX file with zero sheets (simulating corrupted file)."""
+    # Create a dummy file path
+    file_path = tmp_path / "zero_sheets.xlsx"
+    file_path.touch()  # Create an empty file
+
+    # Mock pd.read_excel to return empty dict (simulating file with no sheets)
+    def mock_read_excel(*args, **kwargs):
+        return {}
+
+    monkeypatch.setattr(pd, "read_excel", mock_read_excel)
+
+    # Should return an empty DataFrame without raising ValueError
+    result = load_xlsx_all_sheets(file_path)
+    assert isinstance(result, pd.DataFrame)
+    assert result.empty
+    assert len(result) == 0

@@ -56,8 +56,9 @@ def test_read_single_pdf_document(reader, sample_pdf_content):
     mock_file_bytes = b"mock pdf file bytes"
 
     with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
-        with patch.object(
-            reader, "_extractor_method", return_value=sample_pdf_content
+        with patch(
+            "oumi.core.synthesis.document_ingestion.plain_text_output",
+            return_value=sample_pdf_content,
         ) as mock_pdf:
             result = reader.read(document_path)
 
@@ -65,7 +66,6 @@ def test_read_single_pdf_document(reader, sample_pdf_content):
             assert result == [sample_pdf_content]
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_single_txt_document(reader, sample_text_content):
     """Test reading a single TXT document."""
     document_path = "path/to/document.txt"
@@ -77,7 +77,6 @@ def test_read_single_txt_document(reader, sample_text_content):
         assert result == [sample_text_content]
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_single_html_document(reader, sample_text_content):
     """Test reading a single HTML document."""
     document_path = "path/to/document.html"
@@ -89,7 +88,6 @@ def test_read_single_html_document(reader, sample_text_content):
         assert result == [sample_text_content]
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_single_md_document(reader, sample_text_content):
     """Test reading a single Markdown document."""
     document_path = "path/to/document.md"
@@ -101,7 +99,6 @@ def test_read_single_md_document(reader, sample_text_content):
         assert result == [sample_text_content]
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_multiple_documents_glob_pattern(reader, sample_text_content):
     """Test reading multiple documents using glob pattern."""
     document_path = "path/to/*.txt"
@@ -124,7 +121,6 @@ def test_read_multiple_documents_glob_pattern(reader, sample_text_content):
             assert all(content == sample_text_content for content in result)
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_multiple_directories_files_glob_pattern(reader, sample_text_content):
     """Test reading multiple documents using glob pattern."""
     document_path = "path/*/to/*.txt"
@@ -168,8 +164,9 @@ def test_read_multiple_pdf_documents_glob_pattern(reader, sample_pdf_content):
 
     with patch("pathlib.Path.glob", return_value=mock_files):
         with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
-            with patch.object(
-                reader, "_extractor_method", return_value=sample_pdf_content
+            with patch(
+                "oumi.core.synthesis.document_ingestion.plain_text_output",
+                return_value=sample_pdf_content,
             ) as mock_pdf:
                 result = reader.read(document_path)
 
@@ -178,7 +175,6 @@ def test_read_multiple_pdf_documents_glob_pattern(reader, sample_pdf_content):
                 assert mock_pdf.call_count == 2
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_empty_glob_pattern(reader):
     """Test reading with glob pattern that matches no files."""
     document_path = "path/to/*.txt"
@@ -189,7 +185,6 @@ def test_read_empty_glob_pattern(reader):
         assert result == []
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_from_document_format_unsupported(reader):
     """Test reading document with unsupported format."""
     mock_file_bytes = b"mock file bytes"
@@ -202,8 +197,9 @@ def test_read_from_document_format_unsupported(reader):
 def test_read_from_pdf_calls_pdftext(reader, sample_pdf_content):
     """Test that reading PDF calls pdftext correctly."""
     mock_file_bytes = b"mock pdf file bytes"
-    with patch.object(
-        reader, "_extractor_method", return_value=sample_pdf_content
+    with patch(
+        "oumi.core.synthesis.document_ingestion.plain_text_output",
+        return_value=sample_pdf_content,
     ) as mock_pdf:
         result = reader._read_from_pdf(mock_file_bytes)
 
@@ -211,7 +207,19 @@ def test_read_from_pdf_calls_pdftext(reader, sample_pdf_content):
         assert result == sample_pdf_content
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
+def test_read_from_pdf_without_pdftext_raises_import_error(reader):
+    """Test that reading PDF without pdftext installed raises ImportError."""
+    mock_file_bytes = b"mock pdf file bytes"
+    with patch(
+        "oumi.core.synthesis.document_ingestion.plain_text_output",
+        None,
+    ):
+        with pytest.raises(
+            ImportError, match="pdftext is not installed. Please install it"
+        ):
+            reader._read_from_pdf(mock_file_bytes)
+
+
 def test_read_from_text_file_opens_file_correctly(reader, sample_text_content):
     """Test that reading text file handles file_bytes correctly."""
     mock_file_bytes = sample_text_content.encode("utf-8")
@@ -220,7 +228,6 @@ def test_read_from_text_file_opens_file_correctly(reader, sample_text_content):
     assert result == sample_text_content
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_from_glob_with_different_formats(reader, sample_text_content):
     """Test reading from glob with mixed document formats."""
     mock_file_bytes = sample_text_content.encode("utf-8")
@@ -242,7 +249,6 @@ def test_read_from_glob_with_different_formats(reader, sample_text_content):
             assert all(content == sample_text_content for content in result)
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_handles_file_read_error(reader):
     """Test that reading handles file read errors gracefully."""
     document_path = "path/to/nonexistent.txt"
@@ -259,8 +265,9 @@ def test_read_handles_pdf_read_error(reader):
     mock_file_bytes = b"corrupted pdf file bytes"
 
     with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
-        with patch.object(
-            reader, "_extractor_method", side_effect=Exception("PDF read error")
+        with patch(
+            "oumi.core.synthesis.document_ingestion.plain_text_output",
+            side_effect=Exception("PDF read error"),
         ):
             with pytest.raises(Exception, match="PDF read error"):
                 reader.read(document_path)
@@ -300,7 +307,10 @@ def test_read_mixed_documents(
         md_result = reader.read(md_path)
 
     with patch("builtins.open", mock_open(read_data=mock_pdf_bytes)):
-        with patch.object(reader, "_extractor_method", return_value=sample_pdf_content):
+        with patch(
+            "oumi.core.synthesis.document_ingestion.plain_text_output",
+            return_value=sample_pdf_content,
+        ):
             pdf_result = reader.read(pdf_path)
 
     assert txt_result == [sample_text_content]
@@ -521,8 +531,6 @@ def sample_docx_content():
     return "This is sample DOCX content.\n\nSecond paragraph."
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
-@pytest.mark.skipif(python_docx_import_failed, reason="python-docx not available")
 def test_read_single_docx_document(reader, sample_docx_content):
     """Test reading a single DOCX document."""
     document_path = "path/to/document.docx"
@@ -534,12 +542,10 @@ def test_read_single_docx_document(reader, sample_docx_content):
         ) as mock_docx:
             result = reader.read(document_path)
 
-            mock_docx.assert_called_once_with(mock_file_bytes)
+            mock_docx.assert_called_once_with(mock_file_bytes, document_path)
             assert result == [sample_docx_content]
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
-@pytest.mark.skipif(python_docx_import_failed, reason="python-docx not available")
 def test_read_multiple_docx_documents_glob_pattern(reader, sample_docx_content):
     """Test reading multiple DOCX documents using glob pattern."""
     document_path = "path/to/*.docx"
@@ -566,7 +572,6 @@ def test_read_multiple_docx_documents_glob_pattern(reader, sample_docx_content):
                 assert mock_docx.call_count == 2
 
 
-@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 @pytest.mark.skipif(python_docx_import_failed, reason="python-docx not available")
 def test_read_from_docx_calls_python_docx_correctly(reader):
     """Test that reading DOCX calls python-docx correctly."""
@@ -595,3 +600,51 @@ def test_read_from_docx_calls_python_docx_correctly(reader):
 
         expected = "First paragraph\nSecond paragraph"
         assert result == expected
+
+
+@pytest.mark.skipif(python_docx_import_failed, reason="python-docx not available")
+def test_read_from_docx_handles_bad_zip_file(reader):
+    """Test that reading a corrupted DOCX file raises a helpful error."""
+    from zipfile import BadZipFile
+
+    mock_file_bytes = b"not a valid zip file"
+
+    with patch(
+        "oumi.core.synthesis.document_ingestion.Document",
+        side_effect=BadZipFile("File is not a zip file"),
+    ):
+        with pytest.raises(
+            ValueError, match="Failed to read DOCX file.*corrupted.*malformed"
+        ):
+            reader._read_from_docx(mock_file_bytes)
+
+
+@pytest.mark.skipif(python_docx_import_failed, reason="python-docx not available")
+def test_read_from_docx_handles_bad_zip_file_with_filename(reader):
+    """Test that reading a corrupted DOCX file includes filename in error."""
+    from zipfile import BadZipFile
+
+    mock_file_bytes = b"not a valid zip file"
+    test_file_path = "/path/to/corrupted.docx"
+
+    with patch(
+        "oumi.core.synthesis.document_ingestion.Document",
+        side_effect=BadZipFile("File is not a zip file"),
+    ):
+        with pytest.raises(
+            ValueError, match=r"Failed to read DOCX file '/path/to/corrupted\.docx'"
+        ):
+            reader._read_from_docx(mock_file_bytes, test_file_path)
+
+
+@pytest.mark.skipif(python_docx_import_failed, reason="python-docx not available")
+def test_read_from_docx_handles_generic_error(reader):
+    """Test that reading a malformed DOCX file raises a helpful error."""
+    mock_file_bytes = b"malformed docx content"
+
+    with patch(
+        "oumi.core.synthesis.document_ingestion.Document",
+        side_effect=Exception("Unexpected error"),
+    ):
+        with pytest.raises(ValueError, match="Failed to read DOCX file.*malformed"):
+            reader._read_from_docx(mock_file_bytes)

@@ -82,12 +82,7 @@ class DocumentReader:
 
     def __init__(self):
         """Initialize the document reader."""
-        if plain_text_output is None:
-            raise ImportError(
-                "pdftext is not installed. Please install it with "
-                "`pip install oumi[synthesis]`."
-            )
-        self._extractor_method = plain_text_output
+        pass
 
     def read(self, document_path: str) -> list[str]:
         """Read the document."""
@@ -99,7 +94,9 @@ class DocumentReader:
             if file_type in self._SUPPORTED_FILE_TYPES:
                 with open(path, "rb") as file:
                     file_bytes = file.read()
-                return [self._read_from_document_format(file_bytes, file_type)]
+                return [
+                    self._read_from_document_format(file_bytes, file_type, str(path))
+                ]
             else:
                 raise NotImplementedError(f"Unsupported document format: {file_type}")
 
@@ -140,10 +137,12 @@ class DocumentReader:
             if file.is_file():
                 file_type = self._get_file_type(file)
                 if file_type in self._SUPPORTED_FILE_TYPES:
-                    with open(file, "rb") as file:
-                        file_bytes = file.read()
+                    with open(file, "rb") as f:
+                        file_bytes = f.read()
                         documents.append(
-                            self._read_from_document_format(file_bytes, file_type)
+                            self._read_from_document_format(
+                                file_bytes, file_type, str(file)
+                            )
                         )
                 else:
                     logger.warning(
@@ -156,27 +155,33 @@ class DocumentReader:
         self,
         file_bytes: bytes,
         file_type: str,
+        file_path: str = "",
     ) -> str:
         """Read the document from the document format."""
         if file_type == "pdf":
-            return self._read_from_pdf(file_bytes)
+            return self._read_from_pdf(file_bytes, file_path)
         elif file_type == "docx":
-            return self._read_from_docx(file_bytes)
+            return self._read_from_docx(file_bytes, file_path)
         elif file_type == "txt" or file_type == "md" or file_type == "html":
             return self._read_from_text_file(file_bytes)
         else:
             raise NotImplementedError(f"Unsupported document format: {file_type}")
 
-    def _read_from_pdf(self, file_bytes: bytes) -> str:
+    def _read_from_pdf(self, file_bytes: bytes, file_path: str = "") -> str:
         """Read the document from the PDF format."""
-        plain_text = self._extractor_method(file_bytes, sort=True, hyphens=True)
+        if plain_text_output is None:
+            raise ImportError(
+                "pdftext is not installed. Please install it with "
+                "`pip install oumi[synthesis]`."
+            )
+        plain_text = plain_text_output(file_bytes, sort=True, hyphens=True)
         return plain_text
 
     def _read_from_text_file(self, file_bytes: bytes) -> str:
         """Read the document from the file."""
         return file_bytes.decode("utf-8")
 
-    def _read_from_docx(self, file_bytes: bytes) -> str:
+    def _read_from_docx(self, file_bytes: bytes, file_path: str = "") -> str:
         """Read the document from the DOCX format."""
         if Document is None:
             raise ImportError(
@@ -185,6 +190,13 @@ class DocumentReader:
             )
         from io import BytesIO
 
-        doc = Document(BytesIO(file_bytes))
-        paragraphs = [paragraph.text for paragraph in doc.paragraphs]
-        return "\n".join(paragraphs)
+        file_info = f" '{file_path}'" if file_path else ""
+        try:
+            doc = Document(BytesIO(file_bytes))
+            paragraphs = [paragraph.text for paragraph in doc.paragraphs]
+            return "\n".join(paragraphs)
+        except Exception:
+            raise ValueError(
+                f"Failed to read DOCX file{file_info}. The file may be corrupted, "
+                "malformed, or not a valid DOCX document."
+            )

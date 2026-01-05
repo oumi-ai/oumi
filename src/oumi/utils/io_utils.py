@@ -165,5 +165,9 @@ def load_xlsx_all_sheets(filename: str | Path) -> pd.DataFrame:
     # Read all sheets from the XLSX file
     all_sheets = pd.read_excel(file_path, sheet_name=None, engine="openpyxl")
 
+    # Handle empty XLSX files (no sheets)
+    if not all_sheets:
+        return pd.DataFrame()
+
     # Concatenate all DataFrames from all sheets
     return pd.concat(all_sheets.values(), ignore_index=True)
