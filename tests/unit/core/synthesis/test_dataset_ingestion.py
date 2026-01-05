@@ -229,10 +229,10 @@ def test_read_from_local_xlsx(reader, sample_data, sample_dataframe):
     """Test reading from local XLSX file."""
     data_source = DatasetSource(path="data/file.xlsx")
 
-    with patch("pandas.read_excel", return_value=sample_dataframe) as mock_read:
+    with patch.object(reader, "_read_from_xlsx", return_value=sample_data) as mock_read:
         result = reader.read(data_source)
 
-        mock_read.assert_called_once_with("data/file.xlsx", engine="openpyxl")
+        mock_read.assert_called_once_with("data/file.xlsx")
         assert result == sample_data
 
 

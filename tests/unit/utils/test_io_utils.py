@@ -11,6 +11,13 @@ from oumi.utils.io_utils import (
     save_jsonlines,
 )
 
+try:
+    import openpyxl  # noqa: F401
+
+    OPENPYXL_AVAILABLE = True
+except ImportError:
+    OPENPYXL_AVAILABLE = False
+
 
 @pytest.fixture
 def sample_data():
@@ -93,6 +100,7 @@ def test_load_and_save_with_path_object(tmp_path, sample_data):
 @pytest.fixture
 def sample_xlsx_single_sheet(tmp_path):
     """Create a temporary XLSX file with a single sheet."""
+    pytest.importorskip("openpyxl")
     file_path = tmp_path / "single_sheet.xlsx"
     xl_df = pd.DataFrame(
         {"name": ["Alice", "Bob"], "age": [25, 30], "city": ["NY", "LA"]}
@@ -104,6 +112,7 @@ def sample_xlsx_single_sheet(tmp_path):
 @pytest.fixture
 def sample_xlsx_multiple_sheets(tmp_path):
     """Create a temporary XLSX file with multiple sheets."""
+    pytest.importorskip("openpyxl")
     file_path = tmp_path / "multiple_sheets.xlsx"
 
     # Create multiple sheets with different data
@@ -136,6 +145,7 @@ def expected_combined_dataframe():
     )
 
 
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
 def test_load_xlsx_all_sheets_single_sheet(sample_xlsx_single_sheet):
     """Test loading an XLSX file with a single sheet."""
     result = load_xlsx_all_sheets(sample_xlsx_single_sheet)
@@ -147,6 +157,7 @@ def test_load_xlsx_all_sheets_single_sheet(sample_xlsx_single_sheet):
     pd.testing.assert_frame_equal(result.reset_index(drop=True), expected)
 
 
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
 def test_load_xlsx_all_sheets_multiple_sheets(
     sample_xlsx_multiple_sheets, expected_combined_dataframe
 ):
@@ -158,6 +169,7 @@ def test_load_xlsx_all_sheets_multiple_sheets(
     )
 
 
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
 def test_load_xlsx_all_sheets_file_not_found():
     """Test that FileNotFoundError is raised when file doesn't exist."""
     with pytest.raises(FileNotFoundError, match="does not exist"):
@@ -167,6 +179,7 @@ def test_load_xlsx_all_sheets_file_not_found():
 @pytest.fixture
 def sample_xlsx_empty_sheets(tmp_path):
     """Create a temporary XLSX file with empty sheets."""
+    pytest.importorskip("openpyxl")
     file_path = tmp_path / "empty_sheets.xlsx"
 
     with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
@@ -176,6 +189,7 @@ def sample_xlsx_empty_sheets(tmp_path):
     return file_path
 
 
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
 def test_load_xlsx_all_sheets_empty_file(sample_xlsx_empty_sheets):
     """Test loading an XLSX file with empty sheets."""
     result = load_xlsx_all_sheets(sample_xlsx_empty_sheets)
@@ -187,6 +201,7 @@ def test_load_xlsx_all_sheets_empty_file(sample_xlsx_empty_sheets):
 @pytest.fixture
 def sample_xlsx_different_columns(tmp_path):
     """Create an XLSX file with sheets having different columns."""
+    pytest.importorskip("openpyxl")
     file_path = tmp_path / "different_columns.xlsx"
 
     with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
@@ -198,6 +213,7 @@ def sample_xlsx_different_columns(tmp_path):
     return file_path
 
 
+@pytest.mark.skipif(not OPENPYXL_AVAILABLE, reason="openpyxl not installed")
 def test_load_xlsx_all_sheets_different_columns(sample_xlsx_different_columns):
     """Test loading sheets with different column structures."""
     result = load_xlsx_all_sheets(sample_xlsx_different_columns)

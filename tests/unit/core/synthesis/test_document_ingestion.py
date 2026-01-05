@@ -583,12 +583,14 @@ def test_read_from_docx_calls_python_docx_correctly(reader):
     mock_doc = MagicMock()
     mock_doc.paragraphs = [mock_paragraph1, mock_paragraph2]
 
-    with patch.object(reader, "_docx_parser", return_value=mock_doc) as mock_parser:
+    with patch(
+        "oumi.core.synthesis.document_ingestion.Document", return_value=mock_doc
+    ) as mock_document:
         result = reader._read_from_docx(mock_file_bytes)
 
         # Verify Document was called with BytesIO
-        assert mock_parser.call_count == 1
-        call_arg = mock_parser.call_args[0][0]
+        assert mock_document.call_count == 1
+        call_arg = mock_document.call_args[0][0]
         assert isinstance(call_arg, BytesIO)
 
         expected = "First paragraph\nSecond paragraph"
