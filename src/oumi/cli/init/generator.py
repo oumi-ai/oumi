@@ -457,9 +457,9 @@ Respond with JSON matching the expected schema."""
         """
         import tempfile
 
-        from oumi import judge as oumi_judge
         from oumi import synthesize as oumi_synthesize
         from oumi.core.configs import JudgeConfig, SynthesisConfig
+        from oumi.judge import judge_dataset_file
 
         console.print(
             Panel(
@@ -500,10 +500,8 @@ Respond with JSON matching the expected schema."""
                             samples.append(json.loads(line))
 
                     for i, sample in enumerate(samples, 1):
-                        # Format sample for display
+                        # Format sample for display (no truncation)
                         sample_str = json.dumps(sample, indent=2, ensure_ascii=False)
-                        if len(sample_str) > 1000:
-                            sample_str = sample_str[:1000] + "\n..."
                         console.print(
                             Panel(
                                 Syntax(sample_str, "json", theme="monokai"),
@@ -515,10 +513,8 @@ Respond with JSON matching the expected schema."""
                 # Run judge
                 with console.status("[cyan]Judging samples...[/cyan]"):
                     judge_config = JudgeConfig.from_yaml(str(judge_config_path))
-                    judge_config.input_path = str(output_path)
                     judge_output_path = Path(tmpdir) / "judge_output.jsonl"
-                    judge_config.output_path = str(judge_output_path)
-                    oumi_judge(judge_config)
+                    judge_dataset_file(judge_config, output_path, judge_output_path)
 
                 console.print("[green]Judging complete[/green]")
 
