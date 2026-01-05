@@ -35,6 +35,8 @@ class MetricsLoggerCallback(BaseTrainerCallback):
 
     Each line in the output file is a valid JSON object containing all metrics
     logged at that step (loss, learning rate, epoch, MFU if enabled, etc.).
+
+    Evaluation results are logged to a separate JSONL file.
     """
 
     def __init__(self, output_dir: pathlib.Path):
@@ -45,6 +47,7 @@ class MetricsLoggerCallback(BaseTrainerCallback):
         """
         self._output_dir = output_dir
         self._metrics_log_file: pathlib.Path | None = None
+        self._eval_results_log_file: pathlib.Path | None = None
 
     def on_log(
         self,
@@ -62,6 +65,23 @@ class MetricsLoggerCallback(BaseTrainerCallback):
 
         metrics = kwargs[_LOGS_KWARG]
         self._write_metrics_to_jsonl(metrics)
+
+    def on_evaluate(
+        self,
+        args: "transformers.TrainingArguments | TrainingParams | None",
+        state: "transformers.TrainerState | None" = None,
+        control: "transformers.TrainerControl | None" = None,
+        **kwargs,
+    ):
+        """Event called after evaluation."""
+        if not is_world_process_zero():
+            return
+
+        if _LOGS_KWARG not in kwargs:
+            return
+
+        metrics = kwargs[_LOGS_KWARG]
+        self._write_eval_results_to_jsonl(metrics)
 
     def _write_metrics_to_jsonl(self, metrics: dict) -> None:
         """Writes metrics to a JSONL file.
@@ -83,3 +103,26 @@ class MetricsLoggerCallback(BaseTrainerCallback):
                 f.write(json.dumps(metrics, default=str) + "\n")
         except OSError as e:
             logger.warning(f"Failed to write metrics to {self._metrics_log_file}: {e}")
+
+    def _write_eval_results_to_jsonl(self, metrics: dict) -> None:
+        """Writes evaluation results to a separate JSONL file.
+
+        Each call appends a new line with the evaluation metrics as a JSON object.
+
+        Args:
+            metrics: Dictionary of evaluation metrics to write.
+        """
+        if self._eval_results_log_file is None:
+            device_rank_info = get_device_rank_info()
+            self._output_dir.mkdir(parents=True, exist_ok=True)
+            self._eval_results_log_file = (
+                self._output_dir / f"eval_results_rank{device_rank_info.rank:04}.jsonl"
+            )
+
+        try:
+            with open(self._eval_results_log_file, "a") as f:
+                f.write(json.dumps(metrics, default=str) + "\n")
+        except OSError as e:
+            logger.warning(
+                f"Failed to write eval results to {self._eval_results_log_file}: {e}"
+            )

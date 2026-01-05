@@ -172,3 +172,109 @@ class TestMetricsLoggerCallback:
 
         assert logged["loss"] == 1.5
         assert logged["path"] == "/some/path"  # Converted to string
+
+    @patch("oumi.core.callbacks.metrics_logger_callback.is_world_process_zero")
+    @patch("oumi.core.callbacks.metrics_logger_callback.get_device_rank_info")
+    def test_on_evaluate_writes_eval_results(
+        self, mock_rank_info, mock_is_world_zero, temp_output_dir: pathlib.Path
+    ):
+        """Tests that on_evaluate writes evaluation results to a separate JSONL file."""
+        mock_is_world_zero.return_value = True
+        mock_rank_info.return_value.rank = 0
+
+        callback = MetricsLoggerCallback(output_dir=temp_output_dir)
+        eval_metrics = {"val/loss": 0.5, "val/perplexity": 1.65, "step": 1000}
+
+        callback.on_evaluate(args=None, state=None, control=None, logs=eval_metrics)
+
+        # Verify eval file was created
+        assert callback._eval_results_log_file is not None
+        assert callback._eval_results_log_file.exists()
+
+        # Verify content
+        with open(callback._eval_results_log_file) as f:
+            lines = f.readlines()
+        assert len(lines) == 1
+        logged_metrics = json.loads(lines[0])
+        assert logged_metrics == eval_metrics
+
+    @patch("oumi.core.callbacks.metrics_logger_callback.is_world_process_zero")
+    @patch("oumi.core.callbacks.metrics_logger_callback.get_device_rank_info")
+    def test_on_evaluate_appends_multiple_entries(
+        self, mock_rank_info, mock_is_world_zero, temp_output_dir: pathlib.Path
+    ):
+        """Tests that multiple on_evaluate calls append to the same file."""
+        mock_is_world_zero.return_value = True
+        mock_rank_info.return_value.rank = 0
+
+        callback = MetricsLoggerCallback(output_dir=temp_output_dir)
+
+        eval_metrics_list = [
+            {"val/loss": 2.0, "val/perplexity": 7.39, "step": 100},
+            {"val/loss": 1.5, "val/perplexity": 4.48, "step": 200},
+            {"val/loss": 1.0, "val/perplexity": 2.72, "step": 300},
+        ]
+
+        for metrics in eval_metrics_list:
+            callback.on_evaluate(args=None, state=None, control=None, logs=metrics)
+
+        # Verify all entries were written
+        assert callback._eval_results_log_file is not None
+        with open(callback._eval_results_log_file) as f:
+            lines = f.readlines()
+        assert len(lines) == 3
+
+        for i, line in enumerate(lines):
+            logged_metrics = json.loads(line)
+            assert logged_metrics == eval_metrics_list[i]
+
+    @patch("oumi.core.callbacks.metrics_logger_callback.is_world_process_zero")
+    @patch("oumi.core.callbacks.metrics_logger_callback.get_device_rank_info")
+    def test_on_evaluate_and_on_log_use_separate_files(
+        self, mock_rank_info, mock_is_world_zero, temp_output_dir: pathlib.Path
+    ):
+        """Tests that on_evaluate and on_log write to separate files."""
+        mock_is_world_zero.return_value = True
+        mock_rank_info.return_value.rank = 0
+
+        callback = MetricsLoggerCallback(output_dir=temp_output_dir)
+
+        train_metrics = {"loss": 1.5, "learning_rate": 0.001}
+        eval_metrics = {"val/loss": 0.5, "val/perplexity": 1.65}
+
+        callback.on_log(args=None, state=None, control=None, logs=train_metrics)
+        callback.on_evaluate(args=None, state=None, control=None, logs=eval_metrics)
+
+        # Verify both files exist and are different
+        assert callback._metrics_log_file is not None
+        assert callback._eval_results_log_file is not None
+        assert callback._metrics_log_file != callback._eval_results_log_file
+        assert callback._metrics_log_file.exists()
+        assert callback._eval_results_log_file.exists()
+
+        # Verify training metrics in training file
+        with open(callback._metrics_log_file) as f:
+            logged_train = json.loads(f.readline())
+        assert logged_train == train_metrics
+
+        # Verify eval metrics in eval file
+        with open(callback._eval_results_log_file) as f:
+            logged_eval = json.loads(f.readline())
+        assert logged_eval == eval_metrics
+
+    @patch("oumi.core.callbacks.metrics_logger_callback.is_world_process_zero")
+    @patch("oumi.core.callbacks.metrics_logger_callback.get_device_rank_info")
+    def test_eval_results_file_naming(
+        self, mock_rank_info, mock_is_world_zero, temp_output_dir: pathlib.Path
+    ):
+        """Tests that eval results file is named correctly with rank."""
+        mock_is_world_zero.return_value = True
+        mock_rank_info.return_value.rank = 2
+
+        callback = MetricsLoggerCallback(output_dir=temp_output_dir)
+        callback.on_evaluate(
+            args=None, state=None, control=None, logs={"val/loss": 1.0}
+        )
+
+        expected_file = temp_output_dir / "eval_results_rank0002.jsonl"
+        assert callback._eval_results_log_file == expected_file
