@@ -17,6 +17,12 @@ from pathlib import Path
 from typing import Any
 
 import jsonlines
+import pandas as pd
+
+try:
+    import openpyxl  # noqa: F401
+except ImportError:
+    openpyxl = None  # type: ignore[assignment]
 
 
 def load_json(filename: str | Path) -> Any:
@@ -131,3 +137,37 @@ def save_jsonlines(filename: str | Path, data: list[dict[str, Any]]) -> None:
             writer.write_all(data)
     except OSError as e:
         raise OSError(f"Error writing to file {filename}") from e
+
+
+def load_xlsx_all_sheets(filename: str | Path) -> pd.DataFrame:
+    """Load all sheets from an XLSX file and concatenate them into a single DataFrame.
+
+    Args:
+        filename: Path to the XLSX file.
+
+    Returns:
+        pd.DataFrame: DataFrame containing all data from all sheets concatenated.
+
+    Raises:
+        ImportError: If openpyxl is not installed.
+        FileNotFoundError: If the file doesn't exist.
+    """
+    if openpyxl is None:
+        raise ImportError(
+            "openpyxl is not installed. Please install it with "
+            "`pip install oumi[synthesis]` or `pip install openpyxl`."
+        )
+
+    file_path = Path(filename)
+    if not file_path.exists():
+        raise FileNotFoundError(f"The file {filename} does not exist.")
+
+    # Read all sheets from the XLSX file
+    all_sheets = pd.read_excel(file_path, sheet_name=None, engine="openpyxl")
+
+    # Handle empty XLSX files (no sheets)
+    if not all_sheets:
+        return pd.DataFrame()
+
+    # Concatenate all DataFrames from all sheets
+    return pd.concat(all_sheets.values(), ignore_index=True)

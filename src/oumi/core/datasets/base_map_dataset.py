@@ -26,6 +26,7 @@ import pandas as pd
 from torch.utils.data import MapDataPipe
 
 from oumi.utils.hf_utils import is_cached_to_disk_hf_dataset
+from oumi.utils.io_utils import load_xlsx_all_sheets
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import estimate_sample_dict_size_in_bytes, get_shape_as_list
 
@@ -445,6 +446,9 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
         elif dataset_path.suffix.lower() == ".parquet" and dataset_path.is_file():
             result = self._load_parquet_dataset(dataset_path)
 
+        elif dataset_path.suffix.lower() == ".xlsx" and dataset_path.is_file():
+            result = self._load_xlsx_dataset(dataset_path)
+
         elif is_cached_to_disk_hf_dataset(dataset_path):
             result = self._load_dataset_from_disk(dataset_path)
 
@@ -507,6 +511,10 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
 
     def _load_parquet_dataset(self, path: Path) -> pd.DataFrame:
         return pd.read_parquet(path)
+
+    def _load_xlsx_dataset(self, path: Path) -> pd.DataFrame:
+        """Load all sheets from an XLSX file and concatenate them."""
+        return load_xlsx_all_sheets(path)
 
     def _load_dataset_from_disk(self, path: Path) -> pd.DataFrame:
         dataset: datasets.Dataset = datasets.Dataset.load_from_disk(path)
