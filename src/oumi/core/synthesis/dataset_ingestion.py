@@ -19,6 +19,7 @@ import pandas as pd
 from datasets import load_dataset
 
 from oumi.core.configs.params.synthesis_params import DatasetSource
+from oumi.utils.io_utils import load_xlsx_all_sheets
 
 
 class DatasetStorageType(Enum):
@@ -236,6 +237,9 @@ class DatasetReader:
         return json_df.to_dict(orient="records")
 
     def _read_from_xlsx(self, xlsx_path: str) -> list[dict]:
-        """Read the dataset from an XLSX file."""
-        xlsx_df = pd.read_excel(xlsx_path, engine="openpyxl")
+        """Read the dataset from an XLSX file.
+
+        Reads all sheets from the XLSX file and concatenates them into a single dataset.
+        """
+        xlsx_df = load_xlsx_all_sheets(xlsx_path)
         return xlsx_df.to_dict(orient="records")

@@ -1,8 +1,12 @@
+from importlib.util import find_spec
+
 import datasets
 import pandas as pd
 import pytest
 
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
+
+openpyxl_import_failed = find_spec("openpyxl") is None
 
 
 class MyTestDataset(BaseMapDataset):
@@ -49,6 +53,7 @@ def test_to_hf_basic(stream: bool):
         assert isinstance(dataset, datasets.Dataset)
 
 
+@pytest.mark.skipif(openpyxl_import_failed, reason="openpyxl not available")
 def test_load_xlsx_dataset(tmp_path):
     """Test loading XLSX dataset."""
     # Create test XLSX file

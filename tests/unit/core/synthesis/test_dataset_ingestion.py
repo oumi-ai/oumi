@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from importlib.util import find_spec
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -23,6 +24,8 @@ from oumi.core.synthesis.dataset_ingestion import (
     DatasetReader,
     DatasetStorageType,
 )
+
+openpyxl_import_failed = find_spec("openpyxl") is None
 
 
 def test_invalid_path():
@@ -221,6 +224,7 @@ def test_read_from_local_json(reader, sample_data, sample_dataframe):
         assert result == sample_data
 
 
+@pytest.mark.skipif(openpyxl_import_failed, reason="openpyxl not available")
 def test_read_from_local_xlsx(reader, sample_data, sample_dataframe):
     """Test reading from local XLSX file."""
     data_source = DatasetSource(path="data/file.xlsx")
@@ -232,6 +236,7 @@ def test_read_from_local_xlsx(reader, sample_data, sample_dataframe):
         assert result == sample_data
 
 
+@pytest.mark.skipif(openpyxl_import_failed, reason="openpyxl not available")
 def test_read_from_local_xlsx_glob_pattern(reader, sample_data):
     """Test reading from local XLSX files using glob pattern."""
     data_source = DatasetSource(path="data/*.xlsx")

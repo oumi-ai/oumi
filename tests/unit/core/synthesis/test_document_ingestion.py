@@ -28,6 +28,7 @@ from oumi.core.synthesis.document_ingestion import (
 )
 
 pdftext_import_failed = find_spec("pdftext") is None
+python_docx_import_failed = find_spec("docx") is None
 
 
 @pytest.fixture
@@ -521,6 +522,7 @@ def sample_docx_content():
 
 
 @pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
+@pytest.mark.skipif(python_docx_import_failed, reason="python-docx not available")
 def test_read_single_docx_document(reader, sample_docx_content):
     """Test reading a single DOCX document."""
     document_path = "path/to/document.docx"
@@ -537,6 +539,7 @@ def test_read_single_docx_document(reader, sample_docx_content):
 
 
 @pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
+@pytest.mark.skipif(python_docx_import_failed, reason="python-docx not available")
 def test_read_multiple_docx_documents_glob_pattern(reader, sample_docx_content):
     """Test reading multiple DOCX documents using glob pattern."""
     document_path = "path/to/*.docx"
@@ -564,6 +567,7 @@ def test_read_multiple_docx_documents_glob_pattern(reader, sample_docx_content):
 
 
 @pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
+@pytest.mark.skipif(python_docx_import_failed, reason="python-docx not available")
 def test_read_from_docx_calls_python_docx_correctly(reader):
     """Test that reading DOCX calls python-docx correctly."""
     from io import BytesIO

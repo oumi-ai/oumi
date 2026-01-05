@@ -57,7 +57,6 @@ dependencies = [
     "omegaconf==2.4.0.dev4",
     "packaging",
     "pandas>=2.3,<3",
-    "openpyxl>=3.1.0",  # Excel engine for pandas
     "peft>=0.17,<0.19",
     "pexpect>=4.9,<4.10",      # Used by Polaris client
     "posthog>=7.0,<8.0",
@@ -150,6 +149,7 @@ runpod = ["skypilot[runpod]"]
 synthesis = [
     "pdftext>=0.6.3; python_version >= '3.10'", # Document ingestion for synthesis
     "python-docx>=1.1.0",  # DOCX document ingestion for synthesis
+    "openpyxl>=3.1.0",  # Excel engine for pandas
 ]
 
 # Flash Attention - separate group due to special installation requirements

@@ -87,13 +87,7 @@ class DocumentReader:
                 "pdftext is not installed. Please install it with "
                 "`pip install oumi[synthesis]`."
             )
-        if Document is None:
-            raise ImportError(
-                "python-docx is not installed. Please install it with "
-                "`pip install oumi[synthesis]`."
-            )
         self._extractor_method = plain_text_output
-        self._docx_parser = Document
 
     def read(self, document_path: str) -> list[str]:
         """Read the document."""
@@ -184,8 +178,13 @@ class DocumentReader:
 
     def _read_from_docx(self, file_bytes: bytes) -> str:
         """Read the document from the DOCX format."""
+        if Document is None:
+            raise ImportError(
+                "python-docx is not installed. Please install it with "
+                "`pip install oumi[synthesis]` or `pip install python-docx`."
+            )
         from io import BytesIO
 
-        doc = self._docx_parser(BytesIO(file_bytes))
+        doc = Document(BytesIO(file_bytes))
         paragraphs = [paragraph.text for paragraph in doc.paragraphs]
         return "\n".join(paragraphs)
