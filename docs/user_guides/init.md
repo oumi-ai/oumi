@@ -45,6 +45,29 @@ The AI will:
 3. Generate both `synth_config.yaml` and `judge_config.yaml`
 4. Show a preview and let you save or edit
 
+### Loading Task from a File
+
+For complex task descriptions or version control, use a file:
+
+```bash
+# Create a task file
+cat > task.txt << 'EOF'
+Generate reading comprehension questions from academic papers.
+Include questions about methodology, findings, and implications.
+Vary difficulty from undergraduate to expert level.
+Each question should test critical thinking, not just recall.
+EOF
+
+# Use the task file
+oumi init --task-file task.txt
+```
+
+This is especially useful for:
+- Long, detailed task descriptions
+- Tasks with multiple requirements
+- Version controlling your task definitions
+- Sharing task definitions across teams
+
 ### With Source Files
 
 Use existing documents or datasets as input:
@@ -61,6 +84,9 @@ oumi init --task "Generate paraphrases of these support tickets" \
 # Multiple sources
 oumi init --task "Generate QA pairs from these documents" \
     --source chapter1.md --source chapter2.md
+
+# Combine task file with sources
+oumi init --task-file task.txt --source data.jsonl
 ```
 
 ### Non-Interactive Mode
@@ -79,13 +105,16 @@ oumi init -N -t "Generate coding problems" --dry-run
 
 | Option | Short | Description | Default |
 |--------|-------|-------------|---------|
-| `--task` | `-t` | Task description (required) | - |
+| `--task` | `-t` | Task description (required*) | - |
+| `--task-file` | `-T` | Path to file containing task description (required*) | - |
 | `--source` | `-s` | Source file(s) - can be repeated | None |
 | `--output-dir` | `-o` | Directory to save configs | `./configs/` |
 | `--output-format` | `-f` | Output format: conversation, instruction, raw | `conversation` |
 | `--non-interactive` | `-N` | Skip conversation, use defaults | False |
 | `--new` | `-n` | Start fresh (ignore existing session) | False |
 | `--dry-run` | | Preview without saving | False |
+
+*Either `--task` or `--task-file` is required (but not both)
 
 ## The Conversation Flow
 
@@ -358,6 +387,38 @@ oumi init --task "Generate customer service conversations. \
     Include scenarios for billing inquiries, technical support, and complaints. \
     Conversations should be 3-5 turns each."
 ```
+
+### Using Task Files
+
+For complex tasks, use `--task-file` to keep descriptions maintainable:
+
+```bash
+# task.txt
+cat > medical_qa_task.txt << 'EOF'
+Generate medical QA pairs from clinical guidelines.
+
+Requirements:
+- Focus on diagnosis, treatment, and prevention
+- Include both common and rare conditions
+- Questions should be answerable from the provided guidelines
+- Answers must cite specific guideline sections
+- Maintain medical accuracy and appropriate terminology
+- Target audience: medical students and residents
+
+Output format:
+- Question: Clear, specific clinical scenario
+- Answer: Evidence-based response with guideline references
+- Difficulty: Beginner, Intermediate, or Advanced
+EOF
+
+oumi init --task-file medical_qa_task.txt --source guidelines.pdf
+```
+
+Benefits:
+- **Version control** - Track changes to task definitions in git
+- **Reusability** - Use the same task file across multiple runs
+- **Collaboration** - Share task files with teammates
+- **Documentation** - Task file serves as project documentation
 
 ### Using Non-Interactive Mode Effectively
 

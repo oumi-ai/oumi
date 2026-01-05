@@ -19,7 +19,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -42,15 +42,23 @@ app = typer.Typer(
 def init_callback(
     ctx: typer.Context,
     task: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--task",
             "-t",
             help="Natural language description of your data generation task",
         ),
     ] = None,
+    task_file: Annotated[
+        str | None,
+        typer.Option(
+            "--task-file",
+            "-T",
+            help="Path to file containing task description",
+        ),
+    ] = None,
     source: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option(
             "--source",
             "-s",
@@ -97,13 +105,14 @@ def init_callback(
         ),
     ] = False,
 ):
-    """Generate oumi synth and judge configs from a task description.
+    r"""Generate oumi synth and judge configs from a task description.
 
     Automatically resumes from existing session if one exists in the output directory.
 
     Examples:
-
         oumi init --task "Generate QA pairs about world history"
+
+        oumi init --task-file task.txt  # Load task from file
 
         oumi init --task "Create variations of these support tickets" \\
             --source tickets.jsonl
@@ -128,6 +137,26 @@ def init_callback(
             )
         )
         raise typer.Exit(1)
+
+    # Validate task input: either --task or --task-file, not both
+    if task is not None and task_file is not None:
+        console.print("[red]Error: Cannot specify both --task and --task-file[/red]")
+        raise typer.Exit(1)
+
+    # Load task from file if --task-file is provided
+    if task_file is not None:
+        task_path = Path(task_file)
+        if not task_path.exists():
+            console.print(f"[red]Task file not found: {task_file}[/red]")
+            raise typer.Exit(1)
+        try:
+            task = task_path.read_text().strip()
+            if not task:
+                console.print(f"[red]Task file is empty: {task_file}[/red]")
+                raise typer.Exit(1)
+        except Exception as e:
+            console.print(f"[red]Failed to read task file: {e}[/red]")
+            raise typer.Exit(1)
 
     generator = InitGenerator()
 
