@@ -31,6 +31,14 @@ jobs:
             torch-version: "2.8.0"
 
     steps:
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
