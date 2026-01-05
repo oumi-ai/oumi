@@ -512,3 +512,80 @@ def test_segment_batch(segmenter):
             assert segments[0] == "segment_[1, 2, 3, 4, 5]"  # First document
             assert segments[1] == "segment_[6, 7, 8, 9, 10]"  # Second document
             assert segments[2] == "segment_[11, 12, 13, 14, 15]"  # Third document
+
+
+@pytest.fixture
+def sample_docx_content():
+    """Sample DOCX content for testing."""
+    return "This is sample DOCX content.\n\nSecond paragraph."
+
+
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
+def test_read_single_docx_document(reader, sample_docx_content):
+    """Test reading a single DOCX document."""
+    document_path = "path/to/document.docx"
+    mock_file_bytes = b"mock docx file bytes"
+
+    with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
+        with patch.object(
+            reader, "_read_from_docx", return_value=sample_docx_content
+        ) as mock_docx:
+            result = reader.read(document_path)
+
+            mock_docx.assert_called_once_with(mock_file_bytes)
+            assert result == [sample_docx_content]
+
+
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
+def test_read_multiple_docx_documents_glob_pattern(reader, sample_docx_content):
+    """Test reading multiple DOCX documents using glob pattern."""
+    document_path = "path/to/*.docx"
+    mock_file_bytes = b"mock docx file bytes"
+
+    # Create mock Path objects with is_file() returning True
+    mock_files = []
+    for filename in ["file1.docx", "file2.docx"]:
+        mock_file = MagicMock(spec=Path)
+        mock_file.is_file.return_value = True
+        mock_file.suffix = ".docx"
+        mock_file.__str__ = MagicMock(return_value=f"path/to/{filename}")
+        mock_files.append(mock_file)
+
+    with patch("pathlib.Path.glob", return_value=mock_files):
+        with patch("builtins.open", mock_open(read_data=mock_file_bytes)):
+            with patch.object(
+                reader, "_read_from_docx", return_value=sample_docx_content
+            ) as mock_docx:
+                result = reader.read(document_path)
+
+                assert len(result) == 2
+                assert all(content == sample_docx_content for content in result)
+                assert mock_docx.call_count == 2
+
+
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
+def test_read_from_docx_calls_python_docx_correctly(reader):
+    """Test that reading DOCX calls python-docx correctly."""
+    from io import BytesIO
+
+    mock_file_bytes = b"mock docx file bytes"
+
+    # Mock the Document object and its paragraphs
+    mock_paragraph1 = MagicMock()
+    mock_paragraph1.text = "First paragraph"
+    mock_paragraph2 = MagicMock()
+    mock_paragraph2.text = "Second paragraph"
+
+    mock_doc = MagicMock()
+    mock_doc.paragraphs = [mock_paragraph1, mock_paragraph2]
+
+    with patch.object(reader, "_docx_parser", return_value=mock_doc) as mock_parser:
+        result = reader._read_from_docx(mock_file_bytes)
+
+        # Verify Document was called with BytesIO
+        assert mock_parser.call_count == 1
+        call_arg = mock_parser.call_args[0][0]
+        assert isinstance(call_arg, BytesIO)
+
+        expected = "First paragraph\nSecond paragraph"
+        assert result == expected

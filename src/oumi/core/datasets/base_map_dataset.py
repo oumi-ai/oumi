@@ -445,6 +445,9 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
         elif dataset_path.suffix.lower() == ".parquet" and dataset_path.is_file():
             result = self._load_parquet_dataset(dataset_path)
 
+        elif dataset_path.suffix.lower() == ".xlsx" and dataset_path.is_file():
+            result = self._load_xlsx_dataset(dataset_path)
+
         elif is_cached_to_disk_hf_dataset(dataset_path):
             result = self._load_dataset_from_disk(dataset_path)
 
@@ -507,6 +510,9 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
 
     def _load_parquet_dataset(self, path: Path) -> pd.DataFrame:
         return pd.read_parquet(path)
+
+    def _load_xlsx_dataset(self, path: Path) -> pd.DataFrame:
+        return pd.read_excel(path, engine="openpyxl")
 
     def _load_dataset_from_disk(self, path: Path) -> pd.DataFrame:
         dataset: datasets.Dataset = datasets.Dataset.load_from_disk(path)

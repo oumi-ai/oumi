@@ -29,6 +29,11 @@ try:
 except ImportError:
     plain_text_output = None
 
+try:
+    from docx import Document  # pyright: ignore[reportMissingImports]
+except ImportError:
+    Document = None
+
 
 class DocumentSegmenter:
     """Segmenter for documents."""
@@ -73,7 +78,7 @@ class DocumentSegmenter:
 class DocumentReader:
     """Reader for documents."""
 
-    _SUPPORTED_FILE_TYPES = {"pdf", "txt", "md", "html"}
+    _SUPPORTED_FILE_TYPES = {"pdf", "txt", "md", "html", "docx"}
 
     def __init__(self):
         """Initialize the document reader."""
@@ -82,7 +87,13 @@ class DocumentReader:
                 "pdftext is not installed. Please install it with "
                 "`pip install oumi[synthesis]`."
             )
+        if Document is None:
+            raise ImportError(
+                "python-docx is not installed. Please install it with "
+                "`pip install oumi[synthesis]`."
+            )
         self._extractor_method = plain_text_output
+        self._docx_parser = Document
 
     def read(self, document_path: str) -> list[str]:
         """Read the document."""
@@ -155,6 +166,8 @@ class DocumentReader:
         """Read the document from the document format."""
         if file_type == "pdf":
             return self._read_from_pdf(file_bytes)
+        elif file_type == "docx":
+            return self._read_from_docx(file_bytes)
         elif file_type == "txt" or file_type == "md" or file_type == "html":
             return self._read_from_text_file(file_bytes)
         else:
@@ -168,3 +181,11 @@ class DocumentReader:
     def _read_from_text_file(self, file_bytes: bytes) -> str:
         """Read the document from the file."""
         return file_bytes.decode("utf-8")
+
+    def _read_from_docx(self, file_bytes: bytes) -> str:
+        """Read the document from the DOCX format."""
+        from io import BytesIO
+
+        doc = self._docx_parser(BytesIO(file_bytes))
+        paragraphs = [paragraph.text for paragraph in doc.paragraphs]
+        return "\n".join(paragraphs)
