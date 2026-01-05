@@ -54,6 +54,7 @@ user_guides/evaluate/evaluate
 user_guides/analyze/analyze
 user_guides/judge/judge
 user_guides/launch/launch
+user_guides/init
 user_guides/synth
 user_guides/tune
 user_guides/quantization
@@ -194,6 +195,13 @@ Evaluate across standard benchmarks with LM Evaluation Harness integration.
 :link-type: doc
 
 Profile datasets, identify outliers, and filter data before training.
+:::
+
+:::{grid-item-card} Config Generation
+:link: user_guides/init
+:link-type: doc
+
+Generate synth and judge configs from natural language descriptions.
 :::
 
 :::{grid-item-card} Data Synthesis

@@ -36,6 +36,7 @@ from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
+from oumi.cli.init import app as init_app
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
@@ -267,6 +268,12 @@ def get_app() -> typer.Typer:
         help="Download example configs from the Oumi repository.",
         rich_help_panel="Tools",
     )(fetch)
+    app.add_typer(
+        init_app,
+        name="init",
+        help="Generate synth and judge configs from a task description.",
+        rich_help_panel="Tools",
+    )
     cache_app = typer.Typer(
         pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
     )
