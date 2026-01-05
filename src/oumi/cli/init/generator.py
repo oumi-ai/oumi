@@ -526,11 +526,11 @@ Respond with JSON matching the expected schema."""
                             results.append(json.loads(line))
 
                     # Summarize results
+                    # JudgeOutput structure: field_values contains {"judgment": bool, "explanation": str}
                     passed = sum(
                         1
                         for r in results
-                        if r.get("judgment", {}).get("judgment") is True
-                        or str(r.get("judgment", {}).get("judgment")).lower() == "true"
+                        if r.get("field_values", {}).get("judgment") is True
                     )
                     total = len(results)
 
@@ -544,13 +544,22 @@ Respond with JSON matching the expected schema."""
 
                     # Show individual judgments
                     for i, result in enumerate(results, 1):
-                        judgment = result.get("judgment", {})
-                        is_pass = (
-                            judgment.get("judgment") is True
-                            or str(judgment.get("judgment")).lower() == "true"
-                        )
+                        field_values = result.get("field_values", {})
+                        is_pass = field_values.get("judgment") is True
                         status = "[green]PASS[/green]" if is_pass else "[red]FAIL[/red]"
-                        explanation = judgment.get("explanation", "No explanation")
+                        explanation = field_values.get("explanation", "No explanation")
+
+                        # If explanation is still empty, try parsed_output
+                        if not explanation or explanation == "No explanation":
+                            explanation = result.get("parsed_output", {}).get("explanation", "No explanation")
+
+                        # If still no explanation, show raw output for debugging
+                        if not explanation or explanation == "No explanation":
+                            raw_output = result.get("raw_output", "")
+                            if raw_output:
+                                explanation = f"[dim]Raw output:[/dim]\n{raw_output[:500]}"
+                            else:
+                                explanation = "[dim]No explanation available. Judge may have failed.[/dim]"
 
                         console.print(
                             Panel(
@@ -711,7 +720,7 @@ Respond with JSON matching the expected schema."""
         """Run conversation loop until ready to generate."""
         source_summaries = format_source_summaries(source_analyses)
         conversation_history: list[ConversationResponse] = []
-        user_answers: list[str] = []
+        all_qa_history: list[tuple[list, list[str]]] = []  # (questions, answers) pairs
 
         for round_num in range(MAX_CONVERSATION_ROUNDS):
             # Build prompt
@@ -719,11 +728,10 @@ Respond with JSON matching the expected schema."""
                 prev_understanding = json.dumps(
                     conversation_history[-1].understanding.model_dump(), indent=2
                 )
-                answers_str = format_user_answers(
-                    conversation_history[-1].follow_up_questions, user_answers
-                )
+                # Build full Q&A history string
+                all_qa_str = self._format_full_qa_history(all_qa_history)
                 user_prompt = build_conversation_user_prompt(
-                    task, source_summaries, prev_understanding, answers_str
+                    task, source_summaries, prev_understanding, all_qa_str
                 )
             else:
                 user_prompt = build_conversation_user_prompt(task, source_summaries)
@@ -751,10 +759,36 @@ Respond with JSON matching the expected schema."""
             # Ask follow-up questions
             if response.follow_up_questions:
                 user_answers = self._ask_questions(response.follow_up_questions)
+                # Store this Q&A round for context in next iteration
+                all_qa_history.append((response.follow_up_questions, user_answers))
             else:
                 break
 
         return response.understanding.model_dump()
+
+    def _format_full_qa_history(
+        self, qa_history: list[tuple[list, list[str]]]
+    ) -> str:
+        """Format the full conversation Q&A history.
+
+        Args:
+            qa_history: List of (questions, answers) tuples from all rounds.
+
+        Returns:
+            Formatted string showing all previous Q&A rounds.
+        """
+        if not qa_history:
+            return ""
+
+        lines = []
+        for round_idx, (questions, answers) in enumerate(qa_history, 1):
+            lines.append(f"### Round {round_idx}")
+            for q, a in zip(questions, answers):
+                lines.append(f"Q: {q.question}")
+                lines.append(f"A: {a}")
+                lines.append("")
+
+        return "\n".join(lines)
 
     def _call_conversation(self, user_prompt: str) -> ConversationResponse:
         """Call LLM for conversation phase with structured output."""
@@ -847,6 +881,72 @@ Respond with JSON matching the expected schema."""
     # Config Generation
     # =========================================================================
 
+    def _validate_judge_synth_alignment(
+        self, synth_spec: SynthConfigSpec, judge_yaml: str
+    ) -> None:
+        """Validate and fix judge-synth alignment issues.
+
+        Ensures that all attributes referenced in the judge config are present
+        in the synth config's passthrough_attributes. Automatically adds missing
+        attributes to prevent runtime errors.
+        """
+        import re
+
+        # Extract all placeholders from judge config (e.g., {attribute_name})
+        judge_placeholders = set(re.findall(r"\{(\w+)\}", judge_yaml))
+
+        # Get all available attributes from synth config
+        available_attributes = set()
+
+        # Add sampled attributes
+        if synth_spec.sampled_attributes:
+            for attr in synth_spec.sampled_attributes:
+                available_attributes.add(attr.id)
+
+        # Add generated attributes
+        if synth_spec.generated_attributes:
+            for attr in synth_spec.generated_attributes:
+                available_attributes.add(attr.id)
+
+        # Add transformed attributes
+        if synth_spec.transformed_attributes:
+            for attr in synth_spec.transformed_attributes:
+                available_attributes.add(attr.id)
+
+        # Add input data attributes (if any)
+        if synth_spec.input_data:
+            for data in synth_spec.input_data:
+                if data.attribute_map:
+                    available_attributes.update(data.attribute_map.values())
+
+        # Current passthrough attributes
+        passthrough = set(synth_spec.passthrough_attributes or [])
+
+        # Find judge placeholders that aren't in passthrough but are available
+        missing_in_passthrough = (
+            judge_placeholders & available_attributes
+        ) - passthrough
+
+        if missing_in_passthrough:
+            console.print(
+                f"[yellow]Warning: Judge references attributes not in passthrough: "
+                f"{', '.join(sorted(missing_in_passthrough))}[/yellow]"
+            )
+            console.print("[cyan]Automatically adding them to passthrough list...[/cyan]")
+
+            # Add missing attributes to passthrough
+            if synth_spec.passthrough_attributes is None:
+                synth_spec.passthrough_attributes = []
+            synth_spec.passthrough_attributes.extend(sorted(missing_in_passthrough))
+
+        # Check for judge placeholders that don't exist at all
+        invalid_placeholders = judge_placeholders - available_attributes
+        if invalid_placeholders:
+            console.print(
+                f"[red]Error: Judge references non-existent attributes: "
+                f"{', '.join(sorted(invalid_placeholders))}[/red]"
+            )
+
     def _generate_configs(
         self,
         understanding: dict[str, Any],
@@ -863,9 +963,14 @@ Respond with JSON matching the expected schema."""
         with console.status("[cyan]Generating configs...[/cyan]"):
             response = self._call_config_generation(user_prompt)
 
-        # Render to YAML
-        synth_yaml = self._render_synth_config(response.synth_config, understanding)
+        # Render judge first so we can validate against it
         judge_yaml = self._render_judge_config(response.judge_config, understanding)
+
+        # Validate and fix judge-synth alignment (modifies synth_config in place)
+        self._validate_judge_synth_alignment(response.synth_config, judge_yaml)
+
+        # Render synth after validation fixes are applied
+        synth_yaml = self._render_synth_config(response.synth_config, understanding)
 
         return synth_yaml, judge_yaml
 

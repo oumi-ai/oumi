@@ -190,6 +190,8 @@ code|domain_specific",
 3. Options should include descriptions to help users choose
 4. Set ready_to_generate=true only when you have enough info for quality configs
 5. If something is unsupported, add to unsupported_requests and suggest workarounds
+6. **IMPORTANT**: When you receive previous Q&A history, carefully review it to avoid \
+asking redundant or repetitive questions. Each new question should cover NEW ground
 """
 
 # ============================================================================
@@ -299,7 +301,9 @@ generated_attributes:
 2. **Generated attributes**: Write detailed, specific prompts
 3. **Prompt templates**: Always reference attributes with {id} or {id.description}
 4. **Transformed attributes**: Use CHAT for conversations, STRING for simple formatting
-5. **passthrough_attributes**: Only include what user actually needs in output
+5. **passthrough_attributes**: CRITICAL - Must include ALL attributes referenced in the \
+judge config's prompt_template. If the judge references {attr_id}, then attr_id MUST \
+be in passthrough_attributes
 
 ## Response Format
 
@@ -377,13 +381,16 @@ def build_conversation_user_prompt(
         return f"""## Previous Understanding
 {previous_understanding}
 
-## Your Questions and User's Answers
+## Full Conversation History
 {user_answers}
 
 ## Instructions
-Update your understanding based on the answers. Either:
+Update your understanding based on ALL the answers provided across all rounds.
+Review the full conversation history to avoid asking redundant questions.
+Either:
 1. Set ready_to_generate=true if you now have enough information
-2. Ask additional questions if critical information is still missing"""
+2. Ask NEW, additional questions if critical information is still missing
+   (Do NOT repeat questions from previous rounds)"""
 
     return f"""## Task Description
 {task_description}
@@ -478,7 +485,9 @@ are coherent, well-designed, and likely to produce high-quality results.
 
 ## Evaluation Criteria
 
-1. **Judge-Synth Alignment**: Do judge placeholders match synth output attributes?
+1. **Judge-Synth Alignment**: CRITICAL - Every {attribute_id} referenced in the judge's \
+prompt_template MUST exist in the synth config's passthrough_attributes list. This is \
+the most common error to check for.
 2. **Attribute References**: Are all {attribute_id} references valid?
 3. **Pipeline Logic**: Is the generation order sensible?
 4. **Prompt Quality**: Are prompts clear and likely to produce good output?
