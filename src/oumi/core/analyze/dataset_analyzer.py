@@ -270,12 +270,8 @@ class DatasetAnalyzer:
                         f"Sample analyzer '{analyzer_params.id}' not found in registry"
                     )
 
-                # Determine instance ID (use instance_id if provided, otherwise use id)
-                instance_id = (
-                    analyzer_params.instance_id
-                    if analyzer_params.instance_id
-                    else analyzer_params.id
-                )
+                # instance_id is now always set (auto-populated if not specified)
+                instance_id = analyzer_params.instance_id
 
                 # Check if this analyzer requires LLM and should be skipped
                 if self.skip_llm_analyzers and getattr(
@@ -314,9 +310,11 @@ class DatasetAnalyzer:
                 # Store analyzer instance using the instance_id
                 sample_analyzers[instance_id] = sample_analyzer
 
-                log_msg = f"Initialized sample analyzer: {instance_id}"
-                if analyzer_params.instance_id:
-                    log_msg += f" (type: {analyzer_params.id})"
+                # Log with type info if instance_id differs from type
+                if instance_id != analyzer_params.id:
+                    log_msg = f"Initialized sample analyzer: {instance_id} (type: {analyzer_params.id})"
+                else:
+                    log_msg = f"Initialized sample analyzer: {instance_id}"
                 logger.info(log_msg)
             except Exception as e:
                 logger.error(

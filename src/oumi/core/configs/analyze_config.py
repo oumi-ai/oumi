@@ -47,17 +47,23 @@ class SampleAnalyzerParams(BaseParams):
 
     instance_id: str | None = None
     """Optional unique instance identifier for this analyzer instance.
-    
+
     If provided, this ID will be used to uniquely identify this analyzer instance
     and will be used in generated column names. This allows multiple instances of
     the same analyzer type with different configurations.
-    
-    If None, the 'id' field will be used as the instance identifier.
 
+    If None, the 'id' field will be used as the instance identifier (auto-populated
+    in __post_init__).
     """
 
     params: dict[str, Any] = field(default_factory=dict)
     """Analyzer-specific parameters passed to the analyzer constructor."""
+
+    def __post_init__(self):
+        """Auto-populate instance_id if not provided."""
+        # If instance_id is not set, use the analyzer type id
+        if self.instance_id is None:
+            self.instance_id = self.id
 
 
 @dataclass
@@ -132,17 +138,17 @@ class AnalyzeConfig(BaseConfig):
 
     chat_template: str | None = None
     """Optional chat template to use for conversation rendering.
-    
+
     When specified, conversations will be formatted using the specified chat template
     (e.g., 'chat_ml', 'llama3-instruct', 'default') instead of the simple
     'ROLE: content' format. This is useful for LLM judge analyzers to see
     conversations in the same format the model was trained on.
-    
+
     Common templates:
     - 'chat_ml': ChatML format with <|im_start|> tokens
     - 'llama3-instruct': Llama 3 instruction format
     - 'default': Basic template with role markers
-    
+
     If None, uses simple 'ROLE: content' format for backward compatibility.
     """
 
@@ -266,14 +272,11 @@ class AnalyzeConfig(BaseConfig):
             if not analyzer.id:
                 raise ValueError("Analyzer 'id' must be provided")
 
-            # Determine the instance ID (use instance_id if provided, otherwise use id)
-            instance_id = analyzer.instance_id if analyzer.instance_id else analyzer.id
-
+            # instance_id is now always set (auto-populated in __post_init__)
             # Check for duplicate instance IDs
-            if instance_id in instance_ids:
+            if analyzer.instance_id in instance_ids:
                 raise ValueError(
-                    f"Duplicate analyzer instance ID found: '{instance_id}'. "
-                    f"Each analyzer instance must have a unique 'instance_id' "
-                    f"(or unique 'id' if instance_id is not specified)."
+                    f"Duplicate analyzer instance ID found: '{analyzer.instance_id}'. "
+                    f"Each analyzer instance must have a unique 'instance_id'."
                 )
-            instance_ids.add(instance_id)
+            instance_ids.add(analyzer.instance_id)
