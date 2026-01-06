@@ -44,11 +44,13 @@ class AnalysisResult:
         merged_df: DataFrame with merged analysis results from all input DataFrames
         merged_schema: Schema for the merged DataFrame, combining schemas from
             all inputs
+        schemas: Dictionary mapping names to schemas for each DataFrame
     """
 
     dataframes: dict[str, pd.DataFrame]
     merged_df: pd.DataFrame
     merged_schema: dict
+    schemas: dict[str, dict]
 
     @property
     def conversations_df(self) -> pd.DataFrame:
@@ -59,6 +61,16 @@ class AnalysisResult:
     def messages_df(self) -> pd.DataFrame:
         """Get the 'messages' DataFrame."""
         return self.dataframes.get("messages", pd.DataFrame())
+
+    @property
+    def conversation_schema(self) -> dict:
+        """Get the 'conversations' schema."""
+        return self.schemas.get("conversations", {})
+
+    @property
+    def message_schema(self) -> dict:
+        """Get the 'messages' schema."""
+        return self.schemas.get("messages", {})
 
 
 class DataFrameAnalyzer:
@@ -202,6 +214,7 @@ class DataFrameAnalyzer:
                 dataframes={},
                 merged_df=pd.DataFrame(),
                 merged_schema={},
+                schemas={},
             )
 
         # Apply analyzers to all DataFrames using their respective schemas
@@ -232,10 +245,17 @@ class DataFrameAnalyzer:
             if col in merged_df.columns
         }
 
+        # Extract individual schemas into a dictionary
+        schemas_dict = {}
+        for result in processed_results:
+            if result.name:
+                schemas_dict[result.name] = result.schema
+
         return AnalysisResult(
             dataframes=dataframes_dict,
             merged_df=merged_df,
             merged_schema=merged_schema,
+            schemas=schemas_dict,
         )
 
     def _merge_dataframe_list(

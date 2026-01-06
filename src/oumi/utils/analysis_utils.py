@@ -1352,3 +1352,233 @@ def augment_schema_with_dataframe_columns(schema: dict, df: pd.DataFrame) -> dic
             }
 
     return augmented_schema
+
+
+def save_analyzer_artifacts(
+    analyzer: Any,  # DatasetAnalyzer
+    output_path: str | Path,
+    output_format: str = "parquet",
+) -> None:
+    """Save all analyzer artifacts to disk.
+
+    This function saves all analysis results including dataframes, schemas, and
+    summary. The output format can be 'csv', 'json', or 'parquet' for dataframes.
+    Schemas and summary are always saved as JSON.
+
+    Args:
+        analyzer: The DatasetAnalyzer instance with completed analysis
+        output_path: Directory path where artifacts will be saved
+        output_format: Format for dataframes ('csv', 'json', or 'parquet').
+            Defaults to 'parquet'. Case-insensitive.
+
+    Raises:
+        RuntimeError: If analysis has not been run yet.
+        ValueError: If output_format is invalid.
+    """
+    import json
+
+    output_dir = Path(output_path)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_format = output_format.lower()
+    valid_formats = {"csv", "json", "parquet"}
+    if output_format not in valid_formats:
+        raise ValueError(
+            f"Invalid output format '{output_format}'. "
+            f"Supported formats: {', '.join(valid_formats)}"
+        )
+
+    # Check if analysis has been run
+    if analyzer._merged_df is None:
+        raise RuntimeError(
+            "Analysis has not been run yet. Please call analyze_dataset() first "
+            "before saving artifacts."
+        )
+
+    def _save_dataframe(df: pd.DataFrame, path: Path, fmt: str) -> None:
+        """Save a DataFrame to the specified format."""
+        if fmt == "csv":
+            df.to_csv(path, index=False)
+        elif fmt == "json":
+            df.to_json(path, orient="records", indent=2)
+        elif fmt == "parquet":
+            df.to_parquet(path, index=False)
+
+    # Save message-level results
+    if analyzer.message_df is not None and not analyzer.message_df.empty:
+        msg_path = output_dir / f"messages_df.{output_format}"
+        _save_dataframe(analyzer.message_df, msg_path, output_format)
+        logger.info(f"Saved message analysis to: {msg_path}")
+
+    # Save conversation-level results
+    if analyzer.conversation_df is not None and not analyzer.conversation_df.empty:
+        conv_path = output_dir / f"conversations_df.{output_format}"
+        _save_dataframe(analyzer.conversation_df, conv_path, output_format)
+        logger.info(f"Saved conversation analysis to: {conv_path}")
+
+    # Save merged results
+    if analyzer.analysis_df is not None and not analyzer.analysis_df.empty:
+        merged_path = output_dir / f"merged_df.{output_format}"
+        _save_dataframe(analyzer.analysis_df, merged_path, output_format)
+        logger.info(f"Saved merged analysis to: {merged_path}")
+
+    # Save schemas - both combined and individual files
+    schemas = {}
+    if analyzer._merged_schema is not None:
+        schemas["merged_schema"] = analyzer._merged_schema
+    if analyzer._message_schema is not None:
+        schemas["message_schema"] = analyzer._message_schema
+        # Also save message schema as separate file
+        message_schema_path = output_dir / "message_schema.json"
+        with open(message_schema_path, "w") as f:
+            json.dump(analyzer._message_schema, f, indent=2, default=str)
+        logger.info(f"Saved message schema to: {message_schema_path}")
+    if analyzer._conversation_schema is not None:
+        schemas["conversation_schema"] = analyzer._conversation_schema
+        # Also save conversation schema as separate file
+        conversation_schema_path = output_dir / "conversation_schema.json"
+        with open(conversation_schema_path, "w") as f:
+            json.dump(analyzer._conversation_schema, f, indent=2, default=str)
+        logger.info(f"Saved conversation schema to: {conversation_schema_path}")
+
+    if schemas:
+        schema_path = output_dir / "schema.json"
+        with open(schema_path, "w") as f:
+            json.dump(schemas, f, indent=2, default=str)
+        logger.info(f"Saved combined schemas to: {schema_path}")
+
+    # Save analysis summary
+    if analyzer._analysis_summary is not None:
+        summary_path = output_dir / "analysis_summary.json"
+        with open(summary_path, "w") as f:
+            json.dump(analyzer.analysis_summary, f, indent=2, default=str)
+        logger.info(f"Saved analysis summary to: {summary_path}")
+
+    logger.info(f"All analyzer artifacts saved to: {output_dir.absolute()}")
+
+
+def load_analyzer_artifacts(
+    input_path: str | Path,
+    output_format: str = "parquet",
+) -> dict[str, Any]:
+    """Load analyzer artifacts from disk.
+
+    This function loads all saved analysis results including dataframes, schemas,
+    and summary. The function attempts to detect the format automatically if
+    files exist, but you can specify the expected format.
+
+    Args:
+        input_path: Directory path where artifacts were saved
+        output_format: Expected format for dataframes ('csv', 'json', or 'parquet').
+            Defaults to 'parquet'. Case-insensitive. If files don't exist with this
+            format, will try other formats.
+
+    Returns:
+        Dictionary containing loaded artifacts with keys:
+        - 'messages_df': Message-level DataFrame (if available)
+        - 'conversations_df': Conversation-level DataFrame (if available)
+        - 'merged_df': Merged DataFrame (if available)
+        - 'schemas': Dictionary with 'merged_schema', 'message_schema',
+          'conversation_schema'
+        - 'analysis_summary': Analysis summary dictionary (if available)
+
+    Raises:
+        FileNotFoundError: If the input directory does not exist.
+        ValueError: If output_format is invalid.
+    """
+    import json
+
+    input_dir = Path(input_path)
+    if not input_dir.exists():
+        raise FileNotFoundError(f"Input directory does not exist: {input_dir}")
+
+    if not input_dir.is_dir():
+        raise ValueError(f"Input path must be a directory: {input_dir}")
+
+    output_format = output_format.lower()
+    valid_formats = {"csv", "json", "parquet"}
+    if output_format not in valid_formats:
+        raise ValueError(
+            f"Invalid output format '{output_format}'. "
+            f"Supported formats: {', '.join(valid_formats)}"
+        )
+
+    artifacts: dict[str, Any] = {}
+
+    def _load_dataframe(path: Path, fmt: str) -> pd.DataFrame | None:
+        """Load DataFrame from specified format, trying multiple if needed."""
+        # Try the specified format first
+        formats_to_try = [fmt] + [f for f in valid_formats if f != fmt]
+
+        for fmt_to_try in formats_to_try:
+            file_path = path.with_suffix(f".{fmt_to_try}")
+            if file_path.exists():
+                try:
+                    if fmt_to_try == "csv":
+                        return pd.read_csv(file_path)
+                    elif fmt_to_try == "json":
+                        return pd.read_json(file_path, orient="records")
+                    elif fmt_to_try == "parquet":
+                        return pd.read_parquet(file_path)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to load {file_path} as {fmt_to_try}: {e}. "
+                        f"Trying other formats..."
+                    )
+                    continue
+        return None
+
+    # Load message-level results
+    msg_path = input_dir / "messages_df"
+    messages_df = _load_dataframe(msg_path, output_format)
+    if messages_df is not None:
+        artifacts["messages_df"] = messages_df
+        logger.info(f"Loaded message analysis from: {msg_path}")
+
+    # Load conversation-level results
+    conv_path = input_dir / "conversations_df"
+    conversations_df = _load_dataframe(conv_path, output_format)
+    if conversations_df is not None:
+        artifacts["conversations_df"] = conversations_df
+        logger.info(f"Loaded conversation analysis from: {conv_path}")
+
+    # Load merged results
+    merged_path = input_dir / "merged_df"
+    merged_df = _load_dataframe(merged_path, output_format)
+    if merged_df is not None:
+        artifacts["merged_df"] = merged_df
+        logger.info(f"Loaded merged analysis from: {merged_path}")
+
+    # Load schemas - try combined file first, then individual files
+    schema_path = input_dir / "schema.json"
+    schemas = {}
+
+    if schema_path.exists():
+        with open(schema_path) as f:
+            schemas = json.load(f)
+        logger.info(f"Loaded combined schemas from: {schema_path}")
+    else:
+        # Try loading individual schema files
+        message_schema_path = input_dir / "message_schema.json"
+        if message_schema_path.exists():
+            with open(message_schema_path) as f:
+                schemas["message_schema"] = json.load(f)
+            logger.info(f"Loaded message schema from: {message_schema_path}")
+
+        conversation_schema_path = input_dir / "conversation_schema.json"
+        if conversation_schema_path.exists():
+            with open(conversation_schema_path) as f:
+                schemas["conversation_schema"] = json.load(f)
+            logger.info(f"Loaded conversation schema from: {conversation_schema_path}")
+
+    artifacts["schemas"] = schemas
+
+    # Load analysis summary
+    summary_path = input_dir / "analysis_summary.json"
+    if summary_path.exists():
+        with open(summary_path) as f:
+            artifacts["analysis_summary"] = json.load(f)
+        logger.info(f"Loaded analysis summary from: {summary_path}")
+
+    logger.info(f"Loaded analyzer artifacts from: {input_dir.absolute()}")
+    return artifacts

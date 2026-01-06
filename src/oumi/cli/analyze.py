@@ -299,7 +299,12 @@ def analyze(
 
         # Export results
         if parsed_config.output_path:
-            _export_results(analyzer, parsed_config.output_path, output_format)
+            from oumi.utils.analysis_utils import save_analyzer_artifacts
+
+            save_analyzer_artifacts(analyzer, parsed_config.output_path, output_format)
+            cli_utils.CONSOLE.print(
+                f"[green]Analysis results saved to:[/green] {parsed_config.output_path}"
+            )
 
         # Generate HTML report if requested via CLI flag or config
         should_generate_report = report or getattr(

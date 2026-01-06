@@ -164,6 +164,8 @@ class DatasetAnalyzer:
         self._message_df: pd.DataFrame | None = None
         self._conversation_df: pd.DataFrame | None = None
         self._merged_schema: dict | None = None
+        self._message_schema: dict | None = None
+        self._conversation_schema: dict | None = None
         self._analysis_summary: dict[str, Any] | None = None
 
         # Decimal precision for rounding metrics
@@ -399,6 +401,8 @@ class DatasetAnalyzer:
         self._message_df = analysis_result.messages_df
         self._conversation_df = analysis_result.conversations_df
         self._merged_schema = analysis_result.merged_schema
+        self._message_schema = analysis_result.message_schema
+        self._conversation_schema = analysis_result.conversation_schema
 
         self._analysis_results = DatasetAnalysisResult(
             dataset_name=self.dataset_name or "",
