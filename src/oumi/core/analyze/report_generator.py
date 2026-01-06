@@ -116,10 +116,12 @@ class HTMLReportGenerator:
 
     def generate_report(
         self,
-        analyzer: "DatasetAnalyzer",
-        output_path: Path,
+        analyzer: "DatasetAnalyzer | None" = None,
+        output_path: Path | str | None = None,
         title: Optional[str] = None,
         health_score: Optional["DatasetHealthScore"] = None,
+        *,
+        artifacts: dict[str, Any] | None = None,
     ) -> Path:
         """Generate an HTML report with external data files for performance.
 
@@ -132,26 +134,82 @@ class HTMLReportGenerator:
 
         Args:
             analyzer: DatasetAnalyzer instance with completed analysis.
+                Can be None if artifacts are provided instead.
             output_path: Path to save the HTML report (file or directory).
+                Required if artifacts are provided, otherwise uses analyzer's output path.
             title: Optional custom title for the report.
             health_score: Optional pre-computed health score to include.
+            artifacts: Optional dictionary of loaded artifacts from
+                load_analyzer_artifacts(). Must include 'analysis_summary' and
+                'messages_df'. If provided, analyzer can be None.
 
         Returns:
             Path to the generated report directory.
 
         Raises:
-            RuntimeError: If analysis has not been run on the analyzer.
+            RuntimeError: If analysis has not been run on the analyzer, or if
+                required artifacts are missing.
+            ValueError: If neither analyzer nor artifacts are provided, or if
+                output_path is missing when using artifacts.
         """
+        # Handle artifacts-based generation
+        if artifacts is not None:
+            if output_path is None:
+                raise ValueError(
+                    "output_path is required when using artifacts instead of analyzer"
+                )
+            summary = artifacts.get("analysis_summary")
+            if summary is None:
+                raise ValueError("artifacts must include 'analysis_summary' key")
+
+            # Create a minimal analyzer-like object for compatibility
+            class ArtifactAnalyzer:
+                def __init__(self, artifacts: dict[str, Any]):
+                    self._artifacts = artifacts
+
+                @property
+                def analysis_summary(self) -> dict[str, Any]:
+                    return self._artifacts.get("analysis_summary", {})
+
+                @property
+                def message_df(self) -> pd.DataFrame | None:
+                    return self._artifacts.get("messages_df")
+
+                @property
+                def conversation_df(self) -> pd.DataFrame | None:
+                    return self._artifacts.get("conversations_df")
+
+            from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
+
+            analyzer_obj: DatasetAnalyzer = ArtifactAnalyzer(artifacts)  # type: ignore
+        elif analyzer is None:
+            raise ValueError("Either analyzer or artifacts must be provided")
+        else:
+            analyzer_obj = analyzer
+
         # Get analysis summary
         try:
-            summary = analyzer.analysis_summary
-        except RuntimeError:
+            summary = analyzer_obj.analysis_summary
+        except (RuntimeError, AttributeError):
             raise RuntimeError(
                 "Analysis has not been run yet. "
-                "Please call analyze_dataset() before generating a report."
+                "Please call analyze_dataset() before generating a report, "
+                "or provide artifacts from load_analyzer_artifacts()."
             )
 
         # Determine output directory
+        if output_path is None:
+            # Try to get from analyzer config if available
+            if hasattr(analyzer_obj, "config") and hasattr(
+                analyzer_obj.config, "output_path"
+            ):
+                output_path = Path(analyzer_obj.config.output_path)
+            else:
+                raise ValueError(
+                    "output_path is required when analyzer has no config.output_path"
+                )
+
+        output_path = Path(output_path)
         if output_path.is_dir():
             output_dir = output_path
         elif output_path.suffix == ".html":
@@ -165,7 +223,9 @@ class HTMLReportGenerator:
         data_dir.mkdir(exist_ok=True)
 
         # Prepare full template data
-        full_data = self._prepare_template_data(analyzer, summary, title, health_score)
+        full_data = self._prepare_template_data(
+            analyzer_obj, summary, title, health_score
+        )
 
         # Extract large data to external files
         external_data = self._write_external_data_files(full_data, data_dir)
