@@ -60,19 +60,21 @@ training:
 
   num_train_epochs: 3
   per_device_train_batch_size: 1
+  per_device_eval_batch_size: 2
   gradient_accumulation_steps: 16
   max_grad_norm: 1
 
   # Optimization
   optimizer: "adamw_torch"
-  learning_rate: 1.0e-04
+  learning_rate: 1.0e-05
   lr_scheduler_type: "cosine"
   warmup_steps: 10
   weight_decay: 0.01
 
   # Evaluation
+  logging_first_step: True
   eval_strategy: "steps" # When to evaluate ("no", "steps", "epoch")
-  eval_steps: 5 # Evaluate every N steps
+  eval_steps: 50 # Evaluate every N steps
 
   # Checkpointing
   save_steps: 25
