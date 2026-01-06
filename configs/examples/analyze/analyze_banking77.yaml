@@ -75,7 +75,11 @@ analyzers:
         engine: openai
         temperature: 0.1
         max_tokens: 256
-      batch_size: 10
+        remote_params:
+          num_workers: 200 # Process 100 requests in parallel
+          politeness_policy: 1.0 # Wait 60s between requests per worker
+          use_adaptive_concurrency: true # Auto-adjust based on error rate
+      batch_size: 1000
       max_text_length: 8000
       parse_json_response: true
 
@@ -93,7 +97,11 @@ analyzers:
         engine: openai
         temperature: 0.1
         max_tokens: 256
-      batch_size: 10
+        remote_params:
+          num_workers: 200 # Process 100 requests in parallel
+          politeness_policy: 1.0 # Wait 60s between requests per worker
+          use_adaptive_concurrency: true # Auto-adjust based on error rate
+      batch_size: 1000
       parse_json_response: true
 
   # LLM Judge: Response Quality
@@ -135,7 +143,11 @@ analyzers:
         engine: openai
         temperature: 0.1
         max_tokens: 256
-      batch_size: 10
+        remote_params:
+          num_workers: 200 # Process 100 requests in parallel
+          politeness_policy: 1.0 # Wait 60s between requests per worker
+          use_adaptive_concurrency: true # Auto-adjust based on error rate
+      batch_size: 1000
       max_text_length: 4000
       parse_json_response: true
 
