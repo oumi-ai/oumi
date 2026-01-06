@@ -1050,7 +1050,7 @@
                             {% for analyzer_name, metrics in message_stats.items() %}
                             {% for metric_name, stats in metrics.items() %}
                             <tr>
-                                <td>{{ metric_name }}</td>
+                                <td>{{ analyzer_name }}: {{ metric_name }}</td>
                                 <td>{{ stats.mean | round(2) }}</td>
                                 <td>{{ stats.std | round(2) }}</td>
                                 <td>{{ stats.min | round(2) }}</td>
@@ -1087,7 +1087,7 @@
                             {% for analyzer_name, metrics in conversation_stats.items() %}
                             {% for metric_name, stats in metrics.items() %}
                             <tr>
-                                <td>{{ metric_name }}</td>
+                                <td>{{ analyzer_name }}: {{ metric_name }}</td>
                                 <td>{{ stats.mean | round(2) }}</td>
                                 <td>{{ stats.std | round(2) }}</td>
                                 <td>{{ stats.min | round(2) }}</td>
