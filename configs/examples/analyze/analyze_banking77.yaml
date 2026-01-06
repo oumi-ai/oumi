@@ -94,6 +94,7 @@ analyzers:
         temperature: 0.1
         max_tokens: 256
       batch_size: 10
+      parse_json_response: true
 
   # LLM Judge: Response Quality
   # Custom prompt for banking classification task evaluation
