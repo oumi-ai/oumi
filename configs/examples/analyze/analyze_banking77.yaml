@@ -80,27 +80,14 @@ analyzers:
       parse_json_response: true
 
   # LLM Judge: Instruction Quality
-  # Custom prompt for banking customer service response quality
+  # Evaluates clarity and quality of system instructions (message-level only)
   - id: llm_judge
     instance_id: instruction_quality
     params:
-      prompt: |
-        Evaluate this banking customer service response for quality (0-10).
-
-        Consider:
-        - Does it directly answer the customer's question?
-        - Is it clear and professional?
-        - Is it helpful and actionable?
-
-        Response to evaluate:
-        {text}
-
-        Respond with JSON:
-        - "score": 0-10
-        - "label": "excellent", "good", "needs_improvement", or "poor"
-        - "reasoning": brief explanation
-
-        JSON response:
+      prompt_preset: instruction_quality
+      filter_role: system
+      analyze_message_level: true
+      analyze_conversation_level: false
       inference_config:
         model_name: gpt-4o-mini
         engine: openai
