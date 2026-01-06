@@ -44,6 +44,7 @@ RUN apt-get update && \
         unzip \
         vim \
         wget \
+        tmux \
         zip \
         $([ "$TARGETARCH" = "arm64" ] && echo "build-essential" || echo "") && \
     apt-get clean && \
