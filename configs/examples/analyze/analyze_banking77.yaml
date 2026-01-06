@@ -144,4 +144,4 @@ generate_recommendations: true
 outlier_threshold: 3.0
 
 # Optional: Generate HTML report with visualizations
-generate_report: false
+generate_report: yes

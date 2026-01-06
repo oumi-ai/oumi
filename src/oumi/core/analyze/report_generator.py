@@ -165,9 +165,7 @@ class HTMLReportGenerator:
         data_dir.mkdir(exist_ok=True)
 
         # Prepare full template data
-        full_data = self._prepare_template_data(
-            analyzer, summary, title, health_score
-        )
+        full_data = self._prepare_template_data(analyzer, summary, title, health_score)
 
         # Extract large data to external files
         external_data = self._write_external_data_files(full_data, data_dir)
@@ -176,6 +174,25 @@ class HTMLReportGenerator:
         template_data = self._prepare_lightweight_template_data(
             full_data, external_data
         )
+
+        # Sanitize template data to handle Undefined values from OmegaConf
+        logger.debug("Sanitizing template data before rendering...")
+
+        # First, use OmegaConf to resolve any DictConfig/ListConfig objects to native Python
+        try:
+            from omegaconf import OmegaConf
+
+            template_data = OmegaConf.to_container(
+                template_data, resolve=True, throw_on_missing=False
+            )
+        except Exception as e:
+            logger.debug(
+                f"OmegaConf conversion failed (not a problem if data isn't OmegaConf): {e}"
+            )
+
+        # Then apply additional sanitization for NaN/Inf/Undefined
+        template_data = sanitize_for_json(template_data)
+        logger.debug("Template data sanitized successfully")
 
         # Render template
         html_content = self._template.render(**template_data)
@@ -299,9 +316,7 @@ class HTMLReportGenerator:
             "duplicates_summary": self._get_duplicates_summary(
                 full_data.get("duplicates")
             ),
-            "clusters_summary": self._get_clusters_summary(
-                full_data.get("clusters")
-            ),
+            "clusters_summary": self._get_clusters_summary(full_data.get("clusters")),
             "charts_summary": {
                 "count": len(full_data.get("charts", [])),
                 "anomaly_count": len(full_data.get("anomaly_charts", [])),
@@ -339,16 +354,18 @@ class HTMLReportGenerator:
                 summary["low"] += 1
 
             # Include basic info (without conversation samples)
-            summary["list"].append({
-                "id": rec.get("id", ""),
-                "title": rec.get("title", ""),
-                "description": rec.get("description", ""),
-                "severity": severity,
-                "affected_samples": rec.get("affected_samples", 0),
-                "metric_name": rec.get("metric_name", ""),
-                "has_conversations": bool(rec.get("conversations")),
-                "conversation_count": len(rec.get("conversations", [])),
-            })
+            summary["list"].append(
+                {
+                    "id": rec.get("id", ""),
+                    "title": rec.get("title", ""),
+                    "description": rec.get("description", ""),
+                    "severity": severity,
+                    "affected_samples": rec.get("affected_samples", 0),
+                    "metric_name": rec.get("metric_name", ""),
+                    "has_conversations": bool(rec.get("conversations")),
+                    "conversation_count": len(rec.get("conversations", [])),
+                }
+            )
 
         return summary
 
@@ -422,6 +439,60 @@ class HTMLReportGenerator:
 
         return summary if summary else None
 
+    def _organize_stats_by_analyzer(
+        self, flat_stats: dict[str, Any]
+    ) -> dict[str, dict[str, Any]]:
+        """Reorganize flat statistics into nested structure by analyzer.
+
+        Args:
+            flat_stats: Flat dictionary of stats like:
+                {
+                    'text_content__length__token_count': {mean, std, ...},
+                    'text_content__cost__context_utilization_4k': {mean, std, ...},
+                    ...
+                }
+
+        Returns:
+            Nested dictionary organized by analyzer_id:
+                {
+                    'length': {
+                        'token_count': {mean, std, min, max, median},
+                        ...
+                    },
+                    'cost': {
+                        'context_utilization_4k': {mean, std, min, max, median},
+                        ...
+                    },
+                    ...
+                }
+        """
+        from oumi.core.analyze.column_utils import parse_analyzer_column_name
+
+        organized: dict[str, dict[str, Any]] = {}
+
+        for col_name, stats in flat_stats.items():
+            # Parse the column name to extract analyzer_id and metric_name
+            info = parse_analyzer_column_name(col_name)
+            if info is None:
+                # Non-analyzer column, skip or put in "other" category
+                continue
+
+            analyzer_id = info.analyzer_id
+            metric_name = info.metric_name
+
+            # Initialize analyzer group if needed
+            if analyzer_id not in organized:
+                organized[analyzer_id] = {}
+
+            # Store only the essential stats (exclude 'count')
+            organized[analyzer_id][metric_name] = {
+                k: v
+                for k, v in stats.items()
+                if k in ["mean", "std", "min", "max", "median"]
+            }
+
+        return organized
+
     def _prepare_template_data(
         self,
         analyzer: "DatasetAnalyzer",
@@ -443,12 +514,18 @@ class HTMLReportGenerator:
         overview = summary.get("dataset_overview", {})
         dataset_name = overview.get("dataset_name", "Unknown Dataset")
 
+        # Reorganize statistics by analyzer for template compatibility
+        message_stats_flat = summary.get("message_level_summary", {})
+        conversation_stats_flat = summary.get("conversation_level_summary", {})
+
         data = {
             "title": title or f"Analysis Report: {dataset_name}",
             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "overview": overview,
-            "message_stats": summary.get("message_level_summary", {}),
-            "conversation_stats": summary.get("conversation_level_summary", {}),
+            "message_stats": self._organize_stats_by_analyzer(message_stats_flat),
+            "conversation_stats": self._organize_stats_by_analyzer(
+                conversation_stats_flat
+            ),
             "conversation_turns": summary.get("conversation_turns", {}),
             "recommendations": [],
             "charts": [],
@@ -640,7 +717,9 @@ class HTMLReportGenerator:
         if hasattr(value, "item"):
             try:
                 py_val = value.item()
-                if isinstance(py_val, float) and (math.isnan(py_val) or math.isinf(py_val)):
+                if isinstance(py_val, float) and (
+                    math.isnan(py_val) or math.isinf(py_val)
+                ):
                     return "N/A"
                 return f"{py_val:.2f}" if isinstance(py_val, float) else str(py_val)
             except (ValueError, TypeError):
@@ -672,8 +751,9 @@ class HTMLReportGenerator:
             col for col in message_df.columns if "has_semantic_duplicate" in col
         ]
         semantic_group_cols = [
-            col for col in message_df.columns if "duplicate_group" in col
-            and "fuzzy" not in col
+            col
+            for col in message_df.columns
+            if "duplicate_group" in col and "fuzzy" not in col
         ]
 
         if semantic_dup_cols and semantic_group_cols:
@@ -693,25 +773,30 @@ class HTMLReportGenerator:
                 group_rows = message_df[message_df[group_col] == group_id]
                 samples = []
                 for idx, row in list(group_rows.iterrows())[:5]:
-                    samples.append({
-                        "index": int(idx),
-                        "text": self._truncate_text(
-                            str(row.get("text_content", "")), 200
-                        ),
-                        "role": row.get("role", "unknown"),
-                        "conversation_id": str(row.get("conversation_id", ""))[:20],
-                    })
-                sample_groups.append({
-                    "group_id": int(group_id) if not np.isnan(group_id) else 0,
-                    "count": int(count),
-                    "samples": samples,
-                })
+                    samples.append(
+                        {
+                            "index": int(idx),
+                            "text": self._truncate_text(
+                                str(row.get("text_content", "")), 200
+                            ),
+                            "role": row.get("role", "unknown"),
+                            "conversation_id": str(row.get("conversation_id", ""))[:20],
+                        }
+                    )
+                sample_groups.append(
+                    {
+                        "group_id": int(group_id) if not np.isnan(group_id) else 0,
+                        "count": int(count),
+                        "samples": samples,
+                    }
+                )
 
             result["semantic"] = {
                 "total_with_duplicates": int(total_with_dups),
                 "total_samples": total_samples,
                 "percentage": round(100 * total_with_dups / total_samples, 1)
-                if total_samples > 0 else 0,
+                if total_samples > 0
+                else 0,
                 "num_groups": len(dup_groups),
                 "sample_groups": sample_groups,
             }
@@ -739,25 +824,30 @@ class HTMLReportGenerator:
                 group_rows = message_df[message_df[group_col] == group_id]
                 samples = []
                 for idx, row in list(group_rows.iterrows())[:5]:
-                    samples.append({
-                        "index": int(idx),
-                        "text": self._truncate_text(
-                            str(row.get("text_content", "")), 200
-                        ),
-                        "role": row.get("role", "unknown"),
-                        "conversation_id": str(row.get("conversation_id", ""))[:20],
-                    })
-                sample_groups.append({
-                    "group_id": int(group_id) if not np.isnan(group_id) else 0,
-                    "count": int(count),
-                    "samples": samples,
-                })
+                    samples.append(
+                        {
+                            "index": int(idx),
+                            "text": self._truncate_text(
+                                str(row.get("text_content", "")), 200
+                            ),
+                            "role": row.get("role", "unknown"),
+                            "conversation_id": str(row.get("conversation_id", ""))[:20],
+                        }
+                    )
+                sample_groups.append(
+                    {
+                        "group_id": int(group_id) if not np.isnan(group_id) else 0,
+                        "count": int(count),
+                        "samples": samples,
+                    }
+                )
 
             result["fuzzy"] = {
                 "total_with_duplicates": int(total_with_dups),
                 "total_samples": total_samples,
                 "percentage": round(100 * total_with_dups / total_samples, 1)
-                if total_samples > 0 else 0,
+                if total_samples > 0
+                else 0,
                 "num_groups": len(dup_groups),
                 "sample_groups": sample_groups,
             }
@@ -790,8 +880,7 @@ class HTMLReportGenerator:
 
         # Find embedding cluster columns
         embedding_cluster_cols = [
-            col for col in message_df.columns
-            if col.endswith("_embedding_cluster")
+            col for col in message_df.columns if col.endswith("_embedding_cluster")
         ]
 
         if embedding_cluster_cols:
@@ -810,20 +899,26 @@ class HTMLReportGenerator:
                 cluster_rows = message_df[message_df[cluster_col] == cluster_id]
                 samples = []
                 for idx, row in list(cluster_rows.iterrows())[:5]:
-                    samples.append({
-                        "index": int(idx),
-                        "text": str(row.get("text_content", "")),
-                        "role": row.get("role", "unknown"),
-                        "conversation_id": str(row.get("conversation_id", ""))[:20],
-                    })
+                    samples.append(
+                        {
+                            "index": int(idx),
+                            "text": str(row.get("text_content", "")),
+                            "role": row.get("role", "unknown"),
+                            "conversation_id": str(row.get("conversation_id", ""))[:20],
+                        }
+                    )
 
-                distribution.append({
-                    "cluster_id": int(cluster_id) if not np.isnan(cluster_id) else -1,
-                    "label": label,
-                    "count": int(count),
-                    "percentage": round(100 * count / len(message_df), 1),
-                    "samples": samples,
-                })
+                distribution.append(
+                    {
+                        "cluster_id": int(cluster_id)
+                        if not np.isnan(cluster_id)
+                        else -1,
+                        "label": label,
+                        "count": int(count),
+                        "percentage": round(100 * count / len(message_df), 1),
+                        "samples": samples,
+                    }
+                )
 
             result["embedding_clusters"] = {
                 "total_clusters": len([c for c in cluster_counts.index if c != -1]),
@@ -833,8 +928,7 @@ class HTMLReportGenerator:
 
         # Find question diversity cluster columns
         question_cluster_cols = [
-            col for col in message_df.columns
-            if "question_diversity_cluster_id" in col
+            col for col in message_df.columns if "question_diversity_cluster_id" in col
         ]
 
         if question_cluster_cols:
@@ -856,28 +950,41 @@ class HTMLReportGenerator:
                     cluster_rows = clustered_df[clustered_df[cluster_col] == cluster_id]
                     samples = []
                     for idx, row in list(cluster_rows.iterrows())[:5]:
-                        samples.append({
-                            "index": int(idx),
-                            "text": str(row.get("text_content", "")),
-                            "role": row.get("role", "unknown"),
-                            "conversation_id": str(row.get("conversation_id", ""))[:20],
-                        })
+                        samples.append(
+                            {
+                                "index": int(idx),
+                                "text": str(row.get("text_content", "")),
+                                "role": row.get("role", "unknown"),
+                                "conversation_id": str(row.get("conversation_id", ""))[
+                                    :20
+                                ],
+                            }
+                        )
 
-                    distribution.append({
-                        "cluster_id": int(cluster_id) if not np.isnan(cluster_id) else -1,
-                        "label": label,
-                        "count": int(count),
-                        "percentage": round(100 * count / len(clustered_df), 1),
-                        "samples": samples,
-                    })
+                    distribution.append(
+                        {
+                            "cluster_id": int(cluster_id)
+                            if not np.isnan(cluster_id)
+                            else -1,
+                            "label": label,
+                            "count": int(count),
+                            "percentage": round(100 * count / len(clustered_df), 1),
+                            "samples": samples,
+                        }
+                    )
 
                 # Get concentration info
-                concentrated_col = cluster_col.replace("_cluster_id", "_is_concentrated")
+                concentrated_col = cluster_col.replace(
+                    "_cluster_id", "_is_concentrated"
+                )
                 concentrated_count = 0
                 if concentrated_col in message_df.columns:
                     # Cast to boolean explicitly to avoid pandas downcasting warning
                     concentrated_count = int(
-                        message_df[concentrated_col].astype('boolean').fillna(False).sum()
+                        message_df[concentrated_col]
+                        .astype("boolean")
+                        .fillna(False)
+                        .sum()
                     )
 
                 result["question_diversity_clusters"] = {
@@ -889,8 +996,10 @@ class HTMLReportGenerator:
                 }
 
         # Return None if no cluster data found
-        if (result["embedding_clusters"] is None and
-                result["question_diversity_clusters"] is None):
+        if (
+            result["embedding_clusters"] is None
+            and result["question_diversity_clusters"] is None
+        ):
             return None
 
         return result
@@ -926,8 +1035,7 @@ class HTMLReportGenerator:
         numeric_cols = [
             col
             for col in message_df.columns
-            if col not in base_columns
-            and message_df[col].dtype in ["int64", "float64"]
+            if col not in base_columns and message_df[col].dtype in ["int64", "float64"]
         ]
 
         # Generate histograms for numeric columns
@@ -976,7 +1084,7 @@ class HTMLReportGenerator:
                         line_dash="dash",
                         line_color=color,
                         line_width=2,
-                        annotation_text=f"Mode {i+1}: μ={ms.mean:.1f}",
+                        annotation_text=f"Mode {i + 1}: μ={ms.mean:.1f}",
                         annotation_font_color="#a39e93",
                         annotation_font_size=10,
                     )
@@ -1068,7 +1176,6 @@ class HTMLReportGenerator:
 
         return charts
 
-
     def _generate_anomaly_charts(
         self, analyzer: "DatasetAnalyzer"
     ) -> list[dict[str, Any]]:
@@ -1108,8 +1215,7 @@ class HTMLReportGenerator:
         numeric_cols = [
             col
             for col in message_df.columns
-            if col not in base_columns
-            and message_df[col].dtype in ["int64", "float64"]
+            if col not in base_columns and message_df[col].dtype in ["int64", "float64"]
         ]
 
         for col in numeric_cols:
@@ -1380,9 +1486,7 @@ class HTMLReportGenerator:
                             color="#a39e93",
                             type="log",  # Log scale for IFD
                         ),
-                        yaxis=dict(
-                            gridcolor="rgba(255,255,255,0.05)", color="#a39e93"
-                        ),
+                        yaxis=dict(gridcolor="rgba(255,255,255,0.05)", color="#a39e93"),
                         legend=dict(
                             orientation="h",
                             yanchor="bottom",
@@ -1420,7 +1524,24 @@ def sanitize_for_json(obj: Any) -> Any:
 
     if obj is None:
         return None
-    elif isinstance(obj, float):
+
+    # Handle OmegaConf Undefined values - check multiple ways
+    try:
+        obj_class_name = obj.__class__.__name__
+        if "Undefined" in obj_class_name or "_Marker" in obj_class_name:
+            return None
+    except (AttributeError, TypeError):
+        pass
+
+    # Additional check for Undefined by trying to convert to string
+    try:
+        obj_str = str(type(obj))
+        if "Undefined" in obj_str or "_Marker" in obj_str:
+            return None
+    except (AttributeError, TypeError):
+        pass
+
+    if isinstance(obj, float):
         if math.isnan(obj) or math.isinf(obj):
             return None
         return obj
@@ -1437,6 +1558,21 @@ def sanitize_for_json(obj: Any) -> Any:
         return tuple(result) if isinstance(obj, tuple) else result
     elif hasattr(obj, "to_plotly_json"):
         return sanitize_for_json(obj.to_plotly_json())
+
+    # Final fallback: try to detect any problematic objects that don't support standard operations
+    try:
+        # Try to call __round__ - if it fails, this is probably an Undefined or similar
+        if hasattr(obj, "__class__"):
+            # Don't try to round strings, bools, etc.
+            if not isinstance(obj, (str, bool, bytes, type(None))):
+                try:
+                    _ = round(obj, 2)  # Test if rounding works
+                except (TypeError, AttributeError):
+                    # If rounding fails, replace with None
+                    return None
+    except Exception:
+        pass
+
     return obj
 
 
