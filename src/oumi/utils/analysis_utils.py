@@ -1582,3 +1582,71 @@ def load_analyzer_artifacts(
 
     logger.info(f"Loaded analyzer artifacts from: {input_dir.absolute()}")
     return artifacts
+
+
+def regenerate_recommendations(
+    artifacts: dict[str, Any],
+    outlier_threshold: float = 3.0,
+) -> dict[str, Any]:
+    """Regenerate recommendations from loaded artifacts using the latest code.
+
+    This function regenerates recommendations from saved artifacts, ensuring
+    they use the latest recommendation logic (e.g., updated duplicate detection).
+
+    Args:
+        artifacts: Dictionary of loaded artifacts from load_analyzer_artifacts().
+            Must include 'messages_df', 'conversations_df', and 'analysis_summary'.
+        outlier_threshold: Standard deviation threshold for outlier detection.
+            Defaults to 3.0.
+
+    Returns:
+        Updated artifacts dictionary with regenerated recommendations in
+        artifacts['analysis_summary']['recommendations'].
+
+    Raises:
+        ValueError: If required artifacts are missing.
+    """
+    from oumi.core.analyze.recommendations import RecommendationsEngine
+
+    message_df = artifacts.get("messages_df")
+    conversation_df = artifacts.get("conversations_df")
+    summary = artifacts.get("analysis_summary")
+
+    if message_df is None:
+        raise ValueError("artifacts must include 'messages_df'")
+    if summary is None:
+        raise ValueError("artifacts must include 'analysis_summary'")
+
+    if message_df.empty:
+        logger.warning("messages_df is empty, skipping recommendation regeneration")
+        return artifacts
+
+    # Handle conversation_df properly (avoid DataFrame boolean ambiguity)
+    conv_df = conversation_df if conversation_df is not None else pd.DataFrame()
+
+    engine = RecommendationsEngine(outlier_std_threshold=outlier_threshold)
+    recommendations = engine.generate_recommendations(
+        message_df=message_df,
+        conversation_df=conv_df,
+        analysis_summary=summary,
+    )
+
+    # Update artifacts with regenerated recommendations
+    regenerated_recs = [rec.to_dict() for rec in recommendations]
+    summary["recommendations"] = regenerated_recs
+    artifacts["analysis_summary"]["recommendations"] = regenerated_recs
+
+    logger.info(
+        f"Regenerated {len(recommendations)} recommendations "
+        "from artifacts with latest code"
+    )
+
+    # Debug: Log if duplicate recommendations were regenerated
+    duplicate_recs = [r for r in recommendations if "duplicate" in r.title.lower()]
+    if duplicate_recs:
+        logger.info(
+            f"Found {len(duplicate_recs)} duplicate-related "
+            f"recommendations after regeneration"
+        )
+
+    return artifacts

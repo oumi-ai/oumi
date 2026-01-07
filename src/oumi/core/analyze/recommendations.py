@@ -209,7 +209,7 @@ class RecommendationsEngine:
 
         # Check for various issues
         recommendations.extend(self._check_outliers(message_df, analysis_summary))
-        recommendations.extend(self._check_duplicates(message_df))
+        recommendations.extend(self._check_duplicates(message_df, conversation_df))
         recommendations.extend(self._check_empty_content(message_df))
         recommendations.extend(self._check_short_content(message_df))
         recommendations.extend(self._check_role_distribution(message_df))
@@ -417,9 +417,7 @@ class RecommendationsEngine:
 
         return recommendations
 
-    def _create_multimodal_insight(
-        self, col: str, dist_result
-    ) -> list[Recommendation]:
+    def _create_multimodal_insight(self, col: str, dist_result) -> list[Recommendation]:
         """Create an insight recommendation about a multimodal distribution.
 
         Args:
@@ -435,8 +433,10 @@ class RecommendationsEngine:
         mode_summaries = []
         for ms in dist_result.mode_statistics:
             pct = ms.weight * 100
-            mode_summaries.append(f"Mode {ms.mode_id + 1}: {ms.count} samples "
-                                  f"({pct:.1f}%), mean={ms.mean}, std={ms.std}")
+            mode_summaries.append(
+                f"Mode {ms.mode_id + 1}: {ms.count} samples "
+                f"({pct:.1f}%), mean={ms.mean}, std={ms.std}"
+            )
 
         mode_text = "; ".join(mode_summaries)
 
@@ -473,41 +473,38 @@ class RecommendationsEngine:
             )
         ]
 
-    def _check_duplicates(self, df: pd.DataFrame) -> list[Recommendation]:
-        """Check for duplicate content in messages.
+    def _check_duplicates(
+        self, message_df: pd.DataFrame, conversation_df: pd.DataFrame | None = None
+    ) -> list[Recommendation]:
+        """Check for duplicate content in conversations.
 
-        Excludes system role messages from duplicate detection, since system
-        prompts are typically identical across conversations by design.
+        Uses conversation-level text content to detect exact duplicate conversations.
+        Checks the entire conversation text as-is, including system prompts.
 
         Args:
-            df: DataFrame with message data.
+            message_df: DataFrame with message-level data (not used, kept for API compatibility).
+            conversation_df: DataFrame with conversation-level data. Required for duplicate detection.
 
         Returns:
             List of recommendations for duplicate issues.
         """
         recommendations = []
 
-        if "text_content" not in df.columns:
+        if conversation_df is None or conversation_df.empty:
             return recommendations
 
-        # Filter out system messages for duplicate detection
-        # System prompts are typically identical by design in instruction datasets
-        if "role" in df.columns:
-            non_system_df = df[df["role"] != "system"]
-        else:
-            non_system_df = df
-
-        if len(non_system_df) == 0:
+        if "conversation_text_content" not in conversation_df.columns:
             return recommendations
 
-        # Check for exact duplicates (excluding system messages)
-        total_messages = len(non_system_df)
-        duplicates = non_system_df["text_content"].duplicated(keep=False)
+        # Check for duplicate conversations using full conversation text
+        conv_texts = conversation_df["conversation_text_content"]
+        duplicates = conv_texts.duplicated(keep=False)
         duplicate_count = duplicates.sum()
 
         if duplicate_count > 0:
-            duplicate_pct = duplicate_count / total_messages
-            unique_duplicated = non_system_df[duplicates]["text_content"].nunique()
+            total_conversations = len(conv_texts)
+            duplicate_pct = duplicate_count / total_conversations
+            unique_duplicated = conv_texts[duplicates].nunique()
 
             if duplicate_pct >= self.duplicate_warn_threshold:
                 severity = (
@@ -520,8 +517,8 @@ class RecommendationsEngine:
                     )
                 )
 
-                # Get indices of duplicate samples (limit to 20)
-                duplicate_indices = non_system_df[duplicates].index.tolist()[:20]
+                # Get indices of duplicate conversations (limit to 20)
+                duplicate_indices = conversation_df[duplicates].index.tolist()[:20]
 
                 recommendations.append(
                     Recommendation(
@@ -529,18 +526,17 @@ class RecommendationsEngine:
                         severity=severity,
                         title="Duplicate content detected",
                         description=(
-                            f"Found {duplicate_count} messages ({duplicate_pct * 100:.1f}%) "
-                            f"that are exact duplicates (excluding system prompts), "
-                            f"representing {unique_duplicated} unique repeated texts. "
-                            f"Consider deduplicating your dataset to improve training "
-                            f"diversity."
+                            f"Found {duplicate_count} conversations ({duplicate_pct * 100:.1f}%) "
+                            f"that are exact duplicates, representing {unique_duplicated} unique "
+                            f"repeated conversation patterns. Consider deduplicating your dataset "
+                            f"to improve training diversity."
                         ),
                         affected_samples=duplicate_count,
-                        metric_name="text_content",
+                        metric_name="conversation_text_content",
                         threshold=self.duplicate_warn_threshold,
                         details={
                             "duplicate_count": int(duplicate_count),
-                            "unique_duplicated_texts": int(unique_duplicated),
+                            "unique_duplicated_conversations": int(unique_duplicated),
                             "duplicate_percentage": round(duplicate_pct * 100, 2),
                         },
                         sample_indices=duplicate_indices,
@@ -1642,9 +1638,7 @@ class RecommendationsEngine:
 
         return recommendations
 
-    def _check_hallucinated_experiences(
-        self, df: pd.DataFrame
-    ) -> list[Recommendation]:
+    def _check_hallucinated_experiences(self, df: pd.DataFrame) -> list[Recommendation]:
         """Check for AI hallucinated personal experiences.
 
         Args:
@@ -2074,9 +2068,7 @@ class RecommendationsEngine:
 
         return recommendations
 
-    def _check_instruct_reward_scores(
-        self, df: pd.DataFrame
-    ) -> list[Recommendation]:
+    def _check_instruct_reward_scores(self, df: pd.DataFrame) -> list[Recommendation]:
         """Check for response quality issues based on instruct reward scores.
 
         Args:
@@ -2200,7 +2192,9 @@ class RecommendationsEngine:
                         metric_name=col,
                         details={
                             "poor_count": int(poor_count),
-                            "tier_distribution": {str(k): int(v) for k, v in tier_counts.items()},
+                            "tier_distribution": {
+                                str(k): int(v) for k, v in tier_counts.items()
+                            },
                         },
                         sample_indices=poor_indices,
                     )
