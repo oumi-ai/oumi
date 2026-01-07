@@ -285,24 +285,23 @@ def enterprise_pubmedqa(
         for label, stats in class_stats.items()
     }
 
-    # --- Micro F1 (can remove this block if not needed) ---
-    total_tp = sum(s["tp"] for s in class_stats.values())
-    total_fp = sum(s["fp"] for s in class_stats.values())
-    total_fn = sum(s["fn"] for s in class_stats.values())
-
-    micro_precision = (
-        total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0.0
-    )
-    micro_recall = (
-        total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0.0
-    )
-    micro_f1 = (
-        2 * micro_precision * micro_recall / (micro_precision + micro_recall)
-        if (micro_precision + micro_recall) > 0
-        else 0.0
-    )
-    metrics["micro_f1"] = micro_f1
-    # --- End Micro F1 ---
+    # --- Macro F1 (average of per-class F1 scores) ---
+    per_class_f1 = []
+    for label, stats in class_stats.items():
+        tp = stats["tp"]
+        fp = stats["fp"]
+        fn = stats["fn"]
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if (precision + recall) > 0
+            else 0.0
+        )
+        per_class_f1.append(f1)
+    macro_f1 = sum(per_class_f1) / len(per_class_f1) if per_class_f1 else 0.0
+    metrics["macro_f1"] = macro_f1
+    # --- End Macro F1 ---
 
     # Add predictions to metrics (will be saved separately by evaluator)
     metrics["_predictions"] = _build_predictions_list(
@@ -311,7 +310,7 @@ def enterprise_pubmedqa(
 
     logger.info(
         f"PubMedQA results: accuracy={metrics['accuracy']:.4f}, "
-        f"micro_f1={metrics['micro_f1']:.4f} "
+        f"macro_f1={metrics['macro_f1']:.4f} "
         f"({metrics['num_correct']}/{metrics['num_total']})"
     )
 

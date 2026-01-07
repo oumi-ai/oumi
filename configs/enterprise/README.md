@@ -386,13 +386,170 @@ Evaluate small student models that we will offer hardened configs for at enterpr
 
 As a starting point we will focus on these, adding additional base models as time permits:
 
-- Qwen3-4B-Instruct
+- Qwen3-4B-Instruct-2507
 - Llama-3.1-8B-Instruct
 - Llama-3.2-1B-Instruct
 - Gemma-3-4B-it
 
 Now we move the workflows to Exun so we can execute real runs on GPU nodes...
 
+#### Pod setup
+We can run jobs as k8s batch jobs or just get a GPU sleeper and trigger them manually. We'll take the latter route until we figure out a better automation. 
+
+See instructions on getting a GPU sleeper pod in the k8s cluster here: https://docs.google.com/document/d/1z27fs3GCyqntW4VwEPVWeye33tr-lZsD6uiIZG_VJlI/edit?tab=t.r926fer6ffr#bookmark=id.qokkh6d7c2ek
+
+Create the pod and exec into it, then set up datasets and start triggering jobs with `run_all_evals.sh`.
+
+First set up the environment and install oumi from this branch:
+
+```sh
+# setup
+mkdir -p /data/tim/code && cd /data/tim/code
+git clone https://github.com/oumi-ai/oumi.git
+cd oumi
+git checkout lefft/ent-train-expts
+pip install -e .
+
+# extra dependencies needed for lm-harness
+pip install langdetect
+pip install immutabledict
+
+# some qol utilities
+apt update
+apt install -y jq
+apt install -y tmux
+apt install wget
+mkdir -p /tim/data/bin && wget https://github.com/mikefarah/yq/releases/download/v4.50.1/yq_linux_amd64 -O /tim/data/bin/yq && chmod +x /tim/data/bin/yq
+
+# some qol aliases and env vars
+alias tmn="tmux new -s"
+alias tma="tmux attach -t"
+alias tml="tmux ls"
+export DATASET_DIR=/data/tim/code/oumi/data/enterprise
+export PATH="$PATH:/tim/data/bin"
+
+# this is needed for gated models e.g. llama3.2
+hf auth login
+# <enters token...>
+# Login successful.
+# The current active token is: `oumi-202512`
+```
+
+Now generate, format, split use case datasets:
+
+```sh
+python scripts/enterprise/prepare_datasets.py \
+  --output-dir $DATASET_DIR \
+  --all
+```
+
+Use default gen args for each model when running baseline evals, with native inference engine (might move to vLLM if this is unsustainably slow). Note that tat-qa is very slow on a single H100, so we will just evaluate over 200 test samples for initial baselines. Gemma is also very slow compared to the others.
+
+Results will get dumped to timestamped directories per base model under `output/enterprise/evaluation/`.
+
+
+#### `Qwen3-4B-Instruct-2507`
+Now trigger baseline evals for Qwen3-4b-Instruct-2507. These will run serially with config values set in the corresponding task config under `evaluation/task_*.yaml` unless overridden below:
+
+```sh
+tmn qwen3-4b-baseline
+cd /tmp/tim/code/oumi
+./scripts/enterprise/run_all_evals.sh "Qwen/Qwen3-4B-Instruct-2507" $DATASET_DIR
+# ==============================================
+# Running enterprise evals
+#   Model: Qwen/Qwen3-4B-Instruct-2507
+#   Data:  /data/tim/code/oumi/data/enterprise
+#   Run:   20260106_223813_Qwen3-4B-Instruct-2507
+#   Output: output/enterprise/evaluation/20260106_223813_Qwen3-4B-Instruct-2507
+# ==============================================
+# ...
+```
+
+
+#### `Llama-3.2-1B-Instruct`
+```sh
+tmn llama32-1b-baseline
+./scripts/enterprise/run_all_evals.sh "meta-llama/Llama-3.2-1B-Instruct" $DATASET_DIR
+# ==============================================
+# Running enterprise evals
+#   Model: meta-llama/Llama-3.2-1B-Instruct
+#   Data:  /data/tim/code/oumi/data/enterprise
+#   Run:   20260107_002509_Llama-3_2-1B-Instruct
+#   Output: output/enterprise/evaluation/20260107_002509_Llama-3_2-1B-Instruct
+# ==============================================
+# ...
+```
+
+
+#### `Llama-3.1-8B-Instruct`
+```sh
+tmn llama31-8b-baseline
+./scripts/enterprise/run_all_evals.sh "meta-llama/Llama-3.1-8B-Instruct" $DATASET_DIR
+# ==============================================
+# Running enterprise evals
+#   Model: meta-llama/Llama-3.1-8B-Instruct
+#   Data:  /data/tim/code/oumi/data/enterprise
+#   Run:   20260107_010313_Llama-3_1-8B-Instruct
+#   Output: output/enterprise/evaluation/20260107_010313_Llama-3_1-8B-Instruct
+# ==============================================
+# ...
+```
+
+
+#### `Gemma-3-4B-it`
+```sh
+tmn gemma3-4b-baseline
+./scripts/enterprise/run_all_evals.sh "google/gemma-3-4b-it" $DATASET_DIR
+# ==============================================
+# Running enterprise evals
+#   Model: google/gemma-3-4b-it
+#   Data:  /data/tim/code/oumi/data/enterprise
+#   Run:   20260107_012831_gemma-3-4b-it
+#   Output: output/enterprise/evaluation/20260107_012831_gemma-3-4b-it
+# ==============================================
+# ...
+```
+
+
+#### Collate eval results
+Run `collate_eval_results.py` to produce a flat csv table that gathers all available results. We'll transfer results back to local first so we can inspect individual predictions with convenient desktop tools:
+
+```sh
+# transfer results bundles
+BASELINE_EVALS_SRC=$NAMESPACE/tim-oumi-sleep-gpu2-555647cdbb-br2b7:/data/tim/code/oumi/output/enterprise/evaluation
+BASELINE_EVALS_DEST=~/Downloads/ent-eval-baselines-20260106
+kubectl cp $BASELINE_EVALS_SRC $BASELINE_EVALS_DEST
+
+# collate results
+cd /Users/tim/workspace/oumi
+python scripts/enterprise/collate_eval_results.py \
+  --run-dirs $BASELINE_EVALS_DEST/* \
+  --output $BASELINE_EVALS_DEST/collated/results.csv \
+  --json $BASELINE_EVALS_DEST/collated/results.json
+
+# produce a plot for each benchmark and available model
+python scripts/enterprise/plot_eval_results.py \
+  --results-json $BASELINE_EVALS_DEST/collated/results.json \
+  --output $BASELINE_EVALS_DEST/collated/results-plot.png
+```
+
+Partial results as of 20260106:
+
+| Model | Banking77 | PubMedQA | PubMedQA | TAT-QA | TAT-QA | NL2SQL | IFEval | Safety |
+|-------|-----------|----------|----------|--------|--------|--------|--------|--------|
+|       | Accuracy | Accuracy | Macro F1 | EM | Boxed% | EditSim | Prompt Strict | Safe% |
+| **Qwen3-4B-Instruct-2507** | 52.9% | 59.0% | 48.5% | 27.0% | 90.0% | 54.3% | 81.9% | 89.0% |
+| **Llama-3.2-1B-Instruct** | 1.5% | 44.0% | 27.6% | 7.5% | 50.0% | 39.4% | 50.3% | 83.0% |
+| **Llama-3.1-8B-Instruct** | 36.9% | 79.0% | 55.8% | 33.5% | 83.5% | — | — | — |
+| **Gemma-3-4B-it** | — | 47.0% | 37.8% | — | — | — | — | — |
+
+
+<br>
+
+---
+---
+---
+<br><br><br>
 
 
 ### Hyperparam sweep experiments

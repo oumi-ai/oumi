@@ -25,7 +25,7 @@ model:
     padding_side: "left"  # Required for batch inference with decoder-only models
 
 generation:
-  batch_size: 4
+  batch_size: 8
   max_new_tokens: 256
   temperature: 0.0
 
