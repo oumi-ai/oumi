@@ -91,6 +91,7 @@ class MetricsLoggerCallback(BaseTrainerCallback):
         Args:
             metrics: Dictionary of metrics to write.
         """
+        logger.info(f"Writing metrics to {metrics}")
         if self._metrics_log_file is None:
             device_rank_info = get_device_rank_info()
             self._output_dir.mkdir(parents=True, exist_ok=True)
@@ -112,6 +113,7 @@ class MetricsLoggerCallback(BaseTrainerCallback):
         Args:
             metrics: Dictionary of evaluation metrics to write.
         """
+        logger.info(f"Writing evaluation results to {metrics}")
         if self._eval_results_log_file is None:
             device_rank_info = get_device_rank_info()
             self._output_dir.mkdir(parents=True, exist_ok=True)
