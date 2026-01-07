@@ -73,7 +73,7 @@ class MetricsLoggerCallback(BaseTrainerCallback):
         control: "transformers.TrainerControl | None" = None,
         **kwargs,
     ):
-        """Event called after evaluation."""
+        """Event called after evaluation steps."""
         if not is_world_process_zero():
             return
 

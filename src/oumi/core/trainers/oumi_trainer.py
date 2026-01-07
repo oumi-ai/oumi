@@ -456,19 +456,32 @@ class Trainer(BaseTrainer):
         self.model.eval()
         eval_losses = []
 
-        for batch in tqdm(
-            self.eval_dataloader,
-            desc="Evaluating",
-            disable=not is_local_process_zero(),
+        for step, batch in enumerate(
+            tqdm(
+                self.eval_dataloader,
+                desc="Evaluating",
+                disable=not is_local_process_zero(),
+            )
         ):
             batch = {k: v.to(self.device) for k, v in batch.items()}
             outputs = self.model(**batch)
-            eval_losses.append(outputs.loss.item())
+            loss = outputs.loss.item()
+            eval_losses.append(loss)
+
+            # Per-step callback with real-time metrics
+            step_metrics = {
+                "val/step_loss": loss,
+                "val/step": step,
+            }
+            self._process_callbacks("on_evaluate", step_metrics)
 
         eval_loss = sum(eval_losses) / len(eval_losses)
         perplexity = torch.exp(torch.tensor(eval_loss))
 
         results = {"val/loss": eval_loss, "val/perplexity": perplexity.item()}
+
+        # Trigger on_evaluate callback with final aggregated metrics
+        self._process_callbacks("on_evaluate", results)
 
         self.log("Finished evaluation.")
         self.log_metrics(results, self.state.global_step)
