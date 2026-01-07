@@ -562,6 +562,29 @@
         .conversation-turns { display: none; padding: 0 24px 20px; }
         .conversation-item.expanded .conversation-turns { display: block; }
 
+        .conversation-reasoning {
+            display: none;
+            padding: 16px 24px;
+            background: var(--color-bg-secondary);
+            border-top: 1px solid var(--color-border);
+            margin-top: 12px;
+        }
+        .conversation-item.expanded .conversation-reasoning { display: block; }
+        .reasoning-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .reasoning-text {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--color-text-secondary);
+            white-space: pre-wrap;
+        }
+
         .turn {
             display: flex;
             gap: 12px;
@@ -1741,6 +1764,13 @@
                 flaggedStat.textContent = conv.flagged_count + ' flagged';
                 stats.appendChild(flaggedStat);
 
+                if (conv.metric_value) {
+                    const metricStat = document.createElement('span');
+                    metricStat.className = 'conversation-stat';
+                    metricStat.textContent = 'Score: ' + conv.metric_value;
+                    stats.appendChild(metricStat);
+                }
+
                 headerLeft.appendChild(stats);
                 header.appendChild(headerLeft);
 
@@ -1810,6 +1840,22 @@
                 });
 
                 convItem.appendChild(turns);
+
+                // Add reasoning if available (conversation-level)
+                if (conv.reasoning) {
+                    const reasoningDiv = document.createElement('div');
+                    reasoningDiv.className = 'conversation-reasoning';
+                    const reasoningLabel = document.createElement('div');
+                    reasoningLabel.className = 'reasoning-label';
+                    reasoningLabel.textContent = 'Reasoning:';
+                    reasoningDiv.appendChild(reasoningLabel);
+                    const reasoningText = document.createElement('div');
+                    reasoningText.className = 'reasoning-text';
+                    reasoningText.textContent = conv.reasoning;
+                    reasoningDiv.appendChild(reasoningText);
+                    convItem.appendChild(reasoningDiv);
+                }
+
                 convList.appendChild(convItem);
             });
 

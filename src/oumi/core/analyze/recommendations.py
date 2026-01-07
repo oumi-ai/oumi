@@ -296,13 +296,25 @@ class RecommendationsEngine:
             df = conversation_df
 
         # Get all numeric columns that look like analysis results
+        # Check for columns with analyzer patterns (double underscores indicate analyzer columns)
         numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns
         analysis_cols = [
             col
             for col in numeric_cols
-            if any(
-                pattern in col
-                for pattern in ["_length_", "_diversity_", "_format_", "_count"]
+            if (
+                "__" in col  # Analyzer columns use double underscores
+                and any(
+                    pattern in col
+                    for pattern in [
+                        "_length_",
+                        "_diversity_",
+                        "_format_",
+                        "_count",
+                        "__score",
+                        "__ratio",
+                        "__percentage",
+                    ]
+                )
             )
         ]
 

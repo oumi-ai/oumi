@@ -758,12 +758,25 @@ class HTMLReportGenerator:
                                 conv_row[metric_name]
                             )
 
+                        # Add reasoning if available (e.g., for helpfulness, instruction_quality, etc.)
+                        reasoning = None
+                        if metric_name and "__score" in metric_name:
+                            # Extract reasoning column name (replace __score with __reasoning)
+                            reasoning_col = metric_name.replace(
+                                "__score", "__reasoning"
+                            )
+                            if reasoning_col in conv_row:
+                                reasoning_value = conv_row[reasoning_col]
+                                if reasoning_value and str(reasoning_value).strip():
+                                    reasoning = str(reasoning_value).strip()
+
                         conversations.append(
                             {
                                 "conversation_id": str(conv_id),
                                 "turns": turns,
                                 "flagged_count": 1,  # Entire conversation is flagged
                                 "metric_value": metric_value,
+                                "reasoning": reasoning,
                             }
                         )
 
