@@ -62,7 +62,7 @@ dependencies = [
     "posthog>=7.0,<8.0",
     "pillow>=11.3,<12.2",      # Used by image datasets
     "protobuf>=6.32",
-    "pycares<5.0.0",
+    "pycares<6.0.0",
     "pydantic>=2.11,<2.13",
     "responses>=0.25,<0.26",
     "safetensors>=0.6,<0.8",
