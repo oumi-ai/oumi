@@ -1199,6 +1199,9 @@ class HTMLReportGenerator:
     def _generate_charts(self, analyzer: "DatasetAnalyzer") -> list[dict[str, Any]]:
         """Generate Plotly chart specifications for the report.
 
+        Prefers conversation-level DataFrame for conversation-level metrics
+        (e.g., conversation_text_content__length__token_count).
+
         Args:
             analyzer: DatasetAnalyzer instance with analysis results.
 
@@ -1211,10 +1214,13 @@ class HTMLReportGenerator:
         chart_count = 0
 
         message_df = analyzer.message_df
+        conversation_df = getattr(analyzer, "conversation_df", None)
+
         if message_df is None or message_df.empty:
             return charts
 
-        # Find numeric analysis columns to visualize
+        # Prefer conversation_df for conversation-level metrics
+        df = message_df
         base_columns = {
             "conversation_index",
             "conversation_id",
@@ -1224,23 +1230,84 @@ class HTMLReportGenerator:
             "text_content",
         }
 
-        numeric_cols = [
-            col
-            for col in message_df.columns
-            if col not in base_columns and message_df[col].dtype in ["int64", "float64"]
-        ]
+        # Use conversation_df if available for conversation-level columns
+        if conversation_df is not None and not conversation_df.empty:
+            conv_base_columns = {
+                "conversation_index",
+                "conversation_id",
+                "num_messages",
+                "conversation_text_content",
+            }
+            # Get conversation-level numeric columns
+            conv_numeric_cols = [
+                col
+                for col in conversation_df.columns
+                if col not in conv_base_columns
+                and conversation_df[col].dtype in ["int64", "float64"]
+            ]
+
+            # Get message-level numeric columns (excluding conversation-level ones)
+            # Also exclude message-level columns that have conversation-level equivalents
+            conv_col_names = set(conversation_df.columns)
+            msg_numeric_cols = []
+            for col in message_df.columns:
+                if col in base_columns:
+                    continue
+                if message_df[col].dtype not in ["int64", "float64"]:
+                    continue
+                if col.startswith("conversation_"):
+                    continue
+                # Skip message-level columns that have conversation-level equivalents
+                # e.g., skip text_content__length__token_count if conversation_text_content__length__token_count exists
+                conv_equiv = col.replace("text_content_", "conversation_text_content_")
+                if conv_equiv in conv_col_names:
+                    continue
+                msg_numeric_cols.append(col)
+
+            # Combine: prefer conversation-level, then message-level
+            numeric_cols = conv_numeric_cols + msg_numeric_cols
+        else:
+            # Fallback to message-level only
+            numeric_cols = [
+                col
+                for col in message_df.columns
+                if col not in base_columns
+                and message_df[col].dtype in ["int64", "float64"]
+            ]
 
         # Generate histograms for numeric columns
         for col in numeric_cols:
             if chart_count >= self.max_charts:
                 break
 
-            series = message_df[col].dropna()
+            # Determine which DataFrame to use for this column
+            if (
+                conversation_df is not None
+                and not conversation_df.empty
+                and col in conversation_df.columns
+            ):
+                series = conversation_df[col].dropna()
+                df_used = "conversation"
+            elif col in message_df.columns:
+                series = message_df[col].dropna()
+                df_used = "message"
+            else:
+                continue
+
             if len(series) < 2:
                 continue
 
             # Create a cleaner title
-            col_title = col.replace("text_content_", "").replace("_", " ").title()
+            # Remove conversation_text_content_ prefix first, then text_content_
+            col_title = (
+                col.replace("conversation_text_content_", "")
+                .replace("text_content_", "")
+                .replace("_", " ")
+                .title()
+            )
+            # Add "Conversation" prefix only if using conversation_df and not already present
+            if df_used == "conversation" and not col_title.startswith("Conversation"):
+                col_title = f"Conversation {col_title}"
 
             # Detect distribution type for enhanced visualization
             dist_result = detect_distribution_type(series)
