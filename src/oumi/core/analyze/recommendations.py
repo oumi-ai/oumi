@@ -208,7 +208,9 @@ class RecommendationsEngine:
         recommendations = []
 
         # Check for various issues
-        recommendations.extend(self._check_outliers(message_df, analysis_summary))
+        recommendations.extend(
+            self._check_outliers(message_df, conversation_df, analysis_summary)
+        )
         recommendations.extend(self._check_duplicates(message_df, conversation_df))
         recommendations.extend(self._check_empty_content(message_df))
         recommendations.extend(self._check_short_content(message_df))
@@ -264,7 +266,8 @@ class RecommendationsEngine:
 
     def _check_outliers(
         self,
-        df: pd.DataFrame,
+        message_df: pd.DataFrame,
+        conversation_df: pd.DataFrame | None,
         analysis_summary: dict[str, Any],
     ) -> list[Recommendation]:
         """Check for outliers in numeric analysis columns.
@@ -274,14 +277,23 @@ class RecommendationsEngine:
         standard 3-sigma detection. For multimodal distributions, detects
         outliers within each mode separately.
 
+        Prefers conversation-level DataFrame for conversation-level metrics.
+
         Args:
-            df: DataFrame with analysis results.
+            message_df: DataFrame with message-level analysis results.
+            conversation_df: Optional DataFrame with conversation-level analysis results.
             analysis_summary: Summary statistics.
 
         Returns:
             List of recommendations for outlier issues.
         """
         recommendations = []
+
+        # Prefer conversation_df for conversation-level metrics
+        df = message_df
+        if conversation_df is not None and not conversation_df.empty:
+            # Use conversation_df for conversation-level columns
+            df = conversation_df
 
         # Get all numeric columns that look like analysis results
         numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns

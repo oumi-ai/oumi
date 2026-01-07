@@ -631,6 +631,10 @@ class HTMLReportGenerator:
         For each problematic sample, retrieves the entire conversation to provide
         context. The problematic message is highlighted within the conversation.
 
+        Handles both message-level and conversation-level recommendations:
+        - Message-level: sample_indices point to message_df rows
+        - Conversation-level: sample_indices point to conversation_df rows
+
         Args:
             recommendations: List of recommendation dictionaries.
             analyzer: DatasetAnalyzer instance with analysis results.
@@ -639,6 +643,8 @@ class HTMLReportGenerator:
             List of recommendations enriched with conversation data.
         """
         message_df = analyzer.message_df
+        conversation_df = getattr(analyzer, "conversation_df", None)
+
         if message_df is None or message_df.empty:
             return recommendations
 
@@ -651,6 +657,17 @@ class HTMLReportGenerator:
             rec_copy["id"] = f"rec_{idx}"
             sample_indices = rec.get("sample_indices", [])
             sample_indices_set = set(sample_indices)
+            metric_name = rec.get("metric_name", "")
+
+            # Determine if this recommendation is from conversation-level data
+            is_conversation_level = (
+                conversation_df is not None
+                and not conversation_df.empty
+                and (
+                    metric_name.startswith("conversation_")
+                    or "conversation_text_content" in metric_name
+                )
+            )
 
             if sample_indices:
                 # Get unique conversation IDs from the sample indices
@@ -658,77 +675,179 @@ class HTMLReportGenerator:
                 seen_conv_ids: set[str] = set()
 
                 for sample_idx in sample_indices:
-                    if sample_idx not in message_df.index:
-                        continue
+                    # Check if this index is in conversation_df (conversation-level)
+                    if (
+                        is_conversation_level
+                        and conversation_df is not None
+                        and not conversation_df.empty
+                        and sample_idx in conversation_df.index
+                    ):
+                        conv_row = conversation_df.loc[sample_idx]
+                        # Get conversation identifier
+                        conv_col = None
+                        for col in ["conversation_index", "conversation_id"]:
+                            if col in conversation_df.columns:
+                                conv_col = col
+                                break
 
-                    row = message_df.loc[sample_idx]
-                    if has_conv_id:
-                        conv_id = row.get("conversation_id", f"sample_{sample_idx}")
-                    else:
-                        # For flat format, each sample is its own "conversation"
-                        conv_id = f"sample_{sample_idx}"
+                        if conv_col:
+                            conv_id = conv_row.get(conv_col, f"sample_{sample_idx}")
+                        else:
+                            conv_id = f"sample_{sample_idx}"
 
-                    # Skip if we've already processed this conversation
-                    if conv_id in seen_conv_ids:
-                        continue
+                        # Skip if we've already processed this conversation
+                        if conv_id in seen_conv_ids:
+                            continue
 
-                    # Limit to 20 conversations
-                    if len(seen_conv_ids) >= 20:
-                        break
+                        # Limit to 20 conversations
+                        if len(seen_conv_ids) >= 20:
+                            break
 
-                    seen_conv_ids.add(conv_id)
+                        seen_conv_ids.add(conv_id)
 
-                    # Get all messages in this conversation
-                    if has_conv_id:
-                        conv_messages = message_df[
-                            message_df["conversation_id"] == conv_id
-                        ].sort_index()
-                    else:
-                        # For flat format, just use the single row
-                        conv_messages = message_df.loc[[sample_idx]]
+                        # Get all messages in this conversation from message_df
+                        if has_conv_id and conv_col:
+                            conv_messages = message_df[
+                                message_df[conv_col] == conv_id
+                            ].sort_index()
+                        else:
+                            # Fallback: use conversation text from conversation_df
+                            conv_messages = pd.DataFrame()
 
-                    # Build conversation data with turns
-                    turns = []
-                    for msg_idx, msg_row in conv_messages.iterrows():
-                        # Get text content - try multiple possible column names
-                        text = ""
-                        if "text_content" in msg_row and msg_row.get("text_content"):
-                            text = str(msg_row.get("text_content", ""))
-                        elif not has_conv_id:
-                            # For flat format, construct text from available columns
-                            parts = []
-                            for col in ["instruction", "input", "prompt", "question"]:
-                                if col in msg_row and msg_row.get(col):
-                                    parts.append(f"[{col}]: {msg_row[col]}")
-                            for col in ["output", "response", "answer", "completion"]:
-                                if col in msg_row and msg_row.get(col):
-                                    parts.append(f"[{col}]: {msg_row[col]}")
-                            text = "\n".join(parts) if parts else ""
+                        # Get conversation text from conversation_df if available
+                        conv_text = ""
+                        if "conversation_text_content" in conv_row:
+                            conv_text = str(
+                                conv_row.get("conversation_text_content", "")
+                            )
 
-                        turn_data = {
-                            "index": int(msg_idx),
-                            "role": msg_row.get("role", "sample"),
-                            "text": text,
-                            "is_flagged": int(msg_idx) in sample_indices_set,
-                        }
-                        # Add metric value for flagged messages
-                        if turn_data["is_flagged"]:
-                            metric_name = rec.get("metric_name")
-                            if metric_name and metric_name in msg_row:
-                                turn_data["metric_value"] = self._format_metric_value(
-                                    msg_row[metric_name]
-                                )
-                        turns.append(turn_data)
+                        # Build conversation data
+                        turns = []
+                        if not conv_messages.empty:
+                            # Use message-level data to build turns
+                            for msg_idx, msg_row in conv_messages.iterrows():
+                                text = ""
+                                if "text_content" in msg_row and msg_row.get(
+                                    "text_content"
+                                ):
+                                    text = str(msg_row.get("text_content", ""))
 
-                    conversations.append(
-                        {
-                            "conversation_id": str(conv_id),
-                            "turns": turns,
-                            "flagged_count": sum(
-                                1 for t in turns if t.get("is_flagged")
-                            ),
-                        }
-                    )
+                                turn_data = {
+                                    "index": int(msg_idx),
+                                    "role": msg_row.get("role", "sample"),
+                                    "text": text,
+                                    # Conversation-level, so no specific message flagged
+                                    "is_flagged": False,
+                                }
+                                turns.append(turn_data)
+                        elif conv_text:
+                            # Fallback: use full conversation text
+                            turns.append(
+                                {
+                                    "index": int(sample_idx),
+                                    "role": "conversation",
+                                    "text": conv_text,
+                                    "is_flagged": True,
+                                }
+                            )
+
+                        # Add metric value from conversation_df
+                        metric_value = None
+                        if metric_name and metric_name in conv_row:
+                            metric_value = self._format_metric_value(
+                                conv_row[metric_name]
+                            )
+
+                        conversations.append(
+                            {
+                                "conversation_id": str(conv_id),
+                                "turns": turns,
+                                "flagged_count": 1,  # Entire conversation is flagged
+                                "metric_value": metric_value,
+                            }
+                        )
+
+                    # Handle message-level recommendations (original logic)
+                    elif sample_idx in message_df.index:
+                        row = message_df.loc[sample_idx]
+                        if has_conv_id:
+                            conv_id = row.get("conversation_id", f"sample_{sample_idx}")
+                        else:
+                            # For flat format, each sample is its own "conversation"
+                            conv_id = f"sample_{sample_idx}"
+
+                        # Skip if we've already processed this conversation
+                        if conv_id in seen_conv_ids:
+                            continue
+
+                        # Limit to 20 conversations
+                        if len(seen_conv_ids) >= 20:
+                            break
+
+                        seen_conv_ids.add(conv_id)
+
+                        # Get all messages in this conversation
+                        if has_conv_id:
+                            conv_messages = message_df[
+                                message_df["conversation_id"] == conv_id
+                            ].sort_index()
+                        else:
+                            # For flat format, just use the single row
+                            conv_messages = message_df.loc[[sample_idx]]
+
+                        # Build conversation data with turns
+                        turns = []
+                        for msg_idx, msg_row in conv_messages.iterrows():
+                            # Get text content - try multiple possible column names
+                            text = ""
+                            if "text_content" in msg_row and msg_row.get(
+                                "text_content"
+                            ):
+                                text = str(msg_row.get("text_content", ""))
+                            elif not has_conv_id:
+                                # For flat format, construct text from available columns
+                                parts = []
+                                for col in [
+                                    "instruction",
+                                    "input",
+                                    "prompt",
+                                    "question",
+                                ]:
+                                    if col in msg_row and msg_row.get(col):
+                                        parts.append(f"[{col}]: {msg_row[col]}")
+                                for col in [
+                                    "output",
+                                    "response",
+                                    "answer",
+                                    "completion",
+                                ]:
+                                    if col in msg_row and msg_row.get(col):
+                                        parts.append(f"[{col}]: {msg_row[col]}")
+                                text = "\n".join(parts) if parts else ""
+
+                            turn_data = {
+                                "index": int(msg_idx),
+                                "role": msg_row.get("role", "sample"),
+                                "text": text,
+                                "is_flagged": int(msg_idx) in sample_indices_set,
+                            }
+                            # Add metric value for flagged messages
+                            if turn_data["is_flagged"]:
+                                if metric_name and metric_name in msg_row:
+                                    turn_data["metric_value"] = (
+                                        self._format_metric_value(msg_row[metric_name])
+                                    )
+                            turns.append(turn_data)
+
+                        conversations.append(
+                            {
+                                "conversation_id": str(conv_id),
+                                "turns": turns,
+                                "flagged_count": sum(
+                                    1 for t in turns if t.get("is_flagged")
+                                ),
+                            }
+                        )
 
                 rec_copy["conversations"] = conversations
                 rec_copy["total_conversations"] = len(seen_conv_ids)
