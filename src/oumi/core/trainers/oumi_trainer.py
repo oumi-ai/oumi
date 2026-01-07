@@ -258,6 +258,7 @@ class Trainer(BaseTrainer):
                         # TODO: OPE-223 - only the global leader is used for evaluation
                         # To enable distributed evaluation, the eval function needs
                         # to be updated to aggregate metrics accross all workers.
+                        logger.info("Starting evaluation 1...")
                         self.evaluate()
 
                     self.state.epoch += 1
@@ -407,6 +408,7 @@ class Trainer(BaseTrainer):
                             "tokens_per_step_per_gpu": self.state.total_tokens_seen
                             / self.state.global_step,
                         }
+                        logger.info(f"About to call on_log with Metrics: {metrics}")
                         callback_metrics = self._process_callbacks("on_log", metrics)
                         metrics.update(callback_metrics)
 
@@ -430,6 +432,7 @@ class Trainer(BaseTrainer):
                         # TODO: OPE-223 - only the global leader is used for evaluation
                         # To enable distributed evaluation, th eval function needs
                         # to be updated to aggregate metrics accross all workers.
+                        logger.info("Starting evaluation 2...")
                         self.evaluate()
 
                 if stop_on_max_steps_limit:
@@ -450,6 +453,7 @@ class Trainer(BaseTrainer):
     @torch.no_grad()
     def evaluate(self) -> dict[str, float]:
         """Evaluates the model on the evaluation dataset."""
+        logger.info("Evaluating model...")
         if self.eval_dataloader is None:
             raise ValueError("No evaluation dataloader provided.")
 
