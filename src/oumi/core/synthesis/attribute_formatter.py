@@ -22,6 +22,7 @@ class _AttributeParentInfo:
     def __init__(self, parent_name: str, parent_description: str):
         """Initialize the attribute parent info."""
         self._parent_name = parent_name
+        self.name = parent_name
         self.description = parent_description
 
     def __str__(self) -> str:
@@ -41,8 +42,9 @@ class _AttributeInfo:
         value_description: "The text is complex."
 
     Formatting string:
-        {complexity.parent} ({complexity.parent.description})
-        {complexity} ({complexity.description})
+        {complexity.parent} or {complexity.parent.name}
+        ({complexity.parent.description})
+        {complexity} or {complexity.name} ({complexity.description})
 
     Result:
         Complexity (The complexity of the text.)
@@ -60,6 +62,7 @@ class _AttributeInfo:
         """Initialize the attribute value info."""
         self.attribute_id = attribute_id
         self._attribute_name = value_name
+        self.name = value_name
         self.description = value_description
         self.parent = _AttributeParentInfo(parent_name, parent_description)
 

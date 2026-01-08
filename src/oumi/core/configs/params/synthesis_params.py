@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Synthesis parameters for data generation."""
+
 import math
 import re
 from dataclasses import dataclass, field
@@ -58,20 +60,32 @@ class TextConversation:
 
 @dataclass
 class DatasetSource:
-    """Dataset to be used in synthesis."""
+    """Load data from files or HuggingFace (hf:org/dataset).
+
+    Supported file types: .jsonl, .csv, .parquet, .tsv, .xlsx
+
+    Modes same as ExampleSource:
+      - num_shots=None/1: Round-robin, reference as {field}
+      - num_shots>1: Random N-shot, reference as {id[i].field}
+    """
 
     path: str
-    """Path to the dataset source."""
+    """Path to dataset file or hf:org/dataset."""
 
     hf_split: str | None = None
-    """Split of the huggingface dataset to be used in synthesis."""
+    """HuggingFace dataset split."""
 
     hf_revision: str | None = None
-    """Revision of the huggingface dataset to be used in synthesis."""
+    """HuggingFace dataset revision."""
 
     attribute_map: dict[str, str] | None = None
-    """Map of attributes to be used in synthesis.
-    Will use the existing keys in the dataset if not specified."""
+    """Rename columns: {"old_name": "new_name"}."""
+
+    id: str | None = None
+    """Required when num_shots > 1."""
+
+    num_shots: int | None = None
+    """None/1: round-robin. >1: random N-shot."""
 
     def __post_init__(self):
         """Verifies/populates params."""
@@ -87,6 +101,14 @@ class DatasetSource:
                 f"Unsupported dataset file type: {self.path}\n"
                 f"Supported file types: {_SUPPORTED_DATASET_FILE_TYPES}"
             )
+
+        # Validate dynamic sampling configuration
+        if self.num_shots is not None and self.num_shots > 1:
+            if not self.id:
+                raise ValueError(
+                    "DatasetSource.id must be set when num_shots > 1 "
+                    "for dynamic sampling."
+                )
 
 
 class SegmentationStrategy(str, Enum):
@@ -139,16 +161,27 @@ class DocumentSegmentationParams:
 
 @dataclass
 class DocumentSource:
-    """Documents to be used in synthesis."""
+    """Documents for synthesis.
+
+    Modes:
+      - num_shots=None/1: Round-robin, reference as {id}
+      - num_shots>1: Random N-shot, reference as {id[i]}
+
+    Example (dynamic): id="context", num_shots=2 → {context[0]}, {context[1]}
+    Supports file/directory paths. Use segmentation_params to chunk documents.
+    """
 
     path: str
-    """Path to the document source."""
+    """Path to document source (file or directory)."""
 
     id: str
-    """ID to be used when referencing the document during synthesis."""
+    """ID for referencing in templates. Required."""
 
     segmentation_params: DocumentSegmentationParams | None = None
-    """Segmentation parameters to be used when segmenting the document."""
+    """Segmentation config. None = use whole document."""
+
+    num_shots: int | None = None
+    """None/1: round-robin. >1: random N-shot."""
 
     def __post_init__(self):
         """Verifies/populates params."""
@@ -160,10 +193,23 @@ class DocumentSource:
 
 @dataclass
 class ExampleSource:
-    """In-line examples to be used in synthesis."""
+    """Inline examples for synthesis.
+
+    Modes:
+      - num_shots=None/1: Round-robin, reference as {field}
+      - num_shots>1: Random N-shot, reference as {id[i].field}
+
+    Example (dynamic): id="examples", num_shots=2 → {examples[0].field}
+    """
 
     examples: list[dict[str, Any]]
-    """Examples to be used in synthesis."""
+    """List of example dicts. All must have same keys."""
+
+    id: str | None = None
+    """Required when num_shots > 1 for dynamic sampling."""
+
+    num_shots: int | None = None
+    """None/1: round-robin. >1: random N-shot sampling."""
 
     def __post_init__(self):
         """Verifies/populates params."""
@@ -174,6 +220,14 @@ class ExampleSource:
         for example in self.examples:
             if example.keys() != keys:
                 raise ValueError("All examples must have the same keys.")
+
+        # Validate dynamic sampling configuration
+        if self.num_shots is not None and self.num_shots > 1:
+            if not self.id:
+                raise ValueError(
+                    "ExampleSource.id must be set when num_shots > 1 "
+                    "for dynamic sampling."
+                )
 
 
 @dataclass
@@ -499,7 +553,25 @@ class TransformedAttribute:
 
 @dataclass
 class GeneralSynthesisParams(BaseParams):
-    """General synthesis parameters."""
+    """General synthesis parameters.
+
+    Template Placeholders for Attribute References:
+        In instruction messages and transformation templates, you can reference
+        attributes using the following syntax:
+
+        Simple field access:
+            {field} - Value from a dataset, document, or example source
+
+        Sampled attributes (from sampled_attributes):
+            {attr_id} or {attr_id.name} - Sampled attribute value name
+            {attr_id.description} - Sampled attribute value description
+            {attr_id.parent} or {attr_id.parent.name} - Sampled attribute name
+            {attr_id.parent.description} - Sampled attribute description
+
+        Dynamic sampling (when num_shots > 1):
+            {source_id[0].field} - Access specific item from dynamically sampled
+                                   source (dataset, document, or example)
+    """
 
     input_data: list[DatasetSource] | None = None
     """Datasets whose rows and columns will be used in synthesis.

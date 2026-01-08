@@ -442,3 +442,280 @@ def test_synthesize_unsupported_output_extension(
 
         with pytest.raises(ValueError, match="Unsupported output path"):
             pipeline.synthesize()
+
+
+@patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")
+def test_synthesize_with_bracket_notation_passthrough(
+    mock_attr_synth,
+    mock_attr_transformer_class,
+    mock_dataset_planner_class,
+    mock_dataset_planner,
+    mock_attribute_transformer,
+):
+    """Test synthesis with bracket notation in passthrough attributes."""
+    full_dataset = [
+        {
+            "conversation": {"messages": []},
+            "examples": [
+                {"field1": "ex1_f1", "field2": "ex1_f2"},
+                {"field1": "ex2_f1", "field2": "ex2_f2"},
+                {"field1": "ex3_f1", "field2": "ex3_f2"},
+            ],
+            "other_attr": "should_be_filtered",
+        },
+        {
+            "conversation": {"messages": []},
+            "examples": [
+                {"field1": "ex4_f1", "field2": "ex4_f2"},
+                {"field1": "ex5_f1", "field2": "ex5_f2"},
+                {"field1": "ex6_f1", "field2": "ex6_f2"},
+            ],
+            "other_attr": "should_be_filtered",
+        },
+    ]
+
+    expected_filtered = [
+        {
+            "conversation": {"messages": []},
+            "examples[0].field1": "ex1_f1",
+            "examples[0].field2": "ex1_f2",
+            "examples[1].field1": "ex2_f1",
+            "examples[2].field2": "ex3_f2",
+        },
+        {
+            "conversation": {"messages": []},
+            "examples[0].field1": "ex4_f1",
+            "examples[0].field2": "ex4_f2",
+            "examples[1].field1": "ex5_f1",
+            "examples[2].field2": "ex6_f2",
+        },
+    ]
+
+    strategy_params = GeneralSynthesisParams(
+        passthrough_attributes=[
+            "conversation",
+            "examples[0].field1",
+            "examples[0].field2",
+            "examples[1].field1",
+            "examples[2].field2",
+        ]
+    )
+    config = SynthesisConfig(
+        num_samples=2,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    mock_attr_transformer_class.return_value = mock_attribute_transformer
+    mock_dataset_planner_class.return_value = mock_dataset_planner
+    mock_dataset_planner.plan.return_value = full_dataset
+
+    pipeline = SynthesisPipeline(config)
+    result = pipeline.synthesize()
+
+    # Should filter to only passthrough attributes with bracket notation resolved
+    assert result == expected_filtered
+
+
+@patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")
+def test_synthesize_with_mixed_passthrough_attributes(
+    mock_attr_synth,
+    mock_attr_transformer_class,
+    mock_dataset_planner_class,
+    mock_dataset_planner,
+    mock_attribute_transformer,
+):
+    """Test synthesis with mix of simple and bracket notation passthrough attributes."""
+    full_dataset = [
+        {
+            "simple_attr": "simple_value",
+            "nested": [
+                {"name": "item1", "value": 10},
+                {"name": "item2", "value": 20},
+            ],
+            "to_filter": "removed",
+        }
+    ]
+
+    expected_filtered = [
+        {
+            "simple_attr": "simple_value",
+            "nested[0].name": "item1",
+            "nested[1].value": 20,
+        }
+    ]
+
+    strategy_params = GeneralSynthesisParams(
+        passthrough_attributes=[
+            "simple_attr",
+            "nested[0].name",
+            "nested[1].value",
+        ]
+    )
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    mock_attr_transformer_class.return_value = mock_attribute_transformer
+    mock_dataset_planner_class.return_value = mock_dataset_planner
+    mock_dataset_planner.plan.return_value = full_dataset
+
+    pipeline = SynthesisPipeline(config)
+    result = pipeline.synthesize()
+
+    assert result == expected_filtered
+
+
+def test_extract_nested_value_simple():
+    """Test extracting values with simple bracket notation."""
+    # Create a minimal config to avoid model loading
+    strategy_params = GeneralSynthesisParams()
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    # Mock the initialization to avoid model loading
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    sample = {
+        "items": [
+            {"name": "first", "value": 1},
+            {"name": "second", "value": 2},
+        ]
+    }
+
+    assert pipeline._extract_nested_value(sample, "items[0].name") == "first"
+    assert pipeline._extract_nested_value(sample, "items[1].value") == 2
+
+
+def test_extract_nested_value_deeply_nested():
+    """Test extracting values from deeply nested structures."""
+    strategy_params = GeneralSynthesisParams()
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    sample = {"data": [{"level1": {"level2": [{"level3": "deep_value"}]}}]}
+
+    # Note: current implementation handles items[0].field but no lower depth access
+    # This tests the current single-level array access capability
+    assert pipeline._extract_nested_value(sample, "data[0].level1") == {
+        "level2": [{"level3": "deep_value"}]
+    }
+
+
+def test_extract_nested_value_invalid_index():
+    """Test that invalid indices raise appropriate errors."""
+    strategy_params = GeneralSynthesisParams()
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    sample = {"items": [{"name": "only_one"}]}
+
+    with pytest.raises(IndexError):
+        pipeline._extract_nested_value(sample, "items[5].name")
+
+
+def test_extract_nested_value_invalid_key():
+    """Test that invalid keys raise appropriate errors."""
+    strategy_params = GeneralSynthesisParams()
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    sample = {"items": [{"name": "test"}]}
+
+    with pytest.raises(KeyError):
+        pipeline._extract_nested_value(sample, "items[0].nonexistent")
+
+
+def test_extract_nested_value_type_error():
+    """Test that accessing non-dict/non-list types raises appropriate errors."""
+    strategy_params = GeneralSynthesisParams()
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    sample = {"value": "string"}
+
+    with pytest.raises(ValueError, match="Cannot index into non-list"):
+        pipeline._extract_nested_value(sample, "value[0]")
+
+
+def test_passthrough_with_missing_bracket_paths():
+    """Test that missing bracket notation paths are gracefully skipped."""
+    strategy_params = GeneralSynthesisParams(
+        passthrough_attributes=[
+            "exists",
+            "items[0].field",
+            "missing[5].field",
+        ]
+    )
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    dataset = [
+        {
+            "exists": "value",
+            "items": [{"field": "present"}],
+            "other": "filtered",
+        }
+    ]
+
+    result = pipeline._passthrough_attributes(dataset)
+
+    # Should include 'exists' and 'items[0].field', skip 'missing[5].field'
+    assert result == [
+        {
+            "exists": "value",
+            "items[0].field": "present",
+        }
+    ]
