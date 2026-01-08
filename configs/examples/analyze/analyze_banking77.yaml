@@ -18,6 +18,46 @@ analyzers:
       compute_packing_efficiency: true
       packing_overhead_tokens: 10
 
+  - id: embedding
+    params:
+      model_name: all-MiniLM-L6-v2 # Fast, 384 dims
+      detect_duplicates: true
+      duplicate_threshold: 0.95 # Cosine similarity (0.9-0.99)
+      detect_fuzzy_duplicates: true # MinHash LSH (fast)
+      fuzzy_threshold: 0.8
+      fuzzy_ngram_size: 3
+      cluster_samples: false
+      batch_size: 32
+      store_embeddings: false
+
+  # Question diversity analyzer - detect if user questions are too similar
+  - id: question_diversity
+    params:
+      cluster_questions: true
+      clustering_method: dbscan
+      eps: 0.15 # ~99% cosine similarity
+      min_samples: 2
+      model_name: all-MiniLM-L6-v2
+      batch_size: 32
+      compute_entropy: true
+      compute_concentration: true
+      flag_concentrated_clusters: true
+      concentration_threshold: 0.5
+
+  # Representation diversity analyzer - DEITA-style embedding diversity
+  - id: repr_diversity
+    params:
+      model_name: sentence-transformers/all-MiniLM-L6-v2
+      k_neighbors: 5
+      diversity_threshold: 0.3
+      # Use role-specific thresholds to avoid system prompt inflation
+      role_specific_thresholds:
+        system: null # Exclude system prompts (typically identical)
+        user: 0.25 # Strict diversity for user messages
+        assistant: 0.30 # Standard diversity for responses
+      embed_field: all # "all", "user", or "assistant"
+      batch_size: 32
+
   # LLM Judge: Helpfulness
   # Custom conversation-level evaluation for banking intent classification helpfulness
   - id: llm_judge

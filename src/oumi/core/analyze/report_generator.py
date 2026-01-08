@@ -1513,6 +1513,21 @@ class HTMLReportGenerator:
             # Outlier points
             outlier_indices = series[is_outlier].index.tolist()
             outlier_y = series[is_outlier].tolist()
+            
+            # Extract conversation_index for each outlier
+            outlier_conversation_indices = []
+            for idx in outlier_indices:
+                if idx in message_df.index:
+                    row = message_df.loc[idx]
+                    # Try conversation_index first, then conversation_id
+                    conv_idx = None
+                    if "conversation_index" in row:
+                        conv_idx = row.get("conversation_index")
+                    elif "conversation_id" in row:
+                        conv_idx = row.get("conversation_id")
+                    outlier_conversation_indices.append(conv_idx)
+                else:
+                    outlier_conversation_indices.append(None)
 
             fig = go.Figure()
 
@@ -1528,7 +1543,12 @@ class HTMLReportGenerator:
                 )
             )
 
-            # Add outlier points
+            # Add outlier points with conversation_index in customdata
+            # Store as [message_index, conversation_index] for each point
+            outlier_customdata = [
+                [idx, conv_idx] for idx, conv_idx in zip(outlier_indices, outlier_conversation_indices)
+            ]
+            
             fig.add_trace(
                 go.Scatter(
                     x=list(range(len(outlier_y))),
@@ -1537,9 +1557,12 @@ class HTMLReportGenerator:
                     name=f"Outliers ({outlier_count})",
                     marker=dict(color="#d66a6a", size=10, symbol="x"),
                     hovertemplate=(
-                        "Index: %{customdata}<br>Value: %{y:.2f}<extra></extra>"
+                        "Index: %{customdata[0]}<br>"
+                        "Conversation: %{customdata[1]}<br>"
+                        "Value: %{y:.2f}<br>"
+                        "<extra>Click to view conversation</extra>"
                     ),
-                    customdata=outlier_indices,
+                    customdata=outlier_customdata,
                 )
             )
 
@@ -1587,6 +1610,66 @@ class HTMLReportGenerator:
                 ),
             )
 
+            # Build conversation data for outliers (limit to avoid huge files)
+            outlier_conversations = {}
+            message_df_for_lookup = analyzer.message_df
+            conversation_df = getattr(analyzer, "conversation_df", None)
+            has_conv_id = "conversation_id" in message_df_for_lookup.columns if message_df_for_lookup is not None else False
+            
+            # Limit to first 50 outliers to avoid huge JSON files
+            for idx, conv_idx in zip(outlier_indices[:50], outlier_conversation_indices[:50]):
+                if conv_idx is None:
+                    continue
+                    
+                # Skip if we already have this conversation
+                conv_key = str(conv_idx)
+                if conv_key in outlier_conversations:
+                    continue
+                
+                # Build conversation data similar to _enrich_recommendations_with_samples
+                if message_df_for_lookup is not None and idx in message_df_for_lookup.index:
+                    row = message_df_for_lookup.loc[idx]
+                    # Get conversation identifier
+                    conv_col = None
+                    for col in ["conversation_index", "conversation_id"]:
+                        if col in message_df_for_lookup.columns:
+                            conv_col = col
+                            break
+                    
+                    if conv_col:
+                        conv_id = row.get(conv_col, conv_key)
+                    else:
+                        conv_id = conv_key
+                    
+                    # Get all messages in this conversation
+                    if has_conv_id and conv_col:
+                        conv_messages = message_df_for_lookup[
+                            message_df_for_lookup[conv_col] == conv_id
+                        ].sort_index()
+                    else:
+                        conv_messages = message_df_for_lookup.loc[[idx]]
+                    
+                    # Build conversation data with turns
+                    turns = []
+                    for msg_idx, msg_row in conv_messages.iterrows():
+                        text = ""
+                        if "text_content" in msg_row and msg_row.get("text_content"):
+                            text = str(msg_row.get("text_content", ""))
+                        
+                        turn_data = {
+                            "index": int(msg_idx),
+                            "role": msg_row.get("role", "sample"),
+                            "text": text,
+                            "is_flagged": int(msg_idx) == int(idx),  # Flag the outlier message
+                        }
+                        turns.append(turn_data)
+                    
+                    outlier_conversations[conv_key] = {
+                        "conversation_id": str(conv_id),
+                        "turns": turns,
+                        "flagged_count": 1,
+                    }
+            
             charts.append(
                 {
                     "id": f"anomaly_chart_{chart_count}",
@@ -1595,6 +1678,11 @@ class HTMLReportGenerator:
                     "layout": json.dumps(fig.layout, cls=PlotlyJSONEncoder),
                     "outlier_count": outlier_count,
                     "total_count": len(series),
+                    "outlier_mapping": {
+                        str(idx): str(conv_idx) if conv_idx is not None else None
+                        for idx, conv_idx in zip(outlier_indices, outlier_conversation_indices)
+                    },
+                    "outlier_conversations": outlier_conversations,
                 }
             )
             chart_count += 1

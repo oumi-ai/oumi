@@ -1373,7 +1373,102 @@
 
                     const chartData = JSON.parse(chart.data);
                     const chartLayout = Object.assign({}, JSON.parse(chart.layout), darkLayout);
-                    Plotly.newPlot(chart.id, chartData, chartLayout, plotlyConfig);
+                    const plotDiv = document.getElementById(chart.id);
+                    
+                    // Store chart metadata for click handler
+                    const chartMetadata = {
+                        outlier_conversations: chart.outlier_conversations || {},
+                        outlier_mapping: chart.outlier_mapping || {},
+                        title: chart.title
+                    };
+                    
+                    Plotly.newPlot(chart.id, chartData, chartLayout, plotlyConfig).then(function() {
+                        // Add click handler for outlier points after chart is rendered
+                        if (plotDiv && chartMetadata.outlier_conversations && Object.keys(chartMetadata.outlier_conversations).length > 0) {
+                            // Use a closure to capture the metadata
+                            plotDiv.on('plotly_click', function(eventData) {
+                                try {
+                                    // Check if clicked point is from the outlier trace (index 1)
+                                    if (eventData.points && eventData.points.length > 0) {
+                                        const point = eventData.points[0];
+                                        
+                                        // Outlier trace is the second trace (index 1)
+                                        if (point.curveNumber === 1) {
+                                            // Plotly customdata: when customdata is a list of lists,
+                                            // point.customdata is the inner list for that specific point
+                                            // Format: [message_index, conversation_index]
+                                            let conversationIndex = null;
+                                            let messageIndex = null;
+                                            
+                                            // Try to get conversation index from customdata
+                                            if (point.customdata !== undefined && point.customdata !== null) {
+                                                // customdata should be an array [message_index, conversation_index]
+                                                if (Array.isArray(point.customdata)) {
+                                                    messageIndex = point.customdata[0];
+                                                    // Get the conversation_index (second element)
+                                                    if (point.customdata.length >= 2) {
+                                                        conversationIndex = point.customdata[1];
+                                                    } else if (point.customdata.length === 1) {
+                                                        // Fallback: if only one element, use it
+                                                        conversationIndex = point.customdata[0];
+                                                    }
+                                                } else {
+                                                    // If it's not an array, use it directly
+                                                    conversationIndex = point.customdata;
+                                                    messageIndex = point.customdata;
+                                                }
+                                            }
+                                            
+                                            // Fallback: use messageIndex to look up in outlier_mapping
+                                            if ((conversationIndex === null || conversationIndex === undefined) && messageIndex !== null && chartMetadata.outlier_mapping) {
+                                                const msgKey = String(messageIndex);
+                                                conversationIndex = chartMetadata.outlier_mapping[msgKey];
+                                            }
+                                            
+                                            // Final fallback: try to get from pointNumber and look up in mapping
+                                            if ((conversationIndex === null || conversationIndex === undefined) && chartMetadata.outlier_mapping) {
+                                                const pointIndex = point.pointNumber;
+                                                // Get all message indices from mapping (sorted by key)
+                                                const mappingEntries = Object.entries(chartMetadata.outlier_mapping).sort((a, b) => {
+                                                    const aIdx = parseInt(a[0]) || 0;
+                                                    const bIdx = parseInt(b[0]) || 0;
+                                                    return aIdx - bIdx;
+                                                });
+                                                if (pointIndex >= 0 && pointIndex < mappingEntries.length) {
+                                                    const mappedConvIdx = mappingEntries[pointIndex][1];
+                                                    if (mappedConvIdx) {
+                                                        conversationIndex = mappedConvIdx;
+                                                    }
+                                                }
+                                            }
+                                            
+                                            if (conversationIndex !== null && conversationIndex !== undefined) {
+                                                const convKey = String(conversationIndex);
+                                                const conversation = chartMetadata.outlier_conversations[convKey];
+                                                
+                                                if (conversation) {
+                                                    openConversationModal(chartMetadata.title, [conversation]);
+                                                } else {
+                                                    console.warn('Conversation not found for index:', conversationIndex, 'Available keys:', Object.keys(chartMetadata.outlier_conversations));
+                                                }
+                                            } else {
+                                                console.warn('No conversation index found. Point data:', {
+                                                    curveNumber: point.curveNumber,
+                                                    customdata: point.customdata,
+                                                    pointNumber: point.pointNumber,
+                                                    messageIndex: messageIndex,
+                                                    hasMapping: !!chartMetadata.outlier_mapping,
+                                                    mappingKeys: chartMetadata.outlier_mapping ? Object.keys(chartMetadata.outlier_mapping).slice(0, 5) : []
+                                                });
+                                            }
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.error('Error handling plotly click:', error);
+                                }
+                            });
+                        }
+                    });
                 });
             }
         }
@@ -1866,6 +1961,21 @@
             const modal = document.getElementById('sampleModal');
             modal.classList.remove('active');
             document.body.style.overflow = '';
+        }
+
+        // Open conversation modal for a single conversation (used by outlier clicks)
+        function openConversationModal(title, conversations) {
+            const modal = document.getElementById('sampleModal');
+            const modalTitle = document.getElementById('sampleModalTitle');
+            const modalBody = document.getElementById('sampleModalBody');
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            modalBody.textContent = '';
+            modalTitle.textContent = title || 'Conversation';
+
+            renderConversations(conversations, modalBody);
         }
     </script>
 </body>
