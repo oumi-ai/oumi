@@ -1398,48 +1398,28 @@
                                             // point.customdata is the inner list for that specific point
                                             // Format: [message_index, conversation_index]
                                             let conversationIndex = null;
-                                            let messageIndex = null;
                                             
-                                            // Try to get conversation index from customdata
+                                            // Get conversation index from customdata
                                             if (point.customdata !== undefined && point.customdata !== null) {
-                                                // customdata should be an array [message_index, conversation_index]
-                                                if (Array.isArray(point.customdata)) {
-                                                    messageIndex = point.customdata[0];
+                                                if (Array.isArray(point.customdata) && point.customdata.length >= 2) {
                                                     // Get the conversation_index (second element)
-                                                    if (point.customdata.length >= 2) {
-                                                        conversationIndex = point.customdata[1];
-                                                    } else if (point.customdata.length === 1) {
-                                                        // Fallback: if only one element, use it
-                                                        conversationIndex = point.customdata[0];
-                                                    }
-                                                } else {
+                                                    conversationIndex = point.customdata[1];
+                                                } else if (Array.isArray(point.customdata) && point.customdata.length === 1) {
+                                                    // Fallback: if only one element, use it
+                                                    conversationIndex = point.customdata[0];
+                                                } else if (!Array.isArray(point.customdata)) {
                                                     // If it's not an array, use it directly
                                                     conversationIndex = point.customdata;
-                                                    messageIndex = point.customdata;
                                                 }
                                             }
                                             
                                             // Fallback: use messageIndex to look up in outlier_mapping
-                                            if ((conversationIndex === null || conversationIndex === undefined) && messageIndex !== null && chartMetadata.outlier_mapping) {
+                                            if ((conversationIndex === null || conversationIndex === undefined) && 
+                                                point.customdata && Array.isArray(point.customdata) && 
+                                                point.customdata.length > 0 && chartMetadata.outlier_mapping) {
+                                                const messageIndex = point.customdata[0];
                                                 const msgKey = String(messageIndex);
                                                 conversationIndex = chartMetadata.outlier_mapping[msgKey];
-                                            }
-                                            
-                                            // Final fallback: try to get from pointNumber and look up in mapping
-                                            if ((conversationIndex === null || conversationIndex === undefined) && chartMetadata.outlier_mapping) {
-                                                const pointIndex = point.pointNumber;
-                                                // Get all message indices from mapping (sorted by key)
-                                                const mappingEntries = Object.entries(chartMetadata.outlier_mapping).sort((a, b) => {
-                                                    const aIdx = parseInt(a[0]) || 0;
-                                                    const bIdx = parseInt(b[0]) || 0;
-                                                    return aIdx - bIdx;
-                                                });
-                                                if (pointIndex >= 0 && pointIndex < mappingEntries.length) {
-                                                    const mappedConvIdx = mappingEntries[pointIndex][1];
-                                                    if (mappedConvIdx) {
-                                                        conversationIndex = mappedConvIdx;
-                                                    }
-                                                }
                                             }
                                             
                                             if (conversationIndex !== null && conversationIndex !== undefined) {
@@ -1455,10 +1435,7 @@
                                                 console.warn('No conversation index found. Point data:', {
                                                     curveNumber: point.curveNumber,
                                                     customdata: point.customdata,
-                                                    pointNumber: point.pointNumber,
-                                                    messageIndex: messageIndex,
-                                                    hasMapping: !!chartMetadata.outlier_mapping,
-                                                    mappingKeys: chartMetadata.outlier_mapping ? Object.keys(chartMetadata.outlier_mapping).slice(0, 5) : []
+                                                    pointNumber: point.pointNumber
                                                 });
                                             }
                                         }

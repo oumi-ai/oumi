@@ -1610,19 +1610,25 @@ class HTMLReportGenerator:
                 ),
             )
 
-            # Build conversation data for outliers (limit to avoid huge files)
+            # Build conversation data for outliers
+            # Build for all unique conversation indices to ensure all outliers are clickable
             outlier_conversations = {}
             message_df_for_lookup = analyzer.message_df
             conversation_df = getattr(analyzer, "conversation_df", None)
             has_conv_id = "conversation_id" in message_df_for_lookup.columns if message_df_for_lookup is not None else False
             
-            # Limit to first 50 outliers to avoid huge JSON files
-            for idx, conv_idx in zip(outlier_indices[:50], outlier_conversation_indices[:50]):
-                if conv_idx is None:
-                    continue
-                    
+            # Collect all unique conversation indices from ALL outliers (not just first 50)
+            unique_conv_indices = {}
+            for idx, conv_idx in zip(outlier_indices, outlier_conversation_indices):
+                if conv_idx is not None:
+                    conv_key = str(conv_idx)
+                    # Store the first message index we encounter for this conversation
+                    if conv_key not in unique_conv_indices:
+                        unique_conv_indices[conv_key] = idx
+            
+            # Build conversation data for all unique conversations
+            for conv_key, idx in unique_conv_indices.items():
                 # Skip if we already have this conversation
-                conv_key = str(conv_idx)
                 if conv_key in outlier_conversations:
                     continue
                 
