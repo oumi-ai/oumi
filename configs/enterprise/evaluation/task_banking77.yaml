@@ -23,7 +23,7 @@ model:
     padding_side: "left"  # required for batch inference with decoder-only models
 
 generation:
-  batch_size: 8  # 1 to bypass padding issues in batch inference
+  batch_size: 8  # inert when using vLLM
   max_new_tokens: 64
   temperature: 0.0
 
@@ -33,7 +33,7 @@ tasks:
     eval_kwargs:
       test_data_path: data/enterprise/banking77/test.jsonl
 
-inference_engine: NATIVE
+inference_engine: VLLM
 enable_wandb: true
 
 output_dir: "output/enterprise/evaluation/banking77"

@@ -30,7 +30,7 @@ model:
     padding_side: "left"  # Required for batch inference with decoder-only models
 
 generation:
-  batch_size: 4
+  batch_size: 4  # inert when using vLLM
   max_new_tokens: 512
 
 tasks:
@@ -51,7 +51,7 @@ tasks:
     task_name: simple_safety_tests
     num_samples: null
 
-inference_engine: NATIVE
+inference_engine: VLLM
 enable_wandb: true
 
 output_dir: "output/enterprise/evaluation/control"

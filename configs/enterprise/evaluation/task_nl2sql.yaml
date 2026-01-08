@@ -20,7 +20,7 @@
 
 model:
   model_name: "Qwen/Qwen3-4B-Instruct"  # Override via CLI
-  model_max_length: 4096
+  model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: true
@@ -28,7 +28,7 @@ model:
     padding_side: "left"  # Required for batch inference with decoder-only models
 
 generation:
-  batch_size: 4
+  batch_size: 4  # inert when using vLLM
   max_new_tokens: 512  # SQL can be long
   temperature: 0.0
 
@@ -38,7 +38,7 @@ tasks:
     eval_kwargs:
       test_data_path: data/enterprise/nl2sql/test.jsonl
 
-inference_engine: NATIVE
+inference_engine: VLLM
 enable_wandb: true
 
 output_dir: "output/enterprise/evaluation/nl2sql"

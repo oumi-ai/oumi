@@ -403,36 +403,11 @@ Create the pod and exec into it, then set up datasets and start triggering jobs 
 First set up the environment and install oumi from this branch:
 
 ```sh
-# setup
-mkdir -p /data/tim/code && cd /data/tim/code
-git clone https://github.com/oumi-ai/oumi.git
-cd oumi
-git checkout lefft/ent-train-expts
-pip install -e .
+cd /data/tim/code/oumi
 
-# extra dependencies needed for lm-harness
-pip install langdetect
-pip install immutabledict
-
-# some qol utilities
-apt update
-apt install -y jq
-apt install -y tmux
-apt install wget
-mkdir -p /tim/data/bin && wget https://github.com/mikefarah/yq/releases/download/v4.50.1/yq_linux_amd64 -O /tim/data/bin/yq && chmod +x /tim/data/bin/yq
-
-# some qol aliases and env vars
-alias tmn="tmux new -s"
-alias tma="tmux attach -t"
-alias tml="tmux ls"
-export DATASET_DIR=/data/tim/code/oumi/data/enterprise
-export PATH="$PATH:/tim/data/bin"
-
-# this is needed for gated models e.g. llama3.2
-hf auth login
-# <enters token...>
-# Login successful.
-# The current active token is: `oumi-202512`
+# ad hoc dev setup script for this project
+./scripts/enterprise/gpu-pod-setup.sh --hf-token <REDACTED>
+source /data/tim/.bashrc
 ```
 
 Now generate, format, split use case datasets:
@@ -443,81 +418,50 @@ python scripts/enterprise/prepare_datasets.py \
   --all
 ```
 
-Use default gen args for each model when running baseline evals, with native inference engine (might move to vLLM if this is unsustainably slow). Note that tat-qa is very slow on a single H100, so we will just evaluate over 200 test samples for initial baselines. Gemma is also very slow compared to the others.
+#### Note on inference engine
+We ran a parity test for all baseline evals for native inference engine versus vLLM, and found that metrics differ only marginally across the two engines. Since vLLM is at least an order of magnitude faster, vLLM will be the SOP for eval jobs. Note that vLLM handles batching automatically, so there is no need to specify batch_size in eval configs.
 
-Results will get dumped to timestamped directories per base model under `output/enterprise/evaluation/`.
+> NB: We will sometimes hit OOM on Gemma or Llama3-8b when running evals in quick succession, causing the job and the pod to die. This can be mitigated to a degree (not guaranteed) by forcing cleanup of GPU memory with `pkill -9 -f vllm` after one job completes and then waiting a few minutes before restarting. A better long-term solution would probably be moving to REMOTE_VLLM inference engine (one persistent server per model which we can run multiple evals against).
+
+Note also that even with `temperature: 0.0` or `temperature: 0.001` in all eval configs, we are getting more nondeterminism than expected in both native inference engine and vLLM (detected via observing variation across repeated runs). It does appear that the sampling params are being picked up, based on the `generation_params.json` included in the eval results bundles. Some nondeterminism is unavoidable even without sampling.
 
 
-#### `Qwen3-4B-Instruct-2507`
-Now trigger baseline evals for Qwen3-4b-Instruct-2507. These will run serially with config values set in the corresponding task config under `evaluation/task_*.yaml` unless overridden below:
+#### Execute baseline evals
+Trigger all baseline evals like below. These will run serially with config values set in the corresponding task config under `evaluation/task_*.yaml` unless overridden in the CLI commands in `run_all_evals.sh`. Results will get dumped to timestamped directories per base model under the directory passed to `run_all_evals.sh` as `--output-dir`.
 
 ```sh
-tmn qwen3-4b-baseline
-cd /tmp/tim/code/oumi
-./scripts/enterprise/run_all_evals.sh "Qwen/Qwen3-4B-Instruct-2507" $DATASET_DIR
-# ==============================================
-# Running enterprise evals
-#   Model: Qwen/Qwen3-4B-Instruct-2507
-#   Data:  /data/tim/code/oumi/data/enterprise
-#   Run:   20260106_223813_Qwen3-4B-Instruct-2507
-#   Output: output/enterprise/evaluation/20260106_223813_Qwen3-4B-Instruct-2507
-# ==============================================
-# ...
+tmn baselines-vllm
+cd /data/tim/code/oumi
+
+DATASET_DIR=/data/tim/code/oumi/data/enterprise
+OUTPUT_BASEDIR=/data/tim/evals/ent/baselines
+
+# NB if the pod dies with OOM (137), get a new one and sleep between each set of evals
+./scripts/enterprise/run_all_evals.sh \
+  --model-name "Qwen/Qwen3-4B-Instruct-2507" \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR &&
+./scripts/enterprise/run_all_evals.sh \
+  --model-name "meta-llama/Llama-3.2-1B-Instruct" \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR &&
+./scripts/enterprise/run_all_evals.sh \
+  --model-name "meta-llama/Llama-3.1-8B-Instruct" \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR &&
+./scripts/enterprise/run_all_evals.sh \
+  --model-name "google/gemma-3-4b-it" \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
 ```
-
-
-#### `Llama-3.2-1B-Instruct`
-```sh
-tmn llama32-1b-baseline
-./scripts/enterprise/run_all_evals.sh "meta-llama/Llama-3.2-1B-Instruct" $DATASET_DIR
-# ==============================================
-# Running enterprise evals
-#   Model: meta-llama/Llama-3.2-1B-Instruct
-#   Data:  /data/tim/code/oumi/data/enterprise
-#   Run:   20260107_002509_Llama-3_2-1B-Instruct
-#   Output: output/enterprise/evaluation/20260107_002509_Llama-3_2-1B-Instruct
-# ==============================================
-# ...
-```
-
-
-#### `Llama-3.1-8B-Instruct`
-```sh
-tmn llama31-8b-baseline
-./scripts/enterprise/run_all_evals.sh "meta-llama/Llama-3.1-8B-Instruct" $DATASET_DIR
-# ==============================================
-# Running enterprise evals
-#   Model: meta-llama/Llama-3.1-8B-Instruct
-#   Data:  /data/tim/code/oumi/data/enterprise
-#   Run:   20260107_010313_Llama-3_1-8B-Instruct
-#   Output: output/enterprise/evaluation/20260107_010313_Llama-3_1-8B-Instruct
-# ==============================================
-# ...
-```
-
-
-#### `Gemma-3-4B-it`
-```sh
-tmn gemma3-4b-baseline
-./scripts/enterprise/run_all_evals.sh "google/gemma-3-4b-it" $DATASET_DIR
-# ==============================================
-# Running enterprise evals
-#   Model: google/gemma-3-4b-it
-#   Data:  /data/tim/code/oumi/data/enterprise
-#   Run:   20260107_012831_gemma-3-4b-it
-#   Output: output/enterprise/evaluation/20260107_012831_gemma-3-4b-it
-# ==============================================
-# ...
-```
-
 
 #### Collate eval results
-Run `collate_eval_results.py` to produce a flat csv table that gathers all available results. We'll transfer results back to local first so we can inspect individual predictions with convenient desktop tools:
+Run `collate_eval_results.py` to produce a flat csv table that gathers all available results, then `plot_eval_results.py` to create a basic visualization of the results. We'll transfer results bundles back to local first so we can inspect individual predictions with convenient desktop tools:
 
 ```sh
-# transfer results bundles
-BASELINE_EVALS_SRC=$NAMESPACE/tim-oumi-sleep-gpu2-555647cdbb-br2b7:/data/tim/code/oumi/output/enterprise/evaluation
-BASELINE_EVALS_DEST=~/Downloads/ent-eval-baselines-20260106
+# transfer results bundles for collation and plotting
+BASELINE_EVALS_SRC=$NAMESPACE/<POD>:/data/tim/code/oumi/output/enterprise/evals-vllm3
+BASELINE_EVALS_DEST=~/Downloads/evals-vllm3
 kubectl cp $BASELINE_EVALS_SRC $BASELINE_EVALS_DEST
 
 # collate results
@@ -533,15 +477,15 @@ python scripts/enterprise/plot_eval_results.py \
   --output $BASELINE_EVALS_DEST/collated/results-plot.png
 ```
 
-Partial results as of 20260106:
+Key metrics:
 
 | Model | Banking77 | PubMedQA | PubMedQA | TAT-QA | TAT-QA | NL2SQL | IFEval | Safety |
 |-------|-----------|----------|----------|--------|--------|--------|--------|--------|
 |       | Accuracy | Accuracy | Macro F1 | EM | Boxed% | EditSim | Prompt Strict | Safe% |
-| **Qwen3-4B-Instruct-2507** | 52.9% | 59.0% | 48.5% | 27.0% | 90.0% | 54.3% | 81.9% | 89.0% |
-| **Llama-3.2-1B-Instruct** | 1.5% | 44.0% | 27.6% | 7.5% | 50.0% | 39.4% | 50.3% | 83.0% |
-| **Llama-3.1-8B-Instruct** | 36.9% | 79.0% | 55.8% | 33.5% | 83.5% | — | — | — |
-| **Gemma-3-4B-it** | — | 47.0% | 37.8% | — | — | — | — | — |
+| **Qwen3-4B-Instruct-2507** | 53.0% | 52.0% | 45.2% | 25.4% | 86.6% | 54.4% | 83.0% | 89.0% |
+| **Llama-3.2-1B-Instruct** | 2.3% | 49.0% | 40.2% | 13.9% | 72.8% | 36.3% | 50.5% | 76.0% |
+| **Llama-3.1-8B-Instruct** | 38.1% | 70.0% | 50.5% | 27.0% | 88.5% | 51.7% | 73.9% | 94.0% |
+| **Gemma-3-4B-it** | 60.8% | 49.0% | 39.3% | 40.0% | 95.4% | 50.0% | 72.8% | 94.0% |
 
 
 <br>
