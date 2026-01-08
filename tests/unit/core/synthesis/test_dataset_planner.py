@@ -1142,6 +1142,55 @@ def test_plan_with_all_whitespace_segments_raises_error(
         planner.plan(params, sample_count=1)
 
 
+# Tests for dataset validation and error handling
+def test_plan_with_empty_dataset_raises_error(
+    mock_dataset_reader,
+    mock_permutable_attributes,
+):
+    """Test that empty dataset raises ValueError during ingestion."""
+    # Return empty list as dataset
+    mock_dataset_reader.read.return_value = []
+
+    planner = DatasetPlanner(dataset_reader=mock_dataset_reader)
+
+    dataset_source = DatasetSource(
+        path="data/empty_dataset.jsonl",
+    )
+
+    params = GeneralSynthesisParams(
+        sampled_attributes=mock_permutable_attributes,
+        input_data=[dataset_source],
+    )
+
+    with pytest.raises(ValueError, match="Dataset source .* is empty"):
+        planner.plan(params, sample_count=1)
+
+
+def test_plan_with_empty_dataset_dynamic_sampling_raises_error(
+    mock_dataset_reader,
+    mock_permutable_attributes,
+):
+    """Test that empty dataset with dynamic sampling raises ValueError."""
+    # Return empty list as dataset
+    mock_dataset_reader.read.return_value = []
+
+    planner = DatasetPlanner(dataset_reader=mock_dataset_reader)
+
+    dataset_source = DatasetSource(
+        path="data/empty_dataset.jsonl",
+        id="my_dataset",
+        num_shots=3,
+    )
+
+    params = GeneralSynthesisParams(
+        sampled_attributes=mock_permutable_attributes,
+        input_data=[dataset_source],
+    )
+
+    with pytest.raises(ValueError, match="Dataset source .* is empty"):
+        planner.plan(params, sample_count=1)
+
+
 # ===========================
 # Dynamic Sampling Tests
 # ===========================

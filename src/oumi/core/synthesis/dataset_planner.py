@@ -207,10 +207,16 @@ class DatasetPlanner:
         if dataset_sources is None or len(dataset_sources) == 0:
             return []
 
-        return [
-            self._dataset_reader.read(dataset_source)
-            for dataset_source in dataset_sources
-        ]
+        results = []
+        for dataset_source in dataset_sources:
+            dataset = self._dataset_reader.read(dataset_source)
+            if not dataset:
+                raise ValueError(
+                    f"Dataset source '{dataset_source.path}' is empty. "
+                    "Please check the file or apply different filters."
+                )
+            results.append(dataset)
+        return results
 
     def _ingest_document_sources(
         self,
