@@ -54,7 +54,7 @@ class HTMLReportGenerator:
         include_anomaly_visualization: bool = True,
         include_health_score: bool = True,
         chart_height: int = 400,
-        max_charts: int = 10,
+        max_charts: int | None = None,
         outlier_std_threshold: float = 3.0,
     ):
         """Initialize the HTMLReportGenerator.
@@ -68,7 +68,7 @@ class HTMLReportGenerator:
                 highlighting outliers and anomalies.
             include_health_score: Whether to include the dataset health score.
             chart_height: Height of each chart in pixels.
-            max_charts: Maximum number of charts to generate (to avoid huge reports).
+            max_charts: Maximum number of charts to generate (None = no limit).
             outlier_std_threshold: Standard deviations for outlier highlighting.
         """
         self.include_charts = include_charts
@@ -1277,7 +1277,7 @@ class HTMLReportGenerator:
 
         # Generate histograms for numeric columns
         for col in numeric_cols:
-            if chart_count >= self.max_charts:
+            if self.max_charts is not None and chart_count >= self.max_charts:
                 break
 
             # Determine which DataFrame to use for this column
@@ -1400,7 +1400,7 @@ class HTMLReportGenerator:
             chart_count += 1
 
         # Add role distribution pie chart if available
-        if "role" in message_df.columns and chart_count < self.max_charts:
+        if "role" in message_df.columns and (self.max_charts is None or chart_count < self.max_charts):
             role_counts = message_df["role"].value_counts()
 
             fig = go.Figure(
@@ -1453,9 +1453,6 @@ class HTMLReportGenerator:
 
         charts = []
         chart_count = 0
-        max_anomaly_charts = 8  # Includes outliers + quality + IFD
-        # Reserve slots for specific important charts (quality, IFD)
-        max_outlier_charts = max_anomaly_charts - 2
 
         message_df = analyzer.message_df
         if message_df is None or message_df.empty:
@@ -1478,8 +1475,6 @@ class HTMLReportGenerator:
         ]
 
         for col in numeric_cols:
-            if chart_count >= max_outlier_charts:
-                break
 
             series = message_df[col].dropna()
             if len(series) < 10:
