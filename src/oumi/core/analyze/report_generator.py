@@ -1276,7 +1276,7 @@ class HTMLReportGenerator:
             ]
 
         # Generate histograms for numeric columns
-        for col in numeric_cols:
+        for metric_col in numeric_cols:
             if self.max_charts is not None and chart_count >= self.max_charts:
                 break
 
@@ -1284,12 +1284,12 @@ class HTMLReportGenerator:
             if (
                 conversation_df is not None
                 and not conversation_df.empty
-                and col in conversation_df.columns
+                and metric_col in conversation_df.columns
             ):
-                series = conversation_df[col].dropna()
+                series = conversation_df[metric_col].dropna()
                 df_used = "conversation"
-            elif col in message_df.columns:
-                series = message_df[col].dropna()
+            elif metric_col in message_df.columns:
+                series = message_df[metric_col].dropna()
                 df_used = "message"
             else:
                 continue
@@ -1300,7 +1300,7 @@ class HTMLReportGenerator:
             # Create a cleaner title
             # Remove conversation_text_content_ prefix first, then text_content_
             col_title = (
-                col.replace("conversation_text_content_", "")
+                metric_col.replace("conversation_text_content_", "")
                 .replace("text_content_", "")
                 .replace("_", " ")
                 .title()
@@ -1316,12 +1316,193 @@ class HTMLReportGenerator:
                 DistributionType.MULTIMODAL,
             )
 
+            # Prepare data for histogram with conversation tracking
+            # We need to track which indices fall into each bin
+            nbins = 30
+            hist_values = series.tolist()
+            hist_indices = series.index.tolist()
+            
+            # Calculate bin edges
+            min_val = series.min()
+            max_val = series.max()
+            bin_width = (max_val - min_val) / nbins if max_val > min_val else 1
+            
+            # Group indices by bin
+            bin_conversations = {}  # bin_index -> list of (row_index, value, conversation_index)
+            message_df_for_lookup = analyzer.message_df
+            conversation_df_for_lookup = getattr(analyzer, "conversation_df", None)
+            has_conv_id = "conversation_id" in message_df_for_lookup.columns if message_df_for_lookup is not None else False
+            
+            for idx, val in zip(hist_indices, hist_values):
+                if pd.isna(val):
+                    continue
+                
+                # Calculate which bin this value falls into
+                bin_idx = int((val - min_val) / bin_width) if bin_width > 0 else 0
+                bin_idx = min(bin_idx, nbins - 1)  # Ensure it's within bounds
+                
+                # Get conversation_index for this row
+                conv_idx = None
+                if df_used == "conversation" and conversation_df_for_lookup is not None:
+                    if idx in conversation_df_for_lookup.index:
+                        row = conversation_df_for_lookup.loc[idx]
+                        for col in ["conversation_index", "conversation_id"]:
+                            if col in conversation_df_for_lookup.columns:
+                                conv_idx = row.get(col)
+                                break
+                elif df_used == "message" and message_df_for_lookup is not None:
+                    if idx in message_df_for_lookup.index:
+                        row = message_df_for_lookup.loc[idx]
+                        for col in ["conversation_index", "conversation_id"]:
+                            if col in message_df_for_lookup.columns:
+                                conv_idx = row.get(col)
+                                break
+                
+                if bin_idx not in bin_conversations:
+                    bin_conversations[bin_idx] = []
+                bin_conversations[bin_idx].append((idx, val, conv_idx))
+            
+            # Build sample conversations for each bin (limit to 1 per bin to keep file size reasonable)
+            bin_samples = {}
+            for bin_idx, samples in bin_conversations.items():
+                if not samples:
+                    continue
+                
+                # Pick the first sample from this bin
+                sample_idx, sample_val, sample_conv_idx = samples[0]
+                
+                if sample_conv_idx is None:
+                    continue
+                
+                conv_key = str(sample_conv_idx)
+                # Skip if we already have this conversation for another bin
+                # Check if any existing bin sample has this conversation_id
+                if any(sample.get("conversation_id") == conv_key for sample in bin_samples.values()):
+                    continue
+                
+                # Build conversation data
+                if df_used == "conversation" and conversation_df_for_lookup is not None:
+                    if sample_idx in conversation_df_for_lookup.index:
+                        conv_row = conversation_df_for_lookup.loc[sample_idx]
+                        conv_col = None
+                        for col in ["conversation_index", "conversation_id"]:
+                            if col in conversation_df_for_lookup.columns:
+                                conv_col = col
+                                break
+                        
+                        if conv_col:
+                            conv_id = conv_row.get(conv_col, conv_key)
+                        else:
+                            conv_id = conv_key
+                        
+                        # Get all messages in this conversation
+                        if has_conv_id and conv_col and message_df_for_lookup is not None:
+                            conv_messages = message_df_for_lookup[
+                                message_df_for_lookup[conv_col] == conv_id
+                            ].sort_index()
+                        else:
+                            conv_messages = pd.DataFrame()
+                        
+                        # Build conversation data
+                        turns = []
+                        if not conv_messages.empty:
+                            for msg_idx, msg_row in conv_messages.iterrows():
+                                text = ""
+                                if "text_content" in msg_row and msg_row.get("text_content"):
+                                    text = str(msg_row.get("text_content", ""))
+                                
+                                turn_data = {
+                                    "index": int(msg_idx),
+                                    "role": msg_row.get("role", "sample"),
+                                    "text": text,
+                                    "is_flagged": False,
+                                }
+                                turns.append(turn_data)
+                        
+                        # Add reasoning if available (e.g., for helpfulness, instruction_quality, etc.)
+                        reasoning = None
+                        if metric_col and "__score" in metric_col:
+                            # Extract reasoning column name (replace __score with __reasoning)
+                            reasoning_col = metric_col.replace("__score", "__reasoning")
+                            if reasoning_col in conv_row:
+                                reasoning_value = conv_row[reasoning_col]
+                                if reasoning_value and str(reasoning_value).strip():
+                                    reasoning = str(reasoning_value).strip()
+                        
+                        bin_samples[bin_idx] = {
+                            "conversation_id": str(conv_id),
+                            "turns": turns,
+                            "flagged_count": 0,
+                            "value": float(sample_val),
+                            "reasoning": reasoning,
+                        }
+                elif df_used == "message" and message_df_for_lookup is not None:
+                    if sample_idx in message_df_for_lookup.index:
+                        row = message_df_for_lookup.loc[sample_idx]
+                        conv_col = None
+                        for col in ["conversation_index", "conversation_id"]:
+                            if col in message_df_for_lookup.columns:
+                                conv_col = col
+                                break
+                        
+                        if conv_col:
+                            conv_id = row.get(conv_col, conv_key)
+                        else:
+                            conv_id = conv_key
+                        
+                        # Get all messages in this conversation
+                        if has_conv_id and conv_col:
+                            conv_messages = message_df_for_lookup[
+                                message_df_for_lookup[conv_col] == conv_id
+                            ].sort_index()
+                        else:
+                            conv_messages = message_df_for_lookup.loc[[sample_idx]]
+                        
+                        # Build conversation data
+                        turns = []
+                        for msg_idx, msg_row in conv_messages.iterrows():
+                            text = ""
+                            if "text_content" in msg_row and msg_row.get("text_content"):
+                                text = str(msg_row.get("text_content", ""))
+                            
+                            turn_data = {
+                                "index": int(msg_idx),
+                                "role": msg_row.get("role", "sample"),
+                                "text": text,
+                                "is_flagged": int(msg_idx) == int(sample_idx),
+                            }
+                            # Add metric value for flagged messages
+                            if turn_data["is_flagged"]:
+                                if metric_col and metric_col in msg_row:
+                                    turn_data["metric_value"] = self._format_metric_value(msg_row[metric_col])
+                            turns.append(turn_data)
+                        
+                        # Add reasoning if available (e.g., for helpfulness, instruction_quality, etc.)
+                        reasoning = None
+                        if metric_col and "__score" in metric_col:
+                            # Extract reasoning column name (replace __score with __reasoning)
+                            reasoning_col = metric_col.replace("__score", "__reasoning")
+                            if reasoning_col in row:
+                                reasoning_value = row[reasoning_col]
+                                if reasoning_value and str(reasoning_value).strip():
+                                    reasoning = str(reasoning_value).strip()
+                        
+                        bin_samples[bin_idx] = {
+                            "conversation_id": str(conv_id),
+                            "turns": turns,
+                            "flagged_count": 1 if int(msg_idx) == int(sample_idx) else 0,
+                            "value": float(sample_val),
+                            "reasoning": reasoning,
+                        }
+            
             # Create histogram
+            # Note: Plotly histograms don't support customdata directly, but we can
+            # use the click event's x value to determine which bin was clicked
             fig = go.Figure(
                 data=[
                     go.Histogram(
                         x=series,
-                        nbinsx=30,
+                        nbinsx=nbins,
                         marker_color="#d4a574",
                         opacity=0.85,
                         name="Distribution",
@@ -1379,6 +1560,15 @@ class HTMLReportGenerator:
                 "title": col_title,
                 "data": json.dumps(fig.data, cls=PlotlyJSONEncoder),
                 "layout": json.dumps(fig.layout, cls=PlotlyJSONEncoder),
+                "bin_samples": bin_samples,  # Store sample conversations for each bin
+                "column_name": metric_col,  # Store original column name for reference
+                "df_type": df_used,  # Store whether this is message or conversation level
+                "bin_edges": {
+                    "min": float(min_val),
+                    "max": float(max_val),
+                    "nbins": nbins,
+                    "bin_width": float(bin_width) if bin_width > 0 else 1.0,
+                },
             }
 
             # Add mode metadata for multimodal distributions

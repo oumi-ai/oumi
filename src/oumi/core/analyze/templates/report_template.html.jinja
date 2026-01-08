@@ -1343,7 +1343,66 @@
 
                     const chartData = JSON.parse(chart.data);
                     const chartLayout = Object.assign({}, JSON.parse(chart.layout), darkLayout);
-                    Plotly.newPlot(chart.id, chartData, chartLayout, plotlyConfig);
+                    const plotDiv = document.getElementById(chart.id);
+                    
+                    // Store chart metadata for click handler
+                    const chartMetadata = {
+                        bin_samples: chart.bin_samples || {},
+                        bin_edges: chart.bin_edges || null,
+                        title: chart.title
+                    };
+                    
+                    Plotly.newPlot(chart.id, chartData, chartLayout, plotlyConfig).then(function() {
+                        // Add click handler for histogram bars
+                        if (plotDiv && chartMetadata.bin_samples && chartMetadata.bin_edges && Object.keys(chartMetadata.bin_samples).length > 0) {
+                            plotDiv.on('plotly_click', function(eventData) {
+                                try {
+                                    if (eventData.points && eventData.points.length > 0) {
+                                        const point = eventData.points[0];
+                                        
+                                        // For histograms, point.x gives us the x value (bin center or click location)
+                                        if (point.x !== undefined && point.x !== null) {
+                                            // Calculate which bin this x value falls into
+                                            const xValue = point.x;
+                                            const binEdges = chartMetadata.bin_edges;
+                                            
+                                            // Calculate bin index
+                                            let binIdx = null;
+                                            if (binEdges.bin_width > 0) {
+                                                binIdx = Math.floor((xValue - binEdges.min) / binEdges.bin_width);
+                                                binIdx = Math.max(0, Math.min(binIdx, binEdges.nbins - 1));
+                                            }
+                                            
+                                            if (binIdx !== null && chartMetadata.bin_samples[binIdx]) {
+                                                const conversation = chartMetadata.bin_samples[binIdx];
+                                                openConversationModal(chartMetadata.title + ` (value: ${conversation.value?.toFixed(2) || 'N/A'})`, [conversation]);
+                                            } else {
+                                                // Try to find the closest bin
+                                                let closestBin = null;
+                                                let minDist = Infinity;
+                                                for (const [binKey, sample] of Object.entries(chartMetadata.bin_samples)) {
+                                                    const binNum = parseInt(binKey);
+                                                    const binCenter = binEdges.min + (binNum + 0.5) * binEdges.bin_width;
+                                                    const dist = Math.abs(xValue - binCenter);
+                                                    if (dist < minDist) {
+                                                        minDist = dist;
+                                                        closestBin = binNum;
+                                                    }
+                                                }
+                                                
+                                                if (closestBin !== null && chartMetadata.bin_samples[closestBin]) {
+                                                    const conversation = chartMetadata.bin_samples[closestBin];
+                                                    openConversationModal(chartMetadata.title + ` (value: ${conversation.value?.toFixed(2) || 'N/A'})`, [conversation]);
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.error('Error handling histogram click:', error);
+                                }
+                            });
+                        }
+                    });
                 });
             }
 
