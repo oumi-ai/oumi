@@ -112,6 +112,33 @@ class HTMLReportGenerator:
         """
         template_dir = Path(__file__).parent / "templates"
         env = Environment(loader=FileSystemLoader(template_dir), autoescape=True)
+        
+        # Add custom filter for formatting numbers with thousand separators
+        def format_number(value: float | int | None, precision: int = 2) -> str:
+            """Format number with thousand separators and specified precision."""
+            if value is None:
+                return "N/A"
+            try:
+                # Round to specified precision
+                rounded = round(float(value), precision)
+                # Format with thousand separators
+                if precision == 0:
+                    return f"{int(rounded):,}"
+                else:
+                    # Format with decimal places, then add thousand separators
+                    formatted = f"{rounded:.{precision}f}"
+                    # Split into integer and decimal parts
+                    if "." in formatted:
+                        int_part, dec_part = formatted.split(".")
+                        # Format integer part with commas
+                        int_formatted = f"{int(int_part):,}"
+                        return f"{int_formatted}.{dec_part}"
+                    else:
+                        return f"{int(rounded):,}"
+            except (ValueError, TypeError):
+                return str(value)
+        
+        env.filters["format_number"] = format_number
         return env.get_template("report_template.html.jinja")
 
     def generate_report(
@@ -548,7 +575,7 @@ class HTMLReportGenerator:
             organized[analyzer_id][metric_name] = {
                 k: v
                 for k, v in stats.items()
-                if k in ["mean", "std", "min", "max", "median"]
+                if k in ["mean", "std", "min", "max", "median", "sum"]
             }
 
         return organized

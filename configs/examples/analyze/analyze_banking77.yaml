@@ -11,185 +11,190 @@ analyzers:
     params:
       token_count: true
 
+  # Token stats analyzer - aggregates tokens by role (system, input, output)
+  # Requires length analyzer to run first
+  - id: token_stats
+    params: {}
+
   # Cost analyzer - estimates API costs for different context windows
   - id: cost
     params:
-      target_context_windows: [4096, 8192, 16384]
+      target_context_windows: [4096]
       compute_packing_efficiency: true
       packing_overhead_tokens: 10
 
-  - id: embedding
-    params:
-      model_name: all-MiniLM-L6-v2 # Fast, 384 dims
-      detect_duplicates: true
-      duplicate_threshold: 0.95 # Cosine similarity (0.9-0.99)
-      detect_fuzzy_duplicates: true # MinHash LSH (fast)
-      fuzzy_threshold: 0.8
-      fuzzy_ngram_size: 3
-      cluster_samples: false
-      batch_size: 32
-      store_embeddings: false
+  # - id: embedding
+  #   params:
+  #     model_name: all-MiniLM-L6-v2 # Fast, 384 dims
+  #     detect_duplicates: true
+  #     duplicate_threshold: 0.95 # Cosine similarity (0.9-0.99)
+  #     detect_fuzzy_duplicates: true # MinHash LSH (fast)
+  #     fuzzy_threshold: 0.8
+  #     fuzzy_ngram_size: 3
+  #     cluster_samples: false
+  #     batch_size: 32
+  #     store_embeddings: false
 
-  # Question diversity analyzer - detect if user questions are too similar
-  - id: question_diversity
-    params:
-      cluster_questions: true
-      clustering_method: dbscan
-      eps: 0.15 # ~99% cosine similarity
-      min_samples: 2
-      model_name: all-MiniLM-L6-v2
-      batch_size: 32
-      compute_entropy: true
-      compute_concentration: true
-      flag_concentrated_clusters: true
-      concentration_threshold: 0.5
+  # # Question diversity analyzer - detect if user questions are too similar
+  # - id: question_diversity
+  #   params:
+  #     cluster_questions: true
+  #     clustering_method: dbscan
+  #     eps: 0.15 # ~99% cosine similarity
+  #     min_samples: 2
+  #     model_name: all-MiniLM-L6-v2
+  #     batch_size: 32
+  #     compute_entropy: true
+  #     compute_concentration: true
+  #     flag_concentrated_clusters: true
+  #     concentration_threshold: 0.5
 
-  # Representation diversity analyzer - DEITA-style embedding diversity
-  - id: repr_diversity
-    params:
-      model_name: sentence-transformers/all-MiniLM-L6-v2
-      k_neighbors: 5
-      diversity_threshold: 0.3
-      # Use role-specific thresholds to avoid system prompt inflation
-      role_specific_thresholds:
-        system: null # Exclude system prompts (typically identical)
-        user: 0.25 # Strict diversity for user messages
-        assistant: 0.30 # Standard diversity for responses
-      embed_field: all # "all", "user", or "assistant"
-      batch_size: 32
+  # # Representation diversity analyzer - DEITA-style embedding diversity
+  # - id: repr_diversity
+  #   params:
+  #     model_name: sentence-transformers/all-MiniLM-L6-v2
+  #     k_neighbors: 5
+  #     diversity_threshold: 0.3
+  #     # Use role-specific thresholds to avoid system prompt inflation
+  #     role_specific_thresholds:
+  #       system: null # Exclude system prompts (typically identical)
+  #       user: 0.25 # Strict diversity for user messages
+  #       assistant: 0.30 # Standard diversity for responses
+  #     embed_field: all # "all", "user", or "assistant"
+  #     batch_size: 32
 
-  # LLM Judge: Helpfulness
-  # Custom conversation-level evaluation for banking intent classification helpfulness
-  - id: llm_judge
-    instance_id: helpfulness
-    params:
-      prompt: |
-        Evaluate how helpful this banking intent classification is (0-10).
+  # # LLM Judge: Helpfulness
+  # # Custom conversation-level evaluation for banking intent classification helpfulness
+  # - id: llm_judge
+  #   instance_id: helpfulness
+  #   params:
+  #     prompt: |
+  #       Evaluate how helpful this banking intent classification is (0-10).
 
-        Context: User asks a banking question, assistant classifies it into one of 77 intent categories (by ID number).
+  #       Context: User asks a banking question, assistant classifies it into one of 77 intent categories (by ID number).
 
-        CONVERSATION FORMAT:
-        The conversation below contains three parts:
-        1. SYSTEM: Instructions and the full list of 77 intent categories with their IDs
-        2. USER: The banking query to classify
-        3. ASSISTANT: The classification result (a single numeric ID 0-76)
+  #       CONVERSATION FORMAT:
+  #       The conversation below contains three parts:
+  #       1. SYSTEM: Instructions and the full list of 77 intent categories with their IDs
+  #       2. USER: The banking query to classify
+  #       3. ASSISTANT: The classification result (a single numeric ID 0-76)
 
-        ⚠️ IMPORTANT: The assistant's classification is at the VERY END of the conversation (after "ASSISTANT:").
-        Look for the last line starting with "ASSISTANT:" to find the classification ID.
+  #       ⚠️ IMPORTANT: The assistant's classification is at the VERY END of the conversation (after "ASSISTANT:").
+  #       Look for the last line starting with "ASSISTANT:" to find the classification ID.
 
-        Conversation to evaluate:
-        {text}
+  #       Conversation to evaluate:
+  #       {text}
 
-        Evaluation criteria for helpfulness:
-        - Does the classification ID seem appropriate for the user's query?
-        - Would this classification lead to helpful downstream actions?
-        - Is it the most relevant intent among potential options?
-        - Does the assistant provide ONLY the ID (good format)?
+  #       Evaluation criteria for helpfulness:
+  #       - Does the classification ID seem appropriate for the user's query?
+  #       - Would this classification lead to helpful downstream actions?
+  #       - Is it the most relevant intent among potential options?
+  #       - Does the assistant provide ONLY the ID (good format)?
 
-        Scoring guide:
-        - 10: Perfect classification, highly relevant to query, correct format
-        - 7-9: Good classification, reasonable fit for the query
-        - 4-6: Mediocre, somewhat relevant but not ideal
-        - 1-3: Poor classification, wrong intent for the query
-        - 0: No classification or completely wrong
+  #       Scoring guide:
+  #       - 10: Perfect classification, highly relevant to query, correct format
+  #       - 7-9: Good classification, reasonable fit for the query
+  #       - 4-6: Mediocre, somewhat relevant but not ideal
+  #       - 1-3: Poor classification, wrong intent for the query
+  #       - 0: No classification or completely wrong
 
-        Examples of good vs bad:
-        Good (score 9-10):
-          USER: "My card was declined at the store"
-          ASSISTANT: 25  ← (ID 25 = declined_card_payment, highly relevant)
+  #       Examples of good vs bad:
+  #       Good (score 9-10):
+  #         USER: "My card was declined at the store"
+  #         ASSISTANT: 25  ← (ID 25 = declined_card_payment, highly relevant)
 
-        Bad (score 1-3):
-          USER: "My card was declined at the store"
-          ASSISTANT: 0   ← (ID 0 = activate_my_card, wrong intent)
+  #       Bad (score 1-3):
+  #         USER: "My card was declined at the store"
+  #         ASSISTANT: 0   ← (ID 0 = activate_my_card, wrong intent)
 
-        Respond with JSON:
-        - "score": 0-10 (10 = maximally helpful classification)
-        - "label": "very_helpful", "helpful", "somewhat_helpful", "not_helpful"
-        - "reasoning": brief explanation of why this classification is/isn't helpful for the user's query
+  #       Respond with JSON:
+  #       - "score": 0-10 (10 = maximally helpful classification)
+  #       - "label": "very_helpful", "helpful", "somewhat_helpful", "not_helpful"
+  #       - "reasoning": brief explanation of why this classification is/isn't helpful for the user's query
 
-        JSON response:
-      analyze_message_level: false
-      analyze_conversation_level: true
-      inference_config:
-        model_name: gpt-4o-mini
-        engine: openai
-        temperature: 0.1
-        max_tokens: 256
-        remote_params:
-          num_workers: 200 # Process 100 requests in parallel
-          politeness_policy: 1.0 # Wait 60s between requests per worker
-          use_adaptive_concurrency: true # Auto-adjust based on error rate
-      batch_size: 1000
-      max_text_length: 8000
-      parse_json_response: true
+  #       JSON response:
+  #     analyze_message_level: false
+  #     analyze_conversation_level: true
+  #     inference_config:
+  #       model_name: gpt-4o-mini
+  #       engine: openai
+  #       temperature: 0.1
+  #       max_tokens: 256
+  #       remote_params:
+  #         num_workers: 200 # Process 100 requests in parallel
+  #         politeness_policy: 1.0 # Wait 60s between requests per worker
+  #         use_adaptive_concurrency: true # Auto-adjust based on error rate
+  #     batch_size: 1000
+  #     max_text_length: 8000
+  #     parse_json_response: true
 
-  # LLM Judge: Instruction Quality
-  # Evaluates clarity and quality of system instructions (message-level only)
-  - id: llm_judge
-    instance_id: instruction_quality
-    params:
-      prompt_preset: instruction_quality
-      filter_role: system
-      analyze_message_level: true
-      analyze_conversation_level: false
-      inference_config:
-        model_name: gpt-4o-mini
-        engine: openai
-        temperature: 0.1
-        max_tokens: 256
-        remote_params:
-          num_workers: 200 # Process 100 requests in parallel
-          politeness_policy: 1.0 # Wait 60s between requests per worker
-          use_adaptive_concurrency: true # Auto-adjust based on error rate
-      batch_size: 1000
-      parse_json_response: true
+  # # LLM Judge: Instruction Quality
+  # # Evaluates clarity and quality of system instructions (message-level only)
+  # - id: llm_judge
+  #   instance_id: instruction_quality
+  #   params:
+  #     prompt_preset: instruction_quality
+  #     filter_role: system
+  #     analyze_message_level: true
+  #     analyze_conversation_level: false
+  #     inference_config:
+  #       model_name: gpt-4o-mini
+  #       engine: openai
+  #       temperature: 0.1
+  #       max_tokens: 256
+  #       remote_params:
+  #         num_workers: 200 # Process 100 requests in parallel
+  #         politeness_policy: 1.0 # Wait 60s between requests per worker
+  #         use_adaptive_concurrency: true # Auto-adjust based on error rate
+  #     batch_size: 1000
+  #     parse_json_response: true
 
-  # LLM Judge: Response Quality
-  # Custom prompt for banking classification task evaluation
-  - id: llm_judge
-    instance_id: response_quality
-    params:
-      prompt: |
-        Evaluate this assistant's classification response (0-10).
+  # # LLM Judge: Response Quality
+  # # Custom prompt for banking classification task evaluation
+  # - id: llm_judge
+  #   instance_id: response_quality
+  #   params:
+  #     prompt: |
+  #       Evaluate this assistant's classification response (0-10).
 
-        Context: The assistant must classify a banking query by responding with a single intent ID (0-76).
+  #       Context: The assistant must classify a banking query by responding with a single intent ID (0-76).
 
-        Assistant response to evaluate:
-        {text}
+  #       Assistant response to evaluate:
+  #       {text}
 
-        Evaluation criteria:
-        - Is it a single numeric ID (0-76)?
-        - Is the format correct (just the number, no extra text)?
-        - Does it appear to be a reasonable classification for a banking query?
+  #       Evaluation criteria:
+  #       - Is it a single numeric ID (0-76)?
+  #       - Is the format correct (just the number, no extra text)?
+  #       - Does it appear to be a reasonable classification for a banking query?
 
-        Good examples: "59", "0", "42" (single numbers)
-        Bad examples: "activate_my_card" (label instead of ID), "I think it's 59" (extra text), "" (empty)
+  #       Good examples: "59", "0", "42" (single numbers)
+  #       Bad examples: "activate_my_card" (label instead of ID), "I think it's 59" (extra text), "" (empty)
 
-        Respond with JSON:
-        - "score": 0-10 (10 = perfect classification response)
-          * 10: Valid ID (0-76), correct format
-          * 5-9: Valid ID but could be better formatted
-          * 1-4: Invalid format or out of range
-          * 0: Empty or completely wrong
-        - "label": "excellent", "good", "needs_improvement", "poor"
-        - "reasoning": brief explanation
+  #       Respond with JSON:
+  #       - "score": 0-10 (10 = perfect classification response)
+  #         * 10: Valid ID (0-76), correct format
+  #         * 5-9: Valid ID but could be better formatted
+  #         * 1-4: Invalid format or out of range
+  #         * 0: Empty or completely wrong
+  #       - "label": "excellent", "good", "needs_improvement", "poor"
+  #       - "reasoning": brief explanation
 
-        JSON response:
-      filter_role: assistant
-      analyze_message_level: true
-      analyze_conversation_level: false
-      inference_config:
-        model_name: gpt-4o-mini
-        engine: openai
-        temperature: 0.1
-        max_tokens: 256
-        remote_params:
-          num_workers: 200 # Process 100 requests in parallel
-          politeness_policy: 1.0 # Wait 60s between requests per worker
-          use_adaptive_concurrency: true # Auto-adjust based on error rate
-      batch_size: 1000
-      max_text_length: 4000
-      parse_json_response: true
+  #       JSON response:
+  #     filter_role: assistant
+  #     analyze_message_level: true
+  #     analyze_conversation_level: false
+  #     inference_config:
+  #       model_name: gpt-4o-mini
+  #       engine: openai
+  #       temperature: 0.1
+  #       max_tokens: 256
+  #       remote_params:
+  #         num_workers: 200 # Process 100 requests in parallel
+  #         politeness_policy: 1.0 # Wait 60s between requests per worker
+  #         use_adaptive_concurrency: true # Auto-adjust based on error rate
+  #     batch_size: 1000
+  #     max_text_length: 4000
+  #     parse_json_response: true
 
 # Optional: Generate recommendations based on analysis
 generate_recommendations: true

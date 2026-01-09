@@ -240,7 +240,7 @@ def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[st
         decimal_precision: Number of decimal places for rounding
 
     Returns:
-        Dictionary with computed statistics (count, mean, std, min, max, median)
+        Dictionary with computed statistics (count, mean, std, min, max, median, sum)
     """
     if series.empty:
         return {
@@ -250,6 +250,7 @@ def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[st
             "min": 0,
             "max": 0,
             "median": 0.0,
+            "sum": 0.0,
         }
 
     # Convert boolean series to int for statistics (True=1, False=0)
@@ -265,6 +266,7 @@ def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[st
             "min": single_value,
             "max": single_value,
             "median": single_value,
+            "sum": single_value,
         }
 
     return {
@@ -274,6 +276,7 @@ def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[st
         "min": round(float(series.min()), decimal_precision),
         "max": round(float(series.max()), decimal_precision),
         "median": round(float(series.median()), decimal_precision),
+        "sum": round(float(series.sum()), decimal_precision),
     }
 
 

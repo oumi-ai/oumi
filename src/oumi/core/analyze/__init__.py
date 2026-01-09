@@ -30,13 +30,13 @@ from oumi.core.analyze.health_score import (
     HealthScoreComponent,
 )
 from oumi.core.analyze.length_analyzer import LengthAnalyzer
+from oumi.core.analyze.observations import Observation, ObservationsEngine
 from oumi.core.analyze.presets import (
     get_preset,
     get_preset_with_language_detection,
     get_preset_with_tokenizer,
     list_presets,
 )
-from oumi.core.analyze.observations import Observation, ObservationsEngine
 from oumi.core.analyze.quality_analyzer import QualityAnalyzer
 from oumi.core.analyze.recommendations import Recommendation, RecommendationsEngine
 from oumi.core.analyze.report_generator import HTMLReportGenerator
@@ -94,13 +94,18 @@ except ImportError:
     EvolQualityAnalyzer = None  # type: ignore[misc, assignment]
 
 # New analyzers based on "Fixing It in Post" paper
-from oumi.core.analyze.task_category_analyzer import TaskCategoryAnalyzer
-from oumi.core.analyze.instruct_reward_analyzer import InstructRewardAnalyzer
-from oumi.core.analyze.input_quality_analyzer import InputQualityAnalyzer
-from oumi.core.analyze.conversation_structure_analyzer import ConversationStructureAnalyzer
-from oumi.core.analyze.safety_analyzer import SafetyAnalyzer
+from oumi.core.analyze.conversation_structure_analyzer import (
+    ConversationStructureAnalyzer,
+)
 from oumi.core.analyze.difficulty_analyzer import DifficultyAnalyzer
-from oumi.core.analyze.response_completeness_analyzer import ResponseCompletenessAnalyzer
+from oumi.core.analyze.input_quality_analyzer import InputQualityAnalyzer
+from oumi.core.analyze.instruct_reward_analyzer import InstructRewardAnalyzer
+from oumi.core.analyze.response_completeness_analyzer import (
+    ResponseCompletenessAnalyzer,
+)
+from oumi.core.analyze.safety_analyzer import SafetyAnalyzer
+from oumi.core.analyze.task_category_analyzer import TaskCategoryAnalyzer
+from oumi.core.analyze.token_stats_analyzer import TokenStatsAnalyzer
 
 __all__ = [
     # Core
@@ -130,6 +135,7 @@ __all__ = [
     "SafetyAnalyzer",
     "DifficultyAnalyzer",
     "ResponseCompletenessAnalyzer",
+    "TokenStatsAnalyzer",
     # Observations
     "Observation",
     "ObservationsEngine",
