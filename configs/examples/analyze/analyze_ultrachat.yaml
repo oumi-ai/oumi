@@ -29,6 +29,11 @@ analyzers:
       token_count: true
       tiktoken_encoding: o200k_base # GPT-4o/GPT-5 encoding
 
+  # Token stats analyzer - aggregates tokens by role (system, input, output)
+  # Requires length analyzer to run first
+  - id: token_stats
+    params: {}
+
   # Diversity analyzer - vocabulary richness
   - id: diversity
     params:
