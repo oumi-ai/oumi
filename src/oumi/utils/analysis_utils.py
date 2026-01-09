@@ -323,10 +323,22 @@ def render_conversation_as_text(
             text = message.compute_flattened_text_content()
             messages.append({"role": message.role.value, "content": text})
 
+        # Provide required template variables
+        # These are needed by some chat templates (e.g., chat_ml, zephyr)
+        def raise_exception(msg: str) -> str:
+            """Raise an exception when called from Jinja2 template."""
+            raise ValueError(msg)
+
+        template_vars = {
+            "messages": messages,
+            "add_generation_prompt": add_generation_prompt,
+            "bos_token": "",  # Beginning of sequence token (empty for analysis)
+            "eos_token": "",  # End of sequence token (empty for analysis)
+            "raise_exception": raise_exception,
+        }
+
         # Render using the template
-        return template.render(
-            messages=messages, add_generation_prompt=add_generation_prompt
-        )
+        return template.render(**template_vars)
     else:
         # Use simple format (original implementation)
         message_texts = []

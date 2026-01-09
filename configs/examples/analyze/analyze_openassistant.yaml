@@ -1,0 +1,249 @@
+# Analysis configuration for OpenAssistant (OASST1) dataset
+# OpenAssistant is a large-scale human-generated conversational dataset
+# This config focuses on analyzing high-quality multi-turn conversations:
+# - Conversation structure and turn patterns
+# - Token distribution by role
+# - Quality and diversity metrics
+# - Safety and content patterns
+# - Response completeness and training quality
+#
+# SPECIFIC FOCUS AREAS:
+# 1. Multi-turn conversation patterns - OASST has rich multi-turn conversations
+# 2. Human-generated quality - High-quality human annotations
+# 3. Role balance - Understanding user/assistant interaction patterns
+# 4. Response quality - Evaluating helpfulness and completeness
+# 5. Diversity - Ensuring diverse conversation topics and styles
+
+# dataset_name: "OpenAssistant/oasst1" # Not used when dataset_path is set
+# split: "train" # Not used when dataset_path is set
+dataset_path: null # Set this to the path to your openassistant.jsonl file
+output_path: ./analysis_output/openassistant
+
+analyzers:
+  # ---------------------------------------------------------------------------
+  # BASIC METRICS - Length, diversity, format
+  # ---------------------------------------------------------------------------
+  # Length analyzer - counts chars, words, tokens
+  - id: length
+    params:
+      token_count: true
+      tiktoken_encoding: o200k_base # GPT-4o/GPT-5 encoding
+
+  # Token stats analyzer - aggregates tokens by role (system, input, output)
+  # Requires length analyzer to run first
+  - id: token_stats
+    params: {}
+
+  # Diversity analyzer - vocabulary richness
+  - id: diversity
+    params:
+      unique_words_ratio: true
+      case_sensitive: false
+
+  # Format analyzer - structured content detection
+  - id: format
+    params:
+      detect_markdown: true
+      detect_json: true
+      detect_code_blocks: true
+      detect_urls: true
+      detect_emails: true
+      compute_complexity: true
+
+  # ---------------------------------------------------------------------------
+  # QUALITY CHECKS - PII, encoding, repetition
+  # ---------------------------------------------------------------------------
+  # Quality analyzer - detects privacy and quality issues
+  - id: quality
+    params:
+      detect_pii: true
+      detect_emails: true
+      detect_phones: true
+      detect_ssn: true
+      detect_credit_cards: true
+      detect_api_keys: true
+      detect_encoding_issues: true
+      detect_repetition: true
+      repetition_ngram_size: 3
+      repetition_threshold: 0.3
+
+  # Content pattern analyzer - AI-specific quality issues
+  - id: content_pattern
+    params:
+      detect_placeholders: true # [Name], [Company], etc.
+      detect_hallucinated_experiences: true # Fabricated stories
+      detect_nooutput: true # <nooutput>, N/A, etc.
+      detect_refusals: true # "I cannot provide..."
+      check_output_only: false # Check all messages
+
+  # ---------------------------------------------------------------------------
+  # DUPLICATE DETECTION - Semantic and fuzzy duplicates
+  # ---------------------------------------------------------------------------
+  # Embedding analyzer - semantic duplicate detection
+  # Requires: pip install 'oumi[analyze_advanced]'
+  - id: embedding
+    params:
+      model_name: all-MiniLM-L6-v2 # Fast, 384 dims
+      detect_duplicates: true
+      duplicate_threshold: 0.95 # Cosine similarity (0.9-0.99)
+      detect_fuzzy_duplicates: true # MinHash LSH (fast)
+      fuzzy_threshold: 0.8
+      fuzzy_ngram_size: 3
+      cluster_samples: false
+      batch_size: 32
+      store_embeddings: false
+
+  # Question diversity analyzer - detect if user questions are too similar
+  - id: question_diversity
+    params:
+      cluster_questions: true
+      clustering_method: dbscan
+      eps: 0.15 # ~99% cosine similarity
+      min_samples: 2
+      model_name: all-MiniLM-L6-v2
+      batch_size: 32
+      compute_entropy: true
+      compute_concentration: true
+      flag_concentrated_clusters: true
+      concentration_threshold: 0.5
+
+  # Representation diversity analyzer - DEITA-style embedding diversity
+  - id: repr_diversity
+    params:
+      model_name: sentence-transformers/all-MiniLM-L6-v2
+      k_neighbors: 5
+      diversity_threshold: 0.3
+      # Use role-specific thresholds to avoid system prompt inflation
+      role_specific_thresholds:
+        system: null # Exclude system prompts (typically identical)
+        user: 0.25 # Strict diversity for user messages
+        assistant: 0.30 # Standard diversity for responses
+      embed_field: all # "all", "user", or "assistant"
+      batch_size: 32
+
+  # ---------------------------------------------------------------------------
+  # CONVERSATION ANALYSIS - Structure and completeness
+  # ---------------------------------------------------------------------------
+  # Conversation structure analyzer - turn pattern analysis
+  # OASST is known for rich multi-turn conversations
+  - id: conversation_structure
+    params:
+      single_turn_threshold: 2
+      compute_length_stats: true
+
+  # Response completeness analyzer - truncation detection
+  - id: response_completeness
+    params:
+      analyze_assistant_only: true
+      strict_mode: false
+      include_truncation_type: true
+
+  # Training quality analyzer - SFT effectiveness metrics
+  - id: training_quality
+    params:
+      compute_response_completeness: true
+      min_response_words: 5
+
+  # ---------------------------------------------------------------------------
+  # TASK AND SAFETY CLASSIFICATION
+  # ---------------------------------------------------------------------------
+  # Task category analyzer - instruction type classification
+  - id: task_category
+    params:
+      min_confidence: 0.3
+      default_category: other
+      analyze_user_only: true
+
+  # Safety analyzer - safety and risk classification
+  - id: safety
+    params:
+      strict_mode: false
+      include_categories: true
+
+  # Difficulty analyzer - instruction complexity estimation
+  - id: difficulty
+    params:
+      analyze_user_only: true
+      include_component_scores: true
+
+  # ---------------------------------------------------------------------------
+  # QUALITY SCORING (Magpie framework)
+  # ---------------------------------------------------------------------------
+  # Input quality analyzer - instruction quality rating
+  - id: input_quality
+    params:
+      analyze_user_only: true
+      include_component_flags: true
+
+  # Instruct reward analyzer - response quality scoring
+  - id: instruct_reward
+    params:
+      min_response_words: 10
+      max_response_words: 2000
+      analyze_assistant_only: true
+      include_component_scores: true
+
+  # ---------------------------------------------------------------------------
+  # COST ANALYSIS - Training cost estimation
+  # ---------------------------------------------------------------------------
+  # Cost analyzer - estimates API costs for different context windows
+  - id: cost
+    params:
+      target_context_windows: [4096, 8192]
+      compute_packing_efficiency: true
+      packing_overhead_tokens: 10
+
+  # ---------------------------------------------------------------------------
+  # LLM JUDGES - High-quality evaluation (optional, requires API keys)
+  # ---------------------------------------------------------------------------
+  # LLM Judge: Helpfulness (conversation-level)
+  # Evaluates overall conversation helpfulness
+  - id: llm_judge
+    instance_id: helpfulness
+    params:
+      prompt: |
+        Evaluate how helpful this conversation is as training data for a chat model (0-10).
+
+        Conversation to evaluate:
+        {text}
+
+        Evaluation criteria for helpfulness:
+        - Is the assistant's response helpful and relevant to the user's query?
+        - Does the conversation demonstrate good instruction-following?
+        - Is the response accurate and well-structured?
+        - Would this conversation help train a better chat model?
+
+        Scoring guide:
+        - 10: Excellent conversation, highly helpful, well-structured
+        - 7-9: Good conversation, helpful and relevant
+        - 4-6: Mediocre, somewhat helpful but has issues
+        - 1-3: Poor conversation, not helpful or low quality
+        - 0: Very poor or harmful conversation
+
+        Respond with JSON:
+        - "score": 0-10 (10 = maximally helpful)
+        - "label": "very_helpful", "helpful", "somewhat_helpful", "not_helpful"
+        - "reasoning": brief explanation of why this conversation is/isn't helpful
+
+        JSON response:
+      analyze_message_level: false
+      analyze_conversation_level: true
+      inference_config:
+        model_name: gpt-4o-mini
+        engine: openai
+        temperature: 0.1
+        max_tokens: 256
+        remote_params:
+          num_workers: 200
+          politeness_policy: 1.0
+          use_adaptive_concurrency: true
+      batch_size: 1000
+      max_text_length: 8000
+      parse_json_response: true
+
+# Optional: Generate recommendations based on analysis
+generate_recommendations: true
+outlier_threshold: 3.0
+
+# Optional: Generate HTML report with visualizations
+generate_report: yes
