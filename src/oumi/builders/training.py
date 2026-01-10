@@ -66,6 +66,7 @@ def build_trainer(
                 training_args.finalize_and_validate()
 
             hf_args = training_args.to_hf(training_config)
+            print(hf_args)
             if verbose and is_world_process_zero():
                 logger.info(pformat(hf_args))
             trainer = HuggingFaceTrainer(cls(*args, **kwargs, args=hf_args), processor)

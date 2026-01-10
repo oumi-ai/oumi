@@ -1,0 +1,9 @@
+model:
+  model_name: "Qwen/Qwen2.5-7B-Instruct"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 4096
+  batch_size: 1
+  skip_special_tokens: False

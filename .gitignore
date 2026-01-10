@@ -186,3 +186,4 @@ cython_debug/
 oumi.code-workspace
 
 /enterprise_experiments
+**/data
