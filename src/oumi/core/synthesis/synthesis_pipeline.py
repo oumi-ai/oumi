@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -83,17 +84,91 @@ class SynthesisPipeline:
         self,
         dataset: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
-        """Keep only the passthrough attributes in the dataset."""
+        """Keep only the passthrough attributes in the dataset.
+
+        Supports both simple keys and bracket notation for nested access:
+        - Simple: "conversation" -> sample["conversation"]
+        - Bracket: "examples[0].field" -> sample["examples"][0]["field"]
+        """
         if not self._config.strategy_params.passthrough_attributes:
             return dataset
 
-        passthrough_attributes = set(
-            self._config.strategy_params.passthrough_attributes
-        )
-        return [
-            {k: v for k, v in sample.items() if k in passthrough_attributes}
-            for sample in dataset
-        ]
+        passthrough_attributes = self._config.strategy_params.passthrough_attributes
+
+        # Separate simple keys from bracket notation paths
+        simple_keys = set()
+        bracket_paths = []
+
+        for attr in passthrough_attributes:
+            if "[" in attr and "]" in attr:
+                bracket_paths.append(attr)
+            else:
+                simple_keys.add(attr)
+
+        result = []
+        for sample in dataset:
+            filtered_sample = {}
+
+            # Add simple passthrough attributes
+            for key in simple_keys:
+                if key in sample:
+                    filtered_sample[key] = sample[key]
+
+            # Add bracket notation attributes
+            for path in bracket_paths:
+                try:
+                    value = self._extract_nested_value(sample, path)
+                    # Store using the full path as the key
+                    filtered_sample[path] = value
+                except (KeyError, IndexError, ValueError):
+                    # Skip if path doesn't exist in sample
+                    pass
+
+            result.append(filtered_sample)
+
+        return result
+
+    def _extract_nested_value(self, sample: dict[str, Any], path: str) -> Any:
+        """Extract a value from a nested structure using bracket notation.
+
+        Args:
+            sample: The sample dictionary to extract from.
+            path: Path like "examples[0].field" or "data[1].nested.value"
+
+        Returns:
+            The extracted value.
+
+        Raises:
+            KeyError: If a key doesn't exist.
+            IndexError: If an index is out of range.
+            ValueError: If the path format is invalid.
+        """
+        # Parse the path: "examples[0].field" -> ["examples", "[0]", "field"]
+        # Match: word, [index], or .word
+        pattern = r"([^\[\].]+|\[\d+\])"
+        parts = re.findall(pattern, path)
+
+        current: Any = sample
+        for part in parts:
+            if part.startswith("[") and part.endswith("]"):
+                # Array index access
+                index = int(part[1:-1])
+                if not isinstance(current, list):
+                    raise ValueError(
+                        f"Cannot index into non-list type {type(current).__name__}"
+                    )
+                current = current[index]
+            else:
+                # Dictionary key access
+                if isinstance(current, dict):
+                    current = current[part]
+                else:
+                    raise ValueError(
+                        f"Cannot access key '{part}' on non-dict type "
+                        f"{type(current).__name__}"
+                    )
+
+        return current
 
     def _save_dataset(self, dataset: list[dict[str, Any]]):
         """Save the dataset to the output path."""
