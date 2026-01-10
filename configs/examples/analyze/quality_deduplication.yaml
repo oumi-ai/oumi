@@ -1,0 +1,57 @@
+# Deduplication-Focused Quality Analysis
+# Usage: oumi analyze --config configs/examples/analyze/quality_deduplication.yaml
+#
+# This config focuses on detecting duplicate and near-duplicate content:
+# - Exact duplicates (hash-based)
+# - N-gram overlap analysis
+# - Repetition detection within samples
+# - Statistical outliers that might indicate duplicates
+#
+# Recommended for: Cleaning datasets before training to remove redundancy
+
+# Dataset configuration
+dataset_path: data/dataset_examples/alpaca_format.jsonl
+# Or use a HuggingFace dataset:
+# dataset_name: tatsu-lab/alpaca
+# split: train
+
+output_path: ./deduplication_analysis
+
+analyzers:
+  # Exact duplicate detection
+  - id: duplicate
+    params:
+      normalize_whitespace: true  # Treat "hello  world" and "hello world" as same
+      case_sensitive: false       # Treat "Hello" and "hello" as same
+
+  # N-gram analysis to detect partially duplicated content
+  - id: ngram
+    params:
+      n: 4                          # 4-gram analysis (more specific than 3-grams)
+      min_document_frequency: 0.10  # Flag if n-gram appears in >10% of samples
+      top_k: 100                    # Track top 100 overused phrases
+      case_sensitive: false
+
+  # Detect repetitive patterns within individual samples
+  - id: repetition
+    params:
+      max_char_repetition: 0.2    # Flag if >20% character repetition
+      max_word_repetition: 0.4    # Flag if >40% word repetition
+      min_sequence_length: 15     # Look for longer repeated sequences
+
+  # Statistical outlier detection (duplicates often cluster)
+  - id: length
+    params:
+      char_count: true
+      word_count: true
+
+  - id: statistical_outlier
+    params:
+      zscore_threshold: 2.5  # More sensitive outlier detection
+      iqr_multiplier: 1.5
+
+  # Vocabulary diversity (low diversity may indicate templates/duplicates)
+  - id: vocabulary
+    params:
+      compute_hapax: true
+      compute_ttr: true

@@ -1,0 +1,134 @@
+# Comprehensive Dataset Quality Analysis Configuration
+# Usage: oumi analyze --config configs/examples/analyze/quality_comprehensive.yaml
+#
+# This config applies all Phase 1-3 quality analyzers to detect:
+# - Duplicates, empty content, format issues, encoding problems
+# - Statistical outliers in length distributions
+# - Overrepresented n-gram patterns
+# - Text repetition issues
+# - Vocabulary diversity metrics
+# - Request type classification
+# - Readability scores
+#
+# Recommended for: Thorough dataset quality assessment before major training runs
+
+# Dataset configuration - Full Alpaca dataset
+# dataset_path: data/dataset_examples/alpaca_format.jsonl
+# Use the full HuggingFace dataset:
+dataset_name: tatsu-lab/alpaca
+split: train
+
+sample_count: null  # Analyze all samples (~52K)
+
+output_path: ./quality_analysis_comprehensive
+
+# Tokenizer for token counting and readability
+tokenizer_name: openai-community/gpt2
+
+analyzers:
+  # ==============================================================================
+  # PHASE 1: Core Deterministic Analyzers (Tier 1)
+  # ==============================================================================
+
+  # Generic duplicate detection (all content)
+  - id: duplicate
+    params:
+      normalize_whitespace: true
+      case_sensitive: false
+
+  # Domain-specific duplicate analyzers with appropriate thresholds
+  - id: system_prompt
+    params:
+      expected_duplication_threshold: 0.80  # 80%+ duplication is normal
+      max_unique_templates: 10
+      min_template_frequency: 0.05
+      normalize_whitespace: true
+      case_sensitive: false
+
+  - id: qa_pair_duplicate
+    params:
+      duplicate_threshold: 0.05  # >5% QA pair duplication is concerning
+      normalize_whitespace: true
+      case_sensitive: false
+
+  - id: question_duplicate
+    params:
+      acceptable_duplication: 0.15  # 15% question duplication is acceptable
+      high_duplication_threshold: 0.20  # >20% is concerning
+      normalize_whitespace: true
+      case_sensitive: false
+
+  - id: response_duplicate
+    params:
+      acceptable_duplication: 0.05  # 5% response duplication is acceptable
+      high_duplication_threshold: 0.10  # >10% is concerning
+      short_response_length: 20  # Responses <20 chars have higher expected duplication
+      normalize_whitespace: true
+      case_sensitive: false
+
+  - id: empty_content
+    params:
+      min_content_length: 10
+      error_tokens: ["nan", "<noinput>"]  # Data quality issues
+      placeholder_tokens: ["<nooutput>"]  # Acceptable non-text output markers
+
+  - id: format_validation
+    params:
+      required_columns: ["instruction", "output"]
+      non_empty_columns: ["instruction", "output"]
+
+  - id: encoding
+    # Detects encoding issues: replacement chars, control chars, etc.
+
+  # ==============================================================================
+  # PHASE 1 & 2: Statistical Analysis
+  # ==============================================================================
+
+  - id: length
+    params:
+      char_count: true
+      word_count: true
+      sentence_count: true
+      token_count: true
+
+  - id: statistical_outlier
+    params:
+      zscore_threshold: 3.0    # Flag if |z-score| > 3
+      iqr_multiplier: 1.5      # Flag if outside 1.5*IQR
+      # Will analyze all numeric columns from length analyzer
+
+  - id: ngram
+    params:
+      n: 3                          # Trigram analysis
+      min_document_frequency: 0.05  # Flag n-grams in >5% of samples
+      top_k: 50                     # Track top 50 most common n-grams
+      case_sensitive: false
+
+  - id: repetition
+    params:
+      ngram_sizes: [1, 2, 3]     # Check unigrams, bigrams, trigrams
+      repetition_threshold: 0.3   # Flag if >30% repetition
+
+  - id: vocabulary
+    params:
+      case_sensitive: false      # Treat words case-insensitively
+      min_word_length: 1         # Include all words
+
+  # ==============================================================================
+  # PHASE 3: Pattern & Classification Analyzers
+  # ==============================================================================
+
+  - id: request_type
+    params:
+      # Classification patterns for different request types (regex patterns)
+      # Note: Implementation uses regex patterns, not simple keywords
+      case_sensitive: false
+      min_type_percentage: 0.01      # Flag types below 1%
+      apply_to_role: null            # Analyze all messages (no role filter)
+
+  - id: readability
+    params:
+      flesch_reading_ease: true
+      flesch_kincaid_grade: true
+      avg_sentence_length: true
+      avg_word_length: true

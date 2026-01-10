@@ -37,6 +37,7 @@ class RoleSequenceAnalyzer(SampleAnalyzer):
         valid_roles: Optional[set[str]] = None,
         require_alternating: bool = True,
         require_assistant_end: bool = True,
+        tokenizer=None,
     ):
         """Initialize the RoleSequenceAnalyzer.
 
@@ -46,6 +47,7 @@ class RoleSequenceAnalyzer(SampleAnalyzer):
             valid_roles: Set of valid role values. Default: {system, user, assistant}.
             require_alternating: Require user/assistant to alternate.
             require_assistant_end: Require conversation to end with assistant.
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.role_column = role_column
         self.conversation_id_column = conversation_id_column
@@ -104,7 +106,7 @@ class RoleSequenceAnalyzer(SampleAnalyzer):
             is_valid = self._check_sequence_valid(roles.tolist())
             result_df["role_sequence_valid"] = is_valid
 
-        return result_df
+        return result_df, {}
 
     def _compute_conversation_validity(
         self, df: pd.DataFrame, roles: pd.Series

@@ -669,6 +669,7 @@ class DatasetAnalyzer:
                 self._conversation_df
             ),
             "conversation_turns": self._get_conversation_turns_summary(),
+            "quality_metrics": self._get_quality_metrics_summary(self._message_df),
         }
 
         return summary
@@ -781,3 +782,98 @@ class DatasetAnalyzer:
             pd.Series, self._message_df.groupby("conversation_id").size()
         )
         return compute_statistics(turns_per_conversation, self._decimal_precision)
+
+    def _get_quality_metrics_summary(self, df: pd.DataFrame | None) -> dict[str, Any]:
+        """Get summary of quality analyzer metrics (boolean flags and categorical values).
+
+        Args:
+            df: DataFrame to analyze (typically message_df)
+
+        Returns:
+            Dictionary containing quality metrics summary organized by analyzer
+        """
+        if df is None or df.empty:
+            return {}
+
+        quality_summary: dict[str, Any] = {}
+
+        # Define quality analyzer column patterns and their categories
+        quality_patterns = {
+            "duplicate_detection": ["duplicate", "hash"],
+            "empty_content": ["empty", "whitespace", "has_content", "stripped_length"],
+            "format_validation": ["format_", "missing_fields", "empty_fields"],
+            "encoding": ["encoding", "replacement_char", "control_char"],
+            "ngram_analysis": ["ngram", "overrepresented"],
+            "repetition": ["repetition", "unique_word", "max_word_frequency"],
+            "vocabulary": ["vocabulary", "type_token", "hapax"],
+            "request_type": ["request_type"],
+            "readability": ["flesch", "kincaid", "avg_sentence", "avg_word_length"],
+            "statistical_outliers": ["outlier", "zscore", "percentile"],
+        }
+
+        for category, patterns in quality_patterns.items():
+            category_cols = [
+                col
+                for col in df.columns
+                if any(pattern in col.lower() for pattern in patterns)
+                and not col.startswith("conversation_")  # Skip conversation-level
+            ]
+
+            if not category_cols:
+                continue
+
+            category_summary = {}
+
+            for col in category_cols:
+                col_data = df[col].dropna()
+                if len(col_data) == 0:
+                    continue
+
+                # Handle boolean columns
+                if col_data.dtype == bool:
+                    true_count = int(col_data.sum())
+                    total_count = len(col_data)
+                    category_summary[col] = {
+                        "true_count": true_count,
+                        "false_count": total_count - true_count,
+                        "true_percentage": round(
+                            100.0 * true_count / total_count
+                            if total_count > 0
+                            else 0,
+                            self._decimal_precision,
+                        ),
+                    }
+
+                # Handle categorical/string columns
+                elif col_data.dtype == object or pd.api.types.is_string_dtype(col_data):
+                    # Skip columns containing lists or other unhashable types
+                    try:
+                        value_counts = col_data.value_counts()
+                        if len(value_counts) <= 20:  # Only include if not too many categories
+                            category_summary[col] = {
+                                "distribution": value_counts.to_dict(),
+                                "unique_values": len(value_counts),
+                                "most_common": str(value_counts.index[0])
+                                if len(value_counts) > 0
+                                else None,
+                                "most_common_count": int(value_counts.iloc[0])
+                                if len(value_counts) > 0
+                                else 0,
+                            }
+                    except TypeError:
+                        # Skip columns with unhashable types (lists, dicts, etc.)
+                        pass
+
+                # Handle numeric columns (like counts)
+                elif pd.api.types.is_numeric_dtype(col_data):
+                    category_summary[col] = {
+                        "mean": round(float(col_data.mean()), self._decimal_precision),
+                        "min": round(float(col_data.min()), self._decimal_precision),
+                        "max": round(float(col_data.max()), self._decimal_precision),
+                        "total": round(float(col_data.sum()), self._decimal_precision),
+                    }
+
+            if category_summary:
+                quality_summary[category] = category_summary
+
+        return quality_summary

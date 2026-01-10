@@ -1,0 +1,51 @@
+# Basic Dataset Quality Analysis Configuration
+# Usage: oumi analyze --config configs/examples/analyze/quality_basic.yaml
+#
+# This config applies essential quality checks to detect common issues:
+# - Duplicate content
+# - Empty or whitespace-only content
+# - Format/schema validation
+# - Text encoding issues
+# - Basic length statistics
+#
+# Recommended for: Quick quality checks before training
+
+# Dataset configuration
+dataset_path: data/dataset_examples/alpaca_format.jsonl
+# Or use a HuggingFace dataset:
+# dataset_name: tatsu-lab/alpaca
+# split: train
+
+# sample_count: 1000  # Limit samples for testing (null = all)
+
+output_path: ./quality_analysis_output
+
+# Tokenizer for token counting (optional)
+tokenizer_name: openai-community/gpt2
+
+analyzers:
+  # Phase 1: Core Deterministic Analyzers
+
+  - id: duplicate
+    params:
+      normalize_whitespace: true  # Collapse multiple spaces
+      case_sensitive: false       # Ignore case differences
+
+  - id: empty_content
+    params:
+      min_content_length: 10  # Minimum 10 characters for valid content
+
+  - id: format_validation
+    params:
+      required_columns: ["instruction", "output"]  # For Alpaca format
+      non_empty_columns: ["instruction", "output"]
+
+  - id: encoding
+    # Detects: replacement characters, control characters, encoding issues
+
+  - id: length
+    params:
+      char_count: true
+      word_count: true
+      sentence_count: true
+      token_count: true  # Requires tokenizer_name above

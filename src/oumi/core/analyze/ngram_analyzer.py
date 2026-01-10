@@ -39,6 +39,7 @@ class NgramAnalyzer(SampleAnalyzer):
         min_document_frequency: float = 0.05,
         top_k: int = 50,
         case_sensitive: bool = False,
+        tokenizer=None,
     ):
         """Initialize the NgramAnalyzer.
 
@@ -48,6 +49,7 @@ class NgramAnalyzer(SampleAnalyzer):
                 fraction of samples.
             top_k: Number of top n-grams to track.
             case_sensitive: Whether to use case-sensitive matching.
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.n = n
         self.min_document_frequency = min_document_frequency
@@ -158,4 +160,4 @@ class NgramAnalyzer(SampleAnalyzer):
                 result_df[f"{column}_overrepresented_count"] > 0
             )
 
-        return result_df
+        return result_df, {}

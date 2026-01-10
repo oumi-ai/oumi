@@ -11,6 +11,10 @@ coverage_html/
 notebooks/*tutorial*
 # Evaluation results
 results/
+# Analyzer test harness
+tests/analyzer_harness/
+# Quality analysis outputs
+quality_analysis_*/
 
 # Pyright Config
 pyrightconfig.json

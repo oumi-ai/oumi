@@ -34,12 +34,14 @@ class FormatValidationAnalyzer(SampleAnalyzer):
         *,
         required_columns: Optional[list[str]] = None,
         non_empty_columns: Optional[list[str]] = None,
+        tokenizer=None,
     ):
         """Initialize the FormatValidationAnalyzer.
 
         Args:
             required_columns: Columns that must exist. If None, uses schema.
             non_empty_columns: Columns that must have non-empty values.
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.required_columns = required_columns
         self.non_empty_columns = non_empty_columns
@@ -92,4 +94,4 @@ class FormatValidationAnalyzer(SampleAnalyzer):
             axis=1,
         )
 
-        return result_df
+        return result_df, {}

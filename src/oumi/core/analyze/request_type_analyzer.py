@@ -115,6 +115,7 @@ class RequestTypeAnalyzer(SampleAnalyzer):
         case_sensitive: bool = False,
         min_type_percentage: float = 0.01,
         apply_to_role: Optional[str] = "user",
+        tokenizer=None,
     ):
         """Initialize the RequestTypeAnalyzer.
 
@@ -124,6 +125,7 @@ class RequestTypeAnalyzer(SampleAnalyzer):
             case_sensitive: Whether pattern matching is case-sensitive.
             min_type_percentage: Flag types appearing in less than this fraction.
             apply_to_role: Only classify messages with this role (None for all).
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.patterns = patterns or DEFAULT_PATTERNS
         self.case_sensitive = case_sensitive
@@ -236,4 +238,4 @@ class RequestTypeAnalyzer(SampleAnalyzer):
             underrepresented
         )
 
-        return result_df
+        return result_df, {}

@@ -1,0 +1,80 @@
+# Conversation Quality Analysis Configuration
+# Usage: oumi analyze --config configs/examples/analyze/quality_conversation.yaml
+#
+# This config is designed for conversational/chat datasets (Oumi format):
+# - Role sequence validation (user/assistant alternation)
+# - Conversation structure analysis (turn counts, balance)
+# - Empty message detection
+# - Format validation specific to conversations
+#
+# Recommended for: Multi-turn conversation datasets in Oumi format
+#
+# Note: For Alpaca format, use quality_basic.yaml or quality_comprehensive.yaml instead
+
+# Dataset configuration - Use a conversational dataset
+dataset_path: data/dataset_examples/oumi_format.jsonl
+# Or use a conversational HuggingFace dataset:
+# dataset_name: HuggingFaceH4/ultrachat_200k
+# split: train_sft
+
+# sample_count: 1000  # Limit for testing
+
+output_path: ./conversation_quality_analysis
+
+tokenizer_name: openai-community/gpt2
+
+analyzers:
+  # Conversation-specific analyzers
+
+  - id: role_sequence
+    params:
+      valid_roles: ["system", "user", "assistant"]
+      require_alternating: true        # User/assistant should alternate
+      allow_consecutive_user: false    # Don't allow multiple user messages in a row
+      require_assistant_last: true     # Conversation should end with assistant
+
+  - id: conversation_structure
+    params:
+      conversation_id_column: "conversation_id"  # Oumi format uses this
+      role_column: "role"
+      content_column: "text_content"
+      min_turns: 2                    # At least 2 messages
+      max_turns: 50                   # Flag if >50 messages
+
+  # Standard quality checks
+
+  - id: empty_content
+    params:
+      min_content_length: 5
+
+  - id: format_validation
+    params:
+      required_columns: ["role", "text_content"]
+      non_empty_columns: ["role", "text_content"]
+
+  - id: encoding
+
+  - id: length
+    params:
+      char_count: true
+      word_count: true
+      token_count: true
+
+  - id: statistical_outlier
+    params:
+      zscore_threshold: 3.0
+      iqr_multiplier: 1.5
+
+  # Check for template/repetitive responses
+  - id: ngram
+    params:
+      n: 5                          # Longer n-grams for conversations
+      min_document_frequency: 0.08  # Flag if >8% overlap
+      top_k: 50
+      case_sensitive: false
+
+  - id: repetition
+    params:
+      max_char_repetition: 0.3
+      max_word_repetition: 0.5
+      min_sequence_length: 10

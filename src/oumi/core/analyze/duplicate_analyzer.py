@@ -36,12 +36,14 @@ class DuplicateAnalyzer(SampleAnalyzer):
         *,
         normalize_whitespace: bool = True,
         case_sensitive: bool = False,
+        tokenizer=None,
     ):
         """Initialize the DuplicateAnalyzer.
 
         Args:
             normalize_whitespace: Collapse multiple whitespace to single space.
             case_sensitive: If False, convert to lowercase before hashing.
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.normalize_whitespace = normalize_whitespace
         self.case_sensitive = case_sensitive
@@ -104,4 +106,4 @@ class DuplicateAnalyzer(SampleAnalyzer):
             # Flag duplicates (count > 1)
             result_df[f"{column}_is_duplicate"] = result_df[f"{column}_duplicate_count"] > 1
 
-        return result_df
+        return result_df, {}

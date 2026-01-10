@@ -36,12 +36,14 @@ class VocabularyAnalyzer(SampleAnalyzer):
         *,
         case_sensitive: bool = False,
         min_word_length: int = 1,
+        tokenizer=None,
     ):
         """Initialize the VocabularyAnalyzer.
 
         Args:
             case_sensitive: Whether to treat words case-sensitively.
             min_word_length: Minimum word length to consider.
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.case_sensitive = case_sensitive
         self.min_word_length = min_word_length
@@ -126,4 +128,4 @@ class VocabularyAnalyzer(SampleAnalyzer):
                 lambda x: x["hapax_ratio"]
             )
 
-        return result_df
+        return result_df, {}

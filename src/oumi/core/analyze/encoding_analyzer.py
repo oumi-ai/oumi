@@ -37,6 +37,14 @@ class EncodingAnalyzer(SampleAnalyzer):
     # Control characters to flag (C0 controls except tab/newline/carriage return)
     ALLOWED_CONTROL = {"\t", "\n", "\r"}
 
+    def __init__(self, *, tokenizer=None):
+        """Initialize the EncodingAnalyzer.
+
+        Args:
+            tokenizer: Optional tokenizer (not used by this analyzer).
+        """
+        pass
+
     def analyze_sample(
         self,
         df: pd.DataFrame,
@@ -86,7 +94,7 @@ class EncodingAnalyzer(SampleAnalyzer):
                 control_counts > 0
             )
 
-        return result_df
+        return result_df, {}
 
     def _count_control_chars(self, text: str) -> int:
         """Count problematic control characters in text."""

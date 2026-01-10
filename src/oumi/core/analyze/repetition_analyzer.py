@@ -36,12 +36,14 @@ class RepetitionAnalyzer(SampleAnalyzer):
         *,
         ngram_sizes: Optional[list[int]] = None,
         repetition_threshold: float = 0.3,
+        tokenizer=None,
     ):
         """Initialize the RepetitionAnalyzer.
 
         Args:
             ngram_sizes: N-gram sizes to check for repetition. Default: [1, 2, 3].
             repetition_threshold: Flag samples with repetition ratio above this.
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.ngram_sizes = ngram_sizes or [1, 2, 3]
         self.repetition_threshold = repetition_threshold
@@ -138,4 +140,4 @@ class RepetitionAnalyzer(SampleAnalyzer):
                 result_df[f"{column}_word_repetition_ratio"] > self.repetition_threshold
             )
 
-        return result_df
+        return result_df, {}

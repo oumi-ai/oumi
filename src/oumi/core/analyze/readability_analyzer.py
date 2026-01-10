@@ -38,6 +38,7 @@ class ReadabilityAnalyzer(SampleAnalyzer):
         flesch_kincaid_grade: bool = True,
         avg_sentence_length: bool = True,
         avg_word_length: bool = True,
+        tokenizer=None,
     ):
         """Initialize the ReadabilityAnalyzer.
 
@@ -46,6 +47,7 @@ class ReadabilityAnalyzer(SampleAnalyzer):
             flesch_kincaid_grade: Compute Flesch-Kincaid Grade Level.
             avg_sentence_length: Compute average sentence length.
             avg_word_length: Compute average word length.
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.flesch_reading_ease = flesch_reading_ease
         self.flesch_kincaid_grade = flesch_kincaid_grade
@@ -171,4 +173,4 @@ class ReadabilityAnalyzer(SampleAnalyzer):
                         lambda x: x.get(metric_name, 0)
                     )
 
-        return result_df
+        return result_df, {}

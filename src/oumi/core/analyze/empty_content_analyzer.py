@@ -25,22 +25,42 @@ from oumi.core.registry import register_sample_analyzer
 
 @register_sample_analyzer("empty_content")
 class EmptyContentAnalyzer(SampleAnalyzer):
-    """Analyzer that detects empty or whitespace-only content."""
+    """Analyzer that detects empty or whitespace-only content and special tokens.
 
-    def __init__(self, *, min_content_length: int = 1):
+    This analyzer detects:
+    - Empty strings and whitespace-only content
+    - Error tokens that indicate data quality issues (e.g., "nan", "<noinput>")
+    - Placeholder tokens that may be acceptable (e.g., "<nooutput>")
+    """
+
+    def __init__(
+        self,
+        *,
+        min_content_length: int = 1,
+        error_tokens: list[str] | None = None,
+        placeholder_tokens: list[str] | None = None,
+        tokenizer=None,
+    ):
         """Initialize the EmptyContentAnalyzer.
 
         Args:
             min_content_length: Minimum non-whitespace characters for valid content.
+            error_tokens: List of tokens that indicate data errors (e.g., ["nan", "<noinput>"]).
+                These are flagged as quality issues that should be fixed.
+            placeholder_tokens: List of tokens that are acceptable placeholders
+                (e.g., ["<nooutput>"]). These are flagged but not necessarily errors.
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.min_content_length = min_content_length
+        self.error_tokens = error_tokens or []
+        self.placeholder_tokens = placeholder_tokens or []
 
     def analyze_sample(
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
     ) -> pd.DataFrame:
-        """Analyze text fields for empty content.
+        """Analyze text fields for empty content and special tokens.
 
         Args:
             df: Input DataFrame with text fields.
@@ -52,6 +72,10 @@ class EmptyContentAnalyzer(SampleAnalyzer):
             - {column}_is_whitespace_only: Content contains only whitespace
             - {column}_has_content: Has meaningful content
             - {column}_stripped_length: Length after stripping whitespace
+            - {column}_contains_error_token: Contains a data error token
+            - {column}_error_token_type: Which error token was found (if any)
+            - {column}_contains_placeholder_token: Contains a placeholder token
+            - {column}_placeholder_token_type: Which placeholder token (if any)
         """
         if not schema:
             raise ValueError("schema is required to identify text fields.")
@@ -87,4 +111,24 @@ class EmptyContentAnalyzer(SampleAnalyzer):
                 result_df[f"{column}_stripped_length"] >= self.min_content_length
             )
 
-        return result_df
+            # Check for error tokens
+            result_df[f"{column}_contains_error_token"] = False
+            result_df[f"{column}_error_token_type"] = None
+
+            if self.error_tokens:
+                for token in self.error_tokens:
+                    matches = text_series == token
+                    result_df.loc[matches, f"{column}_contains_error_token"] = True
+                    result_df.loc[matches, f"{column}_error_token_type"] = token
+
+            # Check for placeholder tokens
+            result_df[f"{column}_contains_placeholder_token"] = False
+            result_df[f"{column}_placeholder_token_type"] = None
+
+            if self.placeholder_tokens:
+                for token in self.placeholder_tokens:
+                    matches = text_series == token
+                    result_df.loc[matches, f"{column}_contains_placeholder_token"] = True
+                    result_df.loc[matches, f"{column}_placeholder_token_type"] = token
+
+        return result_df, {}

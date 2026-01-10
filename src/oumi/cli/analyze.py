@@ -232,6 +232,106 @@ def analyze(
         raise typer.Exit(code=1)
 
 
+def _display_quality_summary(quality_metrics: dict) -> None:
+    """Display quality metrics summary in a formatted table."""
+    table = Table(
+        title="Quality Metrics Summary",
+        title_style="bold red",
+        show_lines=True,
+    )
+    table.add_column("Category", style="cyan", width=25)
+    table.add_column("Metric", style="yellow", width=30)
+    table.add_column("Value", style="green")
+
+    # Key metrics to display for each analyzer
+    key_metrics = {
+        "duplicate_detection": [
+            ("text_content_is_duplicate", "Duplicates Found", "true_percentage"),
+        ],
+        "empty_content": [
+            ("text_content_has_content", "Has Valid Content", "true_percentage"),
+        ],
+        "format_validation": [
+            ("format_is_valid", "Valid Format", "true_percentage"),
+        ],
+        "encoding": [
+            ("text_content_has_encoding_issues", "Encoding Issues", "true_percentage"),
+        ],
+        "ngram_analysis": [
+            ("text_content_unique_ngram_ratio", "Unique N-grams", "mean"),
+            ("text_content_contains_overrepresented", "Overrepresented N-grams", "true_percentage"),
+        ],
+        "repetition": [
+            ("text_content_word_repetition_ratio", "Word Repetition", "mean"),
+            ("text_content_has_excessive_repetition", "Excessive Repetition", "true_percentage"),
+        ],
+        "vocabulary": [
+            ("text_content_vocabulary_size", "Avg Vocabulary Size", "mean"),
+            ("text_content_type_token_ratio", "Type-Token Ratio", "mean"),
+        ],
+        "request_type": [
+            ("request_type", "Distribution", "distribution"),
+            ("request_type_is_unknown", "Unknown Types", "true_percentage"),
+        ],
+        "readability": [
+            ("text_content_flesch_reading_ease", "Flesch Reading Ease", "mean"),
+            ("text_content_flesch_kincaid_grade", "Flesch-Kincaid Grade", "mean"),
+        ],
+    }
+
+    category_names = {
+        "duplicate_detection": "🔍 Duplicates",
+        "empty_content": "📝 Content",
+        "format_validation": "✅ Format",
+        "encoding": "🔤 Encoding",
+        "ngram_analysis": "📊 N-grams",
+        "repetition": "🔁 Repetition",
+        "vocabulary": "📚 Vocabulary",
+        "request_type": "🏷️  Request Type",
+        "readability": "📖 Readability",
+    }
+
+    for category_key, metrics in key_metrics.items():
+        if category_key not in quality_metrics:
+            continue
+
+        category_data = quality_metrics[category_key]
+        category_name = category_names.get(category_key, category_key)
+
+        for metric_key, display_name, value_key in metrics:
+            if metric_key not in category_data:
+                continue
+
+            metric_data = category_data[metric_key]
+
+            # Format value based on type
+            if value_key == "true_percentage":
+                value = f"{metric_data.get('true_percentage', 0):.1f}%"
+            elif value_key == "mean":
+                mean_val = metric_data.get("mean", 0)
+                # Format as percentage for ratios
+                if "ratio" in metric_key or "percentage" in metric_key:
+                    value = f"{mean_val * 100:.1f}%" if mean_val <= 1 else f"{mean_val:.2f}"
+                else:
+                    value = f"{mean_val:.2f}"
+            elif value_key == "distribution":
+                # Show top 3 categories for distributions
+                dist = metric_data.get("distribution", {})
+                if dist:
+                    top_items = sorted(dist.items(), key=lambda x: x[1], reverse=True)[:3]
+                    value = ", ".join([f"{k}({v})" for k, v in top_items])
+                else:
+                    value = "N/A"
+            else:
+                value = str(metric_data.get(value_key, "N/A"))
+
+            table.add_row(category_name, display_name, value)
+            # Only show category name once
+            category_name = ""
+
+    cli_utils.CONSOLE.print(table)
+
+
 def _display_analysis_summary(analyzer: "DatasetAnalyzer") -> None:
     """Display analysis summary in formatted tables to the console."""
     summary = analyzer.analysis_summary
@@ -364,6 +464,11 @@ def _display_analysis_summary(analyzer: "DatasetAnalyzer") -> None:
             else "N/A",
         )
         cli_utils.CONSOLE.print(table)
+
+    # Quality metrics summary
+    quality_metrics = summary.get("quality_metrics", {})
+    if quality_metrics:
+        _display_quality_summary(quality_metrics)
 
 
 def _export_results(

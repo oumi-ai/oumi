@@ -1,0 +1,103 @@
+# Request Type Distribution Analysis
+# Usage: oumi analyze --config configs/examples/analyze/quality_request_types.yaml
+#
+# This config focuses on understanding the distribution of request types:
+# - Classifies instructions into categories (explanation, code generation, etc.)
+# - Analyzes n-gram patterns to find common phrases
+# - Computes readability metrics
+# - Checks for vocabulary diversity
+#
+# Recommended for: Understanding dataset composition and identifying gaps
+
+# Dataset configuration
+dataset_path: data/dataset_examples/alpaca_format.jsonl
+# Or use a HuggingFace dataset:
+# dataset_name: tatsu-lab/alpaca
+# split: train
+
+output_path: ./request_type_analysis
+
+tokenizer_name: openai-community/gpt2
+
+analyzers:
+  # Request type classification - the main focus
+  - id: request_type
+    params:
+      patterns:
+        # Knowledge & Explanation
+        explanation: ["explain", "what is", "what are", "how does", "why is", "why does", "describe", "tell me about"]
+        definition: ["define", "definition of", "meaning of", "what does", "refers to"]
+
+        # Code & Technical
+        code_generation: ["write code", "implement", "create a function", "code for", "program", "script"]
+        debugging: ["fix", "debug", "error", "bug", "not working", "issue with", "problem with"]
+        code_review: ["review", "optimize", "improve", "refactor"]
+
+        # Writing & Creation
+        creative_writing: ["write a story", "poem", "essay", "article", "creative", "imagine", "compose"]
+        summarization: ["summarize", "summary", "tldr", "brief", "condense", "shorten"]
+        translation: ["translate", "convert to", "in spanish", "in french", "in german", "in chinese"]
+
+        # Analysis & Comparison
+        analysis: ["analyze", "examine", "evaluate", "assess", "critique", "investigate"]
+        comparison: ["compare", "difference between", "vs", "versus", "contrast", "similarities"]
+
+        # Instructions & Procedures
+        how_to: ["how to", "how do i", "how can i", "steps to", "way to", "method to"]
+        tutorial: ["guide", "tutorial", "walkthrough", "show me", "teach me"]
+
+        # Math & Logic
+        calculation: ["calculate", "compute", "solve", "find the", "determine", "work out"]
+        reasoning: ["prove", "logic", "reason", "argument", "justify"]
+
+        # Information Retrieval
+        factual_query: ["who", "when", "where", "which"]
+        recommendation: ["recommend", "suggest", "best", "top", "should i", "what's better"]
+
+        # Conversation
+        opinion: ["what do you think", "your opinion", "do you believe", "agree or disagree"]
+        general_chat: ["hello", "hi", "thanks", "thank you", "bye", "goodbye"]
+
+      case_sensitive: false
+      apply_to_column: "instruction"  # For Alpaca format
+      apply_to_role: null             # No role filtering for Alpaca
+      match_mode: "first"             # Use first matching pattern
+      min_type_percentage: 0.01       # Flag underrepresented types (<1%)
+
+  # Supporting analyzers for understanding content
+
+  - id: length
+    params:
+      char_count: true
+      word_count: true
+      sentence_count: true
+      token_count: true
+
+  - id: vocabulary
+    params:
+      compute_hapax: true  # Unique words
+      compute_ttr: true    # Type-token ratio
+
+  - id: ngram
+    params:
+      n: 3
+      min_document_frequency: 0.05
+      top_k: 100  # Get more n-grams for pattern analysis
+      case_sensitive: false
+
+  - id: readability
+    params:
+      compute_flesch_reading_ease: true
+      compute_flesch_kincaid_grade: true
+      compute_gunning_fog: true
+      min_words_for_analysis: 5
+
+  # Quality checks
+  - id: empty_content
+    params:
+      min_content_length: 10
+
+  - id: duplicate
+    params:
+      normalize_whitespace: true
+      case_sensitive: false

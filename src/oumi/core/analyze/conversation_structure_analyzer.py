@@ -38,6 +38,7 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
         content_column: str = "text_content",
         min_turns: int = 2,
         max_turns: int = 100,
+        tokenizer=None,
     ):
         """Initialize the ConversationStructureAnalyzer.
 
@@ -47,6 +48,7 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             content_column: Column containing message content.
             min_turns: Minimum turns for a valid conversation.
             max_turns: Maximum turns before flagging as too long.
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.conversation_id_column = conversation_id_column
         self.role_column = role_column
@@ -127,4 +129,4 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
                 lambda x: conv_metrics.get(x, {}).get(metric, np.nan)
             )
 
-        return result_df
+        return result_df, {}

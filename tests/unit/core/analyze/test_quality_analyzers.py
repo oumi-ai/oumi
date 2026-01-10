@@ -100,32 +100,108 @@ class TestEmptyContentAnalyzer:
         """Test detection of empty strings."""
         df = pd.DataFrame({"text_content": ["", "Hello", ""]})
         analyzer = EmptyContentAnalyzer()
-        result = analyzer.analyze_sample(df, schema=TEXT_SCHEMA)
+        result, _ = analyzer.analyze_sample(df, schema=TEXT_SCHEMA)
 
-        assert result.iloc[0]["text_content_is_empty"] is True
-        assert result.iloc[1]["text_content_is_empty"] is False
-        assert result.iloc[2]["text_content_is_empty"] is True
+        assert result.iloc[0]["text_content_is_empty"] == True
+        assert result.iloc[1]["text_content_is_empty"] == False
+        assert result.iloc[2]["text_content_is_empty"] == True
 
     def test_detects_whitespace_only(self):
         """Test detection of whitespace-only content."""
         df = pd.DataFrame({"text_content": ["   ", "\t\n", "Hello", "  x  "]})
         analyzer = EmptyContentAnalyzer()
-        result = analyzer.analyze_sample(df, schema=TEXT_SCHEMA)
+        result, _ = analyzer.analyze_sample(df, schema=TEXT_SCHEMA)
 
-        assert result.iloc[0]["text_content_is_whitespace_only"] is True
-        assert result.iloc[1]["text_content_is_whitespace_only"] is True
-        assert result.iloc[2]["text_content_is_whitespace_only"] is False
-        assert result.iloc[3]["text_content_is_whitespace_only"] is False
+        assert result.iloc[0]["text_content_is_whitespace_only"] == True
+        assert result.iloc[1]["text_content_is_whitespace_only"] == True
+        assert result.iloc[2]["text_content_is_whitespace_only"] == False
+        assert result.iloc[3]["text_content_is_whitespace_only"] == False
 
     def test_has_content_flag(self):
         """Test has_content flag."""
         df = pd.DataFrame({"text_content": ["", "   ", "Hi"]})
         analyzer = EmptyContentAnalyzer(min_content_length=1)
-        result = analyzer.analyze_sample(df, schema=TEXT_SCHEMA)
+        result, _ = analyzer.analyze_sample(df, schema=TEXT_SCHEMA)
 
-        assert result.iloc[0]["text_content_has_content"] is False
-        assert result.iloc[1]["text_content_has_content"] is False
-        assert result.iloc[2]["text_content_has_content"] is True
+        assert result.iloc[0]["text_content_has_content"] == False
+        assert result.iloc[1]["text_content_has_content"] == False
+        assert result.iloc[2]["text_content_has_content"] == True
+
+    def test_detects_error_tokens(self):
+        """Test detection of error tokens."""
+        df = pd.DataFrame({"text_content": ["Hello", "nan", "<noinput>", "World", "nan"]})
+        analyzer = EmptyContentAnalyzer(error_tokens=["nan", "<noinput>"])
+        result, _ = analyzer.analyze_sample(df, schema=TEXT_SCHEMA)
+
+        # Check error token detection
+        assert result.iloc[0]["text_content_contains_error_token"] == False
+        assert result.iloc[1]["text_content_contains_error_token"] == True
+        assert result.iloc[2]["text_content_contains_error_token"] == True
+        assert result.iloc[3]["text_content_contains_error_token"] == False
+        assert result.iloc[4]["text_content_contains_error_token"] == True
+
+        # Check error token types
+        assert pd.isna(result.iloc[0]["text_content_error_token_type"])
+        assert result.iloc[1]["text_content_error_token_type"] == "nan"
+        assert result.iloc[2]["text_content_error_token_type"] == "<noinput>"
+        assert result.iloc[4]["text_content_error_token_type"] == "nan"
+
+    def test_detects_placeholder_tokens(self):
+        """Test detection of placeholder tokens."""
+        df = pd.DataFrame({"text_content": ["Hello", "<nooutput>", "World", "<nooutput>"]})
+        analyzer = EmptyContentAnalyzer(placeholder_tokens=["<nooutput>"])
+        result, _ = analyzer.analyze_sample(df, schema=TEXT_SCHEMA)
+
+        # Check placeholder token detection
+        assert result.iloc[0]["text_content_contains_placeholder_token"] == False
+        assert result.iloc[1]["text_content_contains_placeholder_token"] == True
+        assert result.iloc[2]["text_content_contains_placeholder_token"] == False
+        assert result.iloc[3]["text_content_contains_placeholder_token"] == True
+
+        # Check placeholder token types
+        assert pd.isna(result.iloc[0]["text_content_placeholder_token_type"])
+        assert result.iloc[1]["text_content_placeholder_token_type"] == "<nooutput>"
+        assert result.iloc[3]["text_content_placeholder_token_type"] == "<nooutput>"
+
+    def test_detects_both_token_types(self):
+        """Test detection of both error and placeholder tokens."""
+        df = pd.DataFrame({
+            "text_content": ["Hello", "nan", "<nooutput>", "<noinput>", "World"]
+        })
+        analyzer = EmptyContentAnalyzer(
+            error_tokens=["nan", "<noinput>"],
+            placeholder_tokens=["<nooutput>"]
+        )
+        result, _ = analyzer.analyze_sample(df, schema=TEXT_SCHEMA)
+
+        # Row 0: normal content
+        assert result.iloc[0]["text_content_contains_error_token"] == False
+        assert result.iloc[0]["text_content_contains_placeholder_token"] == False
+
+        # Row 1: error token "nan"
+        assert result.iloc[1]["text_content_contains_error_token"] == True
+        assert result.iloc[1]["text_content_error_token_type"] == "nan"
+        assert result.iloc[1]["text_content_contains_placeholder_token"] == False
+
+        # Row 2: placeholder token "<nooutput>"
+        assert result.iloc[2]["text_content_contains_error_token"] == False
+        assert result.iloc[2]["text_content_contains_placeholder_token"] == True
+        assert result.iloc[2]["text_content_placeholder_token_type"] == "<nooutput>"
+
+        # Row 3: error token "<noinput>"
+        assert result.iloc[3]["text_content_contains_error_token"] == True
+        assert result.iloc[3]["text_content_error_token_type"] == "<noinput>"
+        assert result.iloc[3]["text_content_contains_placeholder_token"] == False
+
+    def test_no_tokens_configured(self):
+        """Test that analyzer works when no special tokens are configured."""
+        df = pd.DataFrame({"text_content": ["Hello", "nan", "<nooutput>"]})
+        analyzer = EmptyContentAnalyzer()
+        result, _ = analyzer.analyze_sample(df, schema=TEXT_SCHEMA)
+
+        # Should not flag any tokens
+        assert result["text_content_contains_error_token"].sum() == 0
+        assert result["text_content_contains_placeholder_token"].sum() == 0
 
 
 # ============================================================================

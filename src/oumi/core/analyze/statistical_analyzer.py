@@ -36,6 +36,7 @@ class StatisticalOutlierAnalyzer(SampleAnalyzer):
         zscore_threshold: float = 3.0,
         iqr_multiplier: float = 1.5,
         columns: Optional[list[str]] = None,
+        tokenizer=None,
     ):
         """Initialize the StatisticalOutlierAnalyzer.
 
@@ -43,6 +44,7 @@ class StatisticalOutlierAnalyzer(SampleAnalyzer):
             zscore_threshold: Z-score threshold for outlier detection.
             iqr_multiplier: IQR multiplier for outlier detection.
             columns: Specific columns to analyze. If None, analyzes all numeric columns.
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.zscore_threshold = zscore_threshold
         self.iqr_multiplier = iqr_multiplier
@@ -104,4 +106,4 @@ class StatisticalOutlierAnalyzer(SampleAnalyzer):
                 values > upper_bound
             )
 
-        return result_df
+        return result_df, {}

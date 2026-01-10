@@ -37,6 +37,7 @@ class CategoryDistributionAnalyzer(SampleAnalyzer):
         expected_categories: Optional[list[str]] = None,
         min_percentage: float = 0.01,
         max_percentage: float = 0.50,
+        tokenizer=None,
     ):
         """Initialize the CategoryDistributionAnalyzer.
 
@@ -45,6 +46,7 @@ class CategoryDistributionAnalyzer(SampleAnalyzer):
             expected_categories: Optional list of expected categories.
             min_percentage: Flag categories below this percentage.
             max_percentage: Flag categories above this percentage.
+            tokenizer: Optional tokenizer (not used by this analyzer).
         """
         self.category_column = category_column
         self.expected_categories = expected_categories
@@ -129,4 +131,4 @@ class CategoryDistributionAnalyzer(SampleAnalyzer):
             if missing:
                 result_df.attrs["missing_categories"] = list(missing)
 
-        return result_df
+        return result_df, {}
