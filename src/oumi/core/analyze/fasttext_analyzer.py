@@ -19,7 +19,7 @@ and optional text classification capabilities.
 """
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -241,17 +241,37 @@ class FastTextAnalyzer(SampleAnalyzer):
         if not text or len(text.strip()) < 3:
             return "unknown", 0.0
 
+        # Ensure detector is initialized
+        if self._detector is None:
+            self._init_detector()
+
         try:
-            result = self._detector.detect(text)
-            lang_code = result.lang
-            confidence = result.score
+            # fast-langdetect returns a list of dicts: [{'lang': 'en', 'score': 0.99}]
+            # Use 'lite' model as it works correctly (default and 'full' models have issues)
+            results = self._detector.detect(text, model="lite")
+            if not results or len(results) == 0:
+                return "unknown", 0.0
+
+            # Get the top result (first item in the list)
+            top_result = results[0]
+            lang_code = top_result.get("lang", "unknown")
+            confidence = float(top_result.get("score", 0.0))
 
             # Normalize language codes (remove script suffixes like "zh-Hans")
             if "-" in lang_code:
                 lang_code = lang_code.split("-")[0]
 
             return lang_code, confidence
-        except Exception:
+        except Exception as e:
+            # Log the error with more detail for debugging
+            logger.warning(
+                f"Language detection failed for text (len={len(text)}): "
+                f"{type(e).__name__}: {e}"
+            )
+            # Log full traceback at debug level
+            import traceback
+
+            logger.debug(f"Full traceback: {traceback.format_exc()}")
             return "unknown", 0.0
 
     def _detect_language_fasttext(self, text: str) -> tuple[str, float]:
@@ -277,7 +297,9 @@ class FastTextAnalyzer(SampleAnalyzer):
             lang_code = label.replace("__label__", "")
 
             return lang_code, confidence
-        except Exception:
+        except Exception as e:
+            # Log the error for debugging
+            logger.debug(f"Language detection failed: {type(e).__name__}: {e}")
             return "unknown", 0.0
 
     def _detect_language(self, text: str) -> tuple[str, float]:
@@ -396,7 +418,7 @@ class FastTextAnalyzer(SampleAnalyzer):
     def analyze_sample(
         self,
         df: pd.DataFrame,
-        schema: Optional[dict] = None,
+        schema: dict | None = None,
     ) -> tuple[pd.DataFrame, dict]:
         """Analyze text fields for language and script detection.
 
@@ -440,7 +462,9 @@ class FastTextAnalyzer(SampleAnalyzer):
 
             # Extract results into columns
             if self.detect_language:
-                col_name = make_analyzer_column_name(column, analyzer_id, "detected_language")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "detected_language"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("detected_language")
                 )
@@ -450,7 +474,9 @@ class FastTextAnalyzer(SampleAnalyzer):
                     "description": "ISO 639-1 language code detected",
                 }
 
-                col_name = make_analyzer_column_name(column, analyzer_id, "language_confidence")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "language_confidence"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("language_confidence")
                 )
@@ -460,7 +486,9 @@ class FastTextAnalyzer(SampleAnalyzer):
                     "description": "Confidence score for language detection (0.0-1.0)",
                 }
 
-                col_name = make_analyzer_column_name(column, analyzer_id, "language_name")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "language_name"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("language_name")
                 )
@@ -470,7 +498,9 @@ class FastTextAnalyzer(SampleAnalyzer):
                     "description": "Full language name",
                 }
 
-                col_name = make_analyzer_column_name(column, analyzer_id, "low_confidence")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "low_confidence"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("low_confidence")
                 )
@@ -481,7 +511,9 @@ class FastTextAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_script:
-                col_name = make_analyzer_column_name(column, analyzer_id, "detected_script")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "detected_script"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("detected_script")
                 )
@@ -492,7 +524,9 @@ class FastTextAnalyzer(SampleAnalyzer):
                 }
 
             if self.detect_multilingual:
-                col_name = make_analyzer_column_name(column, analyzer_id, "is_multilingual")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "is_multilingual"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("is_multilingual")
                 )
@@ -507,7 +541,7 @@ class FastTextAnalyzer(SampleAnalyzer):
     def compute_dataset_metrics(
         self,
         df: pd.DataFrame,
-        schema: Optional[dict] = None,
+        schema: dict | None = None,
     ) -> dict[str, Any]:
         """Compute dataset-level language metrics.
 

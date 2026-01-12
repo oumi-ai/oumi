@@ -27,7 +27,6 @@ from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.registry import REGISTRY
 from oumi.utils.analysis_utils import (
     compute_statistics,
-    compute_statistics_with_distribution,
     convert_dataset_to_dataframes,
     get_schema_for_format,
     load_dataset_from_config,
@@ -861,13 +860,14 @@ class DatasetAnalyzer:
     def _get_computable_columns(self, df: pd.DataFrame) -> list[str]:
         """Get computable columns from DataFrame using schema information.
 
-        A computable column is one that has content_type == NUMERIC in the schema.
+        A computable column is one that has content_type == NUMERIC or BOOLEAN
+        in the schema. BOOLEAN columns can be converted to numeric (0/1) for statistics.
 
         Args:
             df: DataFrame to analyze
 
         Returns:
-            List of tuples (column_name, schema_info) for computable columns
+            List of column names for computable columns
         """
         if self._merged_schema is None:
             raise RuntimeError(
@@ -881,9 +881,10 @@ class DatasetAnalyzer:
             if col_schema is None:
                 continue
 
-            # Only include columns with ContentType.NUMERIC
+            # Include columns with ContentType.NUMERIC or BOOLEAN
+            # BOOLEAN can be converted to numeric (0/1) for statistics
             content_type = col_schema.get("content_type")
-            if content_type == ContentType.NUMERIC:
+            if content_type in (ContentType.NUMERIC, ContentType.BOOLEAN):
                 computable_columns.append(col)
 
         return computable_columns
@@ -892,6 +893,8 @@ class DatasetAnalyzer:
         """Get aggregated metrics for a given DataFrame level.
 
         Uses schema information to better identify and group computable columns.
+        Includes both numeric/boolean columns (with numeric stats) and categorical
+        columns (with value counts and mode).
 
         Args:
             df: DataFrame to analyze (message_df or conversation_df)
@@ -903,11 +906,39 @@ class DatasetAnalyzer:
             return {}
 
         summary = {}
+        
+        # Process numeric and boolean columns with numeric statistics
         for col in self._get_computable_columns(df):
-            # Compute statistics for numeric columns
             values = cast(pd.Series, df[col].dropna())
             if len(values) > 0:
                 summary[col] = compute_statistics(values, self._decimal_precision)
+        
+        # Process categorical columns with categorical statistics
+        if self._merged_schema is not None:
+            for col in df.columns:
+                col_schema = self._merged_schema.get(col)
+                if col_schema is None:
+                    continue
+                
+                content_type = col_schema.get("content_type")
+                # Include CATEGORICAL columns (like detected_language, language_name, detected_script)
+                if content_type == ContentType.CATEGORICAL:
+                    values = cast(pd.Series, df[col].dropna())
+                    if len(values) > 0:
+                        # Compute categorical statistics
+                        value_counts = values.value_counts()
+                        summary[col] = {
+                            "count": len(values),
+                            "unique_count": len(value_counts),
+                            "mode": value_counts.index[0] if len(value_counts) > 0 else None,
+                            "mode_count": int(value_counts.iloc[0]) if len(value_counts) > 0 else 0,
+                            "mode_percentage": round(
+                                (value_counts.iloc[0] / len(values)) * 100, 2
+                            ) if len(value_counts) > 0 else 0.0,
+                            "top_values": {
+                                k: int(v) for k, v in value_counts.head(10).items()
+                            },
+                        }
 
         return summary
 
