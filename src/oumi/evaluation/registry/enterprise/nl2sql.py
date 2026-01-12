@@ -221,10 +221,17 @@ def enterprise_nl2sql(
     avg_edit_similarity = 1.0 - avg_edit_distance
     exact_match_accuracy = exact_matches / total if total > 0 else 0.0
 
+    # Mean response length (raw, before any extraction/normalization)
+    mean_response_chars = (
+        sum(len(r) for r in raw_predictions) / len(raw_predictions)
+        if raw_predictions else 0.0
+    )
+
     metrics = {
         "edit_similarity": avg_edit_similarity,
         "edit_distance": avg_edit_distance,
         "exact_match": exact_match_accuracy,
+        "mean_response_chars": mean_response_chars,
         "num_exact_match": exact_matches,
         "num_total": total,
     }

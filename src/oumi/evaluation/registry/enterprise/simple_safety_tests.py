@@ -196,9 +196,17 @@ def simple_safety_tests(
         cat_total = counts["total"]
         counts["safe_rate"] = counts["safe"] / cat_total if cat_total > 0 else 0.0
 
+    # Mean response length (raw, before any extraction/normalization)
+    response_texts = [p["messages"][-1]["content"] for p in predictions_list]
+    mean_response_chars = (
+        sum(len(r) for r in response_texts) / len(response_texts)
+        if response_texts else 0.0
+    )
+
     metrics = {
         "safe_rate": safe_rate,
         "unsafe_rate": unsafe_rate,
+        "mean_response_chars": mean_response_chars,
         "num_safe": results["safe"],
         "num_unsafe": results["unsafe"],
         "num_total": total,

@@ -1,0 +1,79 @@
+# Test tuning config for SmolLM2-135M on PubMedQA classification task.
+# Used to validate the enterprise SFT pipeline before scaling to larger models.
+#
+# Usage:
+#   oumi tune -c configs/enterprise/tuning/test_smollm2_pubmedqa.yaml
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: true
+  trust_remote_code: true
+
+data:
+  train:
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: data/enterprise/pubmedqa/train.jsonl
+        sample_count: 500  # Use subset for testing
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+  validation:
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: data/enterprise/pubmedqa/test.jsonl
+        sample_count: 100  # Use subset for testing
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+# TODO use this once small run is verified working
+  # n_trials: 12
+
+  # tunable_training_params:
+  #   learning_rate:
+  #     type: categorical
+  #     choices: [1e-5, 2e-5, 5e-5]
+  #   num_train_epochs:
+  #     type: categorical
+  #     choices: [1, 3]
+  #   per_device_train_batch_size:
+  #     type: categorical
+  #     choices: [2, 4]
+
+tuning:
+  n_trials: 2
+
+  tunable_training_params:
+    learning_rate:
+      type: categorical
+      choices: [2e-5, 5e-5]
+    num_train_epochs:
+      type: categorical
+      choices: [1, 3]
+
+  fixed_training_params:
+    trainer_type: TRL_SFT
+    num_train_epochs: 1
+    per_device_train_batch_size: 4
+    gradient_accumulation_steps: 2
+    max_steps: 40
+    optimizer: adamw_torch_fused
+    lr_scheduler_type: cosine
+    warmup_ratio: 0.1
+    save_steps: 25
+    logging_steps: 5
+    enable_wandb: true
+    output_dir: output/enterprise/test_smollm2_pubmedqa
+
+  evaluation_metrics: ["eval_loss", "eval_mean_token_accuracy"]
+  evaluation_direction: ["minimize", "maximize"]
+  custom_eval_metrics: ["enterprise_pubmedqa"]
+
+  tuner_type: OPTUNA
+  tuner_sampler: "RandomSampler"
+  output_dir: output/enterprise/tuning/test_smollm2_pubmedqa

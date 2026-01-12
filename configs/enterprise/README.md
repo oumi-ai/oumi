@@ -222,7 +222,7 @@ Generate formatted train/test/val splits under `data/enterprise/` for each use c
 
 ```sh
 cd /Users/tim/workspace/oumi
-conda activate oumi
+conda activate oumi  # not needed on k8s pod
 
 python scripts/enterprise/prepare_datasets.py \
   --output-dir data/enterprise \
@@ -403,10 +403,14 @@ Create the pod and exec into it, then set up datasets and start triggering jobs 
 First set up the environment and install oumi from this branch:
 
 ```sh
-cd /data/tim/code/oumi
-
 # ad hoc dev setup script for this project
-./scripts/enterprise/gpu-pod-setup.sh --hf-token <REDACTED>
+export BASEDIR="/data/tim/code/oumi"
+cd $BASEDIR
+
+./scripts/enterprise/gpu-pod-setup.sh \
+  --hf-token <REDACTED> \
+  --wandb-token <REDACTED>
+
 source /data/tim/.bashrc
 ```
 
@@ -495,9 +499,238 @@ Key metrics:
 ---
 <br><br><br>
 
+### SFT workflows
 
-### Hyperparam sweep experiments
-Run SFT experiments and evaluate resulting ckpts to identify good training config defaults for each base model -- we want values that strike a good balance across the four target use cases.
+#### Example SFT workflow
+Example e2e SFT training --> eval --> collate workflow, with base model Qwen3-4B-Instruct-2507 and pubmedqa task.
 
-### Collate results and finalized proposed training configs
-Analyze results and propose final default training configs for each student.
+```sh
+cd $BASEDIR
+source /data/tim/.bashrc
+wandb login
+
+TRAINING_CONFIG=$BASEDIR/configs/enterprise/training/qwen3_4b_instruct_2507_train_full.yaml
+TRAIN_DATASET=$BASEDIR/data/enterprise/pubmedqa/train.jsonl
+VAL_DATASET=$BASEDIR/data/enterprise/pubmedqa/val.jsonl
+
+RUN_NAME=qwen3-4b-inst-2507-pubmedqa-test
+OUTPUT_DIR=/data/tim/checkpoints/$RUN_NAME
+
+oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
+    -c $TRAINING_CONFIG \
+    --data.train.datasets.0.dataset_path=$TRAIN_DATASET \
+    --data.validation.datasets.0.dataset_path=$VAL_DATASET \
+    --training.run_name=$RUN_NAME \
+    --training.output_dir=$OUTPUT_DIR
+```
+
+See the job in wandb at: https://wandb.ai/lefft-oumi/huggingface/runs/16wytcrf.
+
+Once complete, evaluate the final checkpoint against all tasks (supply the output path as model_name):
+
+```sh
+EVAL_OUTPUT_BASEDIR=/data/tim/evals/ent/ft
+
+./scripts/enterprise/run_all_evals.sh \
+  --model-name $OUTPUT_DIR \
+  --data-dir $DATASET_DIR \
+  --output-dir $EVAL_OUTPUT_BASEDIR
+```
+
+Then copy the results bundles to local for collation and analysis:
+
+```sh
+FT_TEST_EVALS_SRC=$NAMESPACE/tim-oumi-sleep-8gpu-96598f8cf-6x852:/data/tim/evals/ent/ft/20260109_224544_qwen3-4b-inst-2507-pubmedqa-test
+FT_TEST_EVALS_DEST=~/Downloads/20260109_224544_qwen3-4b-inst-2507-pubmedqa-test
+
+kubectl cp $FT_TEST_EVALS_SRC $FT_TEST_EVALS_DEST
+
+# manually create a new dir with just baselines and this run
+BASELINES_PLUS_TEST=/Users/tim/Downloads/ent-eval-baselines-plus-qwen-test
+
+python scripts/enterprise/collate_eval_results.py \
+  --run-dirs $BASELINES_PLUS_TEST/* \
+  --output $BASELINES_PLUS_TEST/collated/results.csv \
+  --json $BASELINES_PLUS_TEST/collated/results.json
+
+# produce a plot for each benchmark and available model
+python scripts/enterprise/plot_eval_results.py \
+  --results-json $BASELINES_PLUS_TEST/collated/results.json \
+  --output $BASELINES_PLUS_TEST/collated/results-plot.png
+```
+
+Results are as expected: boost in task performance, with varying degree of regression on other benchmarks:
+
+| Model | Banking77 | PubMedQA | PubMedQA | TAT-QA | TAT-QA | NL2SQL | IFEval | Safety |
+|-------|-----------|----------|----------|--------|--------|--------|--------|--------|
+|       | Accuracy | Accuracy | Macro F1 | EM | Boxed% | EditSim | Prompt Strict | Safe% |
+| **Qwen3-4B-Instruct-2507** | 53.0% | 52.0% | 45.2% | 25.4% | 86.6% | 54.4% | 83.0% | 89.0% |
+| **Llama-3.2-1B-Instruct** | 2.3% | 49.0% | 40.2% | 13.9% | 72.8% | 36.3% | 50.5% | 76.0% |
+| **Llama-3.1-8B-Instruct** | 38.1% | 70.0% | 50.5% | 27.0% | 88.5% | 51.7% | 73.9% | 94.0% |
+| **Gemma-3-4B-it** | 60.8% | 49.0% | 39.3% | 40.0% | 95.4% | 50.0% | 72.8% | 94.0% |
+| **Qwen3-4B + PubMedQA FT** | 22.5% | **74.0%** | **63.5%** | 0.0% | 0.0% | 54.4% | 67.3% | 86.0% |
+
+
+#### Example tuning workflow
+Demonstrate the `oumi tune` workflow, again using the pubmedqa use case. Here we use SmolLM2-135M-Instruct as base so we can execute many jobs quickly.
+
+Note that we made some changes to oumi core to enable custom eval functions -- this way we get a full pubmedqa eval for every completed training run.
+
+```sh
+# needed for Optuna
+pip install -e ".[tune]"
+
+TUNE_TEST_OUTDIR=/data/tim/tune/ent/test_smollm2_pubmedqa-custom
+
+oumi tune -c configs/enterprise/tuning/test_smollm2_pubmedqa.yaml \
+  --tuning.output_dir $TUNE_TEST_OUTDIR
+```
+
+See the job in wandb at: https://wandb.ai/lefft-oumi/huggingface/runs/pwmfom3a.
+
+You can retrieve eval results from the output dir (only includes task-specific evals):
+
+```sh
+cat $TUNE_TEST_OUTDIR/trial_0/custom_eval/custom_20260109_230642/task_result.json \
+  | jq '.results.enterprise_pubmedqa.accuracy'
+# 0.5
+```
+
+See also `$TUNE_TEST_OUTDIR/trials_results.csv` for a comparison of training metrics across trials.
+
+You can also run more in-depth evals on individual trials if desired, using `run_all_evals.sh` as above.
+
+
+
+
+
+### Initial config tuning experiments
+Run SFT experiments and evaluate resulting ckpts to identify good training config defaults for each base model -- we want values that strike a good balance across the target use cases. At this stage we want to collect signals from multiple evals, so we launch hand-selected configs manually and evaluating the resulting models against our suite of benchmarks (four tasks and two control benchmarks).
+
+Eventually we will want to do larger-scale systematic grid searches over several key config values for each base model and use case, to empirically identify optimal training configs.
+
+But for now we manually select several configurations across multiple tasks, and settle on defaults that work reasonably well. Optimization will come after we have established reasonable defaults for a range of base models. 
+
+#### `Gemma-3-4B-it`
+We ran 12 total SFT jobs on top of `gemma-3-4B-it` targeting tat-qa (13k train records) and pubmedqa (800 train records), varying (not systematically) max LR, number of epochs, and weight decay. Only results from selected configurations are shown here.
+
+The config at `configs/enterprise/training/gemma3_4b_it_train_full.yaml` works well for both tat-qa and pubmedqa -- though there is room to optimize it for both use cases. It was established by starting from `configs/recipes/gemma3/sft/4b_full/train.yaml`, and first adjusting values as needed to get jobs to run successfully, and then iteratively refining hyperparameters by monitoring loss curves in wandb and downstream eval metrics for each run.
+
+Here are two workflows that use the selected training config (all paths on PVC `pvc-local-vp6ww`):
+
+```sh
+### tat-qa training (selected default config)
+BASEDIR=/data/tim/code/oumi
+TRAINING_CONFIG=$BASEDIR/configs/enterprise/training/gemma3_4b_it_train_full.yaml
+TRAIN_DATASET=$BASEDIR/data/enterprise/tatqa/train.jsonl
+VAL_DATASET=$BASEDIR/data/enterprise/tatqa/val.jsonl
+
+RUN_NAME=gemma3-4b-it-tatqa-6
+OUTPUT_DIR=/data/tim/checkpoints/$RUN_NAME
+
+oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
+    -c $TRAINING_CONFIG \
+    --data.train.datasets.0.dataset_path=$TRAIN_DATASET \
+    --data.validation.datasets.0.dataset_path=$VAL_DATASET \
+    --training.run_name=$RUN_NAME \
+    --training.output_dir=$OUTPUT_DIR
+
+### tat-qa evaluation
+DATASET_DIR=/data/tim/code/oumi/data/enterprise
+OUTPUT_BASEDIR=/data/tim/evals/ent/ft
+GEMMA_TATQA6=/data/tim/checkpoints/gemma3-4b-it-tatqa-6
+
+# NB: must copy preprocessor_config.json from HF repo (not saved as part of trained model bundle)
+# without this, vLLM evals will fail with "Can't load image processor for '/data/tim/checkpoints/gemma3-4b-it-tatqa-6'..."
+huggingface-cli download google/gemma-3-4b-it preprocessor_config.json \
+    --local-dir $GEMMA_TATQA6/
+
+./scripts/enterprise/run_all_evals.sh \
+  --model-name $GEMMA_TATQA6 \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+```
+
+```sh
+### pubmedqa training 
+BASEDIR=/data/tim/code/oumi
+TRAINING_CONFIG=$BASEDIR/configs/enterprise/training/gemma3_4b_it_train_full.yaml
+TRAIN_DATASET=$BASEDIR/data/enterprise/pubmedqa/train.jsonl
+VAL_DATASET=$BASEDIR/data/enterprise/pubmedqa/val.jsonl
+
+RUN_NAME=gemma3-4b-it-pubmedqa-2
+OUTPUT_DIR=/data/tim/checkpoints/$RUN_NAME
+
+oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
+    -c $TRAINING_CONFIG \
+    --data.train.datasets.0.dataset_path=$TRAIN_DATASET \
+    --data.validation.datasets.0.dataset_path=$VAL_DATASET \
+    --training.run_name=$RUN_NAME \
+    --training.output_dir=$OUTPUT_DIR
+
+### pubmedqa evaluation
+DATASET_DIR=/data/tim/code/oumi/data/enterprise
+OUTPUT_BASEDIR=/data/tim/evals/ent/ft
+GEMMA_PMQA2=/data/tim/checkpoints/gemma3-4b-it-pubmedqa-2
+huggingface-cli download google/gemma-3-4b-it preprocessor_config.json \
+    --local-dir $GEMMA_PMQA2/
+
+./scripts/enterprise/run_all_evals.sh \
+  --model-name $GEMMA_PMQA2 \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+```
+
+Copy the results out of the cluster for collation, plotting, and analysis:
+
+```sh
+# [local]
+FT_TEST_EVALS_SRC=$NAMESPACE/<POD>:/data/tim/evals/ent/ft
+FT_TEST_EVALS_DEST=~/Downloads/20260109-ft
+
+# NB also copy over baselines, and remove bundles that are not of interest before plotting
+kubectl cp $FT_TEST_EVALS_SRC $FT_TEST_EVALS_DEST
+
+python scripts/enterprise/collate_eval_results.py \
+  --run-dirs $FT_TEST_EVALS_DEST/* \
+  --output $FT_TEST_EVALS_DEST/collated/results.csv \
+  --json $FT_TEST_EVALS_DEST/collated/results.json
+
+# produce a plot for each benchmark and available model
+python scripts/enterprise/plot_eval_results.py \
+  --results-json $FT_TEST_EVALS_DEST/collated/results.json \
+  --output $FT_TEST_EVALS_DEST/collated/results-plot.png
+```
+
+Final results:
+
+| Model | Banking77 | PubMedQA | PubMedQA | TAT-QA | TAT-QA | NL2SQL | IFEval | Safety |
+|-------|-----------|----------|----------|--------|--------|--------|--------|--------|
+|       | Accuracy | Accuracy | Macro F1 | EM | Boxed% | EditSim | Prompt Strict | Safe% |
+| **Gemma-3-4B-it** (baseline) | 61.0% | 49.0% | 39.2% | 39.7% | 95.3% | 50.2% | 73.4% | 95.0% |
+| **Gemma3-4B + TAT-QA FT** | 52.4% | 49.0% | 27.0% | **46.6%** | **100%** | 46.3% | 68.0% | 93.0% |
+| **Gemma3-4B + PubMedQA FT** | 57.9% | **67.0%** | **46.8%** | 0.7% | 5.6% | 45.2% | 71.2% | 96.0% |
+
+High-level observations:
+
+- tat-qa:
+  - +6.9 EM improvement (39.7% --> 46.6%), similar boost in F1
+  - boxed rate at 100% from 95% (showing the model follows response format instructions)
+  - moderate regression on other benchnmarks
+
+- pubmedqa:
+  - +18 accuracy improvement (49% --> 67%), +8 on macro F1 (.39 --> .47)
+  - moderate regression on other benchmarks
+  - ignores instruction to use `\boxed{}` in tat-qa, leading to performance collapse
+
+
+#### `Ministral-3-3B-Instruct-2512`
+
+NB: These models were only released 12/2025, and our current version of HF transformers does not support minimstral3. Upgrading to the most recent transformers breaks imports in both the oumi codebase (`ImportError: cannot import name 'SpecialTokensMixin' from 'transformers'`) and dependencies (`ImportError: cannot import name 'HybridCache' from 'transformers'`). We will revisit this once our transformers version has been upgraded.
+
+#### `Llama-3.2-1B-Instruct`
+
+#### `Llama-3.1-8B-Instruct`
+
+#### `Qwen3-4B-Instruct-2507`
+

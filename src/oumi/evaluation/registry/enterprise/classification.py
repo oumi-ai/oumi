@@ -125,8 +125,15 @@ def _compute_accuracy(predictions: list[str], ground_truths: list[str]) -> dict:
 
     accuracy = correct / total if total > 0 else 0.0
 
+    # Mean response length (raw, before any extraction/normalization)
+    mean_response_chars = (
+        sum(len(p) for p in predictions) / len(predictions)
+        if predictions else 0.0
+    )
+
     return {
         "accuracy": accuracy,
+        "mean_response_chars": mean_response_chars,
         "num_correct": correct,
         "num_total": total,
     }

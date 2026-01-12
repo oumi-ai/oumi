@@ -150,7 +150,9 @@ def enterprise_tatqa(
     logger.info(f"Evaluating on {len(test_data)} samples")
 
     # Extract ground truths and create input conversations
-    ground_truths = [_extract_ground_truth(conv) for conv in test_data]
+    # Also extract from \boxed{} in ground truth for consistent comparison
+    raw_ground_truths = [_extract_ground_truth(conv) for conv in test_data]
+    ground_truths = [_extract_answer(gt) if "\\boxed{" in gt else gt for gt in raw_ground_truths]
     input_conversations = [_create_input_conversation(conv) for conv in test_data]
 
     # Run inference
@@ -182,18 +184,25 @@ def enterprise_tatqa(
         # Track how often model uses \boxed{} format
         if "\\boxed{" in raw:
             boxed_count += 1
-        # F1 computed on raw response to retain signal even without \boxed{}
-        f1_scores.append(_compute_f1(raw, gt))
+        # F1 computed on extracted values for consistent comparison
+        f1_scores.append(_compute_f1(pred, gt))
 
     total = len(predictions)
     exact_match_accuracy = exact_matches / total if total > 0 else 0.0
     avg_f1 = sum(f1_scores) / len(f1_scores) if f1_scores else 0.0
     boxed_rate = boxed_count / total if total > 0 else 0.0
 
+    # Mean response length (raw, before any extraction/normalization)
+    mean_response_chars = (
+        sum(len(r) for r in raw_predictions) / len(raw_predictions)
+        if raw_predictions else 0.0
+    )
+
     metrics = {
         "exact_match": exact_match_accuracy,
         "f1": avg_f1,
         "boxed_rate": boxed_rate,
+        "mean_response_chars": mean_response_chars,
         "num_exact_match": exact_matches,
         "num_boxed": boxed_count,
         "num_total": total,
@@ -208,13 +217,14 @@ def enterprise_tatqa(
             ],
             "metadata": {
                 "ground_truth": gt,
+                "ground_truth_raw": raw_gt,
                 "extracted_answer": pred,
                 "exact_match": _compute_exact_match(pred, gt),
-                "f1": _compute_f1(raw, gt),  # F1 on raw response
+                "f1": _compute_f1(pred, gt),  # F1 on extracted values
             },
         }
-        for conv, raw, pred, gt in zip(
-            input_conversations, raw_predictions, predictions, ground_truths
+        for conv, raw, pred, gt, raw_gt in zip(
+            input_conversations, raw_predictions, predictions, ground_truths, raw_ground_truths
         )
     ]
 

@@ -268,7 +268,7 @@ def prepare_tatqa(output_dir: Path) -> None:
                 "Put your final answer in \\boxed{}.\n\n"
                 "Answer:"
             )
-            conversations.append(format_conversation(user_content, str(answer)))
+            conversations.append(format_conversation(user_content, f"\\boxed{{{str(answer)}}}"))
 
         return conversations
 

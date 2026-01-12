@@ -1,0 +1,104 @@
+# FFT config for Qwen3 4B.
+# Some param values are referenced from:
+# https://github.com/pytorch/torchtune/blob/main/recipes/configs/qwen3/4B_full.yaml
+#
+# Usage:
+#   oumi distributed torchrun -m oumi train -c /home/tim/pubmedqa/configs/qwen4b_train_full.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: Qwen/Qwen3-4B-Instruct-2507
+  model_max_length: 32768
+  torch_dtype_str: bfloat16
+  attn_implementation: sdpa
+  trust_remote_code: true
+
+data:
+  # NOTE: These paths MUST be provided via submit_training_rsync.sh script arguments.
+  # The script will override these placeholders with actual paths.
+  train:
+    datasets:
+    - dataset_name: text_sft
+      dataset_path: REQUIRED_VIA_SCRIPT  # Overridden by --data.train.datasets.0.dataset_path
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      # Mark where the assistant's answer starts
+      response_template: "<|im_start|>assistant\n"
+      # Mark where the user turn starts
+      instruction_template: "<|im_start|>user\n"
+    # target_col: "messages"  # this will raise DeprecationWarning if set as of 20251210
+    seed: 666
+
+  validation:
+    datasets:
+    - dataset_name: text_sft
+      dataset_path: REQUIRED_VIA_SCRIPT  # Overridden by --data.validation.datasets.0.dataset_path
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|im_start|>assistant\n"
+      instruction_template: "<|im_start|>user\n"
+    # target_col: "messages"  # this will raise DeprecationWarning if set as of 20251210
+    seed: 666
+
+
+training:
+  trainer_type: TRL_SFT
+  # NOTE: output_dir and run_name will be overridden by submit_training_rsync.sh
+  # to include the job ID (e.g., output/pubmedqa_qwen3_4b_full_12345)
+  output_dir: REQUIRED_VIA_SCRIPT  # Overridden by --training.output_dir
+  run_name: "REQUIRED_VIA_SCRIPT"  # Overridden by --training.run_name
+  
+  # TODO figure out if we can max_steps instead of num_train_epochs (yes see note above)
+  num_train_epochs: 3
+
+  # Batch size settings
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 2
+  # Adjusted for 8 GPUs: batch_size=2, grad_accum=2 -> effective batch=32
+  max_grad_norm: 1.0
+
+  # Mixed precision and performance settings
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+
+  # Optimization
+  learning_rate: 4e-5
+  optimizer: adamw_torch_fused
+
+  # Learning rate schedule
+  lr_scheduler_type: cosine
+  warmup_ratio: 0.05
+  
+  # Evaluation
+  eval_strategy: "steps"
+  save_steps: 25
+  eval_steps: 25
+  
+  # Data loader settings
+  dataloader_num_workers: auto
+  dataloader_prefetch_factor: 32
+
+  # Logging
+  logging_steps: 5
+  enable_wandb: True
+  enable_mlflow: False  # TODO: set up mlflow later
+
+  # Performance monitoring
+  empty_device_cache_steps: 50
+  include_performance_metrics: true
+  
+  ddp_find_unused_parameters: False
+  compile: False
+
+fsdp:
+  enable_fsdp: True
+  forward_prefetch: True
+  sharding_strategy: "HYBRID_SHARD"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Qwen3DecoderLayer"

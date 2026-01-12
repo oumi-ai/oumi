@@ -46,10 +46,10 @@ from typing import Any
 
 # Define which metrics to extract for each task
 TASK_METRICS = {
-    "banking77": ["accuracy", "num_correct", "num_total"],
-    "pubmedqa": ["accuracy", "micro_f1", "num_correct", "num_total"],
-    "tatqa": ["exact_match", "f1", "boxed_rate", "num_total"],
-    "nl2sql": ["edit_similarity", "exact_match", "num_total"],
+    "banking77": ["accuracy", "mean_response_chars", "num_correct", "num_total"],
+    "pubmedqa": ["accuracy", "mean_response_chars", "micro_f1", "num_correct", "num_total"],
+    "tatqa": ["exact_match", "f1", "boxed_rate", "mean_response_chars", "num_total"],
+    "nl2sql": ["edit_similarity", "exact_match", "mean_response_chars", "num_total"],
     "control": [],  # lm_harness has different structure, handle separately
 }
 

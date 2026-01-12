@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import time
 from importlib.metadata import version
 from pathlib import Path
@@ -97,6 +98,11 @@ def tune(
     """Tunes a model using the provided configuration."""
     _START_TIME = time.time()
 
+    # Set wandb group so all trials are grouped together, each as a new run
+    tuning_group_name = Path(config.tuning.output_dir).name
+    os.environ["WANDB_RUN_GROUP"] = tuning_group_name
+    os.environ["WANDB_RESUME"] = "never"  # Force new run per trial, don't resume
+
     _create_tuning_dirs(config)
     _log_tuning_info(config)
 
@@ -140,6 +146,9 @@ def tune(
         )
         trial_training_params = TrainingParams(**training_params)
         trial_training_params.trainer_type = TrainerType.TRL_SFT
+        # Set unique run_name per trial for wandb
+        base_run_name = training_params.get("run_name") or Path(config.tuning.output_dir).name
+        trial_training_params.run_name = f"{base_run_name}_trial_{trial_number}"
 
         # Merged suggested and fixed PEFT params
         peft_params = {
@@ -214,9 +223,9 @@ def tune(
 
             device_cleanup()
             task_results = evaluate(eval_config)
-            # Unpack result metrics
+            # Unpack result metrics (custom evals are nested under "results" key)
             custom_results = {
-                task_name: task_result[task_name]
+                task_name: task_result["results"][task_name]
                 for task_name, task_result in zip(task_names, task_results)
             }
 
@@ -230,6 +239,14 @@ def tune(
         logger.info(
             f"Trial {trial_number} finished. Evaluation results: {eval_results}"
         )
+
+        # Close wandb run for this trial so next trial gets a fresh run
+        try:
+            import wandb
+            if wandb.run is not None:
+                wandb.finish()
+        except Exception:
+            pass  # wandb may not be installed or enabled
 
         output_metrics_dict = {}
         metrics_list = list(config.tuning.evaluation_metrics)

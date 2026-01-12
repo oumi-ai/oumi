@@ -22,36 +22,43 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Define metrics to plot for each benchmark
+# Each benchmark can have a response_length_key for the paired response length panel
 BENCHMARK_METRICS = {
     "banking77": {
         "metrics": ["accuracy"],
         "title": "Banking77 (77-way Classification)",
         "ylabel": "Accuracy",
+        "response_length_key": "banking77_mean_response_chars",
     },
     "pubmedqa": {
         "metrics": ["accuracy", "macro_f1"],
         "title": "PubMedQA (Yes/No/Maybe)",
         "ylabel": "Score",
+        "response_length_key": "pubmedqa_mean_response_chars",
     },
     "tatqa": {
-        "metrics": ["exact_match", "boxed_rate"],
+        "metrics": ["exact_match", "f1", "boxed_rate"],
         "title": "TAT-QA (Tabular QA)",
         "ylabel": "Score",
+        "response_length_key": "tatqa_mean_response_chars",
     },
     "nl2sql": {
         "metrics": ["edit_similarity", "exact_match"],
         "title": "NL2SQL",
         "ylabel": "Score",
+        "response_length_key": "nl2sql_mean_response_chars",
     },
     "safety": {
         "metrics": ["safe_rate"],
         "title": "Simple Safety Tests",
         "ylabel": "Safe Rate",
+        "response_length_key": "safety_mean_response_chars",
     },
     "ifeval": {
         "metrics": ["prompt_level_strict_acc", "inst_level_strict_acc"],
         "title": "IFEval (Instruction Following)",
         "ylabel": "Accuracy",
+        # No response length for ifeval (uses lm-harness, not custom eval)
     },
 }
 
@@ -62,6 +69,26 @@ def load_results(json_path: Path) -> list[dict]:
         return json.load(f)
 
 
+def sort_models_base_first(results: list[dict]) -> list[dict]:
+    """Sort results so base models come before fine-tuned models.
+    
+    Base models are identified by NOT having common fine-tuning suffixes.
+    """
+    def is_base_model(row: dict) -> bool:
+        """Check if a model is a base model (not fine-tuned)."""
+        model_name = row.get("model_short", row.get("model_name", ""))
+        # Common patterns for fine-tuned models
+        ft_patterns = ["-tatqa", "-pubmedqa", "-banking", "-nl2sql", "-ft", "-sft", "-finetune"]
+        return not any(pattern in model_name.lower() for pattern in ft_patterns)
+    
+    # Separate base and fine-tuned models
+    base_models = [r for r in results if is_base_model(r)]
+    ft_models = [r for r in results if not is_base_model(r)]
+    
+    # Return base models first, then fine-tuned
+    return base_models + ft_models
+
+
 def extract_benchmark_data(results: list[dict], benchmark: str) -> dict:
     """Extract data for a specific benchmark from results."""
     config = BENCHMARK_METRICS[benchmark]
@@ -70,6 +97,7 @@ def extract_benchmark_data(results: list[dict], benchmark: str) -> dict:
     data = {
         "models": [],
         "metrics": {m: [] for m in metrics},
+        "response_length": [],
     }
     
     for row in results:
@@ -88,6 +116,13 @@ def extract_benchmark_data(results: list[dict], benchmark: str) -> dict:
                 data["metrics"][metric].append(value)
             else:
                 data["metrics"][metric].append(0)  # Missing data
+        
+        # Extract response length if configured
+        resp_len_key = config.get("response_length_key")
+        if resp_len_key:
+            data["response_length"].append(row.get(resp_len_key, 0))
+        else:
+            data["response_length"].append(0)
     
     return data
 
@@ -96,6 +131,7 @@ def plot_benchmark(ax, data: dict, config: dict, benchmark: str):
     """Plot a single benchmark panel."""
     models = data["models"]
     metrics = list(data["metrics"].keys())
+    resp_lengths = data.get("response_length", [])
     
     if not models:
         ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
@@ -124,7 +160,16 @@ def plot_benchmark(ax, data: dict, config: dict, benchmark: str):
     ax.set_ylabel(config["ylabel"])
     ax.set_title(config["title"], fontweight="bold")
     ax.set_xticks(x)
-    ax.set_xticklabels(models, rotation=30, ha="right", fontsize=9)
+    
+    # Create x-axis labels with response length annotations
+    labels = []
+    for i, model in enumerate(models):
+        if resp_lengths and i < len(resp_lengths) and resp_lengths[i] > 0:
+            labels.append(f"{model}\n({int(resp_lengths[i])} mean chars)")
+        else:
+            labels.append(model)
+    
+    ax.set_xticklabels(labels, rotation=30, ha="right", fontsize=9)
     ax.set_ylim(0, 1.15)
     ax.legend(loc="upper right", fontsize=8)
     ax.grid(axis="y", alpha=0.3)
@@ -204,6 +249,9 @@ def main():
     
     results = load_results(args.results_json)
     print(f"Loaded {len(results)} run(s)")
+    
+    # Sort so base models come first
+    results = sort_models_base_first(results)
     
     create_visualization(results, args.output)
 

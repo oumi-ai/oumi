@@ -61,7 +61,7 @@ oumi evaluate -c configs/enterprise/evaluation/task_pubmedqa.yaml \
   --tasks.0.eval_kwargs.test_data_path "${DATA_DIR}/pubmedqa/test.jsonl" \
   --inference_engine VLLM \
   --output_dir "${RUN_DIR}/pubmedqa" \
-  --enable_wandb false
+  --enable_wandb true
 echo ""
 
 # force cleanup of GPU memory from vLLM after each eval to avoid OOM
@@ -75,7 +75,7 @@ oumi evaluate -c configs/enterprise/evaluation/task_banking77.yaml \
   --tasks.0.eval_kwargs.test_data_path "${DATA_DIR}/banking77/test.jsonl" \
   --inference_engine VLLM \
   --output_dir "${RUN_DIR}/banking77" \
-  --enable_wandb false
+  --enable_wandb true
 echo ""
 
 # --- TAT-QA ---
@@ -86,7 +86,7 @@ oumi evaluate -c configs/enterprise/evaluation/task_tatqa.yaml \
   --tasks.0.eval_kwargs.test_data_path "${DATA_DIR}/tatqa/test.jsonl" \
   --inference_engine VLLM \
   --output_dir "${RUN_DIR}/tatqa" \
-  --enable_wandb false
+  --enable_wandb true
 echo ""
 
 # --- NL2SQL ---
@@ -96,7 +96,7 @@ oumi evaluate -c configs/enterprise/evaluation/task_nl2sql.yaml \
   --tasks.0.eval_kwargs.test_data_path "${DATA_DIR}/nl2sql/test.jsonl" \
   --inference_engine VLLM \
   --output_dir "${RUN_DIR}/nl2sql" \
-  --enable_wandb false
+  --enable_wandb true
 echo ""
 
 # --- Control Evals (IFEval + SimpleSafetyTests) ---
@@ -105,7 +105,7 @@ oumi evaluate -c configs/enterprise/evaluation/control_evals.yaml \
   --model.model_name "$MODEL_NAME" \
   --inference_engine VLLM \
   --output_dir "${RUN_DIR}/control" \
-  --enable_wandb false
+  --enable_wandb true
 echo ""
 
 # --- Summary ---
