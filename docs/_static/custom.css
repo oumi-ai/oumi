@@ -727,7 +727,7 @@ html:not([data-theme="dark"]) .bd-header {
     font-weight: 600;
 }
 
-dl.py.class, dl.py.function, dl.py.method, dl.py.attribute {
+dl.py.class, dl.py.function, dl.py.method {
     background-color: var(--oumi-bg-secondary);
     border: 1px solid var(--oumi-border);
     border-radius: var(--radius-lg);
@@ -736,29 +736,90 @@ dl.py.class, dl.py.function, dl.py.method, dl.py.attribute {
     transition: all var(--transition-fast);
 }
 
-dl.py:hover {
+dl.py.attribute {
+    background-color: transparent;
+    border: none;
+    padding: var(--space-3) var(--space-4);
+    margin: var(--space-3) 0;
+    display: block;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+dl.py.attribute:hover {
+    background-color: var(--oumi-bg-elevated);
+}
+
+dl.py.class:hover, dl.py.function:hover, dl.py.method:hover {
     border-color: var(--oumi-border-hover);
     box-shadow: var(--shadow-md);
 }
 
-dl.py dt {
+dl.py.class dt, dl.py.function dt, dl.py.method dt {
     font-family: var(--font-mono);
     background: var(--oumi-bg-elevated);
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-md);
     margin-bottom: var(--space-4);
-    border-left: 3px solid var(--oumi-primary-accent);
+    border-left: none;
     position: relative;
 }
 
-dl.py dt::before {
-    content: '';
-    position: absolute;
-    left: -3px;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: var(--oumi-gradient-primary);
+dl.py.attribute dt {
+    font-family: var(--font-mono);
+    background: transparent;
+    padding: 0;
+    margin: 0 0 var(--space-2) 0;
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+
+dl.py.attribute dt .sig-name {
+    color: var(--oumi-primary-accent);
+    font-weight: 600;
+}
+
+dl.py.attribute dt em.property {
+    color: var(--oumi-text-secondary);
+    font-weight: 400;
+    font-size: 0.95em;
+}
+
+dl.py.attribute dt .headerlink {
+    font-size: 0.8em;
+    margin-left: var(--space-1);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+dl.py.attribute:hover dt .headerlink {
+    opacity: 0.6;
+}
+
+dl.py.attribute dd {
+    display: block;
+    margin: 0 0 var(--space-2) 0;
+    padding: 0;
+    color: var(--oumi-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+}
+
+dl.py.attribute dd p {
+    margin: var(--space-1) 0;
+}
+
+dl.py.attribute dd p:first-child {
+    margin-top: 0;
+}
+
+dl.py.attribute dd p:last-child {
+    margin-bottom: 0;
+}
+
+dl.py.class dt::before, dl.py.function dt::before, dl.py.method dt::before {
+    content: none;
 }
 
 .field-list {
