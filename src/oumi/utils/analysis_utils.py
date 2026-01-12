@@ -16,7 +16,7 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import jinja2
 import numpy as np
@@ -1596,6 +1596,125 @@ def load_analyzer_artifacts(
         logger.info(f"Loaded analysis summary from: {summary_path}")
 
     logger.info(f"Loaded analyzer artifacts from: {input_dir.absolute()}")
+    return artifacts
+
+
+def regenerate_analysis_summary(
+    artifacts: dict[str, Any],
+) -> dict[str, Any]:
+    """Regenerate analysis summary from loaded artifacts using the latest code.
+
+    This function regenerates the analysis summary (message_level_summary and
+    conversation_level_summary) from saved artifacts, ensuring they use the
+    latest summary logic (e.g., including BOOLEAN and CATEGORICAL columns).
+
+    Args:
+        artifacts: Dictionary of loaded artifacts from load_analyzer_artifacts().
+            Must include 'messages_df', 'conversations_df', and 'schemas'.
+
+    Returns:
+        Updated artifacts dictionary with regenerated summary in
+        artifacts['analysis_summary'].
+
+    Raises:
+        ValueError: If required artifacts are missing.
+    """
+    from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
+    from oumi.core.analyze.column_types import ContentType
+
+    message_df = artifacts.get("messages_df")
+    conversation_df = artifacts.get("conversations_df")
+    schemas = artifacts.get("schemas", {})
+    message_schema = schemas.get("message_schema", {})
+    conversation_schema = schemas.get("conversation_schema", {})
+
+    if message_df is None:
+        raise ValueError("artifacts must include 'messages_df'")
+
+    # Merge schemas
+    merged_schema = {}
+    merged_schema.update(message_schema)
+    merged_schema.update(conversation_schema)
+
+    def _get_computable_columns(df: pd.DataFrame, schema: dict) -> list[str]:
+        """Get computable columns (NUMERIC, BOOLEAN, and CATEGORICAL)."""
+        computable_columns = []
+        for col in df.columns:
+            col_schema = schema.get(col)
+            if col_schema is None:
+                continue
+            content_type = col_schema.get("content_type")
+            if content_type in (
+                ContentType.NUMERIC,
+                ContentType.BOOLEAN,
+                ContentType.CATEGORICAL,
+            ):
+                computable_columns.append(col)
+        return computable_columns
+
+    def _get_level_summary(df: pd.DataFrame, schema: dict) -> dict[str, Any]:
+        """Get aggregated metrics for a DataFrame level."""
+        if df is None or df.empty:
+            return {}
+
+        summary = {}
+
+        # Process numeric and boolean columns
+        for col in _get_computable_columns(df, schema):
+            col_schema = schema.get(col)
+            if col_schema is None:
+                continue
+
+            content_type = col_schema.get("content_type")
+            values = cast(pd.Series, df[col].dropna())
+
+            if len(values) == 0:
+                continue
+
+            if content_type == ContentType.CATEGORICAL:
+                # Categorical statistics
+                value_counts = values.value_counts()
+                summary[col] = {
+                    "count": len(values),
+                    "unique_count": len(value_counts),
+                    "mode": value_counts.index[0] if len(value_counts) > 0 else None,
+                    "mode_count": int(value_counts.iloc[0])
+                    if len(value_counts) > 0
+                    else 0,
+                    "mode_percentage": round(
+                        (value_counts.iloc[0] / len(values)) * 100, 2
+                    )
+                    if len(value_counts) > 0
+                    else 0.0,
+                    "top_values": {
+                        str(k): int(v) for k, v in value_counts.head(10).items()
+                    },
+                }
+            else:
+                # Numeric/Boolean statistics
+                summary[col] = compute_statistics(values, decimal_precision=2)
+
+        return summary
+
+    # Regenerate summaries
+    message_summary = _get_level_summary(message_df, merged_schema)
+    conversation_summary = _get_level_summary(
+        conversation_df if conversation_df is not None else pd.DataFrame(),
+        merged_schema,
+    )
+
+    # Update or create analysis summary
+    if "analysis_summary" not in artifacts:
+        artifacts["analysis_summary"] = {}
+
+    artifacts["analysis_summary"]["message_level_summary"] = message_summary
+    artifacts["analysis_summary"]["conversation_level_summary"] = conversation_summary
+
+    logger.info(
+        f"Regenerated analysis summary with {len(message_summary)} message-level "
+        f"and {len(conversation_summary)} conversation-level metrics"
+    )
+
     return artifacts
 
 

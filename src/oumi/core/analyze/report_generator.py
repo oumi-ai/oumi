@@ -528,26 +528,29 @@ class HTMLReportGenerator:
 
     def _organize_stats_by_analyzer(
         self, flat_stats: dict[str, Any]
-    ) -> dict[str, dict[str, Any]]:
-        """Reorganize flat statistics into nested structure by analyzer.
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+        """Reorganize flat statistics into nested structure by analyzer, separating numeric and categorical.
 
         Args:
             flat_stats: Flat dictionary of stats like:
                 {
                     'text_content__length__token_count': {mean, std, ...},
-                    'text_content__cost__context_utilization_4k': {mean, std, ...},
+                    'text_content__fasttext__detected_language': {mode, top_values, ...},
                     ...
                 }
 
         Returns:
-            Nested dictionary organized by analyzer_id:
-                {
+            Tuple of (numeric_stats, categorical_stats) where each is a nested dictionary organized by analyzer_id:
+                numeric_stats: {
                     'length': {
-                        'token_count': {mean, std, min, max, median},
+                        'token_count': {mean, std, min, max, median, sum},
                         ...
                     },
-                    'cost': {
-                        'context_utilization_4k': {mean, std, min, max, median},
+                    ...
+                }
+                categorical_stats: {
+                    'fasttext': {
+                        'detected_language': {mode, mode_count, mode_percentage, unique_count, top_values},
                         ...
                     },
                     ...
@@ -555,7 +558,8 @@ class HTMLReportGenerator:
         """
         from oumi.core.analyze.column_utils import parse_analyzer_column_name
 
-        organized: dict[str, dict[str, Any]] = {}
+        organized_numeric: dict[str, dict[str, Any]] = {}
+        organized_categorical: dict[str, dict[str, Any]] = {}
 
         for col_name, stats in flat_stats.items():
             # Parse the column name to extract analyzer_id and metric_name
@@ -567,18 +571,27 @@ class HTMLReportGenerator:
             analyzer_id = info.analyzer_id
             metric_name = info.metric_name
 
-            # Initialize analyzer group if needed
-            if analyzer_id not in organized:
-                organized[analyzer_id] = {}
+            # Check if this is categorical statistics (has 'mode' key) or numeric statistics
+            if "mode" in stats:
+                # Categorical statistics - store separately for pie charts
+                if analyzer_id not in organized_categorical:
+                    organized_categorical[analyzer_id] = {}
+                organized_categorical[analyzer_id][metric_name] = {
+                    k: v
+                    for k, v in stats.items()
+                    if k in ["count", "unique_count", "mode", "mode_count", "mode_percentage", "top_values"]
+                }
+            else:
+                # Numeric statistics - include only essential stats (exclude 'count')
+                if analyzer_id not in organized_numeric:
+                    organized_numeric[analyzer_id] = {}
+                organized_numeric[analyzer_id][metric_name] = {
+                    k: v
+                    for k, v in stats.items()
+                    if k in ["mean", "std", "min", "max", "median", "sum"]
+                }
 
-            # Store only the essential stats (exclude 'count')
-            organized[analyzer_id][metric_name] = {
-                k: v
-                for k, v in stats.items()
-                if k in ["mean", "std", "min", "max", "median", "sum"]
-            }
-
-        return organized
+        return organized_numeric, organized_categorical
 
     def _prepare_template_data(
         self,
@@ -605,14 +618,19 @@ class HTMLReportGenerator:
         message_stats_flat = summary.get("message_level_summary", {})
         conversation_stats_flat = summary.get("conversation_level_summary", {})
 
+        message_numeric, message_categorical = self._organize_stats_by_analyzer(message_stats_flat)
+        conversation_numeric, conversation_categorical = self._organize_stats_by_analyzer(
+            conversation_stats_flat
+        )
+
         data = {
             "title": title or f"Analysis Report: {dataset_name}",
             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "overview": overview,
-            "message_stats": self._organize_stats_by_analyzer(message_stats_flat),
-            "conversation_stats": self._organize_stats_by_analyzer(
-                conversation_stats_flat
-            ),
+            "message_stats": message_numeric,
+            "conversation_stats": conversation_numeric,
+            "message_categorical_stats": message_categorical,
+            "conversation_categorical_stats": conversation_categorical,
             "conversation_turns": summary.get("conversation_turns", {}),
             "recommendations": [],
             "charts": [],
@@ -1649,6 +1667,164 @@ class HTMLReportGenerator:
                     "layout": json.dumps(fig.layout, cls=PlotlyJSONEncoder),
                 }
             )
+            chart_count += 1
+
+        # Add pie charts for categorical columns (like detected_language, language_name, detected_script)
+        from oumi.core.analyze.column_types import ContentType
+
+        # Define conversation base columns for filtering (used in both paths)
+        conv_base_columns_set = {
+            "conversation_index",
+            "conversation_id",
+            "num_messages",
+            "conversation_text_content",
+        }
+
+        # Get schema to identify categorical columns
+        # Try multiple ways to access the schema
+        merged_schema = getattr(analyzer, "_merged_schema", None)
+        if merged_schema is None and hasattr(analyzer, "_analysis_results"):
+            # Try accessing from analysis results
+            analysis_results = getattr(analyzer, "_analysis_results", None)
+            if analysis_results and hasattr(analysis_results, "merged_schema"):
+                merged_schema = analysis_results.merged_schema
+        
+        if merged_schema is not None:
+            # Find categorical columns in both message and conversation DataFrames
+            categorical_cols = []
+            
+            # Check conversation-level categorical columns first (preferred)
+            if conversation_df is not None and not conversation_df.empty:
+                for col in conversation_df.columns:
+                    if col in conv_base_columns_set:
+                        continue
+                    col_schema = merged_schema.get(col)
+                    if col_schema:
+                        # Handle both enum and string comparison
+                        content_type = col_schema.get("content_type")
+                        if content_type == ContentType.CATEGORICAL or content_type == "categorical":
+                            categorical_cols.append((col, conversation_df, "conversation"))
+            
+            # Then check message-level categorical columns (avoid duplicates)
+            conv_col_names = set(conversation_df.columns) if conversation_df is not None and not conversation_df.empty else set()
+            for col in message_df.columns:
+                if col in base_columns:
+                    continue
+                if col.startswith("conversation_"):
+                    continue
+                # Skip message-level columns that have conversation-level equivalents
+                conv_equiv = col.replace("text_content_", "conversation_text_content_")
+                if conv_equiv in conv_col_names:
+                    continue
+                col_schema = merged_schema.get(col)
+                if col_schema:
+                    # Handle both enum and string comparison
+                    content_type = col_schema.get("content_type")
+                    if content_type == ContentType.CATEGORICAL or content_type == "categorical":
+                        categorical_cols.append((col, message_df, "message"))
+        else:
+            # Fallback: try to detect categorical columns by data type and value counts
+            # This is less reliable but works if schema isn't available
+            categorical_cols = []
+            
+            # Check conversation-level columns
+            if conversation_df is not None and not conversation_df.empty:
+                for col in conversation_df.columns:
+                    if col in conv_base_columns_set:
+                        continue
+                    # Check if column looks categorical (object/string type with limited unique values)
+                    if conversation_df[col].dtype in ["object", "string"]:
+                        unique_count = conversation_df[col].nunique()
+                        total_count = len(conversation_df[col].dropna())
+                        # Consider categorical if unique values are less than 50% of total and less than 100 unique
+                        if total_count > 0 and unique_count < min(100, total_count * 0.5):
+                            categorical_cols.append((col, conversation_df, "conversation"))
+            
+            # Check message-level columns
+            conv_col_names = set(conversation_df.columns) if conversation_df is not None and not conversation_df.empty else set()
+            for col in message_df.columns:
+                if col in base_columns:
+                    continue
+                if col.startswith("conversation_"):
+                    continue
+                conv_equiv = col.replace("text_content_", "conversation_text_content_")
+                if conv_equiv in conv_col_names:
+                    continue
+                # Check if column looks categorical
+                if message_df[col].dtype in ["object", "string"]:
+                    unique_count = message_df[col].nunique()
+                    total_count = len(message_df[col].dropna())
+                    if total_count > 0 and unique_count < min(100, total_count * 0.5):
+                        categorical_cols.append((col, message_df, "message"))
+        
+        # Generate pie charts for categorical columns
+        if categorical_cols:
+            for cat_col, df_to_use, df_type in categorical_cols:
+                try:
+                    if self.max_charts is not None and chart_count >= self.max_charts:
+                        break
+                    
+                    if cat_col not in df_to_use.columns:
+                        continue
+                    
+                    value_counts = df_to_use[cat_col].value_counts()
+                    if len(value_counts) == 0:
+                        continue
+                    
+                    # Limit to top 20 categories to avoid cluttered pie charts
+                    top_values = value_counts.head(20)
+                    
+                    # Create a cleaner title
+                    col_title = (
+                        cat_col.replace("conversation_text_content_", "")
+                        .replace("text_content_", "")
+                        .replace("_", " ")
+                        .title()
+                    )
+                    if df_type == "conversation" and not col_title.startswith("Conversation"):
+                        col_title = f"Conversation {col_title}"
+                    
+                    # Generate colors for pie chart (use a palette that works well)
+                    import plotly.colors as pc
+                    colors = pc.qualitative.Set3[:len(top_values)]
+                    if len(top_values) > len(colors):
+                        # Extend colors if needed
+                        colors = colors * ((len(top_values) // len(colors)) + 1)
+                        colors = colors[:len(top_values)]
+                    
+                    fig = go.Figure(
+                        data=[
+                            go.Pie(
+                                labels=top_values.index.tolist(),
+                                values=top_values.values.tolist(),
+                                hole=0.45,
+                                marker_colors=colors,
+                                textfont=dict(color="#e8e6e3"),
+                            )
+                        ]
+                    )
+                    
+                    fig.update_layout(
+                        title=None,
+                        height=self.chart_height,
+                        margin=dict(l=30, r=30, t=30, b=30),
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#a39e93"),
+                        legend=dict(font=dict(color="#a39e93")),
+                    )
+                    
+                    charts.append(
+                        {
+                            "id": f"chart_{chart_count}",
+                            "title": col_title,
+                            "data": json.dumps(fig.data, cls=PlotlyJSONEncoder),
+                            "layout": json.dumps(fig.layout, cls=PlotlyJSONEncoder),
+                        }
+                    )
+                    chart_count += 1
+                except Exception:
+                    # Silently skip if chart generation fails
+                    continue
 
         return charts
 

@@ -1075,12 +1075,12 @@
                             {% for metric_name, stats in metrics.items() %}
                             <tr>
                                 <td>{{ analyzer_name }}: {{ metric_name }}</td>
-                                <td>{{ stats.mean | format_number(2) }}</td>
-                                <td>{{ stats.std | format_number(2) }}</td>
-                                <td>{{ stats.min | format_number(2) }}</td>
-                                <td>{{ stats.max | format_number(2) }}</td>
-                                <td>{{ stats.median | format_number(2) }}</td>
-                                <td>{{ stats.sum | format_number(2) }}</td>
+                                <td>{{ stats.mean | format_number(2) if stats.mean is defined else '-' }}</td>
+                                <td>{{ stats.std | format_number(2) if stats.std is defined else '-' }}</td>
+                                <td>{{ stats.min | format_number(2) if stats.min is defined else '-' }}</td>
+                                <td>{{ stats.max | format_number(2) if stats.max is defined else '-' }}</td>
+                                <td>{{ stats.median | format_number(2) if stats.median is defined else '-' }}</td>
+                                <td>{{ stats.sum | format_number(2) if stats.sum is defined else '-' }}</td>
                             </tr>
                             {% endfor %}
                             {% endfor %}
@@ -1114,12 +1114,12 @@
                             {% for metric_name, stats in metrics.items() %}
                             <tr>
                                 <td>{{ analyzer_name }}: {{ metric_name }}</td>
-                                <td>{{ stats.mean | format_number(2) }}</td>
-                                <td>{{ stats.std | format_number(2) }}</td>
-                                <td>{{ stats.min | format_number(2) }}</td>
-                                <td>{{ stats.max | format_number(2) }}</td>
-                                <td>{{ stats.median | format_number(2) }}</td>
-                                <td>{{ stats.sum | format_number(2) }}</td>
+                                <td>{{ stats.mean | format_number(2) if stats.mean is defined else '-' }}</td>
+                                <td>{{ stats.std | format_number(2) if stats.std is defined else '-' }}</td>
+                                <td>{{ stats.min | format_number(2) if stats.min is defined else '-' }}</td>
+                                <td>{{ stats.max | format_number(2) if stats.max is defined else '-' }}</td>
+                                <td>{{ stats.median | format_number(2) if stats.median is defined else '-' }}</td>
+                                <td>{{ stats.sum | format_number(2) if stats.sum is defined else '-' }}</td>
                             </tr>
                             {% endfor %}
                             {% endfor %}
