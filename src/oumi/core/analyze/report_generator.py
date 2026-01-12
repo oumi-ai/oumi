@@ -1637,6 +1637,63 @@ class HTMLReportGenerator:
         # Add role distribution pie chart if available
         if "role" in message_df.columns and (self.max_charts is None or chart_count < self.max_charts):
             role_counts = message_df["role"].value_counts()
+            
+            # Build sample conversations for each role
+            role_samples = {}
+            has_conv_id = "conversation_id" in message_df.columns
+            
+            for role_value in role_counts.index:
+                # Find a sample message with this role
+                sample_rows = message_df[message_df["role"] == role_value]
+                if len(sample_rows) == 0:
+                    continue
+                
+                # Pick the first sample
+                sample_idx = sample_rows.index[0]
+                sample_row = message_df.loc[sample_idx]
+                
+                # Get conversation ID/index
+                conv_id = None
+                conv_col = None
+                for col in ["conversation_index", "conversation_id"]:
+                    if col in message_df.columns:
+                        conv_id = sample_row.get(col)
+                        conv_col = col
+                        break
+                
+                if conv_id is None:
+                    continue
+                
+                # Get all messages in this conversation
+                conv_messages = pd.DataFrame()
+                if has_conv_id and conv_col:
+                    conv_messages = message_df[
+                        message_df[conv_col] == conv_id
+                    ].sort_index()
+                else:
+                    conv_messages = message_df.loc[[sample_idx]]
+                
+                # Build conversation data
+                turns = []
+                for msg_idx, msg_row in conv_messages.iterrows():
+                    text = ""
+                    if "text_content" in msg_row and msg_row.get("text_content"):
+                        text = str(msg_row.get("text_content", ""))
+                    
+                    turn_data = {
+                        "index": int(msg_idx),
+                        "role": msg_row.get("role", "sample"),
+                        "text": text,
+                        "is_flagged": int(msg_idx) == int(sample_idx),
+                    }
+                    turns.append(turn_data)
+                
+                role_samples[str(role_value)] = {
+                    "conversation_id": str(conv_id),
+                    "turns": turns,
+                    "flagged_count": 1 if int(msg_idx) == int(sample_idx) else 0,
+                    "role_value": str(role_value),
+                }
 
             fig = go.Figure(
                 data=[
@@ -1665,6 +1722,7 @@ class HTMLReportGenerator:
                     "title": "Role Distribution",
                     "data": json.dumps(fig.data, cls=PlotlyJSONEncoder),
                     "layout": json.dumps(fig.layout, cls=PlotlyJSONEncoder),
+                    "category_samples": role_samples,  # Store sample conversations for each role
                 }
             )
             chart_count += 1
@@ -1784,6 +1842,76 @@ class HTMLReportGenerator:
                     if df_type == "conversation" and not col_title.startswith("Conversation"):
                         col_title = f"Conversation {col_title}"
                     
+                    # Build sample conversations for each category value
+                    category_samples = {}
+                    message_df_for_lookup = analyzer.message_df
+                    conversation_df_for_lookup = getattr(analyzer, "conversation_df", None)
+                    has_conv_id = "conversation_id" in message_df_for_lookup.columns if message_df_for_lookup is not None else False
+                    
+                    for category_value in top_values.index:
+                        # Find a sample row with this category value
+                        sample_rows = df_to_use[df_to_use[cat_col] == category_value]
+                        if len(sample_rows) == 0:
+                            continue
+                        
+                        # Pick the first sample
+                        sample_idx = sample_rows.index[0]
+                        sample_row = df_to_use.loc[sample_idx]
+                        
+                        # Get conversation ID/index
+                        conv_id = None
+                        conv_col = None
+                        for col in ["conversation_index", "conversation_id"]:
+                            if col in df_to_use.columns:
+                                conv_id = sample_row.get(col)
+                                conv_col = col
+                                break
+                        
+                        if conv_id is None:
+                            continue
+                        
+                        # Get all messages in this conversation
+                        conv_messages = pd.DataFrame()
+                        if df_type == "conversation" and conversation_df_for_lookup is not None:
+                            # For conversation-level, get messages from message_df
+                            if has_conv_id and conv_col and message_df_for_lookup is not None:
+                                conv_messages = message_df_for_lookup[
+                                    message_df_for_lookup[conv_col] == conv_id
+                                ].sort_index()
+                        elif df_type == "message" and message_df_for_lookup is not None:
+                            # For message-level, get all messages in the same conversation
+                            if has_conv_id and conv_col:
+                                conv_messages = message_df_for_lookup[
+                                    message_df_for_lookup[conv_col] == conv_id
+                                ].sort_index()
+                            else:
+                                conv_messages = message_df_for_lookup.loc[[sample_idx]]
+                        
+                        # Build conversation data
+                        turns = []
+                        for msg_idx, msg_row in conv_messages.iterrows():
+                            text = ""
+                            if "text_content" in msg_row and msg_row.get("text_content"):
+                                text = str(msg_row.get("text_content", ""))
+                            
+                            turn_data = {
+                                "index": int(msg_idx),
+                                "role": msg_row.get("role", "sample"),
+                                "text": text,
+                                "is_flagged": False,
+                            }
+                            # Flag the message if it's the one with this category value (for message-level)
+                            if df_type == "message" and int(msg_idx) == int(sample_idx):
+                                turn_data["is_flagged"] = True
+                            turns.append(turn_data)
+                        
+                        category_samples[str(category_value)] = {
+                            "conversation_id": str(conv_id),
+                            "turns": turns,
+                            "flagged_count": 1 if df_type == "message" else 0,
+                            "category_value": str(category_value),
+                        }
+                    
                     # Generate colors for pie chart (use a palette that works well)
                     import plotly.colors as pc
                     colors = pc.qualitative.Set3[:len(top_values)]
@@ -1819,6 +1947,9 @@ class HTMLReportGenerator:
                             "title": col_title,
                             "data": json.dumps(fig.data, cls=PlotlyJSONEncoder),
                             "layout": json.dumps(fig.layout, cls=PlotlyJSONEncoder),
+                            "category_samples": category_samples,  # Store sample conversations for each category
+                            "column_name": cat_col,  # Store original column name for reference
+                            "df_type": df_type,  # Store whether this is message or conversation level
                         }
                     )
                     chart_count += 1

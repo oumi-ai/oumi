@@ -1353,12 +1353,38 @@
                     const chartMetadata = {
                         bin_samples: chart.bin_samples || {},
                         bin_edges: chart.bin_edges || null,
+                        category_samples: chart.category_samples || {},
                         title: chart.title
                     };
                     
                     Plotly.newPlot(chart.id, chartData, chartLayout, plotlyConfig).then(function() {
-                        // Add click handler for histogram bars
-                        if (plotDiv && chartMetadata.bin_samples && chartMetadata.bin_edges && Object.keys(chartMetadata.bin_samples).length > 0) {
+                        // Check if this is a pie chart (has category_samples) or histogram (has bin_samples)
+                        if (plotDiv && chartMetadata.category_samples && Object.keys(chartMetadata.category_samples).length > 0) {
+                            // Add click handler for pie chart slices
+                            plotDiv.on('plotly_click', function(eventData) {
+                                try {
+                                    if (eventData.points && eventData.points.length > 0) {
+                                        const point = eventData.points[0];
+                                        
+                                        // For pie charts, point.label gives us the category value
+                                        if (point.label !== undefined && point.label !== null) {
+                                            const categoryValue = String(point.label);
+                                            const conversation = chartMetadata.category_samples[categoryValue];
+                                            
+                                            if (conversation) {
+                                                openConversationModal(
+                                                    chartMetadata.title + ` (${categoryValue})`,
+                                                    [conversation]
+                                                );
+                                            }
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.error('Error handling pie chart click:', error);
+                                }
+                            });
+                        } else if (plotDiv && chartMetadata.bin_samples && chartMetadata.bin_edges && Object.keys(chartMetadata.bin_samples).length > 0) {
+                            // Add click handler for histogram bars
                             plotDiv.on('plotly_click', function(eventData) {
                                 try {
                                     if (eventData.points && eventData.points.length > 0) {
