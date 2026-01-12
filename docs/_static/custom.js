@@ -2,7 +2,6 @@
     'use strict';
 
     document.addEventListener('DOMContentLoaded', function() {
-        initScrollProgress();
         initSmoothScrolling();
         initCodeBlockEnhancements();
         initTableOfContentsHighlight();
@@ -10,33 +9,6 @@
         initKeyboardNavigation();
         initAnimations();
     });
-
-    function initScrollProgress() {
-        const progressBar = document.createElement('div');
-        progressBar.id = 'oumi-scroll-progress';
-        progressBar.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 0%;
-            height: 3px;
-            background: linear-gradient(90deg, #00D4AA, #00A888);
-            z-index: 9999;
-            transition: width 50ms ease-out;
-            box-shadow: 0 0 10px rgba(0, 212, 170, 0.5);
-        `;
-        document.body.appendChild(progressBar);
-
-        function updateProgress() {
-            const scrollTop = window.scrollY;
-            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-            const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
-            progressBar.style.width = progress + '%';
-        }
-
-        window.addEventListener('scroll', updateProgress, { passive: true });
-        updateProgress();
-    }
 
     function initSmoothScrolling() {
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
