@@ -1,0 +1,450 @@
+{
+  "semantic": {
+    "total_with_duplicates": 26,
+    "total_samples": 6208,
+    "percentage": 0.4,
+    "num_groups": 13,
+    "sample_groups": [
+      {
+        "group_id": 910,
+        "count": 2,
+        "samples": [
+          {
+            "index": 910,
+            "text": "The Username is UMDNJ and the Password is UMDNJ.\nOnce logged into the JBI COnNECT+ page, you have full access to all JBI resources. Note that both the username and password are the same and are in...",
+            "role": "user",
+            "conversation_id": "138"
+          },
+          {
+            "index": 911,
+            "text": "To access JBI resources using the provided username and password, you need to login to the JBI COnNECT+ page. The username is UMDNJ and the password is also UMDNJ, both in capital letters. Once...",
+            "role": "assistant",
+            "conversation_id": "138"
+          }
+        ]
+      },
+      {
+        "group_id": 3740,
+        "count": 2,
+        "samples": [
+          {
+            "index": 3740,
+            "text": "Can you please provide me with the recommended volume for each application of Cyro-Fly 60 Spray-On to sheep susceptible to poll strike as mentioned in the material?",
+            "role": "user",
+            "conversation_id": "608"
+          },
+          {
+            "index": 3741,
+            "text": "The recommended volume for each application of Cyro-Fly 60 Spray-On to sheep susceptible to poll strike as mentioned in the material is at least 5 mL.",
+            "role": "assistant",
+            "conversation_id": "608"
+          }
+        ]
+      },
+      {
+        "group_id": 2921,
+        "count": 2,
+        "samples": [
+          {
+            "index": 2921,
+            "text": "Of course, I can! Here's an updated version:\n\nTitle: The Girl with Magical Powers\n\nOnce there was a young girl named Lily who loved exploring the forest near her home. One day, as she wandered deeper...",
+            "role": "assistant",
+            "conversation_id": "478"
+          },
+          {
+            "index": 2923,
+            "text": "Sure! Here's an updated version with more details:\n\nTitle: The Girl with Magical Powers\n\nOnce there was a young girl named Lily who loved exploring the forest near her home. One day, as she wandered...",
+            "role": "assistant",
+            "conversation_id": "478"
+          }
+        ]
+      },
+      {
+        "group_id": 2925,
+        "count": 2,
+        "samples": [
+          {
+            "index": 2925,
+            "text": "Dear Friends and Family,\n\nWe are thrilled to announce the upcoming arrival of our little bundle of joy! Please join us in celebrating with a baby shower on [date] at [time] at [location]. \n\nWe can't...",
+            "role": "assistant",
+            "conversation_id": "479"
+          },
+          {
+            "index": 2927,
+            "text": "Dear Friends and Family,\n\nWe are thrilled to announce the upcoming arrival of our little bundle of joy! Please join us in celebrating with a baby shower on [date] at [time] at [location]. The shower...",
+            "role": "assistant",
+            "conversation_id": "479"
+          }
+        ]
+      },
+      {
+        "group_id": 4778,
+        "count": 2,
+        "samples": [
+          {
+            "index": 4778,
+            "text": "Can you provide any information on the specific incident that led to Fishman's charges of aggravated assault (domestic) and criminal mischief?",
+            "role": "user",
+            "conversation_id": "771"
+          },
+          {
+            "index": 4779,
+            "text": "I'm sorry but there is no information provided regarding the specific incident that led to Fishman's charges of aggravated assault (domestic) and criminal mischief.",
+            "role": "assistant",
+            "conversation_id": "771"
+          }
+        ]
+      },
+      {
+        "group_id": 5893,
+        "count": 2,
+        "samples": [
+          {
+            "index": 5893,
+            "text": "Absolutely, here's an updated version with the requested scene:\n\nI never believed in magic or curses. I thought they were stories told to scare children. But then I met her, the witch who cursed me....",
+            "role": "assistant",
+            "conversation_id": "950"
+          },
+          {
+            "index": 5895,
+            "text": "Sure, here's an updated version with the added scene:\n\nI never believed in magic or curses. I thought they were stories told to scare children. But then I met her, the witch who cursed me. She was...",
+            "role": "assistant",
+            "conversation_id": "950"
+          }
+        ]
+      },
+      {
+        "group_id": 3929,
+        "count": 2,
+        "samples": [
+          {
+            "index": 3929,
+            "text": "| Okra Variety | Plant Height | Stem Girth | No. Of Primary Branches | Fruit Width | Fruit Length | Leaf Area | Leaf Moisture | Leaf Thickness...",
+            "role": "assistant",
+            "conversation_id": "639"
+          },
+          {
+            "index": 3931,
+            "text": "| Okra Variety             | Plant Height | Stem Girth | No. Of Primary Branches | Fruit Width | Fruit Length | Leaf Area | Leaf Moisture | Leaf Thickness...",
+            "role": "assistant",
+            "conversation_id": "639"
+          }
+        ]
+      },
+      {
+        "group_id": 369,
+        "count": 2,
+        "samples": [
+          {
+            "index": 369,
+            "text": "Sure, I'll add some more information about the strategies we will be discussing. Here's an updated agenda:\n\nAgenda\n\nMarketing Team Meeting for New Campaign Implementation\n\nI. Introduction and...",
+            "role": "assistant",
+            "conversation_id": "50"
+          },
+          {
+            "index": 371,
+            "text": "Sure, I'll add some information about how we will measure the success of each strategy we discuss. Here's an updated agenda:\n\nAgenda\n\nMarketing Team Meeting for New Campaign Implementation\n\nI....",
+            "role": "assistant",
+            "conversation_id": "50"
+          }
+        ]
+      },
+      {
+        "group_id": 829,
+        "count": 2,
+        "samples": [
+          {
+            "index": 829,
+            "text": "Sure! Here is an updated SQL script with the new \"Deadlines\" table and a join query to retrieve the project deadlines:\n\n```\nCREATE DATABASE Company;\n\nUSE Company;\n\nCREATE TABLE Employees (\n   ...",
+            "role": "assistant",
+            "conversation_id": "122"
+          },
+          {
+            "index": 831,
+            "text": "Sure! Here is the updated SQL script with the new \"job_title\" column added to the \"Employees\" table:\n\n```\nCREATE DATABASE Company;\n\nUSE Company;\n\nCREATE TABLE Employees (\n    employee_id INT NOT...",
+            "role": "assistant",
+            "conversation_id": "122"
+          }
+        ]
+      },
+      {
+        "group_id": 1407,
+        "count": 2,
+        "samples": [
+          {
+            "index": 1407,
+            "text": "Sure, here's an updated schema that includes a new \"song\" table:\n\nTABLE: artist\n- artist_id (primary key)\n- name\n- country\n\nTABLE: album\n- album_id (primary key)\n- title\n- release_date\n- genre_id...",
+            "role": "assistant",
+            "conversation_id": "224"
+          },
+          {
+            "index": 1409,
+            "text": "Sure! Here's the updated schema with the \"total_duration\" column added to the \"album\" table:\n\nTABLE: artist\n- artist_id (primary key)\n- name\n- country\n\nTABLE: album\n- album_id (primary key)\n- title\n-...",
+            "role": "assistant",
+            "conversation_id": "224"
+          }
+        ]
+      }
+    ]
+  },
+  "fuzzy": {
+    "total_with_duplicates": 42,
+    "total_samples": 6208,
+    "percentage": 0.7,
+    "num_groups": 20,
+    "sample_groups": [
+      {
+        "group_id": 15,
+        "count": 4,
+        "samples": [
+          {
+            "index": 15,
+            "text": "Yes, the museum is definitely one of the more unusual places to visit in London! The cocktail menu at Viktor Wynd's bar is just as eclectic as the museum's collection, featuring brightly colored...",
+            "role": "assistant",
+            "conversation_id": "1"
+          },
+          {
+            "index": 4369,
+            "text": "Detective Max Johnson sat at his desk, flipping through the crime scene photos of the latest murder. He had seen this scene before; it was a copycat of the infamous \"Nightfall Killer\" from six years...",
+            "role": "assistant",
+            "conversation_id": "709"
+          },
+          {
+            "index": 4371,
+            "text": "Sure! Here's an updated version with more details on the killer's motivations:\n\nDetective Max Johnson sat at his desk, flipping through the crime scene photos of the latest murder. He had seen this...",
+            "role": "assistant",
+            "conversation_id": "709"
+          },
+          {
+            "index": 4373,
+            "text": "Absolutely! Here's the updated story with more details about how the former detective was able to commit the copycat murders without being caught:\n\nDetective Max Johnson sat at his desk, flipping...",
+            "role": "assistant",
+            "conversation_id": "709"
+          }
+        ]
+      },
+      {
+        "group_id": 3,
+        "count": 4,
+        "samples": [
+          {
+            "index": 3,
+            "text": "Sure, here are the steps to enable the secondary image hover feature on your Collection pages and Featured Collections sections:\n\n1. Log in to your Shopify account and go to your Online Store.\n2....",
+            "role": "assistant",
+            "conversation_id": "0"
+          },
+          {
+            "index": 369,
+            "text": "Sure, I'll add some more information about the strategies we will be discussing. Here's an updated agenda:\n\nAgenda\n\nMarketing Team Meeting for New Campaign Implementation\n\nI. Introduction and...",
+            "role": "assistant",
+            "conversation_id": "50"
+          },
+          {
+            "index": 371,
+            "text": "Sure, I'll add some information about how we will measure the success of each strategy we discuss. Here's an updated agenda:\n\nAgenda\n\nMarketing Team Meeting for New Campaign Implementation\n\nI....",
+            "role": "assistant",
+            "conversation_id": "50"
+          },
+          {
+            "index": 373,
+            "text": "Sure, I will add some information on how we can integrate feedback from the target audience into our marketing strategies. Here's an updated agenda:\n\nAgenda\n\nMarketing Team Meeting for New Campaign...",
+            "role": "assistant",
+            "conversation_id": "50"
+          }
+        ]
+      },
+      {
+        "group_id": 11,
+        "count": 3,
+        "samples": [
+          {
+            "index": 11,
+            "text": "Absolutely! Here are some offbeat and lesser-known things to see in London that locals might recommend:\n\n1. God's Own Junkyard - a neon wonderland filled with vintage and new neon signs.\n\n2. Hornsey...",
+            "role": "assistant",
+            "conversation_id": "1"
+          },
+          {
+            "index": 3047,
+            "text": "Ingredients:\n- 1 pound fresh mushrooms, sliced\n- 1 large onion, diced\n- 2 cloves of garlic, minced\n- 4 cups chicken or vegetable broth\n- 2 tablespoons unsalted butter\n- 2 tablespoons all-purpose...",
+            "role": "assistant",
+            "conversation_id": "499"
+          },
+          {
+            "index": 3049,
+            "text": "Sure, here's a vegan version of the mushroom soup recipe:\n\nIngredients:\n- 1 pound fresh mushrooms, sliced\n- 1 large onion, diced\n- 2 cloves of garlic, minced\n- 4 cups vegetable broth\n- 2 tablespoons...",
+            "role": "assistant",
+            "conversation_id": "499"
+          }
+        ]
+      },
+      {
+        "group_id": 1,
+        "count": 3,
+        "samples": [
+          {
+            "index": 1,
+            "text": "This feature only applies to Collection pages and Featured Collections sections of the section-based themes listed in the text material.",
+            "role": "assistant",
+            "conversation_id": "0"
+          },
+          {
+            "index": 117,
+            "text": "Introduction\n\nEmployee wellness programs have become of great interest to organizations as the health and wellness of employees becomes a priority. The fundamental objective of employee wellness...",
+            "role": "assistant",
+            "conversation_id": "16"
+          },
+          {
+            "index": 2443,
+            "text": "[Title: The Basics of Network Science in Ecological Systems]\n\n[Visual: Image of a network diagram with nodes and connections]\n\nWhat is Network Science?\nNetwork science is the study of how individuals...",
+            "role": "assistant",
+            "conversation_id": "398"
+          }
+        ]
+      },
+      {
+        "group_id": 19,
+        "count": 3,
+        "samples": [
+          {
+            "index": 19,
+            "text": "Yes, the mermaid at the Viktor Wynd Museum of Curiosities is definitely one of its most famous exhibits. It's actually a recreation made from the skeleton of a monkey and the tail of a fish, so it's...",
+            "role": "assistant",
+            "conversation_id": "1"
+          },
+          {
+            "index": 5940,
+            "text": "Can you please provide more information about the hand-sewn silk headbands mentioned in the binding details of the book?",
+            "role": "user",
+            "conversation_id": "957"
+          },
+          {
+            "index": 5944,
+            "text": "Could you please provide more information about the marbled endpapers mentioned in the binding details of the book?",
+            "role": "user",
+            "conversation_id": "957"
+          }
+        ]
+      },
+      {
+        "group_id": 18,
+        "count": 3,
+        "samples": [
+          {
+            "index": 18,
+            "text": "I can't wait to see that mermaid at the Viktor Wynd Museum. I wonder if it's real or just a replica. Either way, it's bound to be a fascinating item to behold. And I'll make sure to order that...",
+            "role": "user",
+            "conversation_id": "1"
+          },
+          {
+            "index": 5896,
+            "text": "What is the faculty-to-student ratio of Florida Southern College?",
+            "role": "user",
+            "conversation_id": "951"
+          },
+          {
+            "index": 5897,
+            "text": "The faculty-to-student ratio of Florida Southern College is 1:13.",
+            "role": "assistant",
+            "conversation_id": "951"
+          }
+        ]
+      },
+      {
+        "group_id": 17,
+        "count": 3,
+        "samples": [
+          {
+            "index": 17,
+            "text": "I am not sure if the Viktor Wynd Museum of Curiosities serves cocktails with an actual shrunken head as a garnish. However, they might have some creative cocktails that incorporate a shrunken head...",
+            "role": "assistant",
+            "conversation_id": "1"
+          },
+          {
+            "index": 5891,
+            "text": "Thanks for the feedback, here's an edited version with more intense conflict scenes:\n\nI never believed in magic or curses. I thought they were stories told to scare children. But then I met her, the...",
+            "role": "assistant",
+            "conversation_id": "950"
+          },
+          {
+            "index": 5893,
+            "text": "Absolutely, here's an updated version with the requested scene:\n\nI never believed in magic or curses. I thought they were stories told to scare children. But then I met her, the witch who cursed me....",
+            "role": "assistant",
+            "conversation_id": "950"
+          }
+        ]
+      },
+      {
+        "group_id": 16,
+        "count": 3,
+        "samples": [
+          {
+            "index": 16,
+            "text": "Whoa, a bar in a museum?! That's wild. I'm definitely going to have to try one of those cocktails. Do you think they have anything with a shrunken head as a garnish? That would be a trip.",
+            "role": "user",
+            "conversation_id": "1"
+          },
+          {
+            "index": 4825,
+            "text": "Absolutely! Here's a revised version with added conflict:\n\nTitle: Rise of the Gluten-Free Queen\n\nFade In:\n\nINT. BAKERY - DAY\n\nSARAH (25) stands in the middle of her bakery, surveying her domain....",
+            "role": "assistant",
+            "conversation_id": "780"
+          },
+          {
+            "index": 4827,
+            "text": "Certainly! Here's a revised version with added romance:\n\nTitle: Rise of the Gluten-Free Queen\n\nFade In:\n\nINT. BAKERY - DAY\n\nSARAH (25) stands in the middle of her bakery, surveying her domain....",
+            "role": "assistant",
+            "conversation_id": "780"
+          }
+        ]
+      },
+      {
+        "group_id": 14,
+        "count": 3,
+        "samples": [
+          {
+            "index": 14,
+            "text": "Woah, the Viktor Wynd Museum sounds like a wacky and fun place to visit. I don't think I've ever seen a shrunken head before. I wonder what kind of cocktails they serve there... Maybe I can convince...",
+            "role": "user",
+            "conversation_id": "1"
+          },
+          {
+            "index": 4103,
+            "text": "Sure, I can add more about that. Here's an updated version:\n\nAct 1\nScene 1:\nThe curtain rises to reveal Sophia, a struggling painter, sitting in the living room of her tiny apartment. Sophia's easel...",
+            "role": "assistant",
+            "conversation_id": "666"
+          },
+          {
+            "index": 4105,
+            "text": "Of course, here is an updated version of the drama with more focus on the impact of financial instability on Sophia's personal relationships and emotions:\n\nAct 1\nScene 1:\nThe curtain rises to reveal...",
+            "role": "assistant",
+            "conversation_id": "666"
+          }
+        ]
+      },
+      {
+        "group_id": 13,
+        "count": 3,
+        "samples": [
+          {
+            "index": 13,
+            "text": "Sure! The Viktor Wynd Museum of Curiosities, Fine Art & Natural History is a small museum located in Hackney, East London. The museum, founded by collector Viktor Wynd is a place where you can find...",
+            "role": "assistant",
+            "conversation_id": "1"
+          },
+          {
+            "index": 3555,
+            "text": "Aurora had always been afraid of heights. As a child, she was too scared to climb onto the monkey bars or the highest slide at the playground. While her friends laughed at her, Aurora's fear only...",
+            "role": "assistant",
+            "conversation_id": "581"
+          },
+          {
+            "index": 3557,
+            "text": "Of course! Here's a revised version with a deeper exploration of Aurora's internal struggles as she faced her fears:\n\nAurora had always been afraid of heights. As a child, she was too scared to climb...",
+            "role": "assistant",
+            "conversation_id": "581"
+          }
+        ]
+      }
+    ]
+  }
+}
