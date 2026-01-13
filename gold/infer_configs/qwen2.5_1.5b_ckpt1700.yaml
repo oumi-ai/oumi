@@ -1,5 +1,5 @@
 model:
-  model_name: "Qwen/Qwen2.5-1.5B-Instruct"
+  model_name: "/data/shanghong/oumi/gold/output/gold_qwen25_15b_qwen34b_v2/checkpoint-1700"
   trust_remote_code: true
   torch_dtype_str: "bfloat16"
 

@@ -1,9 +1,10 @@
 model:
-  model_name: "/data/shanghong/oumi/gold/output/gold_qwen25_15b_qwen34b/checkpoint-500"
+  model_name: "/data/shanghong/oumi/gold/output/gold_qwen25_15b_qwen34b_v2/checkpoint-500"
   trust_remote_code: true
   torch_dtype_str: "bfloat16"
 
 generation:
   max_new_tokens: 4096
-  batch_size: 1
+  batch_size: 4
+  temperature: 0.95
   skip_special_tokens: False

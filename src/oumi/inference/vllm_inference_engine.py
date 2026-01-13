@@ -282,7 +282,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             guided_decoding = None
 
         sampling_params = SamplingParams(
-            n=1,
+            n=4,
             max_tokens=generation_params.max_new_tokens,
             temperature=generation_params.temperature,
             top_p=generation_params.top_p

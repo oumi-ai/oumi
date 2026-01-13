@@ -5,21 +5,98 @@ Countdown accuracy checker for data shaped like:
   - nums: list[int]
   - messages: list[{"role": "...", "content": "..."}]
 
-A row is correct iff:
-1) The LAST assistant message contains exactly one <answer>...</answer>.
+Each assistant message is treated as an independent completion.
+
+A completion is correct iff:
+1) The assistant message contains exactly one <answer>...</answer>.
 2) LHS uses only provided nums, each at most once.
 3) Expression evaluates exactly to target.
 4) If an '=' is present inside <answer>, we also require:
      LHS == RHS == target
    and we do NOT count RHS literals toward number usage.
 
-python3 metrics.py /data/shanghong/oumi/gold/data/train_90.jsonl --verbose --max-show 20
-python3 metrics.py /data/shanghong/oumi/gold/output/qwen2.5_7b_baseline.jsonl --verbose --max-show 20
-python3 metrics.py /data/shanghong/oumi/gold/output/qwen2.5_1.5b_baseline.jsonl --verbose --max-show 20
-python3 metrics.py /data/shanghong/oumi/gold/output/qwen2.5_1.5b_ckpt1000.jsonl --verbose --max-show 20
-python3 metrics.py /data/shanghong/oumi/gold/output/qwen3_4b_baseline.jsonl --verbose --max-show 20
-python3 metrics.py /data/shanghong/oumi/gold/output/qwen2.5_1.5b_ckpt500.jsonl --verbose --max-show 20
+We compute pass@n over the last n assistant messages:
+  pass@n = any of the last n completions is correct.
 
+Examples:
+  python3 metrics.py output/qwen2.5_1.5b_baseline.jsonl \
+    --n 4 \
+    --out output/qwen2.5_1.5b_baseline_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_baseline_summary.json
+
+  python3 metrics.py output/qwen2.5_1.5b_ckpt1700.jsonl \
+    --n 1 \
+    --out output/qwen2.5_1.5b_ckpt1700_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt1700_summary.json
+  python3 metrics.py output/qwen2.5_1.5b_ckpt1700.jsonl \
+    --n 4 \
+    --out output/qwen2.5_1.5b_ckpt1700_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt1700_summary.json
+
+  python3 metrics.py output/qwen2.5_1.5b_ckpt1500.jsonl \
+    --n 1 \
+    --out output/qwen2.5_1.5b_ckpt1500_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt1500_summary.json
+  python3 metrics.py output/qwen2.5_1.5b_ckpt1500.jsonl \
+    --n 4 \
+    --out output/qwen2.5_1.5b_ckpt1500_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt1500_summary.json
+
+  python3 metrics.py output/qwen2.5_1.5b_ckpt500.jsonl \
+    --n 1 \
+    --out output/qwen2.5_1.5b_ckpt500_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt500_summary.json
+  python3 metrics.py output/qwen2.5_1.5b_ckpt500.jsonl \
+    --n 4 \
+    --out output/qwen2.5_1.5b_ckpt500_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt500_summary.json
+
+  python3 metrics.py output/qwen2.5_1.5b_ckpt1000.jsonl \
+    --n 1 \
+    --out output/qwen2.5_1.5b_ckpt1000_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt1000_summary.json
+  python3 metrics.py output/qwen2.5_1.5b_ckpt1000.jsonl \
+    --n 4 \
+    --out output/qwen2.5_1.5b_ckpt1000_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt1000_summary.json
+
+  python3 metrics.py output/qwen2.5_1.5b_ckpt2000.jsonl \
+    --n 1 \
+    --out output/qwen2.5_1.5b_ckpt2000_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt2000_summary.json
+  python3 metrics.py output/qwen2.5_1.5b_ckpt2000.jsonl \
+    --n 4 \
+    --out output/qwen2.5_1.5b_ckpt2000_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt2000_summary.json
+
+  python3 metrics.py output/qwen2.5_1.5b_ckpt3000.jsonl \
+    --n 1 \
+    --out output/qwen2.5_1.5b_ckpt3000_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt3000_summary.json
+  python3 metrics.py output/qwen2.5_1.5b_ckpt3000.jsonl \
+    --n 4 \
+    --out output/qwen2.5_1.5b_ckpt3000_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_ckpt3000_summary.json
+
+  python3 metrics.py output/qwen3_4b_baseline.jsonl \
+    --n 1 \
+    --out output/qwen3_4b_baseline_judged.jsonl \
+    --summary-out output/qwen3_4b_baseline_summary.json
+  python3 metrics.py output/qwen3_4b_baseline.jsonl \
+    --n 4 \
+    --out output/qwen3_4b_baseline_judged.jsonl \
+    --summary-out output/qwen3_4b_baseline_summary.json
+
+  python3 metrics.py output/qwen2.5_1.5b_baseline.jsonl \
+    --n 1 \
+    --out output/qwen2.5_1.5b_baseline_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_baseline_summary.json
+  python3 metrics.py output/qwen2.5_1.5b_baseline.jsonl \
+    --n 4 \
+    --out output/qwen2.5_1.5b_baseline_judged.jsonl \
+    --summary-out output/qwen2.5_1.5b_baseline_summary.json
+
+  python3 metrics.py file.jsonl --n 5
 """
 
 from __future__ import annotations
@@ -32,6 +109,7 @@ from collections import Counter
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Any, Iterable
+from dataclasses import asdict
 
 
 ANSWER_RE = re.compile(r"<answer>(.*?)</answer>", re.DOTALL | re.IGNORECASE)
@@ -53,33 +131,36 @@ def normalize_ops(s: str) -> str:
     )
 
 
-def extract_answer_equation(text: str) -> str | None:
+def extract_answer_equation_last(text: str) -> str | None:
     """
-    Return the INNER STRING of the FINAL <answer>...</answer> block.
+    Return the INNER STRING of the FINAL <answer>...</answer> block in text.
     If none exist, return None.
     """
     matches = ANSWER_RE.findall(text or "")
     if not matches:
         return None
-
-    # take the final <answer>...</answer>
     eq = normalize_ops(matches[-1])
     return eq if eq else None
 
 
-def last_assistant_content(messages: Any) -> str:
-    """Extract the last assistant message content from a messages list."""
-    if not isinstance(messages, list):
-        return ""
-    for m in reversed(messages):
-        if isinstance(m, dict) and m.get("role") == "assistant":
-            return str(m.get("content", "") or "")
-    # fallback: concatenate if roles are missing
-    parts = []
+
+def last_n_assistant_contents(messages: Any, n: int) -> list[str]:
+    """
+    Extract the last n assistant message contents from a messages list.
+    Returns them in chronological order (oldest -> newest among the last n).
+    """
+    if n <= 0 or not isinstance(messages, list):
+        return []
+
+    assistant_texts: list[str] = []
     for m in messages:
-        if isinstance(m, dict) and "content" in m:
-            parts.append(str(m["content"]))
-    return "\n".join(parts)
+        if isinstance(m, dict) and m.get("role") == "assistant":
+            assistant_texts.append(str(m.get("content", "") or ""))
+
+    if not assistant_texts:
+        return []
+
+    return assistant_texts[-n:]
 
 
 class SafeCountdownEvaluator:
@@ -96,7 +177,6 @@ class SafeCountdownEvaluator:
         self.used_numbers: list[int] = []
 
     def parse(self, expr: str) -> ast.AST:
-        # parse as a single expression
         return ast.parse(expr, mode="eval")
 
     def eval(self, node: ast.AST) -> Fraction:
@@ -140,8 +220,7 @@ class SafeCountdownEvaluator:
 
 def split_lhs_rhs(answer_text: str) -> tuple[str, str | None]:
     """
-    If the answer contains '=', treat it as an equation:
-      LHS = RHS
+    If the answer contains '=', treat it as an equation: LHS = RHS
     We split on the LAST '=' to be conservative.
     """
     if "=" not in answer_text:
@@ -157,49 +236,87 @@ def eval_expr(expr: str) -> tuple[Fraction, list[int]]:
     return val, ev.used_numbers
 
 
-def check_row(target: int, nums: list[int], messages: list[dict[str, Any]]) -> CheckResult:
-    text = last_assistant_content(messages)
-    answer = extract_answer_equation(text)
+def check_completion_detailed(target: int, nums: list[int], assistant_text: str) -> dict[str, Any]:
+    """
+    Like check_completion, but returns a JSON-serializable dict with debug info.
+    """
+    out: dict[str, Any] = {
+        "ok": False,
+        "reason": "",
+        "answer_text": None,
+        "lhs": None,
+        "rhs": None,
+        "lhs_val": None,
+        "rhs_val": None,
+        "used_nums": None,
+        "assistant_content": assistant_text,
+    }
+
+    answer = extract_answer_equation_last(assistant_text)
+    out["answer_text"] = answer
     if answer is None:
-        return CheckResult(False, "missing_answer_tags")
+        out["reason"] = "missing_answer_tags"
+        return out
 
     lhs, rhs = split_lhs_rhs(answer)
+    out["lhs"] = lhs
+    out["rhs"] = rhs
 
-    # Evaluate LHS (and track used numbers)
     try:
         lhs_val, used_nums = eval_expr(lhs)
+        out["lhs_val"] = str(lhs_val)
+        out["used_nums"] = used_nums
     except Exception as e:
-        return CheckResult(False, f"lhs_parse_or_eval_error: {e}")
+        out["reason"] = f"lhs_parse_or_eval_error: {e}"
+        return out
 
-    # Number usage check (LHS only)
     provided = Counter(nums)
     used = Counter(used_nums)
     for k, cnt in used.items():
         if provided[k] < cnt:
-            return CheckResult(False, f"invalid_number_usage: used {k} x{cnt}, available x{provided[k]}")
+            out["reason"] = f"invalid_number_usage: used {k} x{cnt}, available x{provided[k]}"
+            return out
 
     target_frac = Fraction(int(target), 1)
 
-    # If RHS exists: evaluate it WITHOUT counting numbers toward usage
     if rhs is not None and rhs != "":
         try:
-            rhs_val, _ = eval_expr(rhs)  # ignore rhs used numbers on purpose
+            rhs_val, _ = eval_expr(rhs)  # ignore rhs usage
+            out["rhs_val"] = str(rhs_val)
         except Exception as e:
-            return CheckResult(False, f"rhs_parse_or_eval_error: {e}")
+            out["reason"] = f"rhs_parse_or_eval_error: {e}"
+            return out
 
         if lhs_val != rhs_val:
-            return CheckResult(False, f"equation_not_balanced: lhs {lhs_val} != rhs {rhs_val}")
+            out["reason"] = f"equation_not_balanced: lhs {lhs_val} != rhs {rhs_val}"
+            return out
 
         if rhs_val != target_frac:
-            return CheckResult(False, f"wrong_value: got {rhs_val}, target {target}")
+            out["reason"] = f"wrong_value: got {rhs_val}, target {target}"
+            return out
 
-        return CheckResult(True, "ok")
+        out["ok"] = True
+        out["reason"] = "ok"
+        return out
 
-    # No RHS: just require LHS == target
+    # no RHS
     if lhs_val != target_frac:
-        return CheckResult(False, f"wrong_value: got {lhs_val}, target {target}")
+        out["reason"] = f"wrong_value: got {lhs_val}, target {target}"
+        return out
 
-    return CheckResult(True, "ok")
+    out["ok"] = True
+    out["reason"] = "ok"
+    return out
+
+
+def check_row_pass_n_detailed(
+    target: int, nums: list[int], messages: list[dict[str, Any]], n: int
+) -> tuple[bool, list[dict[str, Any]]]:
+    texts = last_n_assistant_contents(messages, n)
+    details = [check_completion_detailed(target, nums, t) for t in texts]
+    pass_ok = any(d["ok"] for d in details)
+    return pass_ok, details
+
 
 
 def iter_jsonl(path: str) -> Iterable[dict[str, Any]]:
@@ -217,51 +334,106 @@ def iter_jsonl(path: str) -> Iterable[dict[str, Any]]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("jsonl", help="JSONL with keys: target, nums, messages")
+    ap.add_argument("--n", type=int, default=1, help="Compute pass@n using the last n assistant messages")
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--max-show", type=int, default=50)
+    ap.add_argument("--out", type=str, default=None, help="Write augmented JSONL to this path")
+    ap.add_argument("--summary-out", type=str, default=None, help="Write dataset-level metrics JSON to this path")
     args = ap.parse_args()
 
     total = 0
-    correct = 0
+    valid = 0
+    passed = 0
     failures = Counter()
     shown = 0
 
-    for obj in iter_jsonl(args.jsonl):
-        total += 1
-        target = obj.get("target")
-        nums = obj.get("nums")
-        messages = obj.get("messages")
-        # print(obj)
-        # print(messages)
-        # print(target, nums)
-        # print("--------------------------------")
+    out_f = open(args.out, "w", encoding="utf-8") if args.out else None
+    try:
+        for obj in iter_jsonl(args.jsonl):
+            total += 1
+            target = obj.get("target")
+            nums = obj.get("nums")
+            messages = obj.get("messages")
 
-        if not isinstance(target, int) or not isinstance(nums, list) or not all(isinstance(x, int) for x in nums) or not isinstance(messages, list):
-            failures["bad_input_row"] += 1
-            continue
+            if not (
+                isinstance(target, int)
+                and isinstance(nums, list)
+                and all(isinstance(x, int) for x in nums)
+                and isinstance(messages, list)
+            ):
+                failures["bad_input_row"] += 1
+                if out_f:
+                    obj.setdefault("metrics", {})
+                    obj["metrics"]["error"] = "bad_input_row"
+                    out_f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+                continue
 
-        res = check_row(target, nums, messages)
-        if res.ok:
-            correct += 1
-        else:
-            failures[res.reason.split(":")[0]] += 1
-            if args.verbose and shown < args.max_show:
-                text = last_assistant_content(messages)
-                ans = extract_answer_equation(text)
-                print(f"[{total}] FAIL {res.reason}")
-                print(f"  target={target}, nums={nums}")
-                print(f"  extracted_answer={ans!r}, text={text}")
-                shown += 1
+            valid += 1
 
-    acc = correct / total if total else 0.0
-    print(f"Total: {total}")
-    print(f"Correct: {correct}")
-    print(f"Accuracy: {acc:.6f}")
+            pass_ok, details = check_row_pass_n_detailed(target, nums, messages, args.n)
+
+            if pass_ok:
+                passed += 1
+            else:
+                if details:
+                    reason_key = str(details[-1]["reason"]).split(":")[0]
+                    failures[reason_key] += 1
+                else:
+                    failures["no_assistant_messages"] += 1
+
+                if args.verbose and shown < args.max_show:
+                    print(f"[{total}] FAIL pass@{args.n}")
+                    print(f"  target={target}, nums={nums}")
+                    if not details:
+                        print("  (no assistant messages found)")
+                    else:
+                        for i, d in enumerate(details, start=1):
+                            status = "OK" if d["ok"] else f"FAIL {d['reason']}"
+                            print(f"  completion[{i}/{len(details)}]: {status}")
+                            print(f"    text={d['assistant_content']!r}")
+                    shown += 1
+
+            if out_f:
+                obj.setdefault("metrics", {})
+                obj["metrics"]["n"] = args.n
+                obj["metrics"][f"pass@{args.n}"] = pass_ok
+                obj["metrics"]["completions"] = details
+                # handy for dataset slicing without re-parsing completions
+                obj["metrics"]["newest_reason_key"] = (
+                    "ok" if pass_ok else (str(details[-1]["reason"]).split(":")[0] if details else "no_assistant_messages")
+                )
+                out_f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+    finally:
+        if out_f:
+            out_f.close()
+
+    acc = passed / valid if valid else 0.0
+    print(f"Total rows (including bad rows): {total}")
+    print(f"Valid rows: {valid}")
+    print(f"Passed (pass@{args.n}): {passed}")
+    print(f"Pass@{args.n}: {acc:.6f}")
 
     if failures:
-        print("\nFailure breakdown:")
+        print("\nFailure breakdown (valid rows that failed, using newest completion reason key; plus bad_input_row):")
         for k, v in failures.most_common():
             print(f"  {k}: {v}")
+
+    summary = {
+        "input_jsonl": args.jsonl,
+        "output_jsonl": args.out,
+        "n": args.n,
+        "total_rows": total,
+        "valid_rows": valid,
+        "passed_rows": passed,
+        "pass@n": acc,
+        "failure_breakdown": dict(failures),
+    }
+
+    if args.summary_out:
+        with open(f'{args.summary_out.split(".json")[0]}_pass@{args.n}.json', "w", encoding="utf-8") as sf:
+            sf.write(json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
+
 
 
 if __name__ == "__main__":

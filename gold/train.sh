@@ -1,5 +1,8 @@
-oumi train -c configs/countdown_v2.yaml | 2>&1 tee logs/train_countdown_v2.log
+oumi train -c configs/countdown_cross.yaml | 2>&1 tee logs/train_countdown_cross.log
 wait
+
+# oumi train -c configs/countdown_v2.yaml | 2>&1 tee logs/train_countdown_v2.log
+# wait
 
 # oumi train -c countdown.yaml | 2>&1 tee train_countdown.log
 # wait

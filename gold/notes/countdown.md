@@ -564,83 +564,17 @@ trainer.train()
 
 ## Results
 
-| Model                     | Correct | Accuracy | Missing Answer Tags | Eqn Not Balanced | Invalid Number Usage | LHS Parse/Eval Error | RHS Parse/Eval Error | Wrong Value |
-|---------------------------|---------|----------|---------------------|------------------|----------------------|----------------------|----------------------|-------------|
-| qwen2.5_7b_baseline       | 3336    | 0.3336   | 2408                | 2186             | 2013                 | 52                   | 2                    | 3           |
-| qwen2.5_1.5b_baseline     | 1264    | 0.1264   | 3997                | 2295             | 2291                 | 112                  | 8                    | 33          |
-| qwen2.5_1.5b_ckpt500      | 5394    | 0.5394   | 4329                | 91               | 156                  | 13                   | 0                    | 17          |
-| qwen2.5_1.5b_ckpt1000     | 5807    | 0.5807   | 3924                | 129              | 112                  | 2                    | 0                    | 26          |
-| qwen3_4b_baseline         | 7931    | 0.7931   | 1783                | 1                | 275                  | 6                    | 0                    | 4           |
+![](../images/pass@4.png)
+![](../images/failure_modes@4.png)
+![](../images/math_errors@4.png)
+
+I suspect that better performance can be achieved by lowering the LR and stretching the epochs out. This may also help to prevent the collapse. 
+
+Further experiments:
+- experiments to investigate the effect of LR on collapse
+  - lower LR + higher epoch vs higher LR + lower epoch
 
 
-qwen2.5_7b_baseline
-```
-Total: 10000
-Correct: 3336
-Accuracy: 0.333600
-
-Failure breakdown:
-  missing_answer_tags: 2408
-  equation_not_balanced: 2186
-  invalid_number_usage: 2013
-  lhs_parse_or_eval_error: 52
-  wrong_value: 3
-  rhs_parse_or_eval_error: 2
-```
-
-qwen2.5_1.5b_baseline
-```
-Total: 10000
-Correct: 1264
-Accuracy: 0.126400
-
-Failure breakdown:
-  missing_answer_tags: 3997
-  equation_not_balanced: 2295
-  invalid_number_usage: 2291
-  lhs_parse_or_eval_error: 112
-  wrong_value: 33
-  rhs_parse_or_eval_error: 8
-```
-
-qwen2.5_1.5b_ckpt500
-```
-Total: 10000
-Correct: 5394
-Accuracy: 0.539400
-
-Failure breakdown:
-  missing_answer_tags: 4329
-  invalid_number_usage: 156
-  equation_not_balanced: 91
-  wrong_value: 17
-  lhs_parse_or_eval_error: 13
-```
-
-qwen2.5_1.5b_ckpt1000
-```
-Total: 10000
-Correct: 5807
-Accuracy: 0.580700
-
-Failure breakdown:
-  missing_answer_tags: 3924
-  equation_not_balanced: 129
-  invalid_number_usage: 112
-  wrong_value: 26
-  lhs_parse_or_eval_error: 2
-```
-
-qwen3_4b_baseline
-```
-Total: 10000
-Correct: 7931
-Accuracy: 0.793100
-
-Failure breakdown:
-  missing_answer_tags: 1783
-  invalid_number_usage: 275
-  lhs_parse_or_eval_error: 6
-  wrong_value: 4
-  equation_not_balanced: 1
-```
+![](../images/pass@1.png)
+![](../images/failure_modes@1.png)
+![](../images/math_errors@1.png)

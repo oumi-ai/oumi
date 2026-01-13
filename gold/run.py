@@ -38,7 +38,6 @@ def main(args):
         model_params=config.model,
         generation_params=config.generation,
         gpu_memory_utilization=0.95,
-        max_num_seqs=20,
     )
 
     results = engine.infer(input=processed_data, inference_config=config)
@@ -46,7 +45,9 @@ def main(args):
     results = [result.to_dict() for result in results]
 
     # save as json
-    results = json.dump(results, open(args.output_file, "w"), indent=4)
+    with open(args.output_file, "w") as f:
+        for result in results:
+            f.write(json.dumps(result, ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":

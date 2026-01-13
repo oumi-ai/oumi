@@ -5,5 +5,6 @@ model:
 
 generation:
   max_new_tokens: 4096
-  batch_size: 1
+  batch_size: 4
+  temperature: 0.95
   skip_special_tokens: False
