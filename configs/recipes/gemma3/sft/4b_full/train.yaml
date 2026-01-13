@@ -29,19 +29,7 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: text_sft
-        dataset_path: OVERRIDE_ME  # Override with --data.train.datasets.0.dataset_path
-        dataset_kwargs:
-          return_conversations: true
-          return_conversations_format: dict
-
-  validation:
-    datasets:
-      - dataset_name: text_sft
-        dataset_path: OVERRIDE_ME  # Override with --data.validation.datasets.0.dataset_path
-        dataset_kwargs:
-          return_conversations: true
-          return_conversations_format: dict
+      - dataset_name: "yahma/alpaca-cleaned"
 
 training:
   trainer_type: "TRL_SFT"
