@@ -625,8 +625,10 @@ TRAINING_CONFIG=$BASEDIR/configs/enterprise/training/gemma3_4b_it_train_full.yam
 TRAIN_DATASET=$BASEDIR/data/enterprise/tatqa/train.jsonl
 VAL_DATASET=$BASEDIR/data/enterprise/tatqa/val.jsonl
 
-RUN_NAME=gemma3-4b-it-tatqa-6
+RUN_NAME=gemma3-4b-it-tatqa-6-3
 OUTPUT_DIR=/data/tim/checkpoints/$RUN_NAME
+
+# NB: tatqa-6-2 uses 2e-5 1 ep, tatqa-6-3 uses 1.5e-5, 2 eps
 
 oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
     -c $TRAINING_CONFIG \
@@ -638,7 +640,7 @@ oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
 ### tat-qa evaluation
 DATASET_DIR=/data/tim/code/oumi/data/enterprise
 OUTPUT_BASEDIR=/data/tim/evals/ent/ft
-GEMMA_TATQA6=/data/tim/checkpoints/gemma3-4b-it-tatqa-6
+GEMMA_TATQA6=/data/tim/checkpoints/gemma3-4b-it-tatqa-6-3
 
 # NB: must copy preprocessor_config.json from HF repo (not saved as part of trained model bundle)
 # without this, vLLM evals will fail with "Can't load image processor for '/data/tim/checkpoints/gemma3-4b-it-tatqa-6'..."
@@ -658,8 +660,12 @@ TRAINING_CONFIG=$BASEDIR/configs/enterprise/training/gemma3_4b_it_train_full.yam
 TRAIN_DATASET=$BASEDIR/data/enterprise/pubmedqa/train.jsonl
 VAL_DATASET=$BASEDIR/data/enterprise/pubmedqa/val.jsonl
 
-RUN_NAME=gemma3-4b-it-pubmedqa-2
+RUN_NAME=gemma3-4b-it-pubmedqa-2-4
 OUTPUT_DIR=/data/tim/checkpoints/$RUN_NAME
+
+# NB: this is used in pubmedqa-2-3:
+# --training.num_train_epochs 3 \
+# but in pubmedqa-2-4, we set LR 1.5e-5 and epochs 2
 
 oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
     -c $TRAINING_CONFIG \
@@ -671,7 +677,7 @@ oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
 ### pubmedqa evaluation
 DATASET_DIR=/data/tim/code/oumi/data/enterprise
 OUTPUT_BASEDIR=/data/tim/evals/ent/ft
-GEMMA_PMQA2=/data/tim/checkpoints/gemma3-4b-it-pubmedqa-2
+GEMMA_PMQA2=/data/tim/checkpoints/gemma3-4b-it-pubmedqa-2-4
 huggingface-cli download google/gemma-3-4b-it preprocessor_config.json \
     --local-dir $GEMMA_PMQA2/
 
@@ -722,6 +728,21 @@ High-level observations:
   - +18 accuracy improvement (49% --> 67%), +8 on macro F1 (.39 --> .47)
   - moderate regression on other benchmarks
   - ignores instruction to use `\boxed{}` in tat-qa, leading to performance collapse
+
+Follow-up -- ent uses completions-only training by default (not the case for oumi). We found that adding completion-only settings for `gemma3-4b-it` does not work as well for both tasks out of the box. The default config has been updated to use LR 1.5e-5 and train for 2 epochs.
+
+Updated results table:
+
+| Model | LR | Epochs | Compl. Only | Banking77 | PubMedQA | PubMedQA | TAT-QA | TAT-QA | NL2SQL | IFEval | Safety |
+|-------|-----|--------|-------------|-----------|----------|----------|--------|--------|--------|--------|--------|
+|       |     |        |             | Accuracy | Accuracy | Macro F1 | EM | Boxed% | EditSim | Prompt Strict | Safe% |
+| **Gemma-3-4B-it** (baseline) | — | — | — | 61.0% | 49.0% | 39.2% | 39.7% | 95.3% | 50.2% | 73.4% | 95.0% |
+| **Gemma3-4B + TAT-QA FT** | 2e-5 | 1 | No | 52.4% | 49.0% | 27.0% | 46.6% | 100% | 46.3% | 68.0% | 93.0% |
+| **Gemma3-4B + PubMedQA FT** | 2e-5 | 1 | No | 57.9% | 67.0% | 46.8% | 0.7% | 5.6% | 45.2% | 71.2% | 96.0% |
+| **Gemma3-4B + TAT-QA FT v2** | 1.5e-5 | 2 | Yes | 62.0% | 51.0% | 39.9% | **54.9%** | **100%** | 49.0% | **76.0%** | **97.0%** |
+| **Gemma3-4B + PubMedQA FT v2** | 1.5e-5 | 2 | Yes | 54.5% | **82.0%** | **58.4%** | 0.0% | 0.4% | 50.0% | 72.3% | 96.0% |
+
+Results are much stronger with completions-only.
 
 
 #### `Ministral-3-3B-Instruct-2512`

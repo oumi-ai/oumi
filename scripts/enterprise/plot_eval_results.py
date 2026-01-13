@@ -82,8 +82,14 @@ def sort_models_base_first(results: list[dict]) -> list[dict]:
         return not any(pattern in model_name.lower() for pattern in ft_patterns)
     
     # Separate base and fine-tuned models
-    base_models = [r for r in results if is_base_model(r)]
-    ft_models = [r for r in results if not is_base_model(r)]
+    base_models = sorted(
+        [r for r in results if is_base_model(r)],
+        key=lambda r: r.get("model_short", ""),
+    )
+    ft_models = sorted(
+        [r for r in results if not is_base_model(r)],
+        key=lambda r: r.get("model_short", ""),
+    )
     
     # Return base models first, then fine-tuned
     return base_models + ft_models
