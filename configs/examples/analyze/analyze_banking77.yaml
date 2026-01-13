@@ -23,6 +23,15 @@ analyzers:
       compute_packing_efficiency: true
       packing_overhead_tokens: 10
 
+  - id: fasttext
+    params:
+      detect_language: true
+      detect_script: true # latin, cyrillic, cjk, etc.
+      detect_multilingual: true # Detect mixed-language content
+      min_confidence: 0.0 # Report all languages, even low confidence
+      low_confidence_threshold: 0.5 # Flag samples below this threshold
+      use_fast_langdetect: true # Use fast-langdetect (recommended, faster)
+
   - id: embedding
     params:
       model_name: all-MiniLM-L6-v2 # Fast, 384 dims
