@@ -20,48 +20,64 @@
 
 model:
   model_name: "google/gemma-3-4b-it"
-  model_max_length: 4096
+  model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  trust_remote_code: True
-  enable_liger_kernel: True
+  trust_remote_code: true
+  enable_liger_kernel: false  # Disabled (may conflict with Gemma3 output format)
 
 data:
   train:
     datasets:
-      - dataset_name: "yahma/alpaca-cleaned"
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME  # Override with --data.train.datasets.0.dataset_path
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+  validation:
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME  # Override with --data.validation.datasets.0.dataset_path
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
 
 training:
   trainer_type: "TRL_SFT"
-  save_steps: 800
-  num_train_epochs: 3
+  save_steps: 0
+  save_epoch: false
+  num_train_epochs: 1
+  # Effective batch size on 8-gpu node: 2 * 4 * 8 = 64
   per_device_train_batch_size: 2
-  gradient_accumulation_steps: 8
+  gradient_accumulation_steps: 4
 
-  enable_gradient_checkpointing: True
+  enable_gradient_checkpointing: true
   gradient_checkpointing_kwargs:
-    use_reentrant: False
-  ddp_find_unused_parameters: False
+    use_reentrant: false
+  ddp_find_unused_parameters: false
   optimizer: "adamw_torch_fused"
   learning_rate: 2.0e-05
   lr_scheduler_type: "cosine"
-  warmup_ratio: 0.03
-  weight_decay: 0.01
-  compile: False
+  warmup_ratio: 0.05
+  weight_decay: 0.05
+  compile: false
 
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
 
-  logging_steps: 100
-  log_model_summary: False
+  logging_steps: 5
+  eval_strategy: "steps"
+  eval_steps: 10  # Run validation every 10 steps (decrease for small datasets)
+  log_model_summary: false
   empty_device_cache_steps: 50
   output_dir: "output/gemma3_4b.fft"
-  include_performance_metrics: True
-  enable_wandb: True
+  include_performance_metrics: true
+  enable_wandb: true
 
 fsdp:
-  enable_fsdp: True
+  enable_fsdp: true
   sharding_strategy: "HYBRID_SHARD"
-  forward_prefetch: True
+  forward_prefetch: true
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "Gemma3DecoderLayer"
