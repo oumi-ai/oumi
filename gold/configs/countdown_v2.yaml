@@ -35,8 +35,8 @@ data:
 
 training:
   trainer_type: "TRL_GOLD"
-  output_dir: "output/gold_qwen25_15b_qwen34b_v2"
-  run_name: "gold_qwen25_15b_qwen34b_v2"
+  output_dir: "output/gold_qwen25_15b_qwen34b_v2_debug"
+  run_name: "gold_qwen25_15b_qwen34b_v2_debug"
 
   num_train_epochs: 1
   per_device_train_batch_size: 2 # EBS: 32
