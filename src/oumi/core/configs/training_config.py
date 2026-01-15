@@ -135,8 +135,12 @@ class TrainingConfig(BaseConfig):
             MixedPrecisionDtype.BF16,
         ]:
             if self.model.torch_dtype != torch.float32:
-                raise ValueError(
+                # raise ValueError(
+                #     "Model must be loaded in fp32 to enable mixed precision training."
+                # )
+                logger.warning(
                     "Model must be loaded in fp32 to enable mixed precision training."
+                    "Continuing with the current dtype."
                 )
 
         # Check values for model sequence length.

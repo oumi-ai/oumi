@@ -10,6 +10,7 @@ model:
   # see: https://docs.google.com/document/d/1AACWZv0X_iFDKkpmo6AJLKpBFltaYEGkVTtXtfk5xh0/edit?tab=t.wt3qnz8tbz2q
   # https://github.com/oumi-ai/oumi/blob/17f5773c4f6899bde5d553bfec133b56506e56af/src/oumi/core/configs/training_config.py#L138
   torch_dtype_str: "float32" 
+  # torch_dtype_str: "bfloat16" 
   load_pretrained_weights: True
   trust_remote_code: True
   attn_implementation: "sdpa"
@@ -41,7 +42,7 @@ training:
 
   num_train_epochs: 1
   per_device_train_batch_size: 1 # EBS: 32
-  per_device_eval_batch_size: 4
+  per_device_eval_batch_size: 1
   gradient_accumulation_steps: 4
   max_grad_norm: 1
   mixed_precision_dtype: BF16
