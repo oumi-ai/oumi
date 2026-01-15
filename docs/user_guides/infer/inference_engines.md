@@ -159,10 +159,12 @@ engine = VLLMInferenceEngine(
 ```
 
 The LoRA adapter can be:
+
 - A local directory containing the adapter weights
 - A HuggingFace Hub model ID (e.g., `username/model-lora-adapter`)
 
 vLLM will automatically:
+
 - Load the base model
 - Apply the LoRA adapter weights
 - Configure the appropriate LoRA rank from the adapter checkpoint
@@ -253,21 +255,21 @@ model_params = ModelParams(
 
 1. **Basic Server** - Suitable for development and testing:
 
-```bash
-python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Llama-3.1-8B-Instruct \
-    --port 6864
-```
+    ```bash
+    python -m vllm.entrypoints.openai.api_server \
+        --model meta-llama/Llama-3.1-8B-Instruct \
+        --port 6864
+    ```
 
 2. **Multi-GPU Server** - For large models requiring multiple GPUs:
 
-```bash
-python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Llama-3.3-70B-Instruct \
-    --port 6864 \
-    --tensor-parallel-size 4
+    ```bash
+    python -m vllm.entrypoints.openai.api_server \
+        --model meta-llama/Llama-3.3-70B-Instruct \
+        --port 6864 \
+        --tensor-parallel-size 4
 
-```
+    ```
 
 #### Client Configuration
 
@@ -603,6 +605,32 @@ The DeepSeek models available via this API as of late Jan'2025 are listed below.
 |---------------------------------------|---------------------------|
 | DeepSeek-V3                           | deepseek-chat             |
 | DeepSeek-R1 (reasoning with CoT)      | deepseek-reasoner         |
+
+### Fireworks AI
+
+[Fireworks AI](https://fireworks.ai) provides fast and cost-effective inference for a wide range of open source and fine-tuned models through their serverless API.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import FireworksInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = FireworksInferenceEngine(
+    model_params=ModelParams(
+        model_name="accounts/fireworks/models/llama-v3p1-8b-instruct"
+    )
+)
+```
+
+**Supported Models**
+
+Fireworks AI hosts a variety of models including Llama, Qwen, Mixtral, and many others. For an up-to-date list, please visit [fireworks.ai/models](https://fireworks.ai/models).
+
+**Resources**
+
+- [Fireworks AI Documentation](https://docs.fireworks.ai/)
+- [Available Models](https://fireworks.ai/models)
 
 ### SambaNova
 

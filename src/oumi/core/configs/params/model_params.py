@@ -17,6 +17,7 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
+from huggingface_hub.errors import HFValidationError
 from omegaconf import MISSING
 from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
 
@@ -256,9 +257,13 @@ class ModelParams(BaseParams):
             # will be downloaded from HF Hub if it's not already cached.
             try:
                 adapter_config_file = find_adapter_config_file(self.model_name)
-            except OSError:
+            except (OSError, HFValidationError) as e:
+                # OSError: model folder doesn't exist or doesn't contain adapter
+                # HFValidationError: model_name is not a valid HuggingFace repo ID
+                # (e.g., remote API model names like "accounts/fireworks/models/...")
                 logger.debug(
-                    f"Model folder does not contain an adapter: {self.model_name}"
+                    f"Model folder does not contain an adapter: {self.model_name} "
+                    f"({type(e).__name__})"
                 )
                 adapter_config_file = None
             # If this check fails, it means this is not a LoRA model.

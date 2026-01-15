@@ -51,6 +51,9 @@ class InferenceEngineType(str, Enum):
     DEEPSEEK = "DEEPSEEK"
     """The inference engine for DeepSeek Platform API."""
 
+    FIREWORKS = "FIREWORKS"
+    """The inference engine for Fireworks AI API."""
+
     PARASAIL = "PARASAIL"
     """The inference engine for Parasail API."""
 
