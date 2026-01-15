@@ -1,0 +1,80 @@
+# LoRA config for Mixtral 8x22B (MoE model with ~39B activated params).
+#
+# Hardware Requirements:
+#   - 8x H100-80GB (640GB total VRAM)
+#   - Estimated ~55GB VRAM per GPU with FSDP
+#   - CPU offload recommended for stability
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi distributed torchrun -m oumi train -c configs/recipes/mixtral/sft/8x22b_lora/train.yaml
+#
+# MoE Best Practices:
+#   - Only target attention layers (q_proj, k_proj, v_proj, o_proj)
+#   - DO NOT target MLP/expert layers - sparse layers don't work well with PEFT
+#   - Use flash_attention_2 for better performance
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - HuggingFace Mixtral Guide: https://huggingface.co/blog/mixtral
+
+model:
+  model_name: "mistralai/Mixtral-8x22B-v0.1"
+  model_max_length: 32768
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2"
+  trust_remote_code: False
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: True
+  save_steps: 200
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  max_grad_norm: 1.0
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_steps: 100
+  weight_decay: 0.01
+  compile: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 16
+
+  logging_steps: 10
+  empty_device_cache_steps: 25
+  output_dir: "output/mixtral_8x22b.lora"
+  include_performance_metrics: True
+  enable_wandb: True
+
+peft:
+  lora_r: 16
+  lora_alpha: 32
+  # MoE Best Practice: Only target attention layers, NOT MLP/expert layers
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+
+fsdp:
+  enable_fsdp: True
+  cpu_offload: True
+  forward_prefetch: True
+  sharding_strategy: "FULL_SHARD"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "MixtralDecoderLayer"
