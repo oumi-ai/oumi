@@ -1,0 +1,32 @@
+{# Gemma 2 Instruct chat template with system message support #}
+{# System messages are prepended to the first user message #}
+
+{%- if messages[0]['role'] == 'system' -%}
+    {%- set system_message = messages[0]['content'] -%}
+    {%- set messages = messages[1:] -%}
+{%- else -%}
+    {%- set system_message = '' -%}
+{%- endif -%}
+
+{{ bos_token }}
+{%- for message in messages -%}
+    {%- if (message['role'] == 'user') != (loop.index0 % 2 == 0) -%}
+        {{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}
+    {%- endif -%}
+
+    {%- if message['role'] == 'assistant' -%}
+        {%- set role = 'model' -%}
+    {%- else -%}
+        {%- set role = message['role'] -%}
+    {%- endif -%}
+
+    {%- if loop.first and system_message -%}
+        {{ '<start_of_turn>' + role + '\n' + system_message + '\n\n' + message['content'] | trim + '<end_of_turn>\n' }}
+    {%- else -%}
+        {{ '<start_of_turn>' + role + '\n' + message['content'] | trim + '<end_of_turn>\n' }}
+    {%- endif -%}
+{%- endfor -%}
+
+{%- if add_generation_prompt -%}
+    {{ '<start_of_turn>model\n' }}
+{%- endif -%}
