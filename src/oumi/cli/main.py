@@ -104,7 +104,7 @@ def get_app() -> typer.Typer:
         pretty_exceptions_enable=False,
         rich_markup_mode="rich",
         context_settings=_HELP_OPTION_NAMES,
-        add_completion=False,
+        add_completion=True,
     )
     app.callback(invoke_without_command=True, help=_APP_HELP)(_oumi_welcome)
 
@@ -319,13 +319,15 @@ def run():
     app = get_app()
 
     try:
-        from oumi.telemetry import TelemetryManager
-
-        telemetry = TelemetryManager.get_instance()
-
         event_name, event_properties = _get_cli_event()
-        with telemetry.capture_operation(event_name, event_properties):
+        if event_properties.get("help"):
             return app()
+        else:
+            from oumi.telemetry import TelemetryManager
+
+            telemetry = TelemetryManager.get_instance()
+            with telemetry.capture_operation(event_name, event_properties):
+                return app()
     except Exception as e:
         tb_str = traceback.format_exc()
         CONSOLE.print(tb_str)
