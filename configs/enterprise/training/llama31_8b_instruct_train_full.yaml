@@ -1,0 +1,102 @@
+# Full fine-tuning config for Llama 3.1 8B Instruct.
+#
+# Model highlights:
+#   - 8B parameter model from Meta
+#   - 128K context length (we use 8K for training)
+# 
+# Borrows param values from: https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_full.yaml
+# 
+# Requirements:
+#   - Llama license acceptance required: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi distributed torchrun -m oumi train -c configs/enterprise/training/llama31_8b_instruct_train_full.yaml \
+#     --data.train.datasets.0.dataset_path=<train_data_path> \
+#     --data.validation.datasets.0.dataset_path=<val_data_path> \
+#     --training.run_name=<run_name> \
+#     --training.output_dir=<output_dir>
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: true
+  trust_remote_code: true
+  enable_liger_kernel: false  # liger disabled due to TRL token_accuracy compatibility issue
+
+data:
+  train:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|start_header_id|>assistant<|end_header_id|>\n\n"
+      instruction_template: "<|start_header_id|>user<|end_header_id|>\n\n"
+    seed: 42
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME  # Override with --data.train.datasets.0.dataset_path
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+  validation:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|start_header_id|>assistant<|end_header_id|>\n\n"
+      instruction_template: "<|start_header_id|>user<|end_header_id|>\n\n"
+    seed: 42
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME  # Override with --data.validation.datasets.0.dataset_path
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+training:
+  trainer_type: "TRL_SFT"
+  save_steps: 0
+  save_epoch: false
+  num_train_epochs: 2
+  # Effective batch size on 8-gpu node: 2 * 4 * 8 = 64
+  # Increased GAS for larger model to maintain stable gradients
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
+
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  ddp_find_unused_parameters: false
+  optimizer: "adamw_torch_fused"
+  # Lower LR for 8B model - larger models are more sensitive to LR
+  # torchtune uses 2e-5, but we're more conservative for task-specific finetuning
+  learning_rate: 5.0e-06
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.05
+  compile: false
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 5
+  eval_strategy: "steps"
+  eval_steps: 10  # Run validation every 10 steps
+  log_model_summary: false
+  empty_device_cache_steps: 50
+  output_dir: "output/llama31_8b.fft"
+  include_performance_metrics: true
+  enable_wandb: true
+
+fsdp:
+  enable_fsdp: true
+  sharding_strategy: "HYBRID_SHARD"
+  forward_prefetch: true
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

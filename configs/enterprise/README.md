@@ -540,7 +540,7 @@ EVAL_OUTPUT_BASEDIR=/data/tim/evals/ent/ft
 Then copy the results bundles to local for collation and analysis:
 
 ```sh
-FT_TEST_EVALS_SRC=$NAMESPACE/tim-oumi-sleep-8gpu-96598f8cf-6x852:/data/tim/evals/ent/ft/20260109_224544_qwen3-4b-inst-2507-pubmedqa-test
+FT_TEST_EVALS_SRC=$NAMESPACE/<POD>:/data/tim/evals/ent/ft/20260109_224544_qwen3-4b-inst-2507-pubmedqa-test
 FT_TEST_EVALS_DEST=~/Downloads/20260109_224544_qwen3-4b-inst-2507-pubmedqa-test
 
 kubectl cp $FT_TEST_EVALS_SRC $FT_TEST_EVALS_DEST
@@ -749,9 +749,317 @@ Results are much stronger with completions-only.
 
 NB: These models were only released 12/2025, and our current version of HF transformers does not support minimstral3. Upgrading to the most recent transformers breaks imports in both the oumi codebase (`ImportError: cannot import name 'SpecialTokensMixin' from 'transformers'`) and dependencies (`ImportError: cannot import name 'HybridCache' from 'transformers'`). We will revisit this once our transformers version has been upgraded.
 
+
 #### `Llama-3.2-1B-Instruct`
+Prepare a default config and verify that it produces gains on target tasks without catastrophic regression on general capabilities or other tasks. If unsuccessful, run additional SFT jobs as needed to find settings that work reasonably well across multiple tasks (here pubmedqa: small 800-record train set, simple classification task; and tat-qa: open-ended data analysis task, 13k train set). 
+
+```sh
+BASEDIR=/data/tim/code/oumi
+
+# pubmedqa
+TRAINING_CONFIG=$BASEDIR/configs/enterprise/training/llama32_1b_instruct_train_full.yaml
+TRAIN_DATASET=$BASEDIR/data/enterprise/pubmedqa/train.jsonl
+VAL_DATASET=$BASEDIR/data/enterprise/pubmedqa/val.jsonl
+
+RUN_NAME=llama32_1b_instruct_train_full-pubmedqa
+OUTPUT_DIR=/data/tim/checkpoints/$RUN_NAME
+
+oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
+    -c $TRAINING_CONFIG \
+    --data.train.datasets.0.dataset_path=$TRAIN_DATASET \
+    --data.validation.datasets.0.dataset_path=$VAL_DATASET \
+    --training.run_name=$RUN_NAME \
+    --training.output_dir=$OUTPUT_DIR
+
+# tatqa
+TRAINING_CONFIG=$BASEDIR/configs/enterprise/training/llama32_1b_instruct_train_full.yaml
+TRAIN_DATASET=$BASEDIR/data/enterprise/tatqa/train.jsonl
+VAL_DATASET=$BASEDIR/data/enterprise/tatqa/val.jsonl
+
+RUN_NAME=llama32_1b_instruct_train_full-tatqa
+OUTPUT_DIR=/data/tim/checkpoints/$RUN_NAME
+
+oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
+    -c $TRAINING_CONFIG \
+    --data.train.datasets.0.dataset_path=$TRAIN_DATASET \
+    --data.validation.datasets.0.dataset_path=$VAL_DATASET \
+    --training.run_name=$RUN_NAME \
+    --training.output_dir=$OUTPUT_DIR
+```
+
+Run full evals against the final ckpts:
+
+```sh
+cd /data/tim/code/oumi
+DATASET_DIR=/data/tim/code/oumi/data/enterprise
+OUTPUT_BASEDIR=/data/tim/evals/ent/llama32-ft
+
+# pubmedqa
+./scripts/enterprise/run_all_evals.sh \
+  --model-name /data/tim/checkpoints/llama32_1b_instruct_train_full-pubmedqa \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+
+# tatqa
+./scripts/enterprise/run_all_evals.sh \
+  --model-name /data/tim/checkpoints/llama32_1b_instruct_train_full-tatqa \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+
+# baseline
+./scripts/enterprise/run_all_evals.sh \
+  --model-name "meta-llama/Llama-3.2-1B-Instruct" \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+```
+
+Collate results and inspect:
+
+```sh
+FT_TEST_EVALS_SRC=$NAMESPACE/<POD>:/data/tim/evals/ent/llama32-ft
+FT_TEST_EVALS_DEST=~/Downloads/llama32-ft
+
+kubectl cp $FT_TEST_EVALS_SRC $FT_TEST_EVALS_DEST
+
+python scripts/enterprise/collate_eval_results.py \
+  --run-dirs $FT_TEST_EVALS_DEST/* \
+  --output $FT_TEST_EVALS_DEST/collated/results.csv \
+  --json $FT_TEST_EVALS_DEST/collated/results.json
+
+python scripts/enterprise/plot_eval_results.py \
+  --results-json $FT_TEST_EVALS_DEST/collated/results.json \
+  --output $FT_TEST_EVALS_DEST/collated/results-plot.png
+```
+
+Results:
+
+| Model | PubMedQA Acc | TAT-QA F1 | Banking77 Acc | NL2SQL EM | IFEval Strict | Safety Rate |
+|-------|--------------|-----------|---------------|-----------|---------------|-------------|
+| Baseline (1B) | 0.47 | 0.205 | 0.024 | 0.00 | 0.499 | 0.73 |
+|  PubMedQA | **0.69** | 0.00 | 0.032 | 0.00 | 0.368 | 0.82 |
+| TAT-QA | 0.45 | **0.526** | 0.013 | 0.00 | 0.516 | 0.83 |
+
+Notes:
+- PubMedQA FT: .47 --> .69 task accuracy, tat-qa tanks
+- TAT-QA FT: .205 --> 0.526 task F1, minor regression on PubMedQA
+- mixed impact on control benchmarks
+
+
+#### `Llama-3.2-3B-Instruct`
+Reduce LR from 2e-5 to 1e-5 for 3b. Also try increasing GAS (and hence EBS) for stability. Other than that, we'll validate that the tested 1b config settings also work for 3b, and consider that the default if so. If not, run tweaks to identify a balance.
+
+```sh
+BASEDIR=/data/tim/code/oumi
+
+# pubmedqa
+TRAINING_CONFIG=$BASEDIR/configs/enterprise/training/llama32_3b_instruct_train_full.yaml
+TRAIN_DATASET=$BASEDIR/data/enterprise/pubmedqa/train.jsonl
+VAL_DATASET=$BASEDIR/data/enterprise/pubmedqa/val.jsonl
+
+RUN_NAME=llama32_3b_instruct-pubmedqa
+OUTPUT_DIR=/data/tim/checkpoints/$RUN_NAME
+
+oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
+    -c $TRAINING_CONFIG \
+    --data.train.datasets.0.dataset_path=$TRAIN_DATASET \
+    --data.validation.datasets.0.dataset_path=$VAL_DATASET \
+    --training.run_name=$RUN_NAME \
+    --training.output_dir=$OUTPUT_DIR
+```
+
+```sh
+# tatqa
+TRAINING_CONFIG=$BASEDIR/configs/enterprise/training/llama32_3b_instruct_train_full.yaml
+TRAIN_DATASET=$BASEDIR/data/enterprise/tatqa/train.jsonl
+VAL_DATASET=$BASEDIR/data/enterprise/tatqa/val.jsonl
+
+RUN_NAME=llama32_3b_instruct-tatqa
+OUTPUT_DIR=/data/tim/checkpoints/$RUN_NAME
+
+oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
+    -c $TRAINING_CONFIG \
+    --data.train.datasets.0.dataset_path=$TRAIN_DATASET \
+    --data.validation.datasets.0.dataset_path=$VAL_DATASET \
+    --training.run_name=$RUN_NAME \
+    --training.output_dir=$OUTPUT_DIR
+```
+
+Also ran tat-qa variants with GAS 4 and 16. Eval:
+
+```sh
+cd /data/tim/code/oumi
+DATASET_DIR=/data/tim/code/oumi/data/enterprise
+OUTPUT_BASEDIR=/data/tim/evals/ent/llama32-3b-ft
+
+# pubmedqa
+./scripts/enterprise/run_all_evals.sh \
+  --model-name /data/tim/checkpoints/llama32_3b_instruct-pubmedqa \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+
+# tatqa gas 2
+./scripts/enterprise/run_all_evals.sh \
+  --model-name /data/tim/checkpoints/llama32_3b_instruct-tatqa \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+
+# tatqa gas 4
+./scripts/enterprise/run_all_evals.sh \
+  --model-name /data/tim/checkpoints/llama32_3b_instruct-tatqa-gas4 \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+
+# tatqa gas 16
+./scripts/enterprise/run_all_evals.sh \
+  --model-name /data/tim/checkpoints/llama32_3b_instruct-tatqa-gas16 \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+
+# baseline
+./scripts/enterprise/run_all_evals.sh \
+  --model-name "meta-llama/Llama-3.2-3B-Instruct" \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+```
+
+Collate and plot results:
+
+```sh
+EVALS_SRC=$NAMESPACE/<POD>:/data/tim/evals/ent/llama32-3b-ft
+EVALS_DEST=~/Downloads/llama32-3b-ft
+kubectl cp $EVALS_SRC $EVALS_DEST
+
+python scripts/enterprise/collate_eval_results.py \
+  --run-dirs $EVALS_DEST/* \
+  --output $EVALS_DEST/collated/results.csv \
+  --json $EVALS_DEST/collated/results.json
+
+python scripts/enterprise/plot_eval_results.py \
+  --results-json $EVALS_DEST/collated/results.json \
+  --output $EVALS_DEST/collated/results-plot.png
+```
+
+| Model | PubMedQA Acc | TAT-QA F1 | Banking77 Acc | NL2SQL EM | IFEval Strict | Safety Rate |
+|-------|--------------|-----------|---------------|-----------|---------------|-------------|
+| Baseline (3B) | 0.69 | 0.379 | 0.275 | 0.00 | 0.689 | 0.85 |
+| PubMedQA | **0.77** | 0.389 | 0.286 | 0.00 | 0.665 | 0.84 |
+| TAT-QA (gas02) | 0.61 | **0.625** | 0.275 | 0.01 | 0.702 | 0.84 |
+| TAT-QA (gas04) | 0.61 | 0.608 | 0.278 | 0.01 | 0.706 | 0.84 |
+| TAT-QA (gas16) | 0.63 | 0.589 | 0.271 | 0.00 | 0.686 | 0.78 |
+
+Notes:
+- PubMedQA FT: .69 --> 0.77 task accuracy, no or marginal regression elsewhere
+- TAT-QA FT (GAS 2): .379 --> 0.625 task F1, minor no or marginal regression elsewhere
+- 3b baseline much stronger than 1b, less catastrophic forgetting during FT
+- Best tat-qa config uses GAS 2 (smaller EBS than alternatives)
+
 
 #### `Llama-3.1-8B-Instruct`
+Start with a lower LR of 5e-6 for 8b, but compare with 1e-5. 
+
+Note that enabling liger kernel will cause the job to fail with `AttributeError: 'CausalLMOutputWithPast' object has no attribute 'token_accuracy' `. 
+
+```sh
+BASEDIR=/data/tim/code/oumi
+
+# pubmedqa
+TRAINING_CONFIG=$BASEDIR/configs/enterprise/training/llama31_8b_instruct_train_full.yaml
+TRAIN_DATASET=$BASEDIR/data/enterprise/pubmedqa/train.jsonl
+VAL_DATASET=$BASEDIR/data/enterprise/pubmedqa/val.jsonl
+
+RUN_NAME=llama31_8b_instruct-pubmedqa
+OUTPUT_DIR=/data/tim/checkpoints/$RUN_NAME
+
+oumi distributed torchrun --nproc_per_node=8 --master-port=9010 -m oumi train \
+    -c $TRAINING_CONFIG \
+    --data.train.datasets.0.dataset_path=$TRAIN_DATASET \
+    --data.validation.datasets.0.dataset_path=$VAL_DATASET \
+    --training.run_name=$RUN_NAME \
+    --training.output_dir=$OUTPUT_DIR
+```
+
+```sh
+# tatqa
+TRAINING_CONFIG=$BASEDIR/configs/enterprise/training/llama31_8b_instruct_train_full.yaml
+TRAIN_DATASET=$BASEDIR/data/enterprise/tatqa/train.jsonl
+VAL_DATASET=$BASEDIR/data/enterprise/tatqa/val.jsonl
+
+RUN_NAME=llama31_8b_instruct-tatqa-1e5
+OUTPUT_DIR=/data/tim/checkpoints/$RUN_NAME
+
+oumi distributed torchrun --nproc_per_node=8 --master-port=9011 -m oumi train \
+    -c $TRAINING_CONFIG \
+    --data.train.datasets.0.dataset_path=$TRAIN_DATASET \
+    --data.validation.datasets.0.dataset_path=$VAL_DATASET \
+    --training.run_name=$RUN_NAME \
+    --training.output_dir=$OUTPUT_DIR
+```
+
+Run full evals against the final ckpts:
+
+```sh
+cd /data/tim/code/oumi
+DATASET_DIR=/data/tim/code/oumi/data/enterprise
+OUTPUT_BASEDIR=/data/tim/evals/ent/llama31-8b-ft
+
+./scripts/enterprise/run_all_evals.sh \
+  --model-name /data/tim/checkpoints/llama31_8b_instruct-pubmedqa \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+
+./scripts/enterprise/run_all_evals.sh \
+  --model-name /data/tim/checkpoints/llama31_8b_instruct-pubmedqa-1e5 \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+
+./scripts/enterprise/run_all_evals.sh \
+  --model-name /data/tim/checkpoints/llama31_8b_instruct-tatqa \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+
+./scripts/enterprise/run_all_evals.sh \
+  --model-name /data/tim/checkpoints/llama31_8b_instruct-tatqa-1e5 \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+
+./scripts/enterprise/run_all_evals.sh \
+  --model-name "meta-llama/Llama-3.1-8B-Instruct" \
+  --data-dir $DATASET_DIR \
+  --output-dir $OUTPUT_BASEDIR
+```
+
+Collate and plot results:
+
+```sh
+EVALS_SRC=$NAMESPACE/<POD>:/data/tim/evals/ent/llama31-8b-ft
+EVALS_DEST=~/Downloads/llama31-8b-ft
+kubectl cp $EVALS_SRC $EVALS_DEST
+
+python scripts/enterprise/collate_eval_results.py \
+  --run-dirs $EVALS_DEST/* \
+  --output $EVALS_DEST/collated/results.csv \
+  --json $EVALS_DEST/collated/results.json
+
+python scripts/enterprise/plot_eval_results.py \
+  --results-json $EVALS_DEST/collated/results.json \
+  --output $EVALS_DEST/collated/results-plot.png
+```
+
+Results:
+
+| Model | PubMedQA Acc | TAT-QA F1 | Banking77 Acc | NL2SQL EM | IFEval Strict | Safety Rate |
+|-------|--------------|-----------|---------------|-----------|---------------|-------------|
+| Baseline (8B) | 0.78 | 0.341 | 0.386 | 0.00 | 0.752 | 0.93 |
+| PubMedQA (lr=5e-6) | **0.82** | 0.415 | 0.420 | 0.00 | 0.747 | 0.88 |
+| PubMedQA (lr=1e-5) | **0.82** | 0.392 | 0.420 | 0.00 | 0.651 | 0.74 |
+| TAT-QA (lr=5e-6) | 0.65 | 0.683 | 0.420 | 0.00 | 0.750 | 0.71 |
+| TAT-QA (lr=1e-5) | 0.59 | **0.705** | 0.376 | 0.00 | 0.747 | 0.79 |
+
+Notes:
+- PubMedQA: both LRs get 0.82 acc, but 5e-6 has better macro F1 (.66 versus .58) and control metrics
+- TAT-QA: 1e-5 slightly better than 5e-6 on target task (F1 .705 versus .683, EM .64 versus .61) but regresses more on most other tasks
+- Going with max LR 5e-6 as default to strike a balance
+
 
 #### `Qwen3-4B-Instruct-2507`
 

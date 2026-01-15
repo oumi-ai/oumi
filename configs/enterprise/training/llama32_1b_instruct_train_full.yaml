@@ -1,0 +1,96 @@
+# Full fine-tuning config for Llama 3.2 1B Instruct.
+#
+# Model highlights:
+#   - 1B parameter model from Meta
+#   - 128K context length (we use 8K for training)
+# 
+# Borrows param values from: https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_2/1B_full.yaml
+# 
+# Requirements:
+#   - Llama license acceptance required: https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi distributed torchrun -m oumi train -c configs/enterprise/training/llama32_1b_instruct_train_full.yaml \
+#     --data.train.datasets.0.dataset_path=<train_data_path> \
+#     --data.validation.datasets.0.dataset_path=<val_data_path> \
+#     --training.run_name=<run_name> \
+#     --training.output_dir=<output_dir>
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+
+model:
+  model_name: "meta-llama/Llama-3.2-1B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: true
+  trust_remote_code: true
+
+data:
+  train:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|start_header_id|>assistant<|end_header_id|>\n\n"
+      instruction_template: "<|start_header_id|>user<|end_header_id|>\n\n"
+    seed: 666
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME  # Override with --data.train.datasets.0.dataset_path
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+  validation:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|start_header_id|>assistant<|end_header_id|>\n\n"
+      instruction_template: "<|start_header_id|>user<|end_header_id|>\n\n"
+    seed: 666
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME  # Override with --data.validation.datasets.0.dataset_path
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+training:
+  trainer_type: "TRL_SFT"
+  save_steps: 0
+  save_epoch: false
+  num_train_epochs: 2
+  # Effective batch size on 8-gpu node: 2 * 2 * 8 = 32
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 2
+
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  ddp_find_unused_parameters: false
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-05
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.05
+  compile: false
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 5
+  eval_strategy: "steps"
+  eval_steps: 10  # Run validation every 10 steps
+  log_model_summary: false
+  empty_device_cache_steps: 50
+  output_dir: "output/llama32_1b.fft"
+  include_performance_metrics: true
+  enable_wandb: true
+
+fsdp:
+  enable_fsdp: true
+  sharding_strategy: "HYBRID_SHARD"
+  forward_prefetch: true
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"
