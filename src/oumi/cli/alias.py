@@ -52,6 +52,12 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     "llama4-maverick": {
         AliasType.INFER: "oumi://configs/recipes/llama4/inference/maverick_instruct_together_infer.yaml",
     },
+    "llama4-maverick-together": {
+        AliasType.INFER: "oumi://configs/recipes/llama4/inference/maverick_instruct_together_infer.yaml",
+    },
+    "llama4-maverick-fireworks": {
+        AliasType.INFER: "oumi://configs/recipes/llama4/inference/maverick_instruct_fireworks_infer.yaml",
+    },
     # Qwen3 family.
     "qwen3-30b-a3b": {
         AliasType.INFER: "oumi://configs/recipes/qwen3/inference/30b_a3b_infer.yaml",
@@ -68,6 +74,9 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     "qwen3-32b-lora": {
         AliasType.TRAIN: "oumi://configs/recipes/qwen3/sft/32b_lora/train.yaml",
         AliasType.JOB: "oumi://configs/recipes/qwen3/sft/32b_lora/gcp_job.yaml",
+    },
+    "qwen3-235b-a22b-fireworks": {
+        AliasType.INFER: "oumi://configs/recipes/qwen3/inference/235b_a22b_fireworks_infer.yaml",
     },
     # Qwen3-Next family.
     "qwen3-next-80b-a3b": {
@@ -99,6 +108,10 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     },
     "gemma3-27b-lora": {
         AliasType.TRAIN: "oumi://configs/recipes/gemma3/sft/27b_lora/train.yaml",
+    },
+    # GLM-4 family.
+    "glm4-fireworks": {
+        AliasType.INFER: "oumi://configs/recipes/glm4/inference/4p7_fireworks_infer.yaml",
     },
     # OLMo 3 family.
     "olmo3-7b": {
@@ -231,6 +244,9 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
         AliasType.TRAIN: "oumi://configs/recipes/deepseek_r1/sft/distill_qwen_32b/lora_train.yaml",
     },
     "deepseek-r1-671b": {
+        AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/671b_together/infer.yaml",
+    },
+    "deepseek-r1-671b-together": {
         AliasType.INFER: "oumi://configs/recipes/deepseek_r1/inference/671b_together/infer.yaml",
     },
     # Llama 3.1 family.
