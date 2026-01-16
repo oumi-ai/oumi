@@ -136,20 +136,50 @@ class TextCollatorWithPadding:
         return result
 
     def __call__(self, batch) -> dict[str, Any]:
-        """Pads to the longest length present in the batch.
+        """Collates a list of tokenized examples into a padded batch.
+
+        This method pads all variable-length fields to the maximum sequence length
+        in the input `batch` (or to `max_length` if provided with truncation enabled),
+        producing a dictionary of tensors suitable for model input.
+
+        The collator expects each example to contain at least `"input_ids"`. If
+        `"attention_mask"` is missing, it will be created as an all-ones mask with
+        the same length as `"input_ids"`.
+
+        If `"labels"` is present in the input examples, it will be padded using
+        `label_ignore_index` (if provided) or `pad_token_id` otherwise. If `"labels"`
+        is not present, labels will not be returned unless the collator has been
+        modified to synthesize them from `"input_ids"`.
+
+        Supported keys:
+        - `"input_ids"` (required)
+        - `"attention_mask"` (optional; generated if missing)
+        - `"cross_attention_mask"` (optional)
+        - `"labels"` (optional)
 
         Args:
-            batch: List of batch items.
+            batch: A list of dictionaries, where each dictionary corresponds to a
+                single tokenized training example.
 
         Returns:
-            Dict[str, torch.Tensor]: Processed batch.
+            A dictionary of padded tensors containing:
+            - `"input_ids"`: Padded token ids.
+            - `"attention_mask"`: Padded attention mask.
+            - `"cross_attention_mask"`: Padded cross-attention mask (if provided).
+            - `"labels"`: Padded labels (if provided in inputs).
+
+        Raises:
+            ValueError: If `"input_ids"` is missing from any example.
+            ValueError: If `max_length` is exceeded and truncation is disabled.
         """
         collation_inputs: dict[str, list[Any]] = collections.defaultdict(list)
         labels_on = _LABELS_KEY in batch[0]
         attention_mask_on = _ATTENTION_MASK_KEY in batch[0]
         cross_attention_mask_on = _CROSS_ATTENTION_MASK_KEY in batch[0]
 
-        # Maximum sequence lengths in this batch.
+        # If labels are not provided by the dataset, create them from input_ids
+        create_labels = not labels_on
+
         batch_max_input_ids_length: int = 0
 
         for item in batch:
@@ -158,34 +188,39 @@ class TextCollatorWithPadding:
                     f"Item doesn't contain '{_INPUT_IDS_KEY}' key. "
                     f"Available keys: {item.keys()}"
                 )
-            batch_max_input_ids_length = max(
-                batch_max_input_ids_length, len(item[_INPUT_IDS_KEY])
-            )
 
-            collation_inputs[_INPUT_IDS_KEY].append(item[_INPUT_IDS_KEY])
+            input_ids = item[_INPUT_IDS_KEY]
+            batch_max_input_ids_length = max(batch_max_input_ids_length, len(input_ids))
+
+            collation_inputs[_INPUT_IDS_KEY].append(input_ids)
             collation_inputs[_ATTENTION_MASK_KEY].append(
                 item[_ATTENTION_MASK_KEY]
                 if attention_mask_on
-                else create_ones_like(item[_INPUT_IDS_KEY])
+                else create_ones_like(input_ids)
             )
 
             if cross_attention_mask_on:
                 collation_inputs[_CROSS_ATTENTION_MASK_KEY].append(
                     item[_CROSS_ATTENTION_MASK_KEY]
                 )
-            if labels_on:
+
+            if create_labels:
+                # labels mirror input_ids (causal LM)
+                # make a shallow copy so we don't alias the same list object
+                collation_inputs[_LABELS_KEY].append(list(input_ids))
+            else:
                 collation_inputs[_LABELS_KEY].append(item[_LABELS_KEY])
 
             if self._max_length is not None:
                 if self._truncation:
                     for key in collation_inputs:
                         collation_inputs[key] = [
-                            item[0 : self._max_length] for item in collation_inputs[key]
+                            seq[0 : self._max_length] for seq in collation_inputs[key]
                         ]
                 else:
                     for key in collation_inputs:
-                        for item in collation_inputs[key]:
-                            seq_len = len(item)
+                        for seq in collation_inputs[key]:
+                            seq_len = len(seq)
                             if seq_len > self._max_length:
                                 raise ValueError(
                                     "Maximum sequence length exceeded. "
@@ -194,31 +229,30 @@ class TextCollatorWithPadding:
                                     f"Maximum model length: ({self._max_length})"
                                 )
 
-        # Update global (dataset) maximum lengths, and log a warning
-        # about truncation if needed.
         self._update_max_lengths_and_log(
             max_input_ids_length=batch_max_input_ids_length
         )
 
-        # Collate batch prompts.
         pad_token_id = self._special_tokens.pad_token_id
+        label_pad_value = (
+            self._special_tokens.label_ignore_index
+            if self._special_tokens.label_ignore_index is not None
+            else pad_token_id
+        )
+
         collated_text_inputs = self._collate_simple(
             collation_inputs,
             batch_max_length=batch_max_input_ids_length,
             padding_value_overrides={
                 _INPUT_IDS_KEY: pad_token_id,
-                _LABELS_KEY: (
-                    self._special_tokens.label_ignore_index
-                    if self._special_tokens.label_ignore_index is not None
-                    else pad_token_id
-                ),
+                _LABELS_KEY: label_pad_value,
             },
         )
 
-        # Combine all inputs.
         combined_batch = {
             _INPUT_IDS_KEY: collated_text_inputs[_INPUT_IDS_KEY],
             _ATTENTION_MASK_KEY: collated_text_inputs.get(_ATTENTION_MASK_KEY),
+            _LABELS_KEY: collated_text_inputs[_LABELS_KEY],  # always present now
         }
 
         if cross_attention_mask_on:
@@ -226,13 +260,7 @@ class TextCollatorWithPadding:
                 _CROSS_ATTENTION_MASK_KEY
             ]
 
-        # Add labels if present.
-        if labels_on:
-            combined_batch[_LABELS_KEY] = collated_text_inputs[_LABELS_KEY]
-
-        # If debug is on and we haven't logged an example yet, log the first example
         if self._debug and not self._has_logged_example and len(batch) > 0:
-            # Log an example of the data in the first step for debugging purposes.
             self._log_debug_example(batch, combined_batch)
 
         return combined_batch
