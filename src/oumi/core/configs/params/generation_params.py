@@ -130,6 +130,13 @@ class GenerationParams(BaseParams):
     format (e.g., reasoning tokens, tool call markers).
     """
 
+    n: int = 1
+    """Number of samples to generate.
+
+    This parameter is only used in `VLLMInferenceEngine`.
+    Default is 1.
+    """
+
     def __post_init__(self):
         """Validates generation-specific parameters."""
         if self.batch_size is not None and self.batch_size < 1:
