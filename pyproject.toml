@@ -252,6 +252,7 @@ convention = "google"
 
 [tool.ruff.lint.isort]
 known-first-party = ["oumi"]
+known-third-party = ["wandb"]
 
 [tool.pyright]
 include = ["src/oumi/**", "tests/**"]
