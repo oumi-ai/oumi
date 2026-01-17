@@ -41,17 +41,45 @@ export MLFLOW_RUN_NAME="oumi_enterprise_experiments"
 # CUDA_VISIBLE_DEVICES=2 python run.py --input_file data/tatqa_test.jsonl --output_file output/qwen3_8b_tatqa_think2_ep3.json --inference_config infer_configs/qwen3_8b_tatqa_think2_ep3.yaml &
 # wait
 
-CUDA_VISIBLE_DEVICES=0 python run.py --input_file data/test.jsonl --output_file output/qwen3_4b_baseline.json --inference_config infer_configs/qwen3_4b.yaml --chat_format &
-CUDA_VISIBLE_DEVICES=1 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_baseline.jsonl --inference_config infer_configs/qwen2.5_1.5b.yaml --chat_format &
-CUDA_VISIBLE_DEVICES=2 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_7b_baseline.json --inference_config infer_configs/qwen2.5_7b.yaml --chat_format &
+# CUDA_VISIBLE_DEVICES=0 python run.py --input_file data/test.jsonl --output_file output/qwen3_4b_baseline.json --inference_config infer_configs/qwen3_4b.yaml --chat_format &
+# CUDA_VISIBLE_DEVICES=1 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_baseline.jsonl --inference_config infer_configs/qwen2.5_1.5b.yaml --chat_format &
+# CUDA_VISIBLE_DEVICES=2 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_7b_baseline.json --inference_config infer_configs/qwen2.5_7b.yaml --chat_format &
 # CUDA_VISIBLE_DEVICES=2 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt500.json --inference_config infer_configs/qwen2.5_1.5b_ckpt500.yaml --chat_format &
 # CUDA_VISIBLE_DEVICES=3 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt1000.json --inference_config infer_configs/qwen2.5_1.5b_ckpt1000.yaml --chat_format &
 # wait
 
-# CUDA_VISIBLE_DEVICES=0 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt500.json --inference_config infer_configs/qwen2.5_1.5b_ckpt500.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt500.log & 
+# CUDA_VISIBLE_DEVICES=0 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt500.json --inference_config infer_configs/qwen2.5_1.5b_ckpt500.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt500.log &
 # CUDA_VISIBLE_DEVICES=1 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt1000.json --inference_config infer_configs/qwen2.5_1.5b_ckpt1000.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt1000.log &
 # CUDA_VISIBLE_DEVICES=2 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt2000.json --inference_config infer_configs/qwen2.5_1.5b_ckpt2000.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt2000.log &
 # CUDA_VISIBLE_DEVICES=3 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt3000.json --inference_config infer_configs/qwen2.5_1.5b_ckpt3000.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt3000.log &
 # CUDA_VISIBLE_DEVICES=4 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt1500.json --inference_config infer_configs/qwen2.5_1.5b_ckpt1500.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt4000.log &
-CUDA_VISIBLE_DEVICES=4 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt1700.json --inference_config infer_configs/qwen2.5_1.5b_ckpt1700.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt1700.log &
+# CUDA_VISIBLE_DEVICES=4 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt1700.json --inference_config infer_configs/qwen2.5_1.5b_ckpt1700.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt1700.log &
 # wait
+
+# CUDA_VISIBLE_DEVICES=0 python run.py --input_file data/tatqa_train.jsonl --output_file output/tatqa_train.json --inference_config infer_configs/qwen3_4b.yaml --chat_format | 2>&1 tee infer_logs/tatqa_train.log &
+# wait
+
+# CUDA_VISIBLE_DEVICES=0 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen25_15b_qwen34b_lambda0_ckpt400.jsonl --inference_config infer_configs/tatqa_qwen25_15b_qwen34b_lambda0_ckpt400.yaml | 2>&1 tee infer_logs/tatqa_qwen25_15b_qwen34b_lambda0_ckpt400.log &
+# CUDA_VISIBLE_DEVICES=0 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen25_15b_qwen34b_lambda0_ckpt200.jsonl --inference_config infer_configs/tatqa_qwen25_15b_qwen34b_lambda0_ckpt200.yaml | 2>&1 tee infer_logs/tatqa_qwen25_15b_qwen34b_lambda0_ckpt200.log &
+# CUDA_VISIBLE_DEVICES=1 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen25_15b_qwen34b_lambda0_ckpt799.jsonl --inference_config infer_configs/tatqa_qwen25_15b_qwen34b_lambda0_ckpt799.yaml | 2>&1 tee infer_logs/tatqa_qwen25_15b_qwen34b_lambda0_ckpt799.log &
+# CUDA_VISIBLE_DEVICES=2 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen3_4b.jsonl --inference_config infer_configs/qwen3_4b.yaml | 2>&1 tee infer_logs/tatqa_qwen3_4b.log &
+# CUDA_VISIBLE_DEVICES=3 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen2.5_1.5b.jsonl --inference_config infer_configs/qwen2.5_1.5b.yaml | 2>&1 tee infer_logs/tatqa_qwen2.5_1.5b.log &
+# wait
+
+
+# CUDA_VISIBLE_DEVICES=0 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt200.jsonl --inference_config infer_configs/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt200.yaml | 2>&1 tee infer_logs/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt200.log &
+# CUDA_VISIBLE_DEVICES=1 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt400.jsonl --inference_config infer_configs/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt400.yaml | 2>&1 tee infer_logs/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt400.log &
+# CUDA_VISIBLE_DEVICES=2 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt800.jsonl --inference_config infer_configs/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt800.yaml | 2>&1 tee infer_logs/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt800.log &
+# CUDA_VISIBLE_DEVICES=3 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt200.jsonl --inference_config infer_configs/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt200.yaml | 2>&1 tee infer_logs/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt200.log &
+# wait
+
+# CUDA_VISIBLE_DEVICES=0 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt400.jsonl --inference_config infer_configs/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt400.yaml | 2>&1 tee infer_logs/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt400.log &
+# CUDA_VISIBLE_DEVICES=1 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt800.jsonl --inference_config infer_configs/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt800.yaml | 2>&1 tee infer_logs/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt800.log &
+# wait
+
+# CUDA_VISIBLE_DEVICES=0 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt1100.jsonl --inference_config infer_configs/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt1100.yaml | 2>&1 tee infer_logs/tatqa_qwen25_15b_qwen34b_lambda0.5_ckpt1100.log &
+# CUDA_VISIBLE_DEVICES=1 python run.py --input_file tatqa/test_modified.jsonl --output_file output/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt1100.jsonl --inference_config infer_configs/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt1100.yaml | 2>&1 tee infer_logs/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt1100.log &
+# wait
+
+CUDA_VISIBLE_DEVICES=0 python run.py --input_file tatqa/test_modified.jsonl --output_file output/qwen2.5_1.5b.sft_disable_completions_only_ckpt200.jsonl --inference_config infer_configs/qwen2.5_1.5b.sft_disable_completions_only_ckpt200.yaml | 2>&1 tee infer_logs/qwen2.5_1.5b.sft_disable_completions_only_ckpt200.log &
+wait

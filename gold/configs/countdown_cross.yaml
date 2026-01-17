@@ -5,10 +5,12 @@
 
 model:
   model_name: "meta-llama/Llama-3.2-1B-Instruct"
-  model_max_length: 4096
-  # must set to float32 for mixed precision training, else error will be raised 
+  model_max_length: 2048
+  # must set to float32 for mixed precision training, else error will be raised
   # see: https://docs.google.com/document/d/1AACWZv0X_iFDKkpmo6AJLKpBFltaYEGkVTtXtfk5xh0/edit?tab=t.wt3qnz8tbz2q
-  torch_dtype_str: "float32" 
+  # https://github.com/oumi-ai/oumi/blob/17f5773c4f6899bde5d553bfec133b56506e56af/src/oumi/core/configs/training_config.py#L138
+  torch_dtype_str: "float32"
+  # torch_dtype_str: "bfloat16"
   load_pretrained_weights: True
   trust_remote_code: True
   attn_implementation: "sdpa"
@@ -35,13 +37,13 @@ data:
 
 training:
   trainer_type: "TRL_GOLD"
-  output_dir: "output/gold_llama32_1b_qwen34b"
-  run_name: "gold_llama32_1b_qwen34b"
+  output_dir: "output/gold_llama32_1b_qwen34b_cross_v3"
+  run_name: "gold_llama32_1b_qwen34b_cross_v3"
 
   num_train_epochs: 1
-  per_device_train_batch_size: 2 # EBS: 32
-  per_device_eval_batch_size: 4
-  gradient_accumulation_steps: 2
+  per_device_train_batch_size: 1 # EBS: 32
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 8
   max_grad_norm: 1
   mixed_precision_dtype: BF16
 

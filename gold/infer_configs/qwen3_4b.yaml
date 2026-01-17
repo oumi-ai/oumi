@@ -4,7 +4,7 @@ model:
   torch_dtype_str: "bfloat16"
 
 generation:
-  max_new_tokens: 4096
-  batch_size: 4
-  temperature: 0.95
+  max_new_tokens: 2048
+  n: 1
+  temperature: 1
   skip_special_tokens: False

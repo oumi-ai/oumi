@@ -1,0 +1,8 @@
+{
+  "total": 1639,
+  "equal": 958,
+  "mismatch": 645,
+  "format_error": 36,
+  "judge_called": 1603,
+  "judge_errors": 2
+}

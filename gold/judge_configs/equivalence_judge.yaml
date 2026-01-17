@@ -1,0 +1,12 @@
+model:  # Model settings
+  model_name: "gpt-5-mini"
+
+generation:
+  max_new_tokens: 2048
+  temperature: 1.0
+
+remote_params:
+  num_workers: 150                         # Number of parallel workers
+  politeness_policy: 0.0                  # Sleep time between requests
+
+engine: "OPENAI"  # VLLM, LLAMACPP, NATIVE, REMOTE_VLLM, etc.

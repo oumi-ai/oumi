@@ -17,19 +17,15 @@ def main(args):
 
     processed_data = []
     for d in data[: args.num_samples if args.num_samples else len(data)]:
-        if args.chat_format:
-            output = Conversation(
-                messages=[
-                    Message(role=Role.SYSTEM, content=d["prompt"][0]["content"]),
-                    Message(role=Role.USER, content=d["prompt"][1]["content"]),
-                ]
-            )
-        else:
-            output = Conversation(
-                messages=[
-                    Message(role=Role.USER, content=d["content"]["request"]),
-                ]
-            )
+        output = Conversation(
+            messages=[
+                Message(
+                    role=Role(m["role"]),
+                    content=m["content"],
+                )
+                for m in d["messages"]
+            ]
+        )
         processed_data.append(output)
 
     config = InferenceConfig.from_yaml(str(args.inference_config))
@@ -56,7 +52,6 @@ if __name__ == "__main__":
     parser.add_argument("--output_file", type=str, required=True)
     parser.add_argument("--inference_config", type=str, required=True)
     parser.add_argument("--num_samples", type=int, default=None)
-    parser.add_argument("--chat_format", action="store_true")
     args = parser.parse_args()
     print(args)
     main(args)

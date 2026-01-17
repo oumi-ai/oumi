@@ -1,0 +1,82 @@
+model:
+  model_name: "Qwen/Qwen2.5-1.5B-Instruct"
+  model_max_length: 2048
+  load_pretrained_weights: True
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: text_sft_jsonl
+        dataset_path: /data/shanghong/oumi/gold/tatqa_data/train_final_max2048.jsonl
+    collator_name: "text_with_padding"
+    target_col: "messages"
+    seed: 42
+  # validation:
+  #   datasets:
+  #     - dataset_name: text_sft_jsonl
+  #       dataset_path: /home/shanghong/oumi/enterprise_experiments/data/1k_arxiv_val.jsonl
+  #   collator_name: "text_completions_only_with_padding"
+  #   collator_kwargs:
+  #     response_template: "<|im_start|>assistant\n"
+  #     instruction_template: "<|im_start|>system\n"
+  #   target_col: "messages"
+  #   seed: 42
+
+training:
+  # Basic settings
+  trainer_type: "TRL_SFT"
+  output_dir: "output/qwen2.5_1.5b.sft_disable_completions_only"
+  run_name: "qwen2.5_1.5b.sft_disable_completions_only"
+
+  # Training duration
+  num_train_epochs: 1
+
+  # Batch size settings
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 16
+  max_grad_norm: 1
+
+  # Mixed precision and performance
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  compile: False
+
+  # Optimization
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-05
+
+  # Learning rate schedule
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+
+  # Evaluation
+  # eval_strategy: "steps" # When to evaluate ("no", "steps", "epoch")
+  # eval_steps: 5 # Evaluate every N steps
+
+  # Checkpointing
+  save_steps: 50
+
+  # Dataloader settings
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  # Logging
+  logging_steps: 1
+  enable_wandb: True
+  enable_mlflow: True
+
+  # Performance monitoring
+  empty_device_cache_steps: 50
+  include_performance_metrics: True
+
+fsdp:
+  enable_fsdp: True
+  forward_prefetch: True
+  sharding_strategy: "HYBRID_SHARD"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Qwen2DecoderLayer"

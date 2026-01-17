@@ -1,0 +1,103 @@
+# Changes
+# reduce num_train_epochs to 1
+# reduce save_steps to 100
+# Based on discussion here: https://huggingface.co/datasets/HuggingFaceTB/Countdown-Task-GOLD/discussions/1
+
+model:
+  model_name: "Qwen/Qwen2.5-1.5B-Instruct"
+  model_max_length: 2048
+  # must set to float32 for mixed precision training, else error will be raised
+  # see: https://docs.google.com/document/d/1AACWZv0X_iFDKkpmo6AJLKpBFltaYEGkVTtXtfk5xh0/edit?tab=t.wt3qnz8tbz2q
+  torch_dtype_str: "float32"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: text_sft_jsonl
+        dataset_path: /data/shanghong/oumi/gold/tatqa/train_final_max2048.jsonl
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: "dict"
+    target_col: "messages"
+    seed: 42
+  # validation:
+  #   datasets:
+  #     - dataset_name: text_sft_jsonl
+  #       dataset_path: /data/shanghong/oumi/gold/data/val_10.jsonl
+  #       dataset_kwargs:
+  #         return_conversations: True
+  #         return_conversations_format: "dict"
+  #   target_col: "messages"
+  #   seed: 42
+
+training:
+  # Basic settings
+  trainer_type: "TRL_GOLD"
+  output_dir: "output/tatqa_qwen25_15b_qwen34b_lambda0"
+  run_name: "tatqa_qwen25_15b_qwen34b_lambda0"
+  # Training duration
+  num_train_epochs: 1
+  per_device_train_batch_size: 1 # EBS: 32
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 16
+  max_grad_norm: 1
+
+  # Mixed precision and performance
+  mixed_precision_dtype: BF16
+  enable_gradient_checkpointing: True
+
+  # Optimization
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-05
+
+  # Learning rate schedule
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+
+  # Evaluation
+  logging_first_step: True
+  # eval_strategy: "steps" # When to evaluate ("no", "steps", "epoch")
+  # eval_steps: 100 # Evaluate every N steps
+
+  # Checkpointing
+  save_steps: 100
+
+  # Logging
+  logging_steps: 1
+  log_level: "info"
+
+  enable_wandb: True
+  enable_tensorboard: False
+  log_model_summary: False
+
+  # GOLD parameters
+  gold:
+    teacher_model_name_or_path: "Qwen/Qwen3-4B-Instruct-2507"
+
+    teacher_model_init_kwargs:
+      dtype: "auto"
+      trust_remote_code: True
+      attn_implementation: "kernels-community/vllm-flash-attn3"
+      device_map: "auto"
+
+    # Generation parameters
+    temperature: 1.0
+    max_completion_length: 256
+
+    # Distillation parameters
+    lmbda: 0.0 # 50% on-policy, 50% off-policy
+    beta: 0 # Symmetric JSD
+    disable_dropout: True
+    seq_kd: False
+
+    use_uld_loss: True
+    uld_use_hybrid_loss: True
+
+    # vLLM colocate mode - runs vLLM in-process (no separate server)
+    use_vllm: True
+    vllm_mode: "colocate" # In-process mode
+    vllm_gpu_memory_utilization: 0.4 # Lower since teacher also needs memory
