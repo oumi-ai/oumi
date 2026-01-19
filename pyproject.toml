@@ -42,6 +42,8 @@ dependencies = [
     "aiofiles>=24.1.0,<26",       # Allows to use async file operations
     "aioresponses>=0.7,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
+    "boto3>=1.36,<1.37",          # Used for S3 access in Modal deployments
+    "modal>=1.3,<2.0",            # Used for Modal.com deployments
     "click<8.3.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2,<3.3",         # breaking change for 4.0
     "hdrhistogram>=0.10,<0.11",

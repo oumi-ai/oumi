@@ -108,8 +108,14 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             ),
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
         }
+
+        # Anthropic doesn't allow both temperature and top_p to be specified.
+        # Only include top_p if it's explicitly set to a non-default value (not 1.0).
+        if generation_params.top_p != 1.0:
+            body["top_p"] = generation_params.top_p
+            # Remove temperature when top_p is explicitly set
+            del body["temperature"]
 
         if system_message:
             body["system"] = system_message

@@ -1,0 +1,31 @@
+# Example deployment configuration for LoRA adapter
+# Usage: oumi deploy up --config configs/examples/deploy/lora_adapter_deploy.yaml
+
+# Model source - path to your LoRA adapter
+model_source: s3://my-bucket/adapters/my-lora-adapter/
+
+# Provider: "together" or "fireworks"
+provider: together
+
+# Display name for the adapter
+model_name: my-lora-adapter-v1
+
+# Model type must be "adapter" for LoRA adapters
+model_type: adapter
+
+# Base model is REQUIRED for adapters
+base_model: meta-llama/Llama-2-7b-hf
+
+# Hardware configuration
+hardware:
+  accelerator: nvidia_a100_80gb
+  count: 1
+
+# Autoscaling configuration
+autoscaling:
+  min_replicas: 1
+  max_replicas: 2
+
+# Optional: test prompts to run after deployment
+test_prompts:
+  - "Test the fine-tuned model with this prompt."
