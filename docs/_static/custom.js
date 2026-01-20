@@ -200,16 +200,27 @@
             '.sd-card, .admonition, table, dl.py, .cell'
         );
 
+        // Skip animation entirely if there's an anchor in the URL or too many elements
+        // This prevents blank content when navigating directly to an anchor
+        if (window.location.hash || animatableElements.length > 50) {
+            return;
+        }
+
         const observerOptions = {
             threshold: 0.1,
             rootMargin: '0px 0px -50px 0px'
         };
 
+        // Helper to reveal an element
+        function revealElement(el) {
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
+        }
+
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
+                    revealElement(entry.target);
                     observer.unobserve(entry.target);
                 }
             });
