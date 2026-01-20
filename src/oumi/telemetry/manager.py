@@ -236,6 +236,7 @@ class TelemetryManager:
                     props["exit_code"] = exit_code
                 if error_type:
                     props["error_type"] = error_type
+                    props["error_subcommand"] = event
                 self._capture(event, props)
 
     def _shutdown(self) -> None:

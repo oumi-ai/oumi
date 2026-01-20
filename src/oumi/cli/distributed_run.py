@@ -156,6 +156,31 @@ class _ProcessRunInfo:
 #
 # Comamnds
 #
+def _detect_backend() -> str:
+    """Detect the distributed backend from environment variables."""
+    if os.environ.get("SKYPILOT_NODE_RANK") is not None:
+        return "skypilot"
+    elif os.environ.get("PBS_NODEFILE") is not None:
+        return "polaris"
+    elif os.environ.get("SLURM_NODELIST") is not None:
+        return "slurm"
+    return "local"
+
+
+def _extract_target_command(args: list[str]) -> str | None:
+    """Extract the target oumi command from args.
+
+    For example, returns 'train' from '-m oumi train'.
+    Returns None if no target command is found.
+    """
+    for i, arg in enumerate(args):
+        if arg == "oumi" and i + 1 < len(args):
+            next_arg = args[i + 1]
+            if not next_arg.startswith("-"):
+                return next_arg
+    return None
+
+
 def torchrun(
     ctx: typer.Context,
     level: cli_utils.LOG_LEVEL_TYPE = None,
@@ -171,6 +196,16 @@ def torchrun(
     except (ValueError, RuntimeError):
         logger.exception("Failed to detect process run info!")
         raise
+
+    from oumi.telemetry import TelemetryManager
+
+    TelemetryManager.get_instance().tags(
+        num_nodes=run_info.num_nodes,
+        gpus_per_node=run_info.gpus_per_node,
+        total_gpus=run_info.total_gpus,
+        backend=_detect_backend(),
+        target_command=_extract_target_command(ctx.args),
+    )
 
     # In some environments (e.g., OLCF Frontier) the "torchrun" command isn't available.
     # In that case, use "python -m torch.distributed.run" instead,
@@ -227,6 +262,16 @@ def accelerate(
     except (ValueError, RuntimeError):
         logger.exception("Failed to detect process run info!")
         raise
+
+    from oumi.telemetry import TelemetryManager
+
+    TelemetryManager.get_instance().tags(
+        num_nodes=run_info.num_nodes,
+        gpus_per_node=run_info.gpus_per_node,
+        total_gpus=run_info.total_gpus,
+        backend=_detect_backend(),
+        target_command=_extract_target_command(ctx.args),
+    )
 
     try:
         accelerate_subcommand: str | None = None
