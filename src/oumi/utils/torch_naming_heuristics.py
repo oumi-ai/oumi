@@ -115,19 +115,7 @@ def _parse_transformer_layer_cls_string(class_names: str) -> list[str]:
 
 
 def _get_module_class_from_name(module: nn.Module, name: str) -> type[nn.Module] | None:
-    """Search for a class by name in the model's module tree.
-
-    This matches the behavior of accelerate's get_module_class_from_name function,
-    which searches through the model's children recursively to find a module
-    whose class name matches the given name.
-
-    Args:
-        module: The model to search through.
-        name: The class name to search for.
-
-    Returns:
-        The class if found, None otherwise.
-    """
+    """Recursively search for a class by name in the model's module tree."""
     if module.__class__.__name__ == name:
         return module.__class__
     for child in module.children():
@@ -149,31 +137,18 @@ def resolve_transformer_layer_cls_string_as_module_set(
 
     For fully-qualified names (like "transformers.models.llama.LlamaDecoderLayer"):
     - Uses the standard import approach
-
-    Args:
-        class_names: Comma-separated list of class names.
-        model: Optional model to search for classes. When provided, simple class
-            names are resolved by searching the model tree (matching accelerate's
-            behavior). This is the recommended approach for FSDP wrapping.
-
-    Returns:
-        Set of module classes.
     """
     result: set[type[nn.Module]] = set()
     for class_name in _parse_transformer_layer_cls_string(class_names):
         parts = class_name.rsplit(".", maxsplit=1)
 
         if len(parts) == 1:
-            # Simple class name (no module prefix)
-            # First try to find it in the model tree (like accelerate does)
             if model is not None:
                 transformer_cls = _get_module_class_from_name(model, class_name)
                 if transformer_cls is not None:
                     result.add(transformer_cls)
                     continue
 
-            # Fall back to importing from transformers module
-            # (backward compatibility for cases where model is not provided)
             try:
                 module = importlib.import_module("transformers")
                 transformer_cls = getattr(module, class_name)
@@ -186,7 +161,6 @@ def resolve_transformer_layer_cls_string_as_module_set(
                     f"'transformers.models.X.modeling_X.{class_name}'."
                 )
         else:
-            # Fully-qualified name (e.g., transformers.models.llama.LlamaDecoderLayer)
             module_name, cls_name = parts
             module = importlib.import_module(module_name)
             transformer_cls = getattr(module, cls_name)

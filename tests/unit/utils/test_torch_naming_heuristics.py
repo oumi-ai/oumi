@@ -200,26 +200,19 @@ def test_resolve_transformer_layer_cls_string_as_module_set():
     )
 
 
-# Custom module classes for testing _get_module_class_from_name
 class CustomDecoderLayer(nn.Module):
-    """A custom decoder layer for testing."""
-
     def __init__(self):
         super().__init__()
         self.linear = nn.Linear(10, 10)
 
 
 class CustomEncoderLayer(nn.Module):
-    """A custom encoder layer for testing."""
-
     def __init__(self):
         super().__init__()
         self.linear = nn.Linear(10, 10)
 
 
 class NestedModel(nn.Module):
-    """A model with nested custom layers for testing."""
-
     def __init__(self):
         super().__init__()
         self.encoder = CustomEncoderLayer()
@@ -228,8 +221,6 @@ class NestedModel(nn.Module):
 
 
 class DeeplyNestedModel(nn.Module):
-    """A model with deeply nested layers for testing."""
-
     def __init__(self):
         super().__init__()
         self.layer1 = nn.Sequential(
@@ -240,14 +231,12 @@ class DeeplyNestedModel(nn.Module):
 
 
 def test_get_module_class_from_name_at_root():
-    """Test finding a class when the root module matches."""
     layer = CustomDecoderLayer()
     result = _get_module_class_from_name(layer, "CustomDecoderLayer")
     assert result is CustomDecoderLayer
 
 
 def test_get_module_class_from_name_in_children():
-    """Test finding a class in direct children."""
     model = NestedModel()
     result = _get_module_class_from_name(model, "CustomDecoderLayer")
     assert result is CustomDecoderLayer
@@ -257,35 +246,30 @@ def test_get_module_class_from_name_in_children():
 
 
 def test_get_module_class_from_name_deeply_nested():
-    """Test finding a class in deeply nested structure."""
     model = DeeplyNestedModel()
     result = _get_module_class_from_name(model, "CustomDecoderLayer")
     assert result is CustomDecoderLayer
 
 
 def test_get_module_class_from_name_not_found():
-    """Test that None is returned when class is not found."""
     model = NestedModel()
     result = _get_module_class_from_name(model, "NonExistentClass")
     assert result is None
 
 
 def test_get_module_class_from_name_builtin_module():
-    """Test finding built-in PyTorch module classes."""
     model = NestedModel()
     result = _get_module_class_from_name(model, "Linear")
     assert result is nn.Linear
 
 
 def test_get_module_class_from_name_empty_model():
-    """Test with an empty model that has no children."""
     empty_model = nn.Module()
     result = _get_module_class_from_name(empty_model, "SomeClass")
     assert result is None
 
 
 def test_resolve_transformer_layer_cls_from_model_tree():
-    """Test resolving class names from the model tree."""
     model = NestedModel()
     result = resolve_transformer_layer_cls_string_as_module_set(
         "CustomDecoderLayer", model=model
@@ -294,7 +278,6 @@ def test_resolve_transformer_layer_cls_from_model_tree():
 
 
 def test_resolve_transformer_layer_cls_multiple_from_model_tree():
-    """Test resolving multiple class names from the model tree."""
     model = NestedModel()
     result = resolve_transformer_layer_cls_string_as_module_set(
         "CustomDecoderLayer,CustomEncoderLayer", model=model
@@ -303,9 +286,7 @@ def test_resolve_transformer_layer_cls_multiple_from_model_tree():
 
 
 def test_resolve_transformer_layer_cls_fully_qualified_when_not_in_model():
-    """Test that fully-qualified names work when class is not in model tree."""
     model = NestedModel()
-    # GPT2Block is not in our custom model, so use fully-qualified name
     result = resolve_transformer_layer_cls_string_as_module_set(
         "transformers.models.gpt2.modeling_gpt2.GPT2Block", model=model
     )
@@ -315,7 +296,6 @@ def test_resolve_transformer_layer_cls_fully_qualified_when_not_in_model():
 
 
 def test_resolve_transformer_layer_cls_fully_qualified_with_model():
-    """Test that fully-qualified names still work when model is provided."""
     model = NestedModel()
     result = resolve_transformer_layer_cls_string_as_module_set(
         "transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer",
@@ -325,7 +305,6 @@ def test_resolve_transformer_layer_cls_fully_qualified_with_model():
 
 
 def test_resolve_transformer_layer_cls_mixed_simple_and_qualified():
-    """Test mixing simple names (from model) and fully-qualified names."""
     model = NestedModel()
     result = resolve_transformer_layer_cls_string_as_module_set(
         "CustomDecoderLayer,"
@@ -336,7 +315,6 @@ def test_resolve_transformer_layer_cls_mixed_simple_and_qualified():
 
 
 def test_resolve_transformer_layer_cls_error_when_not_found():
-    """Test error is raised when class cannot be found anywhere."""
     model = NestedModel()
     with pytest.raises(ValueError, match="Could not find transformer layer class"):
         resolve_transformer_layer_cls_string_as_module_set(
@@ -345,7 +323,6 @@ def test_resolve_transformer_layer_cls_error_when_not_found():
 
 
 def test_resolve_transformer_layer_cls_error_includes_class_name():
-    """Test that error message includes the missing class name."""
     model = NestedModel()
     with pytest.raises(ValueError, match="NonExistentLayerClass"):
         resolve_transformer_layer_cls_string_as_module_set(
@@ -354,7 +331,6 @@ def test_resolve_transformer_layer_cls_error_includes_class_name():
 
 
 def test_resolve_transformer_layer_cls_fully_qualified_without_model():
-    """Test that fully-qualified names work without model parameter."""
     result = resolve_transformer_layer_cls_string_as_module_set(
         "transformers.models.gpt2.modeling_gpt2.GPT2Block"
     )
@@ -364,15 +340,11 @@ def test_resolve_transformer_layer_cls_fully_qualified_without_model():
 
 
 def test_resolve_transformer_layer_cls_simple_name_without_model_raises():
-    """Test that simple names without model raise a helpful error."""
-    # Simple names without model should raise an error since
-    # transformers doesn't export most classes at the top level
     with pytest.raises(ValueError, match="Could not find transformer layer class"):
         resolve_transformer_layer_cls_string_as_module_set("GPT2Block")
 
 
 def test_resolve_transformer_layer_cls_empty_string_with_model():
-    """Test that empty string returns empty set even with model."""
     model = NestedModel()
     result = resolve_transformer_layer_cls_string_as_module_set("", model=model)
     assert result == set()
