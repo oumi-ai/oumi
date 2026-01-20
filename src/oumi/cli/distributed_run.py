@@ -168,7 +168,11 @@ def _detect_backend() -> str:
 
 
 def _extract_target_command(args: list[str]) -> str | None:
-    """Extract the target oumi command from args (e.g., 'train' from '-m oumi train')."""
+    """Extract the target oumi command from args.
+
+    For example, returns 'train' from '-m oumi train'.
+    Returns None if no target command is found.
+    """
     for i, arg in enumerate(args):
         if arg == "oumi" and i + 1 < len(args):
             next_arg = args[i + 1]
