@@ -554,3 +554,67 @@ def test_extract_target_command_empty():
 def test_extract_target_command_flag_after_oumi():
     args = ["-m", "oumi", "--help"]
     assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_multiple_oumi_returns_first():
+    """When 'oumi' appears multiple times, returns the command after first occurrence."""
+    args = ["-m", "oumi", "train", "oumi", "evaluate"]
+    assert _extract_target_command(args) == "train"
+
+
+def test_extract_target_command_oumi_as_value():
+    """'oumi' appearing as a value rather than module name should still be detected."""
+    # If oumi appears as an argument value (not after -m), it will still match
+    args = ["--config", "oumi", "train"]
+    assert _extract_target_command(args) == "train"
+
+
+def test_extract_target_command_only_flags():
+    """Args with only flags should return None."""
+    args = ["--verbose", "-d", "--config=test.yaml"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_oumi_with_short_flag_after():
+    """Short flag after oumi should return None."""
+    args = ["-m", "oumi", "-h"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_oumi_with_long_flag_after():
+    """Long flag after oumi should return None."""
+    args = ["-m", "oumi", "--version"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_oumi_followed_by_equals_arg():
+    """Flag with equals sign after oumi should return None."""
+    args = ["-m", "oumi", "--config=test.yaml"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_subcommand_with_dash():
+    """Subcommand starting with dash is treated as a flag."""
+    args = ["-m", "oumi", "-train"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_nested_subcommand():
+    """Extract only the first subcommand, not nested ones."""
+    args = ["-m", "oumi", "distributed", "torchrun", "train"]
+    assert _extract_target_command(args) == "distributed"
+
+
+def test_extract_target_command_whitespace_in_args():
+    """Args with whitespace should be handled correctly."""
+    args = ["-m", "oumi", "train", "--config", "path with spaces/config.yaml"]
+    assert _extract_target_command(args) == "train"
+
+
+def test_extract_target_command_special_characters():
+    """Subcommand with special characters should be returned."""
+    args = ["-m", "oumi", "train_v2"]
+    assert _extract_target_command(args) == "train_v2"
+
+    args = ["-m", "oumi", "train.run"]
+    assert _extract_target_command(args) == "train.run"
