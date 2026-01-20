@@ -182,7 +182,8 @@ def resolve_transformer_layer_cls_string_as_module_set(
                 raise ValueError(
                     f"Could not find transformer layer class '{class_name}'. "
                     f"Either pass the model to search its module tree, or use a "
-                    f"fully-qualified name like 'transformers.models.X.modeling_X.{class_name}'."
+                    f"fully-qualified name like "
+                    f"'transformers.models.X.modeling_X.{class_name}'."
                 )
         else:
             # Fully-qualified name (e.g., transformers.models.llama.LlamaDecoderLayer)
