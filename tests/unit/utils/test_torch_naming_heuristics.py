@@ -15,6 +15,7 @@ from transformers.models.mllama.modeling_mllama import (
 )
 
 from oumi.utils.torch_naming_heuristics import (
+    _get_module_class_from_name,
     disable_dropout,
     group_trainable_params,
     guess_transformer_layer_cls,
@@ -197,3 +198,153 @@ def test_resolve_transformer_layer_cls_string_as_module_set():
             MllamaVisionEncoderLayer,
         }
     )
+
+
+class CustomDecoderLayer(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = nn.Linear(10, 10)
+
+
+class CustomEncoderLayer(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = nn.Linear(10, 10)
+
+
+class NestedModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.encoder = CustomEncoderLayer()
+        self.decoder = CustomDecoderLayer()
+        self.output = nn.Linear(10, 5)
+
+
+class DeeplyNestedModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.layer1 = nn.Sequential(
+            nn.Linear(10, 10),
+            CustomDecoderLayer(),
+        )
+        self.layer2 = nn.Linear(10, 5)
+
+
+def test_get_module_class_from_name_at_root():
+    layer = CustomDecoderLayer()
+    result = _get_module_class_from_name(layer, "CustomDecoderLayer")
+    assert result is CustomDecoderLayer
+
+
+def test_get_module_class_from_name_in_children():
+    model = NestedModel()
+    result = _get_module_class_from_name(model, "CustomDecoderLayer")
+    assert result is CustomDecoderLayer
+
+    result = _get_module_class_from_name(model, "CustomEncoderLayer")
+    assert result is CustomEncoderLayer
+
+
+def test_get_module_class_from_name_deeply_nested():
+    model = DeeplyNestedModel()
+    result = _get_module_class_from_name(model, "CustomDecoderLayer")
+    assert result is CustomDecoderLayer
+
+
+def test_get_module_class_from_name_not_found():
+    model = NestedModel()
+    result = _get_module_class_from_name(model, "NonExistentClass")
+    assert result is None
+
+
+def test_get_module_class_from_name_builtin_module():
+    model = NestedModel()
+    result = _get_module_class_from_name(model, "Linear")
+    assert result is nn.Linear
+
+
+def test_get_module_class_from_name_empty_model():
+    empty_model = nn.Module()
+    result = _get_module_class_from_name(empty_model, "SomeClass")
+    assert result is None
+
+
+def test_resolve_transformer_layer_cls_from_model_tree():
+    model = NestedModel()
+    result = resolve_transformer_layer_cls_string_as_module_set(
+        "CustomDecoderLayer", model=model
+    )
+    assert result == {CustomDecoderLayer}
+
+
+def test_resolve_transformer_layer_cls_multiple_from_model_tree():
+    model = NestedModel()
+    result = resolve_transformer_layer_cls_string_as_module_set(
+        "CustomDecoderLayer,CustomEncoderLayer", model=model
+    )
+    assert result == {CustomDecoderLayer, CustomEncoderLayer}
+
+
+def test_resolve_transformer_layer_cls_fully_qualified_when_not_in_model():
+    model = NestedModel()
+    result = resolve_transformer_layer_cls_string_as_module_set(
+        "transformers.models.gpt2.modeling_gpt2.GPT2Block", model=model
+    )
+    from transformers.models.gpt2.modeling_gpt2 import GPT2Block
+
+    assert result == {GPT2Block}
+
+
+def test_resolve_transformer_layer_cls_fully_qualified_with_model():
+    model = NestedModel()
+    result = resolve_transformer_layer_cls_string_as_module_set(
+        "transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer",
+        model=model,
+    )
+    assert result == {MllamaCrossAttentionDecoderLayer}
+
+
+def test_resolve_transformer_layer_cls_mixed_simple_and_qualified():
+    model = NestedModel()
+    result = resolve_transformer_layer_cls_string_as_module_set(
+        "CustomDecoderLayer,"
+        "transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer",
+        model=model,
+    )
+    assert result == {CustomDecoderLayer, MllamaCrossAttentionDecoderLayer}
+
+
+def test_resolve_transformer_layer_cls_error_when_not_found():
+    model = NestedModel()
+    with pytest.raises(ValueError, match="Could not find transformer layer class"):
+        resolve_transformer_layer_cls_string_as_module_set(
+            "NonExistentLayerClass", model=model
+        )
+
+
+def test_resolve_transformer_layer_cls_error_includes_class_name():
+    model = NestedModel()
+    with pytest.raises(ValueError, match="NonExistentLayerClass"):
+        resolve_transformer_layer_cls_string_as_module_set(
+            "NonExistentLayerClass", model=model
+        )
+
+
+def test_resolve_transformer_layer_cls_fully_qualified_without_model():
+    result = resolve_transformer_layer_cls_string_as_module_set(
+        "transformers.models.gpt2.modeling_gpt2.GPT2Block"
+    )
+    from transformers.models.gpt2.modeling_gpt2 import GPT2Block
+
+    assert result == {GPT2Block}
+
+
+def test_resolve_transformer_layer_cls_simple_name_without_model_raises():
+    with pytest.raises(ValueError, match="Could not find transformer layer class"):
+        resolve_transformer_layer_cls_string_as_module_set("GPT2Block")
+
+
+def test_resolve_transformer_layer_cls_empty_string_with_model():
+    model = NestedModel()
+    result = resolve_transformer_layer_cls_string_as_module_set("", model=model)
+    assert result == set()
