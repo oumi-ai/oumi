@@ -7,7 +7,7 @@
         initTableOfContentsHighlight();
         initSearchEnhancements();
         initKeyboardNavigation();
-        initAnimations();
+        // initAnimations(); // Disabled - no scroll fade-in effects
     });
 
     function initSmoothScrolling() {

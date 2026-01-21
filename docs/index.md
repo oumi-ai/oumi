@@ -1,19 +1,24 @@
-<div align="center">
-<img src="_static/logo/oumi_logo_dark.png" alt="Oumi Logo" width="150"/>
-<h1> Oumi: Open Universal Machine Intelligence </h1>
+<div class="oumi-hero-stats">
+  <h1 class="oumi-hero-title">Open Universal Machine Intelligence</h1>
+  <p class="oumi-hero-tagline">Everything you need to build state-of-the-art foundation models, end-to-end.</p>
+  <div class="oumi-stats-bar">
+    <a href="resources/recipes.html" class="oumi-stat">
+      <span class="oumi-stat-value">200+</span>
+      <span class="oumi-stat-label">Recipes</span>
+    </a>
+    <span class="oumi-stat-divider"></span>
+    <a href="resources/models/models.html" class="oumi-stat">
+      <span class="oumi-stat-value">100+</span>
+      <span class="oumi-stat-label">Models</span>
+    </a>
+    <span class="oumi-stat-divider"></span>
+    <a href="https://github.com/oumi-ai/oumi" class="oumi-stat">
+      <span class="oumi-stat-value">8.8k</span>
+      <span class="oumi-stat-label">GitHub Stars</span>
+    </a>
+  </div>
+  <a href="get_started/quickstart.html" class="oumi-hero-cta">Get Started →</a>
 </div>
-
-[![Github](https://img.shields.io/badge/Github-oumi-blue.svg)](https://github.com/oumi-ai/oumi)
-[![Blog](https://img.shields.io/badge/Blog-oumi-blue.svg)](https://oumi.ai/blog)
-[![Discord](https://img.shields.io/discord/1286348126797430814?label=Discord)](https://discord.gg/oumi)
-[![PyPI version](https://badge.fury.io/py/oumi.svg)](https://badge.fury.io/py/oumi)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![GitHub Repo stars](https://img.shields.io/github/stars/oumi-ai/oumi)](https://github.com/oumi-ai/oumi)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
-[![About](https://img.shields.io/badge/About-oumi-blue.svg)](https://oumi.ai)
-
-<h4> Everything you need to build state-of-the-art foundation models, end-to-end. </h4>
 
 ## What is Oumi?
 
@@ -111,13 +116,31 @@ about/license
 about/citations
 ```
 
-```{admonition} New to Oumi? Start here
-:class: tip
+::::{grid} 1 1 3 3
+:gutter: 3
 
-1. **{doc}`Quickstart <get_started/quickstart>`** - Install and run your first training job (5 minutes)
-2. **{doc}`Core Concepts <get_started/core_concepts>`** - Understand configs, models, and workflows
-3. **{doc}`Training Guide <user_guides/train/train>`** - Deep dive into training options
-```
+:::{grid-item-card} 🚀 Quickstart
+:link: get_started/quickstart
+:link-type: doc
+
+Install and run your first training job in **5 minutes**
+:::
+
+:::{grid-item-card} 📚 Core Concepts
+:link: get_started/core_concepts
+:link-type: doc
+
+Understand configs, models, and workflows
+:::
+
+:::{grid-item-card} 🎯 Training Guide
+:link: user_guides/train/train
+:link-type: doc
+
+Deep dive into training options
+:::
+
+::::
 
 ## Quick Start
 
@@ -165,7 +188,7 @@ A complete map of the documentation to help you find what you need:
 
 Explore Oumi's core capabilities:
 
-::::{grid} 2
+::::{grid} 1 3 3 3
 :gutter: 3
 
 :::{grid-item-card} Training
