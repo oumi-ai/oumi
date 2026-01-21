@@ -449,6 +449,101 @@ class GeneratedAttribute:
                 )
 
 
+@dataclass
+class MultiTurnPersona:
+    """Persona for a multi-turn interaction."""
+
+    id: str
+    """Unique identifier for the persona."""
+
+    role: Role
+    """Role of the persona."""
+
+    description: str
+    """Description of the persona."""
+
+    system_prompt: str
+    """System message to define the persona."""
+
+
+@dataclass
+class MultiTurnAttribute:
+    """Attributes that enable multi-turn interactions."""
+
+    id: str
+    """Unique identifier for the attribute."""
+
+    min_turns: int
+    """Minimum number of turns (messages) required for the attribute."""
+
+    turn_order: list[Role]
+    """The order in which turns should be taken (repeats as a cycle)."""
+
+    max_turns: int | None = None
+    """Maximum number of turns (messages) allowed for the attribute."""
+
+    user_persona: MultiTurnPersona | None = None
+    """Persona for the user/customer. Defines how user messages are generated."""
+
+    assistant_persona: MultiTurnPersona | None = None
+    """Persona for the assistant/agent. Defines how assistant messages are generated."""
+
+    system_messages: list[TextMessage] | None = None
+    """System messages prepended to each turn generation."""
+
+    turn_instructions: dict[Role, TextMessage] | None = None
+    """Per-role instruction template for generating a turn."""
+
+    def __post_init__(self):
+        """Verifies/populates params."""
+        if not self.id:
+            raise ValueError("MultiTurnAttribute.id cannot be empty.")
+        if not self.turn_order:
+            raise ValueError("MultiTurnAttribute.turn_order cannot be empty.")
+        if any(not isinstance(role, Role) for role in self.turn_order):
+            raise ValueError("MultiTurnAttribute.turn_order must use Role values.")
+        if self.min_turns < 1:
+            raise ValueError("MultiTurnAttribute.min_turns must be at least 1.")
+        if self.max_turns is not None and self.max_turns < self.min_turns:
+            raise ValueError(
+                "MultiTurnAttribute.max_turns must be greater than min_turns."
+            )
+        if self.user_persona is not None and self.user_persona.role != Role.USER:
+            raise ValueError("MultiTurnAttribute.user_persona.role must be USER.")
+        if (
+            self.assistant_persona is not None
+            and self.assistant_persona.role != Role.ASSISTANT
+        ):
+            raise ValueError(
+                "MultiTurnAttribute.assistant_persona.role must be ASSISTANT."
+            )
+        if self.system_messages:
+            for message in self.system_messages:
+                if not isinstance(message.content, str) or not message.content:
+                    raise ValueError(
+                        "MultiTurnAttribute.system_messages must be non-empty strings."
+                    )
+        if not self.turn_instructions:
+            raise ValueError("MultiTurnAttribute.turn_instructions cannot be empty.")
+        if any(not isinstance(role, Role) for role in self.turn_instructions):
+            raise ValueError(
+                "MultiTurnAttribute.turn_instructions keys must be Role values."
+            )
+        for instruction in self.turn_instructions.values():
+            if not isinstance(instruction.content, str) or not instruction.content:
+                raise ValueError(
+                    "MultiTurnAttribute.turn_instructions must be non-empty strings."
+                )
+        invalid_roles = [
+            role for role in self.turn_order if role not in self.turn_instructions
+        ]
+        if invalid_roles:
+            raise ValueError(
+                "MultiTurnAttribute.turn_instructions must define a template for "
+                "every role in turn_order."
+            )
+
+
 class TransformationType(str, Enum):
     """Types of transformation strategies."""
 
@@ -638,6 +733,42 @@ class GeneralSynthesisParams(BaseParams):
 
     The model's response to these messages will be the value of the "name" attribute
     for that data point."""
+
+    multiturn_attributes: list[str] | None = None
+    """Multi-turn conversations to be generated.
+
+    Unlike generated_attributes which produce scalar values and process all samples
+    per attribute (batch-first), multiturn_attributes generate variable-length
+    conversations and process each sample completely before moving to the next
+    (sample-first). This enables natural conversation flow with proper context
+    threading.
+
+    Multi-turn attributes can reference any previously defined attributes
+    (sampled, generated, or from input sources) using {placeholder} syntax
+    in their persona prompts.
+
+    For example, if you have a sampled attribute "customer_type" and a generated
+    attribute "issue", you can define a multiturn_attribute with personas
+    that reference them::
+
+        user_persona:
+            role: USER
+            system_prompt: "You are a {customer_type} customer. Your issue: {issue}."
+
+        assistant_persona:
+            role: ASSISTANT
+            system_prompt: "You are a helpful support agent."
+
+    The conversation length is controlled by min_turns and max_turns. The output
+    is a list of message dictionaries:
+        [
+            {"role": "user", "content": "I need help with my order."},
+            {"role": "assistant",
+            "content": "I'd be happy to help. What's your order number?"},
+            {"role": "user", "content": "It's 12345."},
+            {"role": "assistant", "content": "I found it. How can I assist you?"}
+        ]
+    """
 
     transformed_attributes: list[TransformedAttribute] | None = None
     """Transformation of existing attributes.

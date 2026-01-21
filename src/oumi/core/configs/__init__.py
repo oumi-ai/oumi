@@ -130,6 +130,7 @@ from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
     GeneratedAttributePostprocessingParams,
+    MultiTurnAttribute,
     SampledAttribute,
     SampledAttributeValue,
     SegmentationStrategy,
@@ -224,4 +225,5 @@ __all__ = [
     "TransformationStrategy",
     "TransformationType",
     "TransformedAttribute",
+    "MultiTurnAttribute",
 ]
