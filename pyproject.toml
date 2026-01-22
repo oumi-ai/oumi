@@ -45,6 +45,7 @@ dependencies = [
     "backoff>=2.2.1,<2.3",
     "click<8.4.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2,<5",
+    "greenlet",                   # Required by skypilot 0.11+ (sqlalchemy asyncio)
     "hdrhistogram>=0.10,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4,<0.5.0",
