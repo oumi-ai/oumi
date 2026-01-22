@@ -1544,15 +1544,15 @@ pre:focus-within {
     .oumi-hero-stats {
         padding: var(--space-8) 0 var(--space-10);
     }
-    
+
     .oumi-stats-bar {
         gap: var(--space-4);
     }
-    
+
     .oumi-stat-divider {
         display: none;
     }
-    
+
     .oumi-stat {
         min-width: 100px;
     }
