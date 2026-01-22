@@ -506,6 +506,12 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     "safety": {
         AliasType.JUDGE: "oumi://configs/projects/judges/generic/safety.yaml",
     },
+    "regex-match-phone": {
+        AliasType.JUDGE: "oumi://configs/projects/judges/examples/regex_match_phone.yaml",
+    },
+    "regex-no-error-keywords": {
+        AliasType.JUDGE: "oumi://configs/projects/judges/examples/regex_no_error_keywords.yaml",
+    },
 }
 
 
