@@ -15,8 +15,6 @@
 #   - Other judge configs: configs/projects/judges/**/*.yaml
 
 judge_params:
-  # Prompt template is required but not used for rule-based judges
-  # The placeholders define the expected input fields
   prompt_template: "{response}"
 
 rule_judge_params:
