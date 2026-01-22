@@ -1,0 +1,21 @@
+# Example configuration for a rule-based judge that validates JSON with required keys
+# This judge checks if the response is valid JSON containing specific keys
+
+judge_params:
+  prompt_template: "{response}"
+
+rule_judge_params:
+  rule_type: "json"
+
+  input_fields:
+    - "response"
+
+  rule_config:
+    input_field: "response"
+    # JSON must contain these keys to pass
+    required_keys:
+      - "name"
+      - "value"
+
+  response_format: XML
+  judgment_type: BOOL

@@ -1,0 +1,17 @@
+# Example configuration for a rule-based judge that validates JSON output
+# This judge checks if the response is valid JSON
+
+judge_params:
+  prompt_template: "{response}"
+
+rule_judge_params:
+  rule_type: "json"
+
+  input_fields:
+    - "response"
+
+  rule_config:
+    input_field: "response"
+
+  response_format: XML
+  judgment_type: BOOL
