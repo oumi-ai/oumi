@@ -1,0 +1,24 @@
+# Example configuration for a rule-based judge that checks for absence of error patterns
+# This judge passes when the response does NOT contain error/failure keywords
+
+judge_params:
+  prompt_template: "{response}"
+
+rule_judge_params:
+  rule_type: "regex"
+
+  input_fields:
+    - "response"
+
+  rule_config:
+    # Pattern matching error/failure keywords (case-insensitive)
+    pattern: "error|fail|exception|traceback"
+    input_field: "response"
+    match_mode: "search"
+    # Inverse=true means: PASS when pattern is NOT found
+    inverse: true
+    # Case-insensitive matching (re.IGNORECASE = 2)
+    flags: 2
+
+  response_format: XML
+  judgment_type: BOOL

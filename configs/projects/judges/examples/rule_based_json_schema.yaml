@@ -1,0 +1,30 @@
+# Example configuration for a rule-based judge that validates JSON against a schema
+# This judge checks if the response is valid JSON matching the specified schema
+
+judge_params:
+  prompt_template: "{response}"
+
+rule_judge_params:
+  rule_type: "json"
+
+  input_fields:
+    - "response"
+
+  rule_config:
+    input_field: "response"
+    # JSON Schema to validate against
+    schema:
+      type: "object"
+      required:
+        - "name"
+        - "age"
+      properties:
+        name:
+          type: "string"
+        age:
+          type: "integer"
+        email:
+          type: "string"
+
+  response_format: XML
+  judgment_type: BOOL

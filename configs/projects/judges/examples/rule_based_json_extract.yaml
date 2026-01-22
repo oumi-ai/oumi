@@ -1,0 +1,23 @@
+# Example configuration for a rule-based judge that extracts and validates JSON
+# This judge extracts JSON from text that may have prefix/suffix like:
+# "Here is the generated JSON: {...}" or "```json\n{...}\n```"
+
+judge_params:
+  prompt_template: "{response}"
+
+rule_judge_params:
+  rule_type: "json"
+
+  input_fields:
+    - "response"
+
+  rule_config:
+    input_field: "response"
+    # Enable extraction of JSON from surrounding text
+    extract_json: true
+    # Optionally require specific keys
+    required_keys:
+      - "result"
+
+  response_format: XML
+  judgment_type: BOOL
