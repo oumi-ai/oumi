@@ -24,12 +24,14 @@ from oumi.judges.base_judge import (
     JudgeOutputField,
 )
 from oumi.judges.rule_based_judge import RuleBasedJudge
+from oumi.judges.rules import JsonRule
 from oumi.judges.simple_judge import SimpleJudge
 
 __all__ = [
     "BaseJudge",
-    "SimpleJudge",
-    "JudgeOutputField",
+    "JsonRule",
     "JudgeOutput",
+    "JudgeOutputField",
     "RuleBasedJudge",
+    "SimpleJudge",
 ]

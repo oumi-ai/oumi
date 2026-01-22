@@ -15,6 +15,7 @@
 """Rules module for deterministic judge evaluations."""
 
 from oumi.judges.rules.base_rule import BaseRule
+from oumi.judges.rules.json_rule import JsonRule
 from oumi.judges.rules.regex import RegexRule
 
-__all__ = ["BaseRule", "RegexRule"]
+__all__ = ["BaseRule", "JsonRule", "RegexRule"]
