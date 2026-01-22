@@ -1,12 +1,12 @@
-# Preset training configuration for Qwen3-4B-Instruct-2507 (FFT).
-# Some param values are referenced from: https://github.com/pytorch/torchtune/blob/main/recipes/configs/qwen3/4B_full.yaml
+# Preset training configuration for Qwen3-8B (FFT).
+# Based on Qwen3-4B config with adjustments for larger model.
 
 model:
-  model_name: "Qwen/Qwen3-4B-Instruct-2507"
+  model_name: "Qwen/Qwen3-8B"
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  trust_remote_code: true
-  model_max_length: 32768
+  trust_remote_code: false
+  model_max_length: 16384
 
 data:
   train:
@@ -14,7 +14,7 @@ data:
     collator_kwargs:
       response_template: "<|im_start|>assistant\n"
       instruction_template: "<|im_start|>user\n"
-    seed: 666
+    seed: 42
     datasets:
       - dataset_name: "text_sft"
         dataset_path: "REQUIRED_VIA_SCRIPT"  # Overridden by --data.train.datasets.0.dataset_path
@@ -27,7 +27,7 @@ data:
     collator_kwargs:
       response_template: "<|im_start|>assistant\n"
       instruction_template: "<|im_start|>user\n"
-    seed: 666
+    seed: 42
     datasets:
       - dataset_name: "text_sft"
         dataset_path: "REQUIRED_VIA_SCRIPT"  # Overridden by --data.validation.datasets.0.dataset_path
@@ -39,12 +39,15 @@ training:
   trainer_type: "TRL_SFT"
   output_dir: "REQUIRED_VIA_SCRIPT"  # Overridden by --training.output_dir
   run_name: "REQUIRED_VIA_SCRIPT"  # Overridden by --training.run_name
+  save_final_model: true
   save_steps: 0
+  save_epoch: false
   max_steps: -1
-  num_train_epochs: 2
-  # Effective batch size on 8-gpu node: 2 * 2 * 8 = 32
-  per_device_train_batch_size: 2
-  gradient_accumulation_steps: 2
+  num_train_epochs: 3
+  # Effective batch size on 8-gpu node: 1 * 8 * 8 = 64
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 8
   max_grad_norm: 1.0
 
   enable_gradient_checkpointing: true
@@ -52,13 +55,14 @@ training:
     use_reentrant: false
   ddp_find_unused_parameters: false
   optimizer: "adamw_torch_fused"
-  learning_rate: 4.0e-05
+  learning_rate: 2.0e-05
   lr_scheduler_type: "cosine"
-  warmup_ratio: 0.05
+  warmup_ratio: 0.1
+  weight_decay: 0.01
   compile: false
 
   dataloader_num_workers: "auto"
-  dataloader_prefetch_factor: 32
+  dataloader_prefetch_factor: 8
 
   logging_steps: 5
   eval_strategy: "steps"
