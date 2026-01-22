@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union, cast
+from pathlib import Path
+from typing import cast
 
 import torch
 import torch.nn as nn
@@ -26,6 +27,7 @@ from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
     find_model_hf_config,
     get_all_models_map,
+    get_custom_model_type_from_path,
     is_custom_model,
 )
 from oumi.core.distributed import get_device_rank_info
@@ -52,7 +54,7 @@ except ImportError:
 
 def build_model(
     model_params: ModelParams,
-    peft_params: Optional[PeftParams] = None,
+    peft_params: PeftParams | None = None,
     **kwargs,
 ) -> nn.Module:
     """Builds and returns a model based on the provided Oumi configuration.
@@ -69,13 +71,13 @@ def build_model(
         model = build_oumi_model(
             model_params=model_params,
             peft_params=peft_params,
-            *kwargs,
+            **kwargs,
         )
     else:
         model = build_huggingface_model(
             model_params=model_params,
             peft_params=peft_params,
-            *kwargs,
+            **kwargs,
         )
 
     if model_params.enable_liger_kernel:
@@ -110,7 +112,7 @@ def build_model(
     return model
 
 
-def _get_model_type(model: nn.Module) -> Optional[str]:
+def _get_model_type(model: nn.Module) -> str | None:
     return getattr(model, "config", None) and getattr(model.config, "model_type", None)
 
 
@@ -136,21 +138,58 @@ def _patch_model_for_liger_kernel(model: nn.Module) -> None:
     liger_kernel.transformers._apply_liger_kernel(model_type)
 
 
+def _resolve_custom_model_type(pretrained_dir: str) -> str:
+    model_type = get_custom_model_type_from_path(pretrained_dir)
+    if model_type:
+        return model_type
+
+    config_path = Path(pretrained_dir) / "config.json"
+    if not config_path.exists():
+        raise ValueError(
+            f"Cannot load pretrained custom model from '{pretrained_dir}'. "
+            "Expected a directory containing 'config.json' and "
+            "'model.safetensors' files created by "
+            "BaseModel.save_pretrained()."
+        )
+
+    raise ValueError(
+        f"Config at '{config_path}' does not contain a valid 'model_type' "
+        "or the model type is not registered in the Oumi registry."
+    )
+
+
 def build_oumi_model(
     model_params: ModelParams,
-    peft_params: Optional[PeftParams] = None,
+    peft_params: PeftParams | None = None,
     **kwargs,
 ) -> nn.Module:
-    """Builds a custom model from our Oumi registry."""
-    model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
-    model = model_class(**model_params.model_kwargs)
+    """Builds a custom model from our Oumi registry.
 
+    The model_name can be either:
+    - A registry name (e.g., "MLPEncoder") for creating models from scratch
+    - A path to a saved model directory.
+    """
+    # Determine if we should load from pretrained weights
     if model_params.load_pretrained_weights:
-        raise NotImplementedError(
-            "Loading pretrained weights for custom Oumi models is not yet implemented. "
-            "Currently, custom models can only be initialized from scratch. "
-            "Please open a feature request at https://github.com/oumi-ai/oumi."
+        pretrained_dir = model_params.model_name
+        model_type = _resolve_custom_model_type(pretrained_dir)
+        model_class = REGISTRY[model_type, RegistryType.MODEL]
+        logger.info(f"Loading custom model '{model_type}' from {pretrained_dir}")
+        model = model_class.from_pretrained(
+            load_directory=pretrained_dir,
+            override_kwargs=kwargs.get("override_init_kwargs"),
+            map_location="cpu",
+            strict=True,
         )
+    else:
+        if not REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
+            raise ValueError(
+                f"Model '{model_params.model_name}' is not registered in the Oumi "
+                "registry. For custom models with load_pretrained_weights=False, "
+                "model_name must be a registered model class name (e.g., 'MLPEncoder')."
+            )
+        model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
+        model = model_class(**model_params.model_kwargs)
 
     if peft_params and peft_params.q_lora:
         raise NotImplementedError(
@@ -215,7 +254,7 @@ def _disable_cache_in_model_config(model: transformers.PreTrainedModel) -> None:
 
 def build_huggingface_model(
     model_params: ModelParams,
-    peft_params: Optional[PeftParams] = None,
+    peft_params: PeftParams | None = None,
     **kwargs,
 ) -> nn.Module:
     """Builds a HuggingFace model.
@@ -278,7 +317,7 @@ def build_huggingface_model(
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
             config=hf_config,
-            torch_dtype=torch_dtype,
+            dtype=torch_dtype,
             device_map=device_map,
             trust_remote_code=model_params.trust_remote_code,
             pretrained_model_name_or_path=model_params.model_name,
@@ -290,7 +329,7 @@ def build_huggingface_model(
     else:
         model = transformers_model_class.from_config(
             config=hf_config,
-            torch_dtype=torch_dtype,
+            dtype=torch_dtype,
             trust_remote_code=model_params.trust_remote_code,
             attn_implementation=model_params.attn_implementation,
             **kwargs,
@@ -344,7 +383,7 @@ def is_image_text_llm(model_params: ModelParams) -> bool:
 
 def build_tokenizer(
     model_params: ModelParams,
-) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
+) -> transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast:
     """Builds and returns a tokenizer based on the provided Oumi configuration.
 
     Args:
@@ -368,7 +407,7 @@ def build_tokenizer(
     else:
         tokenizer_id_str = f"model '{model_params.model_name}'"
 
-    internal_config: Optional[InternalModelConfig] = (
+    internal_config: InternalModelConfig | None = (
         find_internal_model_config_using_model_name(
             model_name=tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,

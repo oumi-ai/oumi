@@ -19,7 +19,7 @@ For more info see:
     (2) https://github.com/gururise/AlpacaDataCleaned
 """
 
-from typing import Union, cast
+from typing import cast
 
 import pandas as pd
 
@@ -55,7 +55,7 @@ class AlpacaDataset(BaseSftDataset):
 
         super().__init__(**kwargs)
 
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict | pd.Series) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.
 
         Args:

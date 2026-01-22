@@ -3,7 +3,7 @@ import itertools
 import time
 from pathlib import Path as Pathlib
 from pprint import pformat
-from typing import Any, Optional
+from typing import Any
 
 import datasets as hf_datasets
 import torch.distributed as dist
@@ -206,7 +206,7 @@ def _benchmark_dataloader_epoch(
     pin_memory: bool = False,
     model_fwd_bwd_ms: float = 0.0,
     use_distributed_sampler: bool = False,
-    max_steps: Optional[int] = None,
+    max_steps: int | None = None,
     **kwargs,
 ) -> dict[str, Any]:
     """Measures the time taken to iterate over a DataLoader for one epoch."""

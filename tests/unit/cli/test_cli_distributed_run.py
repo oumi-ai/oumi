@@ -9,7 +9,12 @@ import typer
 from typer.testing import CliRunner
 
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.cli.distributed_run import accelerate, torchrun
+from oumi.cli.distributed_run import (
+    _detect_backend,
+    _extract_target_command,
+    accelerate,
+    torchrun,
+)
 from oumi.utils.logging import logger
 
 runner = CliRunner()
@@ -467,3 +472,138 @@ def test_torchrun_localmachine_multi_gpu_masteraddress(
         universal_newlines=True,
     )
     assert logger.level == logging.ERROR
+
+
+#
+# Tests for _detect_backend
+#
+def test_detect_backend_skypilot(monkeypatch):
+    monkeypatch.setenv("SKYPILOT_NODE_RANK", "0")
+    monkeypatch.delenv("PBS_NODEFILE", raising=False)
+    monkeypatch.delenv("SLURM_NODELIST", raising=False)
+
+    assert _detect_backend() == "skypilot"
+
+
+def test_detect_backend_polaris(monkeypatch):
+    monkeypatch.delenv("SKYPILOT_NODE_RANK", raising=False)
+    monkeypatch.setenv("PBS_NODEFILE", "/path/to/nodefile")
+    monkeypatch.delenv("SLURM_NODELIST", raising=False)
+
+    assert _detect_backend() == "polaris"
+
+
+def test_detect_backend_slurm(monkeypatch):
+    monkeypatch.delenv("SKYPILOT_NODE_RANK", raising=False)
+    monkeypatch.delenv("PBS_NODEFILE", raising=False)
+    monkeypatch.setenv("SLURM_NODELIST", "node[001-002]")
+
+    assert _detect_backend() == "slurm"
+
+
+def test_detect_backend_local(monkeypatch):
+    monkeypatch.delenv("SKYPILOT_NODE_RANK", raising=False)
+    monkeypatch.delenv("PBS_NODEFILE", raising=False)
+    monkeypatch.delenv("SLURM_NODELIST", raising=False)
+
+    assert _detect_backend() == "local"
+
+
+def test_detect_backend_priority(monkeypatch):
+    # When multiple env vars are set, skypilot takes priority
+    monkeypatch.setenv("SKYPILOT_NODE_RANK", "0")
+    monkeypatch.setenv("PBS_NODEFILE", "/path/to/nodefile")
+    monkeypatch.setenv("SLURM_NODELIST", "node[001-002]")
+
+    assert _detect_backend() == "skypilot"
+
+
+#
+# Tests for _extract_target_command
+#
+def test_extract_target_command_train():
+    args = ["-m", "oumi", "train", "--config", "test.yaml"]
+    assert _extract_target_command(args) == "train"
+
+
+def test_extract_target_command_evaluate():
+    args = ["-m", "oumi", "evaluate", "--model", "gpt2"]
+    assert _extract_target_command(args) == "evaluate"
+
+
+def test_extract_target_command_infer():
+    args = ["oumi", "infer", "--input", "test.txt"]
+    assert _extract_target_command(args) == "infer"
+
+
+def test_extract_target_command_no_oumi():
+    args = ["-m", "other_module", "train"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_oumi_at_end():
+    args = ["-m", "oumi"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_empty():
+    args = []
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_flag_after_oumi():
+    args = ["-m", "oumi", "--help"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_multiple_oumi_returns_first():
+    args = ["-m", "oumi", "train", "oumi", "evaluate"]
+    assert _extract_target_command(args) == "train"
+
+
+def test_extract_target_command_oumi_as_value():
+    args = ["--config", "oumi", "train"]
+    assert _extract_target_command(args) == "train"
+
+
+def test_extract_target_command_only_flags():
+    args = ["--verbose", "-d", "--config=test.yaml"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_oumi_with_short_flag_after():
+    args = ["-m", "oumi", "-h"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_oumi_with_long_flag_after():
+    args = ["-m", "oumi", "--version"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_oumi_followed_by_equals_arg():
+    args = ["-m", "oumi", "--config=test.yaml"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_subcommand_with_dash():
+    args = ["-m", "oumi", "-train"]
+    assert _extract_target_command(args) is None
+
+
+def test_extract_target_command_nested_subcommand():
+    args = ["-m", "oumi", "distributed", "torchrun", "train"]
+    assert _extract_target_command(args) == "distributed"
+
+
+def test_extract_target_command_whitespace_in_args():
+    args = ["-m", "oumi", "train", "--config", "path with spaces/config.yaml"]
+    assert _extract_target_command(args) == "train"
+
+
+def test_extract_target_command_special_characters():
+    args = ["-m", "oumi", "train_v2"]
+    assert _extract_target_command(args) == "train_v2"
+
+    args = ["-m", "oumi", "train.run"]
+    assert _extract_target_command(args) == "train.run"

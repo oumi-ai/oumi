@@ -12,6 +12,9 @@ on:
       - "README.md"
   merge_group:
 
+env:
+  DO_NOT_TRACK: "1"
+
 jobs:
   static-checks:
     permissions:
@@ -43,7 +46,7 @@ jobs:
           uv pip install --system -e '.[ci_cpu]'
 
       - name: Cache pre-commit
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pre-commit
           key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}

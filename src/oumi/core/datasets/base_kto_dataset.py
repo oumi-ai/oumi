@@ -20,7 +20,7 @@ indicating whether an output is desirable or undesirable.
 """
 
 from collections.abc import Iterable
-from typing import Any, Optional
+from typing import Any
 
 import datasets
 from typing_extensions import override
@@ -80,9 +80,9 @@ class BaseExperimentalKtoDataset(BaseMapDataset):
     def __init__(
         self,
         *,
-        dataset_name: Optional[str] = None,
-        dataset_path: Optional[str] = None,
-        split: Optional[str] = None,
+        dataset_name: str | None = None,
+        dataset_path: str | None = None,
+        split: str | None = None,
         **kwargs,
     ) -> None:
         """Initialize a new KTO dataset instance.

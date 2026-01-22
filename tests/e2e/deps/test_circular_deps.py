@@ -3,7 +3,6 @@ import os
 import re
 from multiprocessing import Process, set_start_method
 from pathlib import Path
-from typing import Optional
 
 import pytest
 
@@ -25,7 +24,7 @@ def _get_oumi_path_recursively(path: Path) -> str:
     return f"{_get_oumi_path_recursively(path.parent)}.{path.stem}"
 
 
-def _get_all_py_paths(exclude_patterns: Optional[set[str]]) -> list[str]:
+def _get_all_py_paths(exclude_patterns: set[str] | None) -> list[str]:
     """Recursively returns all py files in the /src/oumi/ dir of the repo."""
     path_to_current_file = os.path.realpath(__file__)
     repo_root = _backtrack_on_path(path_to_current_file, 4)

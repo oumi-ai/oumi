@@ -14,12 +14,12 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 from datasets import load_dataset
 
 from oumi.core.configs.params.synthesis_params import DatasetSource
+from oumi.utils.io_utils import load_xlsx_all_sheets
 
 
 class DatasetStorageType(Enum):
@@ -55,18 +55,27 @@ class DatasetPath:
         - "path/to/data/file.tsv"
         - "path/to/data/file.parquet"
         - "path/to/data/file.json"
+        - "path/to/data/file.xlsx"
         - "path/to/data/*.jsonl"
         - "path/to/data/*.csv"
         - "path/to/data/*.tsv"
         - "path/to/data/*.parquet"
         - "path/to/data/*.json"
+        - "path/to/data/*.xlsx"
         """
         self._path = path
         self._storage_type = self._get_storage_type(path)
         self._file_extension = ""
         if self._storage_type == DatasetStorageType.LOCAL:
             self._file_extension = self._get_file_extension(path)
-            if self._file_extension not in ["jsonl", "csv", "tsv", "parquet", "json"]:
+            if self._file_extension not in [
+                "jsonl",
+                "csv",
+                "tsv",
+                "parquet",
+                "json",
+                "xlsx",
+            ]:
                 raise ValueError(f"Invalid path: {path}")
 
     def _get_storage_type(self, path: str) -> DatasetStorageType:
@@ -117,7 +126,7 @@ class DatasetReader:
 
     Supports:
     - HuggingFace
-    - Local files (JSONL, CSV, TSV, Parquet, JSON)
+    - Local files (JSONL, CSV, TSV, Parquet, JSON, XLSX)
     - Glob patterns
     """
 
@@ -169,8 +178,8 @@ class DatasetReader:
     def _read_from_hf(
         self,
         hf_path: str,
-        split: Optional[str] = None,
-        revision: Optional[str] = None,
+        split: str | None = None,
+        revision: str | None = None,
     ) -> list[dict]:
         """Read the dataset from HuggingFace."""
         dataset = load_dataset(hf_path, split=split, revision=revision)
@@ -193,6 +202,8 @@ class DatasetReader:
             return self._read_from_parquet(local_path)
         elif file_extension == "json":
             return self._read_from_json(local_path)
+        elif file_extension == "xlsx":
+            return self._read_from_xlsx(local_path)
         else:
             raise ValueError(f"Unsupported local path suffix: {file_extension}")
 
@@ -224,3 +235,11 @@ class DatasetReader:
         """Read the dataset from a JSON file."""
         json_df = pd.read_json(json_path)
         return json_df.to_dict(orient="records")
+
+    def _read_from_xlsx(self, xlsx_path: str) -> list[dict]:
+        """Read the dataset from an XLSX file.
+
+        Reads all sheets from the XLSX file and concatenates them into a single dataset.
+        """
+        xlsx_df = load_xlsx_all_sheets(xlsx_path)
+        return xlsx_df.to_dict(orient="records")

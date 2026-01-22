@@ -1,0 +1,101 @@
+# GOLD training - GPT-OSS 120B teacher to Qwen3 8B student
+# Demonstrates on-policy distillation from large teacher (120B) to large student (8B)
+# Uses vLLM colocate mode for accelerated student generation
+#
+# Hardware Requirements:
+#   - Multi-GPU setup with 160GB+ total VRAM
+#   - Minimum recommended: 188 GiB total VRAM across all GPUs
+#   - Teacher model distributed across GPUs with device_map="auto"
+#   - Student model (8B) requires significant VRAM
+#   - 128GB+ system RAM
+#
+# Measured Performance (100 steps on 8x H100 80GB):
+#   - Peak GPU Memory: 188.28 GiB total across 8 GPUs
+#     * GPU 0 (primary): 39.30 GiB
+#     * GPUs 1-6: ~21.7 GiB each
+#     * GPU 7: 17.77 GiB
+#   - Training Time: ~13 minutes (777.8 seconds)
+#   - Throughput: 0.257 samples/sec, 0.129 steps/sec
+#   - Final Loss: 0.2706
+#   - Model Parameters: 8.19B student, 120B teacher
+#
+#
+# Usage:
+#   oumi train -c configs/examples/gold/train_gptoss120b_qwen8b.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "Qwen/Qwen3-8B"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: "dict"
+
+training:
+  trainer_type: "TRL_GOLD"
+  output_dir: "output/gold_gptoss120b_qwen8b"
+
+  # 100 steps for verification
+  max_steps: 100
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 2
+
+  # Optimization
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_steps: 10
+  weight_decay: 0.01
+
+  # Checkpointing
+  save_steps: 25
+
+  # Logging
+  logging_steps: 1
+  log_level: "info"
+
+  enable_gradient_checkpointing: True # Important for 8B model
+  enable_wandb: False
+  enable_tensorboard: False
+  log_model_summary: False
+
+  # GOLD parameters
+  gold:
+    teacher_model_name_or_path: "openai/gpt-oss-120b"
+
+    teacher_model_init_kwargs:
+      dtype: "auto"
+      trust_remote_code: True
+      attn_implementation: "kernels-community/vllm-flash-attn3"
+      device_map: "auto"
+
+    # Generation parameters
+    temperature: 0.9
+    max_completion_length: 512
+
+    # Distillation parameters
+    lmbda: 0.5 # 50% on-policy, 50% off-policy
+    beta: 0.5 # Symmetric JSD
+    disable_dropout: True
+    seq_kd: False
+
+    use_uld_loss: False
+
+    # vLLM colocate mode - runs vLLM in-process (no separate server)
+    use_vllm: True
+    vllm_mode: "colocate"
+    vllm_gpu_memory_utilization: 0.3 # Lower for larger student + teacher

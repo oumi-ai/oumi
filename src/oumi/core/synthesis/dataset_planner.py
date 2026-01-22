@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import random
-from typing import Optional
 
 from oumi.core.configs.params.synthesis_params import (
     AttributeCombination,
@@ -32,8 +31,8 @@ class DatasetPlanner:
 
     def __init__(
         self,
-        document_reader: Optional[DocumentReader] = None,
-        dataset_reader: Optional[DatasetReader] = None,
+        document_reader: DocumentReader | None = None,
+        dataset_reader: DatasetReader | None = None,
     ):
         """Initialize the dataset planner."""
         self._document_reader = document_reader or DocumentReader()
@@ -50,12 +49,17 @@ class DatasetPlanner:
         representing a sample of the dataset with a particular attribute value for
         each attribute.
 
-        - Example sources are used to populate the dataset plan with a set of examples
-          for specific attributes, with each example being used round-robin.
-        - Document sources are used to populate the dataset plan with documents and/or
-          document segments, each sample of a document source being used round-robin.
-        - Dataset sources are used to populate the dataset plan with values for the
-          attributes, with each sample of a dataset source being used round-robin.
+        Source Types and Sampling Modes:
+        - Example sources, Document sources, and Dataset sources support two modes:
+          * Round-robin mode (default): When num_shots is None or 1, items are cycled
+            sequentially across synthesis samples. Each item's attributes are spread
+            directly into the sample dict (e.g., {field1: value1, field2: value2}).
+            Reference in templates using the field name (e.g., {field1}).
+          * Dynamic sampling mode: When num_shots > 1, N items are randomly sampled
+            per synthesis sample. Items are stored as a list under the source's id
+            (e.g., {source_id: [{field1: v1}, {field2: v2}]}). Reference in templates
+            using bracket notation: {source_id[0].field1}.
+
         - Permutable attributes have their values sampled from a distribution.
         - Combination sampling overrides the distribution for particular attribute-value
           combinations.
@@ -95,6 +99,9 @@ class DatasetPlanner:
             example_sample_sets,
             dataset_sample_sets,
             document_sample_sets,
+            example_sources=synthesis_params.input_examples,
+            dataset_sources=synthesis_params.input_data,
+            document_sources=synthesis_params.input_documents,
         )
 
     def _create_dataset_plan(
@@ -104,22 +111,69 @@ class DatasetPlanner:
         example_sample_sets: list[list[dict]],
         dataset_sample_sets: list[list[dict]],
         document_sample_sets: list[list[dict]],
+        example_sources: list[ExampleSource] | None = None,
+        dataset_sources: list[DatasetSource] | None = None,
+        document_sources: list[DocumentSource] | None = None,
     ) -> list[dict]:
-        """Create the final dataset plan."""
+        """Create the final dataset plan with optional dynamic sampling."""
         samples = []
         for i in range(sample_count):
             sample = {}
-            for example_set in example_sample_sets:
-                index = i % len(example_set)
-                sample.update(example_set[index])
 
-            for dataset in dataset_sample_sets:
-                index = i % len(dataset)
-                sample.update(dataset[index])
+            # Handle example sources
+            for ex_idx, example_set in enumerate(example_sample_sets):
+                example_source = example_sources[ex_idx] if example_sources else None
 
-            for document_set in document_sample_sets:
-                index = i % len(document_set)
-                sample.update(document_set[index])
+                if (
+                    example_source
+                    and example_source.num_shots
+                    and example_source.num_shots > 1
+                ):
+                    # Dynamic sampling mode
+                    sampled = self._sample_items(example_set, example_source.num_shots)
+                    sample[example_source.id] = sampled
+                else:
+                    # Round-robin mode (existing behavior)
+                    index = i % len(example_set)
+                    sample.update(example_set[index])
+
+            # Handle dataset sources
+            for ds_idx, dataset in enumerate(dataset_sample_sets):
+                dataset_source = dataset_sources[ds_idx] if dataset_sources else None
+
+                if (
+                    dataset_source
+                    and dataset_source.num_shots
+                    and dataset_source.num_shots > 1
+                ):
+                    # Dynamic sampling mode
+                    sampled = self._sample_items(dataset, dataset_source.num_shots)
+                    sample[dataset_source.id] = sampled
+                else:
+                    # Round-robin mode (existing behavior)
+                    index = i % len(dataset)
+                    sample.update(dataset[index])
+
+            # Handle document sources
+            for doc_idx, document_set in enumerate(document_sample_sets):
+                document_source = (
+                    document_sources[doc_idx] if document_sources else None
+                )
+
+                if (
+                    document_source
+                    and document_source.num_shots
+                    and document_source.num_shots > 1
+                ):
+                    # Dynamic sampling mode
+                    sampled = self._sample_items(
+                        document_set, document_source.num_shots
+                    )
+                    sample[document_source.id] = sampled
+                else:
+                    # Round-robin mode (existing behavior)
+                    index = i % len(document_set)
+                    sample.update(document_set[index])
 
             samples.append(sample)
 
@@ -136,7 +190,7 @@ class DatasetPlanner:
 
     def _ingest_example_sources(
         self,
-        example_sources: Optional[list[ExampleSource]],
+        example_sources: list[ExampleSource] | None,
     ) -> list[list[dict]]:
         """Read examples from the example sources."""
         if example_sources is None or len(example_sources) == 0:
@@ -147,20 +201,26 @@ class DatasetPlanner:
 
     def _ingest_dataset_sources(
         self,
-        dataset_sources: Optional[list[DatasetSource]],
+        dataset_sources: list[DatasetSource] | None,
     ) -> list[list[dict]]:
         """Read in datasets from the dataset sources."""
         if dataset_sources is None or len(dataset_sources) == 0:
             return []
 
-        return [
-            self._dataset_reader.read(dataset_source)
-            for dataset_source in dataset_sources
-        ]
+        results = []
+        for dataset_source in dataset_sources:
+            dataset = self._dataset_reader.read(dataset_source)
+            if not dataset:
+                raise ValueError(
+                    f"Dataset source '{dataset_source.path}' is empty. "
+                    "Please check the file or apply different filters."
+                )
+            results.append(dataset)
+        return results
 
     def _ingest_document_sources(
         self,
-        document_sources: Optional[list[DocumentSource]],
+        document_sources: list[DocumentSource] | None,
     ) -> list[list[dict]]:
         """Read documents from the document sources and segment them if necessary."""
         if not document_sources:
@@ -216,10 +276,30 @@ class DatasetPlanner:
 
         return per_source_records
 
+    def _sample_items(
+        self,
+        items: list[dict],
+        num_shots: int,
+    ) -> list[dict]:
+        """Randomly sample items.
+
+        Args:
+            items: List of items to sample from.
+            num_shots: Number of items to sample.
+
+        Returns:
+            Sampled list of items.
+        """
+        # Sample without replacement
+        sampled_indices = random.sample(range(len(items)), min(num_shots, len(items)))
+        sampled = [items[idx] for idx in sampled_indices]
+
+        return sampled
+
     def _plan_permutable_attributes(
         self,
-        permutable_attributes: Optional[list[SampledAttribute]],
-        combination_sampling: Optional[list[AttributeCombination]],
+        permutable_attributes: list[SampledAttribute] | None,
+        combination_sampling: list[AttributeCombination] | None,
         sample_count: int,
     ) -> list[dict]:
         if sample_count < 0:

@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from oumi.core.configs import (
-    AlpacaEvalTaskParams,
     EvaluationConfig,
     EvaluationTaskParams,
     GenerationParams,
@@ -72,63 +71,6 @@ def test_evaluate_lm_harness_task(
     assert kwargs["config"].tasks == []
     assert kwargs["config"].model.model_name == "test_model"
     assert kwargs["config"].inference_engine == InferenceEngineType.NATIVE
-
-    assert len(result) == 1
-    assert result[0].task_name == "test_task"
-    assert result[0].task_result == {"test_metric": 1.0}
-
-
-@patch("oumi.core.evaluation.evaluator.evaluate_alpaca_eval")
-@patch("oumi.core.evaluation.evaluator.check_prerequisites")
-@patch("oumi.core.evaluation.evaluator.save_evaluation_output")
-@patch("oumi.core.evaluation.evaluator.build_inference_engine")
-def test_evaluate_alpaca_eval_task(
-    mock_build_inference_engine,
-    mock_save_evaluation_output,
-    mock_check_prerequisites,
-    mock_evaluate_alpaca_eval,
-):
-    # Inputs.
-    task_params = EvaluationTaskParams(
-        task_name="test_task",
-        evaluation_backend=EvaluationBackend.ALPACA_EVAL.value,
-    )
-    evaluation_config = EvaluationConfig(
-        tasks=[task_params],
-        model=ModelParams(model_name="test_model"),
-        generation=GenerationParams(),
-        inference_engine=InferenceEngineType.VLLM,
-    )
-
-    # Mocks.
-    mock_build_inference_engine.return_value = MagicMock()
-    mock_save_evaluation_output.return_value = None
-    mock_check_prerequisites.return_value = None
-    mock_evaluate_alpaca_eval.return_value = EvaluationResult(
-        task_name="test_task", task_result={"test_metric": 1.0}
-    )
-
-    # Run the test.
-    evaluator = Evaluator()
-    result = evaluator.evaluate(evaluation_config)
-
-    # Check the results.
-    mock_build_inference_engine.assert_called_once()
-    mock_save_evaluation_output.assert_called_once()
-    mock_check_prerequisites.assert_called_once()
-    mock_evaluate_alpaca_eval.assert_called_once()
-    _, kwargs = mock_evaluate_alpaca_eval.call_args
-
-    assert isinstance(kwargs["task_params"], AlpacaEvalTaskParams)
-    assert kwargs["task_params"].task_name == "test_task"
-    assert kwargs["task_params"].evaluation_backend == (
-        EvaluationBackend.ALPACA_EVAL.value
-    )
-
-    assert isinstance(kwargs["config"], EvaluationConfig)
-    assert kwargs["config"].tasks == []
-    assert kwargs["config"].model.model_name == "test_model"
-    assert kwargs["config"].inference_engine == InferenceEngineType.VLLM
 
     assert len(result) == 1
     assert result[0].task_name == "test_task"
@@ -614,7 +556,6 @@ def test_evaluate_custom_task_duplicate_optional_param(
 
 
 @patch("oumi.core.evaluation.evaluator.evaluate_lm_harness")
-@patch("oumi.core.evaluation.evaluator.evaluate_alpaca_eval")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
 @patch("oumi.core.evaluation.evaluator.build_inference_engine")
@@ -622,17 +563,12 @@ def test_evaluate_multiple_tasks(
     mock_build_inference_engine,
     mock_save_evaluation_output,
     mock_check_prerequisites,
-    mock_evaluate_alpaca_eval,
     mock_evaluate_lm_harness,
 ):
     # Inputs.
     task_params_lm_harness_1 = EvaluationTaskParams(
         task_name="test_task_lm_harness_1",
         evaluation_backend=EvaluationBackend.LM_HARNESS.value,
-    )
-    task_params_alpaca_eval = EvaluationTaskParams(
-        task_name="test_task_alpaca_eval",
-        evaluation_backend=EvaluationBackend.ALPACA_EVAL.value,
     )
     task_params_lm_harness_2 = EvaluationTaskParams(
         task_name="test_task_lm_harness_2",
@@ -641,7 +577,6 @@ def test_evaluate_multiple_tasks(
     evaluation_config = EvaluationConfig(
         tasks=[
             task_params_lm_harness_1,
-            task_params_alpaca_eval,
             task_params_lm_harness_2,
         ],
         model=ModelParams(model_name="test_model"),
@@ -656,20 +591,16 @@ def test_evaluate_multiple_tasks(
     mock_evaluate_lm_harness.return_value = EvaluationResult(
         task_name="test_task_lm_harness", task_result={"test_metric_lm_harness": 1.0}
     )
-    mock_evaluate_alpaca_eval.return_value = EvaluationResult(
-        task_name="test_task_alpaca_eval", task_result={"test_metric_alpaca_eval": 2.0}
-    )
 
     # Run the test.
     evaluator = Evaluator()
     result = evaluator.evaluate(evaluation_config)
 
     # Check the call counts to our mocks.
-    assert mock_build_inference_engine.call_count == 1
-    assert mock_save_evaluation_output.call_count == 3
-    assert mock_check_prerequisites.call_count == 3
+    assert mock_build_inference_engine.call_count == 0
+    assert mock_save_evaluation_output.call_count == 2
+    assert mock_check_prerequisites.call_count == 2
     assert mock_evaluate_lm_harness.call_count == 2
-    assert mock_evaluate_alpaca_eval.call_count == 1
 
     # Check the first call to LM Harness.
     _, kwargs = mock_evaluate_lm_harness.call_args_list[0]
@@ -695,29 +626,12 @@ def test_evaluate_multiple_tasks(
     assert kwargs["config"].model.model_name == "test_model"
     assert kwargs["config"].inference_engine == InferenceEngineType.VLLM
 
-    # Check the call to Alpaca Eval.
-    _, kwargs = mock_evaluate_alpaca_eval.call_args
-    assert isinstance(kwargs["task_params"], AlpacaEvalTaskParams)
-    assert kwargs["task_params"].task_name == "test_task_alpaca_eval"
-    assert kwargs["task_params"].evaluation_backend == (
-        EvaluationBackend.ALPACA_EVAL.value
-    )
-    assert isinstance(kwargs["config"], EvaluationConfig)
-    assert kwargs["config"].tasks == []
-    assert kwargs["config"].model.model_name == "test_model"
-    assert kwargs["config"].inference_engine == InferenceEngineType.VLLM
-
-    # Ensure the 2nd LM Harness call destroyed the inference engine.
-    assert evaluator._inference_engine is None
-
     # Check the result.
-    assert len(result) == 3
+    assert len(result) == 2
     assert result[0].task_name == "test_task_lm_harness"
     assert result[0].task_result == {"test_metric_lm_harness": 1.0}
-    assert result[1].task_name == "test_task_alpaca_eval"
-    assert result[1].task_result == {"test_metric_alpaca_eval": 2.0}
-    assert result[2].task_name == "test_task_lm_harness"
-    assert result[2].task_result == {"test_metric_lm_harness": 1.0}
+    assert result[1].task_name == "test_task_lm_harness"
+    assert result[1].task_result == {"test_metric_lm_harness": 1.0}
 
 
 @pytest.mark.parametrize(
@@ -731,37 +645,6 @@ def test_evaluate_multiple_tasks(
         "expected_backend_task_params,"
     ),
     [
-        # Alpaca Eval run with no arguments.
-        (
-            "alpaca_eval",
-            EvaluationBackend.ALPACA_EVAL,
-            "",
-            None,
-            {},
-            AlpacaEvalTaskParams,
-            {
-                "evaluation_backend": "alpaca_eval",
-                "task_name": "",
-                "num_samples": None,
-                "eval_kwargs": {},
-            },
-        ),
-        # Alpaca Eval run with arguments.
-        (
-            "alpaca_eval",
-            EvaluationBackend.ALPACA_EVAL,
-            "unused_task_name",
-            44,
-            {"version": 2.0, "eval_param": "eval_param_value"},
-            AlpacaEvalTaskParams,
-            {
-                "evaluation_backend": "alpaca_eval",
-                "task_name": "unused_task_name",
-                "num_samples": 44,
-                "version": 2.0,
-                "eval_kwargs": {"eval_param": "eval_param_value"},
-            },
-        ),
         # LM Harness run with no arguments.
         (
             "lm_harness",
@@ -795,8 +678,6 @@ def test_evaluate_multiple_tasks(
         ),
     ],
     ids=[
-        "test_get_backend_task_params_alpaca_eval_no_args",
-        "test_get_backend_task_params_alpaca_eval_with_args",
         "test_get_backend_task_params_lm_harness_no_args",
         "test_get_backend_task_params_lm_harness_with_args",
     ],

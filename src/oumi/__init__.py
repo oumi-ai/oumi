@@ -88,6 +88,8 @@ from typing import TYPE_CHECKING, Any
 from oumi.utils import logging
 
 if TYPE_CHECKING:
+    from rich.console import Console
+
     from oumi.core.configs import (
         AsyncEvaluationConfig,
         EvaluationConfig,
@@ -146,12 +148,25 @@ def infer_interactive(
     *,
     input_image_bytes: list[bytes] | None = None,
     system_prompt: str | None = None,
+    console: Console | None = None,
 ) -> None:
-    """Interactively provide the model response for a user-provided input."""
+    """Interactively provide the model response for a user-provided input.
+
+    Args:
+        config: The configuration to use for inference.
+        input_image_bytes: A list of input PNG image bytes to be used with
+            `image+text` VLMs.
+        system_prompt: System prompt for task-specific instructions.
+        console: Optional Rich Console instance for displaying a loading spinner.
+            If provided, a spinner will be shown while generating responses.
+    """
     import oumi.infer
 
     return oumi.infer.infer_interactive(
-        config, input_image_bytes=input_image_bytes, system_prompt=system_prompt
+        config,
+        input_image_bytes=input_image_bytes,
+        system_prompt=system_prompt,
+        console=console,
     )
 
 

@@ -12,6 +12,7 @@ on:
 env:
   SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI: v0.0.1
   NCCL_DEBUG: INFO
+  DO_NOT_TRACK: "1"
 
 jobs:
   gpu-install-test:
@@ -59,6 +60,15 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+
+      - name: Cache HuggingFace Models
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/huggingface
+          key: hf-models-${{ runner.os }}
+          restore-keys: |
+            hf-models-${{ runner.os }}-
 
       - name: Install oumi with GPU dependencies
         run: |

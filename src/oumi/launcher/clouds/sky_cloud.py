@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
@@ -38,7 +38,7 @@ class SkyCloud(BaseCloud):
     def __init__(self, cloud_name: str):
         """Initializes a new instance of the SkyCloud class."""
         self._cloud_name = cloud_name
-        self._sky_client: Optional[SkyClient] = None
+        self._sky_client: SkyClient | None = None
 
     def _get_clusters_by_class(self, cloud_class: type[T]) -> list[BaseCluster]:
         """Gets the appropriate clusters of type T."""
@@ -54,7 +54,7 @@ class SkyCloud(BaseCloud):
             )
         ]
 
-    def up_cluster(self, job: JobConfig, name: Optional[str], **kwargs) -> JobStatus:
+    def up_cluster(self, job: JobConfig, name: str | None, **kwargs) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
         job_status = self._client.launch(job, name, **kwargs)
         cluster = self.get_cluster(job_status.cluster)
@@ -62,7 +62,7 @@ class SkyCloud(BaseCloud):
             raise RuntimeError(f"Cluster {job_status.cluster} not found.")
         return cluster.get_job(job_status.id)
 
-    def get_cluster(self, name) -> Optional[BaseCluster]:
+    def get_cluster(self, name) -> BaseCluster | None:
         """Gets the cluster with the specified name, or None if not found."""
         clusters = self.list_clusters()
         for cluster in clusters:

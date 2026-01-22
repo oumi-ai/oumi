@@ -62,7 +62,7 @@ import copy
 import functools
 import types
 from collections.abc import Mapping
-from typing import Any, NamedTuple, Optional, cast
+from typing import Any, NamedTuple, cast
 
 import transformers
 
@@ -84,7 +84,7 @@ def find_model_hf_config(
     model_name: str,
     *,
     trust_remote_code: bool,
-    revision: Optional[str] = None,
+    revision: str | None = None,
     **kwargs: Any,
 ) -> transformers.PretrainedConfig:
     """Finds HF model config by model name."""
@@ -601,17 +601,38 @@ def get_all_models_map() -> Mapping[
     return types.MappingProxyType({x.model_type: x for x in all_models_list})
 
 
+def get_custom_model_type_from_path(path: str) -> str | None:
+    """Extracts model_type from a saved custom model directory's config.json."""
+    import json
+    from pathlib import Path as PathLib
+
+    config_path = PathLib(path) / "config.json"
+    if not config_path.exists():
+        return None
+
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            config_data = json.load(f)
+        model_type = config_data.get("model_type")
+        if model_type and REGISTRY.contains(name=model_type, type=RegistryType.MODEL):
+            return model_type
+    except (json.JSONDecodeError, OSError):
+        pass
+    return None
+
+
 def is_custom_model(model_name: str) -> bool:
     """Determines whether the model is a custom model defined in oumi registry."""
-    result: bool = len(model_name) > 0 and REGISTRY.contains(
-        name=model_name, type=RegistryType.MODEL
-    )
-    return result
+    if not model_name:
+        return False
+    if REGISTRY.contains(name=model_name, type=RegistryType.MODEL):
+        return True
+    return get_custom_model_type_from_path(model_name) is not None
 
 
 def find_internal_model_config_using_model_name(
     model_name: str, trust_remote_code: bool
-) -> Optional[InternalModelConfig]:
+) -> InternalModelConfig | None:
     """Finds an internal model config for supported models using model name.
 
     Args:
@@ -637,7 +658,7 @@ def find_internal_model_config_using_model_name(
 
 def find_internal_model_config(
     model_params: ModelParams,
-) -> Optional[InternalModelConfig]:
+) -> InternalModelConfig | None:
     """Finds an internal model config for supported models using `ModelParams`.
 
     Args:

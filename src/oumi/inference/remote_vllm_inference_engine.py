@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Any
 
 from typing_extensions import override
 
@@ -29,13 +29,13 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
 
     @property
     @override
-    def base_url(self) -> Optional[str]:
+    def base_url(self) -> str | None:
         """Return the default base URL for the Remote vLLM API."""
         return None
 
     @property
     @override
-    def api_key_env_varname(self) -> Optional[str]:
+    def api_key_env_varname(self) -> str | None:
         """Return the default environment variable name for the Remote vLLM API key."""
         return None
 
@@ -88,13 +88,15 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             # "max_completion_tokens": generation_params.max_new_tokens,
             # Future transition instead of `max_tokens`. See https://github.com/vllm-project/vllm/issues/9845
             "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
             "frequency_penalty": generation_params.frequency_penalty,
             "presence_penalty": generation_params.presence_penalty,
             "n": 1,  # Number of completions to generate for each prompt.
             "seed": generation_params.seed,
             "logit_bias": generation_params.logit_bias,
         }
+
+        if generation_params.top_p is not None:
+            api_input["top_p"] = generation_params.top_p
 
         if generation_params.guided_decoding:
             if generation_params.guided_decoding.json:

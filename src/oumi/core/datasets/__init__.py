@@ -34,6 +34,7 @@ from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.datasets.base_kto_dataset import BaseExperimentalKtoDataset
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
+from oumi.core.datasets.base_rubric_dataset import BaseRubricDataset
 from oumi.core.datasets.base_sft_dataset import BaseSftDataset
 from oumi.core.datasets.packed_sft_dataset import PackedSftDataset
 from oumi.core.datasets.pretraining_async_text_dataset import (
@@ -50,6 +51,7 @@ __all__ = [
     "BaseExperimentalKtoDataset",
     "BaseMapDataset",
     "BasePretrainingDataset",
+    "BaseRubricDataset",
     "BaseSftDataset",
     "PackedSftDataset",
     "PretrainingAsyncTextDataset",

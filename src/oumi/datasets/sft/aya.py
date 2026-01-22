@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union
 
 import pandas as pd
 
@@ -27,7 +26,7 @@ class AyaDataset(BaseSftDataset):
 
     default_dataset = "CohereForAI/aya_dataset"
 
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict | pd.Series) -> Conversation:
         """Transform a dataset example into a Conversation object."""
         question: str = example.get("inputs", None) or ""
         answer: str = example.get("targets", None) or ""

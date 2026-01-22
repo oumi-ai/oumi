@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import copy
-from typing import Any, Optional
+from typing import Any
 
 from typing_extensions import override
 
@@ -27,13 +27,13 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
 
     @property
     @override
-    def base_url(self) -> Optional[str]:
+    def base_url(self) -> str | None:
         """Return the default base URL for the OpenAI API."""
         return "https://api.openai.com/v1/chat/completions"
 
     @property
     @override
-    def api_key_env_varname(self) -> Optional[str]:
+    def api_key_env_varname(self) -> str | None:
         """Return the default environment variable name for the OpenAI API key."""
         return "OPENAI_API_KEY"
 

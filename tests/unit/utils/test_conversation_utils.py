@@ -1,7 +1,7 @@
 import copy
 import tempfile
 from pathlib import Path
-from typing import Final, Optional
+from typing import Final
 
 import PIL.Image
 import pytest
@@ -789,7 +789,7 @@ def test_truncate_text_in_content_items(
     messages: list[Message],
     max_tokens: int,
     truncation_side: str,
-    expected_messages: Optional[list[Message]],
+    expected_messages: list[Message] | None,
     gpt2_tokenizer: BaseTokenizer,
 ):
     truncated_messages = truncate_text_in_content_items(

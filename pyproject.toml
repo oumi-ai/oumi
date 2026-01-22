@@ -20,16 +20,17 @@ prerelease = "allow"
 name = "oumi"
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.10,<3.15"
 description = "Oumi - Modeling Platform"
 authors = [{ name = "Oumi Team", email = "contact@oumi.ai" }]
 license = { file = "LICENSE" }
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -44,8 +45,9 @@ dependencies = [
     "backoff>=2.2.1,<2.3",
     "boto3>=1.36,<1.37",          # Used for S3 access in Modal deployments
     "modal>=1.3,<2.0",            # Used for Modal.com deployments
-    "click<8.3.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
-    "datasets>=3.2,<3.3",         # breaking change for 4.0
+    "click<8.4.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
+    "datasets>=3.2,<5",
+    "greenlet",                   # Required by skypilot 0.11+ (sqlalchemy asyncio)
     "hdrhistogram>=0.10,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4,<0.5.0",
@@ -58,28 +60,29 @@ dependencies = [
     "omegaconf==2.4.0.dev4",
     "packaging",
     "pandas>=2.3,<3",
-    "peft>=0.17,<0.18",
+    "peft>=0.17,<0.19",
     "pexpect>=4.9,<4.10",      # Used by Polaris client
-    "pillow>=11.3,<11.4",      # Used by image datasets
+    "posthog>=7.0,<8.0",
+    "pillow>=11.3,<12.2",      # Used by image datasets
     "protobuf>=6.32",
-    "pycares<5.0.0",
-    "pydantic>=2.11,<2.12",
+    "pycares<6.0.0",
+    "pydantic>=2.11,<2.13",
     "responses>=0.25,<0.26",
     "safetensors>=0.6,<0.8",
-    "skypilot>=0.10.2,<0.11",  # 0.10.2 and above is needed
+    "skypilot>=0.10.2,<0.11",  # 0.11rc has a breaking change that
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
-    "torch>=2.6,<2.9.0",       # vllm only supports up to torch==2.7
-    "torchao>=0.12,<0.15",     # Used by transformers
-    "torchvision>=0.21,<0.24", # Used by some VLM-s (multimodal)
+    "torch>=2.6,<2.10.0",      # vllm only supports up to torch==2.7
+    "torchao>=0.12,<0.16",     # Used by transformers
+    "torchvision>=0.21,<0.25", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
     "transformers>=4.57,<4.58",
-    "trl>=0.24,<0.26",
-    "typer",                    # Used by CLI
-    "typing_extensions",        # Backports of typing updates to python 3.9
-    "uvicorn<0.36.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
-    "wandb>=0.21,<0.24",        # Logging to Weights and Biases.
+    "trl>=0.24,<0.27",
+    "typer<0.21.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
+    "typing_extensions",        # Backports of typing updates
+    "uvicorn<0.41.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
+    "wandb>=0.21,<0.25",        # Logging to Weights and Biases.
 ]
 
 [project.urls]
@@ -118,8 +121,8 @@ docs = [
 # Useful dependencies when running on GPU
 gpu = [
     "liger-kernel>=0.6,<0.7",
-    "nvidia-ml-py>=13.580,<13.581",
-    "bitsandbytes>=0.47,<0.49",     # Used for QLora, and PagedAdam implementation
+    "nvidia-ml-py>=13.580,<13.591",
+    "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
@@ -142,11 +145,14 @@ gcp = [
     "google-cloud-storage>=3.3",
     "skypilot[gcp]",
 ]
+kubernetes = ["skypilot[kubernetes]"]
 lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
 synthesis = [
     "pdftext>=0.6.3; python_version >= '3.10'", # Document ingestion for synthesis
+    "python-docx>=1.1.0",  # DOCX document ingestion for synthesis
+    "openpyxl>=3.1.0",  # Excel engine for pandas
 ]
 
 # Flash Attention - separate group due to special installation requirements
@@ -166,7 +172,7 @@ evaluation = [
     "sentencepiece>=0.2.0",
 ]
 
-quantization = ["autoawq>=0.2,<0.3", "bitsandbytes>=0.47,<0.49"]
+quantization = ["autoawq>=0.2,<0.3", "bitsandbytes>=0.47,<0.50"]
 
 tune = ["optuna>=4.0.0,<5.0"]
 
@@ -249,6 +255,7 @@ convention = "google"
 
 [tool.ruff.lint.isort]
 known-first-party = ["oumi"]
+known-third-party = ["wandb"]
 
 [tool.pyright]
 include = ["src/oumi/**", "tests/**"]
@@ -257,10 +264,35 @@ exclude = [
     "src/oumi/utils/verl_model_merger.py",
 ]
 typeCheckingMode = "basic"
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 pythonPlatform = "All" # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
+
+[tool.ty.src]
+include = ["src/oumi/**"]
+exclude = [
+    "src/oumi/core/types/proto/**",
+    "src/oumi/utils/verl_model_merger.py",
+]
+
+[tool.ty.environment]
+python-version = "3.10"
+python-platform = "all"
+
+[tool.ty.rules]
+# Match pyright's basic mode - be lenient on complex type issues
+unresolved-import = "warn"  # Many optional deps (vllm, llama_cpp, boto3, etc.)
+redundant-cast = "ignore"  # Too noisy, casts are often intentional for clarity
+invalid-method-override = "ignore"  # Subclasses often change param types (duck typing)
+unresolved-attribute = "warn"  # Often due to dynamic types, callable attributes
+invalid-argument-type = "warn"  # TypeVar constraints, generics
+invalid-assignment = "warn"  # Union type narrowing
+invalid-return-type = "warn"  # Generic return type issues
+call-non-callable = "warn"  # Dynamic callables
+unsupported-operator = "warn"  # Type narrowing limitations with isinstance
+too-many-positional-arguments = "warn"  # Loose typing (Callable) doesn't capture signatures
+parameter-already-assigned = "warn"  # False positives with *args/**kwargs patterns
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"

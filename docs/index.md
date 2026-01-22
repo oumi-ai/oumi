@@ -1,19 +1,45 @@
-<div align="center">
-<img src="_static/logo/oumi_logo_dark.png" alt="Oumi Logo" width="150"/>
-<h1> Oumi: Open Universal Machine Intelligence </h1>
+<div class="oumi-hero-stats">
+  <h1 class="oumi-hero-title">Open Universal Machine Intelligence</h1>
+  <p class="oumi-hero-tagline">Everything you need to build state-of-the-art foundation models, end-to-end.</p>
+  <div class="oumi-stats-bar">
+    <a href="about/license.html" class="oumi-stat">
+      <span class="oumi-stat-value">100%</span>
+      <span class="oumi-stat-label">Open Source</span>
+    </a>
+    <span class="oumi-stat-divider"></span>
+    <a href="resources/recipes.html" class="oumi-stat">
+      <span class="oumi-stat-value">200+</span>
+      <span class="oumi-stat-label">Recipes</span>
+    </a>
+    <span class="oumi-stat-divider"></span>
+    <a href="resources/models/models.html" class="oumi-stat">
+      <span class="oumi-stat-value">100+</span>
+      <span class="oumi-stat-label">Models</span>
+    </a>
+    <span class="oumi-stat-divider"></span>
+    <a href="https://github.com/oumi-ai/oumi" class="oumi-stat">
+      <span class="oumi-stat-value">8.8k</span>
+      <span class="oumi-stat-label">GitHub Stars</span>
+    </a>
+  </div>
+  <a href="get_started/quickstart.html" class="oumi-hero-cta">Get Started →</a>
 </div>
 
-[![Github](https://img.shields.io/badge/Github-oumi-blue.svg)](https://github.com/oumi-ai/oumi)
-[![Blog](https://img.shields.io/badge/Blog-oumi-blue.svg)](https://oumi.ai/blog)
-[![Discord](https://img.shields.io/discord/1286348126797430814?label=Discord)](https://discord.gg/oumi)
-[![PyPI version](https://badge.fury.io/py/oumi.svg)](https://badge.fury.io/py/oumi)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![GitHub Repo stars](https://img.shields.io/github/stars/oumi-ai/oumi)](https://github.com/oumi-ai/oumi)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
-[![About](https://img.shields.io/badge/About-oumi-blue.svg)](https://oumi.ai)
+## What is Oumi?
 
-<h4> Everything you need to build state-of-the-art foundation models, end-to-end. </h4>
+Oumi is an open-source platform designed for ML engineers and researchers who want to train, fine-tune, evaluate, and deploy foundation models. Whether you're fine-tuning a small language model on a single GPU or training a 405B parameter model across a cluster, Oumi provides a unified interface that scales with your needs.
+
+**Who is Oumi for?**
+
+- **ML Engineers** building production AI systems who need reliable training pipelines and deployment options
+- **Researchers** experimenting with new training methods, architectures, or datasets
+- **Teams** who want a consistent workflow from local development to cloud-scale training
+
+**What problems does Oumi solve?**
+
+- **Fragmented tooling**: Instead of stitching together different libraries for training, evaluation, and deployment, Oumi provides one cohesive platform
+- **Scaling complexity**: The same configuration works locally and on cloud infrastructure (AWS, GCP, Azure, Lambda Labs)
+- **Reproducibility**: YAML-based configs make experiments easy to track, share, and reproduce
 
 ```{toctree}
 :maxdepth: 2
@@ -90,80 +116,150 @@ development/docs_guide
 :hidden:
 :caption: About
 
-about/changelog
 about/acknowledgements
 about/license
 about/citations
 ```
 
-<p align="center">
-    <a href="https://trendshift.io/repositories/12865">
-        <img alt="GitHub trending" src="https://trendshift.io/api/badge/repositories/12865" />
-    </a>
-</p>
+## Quick Start
 
-Oumi is a fully open-source platform that streamlines the entire lifecycle of foundation models - from data preparation and training to evaluation and deployment. Whether you're developing on a laptop, launching large scale experiments on a cluster, or deploying models in production, Oumi provides the tools and workflows you need.
+**Prerequisites:** Python 3.10+, pip. GPU recommended for larger models (CPU works for small models like SmolLM-135M).
 
-With Oumi, you can:
+Install Oumi and start training in minutes:
 
-- 🚀 Train and fine-tune models from 10M to 405B parameters using state-of-the-art techniques (SFT, LoRA, QLoRA, DPO, and more)
-- 🤖 Work with both text and multimodal models (Llama, DeepSeek, Qwen, Phi, and others)
-- 🔄 Synthesize and curate training data with LLM judges
-- ⚡️ Deploy models efficiently with popular inference engines (vLLM, SGLang)
-- 📊 Evaluate models comprehensively across standard benchmarks
-- 🌎 Run anywhere - from laptops to clusters to clouds (AWS, Azure, GCP, Lambda, and more)
-- 🔌 Integrate with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI, Parasail, ...)
+```bash
+# Install with GPU support (or use `pip install oumi` for CPU-only)
+pip install oumi[gpu]
 
-All with one consistent API, production-grade reliability, and all the flexibility you need for research. Oumi is currently in <ins>beta</ins> and under active development.
+# Train a model
+oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 
-## 🚀 Getting Started
+# Run inference
+oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml --interactive
+```
 
-| **Notebook** | **Try in Colab** | **Goal** |
-|----------|--------------|-------------|
-| **🎯 Getting Started: A Tour** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - A Tour.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Quick tour of core features: training, evaluation, inference, and job management |
-| **🔧 Model Finetuning Guide** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Finetuning Tutorial.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | End-to-end guide to LoRA tuning with data prep, training, and evaluation |
-| **📚 Model Distillation** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Distill a Large Model.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Guide to distilling large models into smaller, efficient ones |
-| **📋 Model Evaluation** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Evaluation with Oumi.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Comprehensive model evaluation using Oumi's evaluation framework |
-| **☁️ Remote Training** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Running Jobs Remotely.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Launch and monitor training jobs on cloud (AWS, Azure, GCP, Lambda, etc.) platforms |
-| **📈 LLM-as-a-Judge** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Simple Judge.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Filter and curate training data with built-in judges |
+For detailed setup instructions including virtual environments and cloud setup, see the {doc}`installation guide <get_started/installation>`.
 
-## 💻 Why use Oumi?
+## What will you build?
 
-If you need a comprehensive platform for training, evaluating, or deploying models, Oumi is a great choice.
+Oumi provides a unified interface across the entire model development lifecycle. The workflows below cover training, evaluation, inference, data synthesis, hyperparameter tuning, and cloud deployment—all driven by YAML configs that work identically on your laptop or a multi-node cluster.
 
-Here are some of the key features that make Oumi stand out:
+::::{grid} 1 2 3 3
+:gutter: 2
 
-- 🔧 **Zero Boilerplate**: Get started in minutes with ready-to-use recipes for popular models and workflows. No need to write training loops or data pipelines.
-- 🏢 **Enterprise-Grade**: Built and validated by teams training models at scale
-- 🎯 **Research Ready**: Perfect for ML research with easily reproducible experiments, and flexible interfaces for customizing each component.
-- 🌐 **Broad Model Support**: Works with most popular model architectures - from tiny models to the largest ones, text-only to multimodal.
-- 🚀 **SOTA Performance**: Native support for distributed training techniques (FSDP, DDP) and optimized inference engines (vLLM, SGLang).
-- 🤝 **Community First**: 100% open source with an active community. No vendor lock-in, no strings attached.
+:::{grid-item-card} Fine-tune a model on my data
+:link: user_guides/train/train
+:link-type: doc
 
-## 📖 Where to go next?
+Start with a pre-trained model and customize it for your task using SFT, LoRA, DPO, GRPO, and more.
+:::
 
-While you can dive directly into any section that interests you, we recommend following the suggested path below to get the most out of Oumi.
+:::{grid-item-card} Evaluate my model's performance
+:link: user_guides/evaluate/evaluate
+:link-type: doc
 
-| Category | Description | Links |
-|----------|-------------|-------|
-| 🚀 Getting Started | Get up and running quickly with Oumi | [→ Quickstart](get_started/quickstart)<br>[→ Installation](get_started/installation)<br>[→ Core Concepts](get_started/core_concepts) |
-| 📚 User Guides | Learn how to use Oumi effectively | [→ Training](user_guides/train/train)<br>[→ Inference](user_guides/infer/infer)<br>[→ Evaluation](user_guides/evaluate/evaluate) |
-| 🤖 Models | Explore available models and recipes | [→ Overview](resources/models/models)<br>[→ Recipes](resources/recipes)<br>[→ Custom Models](resources/models/custom_models) |
-| 🔧 Development | Contribute to Oumi | [→ Dev Setup](development/dev_setup)<br>[→ Contributing](development/contributing)<br>[→ Style Guide](development/style_guide) |
-| 📖 API Reference | Documentation of all modules | [→ Python API](api/oumi)<br>[→ CLI](cli/commands) |
+Run benchmarks and compare against baselines using standard evaluation suites and LLM judges.
+:::
 
-## 🤝 Join the Community
+:::{grid-item-card} Deploy a model for inference
+:link: user_guides/infer/infer
+:link-type: doc
+
+Run inference anywhere—vLLM and llama.cpp locally, or OpenAI and Anthropic remotely—with a unified interface.
+:::
+
+:::{grid-item-card} Generate synthetic training data
+:link: user_guides/synth
+:link-type: doc
+
+Create high-quality training data with LLM-powered synthesis pipelines.
+:::
+
+:::{grid-item-card} Optimize my hyperparameters
+:link: user_guides/tune
+:link-type: doc
+
+Find the best learning rate, batch size, and other settings automatically using bayesian optimization.
+:::
+
+:::{grid-item-card} Run training on cloud GPUs
+:link: user_guides/launch/launch
+:link-type: doc
+
+Launch jobs on AWS, GCP, Azure, or Lambda Labs with a single command.
+:::
+
+::::
+
+## Hands-on Notebooks
+
+Explore the most common Oumi workflows hands-on. These notebooks run in Google Colab with pre-configured environments—just click and start experimenting. Try "A Tour" for a high-level overview, or dive straight into a specific topic.
+
+::::{grid} 1 2 3 3
+:gutter: 2
+:class-container: notebooks-grid
+
+:::{grid-item-card} Getting Started: A Tour
+:link: https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20A%20Tour.ipynb
+:link-type: url
+
+Quick tour of core features: training, evaluation, inference, and job management
+:::
+
+:::{grid-item-card} Model Finetuning Guide
+:link: https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Finetuning%20Tutorial.ipynb
+:link-type: url
+
+End-to-end guide to LoRA tuning with data prep, training, and evaluation
+:::
+
+:::{grid-item-card} Model Distillation
+:link: https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Distill%20a%20Large%20Model.ipynb
+:link-type: url
+
+Guide to distilling large models into smaller, efficient ones
+:::
+
+:::{grid-item-card} Model Evaluation
+:link: https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Evaluation%20with%20Oumi.ipynb
+:link-type: url
+
+Comprehensive model evaluation using Oumi's evaluation framework
+:::
+
+:::{grid-item-card} Remote Training
+:link: https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Running%20Jobs%20Remotely.ipynb
+:link-type: url
+
+Launch and monitor training jobs on cloud platforms (AWS, Azure, GCP, Lambda)
+:::
+
+:::{grid-item-card} LLM-as-a-Judge
+:link: https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Simple%20Judge.ipynb
+:link-type: url
+
+Filter and curate training data with built-in judges
+:::
+
+::::
+
+## Community & Support
 
 Oumi is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome!
 
-- To contribute to the `oumi` repository, please check the [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) for guidance on how to contribute to send your first Pull Request.
-- Make sure to join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and contribute to the project!
-- If you are interested by joining one of the community's open-science efforts, check out our [open collaboration](https://oumi.ai/community) page.
+- Join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and chat with the team
+- Check the {doc}`FAQ <faq/troubleshooting>` for common questions and troubleshooting
+- Open an issue on [GitHub](https://github.com/oumi-ai/oumi/issues) for bug reports or feature requests
+- Read [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) to send your first Pull Request
+- Explore our [open collaboration](https://oumi.ai/community) page to join community research efforts
 
-## ❓ Need Help?
-
-If you encounter any issues or have questions, please don't hesitate to:
-
-1. Check our {doc}`FAQ section <faq/troubleshooting>` for common questions and answers.
-2. Open an issue on our [GitHub Issues page](https://github.com/oumi-ai/oumi/issues) for bug reports or feature requests.
-3. Join our [Discord community](https://discord.gg/oumi) to chat with the team and other users.
+```{raw} html
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.notebooks-grid a').forEach(function(link) {
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
+  });
+});
+</script>
+```

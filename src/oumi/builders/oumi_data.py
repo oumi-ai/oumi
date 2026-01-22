@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, cast
+from typing import cast
 
 import torch.utils.data.datapipes as dp
 from torch.utils.data import IterDataPipe, MapDataPipe
@@ -57,9 +57,9 @@ def _get_torchdata_imports():
 
 def build_dataset_mixture(
     data_params: DataParams,
-    tokenizer: Optional[BaseTokenizer],
+    tokenizer: BaseTokenizer | None,
     dataset_split: DatasetSplit,
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> IterDataPipe:
     """Builds a dataset for the specified split.
 
@@ -159,7 +159,7 @@ def build_dataset_mixture(
 def _load_dataset(
     dataset_params: DatasetParams,
     stream: bool,
-    tokenizer: Optional[BaseTokenizer] = None,
+    tokenizer: BaseTokenizer | None = None,
 ) -> IterDataPipe:
     """Loads a dataset and wraps it in a DataPipe if necessary."""
     # First, try to load a custom dataset from the REGISTRY

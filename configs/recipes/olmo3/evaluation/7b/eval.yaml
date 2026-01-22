@@ -1,0 +1,58 @@
+# Eval config for OLMo 3 7B Instruct.
+#
+# Requirements:
+#   - transformers >= 4.57.0
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/olmo3/evaluation/7b/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "allenai/Olmo-3-7B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+  shard_for_eval: True
+
+generation:
+  batch_size: 4
+
+# HuggingFace Leaderboard V1 tasks
+tasks:
+  - evaluation_backend: lm_harness
+    task_name: mmlu
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: arc_challenge
+    eval_kwargs:
+      num_fewshot: 25
+  - evaluation_backend: lm_harness
+    task_name: winogrande
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: hellaswag
+    eval_kwargs:
+      num_fewshot: 10
+  - evaluation_backend: lm_harness
+    task_name: truthfulqa_mc2
+    eval_kwargs:
+      num_fewshot: 0
+  - evaluation_backend: lm_harness
+    task_name: gsm8k
+    eval_kwargs:
+      num_fewshot: 5
+
+enable_wandb: True
+inference_engine: NATIVE
+
+output_dir: "output/olmo3_7b/evaluation"

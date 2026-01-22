@@ -14,12 +14,18 @@
 
 import json
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import jsonlines
+import pandas as pd
+
+try:
+    import openpyxl  # noqa: F401
+except ImportError:
+    openpyxl = None  # type: ignore[assignment]
 
 
-def load_json(filename: Union[str, Path]) -> Any:
+def load_json(filename: str | Path) -> Any:
     """Load JSON data from a file.
 
     Args:
@@ -40,9 +46,7 @@ def load_json(filename: Union[str, Path]) -> Any:
         return json.load(file)
 
 
-def save_json(
-    data: dict[str, Any], filename: Union[str, Path], indent: int = 2
-) -> None:
+def save_json(data: dict[str, Any], filename: str | Path, indent: int = 2) -> None:
     """Save data as a formatted JSON file.
 
     Args:
@@ -58,7 +62,7 @@ def save_json(
         json.dump(data, file, indent=indent, ensure_ascii=False)
 
 
-def load_file(filename: Union[str, Path], encoding: str = "utf-8") -> str:
+def load_file(filename: str | Path, encoding: str = "utf-8") -> str:
     """Load a file as a string.
 
     Args:
@@ -88,7 +92,7 @@ def get_oumi_root_directory() -> Path:
     return Path(__file__).parent.parent.resolve()
 
 
-def load_jsonlines(filename: Union[str, Path]) -> list[dict[str, Any]]:
+def load_jsonlines(filename: str | Path) -> list[dict[str, Any]]:
     """Load a jsonlines file.
 
     Args:
@@ -116,7 +120,7 @@ def load_jsonlines(filename: Union[str, Path]) -> list[dict[str, Any]]:
         return list(reader)
 
 
-def save_jsonlines(filename: Union[str, Path], data: list[dict[str, Any]]) -> None:
+def save_jsonlines(filename: str | Path, data: list[dict[str, Any]]) -> None:
     """Save a list of dictionaries to a jsonlines file.
 
     Args:
@@ -133,3 +137,37 @@ def save_jsonlines(filename: Union[str, Path], data: list[dict[str, Any]]) -> No
             writer.write_all(data)
     except OSError as e:
         raise OSError(f"Error writing to file {filename}") from e
+
+
+def load_xlsx_all_sheets(filename: str | Path) -> pd.DataFrame:
+    """Load all sheets from an XLSX file and concatenate them into a single DataFrame.
+
+    Args:
+        filename: Path to the XLSX file.
+
+    Returns:
+        pd.DataFrame: DataFrame containing all data from all sheets concatenated.
+
+    Raises:
+        ImportError: If openpyxl is not installed.
+        FileNotFoundError: If the file doesn't exist.
+    """
+    if openpyxl is None:
+        raise ImportError(
+            "openpyxl is not installed. Please install it with "
+            "`pip install oumi[synthesis]` or `pip install openpyxl`."
+        )
+
+    file_path = Path(filename)
+    if not file_path.exists():
+        raise FileNotFoundError(f"The file {filename} does not exist.")
+
+    # Read all sheets from the XLSX file
+    all_sheets = pd.read_excel(file_path, sheet_name=None, engine="openpyxl")
+
+    # Handle empty XLSX files (no sheets)
+    if not all_sheets:
+        return pd.DataFrame()
+
+    # Concatenate all DataFrames from all sheets
+    return pd.concat(all_sheets.values(), ignore_index=True)

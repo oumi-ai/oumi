@@ -1,0 +1,9 @@
+{# This places the version switcher directly below the logo like ReadTheDocs #}
+<div class="sidebar-logo-version">
+  {% include "components/navbar-logo.html" %}
+  {% if theme_switcher %}
+    <div class="version-switcher-below-logo">
+      {% include "components/version-switcher.html" %}
+    </div>
+  {% endif %}
+</div>

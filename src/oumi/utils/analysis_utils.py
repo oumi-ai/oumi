@@ -14,7 +14,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 from tqdm import tqdm
@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 def load_dataset_from_config(
-    config: AnalyzeConfig, tokenizer: Optional[Any] = None
-) -> Union[BaseMapDataset, BaseIterableDataset]:
+    config: AnalyzeConfig, tokenizer: Any | None = None
+) -> BaseMapDataset | BaseIterableDataset:
     """Load dataset based on configuration.
 
     This function loads datasets directly from the registry for analysis purposes.
@@ -149,7 +149,7 @@ def load_dataset_from_config(
             dataset = dataset_class(**dataset_kwargs)
 
             # Ensure we return a supported dataset type
-            if isinstance(dataset, (BaseMapDataset, BaseIterableDataset)):
+            if isinstance(dataset, BaseMapDataset | BaseIterableDataset):
                 return dataset
             else:
                 raise NotImplementedError(
@@ -171,7 +171,7 @@ def load_dataset_from_config(
 
 def _load_custom_dataset_from_path(
     dataset_path: str,
-    tokenizer: Optional[Any],
+    tokenizer: Any | None,
     config: AnalyzeConfig,
 ) -> BaseMapDataset:
     """Load a custom dataset from a local file path.
@@ -268,6 +268,37 @@ def compute_statistics(series: pd.Series, decimal_precision: int = 2) -> dict[st
     }
 
 
+def render_conversation_as_text(
+    conversation: Conversation, separator: str = "\n"
+) -> str:
+    """Render a full conversation as a single text string.
+
+    This extracts only text content from messages and formats them as
+    "ROLE: content", which is suitable for text-based analysis.
+
+    Args:
+        conversation: The conversation to render
+        separator: String to separate messages (default: newline)
+
+    Returns:
+        Full conversation rendered as text
+    Note:
+        This is different from Conversation.__repr__() which includes message IDs
+        and uses repr() for content items (showing <IMAGE_BINARY> for images).
+        This function extracts only text content and is optimized for analysis.
+    """
+    message_texts = []
+    for message in conversation.messages:
+        # Get text content from message using existing method
+        text = message.compute_flattened_text_content()
+
+        # Format as "ROLE: content"
+        role_str = message.role.value.upper()
+        message_texts.append(f"{role_str}: {text}")
+
+    return separator.join(message_texts)
+
+
 def conversation_to_dataframes(
     conversation: Conversation, conversation_id: str, conversation_idx: int
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -289,6 +320,7 @@ def conversation_to_dataframes(
         "conversation_index": conversation_idx,
         "conversation_id": conversation_id,
         "num_messages": len(conversation.messages),
+        "conversation_text_content": render_conversation_as_text(conversation),
     }
     conversation_df = pd.DataFrame([conversation_data])
 
@@ -591,6 +623,11 @@ def get_conversation_schema() -> dict:
             "type": ColumnType.INT,
             "content_type": ContentType.NUMERIC,
             "description": "Number of messages in conversation",
+        },
+        "conversation_text_content": {
+            "type": ColumnType.STRING,
+            "content_type": ContentType.TEXT,
+            "description": "Full conversation rendered as text",
         },
         # Message DataFrame columns
         "message_index": {

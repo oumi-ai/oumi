@@ -16,7 +16,7 @@ import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from oumi.core.configs.training_config import TrainingConfig
@@ -26,6 +26,7 @@ import trl
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.gkd_params import GkdParams
+from oumi.core.configs.params.gold_params import GoldParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
@@ -74,6 +75,18 @@ class TrainerType(Enum):
     Self-Generated Mistakes" (https://arxiv.org/abs/2306.13649).
 
     Warning: GKDTrainer is marked as experimental in TRL and may be subject to
+    changes or removal in future versions.
+    """
+
+    TRL_GOLD = "trl_gold"
+    """General Online Logit Distillation trainer from `trl` library.
+
+    This trainer extends GKD to support cross-tokenizer distillation through
+    Universal Logit Distillation (ULD), enabling knowledge distillation between
+    models with different tokenizers (e.g., Llama → Qwen).
+    Based on the paper "Unlocking On-Policy Distillation for Any Model Family".
+
+    Warning: GOLDTrainer is marked as experimental in TRL and may be subject to
     changes or removal in future versions.
     """
 
@@ -325,7 +338,7 @@ class TrainingParams(BaseParams):
     so only use it for debugging.
     """
 
-    run_name: Optional[str] = None
+    run_name: str | None = None
     """A unique identifier for the current training run.
 
     This name is used to identify the run in logging outputs, saved model
@@ -334,7 +347,7 @@ class TrainingParams(BaseParams):
     or when you want to easily distinguish between different training sessions.
     """
 
-    metrics_function: Optional[str] = None
+    metrics_function: str | None = None
     """The name of the metrics function in the Oumi registry to use for evaluation
     during training.
 
@@ -343,7 +356,7 @@ class TrainingParams(BaseParams):
     single metrics_function may compute multiple metrics.
     """
 
-    reward_functions: Optional[list[str]] = None
+    reward_functions: list[str] | None = None
     """The names of the reward function in the Oumi registry to use for reinforcement
     learning.
 
@@ -358,11 +371,24 @@ class TrainingParams(BaseParams):
     for documentation about the function signature.
     """
 
+    reward_function_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Keyword arguments passed to reward functions.
+
+    This must be a dict keyed by reward function name, with each value being that
+    function's kwargs dict. For reward functions with no kwargs, omit the key or
+    pass an empty dict.
+
+    This is only supported for the TRL_GRPO and VERL_GRPO trainers.
+    """
+
     grpo: GrpoParams = field(default_factory=GrpoParams)
     """Parameters for GRPO training."""
 
     gkd: GkdParams = field(default_factory=GkdParams)
     """Parameters for GKD (Generalized Knowledge Distillation) training."""
+
+    gold: GoldParams = field(default_factory=GoldParams)
+    """Parameters for GOLD (General Online Logit Distillation) training."""
 
     log_level: str = "info"
     """The logging level for the main Oumi logger.
@@ -418,7 +444,7 @@ class TrainingParams(BaseParams):
     - "no": Disable logging.
     """
 
-    logging_dir: Optional[str] = None
+    logging_dir: str | None = None
     """The directory where training logs will be saved.
 
     This includes TensorBoard logs and other training-related output.
@@ -480,14 +506,14 @@ class TrainingParams(BaseParams):
     These arguments can be used to fine-tune the behavior of the chosen scheduler.
     """
 
-    warmup_ratio: Optional[float] = None
+    warmup_ratio: float | None = None
     """The ratio of total training steps used for a linear warmup from 0 to the
     learning rate.
 
     If set along with `warmup_steps`, this value will be ignored.
     """
 
-    warmup_steps: Optional[int] = None
+    warmup_steps: int | None = None
     """The number of steps for the warmup phase of the learning rate scheduler.
 
     If set, will override the value of `warmup_ratio`.
@@ -567,7 +593,7 @@ class TrainingParams(BaseParams):
     log_model_summary: bool = False
     """Whether to print a model summary, including layer names."""
 
-    resume_from_checkpoint: Optional[str] = None
+    resume_from_checkpoint: str | None = None
     """Path to a checkpoint folder from which to resume training.
 
     If specified, training will resume by first loading the model from this folder.
@@ -584,7 +610,7 @@ class TrainingParams(BaseParams):
     this parameter has no effect.
     """
 
-    dataloader_num_workers: Union[int, str] = 0
+    dataloader_num_workers: int | str = 0
     """Number of subprocesses to use for data loading (PyTorch only).
     0 means that the data will be loaded in the main process.
 
@@ -605,7 +631,7 @@ class TrainingParams(BaseParams):
     increase RAM usage. Will default to False.
     """
 
-    dataloader_prefetch_factor: Optional[int] = None
+    dataloader_prefetch_factor: int | None = None
     """Number of batches loaded in advance by each worker.
 
     2 means there will be a total of 2 * num_workers batches prefetched across
@@ -614,7 +640,7 @@ class TrainingParams(BaseParams):
     This is only used if dataloader_num_workers >= 1.
     """
 
-    dataloader_main_process_only: Optional[bool] = None
+    dataloader_main_process_only: bool | None = None
     """Controls whether the dataloader is iterated through on the main process only.
 
     If set to `True`, the dataloader is only iterated through on the main process
@@ -631,14 +657,14 @@ class TrainingParams(BaseParams):
     NOTE: We recommend to benchmark your setup, and configure `True` or `False`.
     """
 
-    ddp_find_unused_parameters: Optional[bool] = None
+    ddp_find_unused_parameters: bool | None = None
     """When using PyTorch's DistributedDataParallel training, the value of this flag is
     passed to `find_unused_parameters`.
 
     Will default to `False` if gradient checkpointing is used, `True` otherwise.
     """
 
-    max_grad_norm: Optional[float] = 1.0
+    max_grad_norm: float | None = 1.0
     """Maximum gradient norm (for gradient clipping) to avoid exploding gradients which
     can destabilize training.
 
@@ -691,7 +717,7 @@ class TrainingParams(BaseParams):
     This field contains telemetry configuration options.
     """
 
-    empty_device_cache_steps: Optional[int] = None
+    empty_device_cache_steps: int | None = None
     """Number of steps to wait before calling `torch.<device>.empty_cache()`.
 
     This parameter determines how frequently the GPU cache should be cleared during
@@ -702,7 +728,7 @@ class TrainingParams(BaseParams):
     long training runs, but may impact performance if set too low.
     """
 
-    nccl_default_timeout_minutes: Optional[float] = None
+    nccl_default_timeout_minutes: float | None = None
     """Default timeout for NCCL operations in minutes.
 
     See: https://pytorch.org/docs/stable/distributed.html#torch.distributed.init_process_group
@@ -711,7 +737,7 @@ class TrainingParams(BaseParams):
     which is 10min.
     """
 
-    label_ignore_index: Optional[int] = None
+    label_ignore_index: int | None = None
     """Tokens with this label value don't contribute to the loss computation.
     For example, this can be `PAD`, or image tokens. `-100` is the PyTorch convention.
     Refer to the `ignore_index` parameter of `torch.nn.CrossEntropyLoss()`
@@ -768,6 +794,13 @@ class TrainingParams(BaseParams):
             config_class = trl.GRPOConfig
         elif self.trainer_type == TrainerType.TRL_GKD:
             config_class = trl.GKDConfig
+        elif self.trainer_type == TrainerType.TRL_GOLD:
+            from oumi.utils.packaging import require_gold_trainer
+
+            require_gold_trainer()
+            from trl.experimental.gold import GOLDConfig
+
+            config_class = GOLDConfig
         else:
             config_class = transformers.TrainingArguments
 
@@ -818,6 +851,19 @@ class TrainingParams(BaseParams):
                     "Use properties of GkdParams instead."
                 )
             trainer_kwargs.update(gkd_kwargs)
+
+        if self.trainer_type == TrainerType.TRL_GOLD:
+            gold_kwargs = self.gold.to_hf_trainer_kwargs()
+            conflicting_keys = set(trainer_kwargs.keys()).intersection(
+                gold_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "trainer_kwargs attempt to override the following "
+                    f"GOLD kwargs: {conflicting_keys}. "
+                    "Use properties of GoldParams instead."
+                )
+            trainer_kwargs.update(gold_kwargs)
 
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
@@ -924,23 +970,30 @@ class TrainingParams(BaseParams):
                 f"num_train_epochs: {self.num_train_epochs}."
             )
 
-        if (
-            self.trainer_type != TrainerType.TRL_GRPO
-            and self.trainer_type != TrainerType.VERL_GRPO
-            and self.reward_functions is not None
-        ):
+        if self.reward_functions is not None:
             function_names = [name for name in self.reward_functions if name]
-            if len(function_names) > 0:
+            if (
+                self.trainer_type not in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO)
+                and len(function_names) > 0
+            ):
                 raise ValueError(
                     "reward_functions may only be defined for the TRL_GRPO or VERL_GRPO"
                     f"trainers. Actual: {self.trainer_type}"
                 )
-            if self.trainer_type == TrainerType.VERL_GRPO:
-                if len(function_names) > 1:
-                    raise ValueError(
-                        "VERL_GRPO only supports a single reward function. "
-                        f"Actual: {function_names}"
-                    )
+            if self.trainer_type == TrainerType.VERL_GRPO and len(function_names) > 1:
+                raise ValueError(
+                    "VERL_GRPO only supports a single reward function. "
+                    f"Actual: {function_names}"
+                )
+        if self.reward_function_kwargs and self.trainer_type not in (
+            TrainerType.TRL_GRPO,
+            TrainerType.VERL_GRPO,
+        ):
+            raise ValueError(
+                "reward_function_kwargs is only supported for the TRL_GRPO or "
+                "VERL_GRPO trainers. Either remove reward_function_kwargs or set "
+                f"trainer_type accordingly. Actual: {self.trainer_type}"
+            )
 
         # TODO: #1540 - Remove when TRL bug is fixed.
         if (
@@ -952,9 +1005,9 @@ class TrainingParams(BaseParams):
             )
 
     @property
-    def telemetry_dir(self) -> Optional[Path]:
+    def telemetry_dir(self) -> Path | None:
         """Returns the telemetry stats output directory."""
-        result: Optional[Path] = None
+        result: Path | None = None
         if self.telemetry.telemetry_dir:
             result = Path(self.telemetry.telemetry_dir)
 

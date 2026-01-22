@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import time
-from typing import Union
 
 import pandas as pd
 import torch
@@ -123,7 +122,7 @@ class DebugSftDataset(BaseSftDataset):
 
         super().__init__(**kwargs)
 
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict | pd.Series) -> Conversation:
         """Transforms the example into a Conversation object."""
         return Conversation(
             messages=[

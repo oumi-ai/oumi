@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
 
 from oumi.core.configs.params.evaluation_params import EvaluationBackend
 from oumi.utils.packaging import PackagePrerequisites, check_package_prerequisites
@@ -42,16 +41,13 @@ BACKEND_PREREQUISITES: dict[
             PackagePrerequisites("sentencepiece", "0.1.98"),
         ],
     },
-    EvaluationBackend.ALPACA_EVAL: {
-        ALL_TASK_PREREQUISITES_KEY: [PackagePrerequisites("alpaca_eval")]
-    },
     EvaluationBackend.CUSTOM: {ALL_TASK_PREREQUISITES_KEY: []},
 }
 
 
 def check_prerequisites(
     evaluation_backend: EvaluationBackend,
-    task_name: Optional[str] = None,
+    task_name: str | None = None,
 ) -> None:
     """Check whether the evaluation backend prerequisites are satisfied.
 

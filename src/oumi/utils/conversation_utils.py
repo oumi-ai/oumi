@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import base64
-from typing import Any, Union
+from typing import Any
 
 import PIL.Image
 
@@ -197,7 +197,7 @@ def convert_message_to_json_content_list(
 
 def convert_message_to_json_content(
     message: Message,
-) -> Union[str, list[dict[str, Any]]]:
+) -> str | list[dict[str, Any]]:
     """Returns the message content.
 
     Args:

@@ -4,7 +4,13 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from oumi.core.configs import TelemetryParams, TrainingParams
+from oumi.builders.models import build_model
+from oumi.core.configs import (
+    ModelParams,
+    TelemetryParams,
+    TrainingConfig,
+    TrainingParams,
+)
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.models import MLPEncoder
@@ -292,8 +298,31 @@ def test_save_and_load_model(
         trainer._load_from_checkpoint(str(output_dir))
         mock_dcp_load.assert_called()
         assert trainer.train_dataloader.load_state_dict.called
-        assert trainer.state.epoch == 1
-        assert trainer.state.global_step == 50
+    assert trainer.state.epoch == 1
+    assert trainer.state.global_step == 50
+
+
+@patch("oumi.core.distributed.is_world_process_zero", return_value=True)
+def test_save_model_writes_pretrained_dir(
+    mock_is_world_process_zero, trainer, tmp_path
+):
+    output_dir = tmp_path / "model_output"
+
+    config = TrainingConfig(training=TrainingParams(output_dir=str(output_dir)))
+
+    trainer.save_model(config)
+
+    assert (output_dir / "model.safetensors").exists()
+    pretrained_dir = output_dir / "pretrained"
+    assert (pretrained_dir / "model.safetensors").exists()
+    assert (pretrained_dir / "config.json").exists()
+
+    load_params = ModelParams(
+        model_name=str(pretrained_dir),
+        load_pretrained_weights=True,
+    )
+    loaded_model = build_model(load_params)
+    assert isinstance(loaded_model, MLPEncoder)
 
 
 def test_get_train_dataloader(trainer):

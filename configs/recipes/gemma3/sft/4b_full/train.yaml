@@ -1,0 +1,71 @@
+# Full fine-tuning config for Gemma 3 4B Instruct.
+#
+# Model highlights:
+#   - 4B parameter multimodal model from Google
+#   - 128K context length
+#
+# Requirements:
+#   - transformers >= 4.50.0
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-3-4b-it
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi distributed torchrun -m oumi train -c configs/recipes/gemma3/sft/4b_full/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "google/gemma-3-4b-it"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: true
+  enable_liger_kernel: false  # Disabled (may conflict with Gemma3 output format)
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+
+training:
+  trainer_type: "TRL_SFT"
+  save_steps: 0
+  save_epoch: false
+  num_train_epochs: 1
+  # Effective batch size on 8-gpu node: 2 * 4 * 8 = 64
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
+
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  ddp_find_unused_parameters: false
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-05
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.05
+  compile: false
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 5
+  eval_strategy: "steps"
+  eval_steps: 10  # Run validation every 10 steps (decrease for small datasets)
+  log_model_summary: false
+  empty_device_cache_steps: 50
+  output_dir: "output/gemma3_4b.fft"
+  include_performance_metrics: true
+  enable_wandb: true
+
+fsdp:
+  enable_fsdp: true
+  sharding_strategy: "HYBRID_SHARD"
+  forward_prefetch: true
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Gemma3DecoderLayer"
