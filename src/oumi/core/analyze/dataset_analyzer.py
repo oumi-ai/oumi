@@ -723,7 +723,7 @@ class DatasetAnalyzer:
             - Dataset overview statistics
             - Message-level aggregated metrics
             - Conversation-level aggregated metrics
-            - Recommendations (if enabled)
+            - Test results (if tests configured)
         """
         # Check if we have data to analyze
         if self._merged_df is None or self._merged_df.empty:
@@ -742,80 +742,43 @@ class DatasetAnalyzer:
             "conversation_turns": self._get_conversation_turns_summary(),
         }
 
-        # Generate observations (key findings summary)
-        summary["observations"] = self._generate_observations(summary)
-
-        # Generate recommendations if enabled in config
-        if getattr(self.config, "generate_recommendations", True):
-            summary["recommendations"] = self._generate_recommendations(summary)
+        # Run user-defined tests if configured
+        if self.config.tests:
+            test_summary = self._run_tests(summary)
+            summary["test_summary"] = test_summary.to_dict()
+            summary["tests_passed"] = [
+                r.to_dict() for r in test_summary.get_passed_results()
+            ]
+            summary["tests_failed"] = [
+                r.to_dict() for r in test_summary.get_failed_results()
+            ]
 
         return summary
 
-    def _generate_recommendations(
-        self, summary: dict[str, Any]
-    ) -> list[dict[str, Any]]:
-        """Generate recommendations based on analysis results.
+    def _run_tests(self, summary: dict[str, Any]):
+        """Run user-defined tests on analysis results.
 
         Args:
             summary: The analysis summary dict.
 
         Returns:
-            List of recommendation dictionaries.
+            TestSummary containing all test results.
         """
-        try:
-            from oumi.core.analyze.recommendations import RecommendationsEngine
+        from oumi.core.analyze.test_engine import TestEngine
 
-            # Use outlier_threshold from config if available
-            outlier_threshold = getattr(self.config, "outlier_threshold", 3.0)
-            engine = RecommendationsEngine(outlier_std_threshold=outlier_threshold)
-            msg_df = (
-                self._message_df if self._message_df is not None else pd.DataFrame()
-            )
-            conv_df = (
-                self._conversation_df
-                if self._conversation_df is not None
-                else pd.DataFrame()
-            )
-            recommendations = engine.generate_recommendations(
-                message_df=msg_df,
-                conversation_df=conv_df,
-                analysis_summary=summary,
-            )
-            return [rec.to_dict() for rec in recommendations]
-        except Exception as e:
-            logger.warning(f"Failed to generate recommendations: {e}")
-            return []
+        msg_df = self._message_df if self._message_df is not None else pd.DataFrame()
+        conv_df = (
+            self._conversation_df
+            if self._conversation_df is not None
+            else pd.DataFrame()
+        )
 
-    def _generate_observations(self, summary: dict[str, Any]) -> list[dict[str, Any]]:
-        """Generate observations (key findings) based on analysis results.
-
-        Args:
-            summary: The analysis summary dict.
-
-        Returns:
-            List of observation dictionaries.
-        """
-        try:
-            from oumi.core.analyze.observations import ObservationsEngine
-
-            engine = ObservationsEngine()
-            msg_df = (
-                self._message_df if self._message_df is not None else pd.DataFrame()
-            )
-            conv_df = (
-                self._conversation_df
-                if self._conversation_df is not None
-                else pd.DataFrame()
-            )
-            observations = engine.generate_observations(
-                message_df=msg_df,
-                conversation_df=conv_df,
-                analysis_summary=summary,
-            )
-            return [obs.to_dict() for obs in observations]
-        except Exception as e:
-            logger.warning(f"Failed to generate observations: {e}")
-            return []
+        engine = TestEngine(self.config.tests)
+        return engine.run_tests(
+            message_df=msg_df,
+            conversation_df=conv_df,
+            summary=summary,
+        )
 
     @property
     def analysis_summary(self) -> dict[str, Any]:

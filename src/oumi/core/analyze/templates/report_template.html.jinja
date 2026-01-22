@@ -868,68 +868,153 @@
                 </div>
             </section>
 
-            <!-- Recommendations -->
+            <!-- Test Results -->
+            {% if test_results_summary %}
             <section class="section">
                 <div class="section-header">
-                    <h2>Recommendations</h2>
-                    {% if recommendations_summary.total > 0 %}
-                    <span class="count">{{ recommendations_summary.total }} issue{{ 's' if recommendations_summary.total != 1 else '' }}</span>
+                    <h2>Test Results</h2>
+                    <span class="count">{{ test_results_summary.passed_tests }}/{{ test_results_summary.total_tests }} passed</span>
+                </div>
+
+                <!-- Test Summary Cards -->
+                <div class="overview-grid" style="margin-bottom: 24px;">
+                    <div class="stat-card">
+                        <div class="label">Pass Rate</div>
+                        <div class="value" style="color: var(--color-{% if test_results_summary.pass_rate >= 80 %}success{% elif test_results_summary.pass_rate >= 50 %}warning{% else %}danger{% endif %})">{{ test_results_summary.pass_rate }}<span class="unit">%</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Tests Passed</div>
+                        <div class="value" style="color: var(--color-success)">{{ test_results_summary.passed_tests }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Tests Failed</div>
+                        <div class="value" style="color: var(--color-danger)">{{ test_results_summary.failed_tests }}</div>
+                    </div>
+                    {% if test_results_summary.error_tests > 0 %}
+                    <div class="stat-card">
+                        <div class="label">Errors</div>
+                        <div class="value" style="color: var(--color-warning)">{{ test_results_summary.error_tests }}</div>
+                    </div>
+                    {% endif %}
+                    {% if test_results_summary.high_severity_failures > 0 %}
+                    <div class="stat-card">
+                        <div class="label">High Severity</div>
+                        <div class="value" style="color: var(--color-danger)">{{ test_results_summary.high_severity_failures }}</div>
+                    </div>
                     {% endif %}
                 </div>
-                {% if recommendations_summary.total > 0 %}
-                <div class="recommendations-list">
-                    {% for rec in recommendations_summary.list %}
-                    <div class="recommendation {{ rec.severity }}">
-                        <div class="severity-bar"></div>
-                        <div class="recommendation-content">
-                            <div class="recommendation-header">
-                                <span class="badge">{{ rec.severity }}</span>
-                                <span class="title">{{ rec.title }}</span>
-                            </div>
-                            <div class="description">{{ rec.description }}</div>
-                            <div class="meta">
-                                <span>
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                        <circle cx="9" cy="7" r="4"></circle>
-                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                                    </svg>
-                                    {{ rec.affected_samples | int }} samples
-                                </span>
-                                {% if rec.metric_name %}
-                                <span>
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"></polyline>
-                                    </svg>
-                                    {{ rec.metric_name }}
-                                </span>
-                                {% endif %}
-                                {% if rec.has_conversations %}
-                                <button class="view-samples-btn" data-rec-id="{{ rec.id }}">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                                    </svg>
-                                    View {{ rec.conversation_count }} conversation{{ 's' if rec.conversation_count != 1 else '' }}
-                                </button>
-                                {% endif %}
+
+                <!-- Failed Tests -->
+                {% if test_results_summary.failed_list | length > 0 %}
+                <div style="margin-bottom: 24px;">
+                    <h3 class="section-title" style="color: var(--color-danger);">Failed Tests</h3>
+                    <div class="recommendations-list">
+                        {% for test in test_results_summary.failed_list %}
+                        <div class="recommendation {{ test.severity }}">
+                            <div class="severity-bar"></div>
+                            <div class="recommendation-content">
+                                <div class="recommendation-header">
+                                    <span class="badge">{{ test.severity }}</span>
+                                    <span class="title">{{ test.title }}</span>
+                                </div>
+                                <div class="description">{{ test.description }}</div>
+                                <div class="meta">
+                                    <span>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                                        </svg>
+                                        {{ test.type }}
+                                    </span>
+                                    {% if test.affected_samples > 0 %}
+                                    <span>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                            <circle cx="9" cy="7" r="4"></circle>
+                                        </svg>
+                                        {{ test.affected_samples | int }} / {{ test.total_samples | int }} samples ({{ test.affected_percentage | round(1) }}%)
+                                    </span>
+                                    {% endif %}
+                                    {% if test.metric %}
+                                    <span>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"></polyline>
+                                        </svg>
+                                        {{ test.metric }}
+                                    </span>
+                                    {% endif %}
+                                    {% if test.threshold is not none and test.actual_value is not none %}
+                                    <span>
+                                        threshold: {{ test.threshold }}, actual: {{ test.actual_value | round(2) if test.actual_value is number else test.actual_value }}
+                                    </span>
+                                    {% endif %}
+                                    {% if test.error %}
+                                    <span style="color: var(--color-warning);">
+                                        Error: {{ test.error }}
+                                    </span>
+                                    {% endif %}
+                                    {% if test.samples and test.samples | length > 0 %}
+                                    <button class="view-samples-btn" data-test-id="{{ test.id }}">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                        </svg>
+                                        View {{ test.samples | length }} conversation{{ 's' if test.samples | length != 1 else '' }}
+                                    </button>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
-                {% else %}
+                {% endif %}
+
+                <!-- Passed Tests (collapsible) -->
+                {% if test_results_summary.passed_list | length > 0 %}
+                <details style="margin-top: 16px;">
+                    <summary style="cursor: pointer; font-family: var(--font-mono); font-size: 13px; color: var(--color-text-muted); padding: 12px 0;">
+                        <span style="color: var(--color-success);">✓</span> {{ test_results_summary.passed_list | length }} test{{ 's' if test_results_summary.passed_list | length != 1 else '' }} passed (click to expand)
+                    </summary>
+                    <div class="recommendations-list" style="margin-top: 12px;">
+                        {% for test in test_results_summary.passed_list %}
+                        <div class="recommendation" style="border-color: var(--color-success-dim);">
+                            <div class="severity-bar" style="background: var(--color-success);"></div>
+                            <div class="recommendation-content">
+                                <div class="recommendation-header">
+                                    <span class="badge" style="background: var(--color-success-dim); color: var(--color-success);">passed</span>
+                                    <span class="title">{{ test.title }}</span>
+                                </div>
+                                <div class="description" style="color: var(--color-text-muted);">{{ test.description }}</div>
+                                <div class="meta">
+                                    <span>{{ test.type }}</span>
+                                    {% if test.metric %}
+                                    <span>{{ test.metric }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endif %}
+
+                {% if test_results_summary.total_tests == 0 %}
                 <div class="empty-state">
-                    <div class="icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                            <polyline points="20,6 9,17 4,12"></polyline>
+                    <div class="icon" style="background: var(--color-info-dim);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" style="stroke: var(--color-info);">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
                         </svg>
                     </div>
-                    <h3>Looking Good</h3>
-                    <p>No issues detected. Your dataset passes all quality checks.</p>
+                    <h3>No Tests Configured</h3>
+                    <p>Add tests to your configuration to validate dataset quality.</p>
                 </div>
                 {% endif %}
             </section>
+            {% endif %}
+
 
             <!-- Charts Section -->
             {% if charts_summary.count > 0 %}
@@ -1202,6 +1287,9 @@
         // External data file paths
         const externalData = {{ external_data | tojson }};
 
+        // Test results data (embedded for quick access)
+        const testResultsData = {{ test_results_summary | tojson if test_results_summary else '{}' }};
+
         // Cache for loaded data
         const dataCache = {};
 
@@ -1257,10 +1345,17 @@
         });
 
         function setupEventListeners() {
-            // View samples buttons
-            document.querySelectorAll('.view-samples-btn').forEach(btn => {
+            // View samples buttons for recommendations
+            document.querySelectorAll('.view-samples-btn[data-rec-id]').forEach(btn => {
                 btn.addEventListener('click', function() {
                     openSampleModal(this.getAttribute('data-rec-id'));
+                });
+            });
+
+            // View samples buttons for test results
+            document.querySelectorAll('.view-samples-btn[data-test-id]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    openTestModal(this.getAttribute('data-test-id'));
                 });
             });
 
@@ -1891,6 +1986,36 @@
             renderConversations(rec.conversations, body);
         }
 
+        function openTestModal(testId) {
+            const modal = document.getElementById('sampleModal');
+            const title = document.getElementById('sampleModalTitle');
+            const body = document.getElementById('sampleModalBody');
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            // Find the test in failed_list or passed_list
+            let test = null;
+            if (testResultsData.failed_list) {
+                test = testResultsData.failed_list.find(t => t.id === testId);
+            }
+            if (!test && testResultsData.passed_list) {
+                test = testResultsData.passed_list.find(t => t.id === testId);
+            }
+
+            if (!test || !test.samples || test.samples.length === 0) {
+                body.textContent = '';
+                const errorMsg = document.createElement('p');
+                errorMsg.style.cssText = 'padding: 20px; color: var(--color-danger);';
+                errorMsg.textContent = 'No conversation data available';
+                body.appendChild(errorMsg);
+                return;
+            }
+
+            title.textContent = test.title;
+            renderConversations(test.samples, body);
+        }
+
         function renderConversations(conversations, container) {
             container.textContent = '';
             const convList = document.createElement('div');
@@ -1920,15 +2045,19 @@
                 turnsStat.textContent = conv.turns.length + ' turn' + (conv.turns.length !== 1 ? 's' : '');
                 stats.appendChild(turnsStat);
 
-                const flaggedStat = document.createElement('span');
-                flaggedStat.className = 'conversation-stat flagged';
-                flaggedStat.textContent = conv.flagged_count + ' flagged';
-                stats.appendChild(flaggedStat);
+                // Only show flagged count if there are flagged messages (message-level tests)
+                if (conv.flagged_count > 0) {
+                    const flaggedStat = document.createElement('span');
+                    flaggedStat.className = 'conversation-stat flagged';
+                    flaggedStat.textContent = conv.flagged_count + ' flagged';
+                    stats.appendChild(flaggedStat);
+                }
 
+                // Show metric value (for conversation-level tests)
                 if (conv.metric_value) {
                     const metricStat = document.createElement('span');
                     metricStat.className = 'conversation-stat';
-                    metricStat.textContent = 'Score: ' + conv.metric_value;
+                    metricStat.textContent = 'Value: ' + conv.metric_value;
                     stats.appendChild(metricStat);
                 }
 

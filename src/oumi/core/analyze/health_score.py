@@ -19,7 +19,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from oumi.core.analyze.recommendations import Recommendation, RecommendationSeverity
+from oumi.core.analyze.test_result import TestResult
 from oumi.utils.analysis_utils import DistributionType, detect_distribution_type
 
 
@@ -156,7 +156,7 @@ class HealthScoreCalculator:
         message_df: pd.DataFrame,
         conversation_df: pd.DataFrame,
         analysis_summary: dict[str, Any],
-        recommendations: list[Recommendation],
+        test_results: list[TestResult] | None = None,
     ) -> DatasetHealthScore:
         """Calculate the comprehensive health score for a dataset.
 
@@ -164,11 +164,14 @@ class HealthScoreCalculator:
             message_df: DataFrame with message-level analysis results.
             conversation_df: DataFrame with conversation-level analysis results.
             analysis_summary: Summary statistics from the analysis.
-            recommendations: List of recommendations from the analysis.
+            test_results: List of failed test results from the analysis.
+                Only failed tests are used for penalty calculation.
 
         Returns:
             DatasetHealthScore with overall score and component breakdown.
         """
+        # Use empty list if no test results provided
+        failed_tests = test_results or []
         components = []
 
         # Calculate each component
@@ -201,12 +204,12 @@ class HealthScoreCalculator:
             for c in components
         )
 
-        # Apply penalties for recommendations
+        # Apply penalties for failed tests
         high_severity_count = sum(
-            1 for r in recommendations if r.severity == RecommendationSeverity.HIGH
+            1 for t in failed_tests if t.severity == "high"
         )
         penalty = (
-            len(recommendations) * self.recommendation_penalty
+            len(failed_tests) * self.recommendation_penalty
             + high_severity_count * self.high_severity_penalty
         )
         overall = max(0, overall - penalty)
@@ -219,13 +222,13 @@ class HealthScoreCalculator:
                 break
 
         # Generate summary
-        summary = self._generate_summary(overall, grade, components, recommendations)
+        summary = self._generate_summary(overall, grade, components, failed_tests)
 
         return DatasetHealthScore(
             overall=overall,
             grade=grade,
             components=components,
-            recommendations_count=len(recommendations),
+            recommendations_count=len(failed_tests),
             high_severity_count=high_severity_count,
             summary=summary,
         )
@@ -667,7 +670,7 @@ class HealthScoreCalculator:
         overall: float,
         grade: str,
         components: list[HealthScoreComponent],
-        recommendations: list[Recommendation],
+        failed_tests: list[TestResult],
     ) -> str:
         """Generate a human-readable summary of the health score.
 
@@ -675,7 +678,7 @@ class HealthScoreCalculator:
             overall: Overall score.
             grade: Letter grade.
             components: Component scores.
-            recommendations: List of recommendations.
+            failed_tests: List of failed test results.
 
         Returns:
             Summary string.
@@ -701,7 +704,7 @@ class HealthScoreCalculator:
                 )
 
         high_severity = [
-            r for r in recommendations if r.severity == RecommendationSeverity.HIGH
+            t for t in failed_tests if t.severity == "high"
         ]
         if high_severity:
             summary_parts.append(

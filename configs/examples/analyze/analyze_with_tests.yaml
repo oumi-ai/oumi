@@ -1,0 +1,192 @@
+# Example configuration demonstrating user-defined tests for dataset analysis
+#
+# This config shows how to use the new `tests` feature to define custom
+# quality checks that run on analysis results. Inspired by promptfoo's
+# declarative assertion system.
+#
+# Usage: oumi analyze --config configs/examples/analyze/analyze_with_tests.yaml
+
+dataset_name: tatsu-lab/alpaca
+split: train
+sample_count: 1000
+output_path: ./analysis_output/tests_example
+
+# Analyzers compute metrics on your dataset
+analyzers:
+  - id: length
+    params:
+      token_count: true
+
+  - id: diversity
+    params:
+      unique_words_ratio: true
+
+  - id: quality
+    params:
+      detect_pii: true
+      detect_encoding_issues: true
+
+# Tests define quality checks to run on the computed metrics
+# Each test returns PASSED or FAILED based on your criteria
+tests:
+  # ==========================================================================
+  # THRESHOLD TESTS - Compare metrics against values
+  # ==========================================================================
+
+  # Check for very short messages (1 token or less)
+  - id: no_empty_messages
+    type: threshold
+    metric: "text_content__length__token_count"
+    operator: "<="
+    value: 1
+    max_percentage: 0.5
+    severity: high
+    title: "Empty or near-empty messages"
+    description: "Messages with 1 or fewer tokens indicate data quality issues"
+
+  # Check for extremely long messages (may exceed context windows)
+  - id: context_window_safe
+    type: threshold
+    metric: "text_content__length__token_count"
+    operator: ">"
+    value: 10
+    max_percentage: 5.0
+    severity: medium
+    title: "Messages exceeding 10 tokens"
+    scope: message
+
+  - id: context_window_safe_conv
+    type: threshold
+    metric: "conversation_text_content__length__token_count"
+    operator: "<="
+    value: 50
+    max_percentage: 10.0
+    severity: medium
+    title: "Conversation with less than 50 tokens"
+    description: "Conversations with less than 50 tokens may exceed the context window"
+    scope: conversation
+
+  # ==========================================================================
+  # PERCENTAGE TESTS - Check what % of samples match a condition
+  # ==========================================================================
+
+  # Ensure minimal PII in dataset
+  - id: no_pii
+    type: percentage
+    metric: "text_content__quality__has_pii"
+    condition: "== True"
+    max_percentage: 1.0
+    severity: high
+    title: "PII detected in dataset"
+    description: "Personal information should be removed before training"
+
+  # Ensure minimal encoding issues
+  - id: no_encoding_issues
+    type: percentage
+    metric: "text_content__quality__has_encoding_issues"
+    condition: "== True"
+    max_percentage: 2.0
+    severity: medium
+    title: "Encoding issues detected"
+
+  # ==========================================================================
+  # DISTRIBUTION TESTS - Check distribution properties
+  # ==========================================================================
+
+  # Check for role imbalance
+  - id: balanced_roles
+    type: distribution
+    metric: "role"
+    check: "max_fraction"
+    threshold: 0.7
+    severity: medium
+    title: "Role distribution check"
+    description: "No single role should dominate >70% of messages"
+
+  # ==========================================================================
+  # REGEX TESTS - Pattern matching on text
+  # ==========================================================================
+
+  # Check for leaked special tokens
+  - id: no_special_tokens
+    type: regex
+    text_field: "text_content"
+    pattern: "<\\|(?:endoftext|im_start|im_end|pad)\\|>"
+    max_percentage: 0
+    severity: high
+    title: "Special token leakage"
+    description: "Training tokens should not appear in content"
+
+  # ==========================================================================
+  # CONTAINS TESTS - Substring checks
+  # ==========================================================================
+
+  # Check for placeholder text
+  - id: no_placeholders
+    type: contains-any
+    text_field: "text_content"
+    values: ["[NAME]", "[COMPANY]", "[DATE]", "[INSERT", "[YOUR"]
+    max_percentage: 1.0
+    severity: medium
+    title: "Placeholder text detected"
+    case_sensitive: false
+
+  # ==========================================================================
+  # QUERY TESTS - Pandas query expressions (most flexible)
+  # ==========================================================================
+
+  # Check for low-quality short responses
+  - id: substantive_responses
+    type: query
+    expression: "role == 'assistant' and text_content__length__token_count < 5"
+    max_percentage: 5.0
+    severity: medium
+    title: "Very short assistant responses"
+    description: "Responses with <5 tokens may not be helpful for training"
+
+  # Check for low vocabulary diversity in long messages
+  - id: diverse_vocabulary
+    type: query
+    expression: "text_content__length__token_count > 50 and text_content__diversity__unique_words_ratio < 0.3"
+    max_percentage: 10.0
+    severity: low
+    title: "Low vocabulary diversity in long messages"
+
+  # ==========================================================================
+  # OUTLIER TESTS - Statistical outlier detection
+  # ==========================================================================
+
+  # Detect token count outliers
+  - id: token_outliers
+    type: outliers
+    metric: "text_content__length__token_count"
+    std_threshold: 3.0
+    max_percentage: 5.0
+    severity: low
+    title: "Token count statistical outliers"
+
+  # ==========================================================================
+  # COMPOSITE TESTS - Combine multiple checks
+  # ==========================================================================
+
+  # Critical issues: fail if ANY of these conditions are met
+  - id: critical_quality_issues
+    type: composite
+    composite_operator: any
+    severity: high
+    title: "Critical quality issues"
+    description: "Dataset has critical issues that should be addressed"
+    tests:
+      - type: percentage
+        metric: "text_content__quality__has_pii"
+        condition: "== True"
+        max_percentage: 5.0
+      - type: threshold
+        metric: "text_content__length__token_count"
+        operator: "<="
+        value: 0
+        max_percentage: 1.0
+
+# Generate an HTML report with test results visualization
+generate_report: true
+report_title: "Alpaca Dataset Quality Analysis"

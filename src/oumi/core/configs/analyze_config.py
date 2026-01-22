@@ -21,6 +21,7 @@ from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.test_params import TestParams
 
 
 class DatasetSource(Enum):
@@ -174,20 +175,35 @@ class AnalyzeConfig(BaseConfig):
         'processor_name' is provided.
     """
 
-    # Recommendations and report options
-    generate_recommendations: bool = True
-    """Whether to generate automated recommendations from analysis results.
+    # User-defined tests
+    tests: list[TestParams] = field(default_factory=list)
+    """List of user-defined tests to run on analysis results.
 
-    When enabled, the analyzer will check for potential issues like outliers,
-    duplicates, empty content, and role imbalances, generating actionable
-    recommendations for improving the dataset.
-    """
+    Tests allow declarative specification of quality checks to run on the
+    analyzed dataset. Each test defines conditions that samples must meet.
 
-    outlier_threshold: float = 3.0
-    """Standard deviation threshold for outlier detection in recommendations.
+    Example:
+        tests:
+          - id: no_pii
+            type: percentage
+            metric: quality__has_pii
+            condition: "== True"
+            max_percentage: 1.0
+            severity: high
+            title: "PII detected in dataset"
 
-    Samples with metric values more than this many standard deviations from the
-    mean will be flagged as outliers. Lower values are more sensitive.
+    Supported test types:
+        - threshold: Compare metric against a value
+        - percentage: Check % of samples matching a condition
+        - distribution: Check distribution properties
+        - regex: Match regex pattern against text
+        - contains: Check for substrings in text
+        - query: Execute pandas query expression
+        - outliers: Detect statistical outliers
+        - composite: Combine multiple tests
+        - python: Custom Python function
+
+    See TestParams for full documentation of available options.
     """
 
     generate_report: bool = False
@@ -280,3 +296,17 @@ class AnalyzeConfig(BaseConfig):
                     f"Each analyzer instance must have a unique 'instance_id'."
                 )
             instance_ids.add(analyzer.instance_id)
+
+        # Validate test configurations
+        test_ids = set()
+        for test in self.tests:
+            # Check for duplicate test IDs
+            if test.id in test_ids:
+                raise ValueError(
+                    f"Duplicate test ID found: '{test.id}'. "
+                    f"Each test must have a unique 'id'."
+                )
+            test_ids.add(test.id)
+
+            # Validate individual test (detailed validation in TestParams)
+            test.finalize_and_validate()

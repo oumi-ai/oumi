@@ -112,7 +112,7 @@ class HTMLReportGenerator:
         """
         template_dir = Path(__file__).parent / "templates"
         env = Environment(loader=FileSystemLoader(template_dir), autoescape=True)
-        
+
         # Add custom filter for formatting numbers with thousand separators
         def format_number(value: float | int | None, precision: int = 2) -> str:
             """Format number with thousand separators and specified precision."""
@@ -137,7 +137,7 @@ class HTMLReportGenerator:
                         return f"{int(rounded):,}"
             except (ValueError, TypeError):
                 return str(value)
-        
+
         env.filters["format_number"] = format_number
         return env.get_template("report_template.html.jinja")
 
@@ -259,7 +259,7 @@ class HTMLReportGenerator:
 
         # Prepare lightweight template data (with metadata instead of full data)
         template_data = self._prepare_lightweight_template_data(
-            full_data, external_data
+            full_data, external_data, analyzer_obj
         )
 
         # Sanitize template data to handle Undefined values from OmegaConf
@@ -375,12 +375,14 @@ class HTMLReportGenerator:
         self,
         full_data: dict[str, Any],
         external_data: dict[str, Any],
+        analyzer: Optional["DatasetAnalyzer"] = None,
     ) -> dict[str, Any]:
         """Prepare lightweight template data with external file references.
 
         Args:
             full_data: Full template data dictionary.
             external_data: Metadata about external data files.
+            analyzer: Optional DatasetAnalyzer to look up sample content.
 
         Returns:
             Lightweight template data with file references.
@@ -399,6 +401,10 @@ class HTMLReportGenerator:
             # Summary counts for display (without full data)
             "recommendations_summary": self._get_recommendations_summary(
                 full_data.get("recommendations", [])
+            ),
+            "test_results_summary": self._get_test_results_summary(
+                full_data.get("test_summary"),
+                analyzer,
             ),
             "duplicates_summary": self._get_duplicates_summary(
                 full_data.get("duplicates")
@@ -455,6 +461,291 @@ class HTMLReportGenerator:
             )
 
         return summary
+
+    def _get_test_results_summary(
+        self,
+        test_summary: Optional[dict[str, Any]],
+        analyzer: Optional["DatasetAnalyzer"] = None,
+    ) -> Optional[dict[str, Any]]:
+        """Get summary of test results for display.
+
+        Args:
+            test_summary: Test summary dictionary from TestSummary.to_dict().
+            analyzer: Optional DatasetAnalyzer to look up sample content.
+
+        Returns:
+            Summary dictionary or None if no tests were run.
+        """
+        if not test_summary:
+            return None
+
+        results = test_summary.get("results", [])
+        if not results:
+            return None
+
+        # Separate passed and failed tests
+        passed_tests = []
+        failed_tests = []
+
+        for result in results:
+            test_info = {
+                "id": result.get("test_id", ""),
+                "type": result.get("test_type", ""),
+                "title": result.get("title", ""),
+                "description": result.get("description", ""),
+                "severity": result.get("severity", "medium"),
+                "passed": result.get("passed", False),
+                "affected_samples": result.get("affected_samples", 0),
+                "total_samples": result.get("total_samples", 0),
+                "affected_percentage": result.get("affected_percentage", 0.0),
+                "threshold": result.get("threshold"),
+                "actual_value": result.get("actual_value"),
+                "metric": result.get("metric", ""),
+                "scope": result.get("scope", "message"),
+                "error": result.get("error"),
+                "sample_indices": result.get("sample_indices", []),
+            }
+
+            # Enrich with sample content if analyzer is available
+            if analyzer is not None and test_info["sample_indices"]:
+                test_info["samples"] = self._get_test_sample_content(
+                    test_info["sample_indices"],
+                    test_info["scope"],
+                    test_info["metric"],
+                    analyzer,
+                )
+
+            if result.get("passed", False):
+                passed_tests.append(test_info)
+            else:
+                failed_tests.append(test_info)
+
+        return {
+            "total_tests": test_summary.get("total_tests", 0),
+            "passed_tests": test_summary.get("passed_tests", 0),
+            "failed_tests": test_summary.get("failed_tests", 0),
+            "error_tests": test_summary.get("error_tests", 0),
+            "high_severity_failures": test_summary.get("high_severity_failures", 0),
+            "medium_severity_failures": test_summary.get("medium_severity_failures", 0),
+            "low_severity_failures": test_summary.get("low_severity_failures", 0),
+            "pass_rate": round(
+                (
+                    test_summary.get("passed_tests", 0)
+                    / test_summary.get("total_tests", 1)
+                )
+                * 100,
+                1,
+            )
+            if test_summary.get("total_tests", 0) > 0
+            else 0,
+            "passed_list": passed_tests,
+            "failed_list": failed_tests,
+        }
+
+    def _get_test_sample_content(
+        self,
+        sample_indices: list[int],
+        scope: str,
+        metric: str,
+        analyzer: "DatasetAnalyzer",
+        max_conversations: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Get full conversation content for test results with flagged messages.
+
+        Args:
+            sample_indices: List of indices that failed the test.
+                - For message scope: message DataFrame indices
+                - For conversation scope: conversation DataFrame indices
+            scope: Test scope (message or conversation).
+            metric: Metric name that was checked.
+            analyzer: DatasetAnalyzer with data.
+            max_conversations: Maximum number of conversations to return.
+
+        Returns:
+            List of conversation dictionaries with turns and flagged indicators.
+        """
+        conversations = []
+        message_df = analyzer.message_df
+        conversation_df = getattr(analyzer, "conversation_df", None)
+
+        if message_df is None or message_df.empty:
+            return conversations
+
+        has_conv_id = "conversation_id" in message_df.columns
+
+        # Handle conversation-level scope differently
+        if scope == "conversation" and conversation_df is not None:
+            return self._get_conversation_level_samples(
+                sample_indices, metric, message_df, conversation_df, max_conversations
+            )
+
+        # Message-level scope: flag specific messages
+        sample_indices_set = set(sample_indices)
+        seen_conv_ids: set[str] = set()
+
+        for sample_idx in sample_indices:
+            if sample_idx not in message_df.index:
+                continue
+
+            # Limit number of conversations
+            if len(seen_conv_ids) >= max_conversations:
+                break
+
+            row = message_df.loc[sample_idx]
+
+            # Get conversation ID
+            if has_conv_id:
+                conv_id = str(row.get("conversation_id", f"sample_{sample_idx}"))
+            else:
+                conv_id = f"sample_{sample_idx}"
+
+            # Skip if we've already processed this conversation
+            if conv_id in seen_conv_ids:
+                continue
+            seen_conv_ids.add(conv_id)
+
+            # Get all messages in this conversation
+            if has_conv_id:
+                conv_messages = message_df[
+                    message_df["conversation_id"] == row["conversation_id"]
+                ].sort_index()
+            else:
+                # For flat format, just use the single row
+                conv_messages = message_df.loc[[sample_idx]]
+
+            # Build conversation turns
+            turns = []
+            flagged_count = 0
+            for msg_idx, msg_row in conv_messages.iterrows():
+                # Get text content
+                text = ""
+                for col in ["text_content", "content", "text"]:
+                    if col in msg_row and msg_row.get(col):
+                        text = str(msg_row[col])
+                        break
+
+                # Check if this message is flagged
+                is_flagged = int(msg_idx) in sample_indices_set
+                if is_flagged:
+                    flagged_count += 1
+
+                # Get metric value for flagged messages
+                metric_value = None
+                if is_flagged and metric and metric in msg_row:
+                    metric_value = self._format_metric_value(msg_row[metric])
+
+                turns.append(
+                    {
+                        "index": int(msg_idx),
+                        "role": msg_row.get("role", "unknown"),
+                        "text": text,
+                        "is_flagged": is_flagged,
+                        "metric_value": metric_value,
+                    }
+                )
+
+            conversations.append(
+                {
+                    "conversation_id": conv_id,
+                    "turns": turns,
+                    "flagged_count": flagged_count,
+                }
+            )
+
+        return conversations
+
+    def _get_conversation_level_samples(
+        self,
+        sample_indices: list[int],
+        metric: str,
+        message_df: pd.DataFrame,
+        conversation_df: pd.DataFrame,
+        max_conversations: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Get conversation samples for conversation-level tests.
+
+        For conversation-level tests, we don't flag individual messages.
+        Instead, we show the whole conversation and optionally the
+        conversation-level metric value.
+
+        Args:
+            sample_indices: Conversation DataFrame indices that failed the test.
+            metric: Metric name that was checked.
+            message_df: Message-level DataFrame.
+            conversation_df: Conversation-level DataFrame.
+            max_conversations: Maximum number of conversations to return.
+
+        Returns:
+            List of conversation dictionaries without flagged messages.
+        """
+        conversations = []
+        has_conv_id = "conversation_id" in message_df.columns
+
+        for conv_idx in sample_indices[:max_conversations]:
+            if conv_idx not in conversation_df.index:
+                continue
+
+            conv_row = conversation_df.loc[conv_idx]
+
+            # Get conversation identifier
+            conv_id = None
+            for col in ["conversation_id", "conversation_index"]:
+                if col in conversation_df.columns:
+                    conv_id = str(conv_row.get(col, f"conv_{conv_idx}"))
+                    break
+            if conv_id is None:
+                conv_id = f"conv_{conv_idx}"
+
+            # Get conversation-level metric value
+            conv_metric_value = None
+            if metric and metric in conv_row:
+                conv_metric_value = self._format_metric_value(conv_row[metric])
+
+            # Get all messages in this conversation
+            if has_conv_id:
+                conv_messages = message_df[
+                    message_df["conversation_id"]
+                    == conv_row.get("conversation_id", conv_id)
+                ].sort_index()
+            else:
+                # Fallback: try to match by conversation_index
+                if "conversation_index" in message_df.columns:
+                    conv_messages = message_df[
+                        message_df["conversation_index"]
+                        == conv_row.get("conversation_index", conv_idx)
+                    ].sort_index()
+                else:
+                    conv_messages = pd.DataFrame()
+
+            # Build conversation turns (no flagging for conversation-level tests)
+            turns = []
+            for msg_idx, msg_row in conv_messages.iterrows():
+                text = ""
+                for col in ["text_content", "content", "text"]:
+                    if col in msg_row and msg_row.get(col):
+                        text = str(msg_row[col])
+                        break
+
+                turns.append(
+                    {
+                        "index": int(msg_idx),
+                        "role": msg_row.get("role", "unknown"),
+                        "text": text,
+                        "is_flagged": False,  # No flagging for conversation-level
+                        "metric_value": None,
+                    }
+                )
+
+            conversations.append(
+                {
+                    "conversation_id": conv_id,
+                    "turns": turns,
+                    "flagged_count": 0,  # No individual flags
+                    "metric_value": conv_metric_value,  # Conversation-level metric
+                }
+            )
+
+        return conversations
 
     def _get_duplicates_summary(
         self, duplicates: Optional[dict[str, Any]]
@@ -579,7 +870,15 @@ class HTMLReportGenerator:
                 organized_categorical[analyzer_id][metric_name] = {
                     k: v
                     for k, v in stats.items()
-                    if k in ["count", "unique_count", "mode", "mode_count", "mode_percentage", "top_values"]
+                    if k
+                    in [
+                        "count",
+                        "unique_count",
+                        "mode",
+                        "mode_count",
+                        "mode_percentage",
+                        "top_values",
+                    ]
                 }
             else:
                 # Numeric statistics - include only essential stats (exclude 'count')
@@ -618,9 +917,11 @@ class HTMLReportGenerator:
         message_stats_flat = summary.get("message_level_summary", {})
         conversation_stats_flat = summary.get("conversation_level_summary", {})
 
-        message_numeric, message_categorical = self._organize_stats_by_analyzer(message_stats_flat)
-        conversation_numeric, conversation_categorical = self._organize_stats_by_analyzer(
-            conversation_stats_flat
+        message_numeric, message_categorical = self._organize_stats_by_analyzer(
+            message_stats_flat
+        )
+        conversation_numeric, conversation_categorical = (
+            self._organize_stats_by_analyzer(conversation_stats_flat)
         )
 
         data = {
@@ -638,6 +939,7 @@ class HTMLReportGenerator:
             "health_score": None,
             "duplicates": None,
             "clusters": None,
+            "test_summary": summary.get("test_summary"),
         }
 
         # Add recommendations if enabled
@@ -1366,26 +1668,30 @@ class HTMLReportGenerator:
             nbins = 30
             hist_values = series.tolist()
             hist_indices = series.index.tolist()
-            
+
             # Calculate bin edges
             min_val = series.min()
             max_val = series.max()
             bin_width = (max_val - min_val) / nbins if max_val > min_val else 1
-            
+
             # Group indices by bin
             bin_conversations = {}  # bin_index -> list of (row_index, value, conversation_index)
             message_df_for_lookup = analyzer.message_df
             conversation_df_for_lookup = getattr(analyzer, "conversation_df", None)
-            has_conv_id = "conversation_id" in message_df_for_lookup.columns if message_df_for_lookup is not None else False
-            
+            has_conv_id = (
+                "conversation_id" in message_df_for_lookup.columns
+                if message_df_for_lookup is not None
+                else False
+            )
+
             for idx, val in zip(hist_indices, hist_values):
                 if pd.isna(val):
                     continue
-                
+
                 # Calculate which bin this value falls into
                 bin_idx = int((val - min_val) / bin_width) if bin_width > 0 else 0
                 bin_idx = min(bin_idx, nbins - 1)  # Ensure it's within bounds
-                
+
                 # Get conversation_index for this row
                 conv_idx = None
                 if df_used == "conversation" and conversation_df_for_lookup is not None:
@@ -1402,29 +1708,32 @@ class HTMLReportGenerator:
                             if col in message_df_for_lookup.columns:
                                 conv_idx = row.get(col)
                                 break
-                
+
                 if bin_idx not in bin_conversations:
                     bin_conversations[bin_idx] = []
                 bin_conversations[bin_idx].append((idx, val, conv_idx))
-            
+
             # Build sample conversations for each bin (limit to 1 per bin to keep file size reasonable)
             bin_samples = {}
             for bin_idx, samples in bin_conversations.items():
                 if not samples:
                     continue
-                
+
                 # Pick the first sample from this bin
                 sample_idx, sample_val, sample_conv_idx = samples[0]
-                
+
                 if sample_conv_idx is None:
                     continue
-                
+
                 conv_key = str(sample_conv_idx)
                 # Skip if we already have this conversation for another bin
                 # Check if any existing bin sample has this conversation_id
-                if any(sample.get("conversation_id") == conv_key for sample in bin_samples.values()):
+                if any(
+                    sample.get("conversation_id") == conv_key
+                    for sample in bin_samples.values()
+                ):
                     continue
-                
+
                 # Build conversation data
                 if df_used == "conversation" and conversation_df_for_lookup is not None:
                     if sample_idx in conversation_df_for_lookup.index:
@@ -1434,28 +1743,34 @@ class HTMLReportGenerator:
                             if col in conversation_df_for_lookup.columns:
                                 conv_col = col
                                 break
-                        
+
                         if conv_col:
                             conv_id = conv_row.get(conv_col, conv_key)
                         else:
                             conv_id = conv_key
-                        
+
                         # Get all messages in this conversation
-                        if has_conv_id and conv_col and message_df_for_lookup is not None:
+                        if (
+                            has_conv_id
+                            and conv_col
+                            and message_df_for_lookup is not None
+                        ):
                             conv_messages = message_df_for_lookup[
                                 message_df_for_lookup[conv_col] == conv_id
                             ].sort_index()
                         else:
                             conv_messages = pd.DataFrame()
-                        
+
                         # Build conversation data
                         turns = []
                         if not conv_messages.empty:
                             for msg_idx, msg_row in conv_messages.iterrows():
                                 text = ""
-                                if "text_content" in msg_row and msg_row.get("text_content"):
+                                if "text_content" in msg_row and msg_row.get(
+                                    "text_content"
+                                ):
                                     text = str(msg_row.get("text_content", ""))
-                                
+
                                 turn_data = {
                                     "index": int(msg_idx),
                                     "role": msg_row.get("role", "sample"),
@@ -1463,7 +1778,7 @@ class HTMLReportGenerator:
                                     "is_flagged": False,
                                 }
                                 turns.append(turn_data)
-                        
+
                         # Add reasoning if available (e.g., for helpfulness, instruction_quality, etc.)
                         reasoning = None
                         if metric_col and "__score" in metric_col:
@@ -1473,7 +1788,7 @@ class HTMLReportGenerator:
                                 reasoning_value = conv_row[reasoning_col]
                                 if reasoning_value and str(reasoning_value).strip():
                                     reasoning = str(reasoning_value).strip()
-                        
+
                         bin_samples[bin_idx] = {
                             "conversation_id": str(conv_id),
                             "turns": turns,
@@ -1489,12 +1804,12 @@ class HTMLReportGenerator:
                             if col in message_df_for_lookup.columns:
                                 conv_col = col
                                 break
-                        
+
                         if conv_col:
                             conv_id = row.get(conv_col, conv_key)
                         else:
                             conv_id = conv_key
-                        
+
                         # Get all messages in this conversation
                         if has_conv_id and conv_col:
                             conv_messages = message_df_for_lookup[
@@ -1502,14 +1817,16 @@ class HTMLReportGenerator:
                             ].sort_index()
                         else:
                             conv_messages = message_df_for_lookup.loc[[sample_idx]]
-                        
+
                         # Build conversation data
                         turns = []
                         for msg_idx, msg_row in conv_messages.iterrows():
                             text = ""
-                            if "text_content" in msg_row and msg_row.get("text_content"):
+                            if "text_content" in msg_row and msg_row.get(
+                                "text_content"
+                            ):
                                 text = str(msg_row.get("text_content", ""))
-                            
+
                             turn_data = {
                                 "index": int(msg_idx),
                                 "role": msg_row.get("role", "sample"),
@@ -1519,9 +1836,11 @@ class HTMLReportGenerator:
                             # Add metric value for flagged messages
                             if turn_data["is_flagged"]:
                                 if metric_col and metric_col in msg_row:
-                                    turn_data["metric_value"] = self._format_metric_value(msg_row[metric_col])
+                                    turn_data["metric_value"] = (
+                                        self._format_metric_value(msg_row[metric_col])
+                                    )
                             turns.append(turn_data)
-                        
+
                         # Add reasoning if available (e.g., for helpfulness, instruction_quality, etc.)
                         reasoning = None
                         if metric_col and "__score" in metric_col:
@@ -1531,15 +1850,17 @@ class HTMLReportGenerator:
                                 reasoning_value = row[reasoning_col]
                                 if reasoning_value and str(reasoning_value).strip():
                                     reasoning = str(reasoning_value).strip()
-                        
+
                         bin_samples[bin_idx] = {
                             "conversation_id": str(conv_id),
                             "turns": turns,
-                            "flagged_count": 1 if int(msg_idx) == int(sample_idx) else 0,
+                            "flagged_count": 1
+                            if int(msg_idx) == int(sample_idx)
+                            else 0,
                             "value": float(sample_val),
                             "reasoning": reasoning,
                         }
-            
+
             # Create histogram
             # Note: Plotly histograms don't support customdata directly, but we can
             # use the click event's x value to determine which bin was clicked
@@ -1635,23 +1956,25 @@ class HTMLReportGenerator:
             chart_count += 1
 
         # Add role distribution pie chart if available
-        if "role" in message_df.columns and (self.max_charts is None or chart_count < self.max_charts):
+        if "role" in message_df.columns and (
+            self.max_charts is None or chart_count < self.max_charts
+        ):
             role_counts = message_df["role"].value_counts()
-            
+
             # Build sample conversations for each role
             role_samples = {}
             has_conv_id = "conversation_id" in message_df.columns
-            
+
             for role_value in role_counts.index:
                 # Find a sample message with this role
                 sample_rows = message_df[message_df["role"] == role_value]
                 if len(sample_rows) == 0:
                     continue
-                
+
                 # Pick the first sample
                 sample_idx = sample_rows.index[0]
                 sample_row = message_df.loc[sample_idx]
-                
+
                 # Get conversation ID/index
                 conv_id = None
                 conv_col = None
@@ -1660,10 +1983,10 @@ class HTMLReportGenerator:
                         conv_id = sample_row.get(col)
                         conv_col = col
                         break
-                
+
                 if conv_id is None:
                     continue
-                
+
                 # Get all messages in this conversation
                 conv_messages = pd.DataFrame()
                 if has_conv_id and conv_col:
@@ -1672,14 +1995,14 @@ class HTMLReportGenerator:
                     ].sort_index()
                 else:
                     conv_messages = message_df.loc[[sample_idx]]
-                
+
                 # Build conversation data
                 turns = []
                 for msg_idx, msg_row in conv_messages.iterrows():
                     text = ""
                     if "text_content" in msg_row and msg_row.get("text_content"):
                         text = str(msg_row.get("text_content", ""))
-                    
+
                     turn_data = {
                         "index": int(msg_idx),
                         "role": msg_row.get("role", "sample"),
@@ -1687,7 +2010,7 @@ class HTMLReportGenerator:
                         "is_flagged": int(msg_idx) == int(sample_idx),
                     }
                     turns.append(turn_data)
-                
+
                 role_samples[str(role_value)] = {
                     "conversation_id": str(conv_id),
                     "turns": turns,
@@ -1746,11 +2069,11 @@ class HTMLReportGenerator:
             analysis_results = getattr(analyzer, "_analysis_results", None)
             if analysis_results and hasattr(analysis_results, "merged_schema"):
                 merged_schema = analysis_results.merged_schema
-        
+
         if merged_schema is not None:
             # Find categorical columns in both message and conversation DataFrames
             categorical_cols = []
-            
+
             # Check conversation-level categorical columns first (preferred)
             if conversation_df is not None and not conversation_df.empty:
                 for col in conversation_df.columns:
@@ -1760,11 +2083,20 @@ class HTMLReportGenerator:
                     if col_schema:
                         # Handle both enum and string comparison
                         content_type = col_schema.get("content_type")
-                        if content_type == ContentType.CATEGORICAL or content_type == "categorical":
-                            categorical_cols.append((col, conversation_df, "conversation"))
-            
+                        if (
+                            content_type == ContentType.CATEGORICAL
+                            or content_type == "categorical"
+                        ):
+                            categorical_cols.append(
+                                (col, conversation_df, "conversation")
+                            )
+
             # Then check message-level categorical columns (avoid duplicates)
-            conv_col_names = set(conversation_df.columns) if conversation_df is not None and not conversation_df.empty else set()
+            conv_col_names = (
+                set(conversation_df.columns)
+                if conversation_df is not None and not conversation_df.empty
+                else set()
+            )
             for col in message_df.columns:
                 if col in base_columns:
                     continue
@@ -1778,13 +2110,16 @@ class HTMLReportGenerator:
                 if col_schema:
                     # Handle both enum and string comparison
                     content_type = col_schema.get("content_type")
-                    if content_type == ContentType.CATEGORICAL or content_type == "categorical":
+                    if (
+                        content_type == ContentType.CATEGORICAL
+                        or content_type == "categorical"
+                    ):
                         categorical_cols.append((col, message_df, "message"))
         else:
             # Fallback: try to detect categorical columns by data type and value counts
             # This is less reliable but works if schema isn't available
             categorical_cols = []
-            
+
             # Check conversation-level columns
             if conversation_df is not None and not conversation_df.empty:
                 for col in conversation_df.columns:
@@ -1795,11 +2130,19 @@ class HTMLReportGenerator:
                         unique_count = conversation_df[col].nunique()
                         total_count = len(conversation_df[col].dropna())
                         # Consider categorical if unique values are less than 50% of total and less than 100 unique
-                        if total_count > 0 and unique_count < min(100, total_count * 0.5):
-                            categorical_cols.append((col, conversation_df, "conversation"))
-            
+                        if total_count > 0 and unique_count < min(
+                            100, total_count * 0.5
+                        ):
+                            categorical_cols.append(
+                                (col, conversation_df, "conversation")
+                            )
+
             # Check message-level columns
-            conv_col_names = set(conversation_df.columns) if conversation_df is not None and not conversation_df.empty else set()
+            conv_col_names = (
+                set(conversation_df.columns)
+                if conversation_df is not None and not conversation_df.empty
+                else set()
+            )
             for col in message_df.columns:
                 if col in base_columns:
                     continue
@@ -1814,24 +2157,24 @@ class HTMLReportGenerator:
                     total_count = len(message_df[col].dropna())
                     if total_count > 0 and unique_count < min(100, total_count * 0.5):
                         categorical_cols.append((col, message_df, "message"))
-        
+
         # Generate pie charts for categorical columns
         if categorical_cols:
             for cat_col, df_to_use, df_type in categorical_cols:
                 try:
                     if self.max_charts is not None and chart_count >= self.max_charts:
                         break
-                    
+
                     if cat_col not in df_to_use.columns:
                         continue
-                    
+
                     value_counts = df_to_use[cat_col].value_counts()
                     if len(value_counts) == 0:
                         continue
-                    
+
                     # Limit to top 20 categories to avoid cluttered pie charts
                     top_values = value_counts.head(20)
-                    
+
                     # Create a cleaner title
                     col_title = (
                         cat_col.replace("conversation_text_content_", "")
@@ -1839,25 +2182,33 @@ class HTMLReportGenerator:
                         .replace("_", " ")
                         .title()
                     )
-                    if df_type == "conversation" and not col_title.startswith("Conversation"):
+                    if df_type == "conversation" and not col_title.startswith(
+                        "Conversation"
+                    ):
                         col_title = f"Conversation {col_title}"
-                    
+
                     # Build sample conversations for each category value
                     category_samples = {}
                     message_df_for_lookup = analyzer.message_df
-                    conversation_df_for_lookup = getattr(analyzer, "conversation_df", None)
-                    has_conv_id = "conversation_id" in message_df_for_lookup.columns if message_df_for_lookup is not None else False
-                    
+                    conversation_df_for_lookup = getattr(
+                        analyzer, "conversation_df", None
+                    )
+                    has_conv_id = (
+                        "conversation_id" in message_df_for_lookup.columns
+                        if message_df_for_lookup is not None
+                        else False
+                    )
+
                     for category_value in top_values.index:
                         # Find a sample row with this category value
                         sample_rows = df_to_use[df_to_use[cat_col] == category_value]
                         if len(sample_rows) == 0:
                             continue
-                        
+
                         # Pick the first sample
                         sample_idx = sample_rows.index[0]
                         sample_row = df_to_use.loc[sample_idx]
-                        
+
                         # Get conversation ID/index
                         conv_id = None
                         conv_col = None
@@ -1866,15 +2217,22 @@ class HTMLReportGenerator:
                                 conv_id = sample_row.get(col)
                                 conv_col = col
                                 break
-                        
+
                         if conv_id is None:
                             continue
-                        
+
                         # Get all messages in this conversation
                         conv_messages = pd.DataFrame()
-                        if df_type == "conversation" and conversation_df_for_lookup is not None:
+                        if (
+                            df_type == "conversation"
+                            and conversation_df_for_lookup is not None
+                        ):
                             # For conversation-level, get messages from message_df
-                            if has_conv_id and conv_col and message_df_for_lookup is not None:
+                            if (
+                                has_conv_id
+                                and conv_col
+                                and message_df_for_lookup is not None
+                            ):
                                 conv_messages = message_df_for_lookup[
                                     message_df_for_lookup[conv_col] == conv_id
                                 ].sort_index()
@@ -1886,14 +2244,16 @@ class HTMLReportGenerator:
                                 ].sort_index()
                             else:
                                 conv_messages = message_df_for_lookup.loc[[sample_idx]]
-                        
+
                         # Build conversation data
                         turns = []
                         for msg_idx, msg_row in conv_messages.iterrows():
                             text = ""
-                            if "text_content" in msg_row and msg_row.get("text_content"):
+                            if "text_content" in msg_row and msg_row.get(
+                                "text_content"
+                            ):
                                 text = str(msg_row.get("text_content", ""))
-                            
+
                             turn_data = {
                                 "index": int(msg_idx),
                                 "role": msg_row.get("role", "sample"),
@@ -1904,22 +2264,23 @@ class HTMLReportGenerator:
                             if df_type == "message" and int(msg_idx) == int(sample_idx):
                                 turn_data["is_flagged"] = True
                             turns.append(turn_data)
-                        
+
                         category_samples[str(category_value)] = {
                             "conversation_id": str(conv_id),
                             "turns": turns,
                             "flagged_count": 1 if df_type == "message" else 0,
                             "category_value": str(category_value),
                         }
-                    
+
                     # Generate colors for pie chart (use a palette that works well)
                     import plotly.colors as pc
-                    colors = pc.qualitative.Set3[:len(top_values)]
+
+                    colors = pc.qualitative.Set3[: len(top_values)]
                     if len(top_values) > len(colors):
                         # Extend colors if needed
                         colors = colors * ((len(top_values) // len(colors)) + 1)
-                        colors = colors[:len(top_values)]
-                    
+                        colors = colors[: len(top_values)]
+
                     fig = go.Figure(
                         data=[
                             go.Pie(
@@ -1931,7 +2292,7 @@ class HTMLReportGenerator:
                             )
                         ]
                     )
-                    
+
                     fig.update_layout(
                         title=None,
                         height=self.chart_height,
@@ -1940,7 +2301,7 @@ class HTMLReportGenerator:
                         font=dict(color="#a39e93"),
                         legend=dict(font=dict(color="#a39e93")),
                     )
-                    
+
                     charts.append(
                         {
                             "id": f"chart_{chart_count}",
@@ -1999,7 +2360,6 @@ class HTMLReportGenerator:
         ]
 
         for col in numeric_cols:
-
             series = message_df[col].dropna()
             if len(series) < 10:
                 continue
@@ -2032,7 +2392,7 @@ class HTMLReportGenerator:
             # Outlier points
             outlier_indices = series[is_outlier].index.tolist()
             outlier_y = series[is_outlier].tolist()
-            
+
             # Extract conversation_index for each outlier
             outlier_conversation_indices = []
             for idx in outlier_indices:
@@ -2065,9 +2425,10 @@ class HTMLReportGenerator:
             # Add outlier points with conversation_index in customdata
             # Store as [message_index, conversation_index] for each point
             outlier_customdata = [
-                [idx, conv_idx] for idx, conv_idx in zip(outlier_indices, outlier_conversation_indices)
+                [idx, conv_idx]
+                for idx, conv_idx in zip(outlier_indices, outlier_conversation_indices)
             ]
-            
+
             fig.add_trace(
                 go.Scatter(
                     x=list(range(len(outlier_y))),
@@ -2134,8 +2495,12 @@ class HTMLReportGenerator:
             outlier_conversations = {}
             message_df_for_lookup = analyzer.message_df
             conversation_df = getattr(analyzer, "conversation_df", None)
-            has_conv_id = "conversation_id" in message_df_for_lookup.columns if message_df_for_lookup is not None else False
-            
+            has_conv_id = (
+                "conversation_id" in message_df_for_lookup.columns
+                if message_df_for_lookup is not None
+                else False
+            )
+
             # Collect all unique conversation indices from ALL outliers (not just first 50)
             unique_conv_indices = {}
             for idx, conv_idx in zip(outlier_indices, outlier_conversation_indices):
@@ -2144,15 +2509,18 @@ class HTMLReportGenerator:
                     # Store the first message index we encounter for this conversation
                     if conv_key not in unique_conv_indices:
                         unique_conv_indices[conv_key] = idx
-            
+
             # Build conversation data for all unique conversations
             for conv_key, idx in unique_conv_indices.items():
                 # Skip if we already have this conversation
                 if conv_key in outlier_conversations:
                     continue
-                
+
                 # Build conversation data similar to _enrich_recommendations_with_samples
-                if message_df_for_lookup is not None and idx in message_df_for_lookup.index:
+                if (
+                    message_df_for_lookup is not None
+                    and idx in message_df_for_lookup.index
+                ):
                     row = message_df_for_lookup.loc[idx]
                     # Get conversation identifier
                     conv_col = None
@@ -2160,12 +2528,12 @@ class HTMLReportGenerator:
                         if col in message_df_for_lookup.columns:
                             conv_col = col
                             break
-                    
+
                     if conv_col:
                         conv_id = row.get(conv_col, conv_key)
                     else:
                         conv_id = conv_key
-                    
+
                     # Get all messages in this conversation
                     if has_conv_id and conv_col:
                         conv_messages = message_df_for_lookup[
@@ -2173,28 +2541,29 @@ class HTMLReportGenerator:
                         ].sort_index()
                     else:
                         conv_messages = message_df_for_lookup.loc[[idx]]
-                    
+
                     # Build conversation data with turns
                     turns = []
                     for msg_idx, msg_row in conv_messages.iterrows():
                         text = ""
                         if "text_content" in msg_row and msg_row.get("text_content"):
                             text = str(msg_row.get("text_content", ""))
-                        
+
                         turn_data = {
                             "index": int(msg_idx),
                             "role": msg_row.get("role", "sample"),
                             "text": text,
-                            "is_flagged": int(msg_idx) == int(idx),  # Flag the outlier message
+                            "is_flagged": int(msg_idx)
+                            == int(idx),  # Flag the outlier message
                         }
                         turns.append(turn_data)
-                    
+
                     outlier_conversations[conv_key] = {
                         "conversation_id": str(conv_id),
                         "turns": turns,
                         "flagged_count": 1,
                     }
-            
+
             charts.append(
                 {
                     "id": f"anomaly_chart_{chart_count}",
@@ -2205,7 +2574,9 @@ class HTMLReportGenerator:
                     "total_count": len(series),
                     "outlier_mapping": {
                         str(idx): str(conv_idx) if conv_idx is not None else None
-                        for idx, conv_idx in zip(outlier_indices, outlier_conversation_indices)
+                        for idx, conv_idx in zip(
+                            outlier_indices, outlier_conversation_indices
+                        )
                     },
                     "outlier_conversations": outlier_conversations,
                 }

@@ -81,6 +81,14 @@ from oumi.core.configs.analyze_config import (
     DatasetSource,
     SampleAnalyzerParams,
 )
+from oumi.core.configs.params.test_params import (
+    CompositeOperator,
+    DistributionCheck,
+    TestParams,
+    TestScope,
+    TestSeverity,
+    TestType,
+)
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.evaluation_config import EvaluationConfig
@@ -163,13 +171,19 @@ __all__ = [
     "AutoWrapPolicy",
     "BackwardPrefetch",
     "BaseConfig",
+    "CompositeOperator",
     "DataParams",
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
+    "DistributionCheck",
     "AnalyzeConfig",
     "DatasetSource",
     "SampleAnalyzerParams",
+    "TestParams",
+    "TestScope",
+    "TestSeverity",
+    "TestType",
     "EvaluationTaskParams",
     "EvaluationConfig",
     "EvaluationBackend",

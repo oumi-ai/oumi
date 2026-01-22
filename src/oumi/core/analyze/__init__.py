@@ -30,7 +30,6 @@ from oumi.core.analyze.health_score import (
     HealthScoreComponent,
 )
 from oumi.core.analyze.length_analyzer import LengthAnalyzer
-from oumi.core.analyze.observations import Observation, ObservationsEngine
 from oumi.core.analyze.presets import (
     get_preset,
     get_preset_with_language_detection,
@@ -38,7 +37,8 @@ from oumi.core.analyze.presets import (
     list_presets,
 )
 from oumi.core.analyze.quality_analyzer import QualityAnalyzer
-from oumi.core.analyze.recommendations import Recommendation, RecommendationsEngine
+from oumi.core.analyze.test_engine import TestEngine
+from oumi.core.analyze.test_result import TestResult, TestSummary
 from oumi.core.analyze.report_generator import HTMLReportGenerator
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.analyze.training_quality_analyzer import TrainingQualityAnalyzer
@@ -136,12 +136,10 @@ __all__ = [
     "DifficultyAnalyzer",
     "ResponseCompletenessAnalyzer",
     "TokenStatsAnalyzer",
-    # Observations
-    "Observation",
-    "ObservationsEngine",
-    # Recommendations
-    "Recommendation",
-    "RecommendationsEngine",
+    # Test Engine and Results
+    "TestEngine",
+    "TestResult",
+    "TestSummary",
     # Health Score
     "DatasetHealthScore",
     "HealthScoreCalculator",

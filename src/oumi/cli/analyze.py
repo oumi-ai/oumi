@@ -521,6 +521,7 @@ def _display_analysis_summary(
 
     # Build a single consolidated metrics table
     msg_summary = summary.get("message_level_summary", {})
+    turns_summary = summary.get("conversation_turns", {})
     if msg_summary or turns_summary:
         # Create consolidated table
         table = Table(

@@ -1,213 +1,231 @@
-# Analysis configuration for Banking77 dataset with multiple LLM judges
-# This demonstrates using multiple instances of the same analyzer type
+# Analysis configuration for Banking77 dataset with tests
+# Demonstrates the new declarative test system for quality checks
 
-dataset_name: "tatsu-lab/alpaca"
-split: "train"
+dataset_path: "/Users/ryanarman/code/scratch/ryan_hillclimbing_experiments/banking77/notebooks/data/banking77_train.jsonl"
+# dataset_name is not needed when using dataset_path
+sample_count: 1000
 output_path: ./analysis_output/banking77
 
 analyzers:
-  # Length analyzer - counts chars, words, tokens
+  # Length analyzer - counts tokens
   - id: length
     params:
       token_count: true
 
-  # Token stats analyzer - aggregates tokens by role (system, input, output)
-  # Requires length analyzer to run first
-  - id: token_stats
-    params: {}
-
-  # Cost analyzer - estimates API costs for different context windows
-  - id: cost
+  # Diversity analyzer
+  - id: diversity
     params:
-      target_context_windows: [4096]
-      compute_packing_efficiency: true
-      packing_overhead_tokens: 10
+      unique_words_ratio: true
 
+  # Quality analyzer - detect issues
+  - id: quality
+    params:
+      detect_pii: true
+      detect_encoding_issues: true
+
+  # FastText language detection
   - id: fasttext
     params:
       detect_language: true
-      detect_script: true # latin, cyrillic, cjk, etc.
-      detect_multilingual: true # Detect mixed-language content
-      min_confidence: 0.0 # Report all languages, even low confidence
-      low_confidence_threshold: 0.5 # Flag samples below this threshold
-      use_fast_langdetect: true # Use fast-langdetect (recommended, faster)
+      detect_script: true
+      detect_multilingual: true
+      min_confidence: 0.0
+      low_confidence_threshold: 0.5
+      use_fast_langdetect: true
 
-  - id: embedding
-    params:
-      model_name: all-MiniLM-L6-v2 # Fast, 384 dims
-      detect_duplicates: true
-      duplicate_threshold: 0.95 # Cosine similarity (0.9-0.99)
-      detect_fuzzy_duplicates: true # MinHash LSH (fast)
-      fuzzy_threshold: 0.8
-      fuzzy_ngram_size: 3
-      cluster_samples: false
-      batch_size: 32
-      store_embeddings: false
+  # Embedding analyzer for duplicate detection (requires sentence-transformers)
+  # Uncomment if you have sentence-transformers installed
+  # - id: embedding
+  #   params:
+  #     model_name: all-MiniLM-L6-v2
+  #     detect_duplicates: true
+  #     duplicate_threshold: 0.95
+  #     detect_fuzzy_duplicates: true
+  #     fuzzy_threshold: 0.8
+  #     fuzzy_ngram_size: 3
+  #     cluster_samples: false
+  #     batch_size: 32
+  #     store_embeddings: false
 
-  # Question diversity analyzer - detect if user questions are too similar
-  - id: question_diversity
-    params:
-      cluster_questions: true
-      clustering_method: dbscan
-      eps: 0.15 # ~99% cosine similarity
-      min_samples: 2
-      model_name: all-MiniLM-L6-v2
-      batch_size: 32
-      compute_entropy: true
-      compute_concentration: true
-      flag_concentrated_clusters: true
-      concentration_threshold: 0.5
+# =============================================================================
+# TESTS - Quality checks for the banking77 dataset
+# =============================================================================
+tests:
+  # ---------------------------------------------------------------------------
+  # LENGTH TESTS
+  # ---------------------------------------------------------------------------
 
-  # Representation diversity analyzer - DEITA-style embedding diversity
-  - id: repr_diversity
-    params:
-      model_name: sentence-transformers/all-MiniLM-L6-v2
-      k_neighbors: 5
-      diversity_threshold: 0.3
-      # Use role-specific thresholds to avoid system prompt inflation
-      role_specific_thresholds:
-        system: null # Exclude system prompts (typically identical)
-        user: 0.25 # Strict diversity for user messages
-        assistant: 0.30 # Standard diversity for responses
-      embed_field: all # "all", "user", or "assistant"
-      batch_size: 32
+  # Check for empty or very short messages
+  - id: no_empty_messages
+    type: threshold
+    metric: "text_content__length__token_count"
+    operator: "<="
+    value: 1
+    max_percentage: 1.0
+    severity: high
+    title: "Empty or near-empty messages"
+    description: "Messages with 1 or fewer tokens indicate data quality issues"
 
-  # LLM Judge: Helpfulness
-  # Custom conversation-level evaluation for banking intent classification helpfulness
-  - id: llm_judge
-    instance_id: helpfulness
-    params:
-      prompt: |
-        Evaluate how helpful this banking intent classification is (0-10).
+  # Check for very short queries (banking queries should have some substance)
+  - id: substantive_queries
+    type: query
+    expression: "role == 'user' and text_content__length__token_count < 3"
+    max_percentage: 5.0
+    severity: medium
+    title: "Very short user queries"
+    description: "User queries with fewer than 3 tokens may lack context for proper classification"
 
-        Context: User asks a banking question, assistant classifies it into one of 77 intent categories (by ID number).
+  # ---------------------------------------------------------------------------
+  # QUALITY TESTS
+  # ---------------------------------------------------------------------------
 
-        CONVERSATION FORMAT:
-        The conversation below contains three parts:
-        1. SYSTEM: Instructions and the full list of 77 intent categories with their IDs
-        2. USER: The banking query to classify
-        3. ASSISTANT: The classification result (a single numeric ID 0-76)
+  # Check for PII (important for banking data)
+  - id: no_pii
+    type: percentage
+    metric: "text_content__quality__has_pii"
+    condition: "== True"
+    max_percentage: 1.0
+    severity: high
+    title: "PII detected in dataset"
+    description: "Banking data should not contain personal information (names, account numbers, etc.)"
 
-        ⚠️ IMPORTANT: The assistant's classification is at the VERY END of the conversation (after "ASSISTANT:").
-        Look for the last line starting with "ASSISTANT:" to find the classification ID.
+  # Check for encoding issues
+  - id: no_encoding_issues
+    type: percentage
+    metric: "text_content__quality__has_encoding_issues"
+    condition: "== True"
+    max_percentage: 2.0
+    severity: medium
+    title: "Encoding issues detected"
+    description: "Text encoding problems may affect classification quality"
 
-        Conversation to evaluate:
-        {text}
+  # ---------------------------------------------------------------------------
+  # DIVERSITY TESTS
+  # ---------------------------------------------------------------------------
 
-        Evaluation criteria for helpfulness:
-        - Does the classification ID seem appropriate for the user's query?
-        - Would this classification lead to helpful downstream actions?
-        - Is it the most relevant intent among potential options?
-        - Does the assistant provide ONLY the ID (good format)?
+  # Check vocabulary diversity (avoid repetitive patterns)
+  - id: vocabulary_diversity
+    type: threshold
+    metric: "text_content__diversity__unique_words_ratio"
+    operator: "<"
+    value: 0.3
+    max_percentage: 20.0
+    severity: low
+    title: "Low vocabulary diversity"
+    description: "Messages with very repetitive vocabulary may indicate templated or low-quality content"
 
-        Scoring guide:
-        - 10: Perfect classification, highly relevant to query, correct format
-        - 7-9: Good classification, reasonable fit for the query
-        - 4-6: Mediocre, somewhat relevant but not ideal
-        - 1-3: Poor classification, wrong intent for the query
-        - 0: No classification or completely wrong
+  # ---------------------------------------------------------------------------
+  # LANGUAGE TESTS (requires fasttext analyzer)
+  # ---------------------------------------------------------------------------
 
-        Examples of good vs bad:
-        Good (score 9-10):
-          USER: "My card was declined at the store"
-          ASSISTANT: 25  ← (ID 25 = declined_card_payment, highly relevant)
+  # Check for non-English content (if dataset should be English-only)
+  - id: english_only
+    type: query
+    expression: "text_content__fasttext__detected_language != 'en'"
+    max_percentage: 5.0
+    severity: medium
+    title: "Non-English content detected"
+    description: "Non-English content may indicate data issues"
 
-        Bad (score 1-3):
-          USER: "My card was declined at the store"
-          ASSISTANT: 0   ← (ID 0 = activate_my_card, wrong intent)
+  # Check for low language detection confidence
+  - id: language_confidence
+    type: percentage
+    metric: "text_content__fasttext__low_confidence"
+    condition: "== True"
+    max_percentage: 10.0
+    severity: low
+    title: "Low language detection confidence"
+    description: "Messages with uncertain language detection may have quality issues"
 
-        Respond with JSON:
-        - "score": 0-10 (10 = maximally helpful classification)
-        - "label": "very_helpful", "helpful", "somewhat_helpful", "not_helpful"
-        - "reasoning": brief explanation of why this classification is/isn't helpful for the user's query
+  # ---------------------------------------------------------------------------
+  # DUPLICATE TESTS (requires embedding analyzer)
+  # Uncomment these tests if you have the embedding analyzer enabled
+  # ---------------------------------------------------------------------------
 
-        JSON response:
-      analyze_message_level: false
-      analyze_conversation_level: true
-      inference_config:
-        model_name: gpt-4o-mini
-        engine: openai
-        temperature: 0.1
-        max_tokens: 256
-        remote_params:
-          num_workers: 200 # Process 100 requests in parallel
-          politeness_policy: 1.0 # Wait 60s between requests per worker
-          use_adaptive_concurrency: true # Auto-adjust based on error rate
-      batch_size: 1000
-      max_text_length: 8000
-      parse_json_response: true
+  # # Check for semantic duplicates
+  # - id: no_semantic_duplicates
+  #   type: percentage
+  #   metric: "text_content__embedding__has_semantic_duplicate"
+  #   condition: "== True"
+  #   max_percentage: 10.0
+  #   severity: medium
+  #   title: "Semantic duplicates detected"
+  #   description: "High semantic similarity between samples may reduce training diversity"
 
-  # LLM Judge: Instruction Quality
-  # Evaluates clarity and quality of system instructions (message-level only)
-  - id: llm_judge
-    instance_id: instruction_quality
-    params:
-      prompt_preset: instruction_quality
-      filter_role: system
-      analyze_message_level: true
-      analyze_conversation_level: false
-      inference_config:
-        model_name: gpt-4o-mini
-        engine: openai
-        temperature: 0.1
-        max_tokens: 256
-        remote_params:
-          num_workers: 200 # Process 100 requests in parallel
-          politeness_policy: 1.0 # Wait 60s between requests per worker
-          use_adaptive_concurrency: true # Auto-adjust based on error rate
-      batch_size: 1000
-      parse_json_response: true
+  # # Check for fuzzy (near-exact) duplicates
+  # - id: no_fuzzy_duplicates
+  #   type: percentage
+  #   metric: "text_content__embedding__has_fuzzy_duplicate"
+  #   condition: "== True"
+  #   max_percentage: 5.0
+  #   severity: high
+  #   title: "Fuzzy duplicates detected"
+  #   description: "Near-identical text samples should be deduplicated"
 
-  # LLM Judge: Response Quality
-  # Custom prompt for banking classification task evaluation
-  - id: llm_judge
-    instance_id: response_quality
-    params:
-      prompt: |
-        Evaluate this assistant's classification response (0-10).
+  # ---------------------------------------------------------------------------
+  # DISTRIBUTION TESTS
+  # ---------------------------------------------------------------------------
 
-        Context: The assistant must classify a banking query by responding with a single intent ID (0-76).
+  # Check for role balance
+  - id: balanced_roles
+    type: distribution
+    metric: "role"
+    check: "max_fraction"
+    threshold: 0.7
+    severity: medium
+    title: "Role distribution check"
+    description: "No single role should dominate >70% of messages"
 
-        Assistant response to evaluate:
-        {text}
+  # ---------------------------------------------------------------------------
+  # REGEX TESTS
+  # ---------------------------------------------------------------------------
 
-        Evaluation criteria:
-        - Is it a single numeric ID (0-76)?
-        - Is the format correct (just the number, no extra text)?
-        - Does it appear to be a reasonable classification for a banking query?
+  # Check for placeholder text
+  - id: no_placeholders
+    type: contains-any
+    text_field: "text_content"
+    values:
+      [
+        "[NAME]",
+        "[COMPANY]",
+        "[DATE]",
+        "[INSERT",
+        "[YOUR",
+        "XXX",
+        "PLACEHOLDER",
+      ]
+    max_percentage: 1.0
+    severity: medium
+    title: "Placeholder text detected"
+    description: "Placeholder tokens should be replaced with real content"
+    case_sensitive: false
 
-        Good examples: "59", "0", "42" (single numbers)
-        Bad examples: "activate_my_card" (label instead of ID), "I think it's 59" (extra text), "" (empty)
+  # Check for special tokens that shouldn't appear
+  - id: no_special_tokens
+    type: regex
+    text_field: "text_content"
+    pattern: "<\\|(?:endoftext|im_start|im_end|pad)\\|>"
+    max_percentage: 0
+    severity: high
+    title: "Special token leakage"
+    description: "Training tokens should not appear in content"
 
-        Respond with JSON:
-        - "score": 0-10 (10 = perfect classification response)
-          * 10: Valid ID (0-76), correct format
-          * 5-9: Valid ID but could be better formatted
-          * 1-4: Invalid format or out of range
-          * 0: Empty or completely wrong
-        - "label": "excellent", "good", "needs_improvement", "poor"
-        - "reasoning": brief explanation
+  # ---------------------------------------------------------------------------
+  # CONVERSATION-LEVEL TESTS
+  # ---------------------------------------------------------------------------
 
-        JSON response:
-      filter_role: assistant
-      analyze_message_level: true
-      analyze_conversation_level: false
-      inference_config:
-        model_name: gpt-4o-mini
-        engine: openai
-        temperature: 0.1
-        max_tokens: 256
-        remote_params:
-          num_workers: 200 # Process 100 requests in parallel
-          politeness_policy: 1.0 # Wait 60s between requests per worker
-          use_adaptive_concurrency: true # Auto-adjust based on error rate
-      batch_size: 1000
-      max_text_length: 4000
-      parse_json_response: true
+  # Check conversation length
+  - id: conversation_length
+    type: threshold
+    metric: "conversation_text_content__length__token_count"
+    operator: "<"
+    value: 5
+    max_percentage: 5.0
+    severity: medium
+    title: "Very short conversations"
+    description: "Conversations with fewer than 5 tokens may lack sufficient context"
+    scope: conversation
 
-# Optional: Generate recommendations based on analysis
-generate_recommendations: true
-outlier_threshold: 3.0
-
-# Optional: Generate HTML report with visualizations
-generate_report: yes
+# Generate HTML report with test results
+generate_report: true
+report_title: "Banking77 Dataset Quality Analysis"
