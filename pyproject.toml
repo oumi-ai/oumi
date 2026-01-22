@@ -45,6 +45,7 @@ dependencies = [
     "backoff>=2.2.1,<2.3",
     "click<8.4.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2,<5",
+    "greenlet",                   # Required by skypilot 0.11+ (sqlalchemy asyncio)
     "hdrhistogram>=0.10,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4,<0.5.0",
@@ -66,7 +67,7 @@ dependencies = [
     "pydantic>=2.11,<2.13",
     "responses>=0.25,<0.26",
     "safetensors>=0.6,<0.8",
-    "skypilot>=0.10.2,<0.12",  # 0.10.2 and above is needed
+    "skypilot>=0.10.2,<0.11",  # 0.11rc has a breaking change that
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "torch>=2.6,<2.10.0",      # vllm only supports up to torch==2.7
     "torchao>=0.12,<0.16",     # Used by transformers
@@ -79,7 +80,7 @@ dependencies = [
     "typer<0.21.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
     "uvicorn<0.41.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
-    "wandb>=0.21,<0.24",        # Logging to Weights and Biases.
+    "wandb>=0.21,<0.25",        # Logging to Weights and Biases.
 ]
 
 [project.urls]
