@@ -1,0 +1,358 @@
+# Create multi-turn conversations by using multiple conversation synthesizers.
+# This example generates realistic customer support conversations with different scenarios.
+#
+# Requirements:
+#   - Set your anthropic api key in the environment variable ANTHROPIC_API_KEY
+#   - example: `export ANTHROPIC_API_KEY=your_api_key`
+#   - Alternatively, change the model in the inference_config section to your desired model
+#   - See the inference_config section for more details
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/configuration.html
+#
+# Usage:
+#   oumi synth -c oumi://configs/examples/synthesis/multiturn_conversation_synth.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Config class: oumi.core.configs.SynthesisConfig
+#   - Params class: oumi.core.configs.params.synthesis_params.GeneralSynthesisParams
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/synthesis_config.py
+#   - Params source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/synthesis_params.py
+#   - Other synthesis configs: configs/**/*synth.yaml
+
+strategy: GENERAL
+num_samples: 3
+output_path: multiturn_conversation_dataset.jsonl
+
+strategy_params:
+  # Define conversation scenarios and customer types
+  sampled_attributes:
+    # Generate the system instruction for the agent
+    - id: system_instruction
+      name: System Instruction
+      description: The system instruction to use for the conversation
+      possible_values:
+        - id: customer_support
+          name: Customer Support
+          description: |
+            You are CareBot, a customer service assistant for BrightTech Electronics.
+
+            Your goals:
+            - Specify one of the below actions you are taking at the beginning of your response.
+            - Output the action in a structured format so the system can execute it.
+            - When writing the parameters, normalize the formatting of the product names and order IDs.
+            - Resolve customer issues within your capabilities.
+            - Use a polite, empathetic, and professional tone.
+            - If you do not have enough information to resolve the issue, ask the customer to clarify.
+            - Never suggest you have more information or capabilities than what's provided below.
+
+            ### Tone Rules
+            - Be polite, concise, and solution-focused.
+            - Acknowledge frustration with empathy.
+            - Do not provide personal opinions or unrelated advice.
+            - Never ask for personal information like name, phone number, etc.
+            - Only ask for email address if the customer requests a refund or account issues.
+
+            ### Action Rules
+            Output only one action per response in the following format:
+            <ACTION>
+            type: [CLARIFY | LOOKUP_ORDER | INITIATE_RETURN | ESCALATE]
+            parameters: ...   # JSON-like key/value parameters
+            </ACTION>
+
+            After the action block, provide a natural-language response to the customer.
+            Do not mix the action block with free text.
+
+            Ensure you have all the information you need to execute the action before outputting a specialized action.
+
+            ### Action Types
+            1. CLARIFY
+              - parameters: { "reason": string }
+              - Example: Need more information to proceed with the request.
+
+            2. LOOKUP_ORDER
+              - parameters: { "order_id": string }
+              - Example: Order info, shipping status, etc.
+
+            3. INITIATE_RETURN
+              - parameters: { "order_id": string, "reason": string }
+              - Example: Customer requests to return or exchange a product.
+
+            4. SEARCH_PRODUCT
+              - parameters: { "product_name": string }
+              - Example: Customer requests information about a product.
+
+            5. ESCALATE
+              - parameters: { "account_email": string, "reason": string }
+              - Example: Customer requests human support, refund, legal or account issues.
+
+            ### Example Conversations
+            Conversation 1
+            Customer: "Where's my order BT1234?"
+            Agent:
+            <ACTION>
+            type: LOOKUP_ORDER
+            parameters: { "order_id": "BT1234" }
+            </ACTION>
+            Let me check the order status for order BT1234. One moment please.
+
+            Conversation 2
+            Customer:
+            "I want to return my headphones."
+            Agent:
+            <ACTION>
+            type: CLARIFY
+            parameters: { "reason": "Need order ID to proceed with return request" }
+            </ACTION>
+            Sure, let me help you with that. What's the order ID for the headphones, and why do you want to return them?
+            Customer:
+            "I want to return my headphones because they don't fit."
+            Agent:
+            <ACTION>
+            type: CLARIFY
+            parameters: { "reason": "Need more information to proceed with return request" }
+            </ACTION>
+            I'm sorry to hear that. If you can provide me with the order ID, I can setup a return request for you right away.
+            Customer:
+            "Oh sure, it's 187390231847."
+            Agent:
+            <ACTION>
+            type: INITIATE_RETURN
+            parameters: { "order_id": "187390231847", "reason": "Headphones don't fit" }
+            </ACTION>
+            Thank you! I've initiated a return request for you.
+
+            Conversation 3
+            Customer:
+            "I can't login to my account."
+            Agent:
+            <ACTION>
+            type: CLARIFY
+            parameters: { "reason": "Need email address to proceed with escalation" }
+            </ACTION>
+            I'm sorry to hear that. Can you please provide me with the email address associated with your account?
+            Customer:
+            "Oh sure, it's john.doe@example.com."
+            Agent:
+            <ACTION>
+            type: ESCALATE
+            parameters: { "account_email": "john.doe@example.com", "reason": "Login issues" }
+            </ACTION>
+            Thank you! I've escalated this to a specialist. One moment please.
+
+    # Which support scenario the customer is facing
+    - id: scenario
+      name: Support Scenario
+      description: The type of customer support issue being addressed
+      possible_values:
+        - id: account_issue
+          name: Account Problems
+          description: Login issues, password resets, account access problems
+        - id: order_issue
+          name: Order Problems
+          description: Order issues, shipping status, etc.
+        - id: billing_issue
+          name: Billing Questions
+          description: Questions about charges, payments, subscription management
+        - id: product_issue
+          name: Product Information
+          description: Feature questions, how-to guides, product comparisons
+        - id: technical_issue
+          name: Technical Issues
+          description: Bug reports, troubleshooting, technical difficulties
+        - id: refund_request
+          name: Refund Requests
+          description: Return requests, cancellations, refund processing
+
+    # The customer's personality
+    - id: customer_type
+      name: Customer Personality
+      description: The customer's communication style and emotional state
+      possible_values:
+        - id: concise
+          name: Concise
+          description: Short and to the point, no fluff or unnecessary details
+          sample_rate: 0.4
+        - id: friendly
+          name: Friendly
+          description: Polite, patient, and appreciative
+          sample_rate: 0.05
+        - id: frustrated
+          name: Frustrated
+          description: Annoyed but still reasonable
+          sample_rate: 0.2
+        - id: confused
+          name: Confused
+          description: Uncertain and needs clear explanations
+          sample_rate: 0.1
+        - id: demanding
+          name: Demanding
+          description: Urgent, wants immediate resolution
+          sample_rate: 0.1
+        - id: curious
+          name: Curious
+          description: Asking lots of questions, wants to understand
+          sample_rate: 0.05
+        - id: skeptical
+          name: Skeptical
+          description: Distrustful of the company, questions policies, pushes back on suggestions
+          sample_rate: 0.1
+
+    # How the customer should interact with the agent
+    - id: customer_interaction
+      name: Customer Interaction
+      description: How the customer should interact with the agent
+      possible_values:
+        - id: cooperative
+          name: Cooperative
+          description: Cooperates with the agent to resolve the issue
+          sample_rate: 0.6
+        - id: escalated
+          name: Escalated
+          description: Customer needs to be escalated to a specialist or supervisor
+          sample_rate: 0.2
+        - id: incomplete
+          name: Incomplete
+          description: Customer gives insufficient information to resolve the issue
+          sample_rate: 0.1
+        - id: difficult
+          name: Difficult
+          description: Resistant to suggestions, changes their requirements, hard to satisfy
+          sample_rate: 0.1
+
+  # Generate context for the conversation
+  generated_attributes:
+    # Generate a realistic customer name
+    - id: customer_name
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            Generate a realistic first name for a customer. Just output the name, nothing else.
+        - role: USER
+          content: |
+            Generate a common first name.
+
+    # Generate a specific issue detail based on the scenario
+    - id: issue_detail
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You generate specific, realistic details for customer support issues.
+            Be concise and specific. Output only the detail, no extra text.
+        - role: USER
+          content: |
+            Issue category: {scenario.name}
+            Description: {scenario.description}
+
+            Generate ONE specific detail for this issue type at BrightTech Electronics.
+
+            Examples by category:
+            - Account Problems: "locked out after 3 failed password attempts"
+            - Order Problems: "order #BT-78234 shows delivered but I never received it"
+            - Billing Questions: "charged twice for my wireless earbuds purchase"
+            - Product Information: "wondering if the ProMax 15 laptop supports 4K external displays"
+            - Technical Issues: "SmartWatch X keeps disconnecting from Bluetooth"
+            - Refund Requests: "want to return the SoundBar 500, it doesn't fit my TV setup"
+
+            Output only the specific issue detail, nothing else.
+
+    # Generate the customer's opening message
+    - id: customer_opener
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You write realistic customer support chat messages.
+            Match the customer's personality in tone and style.
+            Be natural - real customers don't write perfectly formatted messages.
+        - role: USER
+          content: |
+            Customer name: {customer_name}
+            Customer personality: {customer_type.name} - {customer_type.description}
+            Issue: {issue_detail}
+
+            Write the customer's opening message to BrightTech Electronics support.
+
+            Guidelines:
+            - Match the personality (frustrated = short/annoyed, friendly = polite, confused = uncertain, etc.)
+            - Include enough context to understand the issue but not all details
+            - Keep it under 3 sentences
+            - Sound like a real person typing in a chat
+
+            Output only the customer's message, nothing else.
+
+  multiturn_attributes:
+    - id: "support_conversation"
+      min_turns: 2
+      max_turns: 8
+      turn_order: [USER, ASSISTANT]
+
+      user_persona:
+        id: "customer"
+        role: USER
+        description: "A customer contacting support"
+        system_prompt: |
+          You are {customer_name}, a {customer_type.name} customer contacting BrightTech Electronics support.
+
+          Your personality: {customer_type.description}
+          Your specific issue: {issue_detail}
+          How you interact: {customer_interaction.description}
+
+          Guidelines:
+          - Stay in character throughout the conversation
+          - Your opening message was: "{customer_opener}"
+          - Build on the conversation naturally
+          - If cooperative, provide information when asked
+          - If difficult or skeptical, be challenging but stay realistic
+          - Do not break character or acknowledge you are an AI
+
+      assistant_persona:
+        id: "support_agent"
+        role: ASSISTANT
+        description: "A customer support agent for BrightTech Electronics"
+        system_prompt: |
+          {system_instruction.description}
+
+      system_messages: []
+
+      turn_instructions:
+        USER:
+          role: USER
+          content: |
+            Continue the conversation as the customer ({customer_name}).
+
+            Remember:
+            - Your personality: {customer_type.description}
+            - Your specific issue: {issue_detail}
+            - Interaction style: {customer_interaction.description}
+
+            Respond naturally to what the agent just said. Keep your response concise and realistic.
+        ASSISTANT:
+          role: ASSISTANT
+          content: |
+            Continue the conversation as the support agent.
+
+            Follow the system instruction format with ACTION blocks.
+            Be helpful, professional, and work toward resolving the customer's issue.
+            Keep responses concise and actionable.
+
+  # Include only relevant attributes in output
+  passthrough_attributes:
+    - support_conversation # The multi-turn conversation generated above
+    - scenario
+    - customer_type
+    - customer_interaction
+    - customer_name
+    - issue_detail
+    - customer_opener
+
+# Example inference configuration
+inference_config:
+  model:
+    model_name: claude-sonnet-4-20250514
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60

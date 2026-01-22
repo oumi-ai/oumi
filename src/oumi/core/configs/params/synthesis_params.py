@@ -465,6 +465,17 @@ class MultiTurnPersona:
     system_prompt: str
     """System message to define the persona."""
 
+    def __post_init__(self):
+        """Verifies/populates params."""
+        if not self.id:
+            raise ValueError("MultiTurnPersona.id cannot be empty.")
+        if not self.role:
+            raise ValueError("MultiTurnPersona.role cannot be empty.")
+        if not self.description:
+            raise ValueError("MultiTurnPersona.description cannot be empty.")
+        if not self.system_prompt:
+            raise ValueError("MultiTurnPersona.system_prompt cannot be empty.")
+
 
 @dataclass
 class MultiTurnAttribute:
@@ -479,19 +490,19 @@ class MultiTurnAttribute:
     turn_order: list[Role]
     """The order in which turns should be taken (repeats as a cycle)."""
 
-    max_turns: int | None = None
+    max_turns: int
     """Maximum number of turns (messages) allowed for the attribute."""
 
-    user_persona: MultiTurnPersona | None = None
+    user_persona: MultiTurnPersona
     """Persona for the user/customer. Defines how user messages are generated."""
 
-    assistant_persona: MultiTurnPersona | None = None
+    assistant_persona: MultiTurnPersona
     """Persona for the assistant/agent. Defines how assistant messages are generated."""
 
-    system_messages: list[TextMessage] | None = None
+    system_messages: list[TextMessage]
     """System messages prepended to each turn generation."""
 
-    turn_instructions: dict[Role, TextMessage] | None = None
+    turn_instructions: dict[Role, TextMessage]
     """Per-role instruction template for generating a turn."""
 
     def __post_init__(self):
@@ -508,6 +519,10 @@ class MultiTurnAttribute:
             raise ValueError(
                 "MultiTurnAttribute.max_turns must be greater than min_turns."
             )
+        if not self.user_persona:
+            raise ValueError("MultiTurnAttribute.user_persona cannot be empty.")
+        if not self.assistant_persona:
+            raise ValueError("MultiTurnAttribute.assistant_persona cannot be empty.")
         if self.user_persona is not None and self.user_persona.role != Role.USER:
             raise ValueError("MultiTurnAttribute.user_persona.role must be USER.")
         if (
@@ -734,7 +749,7 @@ class GeneralSynthesisParams(BaseParams):
     The model's response to these messages will be the value of the "name" attribute
     for that data point."""
 
-    multiturn_attributes: list[str] | None = None
+    multiturn_attributes: list[MultiTurnAttribute] | None = None
     """Multi-turn conversations to be generated.
 
     Unlike generated_attributes which produce scalar values and process all samples

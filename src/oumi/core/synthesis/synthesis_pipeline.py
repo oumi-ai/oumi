@@ -19,6 +19,7 @@ from typing import Any
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
 from oumi.core.synthesis.attribute_transformation import AttributeTransformer
+from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
 from oumi.core.synthesis.data_synthesizer import DataSynthesizer
 from oumi.core.synthesis.dataset_planner import DatasetPlanner
 from oumi.utils.io_utils import save_jsonlines
@@ -44,6 +45,11 @@ class SynthesisPipeline:
             if config.strategy_params.generated_attributes
             else None
         )
+        self._conversation_synthesizer = (
+            ConversationSynthesizer(config.strategy_params, config.inference_config)
+            if config.strategy_params.multiturn_attributes
+            else None
+        )
 
     def synthesize(self) -> list[dict[str, Any]]:
         """Synthesize a dataset."""
@@ -61,6 +67,19 @@ class SynthesisPipeline:
         logger.info("Synthesizing generated attributes")
         if self._data_synthesizer:
             dataset = self._data_synthesizer.synthesize(dataset)
+
+        # Synthesize the conversation attributes
+        if (
+            self._conversation_synthesizer
+            and self._config.strategy_params.multiturn_attributes
+        ):
+            logger.info("Synthesizing conversation attributes")
+            for multiturn_attr in self._config.strategy_params.multiturn_attributes:
+                results = self._conversation_synthesizer.synthesize(
+                    dataset, multiturn_attr
+                )
+                for i, sample in enumerate(dataset):
+                    sample.update(results[i])
 
         # Add the transformed attributes to the dataset
         logger.info("Adding transformed attributes")
