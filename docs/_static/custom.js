@@ -7,7 +7,6 @@
         initTableOfContentsHighlight();
         initSearchEnhancements();
         initKeyboardNavigation();
-        // initAnimations(); // Disabled - no scroll fade-in effects
     });
 
     function initSmoothScrolling() {
@@ -188,58 +187,6 @@
                 setTimeout(() => document.removeEventListener('keydown', waitForH), 1000);
                 document.addEventListener('keydown', waitForH);
             }
-        });
-    }
-
-    function initAnimations() {
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            return;
-        }
-
-        const animatableElements = document.querySelectorAll(
-            '.sd-card, .admonition, table, dl.py, .cell'
-        );
-
-        // Skip animation entirely if there's an anchor in the URL or too many elements
-        // This prevents blank content when navigating directly to an anchor
-        if (window.location.hash || animatableElements.length > 50) {
-            return;
-        }
-
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
-
-        // Helper to reveal an element
-        function revealElement(el) {
-            el.style.opacity = '1';
-            el.style.transform = 'translateY(0)';
-        }
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    revealElement(entry.target);
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, observerOptions);
-
-        animatableElements.forEach(el => {
-            el.style.opacity = '0';
-            el.style.transform = 'translateY(20px)';
-            el.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
-            observer.observe(el);
-        });
-
-        document.querySelectorAll('.bd-sidebar-primary .nav-link').forEach(link => {
-            link.addEventListener('mouseenter', function() {
-                this.style.transform = 'translateX(4px)';
-            });
-            link.addEventListener('mouseleave', function() {
-                this.style.transform = '';
-            });
         });
     }
 
