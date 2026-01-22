@@ -145,7 +145,7 @@ class HTMLReportGenerator:
         self,
         analyzer: "DatasetAnalyzer | None" = None,
         output_path: Path | str | None = None,
-        title: Optional[str] = None,
+        title: str | None = None,
         health_score: Optional["DatasetHealthScore"] = None,
         *,
         artifacts: dict[str, Any] | None = None,
@@ -464,9 +464,9 @@ class HTMLReportGenerator:
 
     def _get_test_results_summary(
         self,
-        test_summary: Optional[dict[str, Any]],
+        test_summary: dict[str, Any] | None,
         analyzer: Optional["DatasetAnalyzer"] = None,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get summary of test results for display.
 
         Args:
@@ -542,6 +542,44 @@ class HTMLReportGenerator:
             "failed_list": failed_tests,
         }
 
+    def _find_related_columns(
+        self, metric: str, available_columns: list[str]
+    ) -> dict[str, str]:
+        """Find related columns for a given metric.
+
+        For LLM judge metrics like 'helpfulness__score', find related columns
+        like 'helpfulness__label' and 'helpfulness__reasoning'.
+
+        Args:
+            metric: The primary metric column name.
+            available_columns: List of available column names in the DataFrame.
+
+        Returns:
+            Dictionary mapping relation type to column name.
+            E.g., {"reasoning": "text_content__helpfulness__reasoning", "label": "..."}
+        """
+        related = {}
+
+        if not metric:
+            return related
+
+        # Extract the base metric path (everything except the last part)
+        # e.g., "text_content__helpfulness__score" -> "text_content__helpfulness"
+        parts = metric.rsplit("__", 1)
+        if len(parts) < 2:
+            return related
+
+        base_path = parts[0]
+
+        # Look for common related columns
+        related_suffixes = ["reasoning", "label", "raw_response"]
+        for suffix in related_suffixes:
+            candidate = f"{base_path}__{suffix}"
+            if candidate in available_columns:
+                related[suffix] = candidate
+
+        return related
+
     def _get_test_sample_content(
         self,
         sample_indices: list[int],
@@ -572,6 +610,9 @@ class HTMLReportGenerator:
             return conversations
 
         has_conv_id = "conversation_id" in message_df.columns
+
+        # Find related columns for the metric (e.g., reasoning, label)
+        related_columns = self._find_related_columns(metric, list(message_df.columns))
 
         # Handle conversation-level scope differently
         if scope == "conversation" and conversation_df is not None:
@@ -634,15 +675,24 @@ class HTMLReportGenerator:
                 if is_flagged and metric and metric in msg_row:
                     metric_value = self._format_metric_value(msg_row[metric])
 
-                turns.append(
-                    {
-                        "index": int(msg_idx),
-                        "role": msg_row.get("role", "unknown"),
-                        "text": text,
-                        "is_flagged": is_flagged,
-                        "metric_value": metric_value,
-                    }
-                )
+                # Get related values (reasoning, label) for flagged messages
+                related_values = {}
+                if is_flagged:
+                    for rel_type, rel_col in related_columns.items():
+                        if rel_col in msg_row and pd.notna(msg_row[rel_col]):
+                            related_values[rel_type] = str(msg_row[rel_col])
+
+                turn_data = {
+                    "index": int(msg_idx),
+                    "role": msg_row.get("role", "unknown"),
+                    "text": text,
+                    "is_flagged": is_flagged,
+                    "metric_value": metric_value,
+                }
+                if related_values:
+                    turn_data["related_values"] = related_values
+
+                turns.append(turn_data)
 
             conversations.append(
                 {
@@ -681,6 +731,11 @@ class HTMLReportGenerator:
         conversations = []
         has_conv_id = "conversation_id" in message_df.columns
 
+        # Find related columns for the metric (e.g., reasoning, label)
+        related_columns = self._find_related_columns(
+            metric, list(conversation_df.columns)
+        )
+
         for conv_idx in sample_indices[:max_conversations]:
             if conv_idx not in conversation_df.index:
                 continue
@@ -700,6 +755,12 @@ class HTMLReportGenerator:
             conv_metric_value = None
             if metric and metric in conv_row:
                 conv_metric_value = self._format_metric_value(conv_row[metric])
+
+            # Get related values (reasoning, label) for the conversation
+            related_values = {}
+            for rel_type, rel_col in related_columns.items():
+                if rel_col in conv_row and pd.notna(conv_row[rel_col]):
+                    related_values[rel_type] = str(conv_row[rel_col])
 
             # Get all messages in this conversation
             if has_conv_id:
@@ -736,20 +797,22 @@ class HTMLReportGenerator:
                     }
                 )
 
-            conversations.append(
-                {
-                    "conversation_id": conv_id,
-                    "turns": turns,
-                    "flagged_count": 0,  # No individual flags
-                    "metric_value": conv_metric_value,  # Conversation-level metric
-                }
-            )
+            conv_data = {
+                "conversation_id": conv_id,
+                "turns": turns,
+                "flagged_count": 0,  # No individual flags
+                "metric_value": conv_metric_value,  # Conversation-level metric
+            }
+            if related_values:
+                conv_data["related_values"] = related_values
+
+            conversations.append(conv_data)
 
         return conversations
 
     def _get_duplicates_summary(
-        self, duplicates: Optional[dict[str, Any]]
-    ) -> Optional[dict[str, Any]]:
+        self, duplicates: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
         """Get summary of duplicates for lightweight display.
 
         Args:
@@ -784,8 +847,8 @@ class HTMLReportGenerator:
         return summary if summary else None
 
     def _get_clusters_summary(
-        self, clusters: Optional[dict[str, Any]]
-    ) -> Optional[dict[str, Any]]:
+        self, clusters: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
         """Get summary of clusters for lightweight display.
 
         Args:
@@ -896,7 +959,7 @@ class HTMLReportGenerator:
         self,
         analyzer: "DatasetAnalyzer",
         summary: dict[str, Any],
-        title: Optional[str],
+        title: str | None,
         health_score: Optional["DatasetHealthScore"] = None,
     ) -> dict[str, Any]:
         """Prepare data for the HTML template.
@@ -1267,7 +1330,7 @@ class HTMLReportGenerator:
 
     def _extract_duplicate_data(
         self, analyzer: "DatasetAnalyzer"
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Extract duplicate detection data from the analyzer.
 
         Args:
@@ -1399,7 +1462,7 @@ class HTMLReportGenerator:
 
     def _extract_cluster_data(
         self, analyzer: "DatasetAnalyzer"
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Extract clustering data from the analyzer.
 
         Args:

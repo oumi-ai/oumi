@@ -14,7 +14,7 @@
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Optional
+from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 from rich.box import ROUNDED
@@ -30,7 +30,7 @@ _VALID_OUTPUT_FORMATS = ("csv", "json", "parquet")
 # Metric descriptions with range and interpretation guidance
 # Format: (description, range, better_direction)
 # better_direction: "higher", "lower", "context", or None (for informational metrics)
-_METRIC_DESCRIPTIONS: dict[str, tuple[str, str, Optional[str]]] = {
+_METRIC_DESCRIPTIONS: dict[str, tuple[str, str, str | None]] = {
     # Length metrics
     "token_count": (
         "Number of tokens after tokenization",
@@ -199,7 +199,7 @@ def analyze(
         ),
     ] = False,
     report_title: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--report-title",
             help="Custom title for the HTML report.",
@@ -220,10 +220,29 @@ def analyze(
             "Local model analyzers like IFD are still allowed.",
         ),
     ] = False,
+    reanalyze: Annotated[
+        bool,
+        typer.Option(
+            "--reanalyze",
+            help="Force re-running the full analysis even if artifacts exist. "
+            "By default, if artifacts exist, only tests are re-run.",
+        ),
+    ] = False,
+    list_metrics: Annotated[
+        bool,
+        typer.Option(
+            "--list-metrics",
+            help="List all available metrics from saved artifacts. "
+            "Useful for discovering columns to use in test configurations.",
+        ),
+    ] = False,
     level: cli_utils.LOG_LEVEL_TYPE = None,
     verbose: cli_utils.VERBOSE_TYPE = False,
 ):
     """Analyze a dataset to compute metrics and statistics.
+
+    By default, if analysis artifacts already exist at the output path, only tests
+    will be re-run (fast). Use --reanalyze to force a fresh analysis.
 
     Args:
         ctx: The Typer context object.
@@ -234,6 +253,7 @@ def analyze(
         report_title: Custom title for the HTML report.
         skip_llm: Skip analyzers that require LLM inference.
         skip_remote_llm: Skip analyzers that require remote LLM APIs.
+        reanalyze: Force re-running the full analysis even if artifacts exist.
         level: The logging level for the specified command.
         verbose: Enable verbose logging with additional debug information.
     """
@@ -278,27 +298,99 @@ def analyze(
         if verbose:
             parsed_config.print_config(logger)
 
-        # Create analyzer
-        with cli_utils.CONSOLE.status(
-            "[green]Loading dataset...[/green]", spinner="dots"
-        ):
-            analyzer = DatasetAnalyzer(
-                parsed_config,
-                skip_llm_analyzers=skip_llm,
-                skip_remote_llm_analyzers=skip_remote_llm,
-            )
+        # Check if artifacts exist and can be reused
+        output_dir = (
+            Path(parsed_config.output_path) if parsed_config.output_path else None
+        )
+        artifacts_exist = False
+        loaded_artifacts = None
 
-        # Run analysis
-        with cli_utils.CONSOLE.status(
-            "[green]Running analysis...[/green]", spinner="dots"
-        ):
-            analyzer.analyze_dataset()
+        # Handle --list-metrics flag
+        if list_metrics:
+            if output_dir is None:
+                cli_utils.CONSOLE.print(
+                    "[red]Error:[/red] No output_path specified. "
+                    "Cannot list metrics without saved artifacts."
+                )
+                raise typer.Exit(code=1)
+
+            _display_available_metrics(output_dir, output_format)
+            return
+
+        if output_dir and not reanalyze:
+            from oumi.utils.analysis_utils import load_analyzer_artifacts
+
+            # Check if artifacts exist
+            artifacts_file = output_dir / "analysis_summary.json"
+            if artifacts_file.exists():
+                try:
+                    with cli_utils.CONSOLE.status(
+                        "[green]Loading existing artifacts...[/green]", spinner="dots"
+                    ):
+                        loaded_artifacts = load_analyzer_artifacts(
+                            output_dir, output_format
+                        )
+                        artifacts_exist = True
+                        cli_utils.CONSOLE.print(
+                            "[cyan]Found existing analysis artifacts. "
+                            "Re-running tests only (use --reanalyze to force full analysis).[/cyan]"
+                        )
+                except Exception as e:
+                    logger.warning(f"Could not load existing artifacts: {e}")
+                    artifacts_exist = False
+
+        if artifacts_exist and loaded_artifacts is not None:
+            # Use loaded artifacts - only run tests
+            analyzer = _create_analyzer_from_artifacts(loaded_artifacts, parsed_config)
+
+            # Run tests if configured
+            if parsed_config.tests and analyzer.message_df is not None:
+                with cli_utils.CONSOLE.status(
+                    "[green]Running tests...[/green]", spinner="dots"
+                ):
+                    from oumi.core.analyze.test_engine import TestEngine
+
+                    test_engine = TestEngine(parsed_config.tests)
+                    # Provide empty DataFrame for conversation_df if None
+                    import pandas as pd
+
+                    conv_df = analyzer.conversation_df
+                    if conv_df is None:
+                        conv_df = pd.DataFrame()
+
+                    test_summary = test_engine.run_tests(
+                        message_df=analyzer.message_df,
+                        conversation_df=conv_df,
+                        summary=analyzer.analysis_summary,
+                    )
+                    # Update the analysis summary with new test results
+                    if analyzer._analysis_summary is not None:
+                        analyzer._analysis_summary["test_summary"] = (
+                            test_summary.to_dict()
+                        )
+        else:
+            # Run full analysis
+            # Create analyzer
+            with cli_utils.CONSOLE.status(
+                "[green]Loading dataset...[/green]", spinner="dots"
+            ):
+                analyzer = DatasetAnalyzer(
+                    parsed_config,
+                    skip_llm_analyzers=skip_llm,
+                    skip_remote_llm_analyzers=skip_remote_llm,
+                )
+
+            # Run analysis
+            with cli_utils.CONSOLE.status(
+                "[green]Running analysis...[/green]", spinner="dots"
+            ):
+                analyzer.analyze_dataset()
 
         # Display summary
         _display_analysis_summary(analyzer, verbose=verbose)
 
-        # Export results
-        if parsed_config.output_path:
+        # Export results (only if we ran full analysis, not just tests)
+        if parsed_config.output_path and not artifacts_exist:
             from oumi.utils.analysis_utils import save_analyzer_artifacts
 
             save_analyzer_artifacts(analyzer, parsed_config.output_path, output_format)
@@ -338,6 +430,198 @@ def analyze(
         raise typer.Exit(code=1)
 
 
+def _create_analyzer_from_artifacts(
+    artifacts: dict[str, Any],
+    config: Any,
+) -> "DatasetAnalyzer":
+    """Create an analyzer-like object from loaded artifacts.
+
+    This creates a minimal analyzer object that can be used for test execution
+    and report generation without running the full analysis.
+
+    Args:
+        artifacts: Loaded artifacts from load_analyzer_artifacts.
+        config: The AnalyzeConfig object.
+
+    Returns:
+        A DatasetAnalyzer-like object with loaded data.
+    """
+    import pandas as pd
+
+    class ArtifactAnalyzer:
+        """Minimal analyzer that wraps loaded artifacts."""
+
+        def __init__(self, artifacts: dict[str, Any], config: Any):
+            self._artifacts = artifacts
+            self._config = config
+            # Initialize internal state from artifacts
+            self._message_df = artifacts.get("messages_df")
+            self._conversation_df = artifacts.get("conversations_df")
+            self._merged_df = artifacts.get("merged_df")
+            self._analysis_summary = artifacts.get("analysis_summary", {})
+            schemas = artifacts.get("schemas", {})
+            self._merged_schema = schemas.get("merged_schema")
+            self._message_schema = schemas.get("message_schema")
+            self._conversation_schema = schemas.get("conversation_schema")
+
+        @property
+        def message_df(self) -> pd.DataFrame | None:
+            return self._message_df
+
+        @property
+        def conversation_df(self) -> pd.DataFrame | None:
+            return self._conversation_df
+
+        @property
+        def analysis_df(self) -> pd.DataFrame | None:
+            return self._merged_df
+
+        @property
+        def analysis_summary(self) -> dict[str, Any]:
+            return self._analysis_summary
+
+        @property
+        def config(self) -> Any:
+            return self._config
+
+    return ArtifactAnalyzer(artifacts, config)  # type: ignore
+
+
+def _display_available_metrics(output_dir: Path, output_format: str) -> None:
+    """Display available metrics from saved artifacts.
+
+    Reads the schema from saved artifacts and displays all available columns
+    with their descriptions, organized by scope (message vs conversation).
+
+    Args:
+        output_dir: Directory containing saved artifacts.
+        output_format: Format of the saved artifacts.
+    """
+    from oumi.utils.analysis_utils import load_analyzer_artifacts
+
+    # Check if artifacts exist
+    if not output_dir.exists():
+        cli_utils.CONSOLE.print(
+            f"[red]Error:[/red] Output directory does not exist: {output_dir}"
+        )
+        cli_utils.CONSOLE.print(
+            "[yellow]Hint:[/yellow] Run analysis first to generate artifacts."
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        artifacts = load_analyzer_artifacts(output_dir, output_format)
+    except FileNotFoundError:
+        cli_utils.CONSOLE.print(
+            f"[red]Error:[/red] No artifacts found at: {output_dir}"
+        )
+        cli_utils.CONSOLE.print(
+            "[yellow]Hint:[/yellow] Run analysis first to generate artifacts."
+        )
+        raise typer.Exit(code=1)
+
+    schemas = artifacts.get("schemas", {})
+    message_schema = schemas.get("message_schema", {})
+    conversation_schema = schemas.get("conversation_schema", {})
+
+    cli_utils.CONSOLE.print("\n[bold cyan]Available Metrics for Tests[/bold cyan]\n")
+    cli_utils.CONSOLE.print("Use these column names in your test configurations.\n")
+
+    # Display message-level metrics
+    if message_schema:
+        cli_utils.CONSOLE.print("[bold green]Message-Level Metrics[/bold green]")
+        cli_utils.CONSOLE.print("(Use with scope: message or omit scope)\n")
+
+        table = Table(box=ROUNDED, show_header=True, header_style="bold", expand=True)
+        table.add_column(
+            "Metric Name", style="cyan", no_wrap=True, min_width=50, overflow="fold"
+        )
+        table.add_column("Type", style="yellow", width=10)
+        table.add_column("Description", style="white", ratio=1, overflow="fold")
+
+        # Sort by analyzer/category
+        sorted_cols = sorted(message_schema.keys())
+        for col in sorted_cols:
+            info = message_schema[col]
+            col_type = info.get("type", "unknown")
+            description = info.get("description", "")
+            table.add_row(col, str(col_type), description)
+
+        cli_utils.CONSOLE.print(table)
+        cli_utils.CONSOLE.print()
+
+    # Display conversation-level metrics
+    if conversation_schema:
+        cli_utils.CONSOLE.print("[bold green]Conversation-Level Metrics[/bold green]")
+        cli_utils.CONSOLE.print("(Use with scope: conversation)\n")
+
+        table = Table(box=ROUNDED, show_header=True, header_style="bold", expand=True)
+        table.add_column(
+            "Metric Name", style="cyan", no_wrap=True, min_width=50, overflow="fold"
+        )
+        table.add_column("Type", style="yellow", width=10)
+        table.add_column("Description", style="white", ratio=1, overflow="fold")
+
+        sorted_cols = sorted(conversation_schema.keys())
+        for col in sorted_cols:
+            info = conversation_schema[col]
+            col_type = info.get("type", "unknown")
+            description = info.get("description", "")
+            table.add_row(col, str(col_type), description)
+
+        cli_utils.CONSOLE.print(table)
+        cli_utils.CONSOLE.print()
+
+    # Show example test configurations
+    cli_utils.CONSOLE.print(
+        "[bold magenta]Example Test Configurations[/bold magenta]\n"
+    )
+
+    example_yaml = """# Threshold test (check if values exceed a limit)
+tests:
+  - id: max_tokens
+    type: threshold
+    metric: "text_content__length__token_count"
+    operator: ">"
+    value: 4096
+    max_percentage: 5.0
+    severity: medium
+    title: "Messages exceeding token limit"
+
+# Percentage test (check condition frequency)
+  - id: no_pii
+    type: percentage
+    metric: "text_content__quality__has_pii"
+    condition: "== True"
+    max_percentage: 2.0
+    severity: high
+    title: "PII detected in messages"
+
+# Conversation-level test
+  - id: low_helpfulness
+    type: threshold
+    metric: "conversation_text_content__helpfulness__score"
+    operator: "<="
+    value: 4
+    max_percentage: 0.0
+    scope: conversation
+    severity: high
+    title: "Low helpfulness conversations"
+"""
+    cli_utils.CONSOLE.print(example_yaml)
+
+    # Show related columns hint
+    cli_utils.CONSOLE.print("[bold yellow]Tip: Related Columns[/bold yellow]")
+    cli_utils.CONSOLE.print(
+        "LLM judge metrics often have related columns. "
+        "For example, if you test on:\n"
+        "  - [cyan]helpfulness__score[/cyan]\n"
+        "You can also access:\n"
+        "  - [cyan]helpfulness__label[/cyan] (category)\n"
+        "  - [cyan]helpfulness__reasoning[/cyan] (explanation)\n"
+    )
+
+
 def _get_metric_key(metric_name: str) -> str:
     """Extract the base metric key from a full metric name.
 
@@ -365,7 +649,7 @@ def _get_metric_key(metric_name: str) -> str:
 
 def _get_metric_description(
     metric_name: str,
-) -> Optional[tuple[str, str, Optional[str]]]:
+) -> tuple[str, str, str | None] | None:
     """Get the description, range, and better direction for a metric.
 
     Args:
@@ -426,7 +710,7 @@ def _display_metric_legend(metrics_shown: list[str]) -> None:
 
     # Collect unique metric descriptions for displayed metrics
     seen_keys: set[str] = set()
-    legend_items: list[tuple[str, str, str, Optional[str]]] = []
+    legend_items: list[tuple[str, str, str, str | None]] = []
 
     for metric_name in metrics_shown:
         metric_key = _get_metric_key(metric_name)
@@ -504,14 +788,14 @@ def _display_analysis_summary(
         dataset_name = overview.get("dataset_name", "Unknown")
 
         overview_text = Text()
-        overview_text.append(f"Dataset: ", style="dim")
+        overview_text.append("Dataset: ", style="dim")
         overview_text.append(f"{dataset_name}\n", style="cyan bold")
-        overview_text.append(f"Conversations: ", style="dim")
+        overview_text.append("Conversations: ", style="dim")
         overview_text.append(f"{conversations}", style="green")
         overview_text.append(f" ({coverage:.0f}% coverage)  ", style="dim")
-        overview_text.append(f"Messages: ", style="dim")
+        overview_text.append("Messages: ", style="dim")
         overview_text.append(f"{messages}\n", style="green")
-        overview_text.append(f"Analyzers: ", style="dim")
+        overview_text.append("Analyzers: ", style="dim")
         overview_text.append(", ".join(analyzers_list) or "None", style="yellow")
 
         cli_utils.CONSOLE.print(
@@ -829,8 +1113,8 @@ def _save_dataframe(df: "pd.DataFrame", path: Path, output_format: str) -> None:
 
 def _generate_html_report(
     analyzer: "DatasetAnalyzer",
-    output_path: Optional[str],
-    title: Optional[str],
+    output_path: str | None,
+    title: str | None,
 ) -> None:
     """Generate an interactive HTML report with charts.
 

@@ -14,10 +14,13 @@
 # 4. Response quality - Evaluating helpfulness and completeness
 # 5. Diversity - Ensuring diverse conversation topics and styles
 
+# Usage: oumi analyze --config configs/examples/analyze/analyze_openassistant.yaml
+
 # dataset_name: "OpenAssistant/oasst1" # Not used when dataset_path is set
 # split: "train" # Not used when dataset_path is set
-dataset_path: null # Set this to the path to your openassistant.jsonl file
-output_path: ./analysis_output/openassistant
+dataset_path: "/Users/ryanarman/data/openassistant/openassistant_oasst1.jsonl"
+sample_count: 100
+output_path: /Users/ryanarman/code/oumi/analysis_output/openassistant
 
 analyzers:
   # ---------------------------------------------------------------------------
@@ -256,9 +259,208 @@ analyzers:
       max_text_length: 8000
       parse_json_response: true
 
-# Optional: Generate recommendations based on analysis
-generate_recommendations: true
-outlier_threshold: 3.0
+# =============================================================================
+# TESTS - Quality checks for OpenAssistant dataset
+# =============================================================================
+tests:
+  # ---------------------------------------------------------------------------
+  # LENGTH TESTS
+  # ---------------------------------------------------------------------------
 
-# Optional: Generate HTML report with visualizations
-generate_report: yes
+  # Check for empty or very short messages
+  - id: no_empty_messages
+    type: threshold
+    metric: "text_content__length__token_count"
+    operator: "<="
+    value: 0
+    max_percentage: 1.0
+    severity: high
+    title: "Empty messages"
+    description: "Messages with no tokens indicate data quality issues"
+
+  # Check for very short assistant responses
+  - id: substantive_responses
+    type: query
+    expression: "role == 'assistant' and text_content__length__token_count < 5"
+    max_percentage: 5.0
+    severity: medium
+    title: "Very short assistant responses"
+    description: "Assistant responses with <5 tokens may not be helpful for training"
+
+  # Check for very long messages that might exceed context
+  - id: context_window_safe
+    type: threshold
+    metric: "text_content__length__token_count"
+    operator: ">"
+    value: 4096
+    max_percentage: 5.0
+    severity: medium
+    title: "Messages exceeding 4k tokens"
+    description: "Very long messages may exceed context windows"
+    scope: message
+
+  # ---------------------------------------------------------------------------
+  # QUALITY TESTS
+  # ---------------------------------------------------------------------------
+
+  # Check for PII (important for training data)
+  - id: no_pii
+    type: percentage
+    metric: "text_content__quality__has_pii"
+    condition: "== True"
+    max_percentage: 2.0
+    severity: high
+    title: "PII detected in dataset"
+    description: "Personal information should be removed before training"
+
+  # Check for encoding issues
+  - id: no_encoding_issues
+    type: percentage
+    metric: "text_content__quality__has_encoding_issues"
+    condition: "== True"
+    max_percentage: 2.0
+    severity: medium
+    title: "Encoding issues detected"
+    description: "Text encoding problems may affect model training"
+
+  # Check for repetitive content
+  - id: no_repetitive_content
+    type: percentage
+    metric: "text_content__quality__has_high_repetition"
+    condition: "== True"
+    max_percentage: 10.0
+    severity: medium
+    title: "Repetitive content detected"
+    description: "Highly repetitive text may indicate low-quality samples"
+
+  # ---------------------------------------------------------------------------
+  # CONTENT PATTERN TESTS
+  # ---------------------------------------------------------------------------
+
+  # Check for placeholder text
+  - id: no_placeholders
+    type: contains-any
+    text_field: "text_content"
+    values:
+      - "[NAME]"
+      - "[COMPANY]"
+      - "[DATE]"
+      - "[INSERT"
+      - "[YOUR"
+      - "PLACEHOLDER"
+    max_percentage: 1.0
+    severity: medium
+    title: "Placeholder text detected"
+    description: "Placeholder tokens should be replaced with real content"
+    case_sensitive: false
+
+  # Check for special tokens that shouldn't appear in content
+  - id: no_special_tokens
+    type: regex
+    text_field: "text_content"
+    pattern: "<\\|(?:endoftext|im_start|im_end|pad)\\|>"
+    max_percentage: 0
+    severity: high
+    title: "Special token leakage"
+    description: "Training tokens should not appear in content"
+
+  # Check for refusal patterns in responses
+  - id: check_refusals
+    type: regex
+    text_field: "text_content"
+    pattern: "(?i)(I cannot|I'm unable to|I am not able to|I won't|I refuse to)"
+    max_percentage: 10.0
+    severity: low
+    title: "Refusal patterns detected"
+    description: "High refusal rate may indicate overly restrictive training data"
+
+  # ---------------------------------------------------------------------------
+  # DIVERSITY TESTS
+  # ---------------------------------------------------------------------------
+
+  # Check vocabulary diversity
+  - id: vocabulary_diversity
+    type: threshold
+    metric: "text_content__diversity__unique_words_ratio"
+    operator: "<"
+    value: 0.2
+    max_percentage: 15.0
+    severity: low
+    title: "Low vocabulary diversity"
+    description: "Messages with very low word diversity may be repetitive or low-quality"
+
+  # ---------------------------------------------------------------------------
+  # DISTRIBUTION TESTS
+  # ---------------------------------------------------------------------------
+
+  # Check for role balance
+  - id: balanced_roles
+    type: distribution
+    metric: "role"
+    check: "max_fraction"
+    threshold: 0.7
+    severity: medium
+    title: "Role distribution check"
+    description: "No single role should dominate >70% of messages"
+
+  # ---------------------------------------------------------------------------
+  # LANGUAGE TESTS (requires fasttext analyzer)
+  # ---------------------------------------------------------------------------
+
+  # Check for low language detection confidence
+  - id: language_confidence
+    type: percentage
+    metric: "text_content__fasttext__low_confidence"
+    condition: "== True"
+    max_percentage: 15.0
+    severity: low
+    title: "Low language detection confidence"
+    description: "Messages with uncertain language may have quality issues"
+
+  # ---------------------------------------------------------------------------
+  # HELPFULNESS TESTS (requires instruct_reward analyzer)
+  # ---------------------------------------------------------------------------
+
+  # Check for low conversation helpfulness scores (from LLM judge)
+  - id: low_helpfulness
+    type: threshold
+    metric: "conversation_text_content__helpfulness__score"
+    operator: "<="
+    value: 4
+    max_percentage: 0.0
+    severity: high
+    title: "Low helpfulness conversations"
+    description: "Conversations with LLM-judged helpfulness score <= 2 (out of 10) may not be good training data"
+    scope: conversation
+
+  # ---------------------------------------------------------------------------
+  # CONVERSATION-LEVEL TESTS
+  # ---------------------------------------------------------------------------
+
+  # Check for very short conversations
+  - id: conversation_length_min
+    type: threshold
+    metric: "conversation_text_content__length__token_count"
+    operator: "<"
+    value: 10
+    max_percentage: 5.0
+    severity: medium
+    title: "Very short conversations"
+    description: "Conversations with <10 tokens may lack sufficient content"
+    scope: conversation
+
+  # Check for very long conversations
+  - id: conversation_length_max
+    type: threshold
+    metric: "conversation_text_content__length__token_count"
+    operator: ">"
+    value: 8192
+    max_percentage: 5.0
+    severity: low
+    title: "Very long conversations"
+    description: "Conversations exceeding 8k tokens may be too long for some models"
+    scope: conversation
+
+# Generate HTML report with test results
+generate_report: true
+report_title: "OpenAssistant Dataset Quality Analysis"

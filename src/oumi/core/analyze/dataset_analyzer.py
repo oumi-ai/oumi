@@ -869,20 +869,20 @@ class DatasetAnalyzer:
             return {}
 
         summary = {}
-        
+
         # Process numeric and boolean columns with numeric statistics
         for col in self._get_computable_columns(df):
             values = cast(pd.Series, df[col].dropna())
             if len(values) > 0:
                 summary[col] = compute_statistics(values, self._decimal_precision)
-        
+
         # Process categorical columns with categorical statistics
         if self._merged_schema is not None:
             for col in df.columns:
                 col_schema = self._merged_schema.get(col)
                 if col_schema is None:
                     continue
-                
+
                 content_type = col_schema.get("content_type")
                 # Include CATEGORICAL columns (like detected_language, language_name, detected_script)
                 if content_type == ContentType.CATEGORICAL:
@@ -893,11 +893,17 @@ class DatasetAnalyzer:
                         summary[col] = {
                             "count": len(values),
                             "unique_count": len(value_counts),
-                            "mode": value_counts.index[0] if len(value_counts) > 0 else None,
-                            "mode_count": int(value_counts.iloc[0]) if len(value_counts) > 0 else 0,
+                            "mode": value_counts.index[0]
+                            if len(value_counts) > 0
+                            else None,
+                            "mode_count": int(value_counts.iloc[0])
+                            if len(value_counts) > 0
+                            else 0,
                             "mode_percentage": round(
                                 (value_counts.iloc[0] / len(values)) * 100, 2
-                            ) if len(value_counts) > 0 else 0.0,
+                            )
+                            if len(value_counts) > 0
+                            else 0.0,
                             "top_values": {
                                 k: int(v) for k, v in value_counts.head(10).items()
                             },

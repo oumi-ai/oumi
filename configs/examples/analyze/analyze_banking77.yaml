@@ -1,6 +1,8 @@
 # Analysis configuration for Banking77 dataset with tests
 # Demonstrates the new declarative test system for quality checks
 
+# Usage: oumi analyze --config configs/examples/analyze/analyze_banking77.yaml
+
 dataset_path: "/Users/ryanarman/code/scratch/ryan_hillclimbing_experiments/banking77/notebooks/data/banking77_train.jsonl"
 # dataset_name is not needed when using dataset_path
 sample_count: 1000
@@ -60,7 +62,7 @@ tests:
     type: threshold
     metric: "text_content__length__token_count"
     operator: "<="
-    value: 1
+    value: 0
     max_percentage: 1.0
     severity: high
     title: "Empty or near-empty messages"
@@ -218,12 +220,12 @@ tests:
   - id: conversation_length
     type: threshold
     metric: "conversation_text_content__length__token_count"
-    operator: "<"
-    value: 5
-    max_percentage: 5.0
+    operator: ">"
+    value: 1800
+    max_percentage: 1.0
     severity: medium
-    title: "Very short conversations"
-    description: "Conversations with fewer than 5 tokens may lack sufficient context"
+    title: "Very long conversations"
+    description: "Conversations with more than 5 tokens may lack sufficient context"
     scope: conversation
 
 # Generate HTML report with test results
