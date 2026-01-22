@@ -19,7 +19,12 @@ from typing import Any
 import pydantic
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
+from oumi.core.configs import (
+    GenerationParams,
+    InferenceConfig,
+    ModelParams,
+    RemoteParams,
+)
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
@@ -225,6 +230,18 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             "temperature",
             "top_p",
         }
+
+    @override
+    def infer_batch(
+        self,
+        conversations: list[Conversation],
+        inference_config: InferenceConfig | None = None,
+    ) -> str:
+        """Batch inference is not supported for Google Vertex AI."""
+        raise NotImplementedError(
+            "Batch inference is not implemented for OpenRouter. "
+            "Please open an issue on GitHub if you'd like this feature."
+        )
 
 
 #

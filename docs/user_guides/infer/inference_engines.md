@@ -764,6 +764,60 @@ The models available via this API can be found at [docs.parasail.io](https://doc
 
 - [Parasail.io Documentation](https://docs.parasail.io)
 
+## Batch Inference
+
+Several cloud API engines support batch inference, which allows you to process large numbers of requests asynchronously at reduced cost. Batch jobs are queued and processed within a completion window (typically 24 hours).
+
+**Basic Usage**
+
+```python
+from oumi.inference import OpenAIInferenceEngine
+from oumi.core.configs import ModelParams
+from oumi.core.types.conversation import Conversation, Message, Role
+
+engine = OpenAIInferenceEngine(
+    model_params=ModelParams(model_name="gpt-4o-mini")
+)
+
+# Create conversations to process
+conversations = [
+    Conversation(messages=[Message(content="Hello!", role=Role.USER)]),
+    Conversation(messages=[Message(content="How are you?", role=Role.USER)]),
+]
+
+# Submit batch job
+batch_id = engine.infer_batch(conversations)
+
+# Check status
+status = engine.get_batch_status(batch_id)
+print(f"Status: {status.status}")
+
+# Retrieve results when complete
+if status.status.value == "completed":
+    results = engine.get_batch_results(batch_id, conversations)
+```
+
+### Supported Engines
+
+The following table shows which engines support batch inference:
+
+| Engine | Batch Support | Notes |
+|--------|---------------|-------|
+| OpenAI | ✅ Supported | OpenAI Batch API |
+| Parasail | ✅ Supported | OpenAI-compatible Batch API |
+| Anthropic | 🔜 Coming soon | Message Batches API |
+| Together | 🔜 Coming soon | Together Batch API |
+| Fireworks | 🔜 Coming soon | Fireworks Batch API |
+| DeepSeek | ❌ Not supported | |
+| Gemini | ❌ Not supported | |
+| Vertex AI | ❌ Not supported | |
+| Bedrock | ❌ Not supported | |
+| Lambda | ❌ Not supported | |
+| SambaNova | ❌ Not supported | |
+| OpenRouter | ❌ Not supported | |
+| Remote vLLM | ❌ Not supported | |
+| SGLang | ❌ Not supported | |
+
 ## See Also
 
 - [Configuration Guide](configuration.md) for detailed config options

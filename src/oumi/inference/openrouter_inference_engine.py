@@ -14,6 +14,8 @@
 
 from typing_extensions import override
 
+from oumi.core.configs import InferenceConfig
+from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
 
@@ -41,3 +43,15 @@ class OpenRouterInferenceEngine(RemoteInferenceEngine):
     def api_key_env_varname(self) -> str | None:
         """Return the default environment variable name for the OpenRouter API key."""
         return "OPENROUTER_API_KEY"
+
+    @override
+    def infer_batch(
+        self,
+        _conversations: list[Conversation],
+        _inference_config: InferenceConfig | None = None,
+    ) -> str:
+        """Batch inference is not implemented for OpenRouter."""
+        raise NotImplementedError(
+            "Batch inference is not implemented for OpenRouter. "
+            "Please open an issue on GitHub if you'd like this feature."
+        )
