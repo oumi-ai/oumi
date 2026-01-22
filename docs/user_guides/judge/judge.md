@@ -7,7 +7,6 @@
 
 judge_config
 built_in_judges
-rule_based_judges
 cli_usage
 ```
 
@@ -46,6 +45,7 @@ To leverage an LLM judge, we instantiate a {py:class}`~oumi.judges.simple_judge.
 ### Built-In Judges (predefined configuration)
 
 Select a judge from our {gh}`GitHub page <configs/projects/judges/>` and use it, as shown below. The following example is for the {gh}`Truthfulness judge <configs/projects/judges/generic/truthfulness.yaml>` (judges/generic/truthfulness).
+
 ```python
 from oumi.judges.simple_judge import SimpleJudge
 
@@ -72,6 +72,7 @@ for output in outputs:
 ### Custom Judge
 
 Step 1: Define your custom configuration, such as `./my_judge_config.yaml`.
+
 ```yaml
 judge_params:
   prompt_template: |
@@ -101,6 +102,7 @@ inference_config:
 ```
 
 Step 2: Load your custom configuration file and evaluate a dataset.
+
 ```python
 from oumi.judges.simple_judge import SimpleJudge
 
@@ -125,7 +127,7 @@ for output in outputs:
 ```
 
 ## Next Steps
+
 - Explore our {doc}`Built-In Judges </user_guides/judge/built_in_judges>` for out-of-the-box evaluation criteria
-- Try {doc}`Rule-Based Judges </user_guides/judge/rule_based_judges>` for fast, deterministic evaluation without LLM inference
 - Understand the {doc}`Judge Configuration </user_guides/judge/judge_config>` options
 - Explore {doc}`CLI usage </user_guides/judge/cli_usage>` for command-line evaluation
