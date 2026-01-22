@@ -80,54 +80,20 @@ Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quicks
 Choose the installation method that works best for you:
 
 <details open>
-<summary><b>Quick Install (Recommended)</b></summary>
-
-One command to install Oumi. No Python setup required - the installer handles everything:
-
-```bash
-# Basic installation (Linux/macOS)
-curl -LsSf https://oumi.ai/install.sh | bash
-
-# With GPU support (for training)
-curl -LsSf https://oumi.ai/install.sh | bash -s -- --gpu
-```
-
-</details>
-
-<details>
-<summary><b>Using uv (Fast Python Package Manager)</b></summary>
-
-[uv](https://docs.astral.sh/uv/) is a fast, modern Python package manager:
-
-```bash
-# Install uv first (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Install oumi in your environment
-uv pip install oumi
-
-# Or with GPU support
-uv pip install 'oumi[gpu]'
-
-# Or try without installing (runs in isolated environment)
-uvx oumi --help
-```
-
-</details>
-
-<details>
-<summary><b>Using pip</b></summary>
+<summary><b>Using pip (Recommended)</b></summary>
 
 ```bash
 # Basic installation
-pip install oumi
+uv pip install oumi
 
 # With GPU support
-pip install 'oumi[gpu]'
+uv pip install 'oumi[gpu]'
 
 # Latest development version
-pip install git+https://github.com/oumi-ai/oumi.git
+uv pip install git+https://github.com/oumi-ai/oumi.git
 ```
+
+Don't have uv? [Install it](https://docs.astral.sh/uv/getting-started/installation/) or use `pip` instead.
 
 </details>
 
@@ -144,6 +110,17 @@ docker run --gpus all -it ghcr.io/oumi-ai/oumi:latest oumi --help
 # Train with a mounted config
 docker run --gpus all -v $(pwd):/workspace -it ghcr.io/oumi-ai/oumi:latest \
     oumi train --config /workspace/my_config.yaml
+```
+
+</details>
+
+<details>
+<summary><b>Quick Install Script (Experimental)</b></summary>
+
+Try Oumi without setting up a Python environment. This installs Oumi in an isolated environment:
+
+```bash
+curl -LsSf https://oumi.ai/install.sh | bash
 ```
 
 </details>

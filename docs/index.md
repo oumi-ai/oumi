@@ -119,6 +119,7 @@ development/docs_guide
 about/acknowledgements
 about/license
 about/citations
+about/telemetry
 ```
 
 ## Quick Start
