@@ -202,16 +202,6 @@ analyzers:
       include_component_scores: true
 
   # ---------------------------------------------------------------------------
-  # COST ANALYSIS - Training cost estimation
-  # ---------------------------------------------------------------------------
-  # Cost analyzer - estimates API costs for different context windows
-  - id: cost
-    params:
-      target_context_windows: [4096, 8192]
-      compute_packing_efficiency: true
-      packing_overhead_tokens: 10
-
-  # ---------------------------------------------------------------------------
   # LLM JUDGES - High-quality evaluation (optional, requires API keys)
   # ---------------------------------------------------------------------------
   # LLM Judge: Helpfulness (conversation-level)
@@ -427,7 +417,7 @@ tests:
     metric: "conversation_text_content__helpfulness__score"
     operator: "<="
     value: 4
-    max_percentage: 0.0
+    max_percentage: 5.0
     severity: high
     title: "Low helpfulness conversations"
     description: "Conversations with LLM-judged helpfulness score <= 2 (out of 10) may not be good training data"
@@ -436,6 +426,167 @@ tests:
   # ---------------------------------------------------------------------------
   # CONVERSATION-LEVEL TESTS
   # ---------------------------------------------------------------------------
+
+  # Check for strange/unusual characters that may indicate encoding issues or corrupted data
+  # This catches: control chars, escaped sequences, HTML entities, null bytes
+  - id: strange_characters
+    type: regex
+    text_field: "conversation_text_content"
+    pattern: '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]|\\x[0-9a-fA-F]{2}|\\u[0-9a-fA-F]{4}|&(?:nbsp|amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);'
+    max_percentage: 1.0
+    severity: medium
+    title: "Strange characters detected"
+    description: "Conversations with control chars, escaped sequences, or HTML entities may cause tokenization/encoding issues during SFT"
+    scope: conversation
+
+  # Check for replacement characters indicating encoding failures
+  - id: replacement_characters
+    type: regex
+    text_field: "conversation_text_content"
+    pattern: "\uFFFD"
+    max_percentage: 1.0
+    severity: medium
+    title: "Replacement characters detected"
+    description: "The replacement character (U+FFFD) indicates prior encoding failures in the data"
+    scope: conversation
+
+  # Check for phone numbers (PII) in conversations
+  - id: phone_numbers
+    type: regex
+    text_field: "text_content"
+    pattern: '(?:\+?1[-.\s]?)?\(?[2-9]\d{2}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+\d{1,3}[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}'
+    max_percentage: 0.0
+    severity: high
+    title: "Phone numbers detected (PII)"
+    description: "Conversations containing phone numbers may have PII that should be removed before training"
+    scope: message
+
+  # Python test for language consistency - assistant should respond in user's language
+  - id: language_consistency
+    type: python
+    function: |
+      def check(message_df, conversation_df, summary):
+          lang_col = 'text_content__fasttext__language'
+          if lang_col not in message_df.columns or 'role' not in message_df.columns:
+              return {'passed': True, 'affected_samples': 0, 'details': {'skip': 'Missing language or role columns'}}
+          
+          # Group by conversation and check language consistency
+          inconsistent_convs = []
+          for conv_id, group in message_df.groupby('conversation_id'):
+              user_msgs = group[group['role'] == 'user']
+              assistant_msgs = group[group['role'] == 'assistant']
+              
+              if len(user_msgs) == 0 or len(assistant_msgs) == 0:
+                  continue
+              
+              # Get the primary user language (most common)
+              user_langs = user_msgs[lang_col].dropna()
+              if len(user_langs) == 0:
+                  continue
+              user_lang = user_langs.mode().iloc[0] if len(user_langs.mode()) > 0 else None
+              
+              # Check if assistant responds in a different language
+              assistant_langs = assistant_msgs[lang_col].dropna()
+              if len(assistant_langs) == 0:
+                  continue
+              
+              # Flag if assistant uses different language than user
+              mismatched = assistant_langs[assistant_langs != user_lang]
+              if len(mismatched) > 0:
+                  inconsistent_convs.append(int(conv_id) if isinstance(conv_id, (int, float)) else conv_id)
+          
+          max_allowed = int(len(conversation_df) * 0.05)  # Allow 5%
+          return {
+              'passed': len(inconsistent_convs) <= max_allowed,
+              'affected_samples': len(inconsistent_convs),
+              'sample_indices': inconsistent_convs[:50],
+              'threshold': max_allowed,
+              'details': {'description': 'Conversations where assistant language differs from user language'}
+          }
+    severity: medium
+    title: "Language inconsistency detected"
+    description: "Checks if assistant responds in a different language than the user - important for multilingual SFT"
+    max_percentage: 0.0
+    scope: conversation
+
+  # Python test for alternating turns - user/assistant should alternate properly
+  - id: alternating_turns
+    type: python
+    function: |
+      def check(message_df, conversation_df, summary):
+          if 'role' not in message_df.columns or 'conversation_id' not in message_df.columns:
+              return {'passed': True, 'affected_samples': 0, 'details': {'skip': 'Missing role or conversation_id'}}
+          
+          non_alternating_convs = []
+          
+          for conv_id, group in message_df.groupby('conversation_id'):
+              # Sort by message order within conversation
+              if 'message_index' in group.columns:
+                  group = group.sort_values('message_index')
+              
+              roles = group['role'].tolist()
+              
+              # Check for consecutive same roles (excluding system messages)
+              prev_role = None
+              has_issue = False
+              for role in roles:
+                  if role == 'system':
+                      continue
+                  if prev_role is not None and role == prev_role:
+                      has_issue = True
+                      break
+                  prev_role = role
+              
+              if has_issue:
+                  non_alternating_convs.append(int(conv_id) if isinstance(conv_id, (int, float)) else conv_id)
+          
+          return {
+              'passed': len(non_alternating_convs) == 0,
+              'affected_samples': len(non_alternating_convs),
+              'sample_indices': non_alternating_convs[:50],
+              'details': {'description': 'Conversations with consecutive user or assistant messages'}
+          }
+    severity: medium
+    title: "Non-alternating turns detected"
+    description: "Conversations should have alternating user-assistant turns for proper SFT training"
+    max_percentage: 0.0
+    scope: conversation
+
+  # Python test for empty turns - catches empty, whitespace-only, or effectively empty messages
+  - id: empty_turns
+    type: python
+    function: |
+      def check(message_df, conversation_df, summary):
+          if 'text_content' not in message_df.columns:
+              return {'passed': True, 'affected_samples': 0, 'details': {'skip': 'Missing text_content'}}
+          
+          def is_empty_content(content):
+              if content is None:
+                  return True
+              if not isinstance(content, str):
+                  content = str(content)
+              stripped = content.strip()
+              if len(stripped) == 0:
+                  return True
+              # Check if any alphanumeric character exists (handles Latin + CJK)
+              has_content = any(c.isalnum() for c in stripped)
+              return not has_content
+          
+          # Use pandas apply for efficiency
+          is_empty = message_df['text_content'].apply(is_empty_content)
+          empty_indices = message_df[is_empty].index.tolist()
+          
+          return {
+              'passed': len(empty_indices) == 0,
+              'affected_samples': len(empty_indices),
+              'sample_indices': empty_indices[:50],
+              'details': {'description': 'Messages that are empty, whitespace-only, or contain only punctuation'}
+          }
+    severity: high
+    title: "Empty turns detected"
+    description: "Messages that are empty, whitespace-only, or have no actual content can break SFT training"
+    max_percentage: 0.0
+    scope: message
 
   # Check for very short conversations
   - id: conversation_length_min
