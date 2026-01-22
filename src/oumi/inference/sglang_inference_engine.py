@@ -327,5 +327,5 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         """Batch inference is not implemented for SGLang."""
         raise NotImplementedError(
             "Batch inference is not implemented for SGLang. "
-            "Open an issue on GitHub if you'd like this feature."
+            "Please open an issue on GitHub if you'd like this feature."
         )

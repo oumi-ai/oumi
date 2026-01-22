@@ -53,5 +53,5 @@ class OpenRouterInferenceEngine(RemoteInferenceEngine):
         """Batch inference is not implemented for OpenRouter."""
         raise NotImplementedError(
             "Batch inference is not implemented for OpenRouter. "
-            "Open an issue on GitHub if you'd like this feature."
+            "Please open an issue on GitHub if you'd like this feature."
         )

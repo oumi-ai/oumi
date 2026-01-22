@@ -159,5 +159,5 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
         """Batch inference is not implemented for SambaNova."""
         raise NotImplementedError(
             "Batch inference is not implemented for SambaNova. "
-            "Open an issue on GitHub if you'd like this feature."
+            "Please open an issue on GitHub if you'd like this feature."
         )

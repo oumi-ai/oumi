@@ -121,5 +121,5 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
         """Batch inference is not implemented for Remote vLLM."""
         raise NotImplementedError(
             "Batch inference is not implemented for Remote vLLM. "
-            "Open an issue on GitHub if you'd like this feature."
+            "Please open an issue on GitHub if you'd like this feature."
         )
