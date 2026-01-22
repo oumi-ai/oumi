@@ -35,8 +35,7 @@ def test_openrouter_init_default_params():
     engine = OpenRouterInferenceEngine(model_params)
     assert engine._model_params.model_name == "openai/gpt-4"
     assert (
-        engine._remote_params.api_url
-        == "https://openrouter.ai/api/v1/chat/completions"
+        engine._remote_params.api_url == "https://openrouter.ai/api/v1/chat/completions"
     )
     assert engine._remote_params.api_key_env_varname == "OPENROUTER_API_KEY"
 

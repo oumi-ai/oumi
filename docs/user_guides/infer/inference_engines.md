@@ -632,6 +632,41 @@ Fireworks AI hosts a variety of models including Llama, Qwen, Mixtral, and many 
 - [Fireworks AI Documentation](https://docs.fireworks.ai/)
 - [Available Models](https://fireworks.ai/models)
 
+### OpenRouter
+
+[OpenRouter](https://openrouter.ai) provides a unified API that gives access to hundreds of AI models from multiple providers (OpenAI, Anthropic, Google, Meta, and more) through a single endpoint. It automatically handles fallbacks and can select cost-effective options.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import OpenRouterInferenceEngine
+from oumi.core.configs import ModelParams
+
+engine = OpenRouterInferenceEngine(
+    model_params=ModelParams(
+        model_name="anthropic/claude-sonnet-4.5"
+    )
+)
+```
+
+**Model Naming**
+
+OpenRouter uses a `provider/model` naming format. Examples:
+
+| Provider   | Model Name                        |
+|------------|-----------------------------------|
+| Anthropic  | `anthropic/claude-sonnet-4.5`     |
+| OpenAI     | `openai/gpt-5.2`                  |
+| Meta       | `meta-llama/llama-4-maverick`     |
+| Google     | `google/gemini-2.0-flash`         |
+
+For a full list of available models, visit [openrouter.ai/models](https://openrouter.ai/models).
+
+**Resources**
+
+- [OpenRouter Documentation](https://openrouter.ai/docs)
+- [Available Models](https://openrouter.ai/models)
+
 ### SambaNova
 
 [SambaNova](https://www.sambanova.ai/) offers an extreme-speed inference platform on cloud infrastructure with wide variety of models.
