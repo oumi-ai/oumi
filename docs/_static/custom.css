@@ -1,6 +1,9 @@
 /* Oumi Documentation Theme */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 :root {
+    /* Override theme variables */
+    --pst-color-background: #0a0a0f;
+
     --oumi-primary-deep: #062c82;
     --oumi-primary-accent: #3763ff;
     --oumi-primary-light: #5b7fff;
@@ -500,70 +503,30 @@ p, li, td, th {
     flex-grow: 1;
 }
 
-/* Notebooks grid */
-.notebooks-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--space-4);
-    margin: var(--space-6) 0;
+/* Notebooks grid - MyST grid cards styled for Colab notebooks */
+.notebooks-grid .sd-card {
+    background: linear-gradient(135deg, var(--oumi-bg-card) 0%, var(--oumi-bg-elevated) 100%) !important;
+    border: 1px solid var(--oumi-border) !important;
+    border-left: 3px solid var(--oumi-primary-accent) !important;
 }
 
-.notebook-card {
-    display: flex;
-    flex-direction: column;
-    padding: var(--space-5);
-    background: var(--oumi-bg-card);
-    border: 1px solid var(--oumi-border);
-    border-radius: var(--radius-lg);
-    text-decoration: none !important;
-    transition: all var(--transition-base);
+.notebooks-grid .sd-card:hover {
+    border-left: 3px solid var(--oumi-primary-accent) !important;
 }
 
-.notebook-card:hover {
-    border-color: var(--oumi-primary-accent);
-    background: var(--oumi-bg-hover);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md), 0 0 20px rgba(55, 99, 255, 0.1);
+.notebooks-grid .sd-card .sd-card-title::before {
+    content: "📓 ";
+    font-size: 0.9em;
 }
 
-.notebook-title {
-    font-family: var(--font-heading);
-    font-size: var(--text-base);
-    font-weight: 600;
-    color: var(--oumi-text-primary);
-    margin-bottom: var(--space-2);
-}
-
-.notebook-desc {
-    font-size: var(--text-sm);
-    color: var(--oumi-text-secondary);
-    line-height: 1.5;
-    flex-grow: 1;
-    margin-bottom: var(--space-4);
-}
-
-.notebook-link {
+.notebooks-grid .sd-card .sd-card-text::after {
+    content: "Open in Colab →";
+    display: block;
+    margin-top: var(--space-3);
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     font-weight: 500;
     color: var(--oumi-primary-accent);
-    transition: color var(--transition-fast);
-}
-
-.notebook-card:hover .notebook-link {
-    color: var(--oumi-primary-light);
-}
-
-@media (min-width: 768px) {
-    .notebooks-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (min-width: 1024px) {
-    .notebooks-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
 }
 
 .bd-toc-title {
@@ -842,7 +805,10 @@ tbody tr:last-child td {
 
 .bd-header,
 html[data-theme="dark"] .bd-header,
-.bd-header.navbar {
+.bd-header.navbar,
+.bd-header-article,
+html[data-theme="dark"] .bd-header-article,
+.bd-header-article.d-print-none {
     background-color: var(--oumi-bg-base) !important;
     background: var(--oumi-bg-base) !important;
     border-bottom: none !important;
@@ -851,7 +817,8 @@ html[data-theme="dark"] .bd-header,
     box-shadow: none !important;
 }
 
-html:not([data-theme="dark"]) .bd-header {
+html:not([data-theme="dark"]) .bd-header,
+html:not([data-theme="dark"]) .bd-header-article {
     background-color: var(--oumi-bg-base) !important;
     background: var(--oumi-bg-base) !important;
 }
@@ -1742,23 +1709,6 @@ dl.py.function,
 dl.py.method {
     padding: var(--space-3) !important;
     margin: var(--space-4) 0 !important;
-}
-
-/* Fix TOC sidebar overflow */
-.bd-toc .nav-link,
-.bd-sidebar-secondary .nav-link {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--text-xs) !important;
-    max-width: 100%;
-    display: block;
-}
-
-.bd-toc .nav-link:hover,
-.bd-sidebar-secondary .nav-link:hover {
-    white-space: normal;
-    overflow: visible;
 }
 
 /* Module/class name headings - smaller */
