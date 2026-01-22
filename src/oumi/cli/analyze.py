@@ -527,8 +527,56 @@ def _display_available_metrics(output_dir: Path, output_format: str) -> None:
     cli_utils.CONSOLE.print("\n[bold cyan]Available Metrics for Tests[/bold cyan]\n")
     cli_utils.CONSOLE.print("Use these column names in your test configurations.\n")
 
+    # Prefixes/names that indicate conversation-level metrics (even if in message schema)
+    conversation_prefixes = (
+        "conversation__",
+        "conversation_text_content",  # Both the column itself and its derived metrics
+    )
+    # Exact column names that are conversation-level
+    conversation_exact_cols = {"conversation_id", "conversation_index", "num_messages"}
+
+    # Message-level metadata columns (should not appear in conversation metrics)
+    message_metadata_cols = {
+        "message_id",
+        "message_index",
+        "role",
+        "text_content",
+    }
+
+    def is_conversation_level(col: str) -> bool:
+        """Check if a column is conversation-level based on name."""
+        if col in conversation_exact_cols:
+            return True
+        if col.startswith(conversation_prefixes):
+            return True
+        return False
+
+    # Separate message-level metrics from conversation-level metrics
+    # Some conversation-level metrics may be stored in message_schema
+    true_message_metrics = {}
+    conversation_metrics_from_message = {}
+
+    for col, info in message_schema.items():
+        if is_conversation_level(col):
+            conversation_metrics_from_message[col] = info
+        else:
+            true_message_metrics[col] = info
+
+    # Filter conversation schema to exclude message-level metadata
+    filtered_conversation_schema = {
+        col: info
+        for col, info in conversation_schema.items()
+        if col not in message_metadata_cols
+    }
+
+    # Merge conversation schemas
+    all_conversation_metrics = {
+        **filtered_conversation_schema,
+        **conversation_metrics_from_message,
+    }
+
     # Display message-level metrics
-    if message_schema:
+    if true_message_metrics:
         cli_utils.CONSOLE.print("[bold green]Message-Level Metrics[/bold green]")
         cli_utils.CONSOLE.print("(Use with scope: message or omit scope)\n")
 
@@ -540,9 +588,9 @@ def _display_available_metrics(output_dir: Path, output_format: str) -> None:
         table.add_column("Description", style="white", ratio=1, overflow="fold")
 
         # Sort by analyzer/category
-        sorted_cols = sorted(message_schema.keys())
+        sorted_cols = sorted(true_message_metrics.keys())
         for col in sorted_cols:
-            info = message_schema[col]
+            info = true_message_metrics[col]
             col_type = info.get("type", "unknown")
             description = info.get("description", "")
             table.add_row(col, str(col_type), description)
@@ -551,7 +599,7 @@ def _display_available_metrics(output_dir: Path, output_format: str) -> None:
         cli_utils.CONSOLE.print()
 
     # Display conversation-level metrics
-    if conversation_schema:
+    if all_conversation_metrics:
         cli_utils.CONSOLE.print("[bold green]Conversation-Level Metrics[/bold green]")
         cli_utils.CONSOLE.print("(Use with scope: conversation)\n")
 
@@ -562,9 +610,16 @@ def _display_available_metrics(output_dir: Path, output_format: str) -> None:
         table.add_column("Type", style="yellow", width=10)
         table.add_column("Description", style="white", ratio=1, overflow="fold")
 
-        sorted_cols = sorted(conversation_schema.keys())
+        # Sort columns: regular columns first (alphabetically), then conversation__ prefixed
+        def sort_key(col: str) -> tuple[int, str]:
+            # conversation__ prefixed columns go last (sort key 1), others first (sort key 0)
+            if col.startswith("conversation__"):
+                return (1, col)
+            return (0, col)
+
+        sorted_cols = sorted(all_conversation_metrics.keys(), key=sort_key)
         for col in sorted_cols:
-            info = conversation_schema[col]
+            info = all_conversation_metrics[col]
             col_type = info.get("type", "unknown")
             description = info.get("description", "")
             table.add_row(col, str(col_type), description)
