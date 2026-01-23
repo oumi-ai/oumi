@@ -47,32 +47,32 @@ flowchart TB
     subgraph input [Input - Conversations]
         D[Dataset]
     end
-    
+
     subgraph analyzers [Analyzer Hierarchy]
         MA[MessageAnalyzer]
         CA[ConversationAnalyzer]
         DA[DatasetAnalyzer - cross-sample]
         PA[PreferenceAnalyzer - DPO]
     end
-    
+
     subgraph results [Typed Results - Pydantic]
         R[LengthMetrics / QualityMetrics / etc.]
     end
-    
+
     subgraph pipeline [AnalysisPipeline]
         P[Orchestrate + Cache]
     end
-    
+
     subgraph validation [Tests - Pure Validation]
         T[TestEngine]
     end
-    
+
     subgraph output [Output]
         O1[Typed Results]
         O2[DataFrame via bridge]
         O3[Artifacts]
     end
-    
+
     D --> P
     P --> MA
     P --> CA

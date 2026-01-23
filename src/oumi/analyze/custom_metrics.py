@@ -34,7 +34,8 @@ Example YAML config:
 """
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -152,6 +153,7 @@ class CustomConversationMetric(ConversationAnalyzer[CustomMetricResult]):
         # Add common imports
         try:
             import re
+
             namespace["re"] = re
         except ImportError:
             pass
@@ -173,6 +175,7 @@ class CustomConversationMetric(ConversationAnalyzer[CustomMetricResult]):
 
         # Check if function accepts results parameter
         import inspect
+
         if self._compute_func is not None:
             sig = inspect.signature(self._compute_func)
             self._uses_results = len(sig.parameters) >= 2
@@ -193,9 +196,7 @@ class CustomConversationMetric(ConversationAnalyzer[CustomMetricResult]):
             # If function uses results, pass them
             if self._uses_results and self._pipeline_results is not None:
                 result = self._compute_func(
-                    conversation,
-                    self._pipeline_results,
-                    self._current_index
+                    conversation, self._pipeline_results, self._current_index
                 )
             else:
                 result = self._compute_func(conversation)
@@ -313,6 +314,7 @@ class CustomMessageMetric(MessageAnalyzer[CustomMetricResult]):
 
         try:
             import re
+
             namespace["re"] = re
         except ImportError:
             pass
@@ -351,9 +353,7 @@ class CustomMessageMetric(MessageAnalyzer[CustomMetricResult]):
                 )
             return CustomMetricResult(values=result)
         except Exception as e:
-            logger.warning(
-                f"Custom metric '{self.metric_id}' failed for message: {e}"
-            )
+            logger.warning(f"Custom metric '{self.metric_id}' failed for message: {e}")
             return CustomMetricResult(values={"error": str(e)})
 
 

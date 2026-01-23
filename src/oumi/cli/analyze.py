@@ -183,9 +183,13 @@ def _run_typed_analysis_cli(
         list_metrics: Whether to just list available metrics.
         verbose: Enable verbose output.
     """
-    from oumi.analyze import TypedAnalyzeConfig
+    from oumi.analyze import (
+        TypedAnalyzeConfig,
+        print_summary,
+        run_typed_analysis,
+        save_results,
+    )
     from oumi.analyze import list_metrics as list_metrics_func
-    from oumi.analyze import print_summary, run_typed_analysis, save_results
 
     try:
         # Handle --list-metrics for typed system

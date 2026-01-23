@@ -83,6 +83,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         """
         try:
             import tiktoken
+
             return tiktoken.get_encoding(self.tiktoken_encoding)
         except ImportError:
             return None
@@ -188,9 +189,15 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             message_word_counts=message_word_counts,
             message_token_counts=message_token_counts if message_token_counts else None,
             num_messages=num_messages,
-            user_total_words=role_word_counts[Role.USER] if self.compute_role_stats else None,
-            assistant_total_words=role_word_counts[Role.ASSISTANT] if self.compute_role_stats else None,
-            system_total_words=role_word_counts[Role.SYSTEM] if self.compute_role_stats else None,
+            user_total_words=role_word_counts[Role.USER]
+            if self.compute_role_stats
+            else None,
+            assistant_total_words=role_word_counts[Role.ASSISTANT]
+            if self.compute_role_stats
+            else None,
+            system_total_words=role_word_counts[Role.SYSTEM]
+            if self.compute_role_stats
+            else None,
         )
 
     def analyze_text(self, text: str) -> LengthMetrics:

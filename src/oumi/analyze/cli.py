@@ -45,9 +45,11 @@ def register_analyzer(name: str):
     Returns:
         Decorator function.
     """
+
     def decorator(cls):
         ANALYZER_REGISTRY[name] = cls
         return cls
+
     return decorator
 
 
@@ -55,6 +57,7 @@ def register_analyzer(name: str):
 def _register_builtin_analyzers():
     """Register built-in analyzers in the registry."""
     from oumi.analyze.analyzers.length import LengthAnalyzer
+
     ANALYZER_REGISTRY["length"] = LengthAnalyzer
     ANALYZER_REGISTRY["LengthAnalyzer"] = LengthAnalyzer  # Also register by class name
 
@@ -224,18 +227,26 @@ def _item_to_conversation(item: Any, index: int) -> Conversation | None:
                 for msg in conv_data:
                     if isinstance(msg, dict):
                         role_str = msg.get("role", msg.get("from", "user"))
-                        content = msg.get("content", msg.get("text", msg.get("value", "")))
+                        content = msg.get(
+                            "content", msg.get("text", msg.get("value", ""))
+                        )
                         try:
                             role = Role(role_str.lower())
                         except ValueError:
-                            role = Role.USER if role_str.lower() in ("human", "user") else Role.ASSISTANT
+                            role = (
+                                Role.USER
+                                if role_str.lower() in ("human", "user")
+                                else Role.ASSISTANT
+                            )
                         messages.append(Message(role=role, content=content))
                 return Conversation(messages=messages, metadata={"source_index": index})
 
         # Check for prompt/response format
         if "prompt" in item or "instruction" in item:
             prompt = item.get("prompt", item.get("instruction", ""))
-            response = item.get("response", item.get("output", item.get("completion", "")))
+            response = item.get(
+                "response", item.get("output", item.get("completion", ""))
+            )
             messages = [
                 Message(role=Role.USER, content=str(prompt)),
             ]
@@ -312,7 +323,9 @@ def run_typed_analysis(
             analyzers.append(custom_metric)
             logger.info(f"Created custom metric: {custom_metric_config.id}")
         except Exception as e:
-            logger.error(f"Failed to create custom metric {custom_metric_config.id}: {e}")
+            logger.error(
+                f"Failed to create custom metric {custom_metric_config.id}: {e}"
+            )
 
     if not analyzers:
         raise ValueError("No valid analyzers configured")
@@ -443,6 +456,7 @@ def list_metrics(analyzer_name: str | None = None) -> None:
         >>> list_metrics("LengthAnalyzer")  # Shows specific analyzer
     """
     from oumi.analyze.discovery import print_analyzer_metrics
+
     print_analyzer_metrics(analyzer_name)
 
 
@@ -461,6 +475,7 @@ def generate_tests(analyzer_name: str) -> str:
         >>> print(yaml_config)
     """
     from oumi.analyze.discovery import generate_test_template
+
     return generate_test_template(analyzer_name)
 
 
@@ -483,7 +498,7 @@ def print_summary(results: dict[str, Any]) -> None:
     # Print test results if available
     test_summary = results.get("test_summary")
     if test_summary:
-        console.print(f"\n[bold]Test Results:[/bold]")
+        console.print("\n[bold]Test Results:[/bold]")
         console.print(
             f"  Passed: {test_summary.passed_tests}/{test_summary.total_tests} "
             f"({test_summary.pass_rate}%)"
@@ -514,16 +529,20 @@ def print_summary(results: dict[str, Any]) -> None:
 
     # Print sample metrics
     df = results["dataframe"]
-    console.print(f"\n[bold]DataFrame Shape:[/bold] {df.shape[0]} rows x {df.shape[1]} columns")
+    console.print(
+        f"\n[bold]DataFrame Shape:[/bold] {df.shape[0]} rows x {df.shape[1]} columns"
+    )
 
     # Show first few columns
     metric_cols = [c for c in df.columns if "__" in c][:5]
     if metric_cols:
-        console.print(f"\n[bold]Sample Metrics:[/bold]")
+        console.print("\n[bold]Sample Metrics:[/bold]")
         for col in metric_cols:
             values = df[col].dropna()
             if len(values) > 0:
                 if values.dtype in ["int64", "float64"]:
-                    console.print(f"  {col}: mean={values.mean():.2f}, min={values.min()}, max={values.max()}")
+                    console.print(
+                        f"  {col}: mean={values.mean():.2f}, min={values.min()}, max={values.max()}"
+                    )
                 else:
                     console.print(f"  {col}: {values.value_counts().head(3).to_dict()}")

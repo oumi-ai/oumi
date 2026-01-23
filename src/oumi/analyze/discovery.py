@@ -98,7 +98,9 @@ def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
     return info
 
 
-def list_available_metrics(include_duplicates: bool = False) -> dict[str, dict[str, Any]]:
+def list_available_metrics(
+    include_duplicates: bool = False,
+) -> dict[str, dict[str, Any]]:
     """List all available metrics from registered analyzers.
 
     This is useful for programmatically discovering metrics before writing tests.
@@ -133,7 +135,9 @@ def list_available_metrics(include_duplicates: bool = False) -> dict[str, dict[s
         if not include_duplicates and class_name in seen_classes:
             continue
         seen_classes.add(class_name)
-        results[class_name if not include_duplicates else name] = get_analyzer_info(analyzer_class)
+        results[class_name if not include_duplicates else name] = get_analyzer_info(
+            analyzer_class
+        )
 
     return results
 
@@ -193,7 +197,9 @@ def get_metric_path(analyzer_name: str, metric_name: str) -> str:
     return f"{analyzer_name}.{metric_name}"
 
 
-def print_analyzer_metrics(analyzer_name: str | None = None, use_rich: bool = True) -> None:
+def print_analyzer_metrics(
+    analyzer_name: str | None = None, use_rich: bool = True
+) -> None:
     """Pretty print available metrics for analyzers.
 
     Args:
@@ -222,7 +228,9 @@ def print_analyzer_metrics(analyzer_name: str | None = None, use_rich: bool = Tr
     _print_metrics_plain(unique_metrics, analyzer_name)
 
 
-def _print_metrics_plain(metrics: dict[str, dict[str, Any]], analyzer_name: str | None) -> None:
+def _print_metrics_plain(
+    metrics: dict[str, dict[str, Any]], analyzer_name: str | None
+) -> None:
     """Print metrics using plain text (no rich dependency)."""
     if analyzer_name:
         if analyzer_name not in metrics:
@@ -262,10 +270,11 @@ def _print_metrics_plain(metrics: dict[str, dict[str, Any]], analyzer_name: str 
         print()
 
 
-def _print_metrics_rich(metrics: dict[str, dict[str, Any]], analyzer_name: str | None) -> None:
+def _print_metrics_rich(
+    metrics: dict[str, dict[str, Any]], analyzer_name: str | None
+) -> None:
     """Print metrics using rich formatting."""
     from rich.console import Console
-    from rich.table import Table
 
     console = Console()
 

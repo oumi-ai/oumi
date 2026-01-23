@@ -75,33 +75,33 @@ flowchart TB
     subgraph input [Input]
         D[Dataset / Conversations]
     end
-    
+
     subgraph analyzers [Analyzer Hierarchy]
         DA[DatasetAnalyzer - cross-sample ops]
         CA[ConversationAnalyzer - per-conversation]
         MA[MessageAnalyzer - per-message]
     end
-    
+
     subgraph results [Typed Results - Pydantic Models]
         R1[LengthMetrics]
         R2[QualityMetrics]
         R3[EmbeddingMetrics]
     end
-    
+
     subgraph pipeline [AnalysisPipeline]
         P[Orchestrates and Caches]
     end
-    
+
     subgraph tests [Test Engine - Pure Validation]
         T[Validates typed results]
     end
-    
+
     subgraph output [Output Options]
         O1[Typed Results - Python API]
         O2[DataFrame - via to_analysis_dataframe]
         O3[Artifacts - JSON/Parquet]
     end
-    
+
     D --> P
     P --> DA
     P --> CA
@@ -132,28 +132,28 @@ TResult = TypeVar('TResult', bound=BaseModel)
 
 class MessageAnalyzer(ABC, Generic[TResult]):
     """Analyzes individual messages."""
-    
+
     @abstractmethod
     def analyze(self, message: Message) -> TResult:
         """Analyze a single message."""
         ...
-    
+
     def analyze_batch(self, messages: list[Message]) -> list[TResult]:
         """Analyze multiple messages. Override for vectorized impl."""
         return [self.analyze(m) for m in messages]
-    
+
     def __call__(self, message: Message) -> TResult:
         return self.analyze(message)
 
 
 class ConversationAnalyzer(ABC, Generic[TResult]):
     """Analyzes complete conversations."""
-    
+
     @abstractmethod
     def analyze(self, conversation: Conversation) -> TResult:
         """Analyze a single conversation."""
         ...
-    
+
     def analyze_batch(self, conversations: list[Conversation]) -> list[TResult]:
         """Analyze multiple conversations. Override for batched impl."""
         return [self.analyze(c) for c in conversations]
@@ -161,7 +161,7 @@ class ConversationAnalyzer(ABC, Generic[TResult]):
 
 class DatasetAnalyzer(ABC, Generic[TResult]):
     """Analyzes entire dataset (cross-sample operations like deduplication)."""
-    
+
     @abstractmethod
     def analyze(self, conversations: list[Conversation]) -> TResult:
         """Analyze full dataset. Has access to all conversations."""
@@ -170,7 +170,7 @@ class DatasetAnalyzer(ABC, Generic[TResult]):
 
 class PreferenceAnalyzer(ABC, Generic[TResult]):
     """Analyzes preference pairs (for DPO data)."""
-    
+
     @abstractmethod
     def analyze(self, chosen: Conversation, rejected: Conversation) -> TResult:
         """Analyze a preference pair."""
@@ -235,16 +235,16 @@ class LLMJudgeMetrics(BaseModel):
 ```python
 class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     """Analyzes text length metrics for conversations."""
-    
+
     def __init__(self, count_tokens: bool = False, tokenizer: str | None = None):
         self.count_tokens = count_tokens
         self.tokenizer = self._load_tokenizer(tokenizer) if count_tokens else None
-    
+
     def analyze(self, conversation: Conversation) -> LengthMetrics:
         message_lengths = []
         total_chars = 0
         total_words = 0
-        
+
         for message in conversation.messages:
             text = message.content if isinstance(message.content, str) else ""
             chars = len(text)
@@ -252,7 +252,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             message_lengths.append(words)
             total_chars += chars
             total_words += words
-        
+
         return LengthMetrics(
             total_chars=total_chars,
             total_words=total_words,
@@ -260,7 +260,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             avg_message_length=total_words / len(conversation.messages) if conversation.messages else 0,
             message_lengths=message_lengths,
         )
-    
+
     # Optional: text-only convenience method
     def analyze_text(self, text: str) -> LengthMetrics:
         """Analyze a single text string."""
@@ -278,7 +278,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
 ```python
 class AnalysisPipeline:
     """Orchestrates multiple analyzers and manages caching."""
-    
+
     def __init__(
         self,
         analyzers: list[MessageAnalyzer | ConversationAnalyzer | DatasetAnalyzer],
@@ -287,14 +287,14 @@ class AnalysisPipeline:
         self.analyzers = analyzers
         self.cache_dir = cache_dir
         self._results_cache: dict[str, list[BaseModel]] = {}
-    
+
     def run(self, conversations: list[Conversation]) -> dict[str, list[BaseModel]]:
         """Run all analyzers and return results keyed by analyzer name."""
         results = {}
-        
+
         for analyzer in self.analyzers:
             name = analyzer.__class__.__name__
-            
+
             if isinstance(analyzer, DatasetAnalyzer):
                 # Dataset-level: single result for entire dataset
                 results[name] = analyzer.analyze(conversations)
@@ -305,10 +305,10 @@ class AnalysisPipeline:
                 # Message-level: flatten all messages
                 all_messages = [m for c in conversations for m in c.messages]
                 results[name] = analyzer.analyze_batch(all_messages)
-        
+
         self._results_cache = results
         return results
-    
+
     def to_dataframe(self) -> pd.DataFrame:
         """Convert cached results to DataFrame."""
         return to_analysis_dataframe(self._results_cache)
@@ -356,12 +356,12 @@ analyzers:
     params:
       count_tokens: true
       tokenizer: gpt-4o
-      
+
   - id: quality
     params:
       detect_pii: true
       detect_encoding_issues: true
-      
+
   - id: embedding  # Dataset-level analyzer
     params:
       model: all-MiniLM-L6-v2
@@ -384,7 +384,7 @@ tests:
     condition: "== False"
     max_percentage: 1.0
     severity: high
-    
+
   - id: reasonable_length
     metric: LengthMetrics.total_words
     operator: "<"
@@ -399,7 +399,7 @@ Tests operate on typed results - no computation, just assertions:
 ```python
 class TestEngine:
     """Validates analysis results against configured tests."""
-    
+
     def run_tests(
         self,
         results: dict[str, list[BaseModel]],
@@ -410,10 +410,10 @@ class TestEngine:
             # Parse metric path: "QualityMetrics.has_pii"
             analyzer_name, field_name = test.metric.split(".")
             analyzer_results = results[analyzer_name]
-            
+
             # Extract field values from typed results
             values = [getattr(r, field_name) for r in analyzer_results]
-            
+
             # Run validation
             result = self._evaluate_test(test, values)
             ...
@@ -429,7 +429,7 @@ def to_analysis_dataframe(
     results: dict[str, list[BaseModel]],
 ) -> pd.DataFrame:
     """Convert typed analysis results to a DataFrame.
-    
+
     Each analyzer's result fields become columns with prefix:
     - LengthMetrics.total_words -> "length__total_words"
     - QualityMetrics.has_pii -> "quality__has_pii"
@@ -437,16 +437,16 @@ def to_analysis_dataframe(
     rows = []
     for i, conv in enumerate(conversations):
         row = {"conversation_id": conv.id, "conversation_index": i}
-        
+
         for analyzer_name, analyzer_results in results.items():
             if i < len(analyzer_results):
                 result = analyzer_results[i]
                 prefix = analyzer_name.replace("Metrics", "").lower()
                 for field_name, value in result.model_dump().items():
                     row[f"{prefix}__{field_name}"] = value
-        
+
         rows.append(row)
-    
+
     return pd.DataFrame(rows)
 ```
 

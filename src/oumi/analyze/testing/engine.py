@@ -21,9 +21,10 @@ instead of DataFrames. Tests are pure validation - no computation allowed.
 import logging
 import operator
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -180,9 +181,7 @@ class TestEngine:
             f"({summary.pass_rate}%)"
         )
         if summary.high_severity_failures > 0:
-            logger.warning(
-                f"  {summary.high_severity_failures} high severity failures"
-            )
+            logger.warning(f"  {summary.high_severity_failures} high severity failures")
 
         return summary
 

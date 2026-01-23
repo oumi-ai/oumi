@@ -97,7 +97,7 @@ custom_metrics:
           # Access the word_to_char_ratio custom metric result
           ratio_result = results["word_to_char_ratio"][index]
           ratio = ratio_result.values["ratio"]
-          
+
           # Categorize based on ratio
           if ratio > 0.18:
               category = "verbose"  # Short words, many spaces
@@ -105,7 +105,7 @@ custom_metrics:
               category = "dense"    # Long words, technical text
           else:
               category = "normal"
-          
+
           is_typical = 0.12 <= ratio <= 0.18
           return {"category": category, "is_typical": is_typical}
 
@@ -179,17 +179,17 @@ custom_metrics:
           content = message.content if hasattr(message, 'content') else ""
           if not isinstance(content, str):
               content = str(content) if content else ""
-          
+
           patterns_found = []
           has_nan = "NaN" in content or "nan" in content
           if has_nan:
               patterns_found.append("NaN")
-          
+
           # Check for null/None that look like serialization errors
           has_null = content.strip() in ("null", "None", "undefined")
           if has_null:
               patterns_found.append(content.strip())
-          
+
           return {
               "has_nan_string": has_nan,
               "has_null_string": has_null,
@@ -214,21 +214,21 @@ custom_metrics:
       def compute(conversation):
           if not conversation.messages:
               return {"appears_truncated": False, "last_char": "", "ends_mid_sentence": False}
-          
+
           last_msg = conversation.messages[-1]
           content = last_msg.content if hasattr(last_msg, 'content') else ""
           if not isinstance(content, str):
               content = str(content) if content else ""
-          
+
           content = content.rstrip()
           if not content:
               return {"appears_truncated": True, "last_char": "", "ends_mid_sentence": True}
-          
+
           last_char = content[-1]
           # Check for proper ending punctuation
           proper_endings = ".!?\"')]}>"
           ends_properly = last_char in proper_endings
-          
+
           # Additional heuristics for truncation
           truncation_signs = [
               content.endswith("...") and len(content) > 100,  # Ellipsis at end of long text
@@ -237,7 +237,7 @@ custom_metrics:
               content.endswith(" the"),
               content.endswith(" a"),
           ]
-          
+
           return {
               "appears_truncated": not ends_properly or any(truncation_signs),
               "last_char": last_char,
@@ -260,12 +260,12 @@ custom_metrics:
           role = message.role.value if hasattr(message.role, 'value') else str(message.role)
           if role != "assistant":
               return {"is_refusal": False, "refusal_phrases_found": []}
-          
+
           content = message.content if hasattr(message, 'content') else ""
           if not isinstance(content, str):
               content = str(content) if content else ""
           content_lower = content.lower()
-          
+
           refusal_patterns = [
               "i cannot",
               "i can't",
@@ -282,7 +282,7 @@ custom_metrics:
               "against my guidelines",
               "violates my guidelines",
           ]
-          
+
           found = [p for p in refusal_patterns if p in content_lower]
           return {
               "is_refusal": len(found) > 0,
@@ -311,11 +311,11 @@ custom_metrics:
           content = message.content if hasattr(message, 'content') else ""
           if not isinstance(content, str):
               content = str(content) if content else ""
-          
+
           # Common think tag patterns
           open_count = content.count("<think>") + content.count("<reasoning>")
           close_count = content.count("</think>") + content.count("</reasoning>")
-          
+
           return {
               "has_think_tags": open_count > 0 or close_count > 0,
               "tags_balanced": open_count == close_count,
@@ -342,7 +342,7 @@ custom_metrics:
           content = message.content if hasattr(message, 'content') else ""
           if not isinstance(content, str):
               content = str(content) if content else ""
-          
+
           # Tags to check
           tag_pairs = [
               ("<think>", "</think>"),
@@ -350,10 +350,10 @@ custom_metrics:
               ("<answer>", "</answer>"),
               ("```", "```"),  # Code blocks (special case)
           ]
-          
+
           unmatched_opens = []
           unmatched_closes = []
-          
+
           for open_tag, close_tag in tag_pairs:
               if open_tag == "```":
                   # Code blocks: count should be even
@@ -367,7 +367,7 @@ custom_metrics:
                       unmatched_opens.extend([open_tag] * (opens - closes))
                   elif closes > opens:
                       unmatched_closes.extend([close_tag] * (closes - opens))
-          
+
           return {
               "has_unmatched": len(unmatched_opens) > 0 or len(unmatched_closes) > 0,
               "unmatched_opens": unmatched_opens,

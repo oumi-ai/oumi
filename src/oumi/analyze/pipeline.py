@@ -174,11 +174,7 @@ class AnalysisPipeline:
             logger.debug(f"Running message analyzer: {name}")
             try:
                 # Flatten all messages from all conversations
-                all_messages = [
-                    msg
-                    for conv in conversations
-                    for msg in conv.messages
-                ]
+                all_messages = [msg for conv in conversations for msg in conv.messages]
                 results = analyzer.analyze_batch(all_messages)
                 self._results[name] = results
                 logger.debug(f"  Completed {name}: {len(results)} results")

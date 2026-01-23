@@ -107,16 +107,13 @@ class TestSummary(BaseModel):
         failed = total - passed - errors
 
         high_failures = sum(
-            1 for r in results
-            if not r.passed and r.severity == TestSeverity.HIGH
+            1 for r in results if not r.passed and r.severity == TestSeverity.HIGH
         )
         medium_failures = sum(
-            1 for r in results
-            if not r.passed and r.severity == TestSeverity.MEDIUM
+            1 for r in results if not r.passed and r.severity == TestSeverity.MEDIUM
         )
         low_failures = sum(
-            1 for r in results
-            if not r.passed and r.severity == TestSeverity.LOW
+            1 for r in results if not r.passed and r.severity == TestSeverity.LOW
         )
 
         return cls(
