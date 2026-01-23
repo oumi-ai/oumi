@@ -536,6 +536,23 @@ def _display_metrics_from_config(config: Any) -> None:
     message_schema: dict = {}
     conversation_schema: dict = {}
 
+    # Add base dataset columns from the canonical schema definition
+    from oumi.utils.analysis_utils import get_conversation_schema
+
+    base_schema = get_conversation_schema()
+    # Categorize base columns into message vs conversation level
+    conversation_columns = {
+        "conversation_index",
+        "conversation_id",
+        "num_messages",
+        "conversation_text_content",
+    }
+    for col_name, col_info in base_schema.items():
+        if col_name in conversation_columns:
+            conversation_schema[col_name] = col_info
+        else:
+            message_schema[col_name] = col_info
+
     # Get the configured analyzers
     analyzers_config = config.analyzers if hasattr(config, "analyzers") else []
 
@@ -547,19 +564,20 @@ def _display_metrics_from_config(config: Any) -> None:
         return
 
     for analyzer_config in analyzers_config:
-        # Get analyzer ID
-        analyzer_id = (
-            analyzer_config.get("id")
-            if isinstance(analyzer_config, dict)
-            else getattr(analyzer_config, "id", None)
-        )
+        # Get analyzer type ID (for registry lookup) and instance ID (for naming)
+        if isinstance(analyzer_config, dict):
+            type_id = analyzer_config.get("id")
+            instance_id = analyzer_config.get("instance_id") or type_id
+        else:
+            type_id = getattr(analyzer_config, "id", None)
+            instance_id = getattr(analyzer_config, "instance_id", None) or type_id
 
-        if not analyzer_id:
+        if not type_id:
             continue
 
-        # Try to get the analyzer class from registry
+        # Try to get the analyzer class from registry using type ID
         try:
-            analyzer_cls = REGISTRY.get_sample_analyzer(analyzer_id)
+            analyzer_cls = REGISTRY.get_sample_analyzer(type_id)
             if analyzer_cls is None:
                 continue
 
@@ -571,9 +589,9 @@ def _display_metrics_from_config(config: Any) -> None:
                 params = analyzer_config.params or {}
 
             # Instantiate analyzer with params
+            analyzer_id = instance_id  # Use instance_id for column naming
             try:
                 analyzer = analyzer_cls(**params)
-                # Set analyzer_id attribute
                 analyzer.analyzer_id = analyzer_id
             except Exception:
                 # If instantiation fails, try without params
