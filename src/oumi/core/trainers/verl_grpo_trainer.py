@@ -215,7 +215,7 @@ class VerlGrpoTrainer(BaseTrainer):
             A tuple containing the question, images, and answer.
             The list of images is empty for text-only conversations.
         """
-        prompt, images, answer = (
+        prompt, images, answer, _metadata = (
             extract_prompt_images_completion_from_single_turn_conversation(example)
         )
 

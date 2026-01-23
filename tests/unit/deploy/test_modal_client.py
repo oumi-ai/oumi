@@ -213,7 +213,9 @@ async def test_get_endpoint(modal_client):
 
         assert endpoint.endpoint_id == "test-app-123"
         assert endpoint.state == EndpointState.RUNNING
-        mock_modal.App.lookup.assert_called_once_with("test-app-123", create_if_missing=False)
+        mock_modal.App.lookup.assert_called_once_with(
+            "test-app-123", create_if_missing=False
+        )
 
 
 @pytest.mark.asyncio

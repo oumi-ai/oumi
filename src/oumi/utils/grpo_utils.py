@@ -22,15 +22,17 @@ from oumi.utils.logging import logger
 
 def extract_prompt_images_completion_from_single_turn_conversation(
     example: dict,
-) -> tuple[str, list, str]:
-    """Finds prompt, completion, and optional images in a single-turn conversation.
+) -> tuple[str, list, str, dict]:
+    """Finds prompt, completion, images, and metadata in a single-turn conversation.
 
     Args:
         example: A dictionary containing the conversation JSON.
 
     Returns:
-        A tuple containing the prompt, images, and completion.
+        A tuple containing (prompt, images, completion, metadata).
         The list of images is empty for text-only conversations.
+        The metadata dict contains any metadata from the conversation object,
+        useful for passing extra fields to GRPO reward functions.
     """
     if "conversation_json" not in example:
         raise ValueError(
@@ -56,8 +58,9 @@ def extract_prompt_images_completion_from_single_turn_conversation(
     prompt: str = user_message.text_content_items[-1].content or ""
     images = [{"bytes": item.binary} for item in user_message.image_content_items]
     answer: str = assistant_message.text_content_items[-1].content or ""
+    metadata: dict = conversation.metadata or {}
 
-    return (prompt, images, answer)
+    return (prompt, images, answer, metadata)
 
 
 def try_prepare_trl_grpo_example(
@@ -69,6 +72,13 @@ def try_prepare_trl_grpo_example(
     e.g., SFT example, and transforms it into a GRPO compatible format.
     Otherwise, it returns the original example.
 
+    Conversation metadata is flattened into top-level columns, making it
+    available to reward functions. For example, if the conversation has:
+        metadata: {"ground_truth": "42", "difficulty": "easy"}
+
+    The resulting dict will include:
+        {"prompt": "...", "completion": "...", "ground_truth": "42", "difficulty": "easy"}
+
     Args:
         example (dict): The input example.
 
@@ -76,7 +86,7 @@ def try_prepare_trl_grpo_example(
         GRPO compatible example, or an original example.
     """
     if "conversation_json" in example:
-        prompt, images, answer = (
+        prompt, images, answer, metadata = (
             extract_prompt_images_completion_from_single_turn_conversation(example)
         )
         if len(images) > 0:
@@ -84,10 +94,17 @@ def try_prepare_trl_grpo_example(
                 f"Image content is not supported in GRPO_TRL yet. "
                 f"Found {len(images)} image(s) in an example."
             )
-        return {
+
+        result = {
             "prompt": prompt,
             "completion": answer,
         }
+
+        # Flatten conversation metadata into top-level columns for reward functions
+        if metadata:
+            result.update(metadata)
+
+        return result
 
     return example
 

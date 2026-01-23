@@ -354,7 +354,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
             # Check for config.json specifically
             if "config.json" in file_sizes:
-                logger.info(f"✓ config.json found in extracted files ({file_sizes['config.json']} bytes)")
+                logger.info(
+                    f"✓ config.json found in extracted files ({file_sizes['config.json']} bytes)"
+                )
             else:
                 logger.error("✗ config.json NOT found in extracted files!")
                 logger.error(f"Available files: {list(file_sizes.keys())}")
@@ -376,7 +378,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             if not file_upload_urls:
                 logger.error("No upload URLs received from Fireworks API!")
                 logger.error(f"Response data: {upload_data}")
-                raise ValueError("No upload URLs received. Check if 'filenameToSignedUrls' is in response.")
+                raise ValueError(
+                    "No upload URLs received. Check if 'filenameToSignedUrls' is in response."
+                )
 
             logger.info(f"Received {len(file_upload_urls)} signed URLs for upload")
 
@@ -410,7 +414,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
             for attempt in range(max_retries):
                 if attempt > 0:
-                    logger.info(f"Retry attempt {attempt + 1}/{max_retries} after {retry_delay}s delay...")
+                    logger.info(
+                        f"Retry attempt {attempt + 1}/{max_retries} after {retry_delay}s delay..."
+                    )
                     await asyncio.sleep(retry_delay)
 
                 response = await self._client.get(
@@ -420,12 +426,17 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 # Capture error details
                 if response.status_code >= 400:
                     error_body = response.text
-                    logger.error(f"Fireworks validation API error response: {error_body}")
+                    logger.error(
+                        f"Fireworks validation API error response: {error_body}"
+                    )
                     logger.error(f"Status code: {response.status_code}")
 
                     # If this is the last retry, check if it's the config.json error
                     if attempt == max_retries - 1:
-                        if response.status_code == 400 and "config.json not found" in error_body:
+                        if (
+                            response.status_code == 400
+                            and "config.json not found" in error_body
+                        ):
                             logger.warning(
                                 "⚠️  Validation failed with 'config.json not found' even though "
                                 "config.json was successfully uploaded. This appears to be a "
@@ -633,9 +644,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
         return endpoints
 
-    async def list_hardware(
-        self, model_id: str | None = None
-    ) -> list[HardwareConfig]:
+    async def list_hardware(self, model_id: str | None = None) -> list[HardwareConfig]:
         """List available hardware configurations.
 
         Note: Fireworks doesn't have an API for this, so we return a hardcoded list.

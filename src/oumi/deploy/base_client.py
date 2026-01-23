@@ -195,9 +195,7 @@ class BaseDeploymentClient(ABC):
         pass
 
     @abstractmethod
-    async def list_hardware(
-        self, model_id: str | None = None
-    ) -> list[HardwareConfig]:
+    async def list_hardware(self, model_id: str | None = None) -> list[HardwareConfig]:
         """List available hardware configurations.
 
         Args:

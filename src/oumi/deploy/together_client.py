@@ -114,8 +114,12 @@ class TogetherDeploymentClient(BaseDeploymentClient):
         # Parse autoscaling from nested object or fall back to top-level fields
         autoscaling_data = data.get("autoscaling", {})
         autoscaling = AutoscalingConfig(
-            min_replicas=autoscaling_data.get("min_replicas", data.get("min_replicas", 1)),
-            max_replicas=autoscaling_data.get("max_replicas", data.get("max_replicas", 1)),
+            min_replicas=autoscaling_data.get(
+                "min_replicas", data.get("min_replicas", 1)
+            ),
+            max_replicas=autoscaling_data.get(
+                "max_replicas", data.get("max_replicas", 1)
+            ),
         )
 
         created_at = None
@@ -224,14 +228,21 @@ class TogetherDeploymentClient(BaseDeploymentClient):
                                 # Look for our own deployment models
                                 for model in models_data:
                                     existing_id = model.get("id", "")
-                                    if "/" in existing_id and "oumi-deployment-" in existing_id:
+                                    if (
+                                        "/" in existing_id
+                                        and "oumi-deployment-" in existing_id
+                                    ):
                                         username = existing_id.split("/")[0]
                                         break
                                 # Fallback to organization field
                                 if not username:
                                     for model in models_data:
                                         org = model.get("organization", "")
-                                        if org and org not in ("together", "meta", "mistral"):
+                                        if org and org not in (
+                                            "together",
+                                            "meta",
+                                            "mistral",
+                                        ):
                                             username = org
                                             break
                                 if username:
@@ -308,11 +319,11 @@ class TogetherDeploymentClient(BaseDeploymentClient):
 
                     if username:
                         provider_model_id = f"{username}/{model_name}"
-                        logger.info(
-                            f"Constructed full model ID: {provider_model_id}"
-                        )
+                        logger.info(f"Constructed full model ID: {provider_model_id}")
             except Exception as e:
-                logger.warning(f"Failed to extract username for model ID construction: {e}")
+                logger.warning(
+                    f"Failed to extract username for model ID construction: {e}"
+                )
 
         if not provider_model_id:
             # Log the full response for debugging
@@ -539,9 +550,7 @@ class TogetherDeploymentClient(BaseDeploymentClient):
 
         return endpoints
 
-    async def list_hardware(
-        self, model_id: str | None = None
-    ) -> list[HardwareConfig]:
+    async def list_hardware(self, model_id: str | None = None) -> list[HardwareConfig]:
         """List available hardware configurations.
 
         Args:

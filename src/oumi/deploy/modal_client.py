@@ -255,9 +255,7 @@ class ModalDeploymentClient(BaseDeploymentClient):
         )
 
         # Create Modal app
-        app = modal.App(
-            app_name, experimental_options={"enable_gpu_snapshot": True}
-        )
+        app = modal.App(app_name, experimental_options={"enable_gpu_snapshot": True})
 
         # Create vLLM container image
         vllm_image = modal.Image.debian_slim(python_version="3.12").pip_install(
@@ -527,9 +525,7 @@ class ModalDeploymentClient(BaseDeploymentClient):
 
         return endpoints
 
-    async def list_hardware(
-        self, model_id: str | None = None
-    ) -> list[HardwareConfig]:
+    async def list_hardware(self, model_id: str | None = None) -> list[HardwareConfig]:
         """List available GPU types on Modal.
 
         Args:
