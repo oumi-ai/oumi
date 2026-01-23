@@ -291,6 +291,53 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 return col
         return None
 
+    def get_output_schema(
+        self,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce."""
+        aid: str = analyzer_id or getattr(self, "analyzer_id", "repr_diversity")
+
+        if schema is not None and df is not None:
+            text_columns = [
+                col
+                for col, config in schema.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
+        else:
+            text_columns = DEFAULT_TEXT_COLUMNS
+
+        output_schema = {}
+        for column in text_columns:
+            col_name = make_analyzer_column_name(column, aid, "nn_distance")
+            output_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Nearest neighbor distance in embedding space",
+            }
+            col_name = make_analyzer_column_name(column, aid, "score")
+            output_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Diversity score (normalized NN distance)",
+            }
+            col_name = make_analyzer_column_name(column, aid, "is_redundant")
+            output_schema[col_name] = {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether sample is redundant (low diversity)",
+            }
+            col_name = make_analyzer_column_name(column, aid, "percentile")
+            output_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Diversity percentile (0-100)",
+            }
+
+        return output_schema
+
     def analyze_sample(
         self,
         df: pd.DataFrame,

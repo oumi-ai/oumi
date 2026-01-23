@@ -191,6 +191,48 @@ class CostAnalyzer(SampleAnalyzer):
             "avg_batch_utilization": round(avg_utilization, 4),
         }
 
+    def get_output_schema(
+        self,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce."""
+        aid: str = analyzer_id or getattr(self, "analyzer_id", "cost")
+
+        # Cost analyzer uses token count columns, not text columns
+        output_schema = {}
+
+        # Generate schema for each context size
+        for context_size in self.context_sizes:
+            size_name = f"{context_size // 1000}k" if context_size >= 1000 else str(context_size)
+            base_col = "token_count"
+
+            col_name = make_analyzer_column_name(base_col, aid, f"fits_context_{size_name}")
+            output_schema[col_name] = {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": f"Whether sample fits in {size_name} context",
+            }
+            col_name = make_analyzer_column_name(
+                base_col, aid, f"context_utilization_{size_name}"
+            )
+            output_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": f"Context window utilization for {size_name}",
+            }
+            col_name = make_analyzer_column_name(
+                base_col, aid, f"tokens_wasted_{size_name}"
+            )
+            output_schema[col_name] = {
+                "type": ColumnType.INT,
+                "content_type": ContentType.NUMERIC,
+                "description": f"Wasted tokens for {size_name} context",
+            }
+
+        return output_schema
+
     def analyze_sample(
         self,
         df: pd.DataFrame,

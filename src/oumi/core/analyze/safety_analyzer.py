@@ -305,6 +305,55 @@ class SafetyAnalyzer(SampleAnalyzer):
 
         return result
 
+    def get_output_schema(
+        self,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce."""
+        aid: str = analyzer_id or getattr(self, "analyzer_id", "safety")
+
+        if schema is not None and df is not None:
+            text_columns = [
+                col
+                for col, config in schema.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
+        else:
+            text_columns = DEFAULT_TEXT_COLUMNS
+
+        output_schema = {}
+        for column in text_columns:
+            col_name = make_analyzer_column_name(column, aid, "score")
+            output_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Safety score (0-1, higher = safer)",
+            }
+            col_name = make_analyzer_column_name(column, aid, "is_safe")
+            output_schema[col_name] = {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether content is considered safe",
+            }
+            col_name = make_analyzer_column_name(column, aid, "risk_level")
+            output_schema[col_name] = {
+                "type": ColumnType.STRING,
+                "content_type": ContentType.CATEGORICAL,
+                "description": "Risk level (safe, low, medium, high)",
+            }
+
+            if self.include_categories:
+                col_name = make_analyzer_column_name(column, aid, "categories_triggered")
+                output_schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.LIST,
+                    "description": "Comma-separated list of triggered safety categories",
+                }
+
+        return output_schema
+
     def analyze_sample(
         self,
         df: pd.DataFrame,
