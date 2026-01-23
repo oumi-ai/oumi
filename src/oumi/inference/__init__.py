@@ -27,6 +27,7 @@ from oumi.inference.lambda_inference_engine import LambdaInferenceEngine
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
 from oumi.inference.native_text_inference_engine import NativeTextInferenceEngine
 from oumi.inference.openai_inference_engine import OpenAIInferenceEngine
+from oumi.inference.openrouter_inference_engine import OpenRouterInferenceEngine
 from oumi.inference.parasail_inference_engine import ParasailInferenceEngine
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.inference.remote_vllm_inference_engine import RemoteVLLMInferenceEngine
@@ -46,6 +47,7 @@ __all__ = [
     "LlamaCppInferenceEngine",
     "NativeTextInferenceEngine",
     "OpenAIInferenceEngine",
+    "OpenRouterInferenceEngine",
     "ParasailInferenceEngine",
     "RemoteInferenceEngine",
     "RemoteVLLMInferenceEngine",

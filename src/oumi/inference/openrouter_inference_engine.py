@@ -12,40 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Lambda AI inference engine implementation."""
-
 from typing_extensions import override
 
-from oumi.core.configs import InferenceConfig, RemoteParams
+from oumi.core.configs import InferenceConfig
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
 
-class LambdaInferenceEngine(RemoteInferenceEngine):
-    """Engine for running inference against the Lambda AI API.
+class OpenRouterInferenceEngine(RemoteInferenceEngine):
+    """Engine for running inference against the OpenRouter API.
 
-    This class extends RemoteInferenceEngine to provide specific functionality
-    for interacting with Lambda AI's language models via their API. It handles
-    the conversion of Oumi's Conversation objects to Lambda AI's expected input
-    format, as well as parsing the API responses back into Conversation objects.
+    OpenRouter provides a unified API that gives access to hundreds of AI models
+    through a single endpoint. It supports models from OpenAI, Anthropic, Google,
+    Meta, and many other providers.
+
+    Model names should use the provider/model format (e.g., "openai/gpt-4",
+    "anthropic/claude-3-opus", "meta-llama/llama-3-70b-instruct").
+
+    Documentation: https://openrouter.ai/docs
     """
 
     @property
     @override
     def base_url(self) -> str | None:
-        """Return the default base URL for the Lambda AI API."""
-        return "https://api.lambda.ai/v1/chat/completions"
+        """Return the default base URL for the OpenRouter API."""
+        return "https://openrouter.ai/api/v1/chat/completions"
 
     @property
     @override
     def api_key_env_varname(self) -> str | None:
-        """Return the default environment variable name for the Lambda AI API key."""
-        return "LAMBDA_API_KEY"
-
-    @override
-    def _default_remote_params(self) -> RemoteParams:
-        """Returns the default remote parameters."""
-        return RemoteParams(num_workers=20, politeness_policy=60.0)
+        """Return the default environment variable name for the OpenRouter API key."""
+        return "OPENROUTER_API_KEY"
 
     @override
     def infer_batch(
@@ -53,8 +50,8 @@ class LambdaInferenceEngine(RemoteInferenceEngine):
         _conversations: list[Conversation],
         _inference_config: InferenceConfig | None = None,
     ) -> str:
-        """Batch inference is not supported for Lambda API."""
+        """Batch inference is not implemented for OpenRouter."""
         raise NotImplementedError(
-            "Batch inference is not supported for Lambda API. "
+            "Batch inference is not implemented for OpenRouter. "
             "Please open an issue on GitHub if you'd like this feature."
         )
