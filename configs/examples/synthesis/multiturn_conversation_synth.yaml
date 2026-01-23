@@ -281,8 +281,8 @@ strategy_params:
 
   multiturn_attributes:
     - id: "support_conversation"
-      min_turns: 2
-      max_turns: 8
+      min_turns: 4
+      max_turns: 12
       turn_order: [USER, ASSISTANT]
 
       user_persona:
@@ -317,14 +317,18 @@ strategy_params:
         USER:
           role: USER
           content: |
-            Continue the conversation as the customer ({customer_name}).
+            You are having a conversation with a BrightTech Electronics support agent.
+
+            If this is your first message in the conversation (there are no previous messages from the agent), start the conversation with your opening message: "{customer_opener}"
+
+            If the agent has already responded to you, continue the conversation naturally by responding to what they just said.
 
             Remember:
             - Your personality: {customer_type.description}
             - Your specific issue: {issue_detail}
             - Interaction style: {customer_interaction.description}
 
-            Respond naturally to what the agent just said. Keep your response concise and realistic.
+            Keep your response concise and realistic. Stay in character as {customer_name}.
         ASSISTANT:
           role: ASSISTANT
           content: |
@@ -337,12 +341,6 @@ strategy_params:
   # Include only relevant attributes in output
   passthrough_attributes:
     - support_conversation # The multi-turn conversation generated above
-    - scenario
-    - customer_type
-    - customer_interaction
-    - customer_name
-    - issue_detail
-    - customer_opener
 
 # Example inference configuration
 inference_config:
