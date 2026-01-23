@@ -143,6 +143,8 @@ html_theme_options = {
         "json_url": "https://oumi.ai/docs/version.json",
         "version_match": os.environ.get("OUMI_VERSION", "latest"),
     },
+    "footer_start": [],
+    "footer_end": ["oumi-footer-links"],
 }
 
 html_sidebars = {
