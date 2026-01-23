@@ -1,0 +1,548 @@
+# Example configuration for the NEW typed analyzer framework
+# Tests the LengthAnalyzer on a local dataset
+#
+# Usage (CLI):
+#   # Run analysis
+#   oumi analyze --config configs/examples/analyze/typed_length_example.yaml --typed
+#
+#   # List available metrics (to help write tests)
+#   oumi analyze --config configs/examples/analyze/typed_length_example.yaml --typed --list-metrics
+#
+# Usage (Python API):
+#   from oumi.analyze import run_from_config_file, print_summary
+#   results = run_from_config_file('configs/examples/analyze/typed_length_example.yaml')
+#   print_summary(results)
+#
+#   # To see available metrics before writing tests:
+#   from oumi.analyze import list_metrics
+#   list_metrics()  # Shows all analyzers
+#   list_metrics("LengthAnalyzer")  # Shows specific analyzer
+
+# Dataset configuration
+dataset_path: "/Users/ryanarman/data/openassistant/openassistant_oasst1.jsonl"
+split: train
+sample_count: 1000 # Limit to 10 samples for quick testing
+
+# Output configuration
+output_path: ./analysis_output/typed_length_test
+
+# Analyzers to run
+analyzers:
+  - id: length
+    params:
+      count_tokens: true # Enable token counting
+      tiktoken_encoding: cl100k_base # GPT-4 tokenizer
+      compute_role_stats: true # Compute per-role statistics
+
+# Custom metrics
+custom_metrics:
+  - id: word_to_char_ratio
+    scope: conversation
+    description: "Ratio of words to characters (indicates avg word length)"
+    output_schema:
+      - name: ratio
+        type: float
+        description: "Words / characters ratio (typical: 0.15-0.20 for English)"
+    function: |
+      def compute(conversation):
+          total_chars = sum(len(m.content) for m in conversation.messages if hasattr(m, 'content') and isinstance(m.content, str))
+          total_words = sum(len(m.content.split()) for m in conversation.messages if hasattr(m, 'content') and isinstance(m.content, str))
+          if total_chars == 0:
+              return {"ratio": 0.0}
+          return {"ratio": total_words / total_chars}
+
+  - id: assistant_ends_with_full_stop
+    scope: message
+    description: "Whether the assistant message ends with a full stop"
+    output_schema:
+      - name: output
+        type: bool
+        description: "Whether the assistant message ends with a full stop"
+    function: |
+      def compute(message):
+          return {"output": message.role == "assistant" and message.content.endswith(".")}
+
+  - id: estimated_cost
+    scope: conversation
+    description: "Estimated cost based on token count"
+    depends_on:
+      - LengthAnalyzer
+    output_schema:
+      - name: cost_usd
+        type: float
+        description: "Estimated cost in USD (tokens * $0.001 per 1k tokens)"
+    function: |
+      def compute(conversation, results, index):
+          # Access LengthAnalyzer results for this conversation
+          length_result = results["LengthAnalyzer"][index]
+          tokens = length_result.total_tokens or 0
+          cost_per_1k = 0.001  # $0.001 per 1k tokens
+          return {"cost_usd": tokens * cost_per_1k / 1000}
+
+  # Example: Custom metric that depends on ANOTHER custom metric
+  - id: text_density_category
+    scope: conversation
+    description: "Categorizes text density based on word-to-char ratio"
+    depends_on:
+      - word_to_char_ratio # Depends on another custom metric!
+    output_schema:
+      - name: category
+        type: str
+        description: "Text density category: verbose, normal, or dense"
+      - name: is_typical
+        type: bool
+        description: "Whether the ratio is in the typical range (0.12-0.18)"
+    function: |
+      def compute(conversation, results, index):
+          # Access the word_to_char_ratio custom metric result
+          ratio_result = results["word_to_char_ratio"][index]
+          ratio = ratio_result.values["ratio"]
+          
+          # Categorize based on ratio
+          if ratio > 0.18:
+              category = "verbose"  # Short words, many spaces
+          elif ratio < 0.12:
+              category = "dense"    # Long words, technical text
+          else:
+              category = "normal"
+          
+          is_typical = 0.12 <= ratio <= 0.18
+          return {"category": category, "is_typical": is_typical}
+
+  # ============================================================
+  # Quality Check Metrics
+  # ============================================================
+
+  # Check for alternating user-assistant turns
+  - id: turn_pattern
+    scope: conversation
+    description: "Checks if conversation has proper alternating user-assistant turns"
+    output_schema:
+      - name: has_alternating_turns
+        type: bool
+        description: "Whether turns alternate between user and assistant"
+      - name: turn_sequence
+        type: str
+        description: "Sequence of roles (e.g., 'user,assistant,user,assistant')"
+    function: |
+      def compute(conversation):
+          roles = [m.role.value if hasattr(m.role, 'value') else str(m.role) for m in conversation.messages]
+          # Check if roles alternate (ignoring system messages)
+          non_system = [r for r in roles if r != "system"]
+          alternating = True
+          for i in range(len(non_system) - 1):
+              if non_system[i] == non_system[i + 1]:
+                  alternating = False
+                  break
+          return {
+              "has_alternating_turns": alternating,
+              "turn_sequence": ",".join(roles)
+          }
+
+  # Check for empty message content
+  - id: empty_content
+    scope: message
+    description: "Checks if message content is empty or whitespace-only"
+    output_schema:
+      - name: is_empty
+        type: bool
+        description: "Whether the message content is empty"
+      - name: is_whitespace_only
+        type: bool
+        description: "Whether the message contains only whitespace"
+    function: |
+      def compute(message):
+          content = message.content if hasattr(message, 'content') else ""
+          if not isinstance(content, str):
+              content = str(content) if content else ""
+          return {
+              "is_empty": len(content) == 0,
+              "is_whitespace_only": len(content.strip()) == 0 and len(content) > 0
+          }
+
+  # Check for invalid serialized values (NaN, null, None as strings)
+  - id: invalid_values
+    scope: message
+    description: "Checks for invalid serialized values like 'NaN', 'null', 'None'"
+    output_schema:
+      - name: has_nan_string
+        type: bool
+        description: "Contains 'NaN' or 'nan' as literal string"
+      - name: has_null_string
+        type: bool
+        description: "Contains 'null' or 'None' as suspicious value"
+      - name: invalid_patterns_found
+        type: list
+        description: "List of invalid patterns found"
+    function: |
+      def compute(message):
+          content = message.content if hasattr(message, 'content') else ""
+          if not isinstance(content, str):
+              content = str(content) if content else ""
+          
+          patterns_found = []
+          has_nan = "NaN" in content or "nan" in content
+          if has_nan:
+              patterns_found.append("NaN")
+          
+          # Check for null/None that look like serialization errors
+          has_null = content.strip() in ("null", "None", "undefined")
+          if has_null:
+              patterns_found.append(content.strip())
+          
+          return {
+              "has_nan_string": has_nan,
+              "has_null_string": has_null,
+              "invalid_patterns_found": patterns_found
+          }
+
+  # Check for abrupt truncation
+  - id: truncation_check
+    scope: conversation
+    description: "Checks if conversation appears to be abruptly truncated"
+    output_schema:
+      - name: appears_truncated
+        type: bool
+        description: "Whether the last message appears truncated"
+      - name: last_char
+        type: str
+        description: "Last non-whitespace character"
+      - name: ends_mid_sentence
+        type: bool
+        description: "Ends without proper punctuation"
+    function: |
+      def compute(conversation):
+          if not conversation.messages:
+              return {"appears_truncated": False, "last_char": "", "ends_mid_sentence": False}
+          
+          last_msg = conversation.messages[-1]
+          content = last_msg.content if hasattr(last_msg, 'content') else ""
+          if not isinstance(content, str):
+              content = str(content) if content else ""
+          
+          content = content.rstrip()
+          if not content:
+              return {"appears_truncated": True, "last_char": "", "ends_mid_sentence": True}
+          
+          last_char = content[-1]
+          # Check for proper ending punctuation
+          proper_endings = ".!?\"')]}>"
+          ends_properly = last_char in proper_endings
+          
+          # Additional heuristics for truncation
+          truncation_signs = [
+              content.endswith("...") and len(content) > 100,  # Ellipsis at end of long text
+              content.endswith(","),  # Ends with comma
+              content.endswith(" and"),  # Ends mid-phrase
+              content.endswith(" the"),
+              content.endswith(" a"),
+          ]
+          
+          return {
+              "appears_truncated": not ends_properly or any(truncation_signs),
+              "last_char": last_char,
+              "ends_mid_sentence": not ends_properly
+          }
+
+  # Check for policy refusal patterns
+  - id: policy_refusal
+    scope: message
+    description: "Detects policy refusal patterns in assistant messages"
+    output_schema:
+      - name: is_refusal
+        type: bool
+        description: "Whether the message appears to be a policy refusal"
+      - name: refusal_phrases_found
+        type: list
+        description: "List of refusal phrases detected"
+    function: |
+      def compute(message):
+          role = message.role.value if hasattr(message.role, 'value') else str(message.role)
+          if role != "assistant":
+              return {"is_refusal": False, "refusal_phrases_found": []}
+          
+          content = message.content if hasattr(message, 'content') else ""
+          if not isinstance(content, str):
+              content = str(content) if content else ""
+          content_lower = content.lower()
+          
+          refusal_patterns = [
+              "i cannot",
+              "i can't",
+              "i am not able to",
+              "i'm not able to",
+              "i apologize, but",
+              "i'm sorry, but i cannot",
+              "as an ai",
+              "as a language model",
+              "i don't have the ability",
+              "it would be inappropriate",
+              "i must decline",
+              "i cannot assist with",
+              "against my guidelines",
+              "violates my guidelines",
+          ]
+          
+          found = [p for p in refusal_patterns if p in content_lower]
+          return {
+              "is_refusal": len(found) > 0,
+              "refusal_phrases_found": found
+          }
+
+  # Check for think token issues
+  - id: think_tokens
+    scope: message
+    description: "Checks for thinking/reasoning token issues"
+    output_schema:
+      - name: has_think_tags
+        type: bool
+        description: "Whether message contains think tags"
+      - name: tags_balanced
+        type: bool
+        description: "Whether open and close tags are balanced"
+      - name: open_count
+        type: int
+        description: "Number of opening think tags"
+      - name: close_count
+        type: int
+        description: "Number of closing think tags"
+    function: |
+      def compute(message):
+          content = message.content if hasattr(message, 'content') else ""
+          if not isinstance(content, str):
+              content = str(content) if content else ""
+          
+          # Common think tag patterns
+          open_count = content.count("<think>") + content.count("<reasoning>")
+          close_count = content.count("</think>") + content.count("</reasoning>")
+          
+          return {
+              "has_think_tags": open_count > 0 or close_count > 0,
+              "tags_balanced": open_count == close_count,
+              "open_count": open_count,
+              "close_count": close_count
+          }
+
+  # Check for unmatched tags/tokens
+  - id: unmatched_tags
+    scope: message
+    description: "Checks for unmatched opening/closing tags"
+    output_schema:
+      - name: has_unmatched
+        type: bool
+        description: "Whether there are unmatched tags"
+      - name: unmatched_opens
+        type: list
+        description: "List of unmatched opening tags"
+      - name: unmatched_closes
+        type: list
+        description: "List of unmatched closing tags"
+    function: |
+      def compute(message):
+          content = message.content if hasattr(message, 'content') else ""
+          if not isinstance(content, str):
+              content = str(content) if content else ""
+          
+          # Tags to check
+          tag_pairs = [
+              ("<think>", "</think>"),
+              ("<reasoning>", "</reasoning>"),
+              ("<answer>", "</answer>"),
+              ("```", "```"),  # Code blocks (special case)
+          ]
+          
+          unmatched_opens = []
+          unmatched_closes = []
+          
+          for open_tag, close_tag in tag_pairs:
+              if open_tag == "```":
+                  # Code blocks: count should be even
+                  count = content.count("```")
+                  if count % 2 != 0:
+                      unmatched_opens.append("```")
+              else:
+                  opens = content.count(open_tag)
+                  closes = content.count(close_tag)
+                  if opens > closes:
+                      unmatched_opens.extend([open_tag] * (opens - closes))
+                  elif closes > opens:
+                      unmatched_closes.extend([close_tag] * (closes - opens))
+          
+          return {
+              "has_unmatched": len(unmatched_opens) > 0 or len(unmatched_closes) > 0,
+              "unmatched_opens": unmatched_opens,
+              "unmatched_closes": unmatched_closes
+          }
+
+# Tests to run on the computed metrics
+# Use format: AnalyzerName.metric_name
+tests:
+  # Check that conversations aren't too short
+  - id: min_words
+    type: threshold
+    metric: LengthAnalyzer.total_words
+    operator: "<"
+    value: 5
+    max_percentage: 5.0 # Allow at most 5% to fail
+    severity: medium
+    title: "Very short conversations"
+    description: "Conversations with fewer than 5 words may lack substance"
+
+  # Check that conversations aren't excessively long
+  - id: max_tokens
+    type: threshold
+    metric: LengthAnalyzer.total_tokens
+    operator: ">"
+    value: 8000
+    max_percentage: 2.0 # Allow at most 2% to exceed
+    severity: high
+    title: "Conversations exceeding token limit"
+    description: "Very long conversations may exceed model context limits"
+
+  # Check that most conversations have multiple messages
+  - id: multi_turn
+    type: threshold
+    metric: LengthAnalyzer.num_messages
+    operator: "<"
+    value: 2
+    max_percentage: 10.0
+    severity: low
+    title: "Single-turn conversations"
+    description: "Conversations with only one message"
+
+  # Test for custom metric: word-to-char ratio should be reasonable
+  # Typical English text has ~0.15-0.20 ratio (avg word length 5-7 chars)
+  - id: word_char_ratio_check
+    type: threshold
+    metric: word_to_char_ratio.ratio
+    operator: "<"
+    value: 0.05
+    max_percentage: 5.0
+    severity: low
+    title: "Unusual word-to-char ratio"
+    description: "Very low ratio may indicate long words or non-text content"
+
+  - id: assistant_ends_with_full_stop_check
+    type: threshold
+    metric: assistant_ends_with_full_stop.output
+    operator: "=="
+    value: true
+    max_percentage: 10.0
+    severity: low
+    title: "Assistant messages end with a full stop"
+    description: "Assistant messages should end with a full stop"
+
+  - id: estimated_cost_check
+    type: threshold
+    metric: estimated_cost.cost_usd
+    operator: ">"
+    value: 0.0015
+    max_percentage: 10.0
+    severity: low
+    title: "Estimated cost is too high"
+    description: "Estimated cost should be less than $0.01"
+
+  # Test for custom metric that depends on another custom metric
+  - id: typical_text_density
+    type: percentage
+    metric: text_density_category.is_typical
+    condition: "== True"
+    min_percentage: 80.0
+    severity: low
+    title: "Text density is typical"
+    description: "At least 80% of conversations should have typical text density"
+
+  # ============================================================
+  # Quality Check Tests
+  # ============================================================
+
+  # Alternating turns check
+  - id: alternating_turns_check
+    type: percentage
+    metric: turn_pattern.has_alternating_turns
+    condition: "== False"
+    max_percentage: 5.0
+    severity: high
+    title: "Non-alternating conversation turns"
+    description: "Conversations should have alternating user-assistant turns"
+
+  # No empty messages
+  - id: no_empty_messages
+    type: percentage
+    metric: empty_content.is_empty
+    condition: "== True"
+    max_percentage: 0.0
+    severity: high
+    title: "Empty message content"
+    description: "Messages should not be empty"
+
+  # No whitespace-only messages
+  - id: no_whitespace_only
+    type: percentage
+    metric: empty_content.is_whitespace_only
+    condition: "== True"
+    max_percentage: 0.0
+    severity: high
+    title: "Whitespace-only message content"
+    description: "Messages should not contain only whitespace"
+
+  # No invalid NaN values
+  - id: no_nan_values
+    type: percentage
+    metric: invalid_values.has_nan_string
+    condition: "== True"
+    max_percentage: 0.0
+    severity: high
+    title: "Invalid NaN string in content"
+    description: "Content should not contain serialized NaN values"
+
+  # Fits in 4K context
+  - id: fits_4k_context
+    type: threshold
+    metric: LengthAnalyzer.total_tokens
+    operator: ">"
+    value: 4096
+    max_percentage: 10.0
+    severity: medium
+    title: "Exceeds 4K context limit"
+    description: "Conversations exceeding 4K tokens may not fit in smaller models"
+
+  # No truncated conversations
+  - id: no_truncation
+    type: percentage
+    metric: truncation_check.appears_truncated
+    condition: "== True"
+    max_percentage: 5.0
+    severity: medium
+    title: "Conversation appears truncated"
+    description: "Conversations should not end abruptly"
+
+  # Limited policy refusals
+  - id: low_refusal_rate
+    type: percentage
+    metric: policy_refusal.is_refusal
+    condition: "== True"
+    max_percentage: 10.0
+    severity: medium
+    title: "Policy refusal detected"
+    description: "Too many policy refusals may indicate dataset issues"
+
+  # Balanced think tags
+  - id: balanced_think_tags
+    type: percentage
+    metric: think_tokens.tags_balanced
+    condition: "== False"
+    max_percentage: 0.0
+    severity: high
+    title: "Unbalanced think tags"
+    description: "Think tags must be properly opened and closed"
+
+  # No unmatched tags
+  - id: no_unmatched_tags
+    type: percentage
+    metric: unmatched_tags.has_unmatched
+    condition: "== True"
+    max_percentage: 0.0
+    severity: high
+    title: "Unmatched tags detected"
+    description: "All tags should have matching open/close pairs"

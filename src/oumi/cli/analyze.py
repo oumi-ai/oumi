@@ -165,6 +165,132 @@ if TYPE_CHECKING:
     from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 
 
+def _run_typed_analysis_cli(
+    config: str,
+    output: str | None,
+    output_format: str,
+    list_metrics: bool,
+    verbose: bool,
+) -> None:
+    """Run analysis using the new typed analyzer system.
+
+    This is the handler for the --typed flag in the CLI.
+
+    Args:
+        config: Path to the configuration file.
+        output: Output directory override.
+        output_format: Output format (csv, json, parquet).
+        list_metrics: Whether to just list available metrics.
+        verbose: Enable verbose output.
+    """
+    from oumi.analyze import TypedAnalyzeConfig
+    from oumi.analyze import list_metrics as list_metrics_func
+    from oumi.analyze import print_summary, run_typed_analysis, save_results
+
+    try:
+        # Handle --list-metrics for typed system
+        if list_metrics:
+            cli_utils.CONSOLE.print(
+                "\n[bold cyan]Typed Analyzer System - Available Metrics[/bold cyan]\n"
+            )
+            # Show built-in analyzers
+            list_metrics_func()
+
+            # Also show custom metrics from config if provided
+            try:
+                typed_config = TypedAnalyzeConfig.from_yaml(config)
+                if typed_config.custom_metrics:
+                    from rich.table import Table
+
+                    for cm in typed_config.custom_metrics:
+                        cli_utils.CONSOLE.print(
+                            f"\n[bold]{cm.id}[/bold] "
+                            f"[green]({cm.scope} scope)[/green] "
+                            f"[dim](custom)[/dim]"
+                        )
+                        if cm.description:
+                            cli_utils.CONSOLE.print(f"[dim]{cm.description}[/dim]\n")
+
+                        # Create table matching built-in format
+                        table = Table(
+                            show_header=True,
+                            header_style="bold",
+                            box=None,
+                            padding=(0, 2),
+                        )
+                        table.add_column("Metric Path", style="cyan")
+                        table.add_column("Type", style="yellow", width=15)
+                        table.add_column("Description", style="white")
+
+                        if cm.output_schema:
+                            for f in cm.output_schema:
+                                table.add_row(
+                                    f"{cm.id}.{f.name}",
+                                    f.type,
+                                    f.description,
+                                )
+                        else:
+                            table.add_row(
+                                f"{cm.id}.<field>",
+                                "any",
+                                "Add output_schema to config for field details",
+                            )
+
+                        cli_utils.CONSOLE.print(table)
+                        cli_utils.CONSOLE.print()
+            except Exception:
+                pass  # Config may not exist yet, that's OK
+            return
+
+        # Load typed config
+        with cli_utils.CONSOLE.status(
+            "[green]Loading typed configuration...[/green]", spinner="dots"
+        ):
+            typed_config = TypedAnalyzeConfig.from_yaml(config)
+
+        # Override output path if provided
+        if output:
+            typed_config.output_path = output
+
+        if verbose:
+            cli_utils.CONSOLE.print(f"[dim]Config loaded from: {config}[/dim]")
+            dataset = typed_config.dataset_name or typed_config.dataset_path
+            cli_utils.CONSOLE.print(f"[dim]Dataset: {dataset}[/dim]")
+            analyzer_ids = [a.id for a in typed_config.analyzers]
+            cli_utils.CONSOLE.print(f"[dim]Analyzers: {analyzer_ids}[/dim]")
+
+        # Run analysis
+        with cli_utils.CONSOLE.status(
+            "[green]Running typed analysis...[/green]", spinner="dots"
+        ):
+            results = run_typed_analysis(typed_config)
+
+        # Print summary
+        print_summary(results)
+
+        # Save results
+        if typed_config.output_path:
+            save_results(typed_config.output_path, results, output_format)
+            cli_utils.CONSOLE.print(
+                f"\n[green]Results saved to:[/green] {typed_config.output_path}"
+            )
+
+    except FileNotFoundError as e:
+        logger.error(f"Configuration file not found: {e}")
+        cli_utils.CONSOLE.print(f"[red]Error:[/red] Configuration file not found: {e}")
+        raise typer.Exit(code=1)
+
+    except ValueError as e:
+        logger.error(f"Invalid configuration: {e}")
+        cli_utils.CONSOLE.print(f"[red]Error:[/red] Invalid configuration: {e}")
+        raise typer.Exit(code=1)
+
+    except Exception as e:
+        logger.error(f"Typed analysis failed: {e}", exc_info=True)
+        cli_utils.CONSOLE.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(code=1)
+
+
 def analyze(
     ctx: typer.Context,
     config: Annotated[
@@ -237,6 +363,14 @@ def analyze(
             "based on configured analyzers (useful for writing tests before running analysis).",
         ),
     ] = False,
+    typed: Annotated[
+        bool,
+        typer.Option(
+            "--typed",
+            help="Use the new typed analyzer system with Pydantic-based results. "
+            "Uses metric paths like 'LengthAnalyzer.total_words'.",
+        ),
+    ] = False,
     level: cli_utils.LOG_LEVEL_TYPE = None,
     verbose: cli_utils.VERBOSE_TYPE = False,
 ):
@@ -255,6 +389,8 @@ def analyze(
         skip_llm: Skip analyzers that require LLM inference.
         skip_remote_llm: Skip analyzers that require remote LLM APIs.
         reanalyze: Force re-running the full analysis even if artifacts exist.
+        list_metrics: List available metrics without running analysis.
+        typed: Use the new typed analyzer system with Pydantic results.
         level: The logging level for the specified command.
         verbose: Enable verbose logging with additional debug information.
     """
@@ -268,6 +404,17 @@ def analyze(
             f"Supported formats: {', '.join(_VALID_OUTPUT_FORMATS)}"
         )
         raise typer.Exit(code=1)
+
+    # Route to typed analyzer system if --typed flag is set
+    if typed:
+        _run_typed_analysis_cli(
+            config=config,
+            output=output,
+            output_format=output_format,
+            list_metrics=list_metrics,
+            verbose=verbose,
+        )
+        return
 
     try:
         extra_args = cli_utils.parse_extra_cli_args(ctx)
