@@ -228,7 +228,9 @@ class FastTextAnalyzer(SampleAnalyzer):
                     "description": "Confidence score for language detection (0.0-1.0)",
                 }
 
-                col_name = make_analyzer_column_name(column, analyzer_id, "language_name")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "language_name"
+                )
                 schema[col_name] = {
                     "type": ColumnType.STRING,
                     "content_type": ContentType.CATEGORICAL,
@@ -540,31 +542,43 @@ class FastTextAnalyzer(SampleAnalyzer):
 
             # Extract results into columns
             if self.detect_language:
-                col_name = make_analyzer_column_name(column, analyzer_id, "detected_language")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "detected_language"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("detected_language")
                 )
-                col_name = make_analyzer_column_name(column, analyzer_id, "language_confidence")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "language_confidence"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("language_confidence")
                 )
-                col_name = make_analyzer_column_name(column, analyzer_id, "language_name")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "language_name"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("language_name")
                 )
-                col_name = make_analyzer_column_name(column, analyzer_id, "low_confidence")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "low_confidence"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("low_confidence")
                 )
 
             if self.detect_script:
-                col_name = make_analyzer_column_name(column, analyzer_id, "detected_script")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "detected_script"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("detected_script")
                 )
 
             if self.detect_multilingual:
-                col_name = make_analyzer_column_name(column, analyzer_id, "is_multilingual")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "is_multilingual"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("is_multilingual")
                 )
