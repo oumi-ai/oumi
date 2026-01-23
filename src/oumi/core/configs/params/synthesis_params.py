@@ -478,6 +478,34 @@ class MultiTurnPersona:
 
 
 @dataclass
+class ConversationPlanner:
+    """Generate plan for how the conversation should proceed."""
+
+    id: str
+    """ID to be used when referencing the attribute during synthesis."""
+
+    instruction_messages: list[TextMessage]
+    """List of messages providing instructions for generating this attribute."""
+
+    postprocessing_params: GeneratedAttributePostprocessingParams | None = None
+    """Postprocessing parameters for the generated attribute."""
+
+    def __post_init__(self):
+        """Verifies/populates params."""
+        if not self.id:
+            raise ValueError("GeneratedAttribute.id cannot be empty.")
+        if not self.instruction_messages:
+            raise ValueError("GeneratedAttribute.instruction_messages cannot be empty.")
+        if self.postprocessing_params:
+            if self.id == self.postprocessing_params.id:
+                raise ValueError(
+                    "GeneratedAttribute.id and "
+                    "GeneratedAttributePostprocessingParams.id "
+                    "cannot be the same."
+                )
+
+
+@dataclass
 class MultiTurnAttribute:
     """Attributes that enable multi-turn interactions."""
 
@@ -504,6 +532,15 @@ class MultiTurnAttribute:
 
     turn_instructions: dict[Role, TextMessage]
     """Per-role instruction template for generating a turn."""
+
+    conversation_planner: ConversationPlanner | None = None
+    """Optional planner for generating a conversation plan before turn generation.
+
+    When provided, the planner generates a plan that is injected into the sample
+    context as {conversation_plan}. The plan can be referenced in persona prompts
+    and turn instructions to guide the conversation flow.
+
+    The planner also has access to {target_turns} to know the conversation length."""
 
     def __post_init__(self):
         """Verifies/populates params."""

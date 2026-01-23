@@ -285,6 +285,41 @@ strategy_params:
       max_turns: 12
       turn_order: [USER, ASSISTANT]
 
+      # Plan the conversation flow before generating turns
+      conversation_planner:
+        id: "conversation_plan"
+        instruction_messages:
+          - role: SYSTEM
+            content: |
+              You are a conversation planner for customer support interactions.
+              Create a realistic conversation plan that fits the customer's personality and issue.
+              The plan should feel natural - not every conversation resolves perfectly.
+          - role: USER
+            content: |
+              Plan a {target_turns}-turn customer support conversation.
+
+              Context:
+              - Customer: {customer_name} ({customer_type.name} - {customer_type.description})
+              - Issue: {issue_detail}
+              - Interaction style: {customer_interaction.description}
+              - Scenario: {scenario.name}
+
+              Create a turn-by-turn plan. Format each turn as:
+              Turn N: [USER/ASSISTANT] Brief description of what happens
+
+              Guidelines:
+              - Match the customer's personality throughout
+              - Pace the conversation naturally for {target_turns} turns
+              - End appropriately based on interaction style:
+                - Cooperative: resolve the issue
+                - Escalated: hand off to specialist
+                - Incomplete: end without full resolution
+                - Difficult: may or may not resolve
+              - Keep each turn description under 15 words
+              - Focus on the purpose of each turn, not exact wording
+
+              Output only the plan, nothing else.
+
       user_persona:
         id: "customer"
         role: USER
@@ -296,7 +331,13 @@ strategy_params:
           Your specific issue: {issue_detail}
           How you interact: {customer_interaction.description}
 
+          Conversation plan:
+          {conversation_plan}
+
+          You are on turn {current_turn} of {target_turns}.
+
           Guidelines:
+          - Follow the plan's direction for this turn, but respond naturally
           - Stay in character throughout the conversation
           - Your opening message was: "{customer_opener}"
           - Build on the conversation naturally
@@ -311,13 +352,20 @@ strategy_params:
         system_prompt: |
           {system_instruction.description}
 
+          Conversation plan:
+          {conversation_plan}
+
+          You are on turn {current_turn} of {target_turns}.
+          Follow the plan's direction for this turn.
+
       system_messages: []
 
       turn_instructions:
         USER:
           role: USER
           content: |
-            You are having a conversation with a BrightTech Electronics support agent.
+            Respond as the customer in this conversation with a BrightTech Electronics support agent.
+            This is turn {current_turn} of {target_turns}.
 
             If this is your first message in the conversation (there are no previous messages from the agent), start the conversation with your opening message: "{customer_opener}"
 
@@ -327,20 +375,26 @@ strategy_params:
             - Your personality: {customer_type.description}
             - Your specific issue: {issue_detail}
             - Interaction style: {customer_interaction.description}
+            - Follow the conversation plan for this turn
 
             Keep your response concise and realistic. Stay in character as {customer_name}.
+            Output only the customer's message, nothing else.
         ASSISTANT:
-          role: ASSISTANT
+          role: USER
           content: |
-            Continue the conversation as the support agent.
+            Respond as the support agent in this conversation.
+            This is turn {current_turn} of {target_turns}.
 
             Follow the system instruction format with ACTION blocks.
             Be helpful, professional, and work toward resolving the customer's issue.
             Keep responses concise and actionable.
+            Follow the conversation plan for this turn.
+            Output only the agent's response, nothing else.
 
   # Include only relevant attributes in output
   passthrough_attributes:
     - support_conversation # The multi-turn conversation generated above
+    - conversation_plan # The conversation plan used to guide the conversation
 
 # Example inference configuration
 inference_config:

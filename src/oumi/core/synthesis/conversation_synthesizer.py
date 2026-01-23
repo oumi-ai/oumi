@@ -54,7 +54,7 @@ class ConversationSynthesizer:
         self,
         samples: list[dict],
         multiturn_attributes: MultiTurnAttribute,
-    ) -> list[dict[str, dict]]:
+    ) -> list[dict[str, dict | str]]:
         """Synthesize a multi-turn conversation.
 
         Order will be identical to the order of the samples.
@@ -64,15 +64,20 @@ class ConversationSynthesizer:
             multiturn_attributes: The multi-turn attribute defining conversation rules.
 
         Returns:
-            A list of dictionaries, as a conversation.
+            A list of dictionaries containing the conversation and optionally the plan.
         """
         if not samples:
             return []
 
-        records: list[dict[str, dict]] = []
+        records: list[dict[str, dict | str]] = []
         for sample in samples:
-            conversation = self._synthesize_sample(sample, multiturn_attributes)
-            records.append({multiturn_attributes.id: conversation.to_dict()})
+            conversation, plan = self._synthesize_sample(sample, multiturn_attributes)
+            record: dict[str, dict | str] = {
+                multiturn_attributes.id: conversation.to_dict()
+            }
+            if plan:
+                record["conversation_plan"] = plan
+            records.append(record)
 
         return records
 
@@ -117,30 +122,78 @@ class ConversationSynthesizer:
 
         return Conversation(messages=new_messages)
 
+    def _generate_plan(
+        self,
+        sample: dict,
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> str:
+        """Generate a plan for how the conversation should proceed.
+
+        Args:
+            sample: The sample dict containing attributes (including target_turns).
+            multiturn_attribute: The multi-turn attribute with conversation_planner.
+
+        Returns:
+            The generated conversation plan as a string, or empty string if no planner.
+        """
+        if not multiturn_attribute.conversation_planner:
+            return ""
+
+        inference_results = self._inference_engine.infer(
+            [
+                self._format_instructions(
+                    sample,
+                    multiturn_attribute.conversation_planner.instruction_messages,
+                )
+            ],
+            inference_config=self._inference_config,
+        )
+
+        return self._extract_response(inference_results)[0]
+
     def _synthesize_sample(
         self,
         sample: dict,
         multiturn_attribute: MultiTurnAttribute,
-    ) -> Conversation:
+    ) -> tuple[Conversation, str]:
+        """Synthesize a single multi-turn conversation for one sample.
+
+        Args:
+            sample: The sample dict containing all attributes.
+            multiturn_attribute: The multi-turn attribute defining conversation rules.
+
+        Returns:
+            A tuple of (Conversation object with generated messages, plan string).
+        """
         history: list[Message] = []
         target_turns = self._select_target_turns(multiturn_attribute)
+
+        sample_with_context = {**sample, "target_turns": target_turns}
+
+        plan = self._generate_plan(sample_with_context, multiturn_attribute)
+        sample_with_context["conversation_plan"] = plan
+
         for turn_idx in range(target_turns):
+            sample_with_context["current_turn"] = turn_idx + 1
+
             role = multiturn_attribute.turn_order[
                 turn_idx % len(multiturn_attribute.turn_order)
             ]
             prompt_messages: list[Message] = []
             prompt_messages.extend(
-                self._format_messages(sample, multiturn_attribute.system_messages)
+                self._format_messages(
+                    sample_with_context, multiturn_attribute.system_messages
+                )
             )
             persona_message = self._persona_system_message(
-                sample, multiturn_attribute, role
+                sample_with_context, multiturn_attribute, role
             )
             if persona_message:
                 prompt_messages.append(persona_message)
             prompt_messages.extend(history)
 
             instruction = multiturn_attribute.turn_instructions[role]
-            instruction_msg = self._format_message(sample, instruction)
+            instruction_msg = self._format_message(sample_with_context, instruction)
             prompt_messages.append(instruction_msg)
 
             inference_results = self._inference_engine.infer(
@@ -149,7 +202,8 @@ class ConversationSynthesizer:
             )
             generated_text = self._extract_response(inference_results)[0]
             history.append(Message(role=role, content=generated_text))
-        return Conversation(messages=history)
+
+        return Conversation(messages=history), plan
 
     def _select_target_turns(self, multiturn_attribute: MultiTurnAttribute) -> int:
         min_turns = multiturn_attribute.min_turns
