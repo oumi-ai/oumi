@@ -124,6 +124,7 @@ from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.core.configs.params.synthesis_params import (
     AttributeCombination,
+    ConversationPlanner,
     DocumentSegmentationParams,
     DocumentSource,
     ExampleSource,
@@ -131,6 +132,7 @@ from oumi.core.configs.params.synthesis_params import (
     GeneratedAttribute,
     GeneratedAttributePostprocessingParams,
     MultiTurnAttribute,
+    MultiTurnPersona,
     SampledAttribute,
     SampledAttributeValue,
     SegmentationStrategy,
@@ -226,4 +228,6 @@ __all__ = [
     "TransformationType",
     "TransformedAttribute",
     "MultiTurnAttribute",
+    "MultiTurnPersona",
+    "ConversationPlanner",
 ]

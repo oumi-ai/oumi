@@ -24,6 +24,7 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.utils.logging import logger
 
 
 class ConversationSynthesizer:
@@ -68,6 +69,11 @@ class ConversationSynthesizer:
         """
         if not samples:
             return []
+
+        logger.info(
+            f"Synthesizing {len(samples)} conversations for "
+            f"attribute '{multiturn_attributes.id}'"
+        )
 
         records: list[dict[str, dict | str]] = []
         for sample in samples:
@@ -167,6 +173,8 @@ class ConversationSynthesizer:
         """
         history: list[Message] = []
         target_turns = self._select_target_turns(multiturn_attribute)
+
+        logger.debug(f"Synthesizing conversation with {target_turns} turns")
 
         sample_with_context = {**sample, "target_turns": target_turns}
 

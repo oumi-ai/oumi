@@ -493,13 +493,15 @@ class ConversationPlanner:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("GeneratedAttribute.id cannot be empty.")
+            raise ValueError("ConversationPlanner.id cannot be empty.")
         if not self.instruction_messages:
-            raise ValueError("GeneratedAttribute.instruction_messages cannot be empty.")
+            raise ValueError(
+                "ConversationPlanner.instruction_messages cannot be empty."
+            )
         if self.postprocessing_params:
             if self.id == self.postprocessing_params.id:
                 raise ValueError(
-                    "GeneratedAttribute.id and "
+                    "ConversationPlanner.id and "
                     "GeneratedAttributePostprocessingParams.id "
                     "cannot be the same."
                 )
