@@ -262,7 +262,7 @@ JSON ranking:"""
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze instruction complexity using evolved variant ranking.
 
         Args:
@@ -277,7 +277,6 @@ JSON ranking:"""
             - {col}_evol_complexity_headroom: Potential for more complexity
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -291,7 +290,7 @@ JSON ranking:"""
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         analyzer_id = getattr(self, "analyzer_id", "evol_complexity")
         role_column = self._find_role_column(df, schema)
@@ -369,27 +368,12 @@ JSON ranking:"""
             # Add columns to result DataFrame
             col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = all_scores
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Evol-Instruct complexity score (0.0-1.0, higher = more complex)",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "rank")
             result_df[col_name] = all_ranks
-            generated_schema[col_name] = {
-                "type": ColumnType.INT,
-                "content_type": ContentType.NUMERIC,
-                "description": f"Complexity evolution rank (1-{self.num_evolutions}, lower = simpler)",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "headroom")
             result_df[col_name] = all_headroom
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Complexity headroom (0.0-1.0, higher = more room to increase complexity)",
-            }
 
             # Compute dataset-level metrics
             valid_scores = [s for s in all_scores if s is not None]
@@ -416,7 +400,7 @@ JSON ranking:"""
                     f"{self._dataset_metrics[column]['mean_complexity_score']:.3f}"
                 )
 
-        return result_df, generated_schema
+        return result_df
 
     def compute_dataset_metrics(
         self,

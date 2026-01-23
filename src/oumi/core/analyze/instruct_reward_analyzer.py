@@ -26,7 +26,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
 
@@ -350,7 +350,7 @@ class InstructRewardAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields for instruct reward metrics.
 
         Args:
@@ -362,7 +362,6 @@ class InstructRewardAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -378,7 +377,7 @@ class InstructRewardAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         # Find the role column if needed
         role_column = None
@@ -419,47 +418,22 @@ class InstructRewardAnalyzer(SampleAnalyzer):
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("reward_score")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Instruction-following reward score (0.0-5.0)",
-            }
             
             col_name = make_analyzer_column_name(column, analyzer_id, "tier")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("reward_tier")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.CATEGORICAL,
-                "description": "Reward tier category (poor/fair/good/excellent)",
-            }
 
             if self.include_component_scores:
                 col_name = make_analyzer_column_name(column, analyzer_id, "helpfulness")
                 result_df[col_name] = analysis_results.apply(lambda r: r.get("helpfulness_score"))
-                generated_schema[col_name] = {
-                    "type": ColumnType.FLOAT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": "Helpfulness component score (0.0-1.0)",
-                }
                 
                 col_name = make_analyzer_column_name(column, analyzer_id, "completeness")
                 result_df[col_name] = analysis_results.apply(lambda r: r.get("completeness_score"))
-                generated_schema[col_name] = {
-                    "type": ColumnType.FLOAT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": "Completeness component score (0.0-1.0)",
-                }
                 
                 col_name = make_analyzer_column_name(column, analyzer_id, "clarity")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("clarity_score")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.FLOAT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": "Clarity component score (0.0-1.0)",
-                }
 
-        return result_df, generated_schema
+        return result_df

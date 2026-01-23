@@ -26,7 +26,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
 
@@ -338,7 +338,7 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields for task category classification.
 
         Args:
@@ -350,7 +350,6 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -366,7 +365,7 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         # Find the role column if we need to filter
         role_column = None
@@ -406,38 +405,18 @@ class TaskCategoryAnalyzer(SampleAnalyzer):
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("task_category")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.CATEGORICAL,
-                "description": "Predicted task category",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "confidence")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("task_confidence")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Confidence score for predicted category (0.0-1.0)",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "is_stem")
             result_df[col_name] = analysis_results.apply(lambda r: r.get("is_stem"))
-            generated_schema[col_name] = {
-                "type": ColumnType.BOOL,
-                "content_type": ContentType.BOOLEAN,
-                "description": "Whether task is in STEM category",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "is_conversational")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("is_conversational")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.BOOL,
-                "content_type": ContentType.BOOLEAN,
-                "description": "Whether task is conversational in nature",
-            }
 
-        return result_df, generated_schema
+        return result_df

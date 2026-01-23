@@ -65,13 +65,15 @@ class TokenStatsAnalyzer(SampleAnalyzer):
 
     def get_output_schema(
         self,
-        source_columns: list[str] | None = None,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
         analyzer_id: str | None = None,
     ) -> dict:
         """Return the schema this analyzer will produce.
 
         Args:
-            source_columns: Not used - this analyzer produces conversation-level metrics.
+            df: Not used - this analyzer produces conversation-level metrics.
+            schema: Not used - this analyzer produces conversation-level metrics.
             analyzer_id: The analyzer ID for column naming. Defaults to "token_stats".
 
         Returns:
@@ -219,7 +221,7 @@ class TokenStatsAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: dict | None = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze token counts by role and aggregate to conversation level.
 
         This analyzer works on message-level DataFrames and requires:
@@ -232,15 +234,14 @@ class TokenStatsAnalyzer(SampleAnalyzer):
             schema: Column schema dict (optional, not used but kept for interface).
 
         Returns:
-            Tuple of (DataFrame with added conversation-level token metrics,
-            generated column schema dict).
+            DataFrame with added conversation-level token metrics.
         """
         result_df = df.copy()
         analyzer_id = getattr(self, "analyzer_id", "token_stats")
 
         # Check for required columns
         if "conversation_id" not in df.columns:
-            return result_df, {}
+            return result_df
 
         # Find role column
         role_column = None
@@ -259,12 +260,12 @@ class TokenStatsAnalyzer(SampleAnalyzer):
             role_column = "role"
 
         if role_column is None:
-            return result_df, {}
+            return result_df
 
         # Find token count column
         token_count_column = self._find_token_count_column(df)
         if token_count_column is None:
-            return result_df, {}
+            return result_df
 
         # Aggregate tokens by role for each conversation
         conv_metrics = self._aggregate_tokens_by_role(
@@ -281,5 +282,4 @@ class TokenStatsAnalyzer(SampleAnalyzer):
                 lambda cid, m=metric_name: conv_metrics.get(cid, {}).get(m, 0)
             )
 
-        # Get schema from get_output_schema
-        return result_df, self.get_output_schema(analyzer_id=analyzer_id)
+        return result_df

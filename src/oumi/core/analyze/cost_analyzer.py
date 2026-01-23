@@ -24,7 +24,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
 
@@ -195,7 +195,7 @@ class CostAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze samples for cost optimization metrics.
 
         This method looks for token count columns in the DataFrame and
@@ -210,7 +210,6 @@ class CostAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -224,7 +223,7 @@ class CostAnalyzer(SampleAnalyzer):
 
         if not token_count_cols:
             # No token count columns - return unchanged
-            return result_df, generated_schema
+            return result_df
 
         # Use the first token count column found
         token_col = token_count_cols[0]
@@ -260,11 +259,6 @@ class CostAnalyzer(SampleAnalyzer):
             result_df[col_name] = context_metrics.apply(
                 lambda m: m[f"fits_context_{size_name}"]
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.BOOL,
-                "content_type": ContentType.BOOLEAN,
-                "description": f"Whether sample fits in {context_size} token context",
-            }
 
             col_name = make_analyzer_column_name(
                 base_col_name, analyzer_id, f"context_utilization_{size_name}"
@@ -272,14 +266,6 @@ class CostAnalyzer(SampleAnalyzer):
             result_df[col_name] = context_metrics.apply(
                 lambda m: m[f"context_utilization_{size_name}"]
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": (
-                    f"Context window utilization ratio for {context_size} tokens "
-                    "(0.0 = empty, 1.0 = full)"
-                ),
-            }
 
             col_name = make_analyzer_column_name(
                 base_col_name, analyzer_id, f"tokens_wasted_{size_name}"
@@ -287,13 +273,8 @@ class CostAnalyzer(SampleAnalyzer):
             result_df[col_name] = context_metrics.apply(
                 lambda m: m[f"tokens_wasted_{size_name}"]
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.INT,
-                "content_type": ContentType.NUMERIC,
-                "description": f"Unused tokens in {context_size} token context window",
-            }
 
-        return result_df, generated_schema
+        return result_df
 
     def compute_dataset_metrics(
         self,

@@ -25,7 +25,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
 
@@ -148,7 +148,7 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields for training quality metrics.
 
         This analyzer is role-aware:
@@ -163,7 +163,6 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -179,7 +178,7 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         # Find the role column
         role_column = None
@@ -217,42 +216,20 @@ class TrainingQualityAnalyzer(SampleAnalyzer):
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("response_completeness_score", None)
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.FLOAT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": (
-                        "Response completeness score (0.0 = incomplete, 1.0 = complete)"
-                    ),
-                }
 
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_proper_ending")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("has_proper_ending", None)
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": "Whether response has proper sentence ending",
-                }
 
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_structure")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("has_structure", None)
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": "Whether response has clear structure",
-                }
 
                 col_name = make_analyzer_column_name(column, analyzer_id, "response_word_count")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("response_word_count", None)
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": "Word count of response",
-                }
 
-        return result_df, generated_schema
+        return result_df

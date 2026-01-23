@@ -19,7 +19,7 @@
 # dataset_name: "OpenAssistant/oasst1" # Not used when dataset_path is set
 # split: "train" # Not used when dataset_path is set
 dataset_path: "/Users/ryanarman/data/openassistant/openassistant_oasst1.jsonl"
-sample_count: 100
+sample_count: 10
 output_path: /Users/ryanarman/code/oumi/analysis_output/openassistant
 
 analyzers:

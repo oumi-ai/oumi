@@ -32,7 +32,7 @@ from tqdm import tqdm
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
 
@@ -295,7 +295,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields using embedding-based diversity scoring.
 
         This method computes diversity scores for each sample based on their
@@ -314,7 +314,6 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
             - {col}_repr_diversity_percentile: Percentile rank of diversity score
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -330,7 +329,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         # Get analyzer ID for column naming
         analyzer_id = getattr(self, "analyzer_id", "repr_diversity")
@@ -436,35 +435,15 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
             # Add columns to result DataFrame
             col_name = make_analyzer_column_name(column, analyzer_id, "nn_distance")
             result_df[col_name] = all_nn_distances
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Distance to nearest neighbor in embedding space",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = all_diversity_scores
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Diversity score based on embedding distance (higher = more diverse)",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "is_redundant")
             result_df[col_name] = all_is_redundant
-            generated_schema[col_name] = {
-                "type": ColumnType.BOOL,
-                "content_type": ContentType.BOOLEAN,
-                "description": "Whether sample is redundant (too similar to others)",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "percentile")
             result_df[col_name] = all_percentiles
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Diversity percentile rank (0.0-100.0)",
-            }
 
             # Optionally store embeddings
             if self.store_embeddings:
@@ -473,11 +452,6 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                     all_embeddings[global_idx] = embeddings[local_idx].tolist()
                 col_name = f"{column}_{analyzer_id}_embedding"
                 result_df[col_name] = all_embeddings
-                generated_schema[col_name] = {
-                    "type": ColumnType.STRING,
-                    "content_type": ContentType.NUMERIC,
-                    "description": "Embedding vector as list of floats",
-                }
 
             # Store dataset-level metrics
             redundant_count = int(np.sum(is_redundant))
@@ -558,7 +532,7 @@ class ReprDiversityAnalyzer(SampleAnalyzer):
                 f"({redundant_count / len(texts_to_embed) * 100:.1f}%) are redundant"
             )
 
-        return result_df, generated_schema
+        return result_df
 
     def compute_dataset_metrics(
         self,

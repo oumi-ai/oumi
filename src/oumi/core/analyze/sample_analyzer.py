@@ -39,20 +39,19 @@ class SampleAnalyzer(ABC):
 
     def get_output_schema(
         self,
-        source_columns: list[str] | None = None,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
         analyzer_id: str | None = None,
     ) -> dict:
-        """Return the schema this analyzer will produce without running analysis.
+        """Return the schema this analyzer will produce.
 
-        This method allows users to see what metrics/columns an analyzer will
-        generate before actually running the analysis. This is useful for:
-        - Previewing available metrics when writing test configurations
-        - Documentation and discoverability
-        - Validating test configurations against expected output
+        This is the single source of truth for schema definitions.
 
         Args:
-            source_columns: Text columns that will be analyzed. If None,
-                uses DEFAULT_TEXT_COLUMNS: ['text_content', 'conversation_text_content']
+            df: DataFrame to analyze. Used to determine which columns exist.
+                If None, uses DEFAULT_TEXT_COLUMNS for preview purposes.
+            schema: Column schema dict to identify text columns.
+                If None, uses DEFAULT_TEXT_COLUMNS for preview purposes.
             analyzer_id: The analyzer ID used for column naming. If None,
                 uses the class's default or 'unknown'.
 
@@ -72,21 +71,15 @@ class SampleAnalyzer(ABC):
         self,
         df: pd.DataFrame,
         schema: dict | None = None,
-    ) -> tuple[pd.DataFrame, dict]:
-        """Analyze text fields and return analysis results.
-
-        This method performs analysis on the input DataFrame and returns
-        the DataFrame with added analysis columns along with schema information
-        for the generated columns. All analyzers must implement this method.
+    ) -> pd.DataFrame:
+        """Analyze text fields and return the DataFrame with analysis results.
 
         Args:
             df: Input DataFrame with text fields
             schema: Column schema dict to identify text fields
 
         Returns:
-            Tuple of (DataFrame with added analysis columns,
-            generated column schema dict).
-            The schema dict maps column names to their schema config with keys:
-            'type', 'content_type', 'description'.
+            DataFrame with added analysis columns.
+            Caller should call get_output_schema(df, schema) to get the schema.
         """
         pass

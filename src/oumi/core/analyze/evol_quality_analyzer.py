@@ -343,7 +343,7 @@ JSON ranking:"""
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze response quality using evolved variant ranking.
 
         Args:
@@ -358,7 +358,6 @@ JSON ranking:"""
             - {col}_evol_quality_improvement_potential: How much better it could be
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -372,7 +371,7 @@ JSON ranking:"""
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         analyzer_id = getattr(self, "analyzer_id", "evol_quality")
         role_column = self._find_role_column(df, schema)
@@ -458,27 +457,12 @@ JSON ranking:"""
             # Add columns to result DataFrame
             col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = all_scores
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Evol-Instruct quality score (0.0-1.0, higher = better quality)",
-            }
             
             col_name = make_analyzer_column_name(column, analyzer_id, "rank")
             result_df[col_name] = all_ranks
-            generated_schema[col_name] = {
-                "type": ColumnType.INT,
-                "content_type": ContentType.NUMERIC,
-                "description": f"Quality evolution rank (1-{self.num_evolutions}, lower = better)",
-            }
-            
+
             col_name = make_analyzer_column_name(column, analyzer_id, "improvement_potential")
             result_df[col_name] = all_improvement
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Potential for quality improvement (0.0-1.0, higher = more room to improve)",
-            }
 
             # Compute dataset-level metrics
             valid_scores = [s for s in all_scores if s is not None]
@@ -505,7 +489,7 @@ JSON ranking:"""
                     f"{self._dataset_metrics[column]['mean_quality_score']:.3f}"
                 )
 
-        return result_df, generated_schema
+        return result_df
 
     def compute_dataset_metrics(
         self,

@@ -55,24 +55,33 @@ class DiversityAnalyzer(SampleAnalyzer):
 
     def get_output_schema(
         self,
-        source_columns: list[str] | None = None,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
         analyzer_id: str | None = None,
     ) -> dict:
         """Return the schema this analyzer will produce."""
-        if source_columns is None:
-            source_columns = DEFAULT_TEXT_COLUMNS
         aid: str = analyzer_id or getattr(self, "analyzer_id", "diversity")
 
-        schema = {}
-        for column in source_columns:
+        # Determine text columns from schema + df, or use defaults
+        if schema is not None and df is not None:
+            text_columns = [
+                col
+                for col, config in schema.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
+        else:
+            text_columns = DEFAULT_TEXT_COLUMNS
+
+        output_schema = {}
+        for column in text_columns:
             if self.unique_words_ratio:
                 col_name = make_analyzer_column_name(column, aid, "unique_words_ratio")
-                schema[col_name] = {
+                output_schema[col_name] = {
                     "type": ColumnType.FLOAT,
                     "content_type": ContentType.NUMERIC,
                     "description": f"Unique words ratio for {column}",
                 }
-        return schema
+        return output_schema
 
     def _tokenize(self, text: str) -> list[str]:
         """Split text into words/tokens.
@@ -111,7 +120,7 @@ class DiversityAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields and return diversity metrics.
 
         Args:
@@ -119,8 +128,7 @@ class DiversityAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            Tuple of (DataFrame with added diversity analysis columns,
-            generated column schema dict).
+            DataFrame with added analysis columns.
         """
         result_df = df.copy()
 
@@ -138,7 +146,7 @@ class DiversityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, {}
+            return result_df
 
         analyzer_id = getattr(self, "analyzer_id", "diversity")
 
@@ -151,9 +159,4 @@ class DiversityAnalyzer(SampleAnalyzer):
                     df[column].astype(str).apply(self._compute_unique_words_ratio)
                 )
 
-        # Get schema from get_output_schema using actual columns analyzed
-        generated_schema = self.get_output_schema(
-            source_columns=text_columns, analyzer_id=analyzer_id
-        )
-
-        return result_df, generated_schema
+        return result_df

@@ -26,7 +26,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
 
@@ -327,7 +327,7 @@ class DifficultyAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields for difficulty estimation.
 
         Args:
@@ -339,7 +339,6 @@ class DifficultyAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -355,7 +354,7 @@ class DifficultyAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         # Find the role column if needed
         role_column = None
@@ -398,51 +397,26 @@ class DifficultyAnalyzer(SampleAnalyzer):
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("difficulty_score")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Difficulty score (0.0 = easy, 1.0 = hard)",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "tier")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("difficulty_tier")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.CATEGORICAL,
-                "description": "Difficulty tier category (easy/medium/hard/expert)",
-            }
 
             if self.include_component_scores:
                 col_name = make_analyzer_column_name(column, analyzer_id, "requires_reasoning")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("requires_reasoning")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": "Whether task requires reasoning",
-                }
 
                 col_name = make_analyzer_column_name(column, analyzer_id, "requires_domain_knowledge")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("requires_domain_knowledge")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": "Whether task requires domain knowledge",
-                }
 
                 col_name = make_analyzer_column_name(column, analyzer_id, "constraint_count")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("constraint_count")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": "Number of constraints in task",
-                }
 
-        return result_df, generated_schema
+        return result_df

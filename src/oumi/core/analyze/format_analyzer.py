@@ -108,19 +108,28 @@ class FormatAnalyzer(SampleAnalyzer):
 
     def get_output_schema(
         self,
-        source_columns: list[str] | None = None,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
         analyzer_id: str | None = None,
     ) -> dict:
         """Return the schema this analyzer will produce."""
-        if source_columns is None:
-            source_columns = DEFAULT_TEXT_COLUMNS
         aid: str = analyzer_id or getattr(self, "analyzer_id", "format")
 
-        schema = {}
-        for column in source_columns:
+        # Determine text columns from schema + df, or use defaults
+        if schema is not None and df is not None:
+            text_columns = [
+                col
+                for col, config in schema.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
+        else:
+            text_columns = DEFAULT_TEXT_COLUMNS
+
+        output_schema = {}
+        for column in text_columns:
             if self.detect_markdown:
                 col_name = make_analyzer_column_name(column, aid, "has_markdown")
-                schema[col_name] = {
+                output_schema[col_name] = {
                     "type": ColumnType.BOOL,
                     "content_type": ContentType.BOOLEAN,
                     "description": f"Whether {column} contains markdown",
@@ -128,7 +137,7 @@ class FormatAnalyzer(SampleAnalyzer):
 
             if self.detect_json:
                 col_name = make_analyzer_column_name(column, aid, "has_json")
-                schema[col_name] = {
+                output_schema[col_name] = {
                     "type": ColumnType.BOOL,
                     "content_type": ContentType.BOOLEAN,
                     "description": f"Whether {column} contains JSON",
@@ -136,21 +145,19 @@ class FormatAnalyzer(SampleAnalyzer):
 
             if self.detect_code_blocks:
                 col_name = make_analyzer_column_name(column, aid, "has_code_blocks")
-                schema[col_name] = {
+                output_schema[col_name] = {
                     "type": ColumnType.BOOL,
                     "content_type": ContentType.BOOLEAN,
                     "description": f"Whether {column} contains code blocks",
                 }
                 col_name = make_analyzer_column_name(column, aid, "code_block_count")
-                schema[col_name] = {
+                output_schema[col_name] = {
                     "type": ColumnType.INT,
                     "content_type": ContentType.NUMERIC,
                     "description": f"Number of code blocks in {column}",
                 }
-                col_name = make_analyzer_column_name(
-                    column, aid, "code_block_languages"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, aid, "code_block_languages")
+                output_schema[col_name] = {
                     "type": ColumnType.STRING,
                     "content_type": ContentType.LIST,
                     "description": "Comma-separated list of languages in code blocks",
@@ -158,7 +165,7 @@ class FormatAnalyzer(SampleAnalyzer):
 
             if self.detect_urls:
                 col_name = make_analyzer_column_name(column, aid, "has_urls")
-                schema[col_name] = {
+                output_schema[col_name] = {
                     "type": ColumnType.BOOL,
                     "content_type": ContentType.BOOLEAN,
                     "description": f"Whether {column} contains URLs",
@@ -166,23 +173,21 @@ class FormatAnalyzer(SampleAnalyzer):
 
             if self.detect_emails:
                 col_name = make_analyzer_column_name(column, aid, "has_emails")
-                schema[col_name] = {
+                output_schema[col_name] = {
                     "type": ColumnType.BOOL,
                     "content_type": ContentType.BOOLEAN,
                     "description": f"Whether {column} contains emails",
                 }
 
             if self.compute_complexity:
-                col_name = make_analyzer_column_name(
-                    column, aid, "format_complexity_score"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, aid, "format_complexity_score")
+                output_schema[col_name] = {
                     "type": ColumnType.FLOAT,
                     "content_type": ContentType.NUMERIC,
                     "description": f"Format complexity score for {column}",
                 }
 
-        return schema
+        return output_schema
 
     def _has_markdown(self, text: str) -> bool:
         """Check if text contains markdown formatting.
@@ -381,7 +386,7 @@ class FormatAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields and return format detection results.
 
         Args:
@@ -389,8 +394,7 @@ class FormatAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            Tuple of (DataFrame with added format analysis columns,
-            generated column schema dict).
+            DataFrame with added analysis columns.
         """
         result_df = df.copy()
 
@@ -408,46 +412,28 @@ class FormatAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, {}
+            return result_df
 
         analyzer_id = getattr(self, "analyzer_id", "format")
 
         for column in text_columns:
-            # Analyze all texts in the column
             analysis_results = df[column].astype(str).apply(self._analyze_text)
 
-            # Add columns for each detected feature
             if self.detect_markdown:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "has_markdown"
-                )
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r["has_markdown"]
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_markdown")
+                result_df[col_name] = analysis_results.apply(lambda r: r["has_markdown"])
 
             if self.detect_json:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_json")
                 result_df[col_name] = analysis_results.apply(lambda r: r["has_json"])
 
             if self.detect_code_blocks:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "has_code_blocks"
-                )
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r["has_code_blocks"]
-                )
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "code_block_count"
-                )
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r["code_block_count"]
-                )
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "code_block_languages"
-                )
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r["code_block_languages"]
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_code_blocks")
+                result_df[col_name] = analysis_results.apply(lambda r: r["has_code_blocks"])
+                col_name = make_analyzer_column_name(column, analyzer_id, "code_block_count")
+                result_df[col_name] = analysis_results.apply(lambda r: r["code_block_count"])
+                col_name = make_analyzer_column_name(column, analyzer_id, "code_block_languages")
+                result_df[col_name] = analysis_results.apply(lambda r: r["code_block_languages"])
 
             if self.detect_urls:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_urls")
@@ -458,16 +444,7 @@ class FormatAnalyzer(SampleAnalyzer):
                 result_df[col_name] = analysis_results.apply(lambda r: r["has_emails"])
 
             if self.compute_complexity:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "format_complexity_score"
-                )
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r["format_complexity_score"]
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "format_complexity_score")
+                result_df[col_name] = analysis_results.apply(lambda r: r["format_complexity_score"])
 
-        # Get schema from get_output_schema using actual columns analyzed
-        generated_schema = self.get_output_schema(
-            source_columns=text_columns, analyzer_id=analyzer_id
-        )
-
-        return result_df, generated_schema
+        return result_df

@@ -22,7 +22,7 @@ from tqdm import tqdm
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
 
@@ -147,6 +147,78 @@ class EmbeddingAnalyzer(SampleAnalyzer):
 
         # Lazy-load the model
         self._model = None
+
+    def get_output_schema(
+        self,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce."""
+        aid: str = analyzer_id or getattr(self, "analyzer_id", "embedding")
+
+        if schema is not None and df is not None:
+            text_columns = [
+                col
+                for col, config in schema.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
+        else:
+            text_columns = DEFAULT_TEXT_COLUMNS
+
+        output_schema = {}
+        for column in text_columns:
+            if self.detect_duplicates:
+                col_name = make_analyzer_column_name(column, aid, "duplicate_group")
+                output_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Semantic duplicate group ID",
+                }
+                col_name = make_analyzer_column_name(column, aid, "has_semantic_duplicate")
+                output_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether sample has semantic duplicates",
+                }
+
+            if self.detect_fuzzy_duplicates:
+                col_name = make_analyzer_column_name(column, aid, "fuzzy_duplicate_group")
+                output_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Fuzzy duplicate group ID",
+                }
+                col_name = make_analyzer_column_name(column, aid, "has_fuzzy_duplicate")
+                output_schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether sample has fuzzy duplicates",
+                }
+                col_name = make_analyzer_column_name(column, aid, "fuzzy_jaccard_score")
+                output_schema[col_name] = {
+                    "type": ColumnType.FLOAT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Jaccard similarity score for fuzzy matching",
+                }
+
+            if self.cluster_samples:
+                col_name = make_analyzer_column_name(column, aid, "cluster")
+                output_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": f"Cluster assignment using {self.clustering_method}",
+                }
+
+            if self.store_embeddings:
+                col_name = make_analyzer_column_name(column, aid, "embedding")
+                output_schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.LIST,
+                    "description": "Text embedding vector",
+                }
+
+        return output_schema
 
     def _check_dependencies(self) -> None:
         """Check if required dependencies are installed.
@@ -471,7 +543,7 @@ class EmbeddingAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields using embeddings for semantic analysis.
 
         Args:
@@ -479,11 +551,9 @@ class EmbeddingAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            Tuple of (DataFrame with added embedding analysis columns.
-            generated column schema dict).
+            DataFrame with added embedding analysis columns.
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -499,8 +569,7 @@ class EmbeddingAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            # No text columns to analyze in this DataFrame, return unchanged
-            return result_df, generated_schema
+            return result_df
 
         # Get analyzer ID for column naming
         analyzer_id = getattr(self, "analyzer_id", "embedding")
@@ -590,18 +659,6 @@ class EmbeddingAnalyzer(SampleAnalyzer):
                                 local_idx
                             ]
 
-                # Add schema entries for semantic duplicate detection
-                generated_schema[dup_group_col] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.CATEGORICAL,
-                    "description": "Semantic duplicate group ID (samples with same ID are duplicates)",
-                }
-                generated_schema[has_dup_col] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": "Whether sample has semantic duplicates",
-                }
-
             # Detect fuzzy (near) duplicates using MinHash
             if self.detect_fuzzy_duplicates:
                 fuzzy_group_col = make_analyzer_column_name(
@@ -677,43 +734,15 @@ class EmbeddingAnalyzer(SampleAnalyzer):
                             ]
 
                 # Add schema entries for fuzzy duplicate detection
-                generated_schema[fuzzy_group_col] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.CATEGORICAL,
-                    "description": "Fuzzy duplicate group ID (samples with same ID are near-duplicates)",
-                }
-                generated_schema[has_fuzzy_col] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": "Whether sample has fuzzy duplicates",
-                }
-                generated_schema[jaccard_col] = {
-                    "type": ColumnType.FLOAT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": "Jaccard similarity score for fuzzy matching (0.0-1.0)",
-                }
-
             # Cluster samples
             if self.cluster_samples:
                 logger.info(f"Clustering samples using {self.clustering_method}...")
                 cluster_labels = self._cluster_embeddings(embeddings)
                 col_name = make_analyzer_column_name(column, analyzer_id, "cluster")
                 result_df[col_name] = cluster_labels
-                generated_schema[col_name] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.CATEGORICAL,
-                    "description": f"Cluster assignment using {self.clustering_method}",
-                }
 
-            # Optionally store embeddings (can be large)
             if self.store_embeddings:
-                # Store as list per row (not ideal for large datasets)
                 col_name = make_analyzer_column_name(column, analyzer_id, "embedding")
                 result_df[col_name] = [emb.tolist() for emb in embeddings]
-                generated_schema[col_name] = {
-                    "type": ColumnType.STRING,  # Stored as JSON string
-                    "content_type": ContentType.LIST,
-                    "description": "Text embedding vector",
-                }
 
-        return result_df, generated_schema
+        return result_df

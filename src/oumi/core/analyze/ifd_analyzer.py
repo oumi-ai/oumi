@@ -30,7 +30,7 @@ import torch
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
 
@@ -370,7 +370,7 @@ class IFDAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         analyzer_id: str,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze DataFrame in conversation format.
 
         For each assistant message, pairs it with the preceding user message(s)
@@ -385,7 +385,6 @@ class IFDAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         # IFD analyzes the text_content column, so prefix with that for consistency
         base_column = "text_content"
@@ -404,36 +403,16 @@ class IFDAnalyzer(SampleAnalyzer):
 
         # Add schema entries for IFD columns
         col_name = make_analyzer_column_name(base_column, analyzer_id, "score")
-        generated_schema[col_name] = {
-            "type": ColumnType.FLOAT,
-            "content_type": ContentType.NUMERIC,
-            "description": "Instruction-following difficulty score (higher = more difficult)",
-        }
         
         col_name = make_analyzer_column_name(
             base_column, analyzer_id, "ppl_with_instruction"
         )
-        generated_schema[col_name] = {
-            "type": ColumnType.FLOAT,
-            "content_type": ContentType.NUMERIC,
-            "description": "Perplexity when instruction is provided",
-        }
         
         col_name = make_analyzer_column_name(
             base_column, analyzer_id, "ppl_without_instruction"
         )
-        generated_schema[col_name] = {
-            "type": ColumnType.FLOAT,
-            "content_type": ContentType.NUMERIC,
-            "description": "Perplexity without instruction context",
-        }
         
         col_name = make_analyzer_column_name(base_column, analyzer_id, "response_loss")
-        generated_schema[col_name] = {
-            "type": ColumnType.FLOAT,
-            "content_type": ContentType.NUMERIC,
-            "description": "Response generation loss value",
-        }
 
         # Group by conversation
         conv_col = "conversation_index" if "conversation_index" in df.columns else None
@@ -523,7 +502,7 @@ class IFDAnalyzer(SampleAnalyzer):
             f"out of {total_assistant_msgs} total."
         )
 
-        return result_df, generated_schema
+        return result_df
 
     def _analyze_flat_format(
         self,
@@ -531,7 +510,7 @@ class IFDAnalyzer(SampleAnalyzer):
         instruction_col: str,
         response_col: str,
         analyzer_id: str,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze DataFrame in flat instruction-response format.
 
         Args:
@@ -545,7 +524,6 @@ class IFDAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
         results = []
 
         for idx in range(len(df)):
@@ -573,45 +551,25 @@ class IFDAnalyzer(SampleAnalyzer):
         # Prefix with response column for consistency with other analyzers
         col_name = make_analyzer_column_name(response_col, analyzer_id, "score")
         result_df[col_name] = [r["ifd_score"] for r in results]
-        generated_schema[col_name] = {
-            "type": ColumnType.FLOAT,
-            "content_type": ContentType.NUMERIC,
-            "description": "Instruction-following difficulty score (higher = more difficult)",
-        }
 
         col_name = make_analyzer_column_name(response_col, analyzer_id, "ppl_with_instruction")
         result_df[col_name] = [r["ppl_with_instruction"] for r in results]
-        generated_schema[col_name] = {
-            "type": ColumnType.FLOAT,
-            "content_type": ContentType.NUMERIC,
-            "description": "Perplexity when instruction is provided",
-        }
 
         col_name = make_analyzer_column_name(
             response_col, analyzer_id, "ppl_without_instruction"
         )
         result_df[col_name] = [r["ppl_without_instruction"] for r in results]
-        generated_schema[col_name] = {
-            "type": ColumnType.FLOAT,
-            "content_type": ContentType.NUMERIC,
-            "description": "Perplexity without instruction context",
-        }
 
         col_name = make_analyzer_column_name(response_col, analyzer_id, "response_loss")
         result_df[col_name] = [r["response_loss"] for r in results]
-        generated_schema[col_name] = {
-            "type": ColumnType.FLOAT,
-            "content_type": ContentType.NUMERIC,
-            "description": "Response generation loss value",
-        }
 
-        return result_df, generated_schema
+        return result_df
 
     def analyze_sample(
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze instruction-response pairs for IFD scores.
 
         This analyzer supports two data formats:
@@ -632,7 +590,6 @@ class IFDAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
         analyzer_id = getattr(self, "analyzer_id", "ifd")
 
         # Load model
@@ -659,7 +616,7 @@ class IFDAnalyzer(SampleAnalyzer):
                 "For conversation format, ensure 'text_content' and 'role' exist. "
                 f"Available columns: {list(df.columns)}"
             )
-            return result_df, generated_schema
+            return result_df
 
         logger.info(
             f"Computing IFD scores using instruction='{instruction_col}', "
@@ -680,4 +637,4 @@ class IFDAnalyzer(SampleAnalyzer):
                 f"Min: {min(ifd_scores):.3f}, Max: {max(ifd_scores):.3f}"
             )
 
-        return result_df, generated_schema
+        return result_df

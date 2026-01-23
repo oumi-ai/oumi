@@ -189,84 +189,68 @@ class FastTextAnalyzer(SampleAnalyzer):
 
     def get_output_schema(
         self,
-        source_columns: list[str] | None = None,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
         analyzer_id: str | None = None,
     ) -> dict:
-        """Return the schema this analyzer will produce.
+        """Return the schema this analyzer will produce."""
+        aid: str = analyzer_id or getattr(self, "analyzer_id", "fasttext")
 
-        Args:
-            source_columns: Text columns that will be analyzed. If None,
-                uses DEFAULT_TEXT_COLUMNS.
-            analyzer_id: The analyzer ID for column naming. Defaults to "fasttext".
+        # Determine text columns from schema + df, or use defaults
+        if schema is not None and df is not None:
+            text_columns = [
+                col
+                for col, config in schema.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
+        else:
+            text_columns = DEFAULT_TEXT_COLUMNS
 
-        Returns:
-            Schema dict mapping column names to their type/description.
-        """
-        if source_columns is None:
-            source_columns = DEFAULT_TEXT_COLUMNS
-        if analyzer_id is None:
-            analyzer_id = getattr(self, "analyzer_id", "fasttext")
-
-        schema = {}
-        for column in source_columns:
+        output_schema = {}
+        for column in text_columns:
             if self.detect_language:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "detected_language"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, aid, "detected_language")
+                output_schema[col_name] = {
                     "type": ColumnType.STRING,
                     "content_type": ContentType.CATEGORICAL,
                     "description": "ISO 639-1 language code detected",
                 }
-
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "language_confidence"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, aid, "language_confidence")
+                output_schema[col_name] = {
                     "type": ColumnType.FLOAT,
                     "content_type": ContentType.NUMERIC,
                     "description": "Confidence score for language detection (0.0-1.0)",
                 }
-
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "language_name"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, aid, "language_name")
+                output_schema[col_name] = {
                     "type": ColumnType.STRING,
                     "content_type": ContentType.CATEGORICAL,
                     "description": "Full language name",
                 }
-
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "low_confidence"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, aid, "low_confidence")
+                output_schema[col_name] = {
                     "type": ColumnType.BOOL,
                     "content_type": ContentType.BOOLEAN,
                     "description": "Whether language detection confidence is low",
                 }
 
             if self.detect_script:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "detected_script"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, aid, "detected_script")
+                output_schema[col_name] = {
                     "type": ColumnType.STRING,
                     "content_type": ContentType.CATEGORICAL,
                     "description": "Detected script/writing system",
                 }
 
             if self.detect_multilingual:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "is_multilingual"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, aid, "is_multilingual")
+                output_schema[col_name] = {
                     "type": ColumnType.BOOL,
                     "content_type": ContentType.BOOLEAN,
                     "description": "Whether text contains multiple languages",
                 }
 
-        return schema
+        return output_schema
 
     def _check_dependencies(self) -> None:
         """Check if required dependencies are installed."""
@@ -500,7 +484,7 @@ class FastTextAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: dict | None = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields for language and script detection.
 
         Args:
@@ -508,8 +492,7 @@ class FastTextAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            Tuple of (DataFrame with added language analysis columns.
-            generated column schema dict).
+            DataFrame with added analysis columns.
         """
         result_df = df.copy()
 
@@ -527,9 +510,8 @@ class FastTextAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, {}
+            return result_df
 
-        # Initialize detector
         self._init_detector()
 
         analyzer_id = getattr(self, "analyzer_id", "fasttext")
@@ -537,58 +519,27 @@ class FastTextAnalyzer(SampleAnalyzer):
         for column in text_columns:
             logger.info(f"Analyzing language for column: {column}")
 
-            # Analyze each text
             analysis_results = df[column].astype(str).apply(self._analyze_text)
 
-            # Extract results into columns
             if self.detect_language:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "detected_language"
-                )
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("detected_language")
-                )
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "language_confidence"
-                )
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("language_confidence")
-                )
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "language_name"
-                )
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("language_name")
-                )
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "low_confidence"
-                )
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("low_confidence")
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "detected_language")
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("detected_language"))
+                col_name = make_analyzer_column_name(column, analyzer_id, "language_confidence")
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("language_confidence"))
+                col_name = make_analyzer_column_name(column, analyzer_id, "language_name")
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("language_name"))
+                col_name = make_analyzer_column_name(column, analyzer_id, "low_confidence")
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("low_confidence"))
 
             if self.detect_script:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "detected_script"
-                )
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("detected_script")
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "detected_script")
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("detected_script"))
 
             if self.detect_multilingual:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "is_multilingual"
-                )
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("is_multilingual")
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "is_multilingual")
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("is_multilingual"))
 
-        # Get schema from get_output_schema using actual columns analyzed
-        generated_schema = self.get_output_schema(
-            source_columns=text_columns, analyzer_id=analyzer_id
-        )
-
-        return result_df, generated_schema
+        return result_df
 
     def compute_dataset_metrics(
         self,

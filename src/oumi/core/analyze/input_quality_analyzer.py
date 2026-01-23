@@ -26,7 +26,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
 
@@ -322,7 +322,7 @@ class InputQualityAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields for input quality metrics.
 
         Args:
@@ -334,7 +334,6 @@ class InputQualityAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -350,7 +349,7 @@ class InputQualityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         # Find the role column if needed
         role_column = None
@@ -391,49 +390,24 @@ class InputQualityAnalyzer(SampleAnalyzer):
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("input_quality_tier")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.CATEGORICAL,
-                "description": "Input quality tier (very_poor/poor/fair/good/excellent)",
-            }
             
             col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("input_quality_score")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Input quality score (0.0-1.0)",
-            }
 
             if self.include_component_flags:
                 col_name = make_analyzer_column_name(column, analyzer_id, "is_ambiguous")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("is_ambiguous")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": "Whether input is ambiguous",
-                }
                 
                 col_name = make_analyzer_column_name(column, analyzer_id, "is_answerable")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("is_answerable")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": "Whether input is answerable",
-                }
                 
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_sufficient_context")
                 result_df[col_name] = analysis_results.apply(lambda r: r.get("has_sufficient_context"))
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": "Whether input has sufficient context",
-                }
 
-        return result_df, generated_schema
+        return result_df

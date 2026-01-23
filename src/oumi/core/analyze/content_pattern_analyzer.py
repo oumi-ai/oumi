@@ -169,59 +169,49 @@ class ContentPatternAnalyzer(SampleAnalyzer):
 
     def get_output_schema(
         self,
-        source_columns: list[str] | None = None,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
         analyzer_id: str | None = None,
     ) -> dict:
-        """Return the schema this analyzer will produce.
-
-        Args:
-            source_columns: Text columns that will be analyzed. If None,
-                uses DEFAULT_TEXT_COLUMNS.
-            analyzer_id: The analyzer ID for column naming. Defaults to "content_pattern".
-
-        Returns:
-            Schema dict mapping column names to their type/description.
-        """
-        if source_columns is None:
-            source_columns = DEFAULT_TEXT_COLUMNS
+        """Return the schema this analyzer will produce."""
         if analyzer_id is None:
             analyzer_id = getattr(self, "analyzer_id", "content_pattern")
 
-        schema = {}
-        for column in source_columns:
+        # Determine text columns from schema + df, or use defaults
+        if schema is not None and df is not None:
+            text_columns = [
+                col
+                for col, config in schema.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
+        else:
+            text_columns = DEFAULT_TEXT_COLUMNS
+
+        output_schema = {}
+        for column in text_columns:
             if self.detect_placeholders:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "has_placeholder"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_placeholder")
+                output_schema[col_name] = {
                     "type": ColumnType.BOOL,
                     "content_type": ContentType.BOOLEAN,
                     "description": "Whether text contains placeholder patterns",
                 }
-
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "placeholder_count"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, analyzer_id, "placeholder_count")
+                output_schema[col_name] = {
                     "type": ColumnType.INT,
                     "content_type": ContentType.NUMERIC,
                     "description": "Number of placeholder patterns detected",
                 }
-
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "placeholder_types"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, analyzer_id, "placeholder_types")
+                output_schema[col_name] = {
                     "type": ColumnType.STRING,
                     "content_type": ContentType.LIST,
                     "description": "Comma-separated list of placeholder types detected",
                 }
 
             if self.detect_hallucinated_experiences:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "has_hallucinated_experience"
-                )
-                schema[col_name] = {
+                col_name = make_analyzer_column_name(column, analyzer_id, "has_hallucinated_experience")
+                output_schema[col_name] = {
                     "type": ColumnType.BOOL,
                     "content_type": ContentType.BOOLEAN,
                     "description": "Whether text contains hallucinated personal experience",
@@ -229,7 +219,7 @@ class ContentPatternAnalyzer(SampleAnalyzer):
 
             if self.detect_nooutput:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_nooutput")
-                schema[col_name] = {
+                output_schema[col_name] = {
                     "type": ColumnType.BOOL,
                     "content_type": ContentType.BOOLEAN,
                     "description": "Whether response indicates no output/empty response",
@@ -237,13 +227,13 @@ class ContentPatternAnalyzer(SampleAnalyzer):
 
             if self.detect_refusals:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_refusal")
-                schema[col_name] = {
+                output_schema[col_name] = {
                     "type": ColumnType.BOOL,
                     "content_type": ContentType.BOOLEAN,
                     "description": "Whether response contains a refusal pattern",
                 }
 
-        return schema
+        return output_schema
 
     def _detect_placeholders(self, text: str) -> dict[str, Any]:
         """Detect placeholder text in content.
@@ -366,7 +356,7 @@ class ContentPatternAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields for content pattern issues.
 
         Args:
@@ -374,8 +364,7 @@ class ContentPatternAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields.
 
         Returns:
-            Tuple of (DataFrame with added content pattern analysis columns.
-            generated column schema dict).
+            DataFrame with added content pattern analysis columns.
         """
         result_df = df.copy()
 
@@ -393,9 +382,8 @@ class ContentPatternAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, {}
+            return result_df
 
-        # Find the role column if we need to filter by role
         role_column = None
         if self.check_output_only:
             for col, config in schema.items():
@@ -410,9 +398,7 @@ class ContentPatternAnalyzer(SampleAnalyzer):
         analyzer_id = getattr(self, "analyzer_id", "content_pattern")
 
         for column in text_columns:
-            # Analyze all texts in the column
             if self.check_output_only and role_column is not None:
-                # Only analyze assistant/output messages
                 analysis_results = df.apply(
                     lambda row: (
                         self._analyze_text(str(row[column]))
@@ -422,45 +408,26 @@ class ContentPatternAnalyzer(SampleAnalyzer):
                     axis=1,
                 )
             else:
-                # Analyze all messages
                 analysis_results = df[column].astype(str).apply(self._analyze_text)
 
-            # Add columns for each metric
             if self.detect_placeholders:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_placeholder")
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("has_placeholder", None)
-                )
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("has_placeholder", None))
                 col_name = make_analyzer_column_name(column, analyzer_id, "placeholder_count")
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("placeholder_count", None)
-                )
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("placeholder_count", None))
                 col_name = make_analyzer_column_name(column, analyzer_id, "placeholder_types")
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("placeholder_types", None)
-                )
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("placeholder_types", None))
 
             if self.detect_hallucinated_experiences:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_hallucinated_experience")
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("has_hallucinated_experience", None)
-                )
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("has_hallucinated_experience", None))
 
             if self.detect_nooutput:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_nooutput")
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("has_nooutput", None)
-                )
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("has_nooutput", None))
 
             if self.detect_refusals:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_refusal")
-                result_df[col_name] = analysis_results.apply(
-                    lambda r: r.get("has_refusal", None)
-                )
+                result_df[col_name] = analysis_results.apply(lambda r: r.get("has_refusal", None))
 
-        # Get schema from get_output_schema using actual columns analyzed
-        generated_schema = self.get_output_schema(
-            source_columns=text_columns, analyzer_id=analyzer_id
-        )
-
-        return result_df, generated_schema
+        return result_df

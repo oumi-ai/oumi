@@ -67,13 +67,15 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
 
     def get_output_schema(
         self,
-        source_columns: list[str] | None = None,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
         analyzer_id: str | None = None,
     ) -> dict:
         """Return the schema this analyzer will produce.
 
         Args:
-            source_columns: Not used - this analyzer produces conversation-level metrics.
+            df: Not used - this analyzer produces conversation-level metrics.
+            schema: Not used - this analyzer produces conversation-level metrics.
             analyzer_id: The analyzer ID for column naming. Defaults to "conversation_structure".
 
         Returns:
@@ -230,7 +232,7 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze conversation structure.
 
         This analyzer works at the conversation level, not message level.
@@ -242,8 +244,7 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             schema: Column schema dict.
 
         Returns:
-            Tuple of (DataFrame with added conversation structure columns.
-            generated column schema dict).
+            DataFrame with added conversation structure columns.
         """
         result_df = df.copy()
         analyzer_id = getattr(self, "analyzer_id", "conversation_structure")
@@ -253,33 +254,15 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
         if "conversation_id" not in df.columns:
             # If no conversation_id, treat each row as its own conversation
             # This handles flat instruction-response format
-            result_df[
-                make_analyzer_column_name(source_col, analyzer_id, "turn_count")
-            ] = 2  # instruction + response
-            result_df[
-                make_analyzer_column_name(source_col, analyzer_id, "user_turn_count")
-            ] = 1
-            result_df[
-                make_analyzer_column_name(source_col, analyzer_id, "assistant_turn_count")
-            ] = 1
-            result_df[
-                make_analyzer_column_name(source_col, analyzer_id, "is_single_turn")
-            ] = True
-            result_df[
-                make_analyzer_column_name(source_col, analyzer_id, "is_multi_turn")
-            ] = False
-            result_df[
-                make_analyzer_column_name(source_col, analyzer_id, "conversation_depth")
-            ] = 1
-            result_df[
-                make_analyzer_column_name(source_col, analyzer_id, "role_balance")
-            ] = 0.5
-            result_df[
-                make_analyzer_column_name(source_col, analyzer_id, "has_system_prompt")
-            ] = False
-
-            # Get schema from get_output_schema
-            return result_df, self.get_output_schema(analyzer_id=analyzer_id)
+            result_df[make_analyzer_column_name(source_col, analyzer_id, "turn_count")] = 2
+            result_df[make_analyzer_column_name(source_col, analyzer_id, "user_turn_count")] = 1
+            result_df[make_analyzer_column_name(source_col, analyzer_id, "assistant_turn_count")] = 1
+            result_df[make_analyzer_column_name(source_col, analyzer_id, "is_single_turn")] = True
+            result_df[make_analyzer_column_name(source_col, analyzer_id, "is_multi_turn")] = False
+            result_df[make_analyzer_column_name(source_col, analyzer_id, "conversation_depth")] = 1
+            result_df[make_analyzer_column_name(source_col, analyzer_id, "role_balance")] = 0.5
+            result_df[make_analyzer_column_name(source_col, analyzer_id, "has_system_prompt")] = False
+            return result_df
 
         # Find role and content columns
         role_column = None
@@ -308,8 +291,7 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             content_column = "content"
 
         if role_column is None or content_column is None:
-            # Cannot analyze without role and content
-            return result_df, {}
+            return result_df
 
         # Build conversation metrics
         conv_metrics = {}
@@ -346,5 +328,4 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
                 lambda cid: conv_metrics.get(cid, {}).get("turn_length_variance")
             )
 
-        # Get schema from get_output_schema
-        return result_df, self.get_output_schema(analyzer_id=analyzer_id)
+        return result_df

@@ -158,10 +158,17 @@ class DataFrameAnalyzer:
                 # Track columns before analyzer runs
                 cols_before = set(result_df.columns)
 
-                # Run the analyzer - it returns both the DataFrame and generated schema
-                result_df, generated_schema = analyzer.analyze_sample(
+                # Run the analyzer - returns DataFrame with added columns
+                result_df = analyzer.analyze_sample(
                     result_df,
                     schema=input_data.schema,
+                )
+
+                # Get schema from analyzer's get_output_schema method
+                generated_schema = analyzer.get_output_schema(
+                    df=result_df,
+                    schema=input_data.schema,
+                    analyzer_id=analyzer_id,
                 )
 
                 # Validate: all new columns must have schema entries
@@ -173,7 +180,8 @@ class DataFrameAnalyzer:
                     error_msg = (
                         f"Analyzer '{analyzer_id}' created {len(missing_schema)} columns "
                         f"without schema entries: {sorted(missing_schema)}\n"
-                        f"All analyzer-generated columns must have entries in generated_schema."
+                        f"All analyzer-generated columns must have entries in "
+                        f"get_output_schema()."
                     )
                     logger.error(error_msg)
                     raise ValueError(error_msg)

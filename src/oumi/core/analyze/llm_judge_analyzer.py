@@ -22,7 +22,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
 
@@ -743,11 +743,58 @@ JSON response:""",
 
         return results
 
+    def get_output_schema(
+        self,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce."""
+        aid: str = analyzer_id or getattr(self, "analyzer_id", "llm_judge")
+
+        if schema is not None and df is not None:
+            text_columns = [
+                col
+                for col, config in schema.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
+        else:
+            text_columns = DEFAULT_TEXT_COLUMNS
+
+        output_schema = {}
+        for column in text_columns:
+            col_name = make_analyzer_column_name(column, aid, "score")
+            output_schema[col_name] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "LLM judge score (0-10, higher = better quality)",
+            }
+            col_name = make_analyzer_column_name(column, aid, "label")
+            output_schema[col_name] = {
+                "type": ColumnType.STRING,
+                "content_type": ContentType.CATEGORICAL,
+                "description": "LLM judge label/category for the sample",
+            }
+            col_name = make_analyzer_column_name(column, aid, "reasoning")
+            output_schema[col_name] = {
+                "type": ColumnType.STRING,
+                "content_type": ContentType.TEXT,
+                "description": "LLM judge reasoning/explanation",
+            }
+            col_name = make_analyzer_column_name(column, aid, "raw_response")
+            output_schema[col_name] = {
+                "type": ColumnType.STRING,
+                "content_type": ContentType.TEXT,
+                "description": "Raw LLM response before parsing",
+            }
+
+        return output_schema
+
     def analyze_sample(
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields using LLM evaluation.
 
         Args:
@@ -755,11 +802,9 @@ JSON response:""",
             schema: Column schema dict to identify text fields.
 
         Returns:
-            Tuple of (DataFrame with added LLM judge columns.
-            generated column schema dict).
+            DataFrame with added LLM judge columns.
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -781,14 +826,14 @@ JSON response:""",
                 f"Skipping message-level analysis (analyze_message_level=False). "
                 f"Set analyze_message_level=True to enable."
             )
-            return result_df, generated_schema
+            return result_df
 
         if is_conversation_level and not self.analyze_conversation_level:
             logger.info(
                 f"Skipping conversation-level analysis (analyze_conversation_level=False). "
                 f"Set analyze_conversation_level=True to enable."
             )
-            return result_df, generated_schema
+            return result_df
 
         text_columns = [
             col
@@ -797,7 +842,7 @@ JSON response:""",
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         analyzer_id = getattr(self, "analyzer_id", "llm_judge")
 
@@ -853,39 +898,17 @@ JSON response:""",
                 for idx, result in zip(indices_to_evaluate, evaluated_results):
                     all_results[idx] = result
 
-            # Add columns with schema (None for filtered-out rows)
+            # Add columns (None for filtered-out rows)
             col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = [r["score"] if r else None for r in all_results]
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "LLM judge score (0-10, higher = better quality)",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "label")
             result_df[col_name] = [r["label"] if r else None for r in all_results]
-            generated_schema[col_name] = {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.CATEGORICAL,
-                "description": "LLM judge label/category for the sample",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "reasoning")
             result_df[col_name] = [r["reasoning"] if r else None for r in all_results]
-            generated_schema[col_name] = {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.TEXT,
-                "description": "LLM judge reasoning/explanation",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "raw_response")
-            result_df[col_name] = [
-                r["raw_response"] if r else None for r in all_results
-            ]
-            generated_schema[col_name] = {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.TEXT,
-                "description": "Raw LLM response before parsing",
-            }
+            result_df[col_name] = [r["raw_response"] if r else None for r in all_results]
 
-        return result_df, generated_schema
+        return result_df

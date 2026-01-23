@@ -25,7 +25,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
 
@@ -295,7 +295,7 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields for response completeness.
 
         Args:
@@ -307,7 +307,6 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -323,7 +322,7 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         # Find the role column if needed
         role_column = None
@@ -362,51 +361,26 @@ class ResponseCompletenessAnalyzer(SampleAnalyzer):
             # Extract results to columns
             col_name = make_analyzer_column_name(column, analyzer_id, "is_complete")
             result_df[col_name] = analysis_results.apply(lambda r: r.get("is_complete"))
-            generated_schema[col_name] = {
-                "type": ColumnType.BOOL,
-                "content_type": ContentType.BOOLEAN,
-                "description": "Whether response appears complete",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("completeness_score")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Completeness score (0.0 = incomplete, 1.0 = complete)",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "ends_naturally")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("ends_naturally")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.BOOL,
-                "content_type": ContentType.BOOLEAN,
-                "description": "Whether response ends naturally",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "has_conclusion")
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("has_conclusion")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.BOOL,
-                "content_type": ContentType.BOOLEAN,
-                "description": "Whether response has a conclusion",
-            }
 
             if self.include_truncation_type:
                 col_name = make_analyzer_column_name(column, analyzer_id, "truncation_type")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("truncation_type")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.STRING,
-                    "content_type": ContentType.CATEGORICAL,
-                    "description": "Type of truncation detected (if any)",
-                }
 
-        return result_df, generated_schema
+        return result_df

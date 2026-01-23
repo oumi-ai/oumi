@@ -80,34 +80,43 @@ class LengthAnalyzer(SampleAnalyzer):
 
     def get_output_schema(
         self,
-        source_columns: list[str] | None = None,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
         analyzer_id: str | None = None,
     ) -> dict:
         """Return the schema this analyzer will produce.
 
         Args:
-            source_columns: Text columns that will be analyzed. If None,
-                uses DEFAULT_TEXT_COLUMNS.
+            df: DataFrame to check which columns exist. If None, uses defaults.
+            schema: Column schema to identify text columns. If None, uses defaults.
             analyzer_id: The analyzer ID for column naming. Defaults to "length".
 
         Returns:
             Schema dict mapping column names to their type/description.
         """
-        if source_columns is None:
-            source_columns = DEFAULT_TEXT_COLUMNS
         if analyzer_id is None:
             analyzer_id = getattr(self, "analyzer_id", "length")
 
-        schema = {}
-        for column in source_columns:
+        # Determine text columns from schema + df, or use defaults
+        if schema is not None and df is not None:
+            text_columns = [
+                col
+                for col, config in schema.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
+        else:
+            text_columns = DEFAULT_TEXT_COLUMNS
+
+        output_schema = {}
+        for column in text_columns:
             if self.token_count:
                 col_name = make_analyzer_column_name(column, analyzer_id, "token_count")
-                schema[col_name] = {
+                output_schema[col_name] = {
                     "type": ColumnType.INT,
                     "content_type": ContentType.NUMERIC,
                     "description": f"Token count for {column}",
                 }
-        return schema
+        return output_schema
 
     def _init_tiktoken_encoder(self) -> None:
         """Initialize the tiktoken encoder."""
@@ -133,7 +142,7 @@ class LengthAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: dict | None = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields and return metrics.
 
         Args:
@@ -141,8 +150,7 @@ class LengthAnalyzer(SampleAnalyzer):
             schema: Column schema dict to identify text fields
 
         Returns:
-            Tuple of (DataFrame with added field-level analysis columns,
-            generated column schema dict)
+            DataFrame with added analysis columns.
         """
         result_df = df.copy()
 
@@ -160,19 +168,15 @@ class LengthAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            # No text fields in this DataFrame - this is expected for some DataFrames
-            # (e.g., conversation-level DataFrames). Return unchanged.
-            return result_df, {}
+            return result_df
 
-        # Get analyzer ID for column naming (defaults to "length")
         analyzer_id = getattr(self, "analyzer_id", "length")
 
         for column in text_columns:
             if self.token_count:
                 col_name = make_analyzer_column_name(column, analyzer_id, "token_count")
                 if self.tokenizer is not None:
-                    # Use HuggingFace tokenizer (takes precedence)
-                    tokenizer = self.tokenizer  # Type assertion for pyright
+                    tokenizer = self.tokenizer
                     result_df[col_name] = (
                         df[column]
                         .astype(str)
@@ -185,14 +189,8 @@ class LengthAnalyzer(SampleAnalyzer):
                         )
                     )
                 elif self._tiktoken_encoder is not None:
-                    # Use tiktoken encoder
                     result_df[col_name] = (
                         df[column].astype(str).apply(self._count_tokens_tiktoken)
                     )
 
-        # Get schema from get_output_schema using actual columns analyzed
-        generated_schema = self.get_output_schema(
-            source_columns=text_columns, analyzer_id=analyzer_id
-        )
-
-        return result_df, generated_schema
+        return result_df

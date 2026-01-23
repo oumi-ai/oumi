@@ -521,7 +521,6 @@ def _display_metrics_from_config(config: Any) -> None:
     Args:
         config: The AnalyzeConfig object with analyzer configurations.
     """
-    from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS
     from oumi.core.registry import REGISTRY
 
     cli_utils.CONSOLE.print(
@@ -584,10 +583,11 @@ def _display_metrics_from_config(config: Any) -> None:
                 except Exception:
                     continue
 
-            # Get output schema
+            # Get output schema (preview mode: df=None, schema=None uses defaults)
             if hasattr(analyzer, "get_output_schema"):
                 schema = analyzer.get_output_schema(
-                    source_columns=DEFAULT_TEXT_COLUMNS,
+                    df=None,
+                    schema=None,
                     analyzer_id=analyzer_id,
                 )
 

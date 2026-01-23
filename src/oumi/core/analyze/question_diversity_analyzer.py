@@ -31,7 +31,7 @@ from tqdm import tqdm
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
 
@@ -378,37 +378,64 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
         else:
             return "high"
 
+    def get_output_schema(
+        self,
+        df: pd.DataFrame | None = None,
+        schema: dict | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce."""
+        aid: str = analyzer_id or getattr(self, "analyzer_id", "question_diversity")
+
+        if schema is not None and df is not None:
+            text_columns = [
+                col
+                for col, config in schema.items()
+                if config.get("content_type") == ContentType.TEXT and col in df.columns
+            ]
+        else:
+            text_columns = DEFAULT_TEXT_COLUMNS
+
+        output_schema = {}
+        for column in text_columns:
+            if self.cluster_questions:
+                col_name = make_analyzer_column_name(column, aid, "cluster_id")
+                output_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Question cluster ID (-1 = unique/diverse)",
+                }
+                col_name = make_analyzer_column_name(column, aid, "cluster_size")
+                output_schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Number of questions in same cluster",
+                }
+                if self.flag_concentrated_clusters:
+                    col_name = make_analyzer_column_name(column, aid, "is_concentrated")
+                    output_schema[col_name] = {
+                        "type": ColumnType.BOOL,
+                        "content_type": ContentType.BOOLEAN,
+                        "description": "Whether question is in concentrated cluster",
+                    }
+
+        return output_schema
+
     def analyze_sample(
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze question diversity in the dataset.
-
-        This analyzer focuses on user messages (questions) to measure
-        how diverse the questions are across the dataset.
-
-        Note: Only user messages (role="user") are analyzed. System prompts
-        and assistant responses are ignored.
 
         Args:
             df: Input DataFrame with text fields.
             schema: Column schema dict to identify text and role fields.
 
         Returns:
-            Tuple of (DataFrame with added question diversity columns:
-            - question_cluster_id: Which cluster this question belongs to
-              For DBSCAN clustering, -1 indicates "noise" points - questions
-              that are unique/diverse and don't match any cluster.
-            generated column schema dict). This is
-              a positive indicator of diversity, not an error.
-            - question_cluster_size: Number of questions in same cluster
-            - is_in_concentrated_cluster: True if in a cluster with >threshold samples
-              Note: Noise points (cluster_id=-1) are flagged as NOT concentrated
-              because they represent unique, diverse questions.
+            DataFrame with added question diversity columns.
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -424,7 +451,7 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         # Find role column to filter for user messages
         role_column = None
@@ -516,28 +543,13 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
                 # Add columns
                 col_name = make_analyzer_column_name(column, analyzer_id, "cluster_id")
                 result_df[col_name] = all_cluster_ids
-                generated_schema[col_name] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.CATEGORICAL,
-                    "description": "Question cluster ID (-1 for unique/diverse questions)",
-                }
 
                 col_name = make_analyzer_column_name(column, analyzer_id, "cluster_size")
                 result_df[col_name] = all_cluster_sizes
-                generated_schema[col_name] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": "Number of questions in the same cluster",
-                }
 
                 if self.flag_concentrated_clusters:
                     col_name = make_analyzer_column_name(column, analyzer_id, "is_concentrated")
                     result_df[col_name] = all_concentrated_flags
-                    generated_schema[col_name] = {
-                        "type": ColumnType.BOOL,
-                        "content_type": ContentType.BOOLEAN,
-                        "description": "Whether question is in a concentrated cluster (>threshold)",
-                    }
 
                 # Compute dataset-level metrics
                 n_clusters = len([c for c in cluster_sizes.keys() if c != -1])
@@ -581,7 +593,7 @@ class QuestionDiversityAnalyzer(SampleAnalyzer):
                         largest_ratio, 4
                     )
 
-        return result_df, generated_schema
+        return result_df
 
     def compute_dataset_metrics(
         self,

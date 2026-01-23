@@ -26,7 +26,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
 
@@ -309,7 +309,7 @@ class SafetyAnalyzer(SampleAnalyzer):
         self,
         df: pd.DataFrame,
         schema: Optional[dict] = None,
-    ) -> tuple[pd.DataFrame, dict]:
+    ) -> pd.DataFrame:
         """Analyze text fields for safety concerns.
 
         Args:
@@ -321,7 +321,6 @@ class SafetyAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -337,7 +336,7 @@ class SafetyAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df
 
         analyzer_id = getattr(self, "analyzer_id", "safety")
 
@@ -349,27 +348,12 @@ class SafetyAnalyzer(SampleAnalyzer):
             result_df[col_name] = analysis_results.apply(
                 lambda r: r.get("safety_score")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Safety score (0.0 = unsafe, 1.0 = safe)",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "is_safe")
             result_df[col_name] = analysis_results.apply(lambda r: r.get("is_safe"))
-            generated_schema[col_name] = {
-                "type": ColumnType.BOOL,
-                "content_type": ContentType.BOOLEAN,
-                "description": "Whether content is considered safe",
-            }
 
             col_name = make_analyzer_column_name(column, analyzer_id, "risk_level")
             result_df[col_name] = analysis_results.apply(lambda r: r.get("risk_level"))
-            generated_schema[col_name] = {
-                "type": ColumnType.STRING,
-                "content_type": ContentType.CATEGORICAL,
-                "description": "Risk level category (low/medium/high)",
-            }
 
             if self.include_categories:
                 col_name = make_analyzer_column_name(
@@ -378,10 +362,5 @@ class SafetyAnalyzer(SampleAnalyzer):
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("safety_categories")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.STRING,
-                    "content_type": ContentType.LIST,
-                    "description": "Comma-separated list of safety categories triggered",
-                }
 
-        return result_df, generated_schema
+        return result_df
