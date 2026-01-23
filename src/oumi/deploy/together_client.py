@@ -3,7 +3,7 @@
 import os
 import re
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -47,7 +47,7 @@ class TogetherDeploymentClient(BaseDeploymentClient):
     BASE_URL = "https://api.together.xyz/v1"
     provider = DeploymentProvider.TOGETHER
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         """Initialize the Together.ai deployment client.
 
         Args:
@@ -144,7 +144,7 @@ class TogetherDeploymentClient(BaseDeploymentClient):
         model_source: str,
         model_name: str,
         model_type: ModelType = ModelType.FULL,
-        base_model: Optional[str] = None,
+        base_model: str | None = None,
     ) -> UploadedModel:
         """Upload a model to Together.ai.
 
@@ -414,7 +414,7 @@ class TogetherDeploymentClient(BaseDeploymentClient):
         model_id: str,
         hardware: HardwareConfig,
         autoscaling: AutoscalingConfig,
-        display_name: Optional[str] = None,
+        display_name: str | None = None,
     ) -> Endpoint:
         """Create an inference endpoint for a model.
 
@@ -483,8 +483,8 @@ class TogetherDeploymentClient(BaseDeploymentClient):
     async def update_endpoint(
         self,
         endpoint_id: str,
-        autoscaling: Optional[AutoscalingConfig] = None,
-        hardware: Optional[HardwareConfig] = None,
+        autoscaling: AutoscalingConfig | None = None,
+        hardware: HardwareConfig | None = None,
     ) -> Endpoint:
         """Update an endpoint's configuration.
 
@@ -540,7 +540,7 @@ class TogetherDeploymentClient(BaseDeploymentClient):
         return endpoints
 
     async def list_hardware(
-        self, model_id: Optional[str] = None
+        self, model_id: str | None = None
     ) -> list[HardwareConfig]:
         """List available hardware configurations.
 

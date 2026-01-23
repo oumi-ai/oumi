@@ -19,7 +19,7 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Optional, Union
+from typing import Annotated
 
 import typer
 import yaml
@@ -30,7 +30,6 @@ from rich.table import Table
 from oumi.cli.cli_utils import LOG_LEVEL_TYPE, section_header
 from oumi.deploy import (
     AutoscalingConfig,
-    BaseDeploymentClient,
     DeploymentProvider,
     Endpoint,
     EndpointState,
@@ -40,14 +39,13 @@ from oumi.deploy import (
     ModelType,
     TogetherDeploymentClient,
 )
-from oumi.utils.logging import logger
 
 CONSOLE = Console()
 
 
 def _get_deployment_client(
     provider: str,
-) -> Union[TogetherDeploymentClient, FireworksDeploymentClient]:
+) -> TogetherDeploymentClient | FireworksDeploymentClient:
     """Get deployment client for the specified provider.
 
     Args:
@@ -244,7 +242,7 @@ def upload(
         ),
     ] = "full",
     base_model: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--base-model",
             "-b",
@@ -398,7 +396,7 @@ def create_endpoint(
         ),
     ] = 1,
     name: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--name",
             "-n",
@@ -574,7 +572,7 @@ def list_deployments(
 
 def list_models(
     provider: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--provider",
             "-p",
@@ -590,7 +588,7 @@ def list_models(
         ),
     ] = False,
     status: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--status",
             "-s",
@@ -841,7 +839,7 @@ def list_hardware(
         ),
     ],
     model_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--model-id",
             "-m",
@@ -952,7 +950,7 @@ def test(
 
 def up(
     config: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--config",
             "-c",
@@ -960,7 +958,7 @@ def up(
         ),
     ] = None,
     model_path: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--model-path",
             "-m",
@@ -968,7 +966,7 @@ def up(
         ),
     ] = None,
     provider: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--provider",
             "-p",
@@ -976,7 +974,7 @@ def up(
         ),
     ] = None,
     hardware: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--hardware",
             help="Hardware accelerator (overrides config)",

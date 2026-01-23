@@ -8,7 +8,7 @@ import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import aiofiles
 import httpx
@@ -65,7 +65,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
     BASE_URL = "https://api.fireworks.ai"
     provider = DeploymentProvider.FIREWORKS
 
-    def __init__(self, api_key: Optional[str] = None, account_id: Optional[str] = None):
+    def __init__(self, api_key: str | None = None, account_id: str | None = None):
         """Initialize the Fireworks.ai deployment client.
 
         Args:
@@ -195,7 +195,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         model_source: str,
         model_name: str,
         model_type: ModelType = ModelType.FULL,
-        base_model: Optional[str] = None,
+        base_model: str | None = None,
     ) -> UploadedModel:
         """Upload a model to Fireworks.ai using multi-step flow.
 
@@ -215,7 +215,6 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             UploadedModel with provider-specific model ID
         """
         import logging
-
         import time
 
         logger = logging.getLogger(__name__)
@@ -289,7 +288,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         try:
             if model_source.startswith(("http://", "https://")):
                 # Presigned URL - download the archive
-                logger.info(f"Downloading model archive from presigned URL")
+                logger.info("Downloading model archive from presigned URL")
                 temp_dir = Path(tempfile.mkdtemp())
 
                 # Download the archive
@@ -375,7 +374,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             file_upload_urls = upload_data.get("filenameToSignedUrls", {})
 
             if not file_upload_urls:
-                logger.error(f"No upload URLs received from Fireworks API!")
+                logger.error("No upload URLs received from Fireworks API!")
                 logger.error(f"Response data: {upload_data}")
                 raise ValueError("No upload URLs received. Check if 'filenameToSignedUrls' is in response.")
 
@@ -475,7 +474,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         return data.get("state", "unknown")
 
     async def prepare_model(
-        self, model_id: str, precision: Optional[str] = None
+        self, model_id: str, precision: str | None = None
     ) -> dict[str, Any]:
         """Prepare a model for deployment (optional precision conversion).
 
@@ -504,7 +503,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         model_id: str,
         hardware: HardwareConfig,
         autoscaling: AutoscalingConfig,
-        display_name: Optional[str] = None,
+        display_name: str | None = None,
     ) -> Endpoint:
         """Create an inference endpoint (deployment) for a model.
 
@@ -559,8 +558,8 @@ class FireworksDeploymentClient(BaseDeploymentClient):
     async def update_endpoint(
         self,
         endpoint_id: str,
-        autoscaling: Optional[AutoscalingConfig] = None,
-        hardware: Optional[HardwareConfig] = None,
+        autoscaling: AutoscalingConfig | None = None,
+        hardware: HardwareConfig | None = None,
     ) -> Endpoint:
         """Update a deployment's configuration (scale).
 
@@ -635,7 +634,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         return endpoints
 
     async def list_hardware(
-        self, model_id: Optional[str] = None
+        self, model_id: str | None = None
     ) -> list[HardwareConfig]:
         """List available hardware configurations.
 

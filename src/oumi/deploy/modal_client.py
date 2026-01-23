@@ -25,7 +25,6 @@ import os
 import re
 import time
 from datetime import datetime
-from typing import Optional
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
@@ -78,9 +77,9 @@ class ModalDeploymentClient(BaseDeploymentClient):
 
     def __init__(
         self,
-        token_id: Optional[str] = None,
-        token_secret: Optional[str] = None,
-        workspace: Optional[str] = None,
+        token_id: str | None = None,
+        token_secret: str | None = None,
+        workspace: str | None = None,
     ):
         """Initialize Modal client.
 
@@ -120,7 +119,7 @@ class ModalDeploymentClient(BaseDeploymentClient):
         model_source: str,
         model_name: str,
         model_type: ModelType = ModelType.FULL,
-        base_model: Optional[str] = None,
+        base_model: str | None = None,
     ) -> UploadedModel:
         """Prepare model metadata for Modal deployment.
 
@@ -210,7 +209,7 @@ class ModalDeploymentClient(BaseDeploymentClient):
         model_id: str,
         hardware: HardwareConfig,
         autoscaling: AutoscalingConfig,
-        display_name: Optional[str] = None,
+        display_name: str | None = None,
     ) -> Endpoint:
         """Create Modal App with vLLM inference server.
 
@@ -445,8 +444,8 @@ class ModalDeploymentClient(BaseDeploymentClient):
     async def update_endpoint(
         self,
         endpoint_id: str,
-        autoscaling: Optional[AutoscalingConfig] = None,
-        hardware: Optional[HardwareConfig] = None,
+        autoscaling: AutoscalingConfig | None = None,
+        hardware: HardwareConfig | None = None,
     ) -> Endpoint:
         """Update endpoint configuration.
 
@@ -529,7 +528,7 @@ class ModalDeploymentClient(BaseDeploymentClient):
         return endpoints
 
     async def list_hardware(
-        self, model_id: Optional[str] = None
+        self, model_id: str | None = None
     ) -> list[HardwareConfig]:
         """List available GPU types on Modal.
 

@@ -38,10 +38,14 @@ from oumi.cli.deploy import (
     list_deployments,
     list_hardware,
     list_models,
-    status as deploy_status,
     test,
-    up as deploy_up,
     upload,
+)
+from oumi.cli.deploy import (
+    status as deploy_status,
+)
+from oumi.cli.deploy import (
+    up as deploy_up,
 )
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env

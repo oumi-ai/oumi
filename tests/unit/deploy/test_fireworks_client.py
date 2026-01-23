@@ -14,7 +14,6 @@
 
 """Unit tests for Fireworks.ai deployment client."""
 
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

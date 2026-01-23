@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 
 class DeploymentProvider(str, Enum):
@@ -54,9 +53,9 @@ class UploadedModel:
     """Result of uploading a model to a provider."""
 
     provider_model_id: str
-    job_id: Optional[str] = None
+    job_id: str | None = None
     status: str = "pending"
-    request_payload: Optional[dict] = None
+    request_payload: dict | None = None
 
 
 @dataclass
@@ -67,9 +66,9 @@ class Model:
     model_name: str
     status: str
     provider: DeploymentProvider
-    model_type: Optional[ModelType] = None
-    created_at: Optional[datetime] = None
-    base_model: Optional[str] = None
+    model_type: ModelType | None = None
+    created_at: datetime | None = None
+    base_model: str | None = None
 
 
 @dataclass
@@ -79,12 +78,12 @@ class Endpoint:
     endpoint_id: str
     provider: DeploymentProvider
     model_id: str
-    endpoint_url: Optional[str]
+    endpoint_url: str | None
     state: EndpointState
     hardware: HardwareConfig
     autoscaling: AutoscalingConfig
-    created_at: Optional[datetime] = None
-    display_name: Optional[str] = None
+    created_at: datetime | None = None
+    display_name: str | None = None
 
 
 class BaseDeploymentClient(ABC):
@@ -98,7 +97,7 @@ class BaseDeploymentClient(ABC):
         model_source: str,
         model_name: str,
         model_type: ModelType = ModelType.FULL,
-        base_model: Optional[str] = None,
+        base_model: str | None = None,
     ) -> UploadedModel:
         """Upload a model to the provider.
 
@@ -131,7 +130,7 @@ class BaseDeploymentClient(ABC):
         model_id: str,
         hardware: HardwareConfig,
         autoscaling: AutoscalingConfig,
-        display_name: Optional[str] = None,
+        display_name: str | None = None,
     ) -> Endpoint:
         """Create an inference endpoint for a model.
 
@@ -162,8 +161,8 @@ class BaseDeploymentClient(ABC):
     async def update_endpoint(
         self,
         endpoint_id: str,
-        autoscaling: Optional[AutoscalingConfig] = None,
-        hardware: Optional[HardwareConfig] = None,
+        autoscaling: AutoscalingConfig | None = None,
+        hardware: HardwareConfig | None = None,
     ) -> Endpoint:
         """Update an endpoint's configuration.
 
@@ -197,7 +196,7 @@ class BaseDeploymentClient(ABC):
 
     @abstractmethod
     async def list_hardware(
-        self, model_id: Optional[str] = None
+        self, model_id: str | None = None
     ) -> list[HardwareConfig]:
         """List available hardware configurations.
 

@@ -14,7 +14,6 @@
 
 """Unit tests for base deployment client types."""
 
-import pytest
 
 from oumi.deploy.base_client import (
     AutoscalingConfig,

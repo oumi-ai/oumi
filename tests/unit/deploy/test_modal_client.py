@@ -1,6 +1,6 @@
 """Unit tests for Modal deployment client."""
 
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
