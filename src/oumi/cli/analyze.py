@@ -232,8 +232,9 @@ def analyze(
         bool,
         typer.Option(
             "--list-metrics",
-            help="List all available metrics from saved artifacts. "
-            "Useful for discovering columns to use in test configurations.",
+            help="List all available metrics for test configurations. "
+            "If artifacts exist, shows actual metrics. Otherwise, shows a preview "
+            "based on configured analyzers (useful for writing tests before running analysis).",
         ),
     ] = False,
     level: cli_utils.LOG_LEVEL_TYPE = None,
@@ -307,14 +308,38 @@ def analyze(
 
         # Handle --list-metrics flag
         if list_metrics:
-            if output_dir is None:
-                cli_utils.CONSOLE.print(
-                    "[red]Error:[/red] No output_path specified. "
-                    "Cannot list metrics without saved artifacts."
-                )
-                raise typer.Exit(code=1)
+            # Try to load from artifacts first (more accurate)
+            artifacts_have_schemas = False
+            if output_dir and output_dir.exists():
+                try:
+                    from oumi.utils.analysis_utils import load_analyzer_artifacts
 
-            _display_available_metrics(output_dir, output_format)
+                    artifacts = load_analyzer_artifacts(output_dir, output_format)
+                    # Check if artifacts have meaningful schema data
+                    schemas = artifacts.get("schemas", {})
+                    message_schema = schemas.get("message_schema", {})
+                    conversation_schema = schemas.get("conversation_schema", {})
+
+                    if message_schema or conversation_schema:
+                        # Artifacts have schema data, use them
+                        _display_available_metrics(output_dir, output_format)
+                        artifacts_have_schemas = True
+                except FileNotFoundError:
+                    pass
+
+            if not artifacts_have_schemas:
+                # No artifacts with schemas - show preview based on configured analyzers
+                if parsed_config.analyzers:
+                    _display_metrics_from_config(parsed_config)
+                else:
+                    cli_utils.CONSOLE.print(
+                        "[red]Error:[/red] No analyzers configured and no artifacts found."
+                    )
+                    cli_utils.CONSOLE.print(
+                        "[yellow]Hint:[/yellow] Add analyzers to your config "
+                        "or run analysis first to generate artifacts."
+                    )
+                    raise typer.Exit(code=1)
             return
 
         if output_dir and not reanalyze:
@@ -485,6 +510,157 @@ def _create_analyzer_from_artifacts(
             return self._config
 
     return ArtifactAnalyzer(artifacts, config)  # type: ignore
+
+
+def _display_metrics_from_config(config: Any) -> None:
+    """Display available metrics based on configured analyzers (preview mode).
+
+    This allows users to see what metrics will be available before running
+    the actual analysis. Uses analyzers' get_output_schema() method.
+
+    Args:
+        config: The AnalyzeConfig object with analyzer configurations.
+    """
+    from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS
+    from oumi.core.registry import REGISTRY
+
+    cli_utils.CONSOLE.print(
+        "\n[bold cyan]Available Metrics Preview[/bold cyan] "
+        "[dim](based on configured analyzers)[/dim]\n"
+    )
+    cli_utils.CONSOLE.print(
+        "[yellow]Note:[/yellow] This is a preview based on your config. "
+        "Actual metrics may vary depending on dataset structure.\n"
+    )
+
+    # Collect schemas from all configured analyzers
+    message_schema: dict = {}
+    conversation_schema: dict = {}
+
+    # Get the configured analyzers
+    analyzers_config = config.analyzers if hasattr(config, "analyzers") else []
+
+    if not analyzers_config:
+        cli_utils.CONSOLE.print(
+            "[yellow]No analyzers configured.[/yellow] "
+            "Add analyzers to your config to see available metrics."
+        )
+        return
+
+    for analyzer_config in analyzers_config:
+        # Get analyzer ID
+        analyzer_id = (
+            analyzer_config.get("id")
+            if isinstance(analyzer_config, dict)
+            else getattr(analyzer_config, "id", None)
+        )
+
+        if not analyzer_id:
+            continue
+
+        # Try to get the analyzer class from registry
+        try:
+            analyzer_cls = REGISTRY.get_sample_analyzer(analyzer_id)
+            if analyzer_cls is None:
+                continue
+
+            # Get params if any
+            params = {}
+            if isinstance(analyzer_config, dict):
+                params = analyzer_config.get("params", {})
+            elif hasattr(analyzer_config, "params"):
+                params = analyzer_config.params or {}
+
+            # Instantiate analyzer with params
+            try:
+                analyzer = analyzer_cls(**params)
+                # Set analyzer_id attribute
+                analyzer.analyzer_id = analyzer_id
+            except Exception:
+                # If instantiation fails, try without params
+                try:
+                    analyzer = analyzer_cls()
+                    analyzer.analyzer_id = analyzer_id
+                except Exception:
+                    continue
+
+            # Get output schema
+            if hasattr(analyzer, "get_output_schema"):
+                schema = analyzer.get_output_schema(
+                    source_columns=DEFAULT_TEXT_COLUMNS,
+                    analyzer_id=analyzer_id,
+                )
+
+                # Categorize metrics by scope
+                for col_name, col_info in schema.items():
+                    # Check if this is a conversation-level metric
+                    if col_name.startswith("conversation__") or col_name.startswith(
+                        "conversation_text_content"
+                    ):
+                        conversation_schema[col_name] = col_info
+                    else:
+                        message_schema[col_name] = col_info
+
+        except Exception as e:
+            logger.debug(f"Could not get schema for analyzer {analyzer_id}: {e}")
+            continue
+
+    # Display message-level metrics
+    if message_schema:
+        cli_utils.CONSOLE.print("[bold green]Message-Level Metrics[/bold green]")
+        cli_utils.CONSOLE.print("(Use with scope: message or omit scope)\n")
+
+        table = Table(box=ROUNDED, show_header=True, header_style="bold", expand=True)
+        table.add_column(
+            "Metric Name", style="cyan", no_wrap=True, min_width=50, overflow="fold"
+        )
+        table.add_column("Type", style="yellow", width=10)
+        table.add_column("Description", style="white", ratio=1, overflow="fold")
+
+        for col in sorted(message_schema.keys()):
+            info = message_schema[col]
+            col_type = info.get("type", "unknown")
+            # Handle ColumnType enum
+            if hasattr(col_type, "value"):
+                col_type = col_type.value
+            description = info.get("description", "")
+            table.add_row(col, str(col_type), description)
+
+        cli_utils.CONSOLE.print(table)
+        cli_utils.CONSOLE.print()
+
+    # Display conversation-level metrics
+    if conversation_schema:
+        cli_utils.CONSOLE.print("[bold green]Conversation-Level Metrics[/bold green]")
+        cli_utils.CONSOLE.print("(Use with scope: conversation)\n")
+
+        table = Table(box=ROUNDED, show_header=True, header_style="bold", expand=True)
+        table.add_column(
+            "Metric Name", style="cyan", no_wrap=True, min_width=50, overflow="fold"
+        )
+        table.add_column("Type", style="yellow", width=10)
+        table.add_column("Description", style="white", ratio=1, overflow="fold")
+
+        for col in sorted(conversation_schema.keys()):
+            info = conversation_schema[col]
+            col_type = info.get("type", "unknown")
+            # Handle ColumnType enum
+            if hasattr(col_type, "value"):
+                col_type = col_type.value
+            description = info.get("description", "")
+            table.add_row(col, str(col_type), description)
+
+        cli_utils.CONSOLE.print(table)
+        cli_utils.CONSOLE.print()
+
+    if not message_schema and not conversation_schema:
+        cli_utils.CONSOLE.print(
+            "[yellow]No metrics available.[/yellow] "
+            "The configured analyzers may not have implemented get_output_schema() yet."
+        )
+        cli_utils.CONSOLE.print(
+            "[dim]Run the analysis to see actual metrics from artifacts.[/dim]"
+        )
 
 
 def _display_available_metrics(output_dir: Path, output_format: str) -> None:

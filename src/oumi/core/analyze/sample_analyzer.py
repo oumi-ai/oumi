@@ -18,6 +18,9 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 
+# Standard text columns that analyzers typically process
+DEFAULT_TEXT_COLUMNS = ["text_content", "conversation_text_content"]
+
 
 class SampleAnalyzer(ABC):
     """Base class for sample analyzer plugins that analyze individual samples.
@@ -33,6 +36,36 @@ class SampleAnalyzer(ABC):
     # Set to True in subclasses that use remote API inference by default.
     # Local model-based analyzers (e.g., IFDAnalyzer) should keep this False.
     requires_remote_llm: bool = False
+
+    def get_output_schema(
+        self,
+        source_columns: list[str] | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce without running analysis.
+
+        This method allows users to see what metrics/columns an analyzer will
+        generate before actually running the analysis. This is useful for:
+        - Previewing available metrics when writing test configurations
+        - Documentation and discoverability
+        - Validating test configurations against expected output
+
+        Args:
+            source_columns: Text columns that will be analyzed. If None,
+                uses DEFAULT_TEXT_COLUMNS: ['text_content', 'conversation_text_content']
+            analyzer_id: The analyzer ID used for column naming. If None,
+                uses the class's default or 'unknown'.
+
+        Returns:
+            Schema dict mapping column names to their schema config with keys:
+            'type', 'content_type', 'description'. Returns empty dict if the
+            analyzer doesn't implement this method.
+
+        Note:
+            Subclasses should override this method to provide their specific
+            output schema. The default implementation returns an empty dict.
+        """
+        return {}
 
     @abstractmethod
     def analyze_sample(

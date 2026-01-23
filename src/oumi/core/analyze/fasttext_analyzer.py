@@ -25,7 +25,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
 
@@ -186,6 +186,85 @@ class FastTextAnalyzer(SampleAnalyzer):
         # Lazy-load the model
         self._model = None
         self._detector = None
+
+    def get_output_schema(
+        self,
+        source_columns: list[str] | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce.
+
+        Args:
+            source_columns: Text columns that will be analyzed. If None,
+                uses DEFAULT_TEXT_COLUMNS.
+            analyzer_id: The analyzer ID for column naming. Defaults to "fasttext".
+
+        Returns:
+            Schema dict mapping column names to their type/description.
+        """
+        if source_columns is None:
+            source_columns = DEFAULT_TEXT_COLUMNS
+        if analyzer_id is None:
+            analyzer_id = getattr(self, "analyzer_id", "fasttext")
+
+        schema = {}
+        for column in source_columns:
+            if self.detect_language:
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "detected_language"
+                )
+                schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "ISO 639-1 language code detected",
+                }
+
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "language_confidence"
+                )
+                schema[col_name] = {
+                    "type": ColumnType.FLOAT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Confidence score for language detection (0.0-1.0)",
+                }
+
+                col_name = make_analyzer_column_name(column, analyzer_id, "language_name")
+                schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Full language name",
+                }
+
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "low_confidence"
+                )
+                schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether language detection confidence is low",
+                }
+
+            if self.detect_script:
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "detected_script"
+                )
+                schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Detected script/writing system",
+                }
+
+            if self.detect_multilingual:
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "is_multilingual"
+                )
+                schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether text contains multiple languages",
+                }
+
+        return schema
 
     def _check_dependencies(self) -> None:
         """Check if required dependencies are installed."""
@@ -431,7 +510,6 @@ class FastTextAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -447,7 +525,7 @@ class FastTextAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df, {}
 
         # Initialize detector
         self._init_detector()
@@ -462,79 +540,39 @@ class FastTextAnalyzer(SampleAnalyzer):
 
             # Extract results into columns
             if self.detect_language:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "detected_language"
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "detected_language")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("detected_language")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.STRING,
-                    "content_type": ContentType.CATEGORICAL,
-                    "description": "ISO 639-1 language code detected",
-                }
-
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "language_confidence"
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "language_confidence")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("language_confidence")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.FLOAT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": "Confidence score for language detection (0.0-1.0)",
-                }
-
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "language_name"
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "language_name")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("language_name")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.STRING,
-                    "content_type": ContentType.CATEGORICAL,
-                    "description": "Full language name",
-                }
-
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "low_confidence"
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "low_confidence")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("low_confidence")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": "Whether language detection confidence is low",
-                }
 
             if self.detect_script:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "detected_script"
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "detected_script")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("detected_script")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.STRING,
-                    "content_type": ContentType.CATEGORICAL,
-                    "description": "Detected script/writing system",
-                }
 
             if self.detect_multilingual:
-                col_name = make_analyzer_column_name(
-                    column, analyzer_id, "is_multilingual"
-                )
+                col_name = make_analyzer_column_name(column, analyzer_id, "is_multilingual")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("is_multilingual")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": "Whether text contains multiple languages",
-                }
+
+        # Get schema from get_output_schema using actual columns analyzed
+        generated_schema = self.get_output_schema(
+            source_columns=text_columns, analyzer_id=analyzer_id
+        )
 
         return result_df, generated_schema
 

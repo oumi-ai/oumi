@@ -63,6 +63,57 @@ class TokenStatsAnalyzer(SampleAnalyzer):
         """
         self.token_count_column = token_count_column
 
+    def get_output_schema(
+        self,
+        source_columns: list[str] | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce.
+
+        Args:
+            source_columns: Not used - this analyzer produces conversation-level metrics.
+            analyzer_id: The analyzer ID for column naming. Defaults to "token_stats".
+
+        Returns:
+            Schema dict mapping column names to their type/description.
+        """
+        aid: str = analyzer_id or getattr(self, "analyzer_id", "token_stats")
+
+        # This analyzer uses "conversation" as the source column
+        source_col = "conversation"
+
+        return {
+            make_analyzer_column_name(source_col, aid, "system_tokens"): {
+                "type": ColumnType.INT,
+                "content_type": ContentType.NUMERIC,
+                "description": (
+                    "Sum of tokens in all system messages in the conversation"
+                ),
+            },
+            make_analyzer_column_name(source_col, aid, "user_tokens"): {
+                "type": ColumnType.INT,
+                "content_type": ContentType.NUMERIC,
+                "description": (
+                    "Sum of tokens in all user messages in the conversation"
+                ),
+            },
+            make_analyzer_column_name(source_col, aid, "input_tokens"): {
+                "type": ColumnType.INT,
+                "content_type": ContentType.NUMERIC,
+                "description": (
+                    "Sum of tokens in system and user messages "
+                    "(total input to the model during training/fine-tuning)"
+                ),
+            },
+            make_analyzer_column_name(source_col, aid, "output_tokens"): {
+                "type": ColumnType.INT,
+                "content_type": ContentType.NUMERIC,
+                "description": (
+                    "Sum of tokens in all assistant messages (model output/generation)"
+                ),
+            },
+        }
+
     def _find_token_count_column(self, df: pd.DataFrame) -> str | None:
         """Find the token count column in the DataFrame.
 
@@ -185,12 +236,11 @@ class TokenStatsAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
+        analyzer_id = getattr(self, "analyzer_id", "token_stats")
 
         # Check for required columns
         if "conversation_id" not in df.columns:
-            # If no conversation_id, cannot aggregate - return unchanged
-            return result_df, generated_schema
+            return result_df, {}
 
         # Find role column
         role_column = None
@@ -209,15 +259,12 @@ class TokenStatsAnalyzer(SampleAnalyzer):
             role_column = "role"
 
         if role_column is None:
-            # Cannot analyze without role column
-            return result_df, generated_schema
+            return result_df, {}
 
         # Find token count column
         token_count_column = self._find_token_count_column(df)
         if token_count_column is None:
-            # Cannot analyze without token count column
-            # This is expected if length analyzer hasn't run yet
-            return result_df, generated_schema
+            return result_df, {}
 
         # Aggregate tokens by role for each conversation
         conv_metrics = self._aggregate_tokens_by_role(
@@ -225,52 +272,14 @@ class TokenStatsAnalyzer(SampleAnalyzer):
         )
 
         # Add metrics to each row based on its conversation_id
-        analyzer_id = getattr(self, "analyzer_id", "token_stats")
         source_col = "conversation"
+        metric_names = ["system_tokens", "user_tokens", "input_tokens", "output_tokens"]
 
-        metric_schemas = {
-            "system_tokens": {
-                "type": ColumnType.INT,
-                "content_type": ContentType.NUMERIC,
-                "description": (
-                    "Sum of tokens in all system messages in the conversation"
-                ),
-            },
-            "user_tokens": {
-                "type": ColumnType.INT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Sum of tokens in all user messages in the conversation",
-            },
-            "input_tokens": {
-                "type": ColumnType.INT,
-                "content_type": ContentType.NUMERIC,
-                "description": (
-                    "Sum of tokens in system and user messages "
-                    "(total input to the model during training/fine-tuning)"
-                ),
-            },
-            "output_tokens": {
-                "type": ColumnType.INT,
-                "content_type": ContentType.NUMERIC,
-                "description": (
-                    "Sum of tokens in all assistant messages (model output/generation)"
-                ),
-            },
-        }
-
-        # Add all metrics in a specific order for clarity
-        metric_names = [
-            "system_tokens",
-            "user_tokens",
-            "input_tokens",
-            "output_tokens",
-        ]
         for metric_name in metric_names:
-            metric_schema = metric_schemas[metric_name]
             col_name = make_analyzer_column_name(source_col, analyzer_id, metric_name)
             result_df[col_name] = df["conversation_id"].map(
-                lambda cid: conv_metrics.get(cid, {}).get(metric_name, 0)
+                lambda cid, m=metric_name: conv_metrics.get(cid, {}).get(m, 0)
             )
-            generated_schema[col_name] = metric_schema
 
-        return result_df, generated_schema
+        # Get schema from get_output_schema
+        return result_df, self.get_output_schema(analyzer_id=analyzer_id)

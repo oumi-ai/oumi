@@ -21,7 +21,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.utils.logging import logger
 
@@ -121,6 +121,76 @@ class QualityAnalyzer(SampleAnalyzer):
                     "Install with: pip install langdetect"
                 )
                 self.detect_language = False
+
+    def get_output_schema(
+        self,
+        source_columns: list[str] | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce."""
+        if source_columns is None:
+            source_columns = DEFAULT_TEXT_COLUMNS
+        aid: str = analyzer_id or getattr(self, "analyzer_id", "quality")
+
+        schema = {}
+        for column in source_columns:
+            if self.detect_pii:
+                col_name = make_analyzer_column_name(column, aid, "has_pii")
+                schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether text contains PII",
+                }
+                col_name = make_analyzer_column_name(column, aid, "pii_types")
+                schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.LIST,
+                    "description": "Comma-separated list of PII types detected",
+                }
+                col_name = make_analyzer_column_name(column, aid, "pii_count")
+                schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Total count of PII instances",
+                }
+
+            if self.detect_language:
+                col_name = make_analyzer_column_name(column, aid, "detected_language")
+                schema[col_name] = {
+                    "type": ColumnType.STRING,
+                    "content_type": ContentType.CATEGORICAL,
+                    "description": "Detected language",
+                }
+                col_name = make_analyzer_column_name(column, aid, "language_confidence")
+                schema[col_name] = {
+                    "type": ColumnType.FLOAT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Language detection confidence score",
+                }
+
+            if self.detect_encoding_issues:
+                col_name = make_analyzer_column_name(column, aid, "has_encoding_issues")
+                schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether text has encoding issues",
+                }
+
+            if self.detect_repetition:
+                col_name = make_analyzer_column_name(column, aid, "repetition_ratio")
+                schema[col_name] = {
+                    "type": ColumnType.FLOAT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": "Ratio of repeated n-grams (0.0-1.0)",
+                }
+                col_name = make_analyzer_column_name(column, aid, "has_high_repetition")
+                schema[col_name] = {
+                    "type": ColumnType.BOOL,
+                    "content_type": ContentType.BOOLEAN,
+                    "description": "Whether text has high repetition",
+                }
+
+        return schema
 
     def _detect_pii(self, text: str) -> dict[str, Any]:
         """Detect PII in text.
@@ -296,7 +366,6 @@ class QualityAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -312,7 +381,7 @@ class QualityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            return result_df, generated_schema
+            return result_df, {}
 
         analyzer_id = getattr(self, "analyzer_id", "quality")
 
@@ -324,82 +393,40 @@ class QualityAnalyzer(SampleAnalyzer):
             if self.detect_pii:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_pii")
                 result_df[col_name] = analysis_results.apply(lambda r: r["has_pii"])
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": f"Whether text contains PII",
-                }
-
                 col_name = make_analyzer_column_name(column, analyzer_id, "pii_types")
                 result_df[col_name] = analysis_results.apply(lambda r: r["pii_types"])
-                generated_schema[col_name] = {
-                    "type": ColumnType.STRING,
-                    "content_type": ContentType.LIST,
-                    "description": (f"Comma-separated list of PII types detected."),
-                }
-
                 col_name = make_analyzer_column_name(column, analyzer_id, "pii_count")
                 result_df[col_name] = analysis_results.apply(lambda r: r["pii_count"])
-                generated_schema[col_name] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": f"Total count of PII instances.",
-                }
 
             if self.detect_language:
                 col_name = make_analyzer_column_name(column, analyzer_id, "detected_language")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("detected_language", "")
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.STRING,
-                    "content_type": ContentType.CATEGORICAL,
-                    "description": f"Detected language.",
-                }
-
                 col_name = make_analyzer_column_name(column, analyzer_id, "language_confidence")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("language_confidence", 0.0)
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.FLOAT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": f"Language detection confidence score.",
-                }
 
             if self.detect_encoding_issues:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_encoding_issues")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r["has_encoding_issues"]
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": f"Whether text has encoding issues",
-                }
 
             if self.detect_repetition:
                 col_name = make_analyzer_column_name(column, analyzer_id, "repetition_ratio")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r["repetition_ratio"]
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.FLOAT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": (
-                        "Ratio of repeated n-grams "
-                        "(0.0 = no repetition, 1.0 = complete repetition)"
-                    ),
-                }
-
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_high_repetition")
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r["has_high_repetition"]
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.BOOL,
-                    "content_type": ContentType.BOOLEAN,
-                    "description": f"Whether text has high repetition",
-                }
+
+        # Get schema from get_output_schema using actual columns analyzed
+        generated_schema = self.get_output_schema(
+            source_columns=text_columns, analyzer_id=analyzer_id
+        )
 
         return result_df, generated_schema

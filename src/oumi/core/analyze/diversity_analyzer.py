@@ -20,7 +20,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
 
@@ -52,6 +52,27 @@ class DiversityAnalyzer(SampleAnalyzer):
         """
         self.unique_words_ratio = unique_words_ratio
         self.case_sensitive = case_sensitive
+
+    def get_output_schema(
+        self,
+        source_columns: list[str] | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce."""
+        if source_columns is None:
+            source_columns = DEFAULT_TEXT_COLUMNS
+        aid: str = analyzer_id or getattr(self, "analyzer_id", "diversity")
+
+        schema = {}
+        for column in source_columns:
+            if self.unique_words_ratio:
+                col_name = make_analyzer_column_name(column, aid, "unique_words_ratio")
+                schema[col_name] = {
+                    "type": ColumnType.FLOAT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Unique words ratio for {column}",
+                }
+        return schema
 
     def _tokenize(self, text: str) -> list[str]:
         """Split text into words/tokens.
@@ -102,7 +123,6 @@ class DiversityAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -118,10 +138,8 @@ class DiversityAnalyzer(SampleAnalyzer):
         ]
 
         if not text_columns:
-            # No text columns to analyze in this DataFrame, return unchanged
-            return result_df, generated_schema
+            return result_df, {}
 
-        # Get analyzer ID for column naming
         analyzer_id = getattr(self, "analyzer_id", "diversity")
 
         for column in text_columns:
@@ -132,10 +150,10 @@ class DiversityAnalyzer(SampleAnalyzer):
                 result_df[col_name] = (
                     df[column].astype(str).apply(self._compute_unique_words_ratio)
                 )
-                generated_schema[col_name] = {
-                    "type": ColumnType.FLOAT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": f"Unique words ratio for {column}",
-                }
+
+        # Get schema from get_output_schema using actual columns analyzed
+        generated_schema = self.get_output_schema(
+            source_columns=text_columns, analyzer_id=analyzer_id
+        )
 
         return result_df, generated_schema

@@ -20,7 +20,7 @@ import pandas as pd
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.column_utils import make_analyzer_column_name
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import DEFAULT_TEXT_COLUMNS, SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 
 if TYPE_CHECKING:
@@ -78,6 +78,37 @@ class LengthAnalyzer(SampleAnalyzer):
         if self.token_count and tokenizer is None and tiktoken_encoding is not None:
             self._init_tiktoken_encoder()
 
+    def get_output_schema(
+        self,
+        source_columns: list[str] | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce.
+
+        Args:
+            source_columns: Text columns that will be analyzed. If None,
+                uses DEFAULT_TEXT_COLUMNS.
+            analyzer_id: The analyzer ID for column naming. Defaults to "length".
+
+        Returns:
+            Schema dict mapping column names to their type/description.
+        """
+        if source_columns is None:
+            source_columns = DEFAULT_TEXT_COLUMNS
+        if analyzer_id is None:
+            analyzer_id = getattr(self, "analyzer_id", "length")
+
+        schema = {}
+        for column in source_columns:
+            if self.token_count:
+                col_name = make_analyzer_column_name(column, analyzer_id, "token_count")
+                schema[col_name] = {
+                    "type": ColumnType.INT,
+                    "content_type": ContentType.NUMERIC,
+                    "description": f"Token count for {column}",
+                }
+        return schema
+
     def _init_tiktoken_encoder(self) -> None:
         """Initialize the tiktoken encoder."""
         try:
@@ -114,7 +145,6 @@ class LengthAnalyzer(SampleAnalyzer):
             generated column schema dict)
         """
         result_df = df.copy()
-        generated_schema = {}
 
         if not schema:
             raise ValueError(
@@ -132,7 +162,7 @@ class LengthAnalyzer(SampleAnalyzer):
         if not text_columns:
             # No text fields in this DataFrame - this is expected for some DataFrames
             # (e.g., conversation-level DataFrames). Return unchanged.
-            return result_df, generated_schema
+            return result_df, {}
 
         # Get analyzer ID for column naming (defaults to "length")
         analyzer_id = getattr(self, "analyzer_id", "length")
@@ -159,10 +189,10 @@ class LengthAnalyzer(SampleAnalyzer):
                     result_df[col_name] = (
                         df[column].astype(str).apply(self._count_tokens_tiktoken)
                     )
-                generated_schema[col_name] = {
-                    "type": ColumnType.INT,
-                    "content_type": ContentType.NUMERIC,
-                    "description": f"Token count for {column}",
-                }
+
+        # Get schema from get_output_schema using actual columns analyzed
+        generated_schema = self.get_output_schema(
+            source_columns=text_columns, analyzer_id=analyzer_id
+        )
 
         return result_df, generated_schema

@@ -65,6 +65,83 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
         self.single_turn_threshold = single_turn_threshold
         self.compute_length_stats = compute_length_stats
 
+    def get_output_schema(
+        self,
+        source_columns: list[str] | None = None,
+        analyzer_id: str | None = None,
+    ) -> dict:
+        """Return the schema this analyzer will produce.
+
+        Args:
+            source_columns: Not used - this analyzer produces conversation-level metrics.
+            analyzer_id: The analyzer ID for column naming. Defaults to "conversation_structure".
+
+        Returns:
+            Schema dict mapping column names to their type/description.
+        """
+        if analyzer_id is None:
+            analyzer_id = getattr(self, "analyzer_id", "conversation_structure")
+
+        # This analyzer uses "conversation" as the source column
+        source_col = "conversation"
+
+        schema = {
+            make_analyzer_column_name(source_col, analyzer_id, "turn_count"): {
+                "type": ColumnType.INT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Total number of turns in conversation",
+            },
+            make_analyzer_column_name(source_col, analyzer_id, "user_turn_count"): {
+                "type": ColumnType.INT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Number of user turns",
+            },
+            make_analyzer_column_name(source_col, analyzer_id, "assistant_turn_count"): {
+                "type": ColumnType.INT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Number of assistant turns",
+            },
+            make_analyzer_column_name(source_col, analyzer_id, "is_single_turn"): {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether conversation is single-turn",
+            },
+            make_analyzer_column_name(source_col, analyzer_id, "is_multi_turn"): {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether conversation is multi-turn",
+            },
+            make_analyzer_column_name(source_col, analyzer_id, "conversation_depth"): {
+                "type": ColumnType.INT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Maximum conversation depth",
+            },
+            make_analyzer_column_name(source_col, analyzer_id, "role_balance"): {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Balance between user and assistant turns (0.0-1.0)",
+            },
+            make_analyzer_column_name(source_col, analyzer_id, "has_system_prompt"): {
+                "type": ColumnType.BOOL,
+                "content_type": ContentType.BOOLEAN,
+                "description": "Whether conversation has system prompt",
+            },
+        }
+
+        if self.compute_length_stats:
+            schema[make_analyzer_column_name(source_col, analyzer_id, "avg_turn_length")] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Average turn length in conversation",
+            }
+            schema[make_analyzer_column_name(source_col, analyzer_id, "turn_length_variance")] = {
+                "type": ColumnType.FLOAT,
+                "content_type": ContentType.NUMERIC,
+                "description": "Variance in turn lengths",
+            }
+
+        return schema
+
     def _analyze_conversation(
         self,
         messages: list[dict[str, Any]],
@@ -169,17 +246,13 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             generated column schema dict).
         """
         result_df = df.copy()
-        generated_schema = {}
+        analyzer_id = getattr(self, "analyzer_id", "conversation_structure")
+        source_col = "conversation"
 
         # Check for conversation_id column
         if "conversation_id" not in df.columns:
             # If no conversation_id, treat each row as its own conversation
             # This handles flat instruction-response format
-            analyzer_id = getattr(self, "analyzer_id", "conversation_structure")
-
-            # For flat format, determine structure from available columns
-            # Use "conversation" as the pseudo-source column for consistency
-            source_col = "conversation"
             result_df[
                 make_analyzer_column_name(source_col, analyzer_id, "turn_count")
             ] = 2  # instruction + response
@@ -205,7 +278,8 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
                 make_analyzer_column_name(source_col, analyzer_id, "has_system_prompt")
             ] = False
 
-            return result_df, generated_schema
+            # Get schema from get_output_schema
+            return result_df, self.get_output_schema(analyzer_id=analyzer_id)
 
         # Find role and content columns
         role_column = None
@@ -235,10 +309,7 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
 
         if role_column is None or content_column is None:
             # Cannot analyze without role and content
-            return result_df, generated_schema
-
-        # Group by conversation and analyze
-        analyzer_id = getattr(self, "analyzer_id", "conversation_structure")
+            return result_df, {}
 
         # Build conversation metrics
         conv_metrics = {}
@@ -250,17 +321,6 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             conv_metrics[conv_id] = self._analyze_conversation(messages)
 
         # Add metrics to each row based on its conversation_id
-        metric_schemas = {
-            "turn_count": {"type": ColumnType.INT, "content_type": ContentType.NUMERIC, "description": "Total number of turns in conversation"},
-            "user_turn_count": {"type": ColumnType.INT, "content_type": ContentType.NUMERIC, "description": "Number of user turns"},
-            "assistant_turn_count": {"type": ColumnType.INT, "content_type": ContentType.NUMERIC, "description": "Number of assistant turns"},
-            "is_single_turn": {"type": ColumnType.BOOL, "content_type": ContentType.BOOLEAN, "description": "Whether conversation is single-turn"},
-            "is_multi_turn": {"type": ColumnType.BOOL, "content_type": ContentType.BOOLEAN, "description": "Whether conversation is multi-turn"},
-            "conversation_depth": {"type": ColumnType.INT, "content_type": ContentType.NUMERIC, "description": "Maximum conversation depth"},
-            "role_balance": {"type": ColumnType.FLOAT, "content_type": ContentType.NUMERIC, "description": "Balance between user and assistant turns (0.0-1.0)"},
-            "has_system_prompt": {"type": ColumnType.BOOL, "content_type": ContentType.BOOLEAN, "description": "Whether conversation has system prompt"},
-        }
-        
         for metric_name in [
             "turn_count",
             "user_turn_count",
@@ -271,36 +331,20 @@ class ConversationStructureAnalyzer(SampleAnalyzer):
             "role_balance",
             "has_system_prompt",
         ]:
-            # Use "conversation" as the pseudo-source column for consistency
-            source_col = "conversation"
             col_name = make_analyzer_column_name(source_col, analyzer_id, metric_name)
             result_df[col_name] = df["conversation_id"].map(
-                lambda cid: conv_metrics.get(cid, {}).get(metric_name)
+                lambda cid, m=metric_name: conv_metrics.get(cid, {}).get(m)
             )
-            generated_schema[col_name] = metric_schemas[metric_name]
 
         if self.compute_length_stats:
-            source_col = "conversation"
             col_name = make_analyzer_column_name(source_col, analyzer_id, "avg_turn_length")
             result_df[col_name] = df["conversation_id"].map(
                 lambda cid: conv_metrics.get(cid, {}).get("avg_turn_length")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Average turn length in conversation",
-            }
-            
-            col_name = make_analyzer_column_name(
-                source_col, analyzer_id, "turn_length_variance"
-            )
+            col_name = make_analyzer_column_name(source_col, analyzer_id, "turn_length_variance")
             result_df[col_name] = df["conversation_id"].map(
                 lambda cid: conv_metrics.get(cid, {}).get("turn_length_variance")
             )
-            generated_schema[col_name] = {
-                "type": ColumnType.FLOAT,
-                "content_type": ContentType.NUMERIC,
-                "description": "Variance in turn lengths",
-            }
 
-        return result_df, generated_schema
+        # Get schema from get_output_schema
+        return result_df, self.get_output_schema(analyzer_id=analyzer_id)
