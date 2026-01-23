@@ -156,7 +156,9 @@ class FormatAnalyzer(SampleAnalyzer):
                     "content_type": ContentType.NUMERIC,
                     "description": f"Number of code blocks in {column}",
                 }
-                col_name = make_analyzer_column_name(column, aid, "code_block_languages")
+                col_name = make_analyzer_column_name(
+                    column, aid, "code_block_languages"
+                )
                 output_schema[col_name] = {
                     "type": ColumnType.STRING,
                     "content_type": ContentType.LIST,
@@ -180,7 +182,9 @@ class FormatAnalyzer(SampleAnalyzer):
                 }
 
             if self.compute_complexity:
-                col_name = make_analyzer_column_name(column, aid, "format_complexity_score")
+                col_name = make_analyzer_column_name(
+                    column, aid, "format_complexity_score"
+                )
                 output_schema[col_name] = {
                     "type": ColumnType.FLOAT,
                     "content_type": ContentType.NUMERIC,
@@ -420,20 +424,36 @@ class FormatAnalyzer(SampleAnalyzer):
             analysis_results = df[column].astype(str).apply(self._analyze_text)
 
             if self.detect_markdown:
-                col_name = make_analyzer_column_name(column, analyzer_id, "has_markdown")
-                result_df[col_name] = analysis_results.apply(lambda r: r["has_markdown"])
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "has_markdown"
+                )
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r["has_markdown"]
+                )
 
             if self.detect_json:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_json")
                 result_df[col_name] = analysis_results.apply(lambda r: r["has_json"])
 
             if self.detect_code_blocks:
-                col_name = make_analyzer_column_name(column, analyzer_id, "has_code_blocks")
-                result_df[col_name] = analysis_results.apply(lambda r: r["has_code_blocks"])
-                col_name = make_analyzer_column_name(column, analyzer_id, "code_block_count")
-                result_df[col_name] = analysis_results.apply(lambda r: r["code_block_count"])
-                col_name = make_analyzer_column_name(column, analyzer_id, "code_block_languages")
-                result_df[col_name] = analysis_results.apply(lambda r: r["code_block_languages"])
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "has_code_blocks"
+                )
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r["has_code_blocks"]
+                )
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "code_block_count"
+                )
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r["code_block_count"]
+                )
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "code_block_languages"
+                )
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r["code_block_languages"]
+                )
 
             if self.detect_urls:
                 col_name = make_analyzer_column_name(column, analyzer_id, "has_urls")
@@ -444,7 +464,11 @@ class FormatAnalyzer(SampleAnalyzer):
                 result_df[col_name] = analysis_results.apply(lambda r: r["has_emails"])
 
             if self.compute_complexity:
-                col_name = make_analyzer_column_name(column, analyzer_id, "format_complexity_score")
-                result_df[col_name] = analysis_results.apply(lambda r: r["format_complexity_score"])
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "format_complexity_score"
+                )
+                result_df[col_name] = analysis_results.apply(
+                    lambda r: r["format_complexity_score"]
+                )
 
         return result_df

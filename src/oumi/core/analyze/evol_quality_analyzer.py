@@ -457,11 +457,13 @@ JSON ranking:"""
             # Add columns to result DataFrame
             col_name = make_analyzer_column_name(column, analyzer_id, "score")
             result_df[col_name] = all_scores
-            
+
             col_name = make_analyzer_column_name(column, analyzer_id, "rank")
             result_df[col_name] = all_ranks
 
-            col_name = make_analyzer_column_name(column, analyzer_id, "improvement_potential")
+            col_name = make_analyzer_column_name(
+                column, analyzer_id, "improvement_potential"
+            )
             result_df[col_name] = all_improvement
 
             # Compute dataset-level metrics
