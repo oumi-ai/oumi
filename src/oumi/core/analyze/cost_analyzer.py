@@ -205,10 +205,16 @@ class CostAnalyzer(SampleAnalyzer):
 
         # Generate schema for each context size
         for context_size in self.context_sizes:
-            size_name = f"{context_size // 1000}k" if context_size >= 1000 else str(context_size)
+            size_name = (
+                f"{context_size // 1000}k"
+                if context_size >= 1000
+                else str(context_size)
+            )
             base_col = "token_count"
 
-            col_name = make_analyzer_column_name(base_col, aid, f"fits_context_{size_name}")
+            col_name = make_analyzer_column_name(
+                base_col, aid, f"fits_context_{size_name}"
+            )
             output_schema[col_name] = {
                 "type": ColumnType.BOOL,
                 "content_type": ContentType.BOOLEAN,
