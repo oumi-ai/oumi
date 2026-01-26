@@ -24,7 +24,6 @@ This module provides a flexible LLM-based analyzer that supports:
 
 import json
 import logging
-import os
 import re
 from enum import Enum
 from typing import Any
@@ -450,9 +449,15 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
         max_tokens: int = 500,
         pass_threshold: int = 50,
         system_prompt: str | None = None,
+        # Parallelization options
+        num_workers: int | None = None,
+        max_workers: int | None = None,  # Deprecated, use num_workers
         **kwargs: Any,
     ):
         """Initialize the LLMAnalyzer."""
+        # Handle backward compatibility: max_workers -> num_workers
+        if num_workers is None:
+            num_workers = max_workers if max_workers is not None else 4
         # Resolve criteria and prompt
         if criteria:
             if criteria not in PRESET_CRITERIA:
@@ -501,7 +506,12 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
         self.max_tokens = max_tokens
         self.pass_threshold = pass_threshold
         self.system_prompt = system_prompt
+        self.num_workers = num_workers  # Used by inference engine for parallelization
         self.extra_kwargs = kwargs
+
+        # Lazy-initialized inference engine
+        self._inference_engine = None
+        self._inference_config = None
 
         # Analyzer ID for pipeline result naming (defaults to criteria_name)
         # This allows multiple LLM analyzers with different criteria to be distinguished
@@ -892,75 +902,273 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
                 error=str(e),
             )
 
-    def _call_llm(self, prompt: str) -> str:
-        """Call the LLM with the given prompt."""
-        if self.api_provider == "openai":
-            return self._call_openai(prompt)
-        elif self.api_provider == "anthropic":
-            return self._call_anthropic(prompt)
-        else:
-            raise ValueError(f"Unsupported API provider: {self.api_provider}")
-
     def _get_system_prompt(self) -> str:
         """Get the system prompt to use for the LLM call."""
         return self.system_prompt or BASE_SYSTEM_PROMPT
 
-    def _call_openai(self, prompt: str) -> str:
-        """Call OpenAI API."""
+    def _initialize_inference(self) -> None:
+        """Initialize the inference engine from config."""
+        if self._inference_engine is not None:
+            return
+
         try:
-            import openai
-        except ImportError:
-            raise ImportError(
-                "openai package required. Install with: pip install openai"
+            from oumi.builders.inference_engines import build_inference_engine
+            from oumi.core.configs import (
+                GenerationParams,
+                InferenceConfig,
+                InferenceEngineType,
+                ModelParams,
+                RemoteParams,
             )
 
-        client = openai.OpenAI(
-            api_key=self.api_key or os.getenv("OPENAI_API_KEY")
-        )
-        response = client.chat.completions.create(
-            model=self.model_name,
-            messages=[
-                {"role": "system", "content": self._get_system_prompt()},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-        )
-        return response.choices[0].message.content or ""
-
-    def _call_anthropic(self, prompt: str) -> str:
-        """Call Anthropic API."""
-        try:
-            import anthropic
-        except ImportError:
-            raise ImportError(
-                "anthropic package required. Install with: pip install anthropic"
+            # Build model params
+            model_params = ModelParams(
+                model_name=self.model_name,
+                trust_remote_code=self.extra_kwargs.get("trust_remote_code", False),
             )
 
-        client = anthropic.Anthropic(
-            api_key=self.api_key or os.getenv("ANTHROPIC_API_KEY")
+            # Build generation params
+            generation_params = GenerationParams(
+                temperature=self.temperature,
+                max_new_tokens=self.max_tokens,
+                top_p=self.extra_kwargs.get("top_p", 1.0),
+            )
+
+            # Determine engine type from api_provider
+            provider_to_engine = {
+                "openai": InferenceEngineType.OPENAI,
+                "anthropic": InferenceEngineType.ANTHROPIC,
+                "remote": InferenceEngineType.REMOTE,
+            }
+            engine_type = provider_to_engine.get(
+                self.api_provider.lower(), InferenceEngineType.OPENAI
+            )
+
+            # Build remote params with num_workers for parallelization
+            api_key_env = self.extra_kwargs.get("api_key_env")
+            if api_key_env is None:
+                if self.api_provider.lower() == "anthropic":
+                    api_key_env = "ANTHROPIC_API_KEY"
+                else:
+                    api_key_env = "OPENAI_API_KEY"
+
+            remote_params = RemoteParams(
+                api_key=self.api_key,
+                api_key_env_varname=api_key_env,
+                num_workers=self.num_workers,
+                politeness_policy=self.extra_kwargs.get("politeness_policy", 0.0),
+            )
+
+            # Build inference config
+            self._inference_config = InferenceConfig(
+                model=model_params,
+                generation=generation_params,
+                engine=engine_type,
+                remote_params=remote_params,
+            )
+
+            # Build inference engine
+            self._inference_engine = build_inference_engine(
+                engine_type=engine_type,
+                model_params=model_params,
+                remote_params=remote_params,
+                generation_params=generation_params,
+            )
+
+            logger.info(
+                f"Initialized LLM Analyzer with model: {self.model_name}, "
+                f"engine: {self.api_provider}, workers: {self.num_workers}"
+            )
+
+        except ImportError as e:
+            raise ImportError(
+                f"Failed to import inference components: {e}. "
+                "Make sure oumi inference dependencies are installed."
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize inference engine: {e}")
+
+    def _call_llm(self, prompt: str) -> str:
+        """Call the LLM with the given prompt using the inference engine."""
+        self._initialize_inference()
+
+        if self._inference_engine is None:
+            raise RuntimeError("Inference engine not initialized")
+
+        from oumi.core.types.conversation import Conversation as OumiConv
+        from oumi.core.types.conversation import Message, Role
+
+        # Build conversation with system prompt and user message
+        messages = [
+            Message(role=Role.SYSTEM, content=self._get_system_prompt()),
+            Message(role=Role.USER, content=prompt),
+        ]
+        conversation = OumiConv(messages=messages)
+
+        # Run inference
+        results = self._inference_engine.infer(
+            input=[conversation],
+            inference_config=self._inference_config,
         )
-        response = client.messages.create(
-            model=self.model_name,
-            system=self._get_system_prompt(),
-            messages=[{"role": "user", "content": prompt}],
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
+
+        if results and len(results) > 0:
+            # Get assistant response from the result
+            result_conv = results[0]
+            for msg in result_conv.messages:
+                if msg.role == Role.ASSISTANT:
+                    if isinstance(msg.content, str):
+                        return msg.content
+                    return str(msg.content) if msg.content else ""
+
+        return ""
+
+    def _call_llm_batch(self, prompts: list[str]) -> list[str]:
+        """Call the LLM with multiple prompts using batch inference."""
+        self._initialize_inference()
+
+        if self._inference_engine is None:
+            raise RuntimeError("Inference engine not initialized")
+
+        from oumi.core.types.conversation import Conversation as OumiConv
+        from oumi.core.types.conversation import Message, Role
+
+        # Build conversations for all prompts
+        conversations = []
+        for prompt in prompts:
+            messages = [
+                Message(role=Role.SYSTEM, content=self._get_system_prompt()),
+                Message(role=Role.USER, content=prompt),
+            ]
+            conversations.append(OumiConv(messages=messages))
+
+        # Run batch inference (inference engine handles parallelization)
+        results = self._inference_engine.infer(
+            input=conversations,
+            inference_config=self._inference_config,
         )
-        return response.content[0].text
+
+        # Extract responses
+        responses = []
+        for result_conv in results:
+            response = ""
+            for msg in result_conv.messages:
+                if msg.role == Role.ASSISTANT:
+                    if isinstance(msg.content, str):
+                        response = msg.content
+                    else:
+                        response = str(msg.content) if msg.content else ""
+                    break
+            responses.append(response)
+
+        return responses
 
     def analyze_batch(
         self, conversations: list[Conversation]
     ) -> list[LLMJudgmentMetrics]:
-        """Analyze a batch of conversations."""
-        results = []
-        for i, conv in enumerate(conversations):
-            logger.debug(
-                f"Analyzing conversation {i+1}/{len(conversations)} "
-                f"for {self.criteria_name}"
+        """Analyze a batch of conversations using the inference engine."""
+        try:
+            from tqdm import tqdm
+            has_tqdm = True
+        except ImportError:
+            has_tqdm = False
+
+        # Build prompts for all conversations
+        prompts = []
+        for conv in conversations:
+            prompt = self._build_prompt(conv)
+            prompts.append(prompt)
+
+        # Show progress message
+        if has_tqdm:
+            print(
+                f"LLM: {self.criteria_name} ({self.num_workers}w) - "
+                f"processing {len(prompts)} conversations..."
             )
-            results.append(self.analyze(conv))
+
+        # Call LLM in batch (inference engine handles parallelization via num_workers)
+        try:
+            responses = self._call_llm_batch(prompts)
+        except Exception as e:
+            logger.error(f"Batch LLM inference failed: {e}")
+            # Return error results for all conversations
+            return [
+                LLMJudgmentMetrics.from_score(
+                    score=0,
+                    reasoning="",
+                    criteria=self.criteria_name,
+                    pass_threshold=self.pass_threshold,
+                    error=str(e),
+                )
+                for _ in conversations
+            ]
+
+        # Parse responses and build results
+        results = []
+        iterator = enumerate(zip(conversations, responses))
+        if has_tqdm:
+            iterator = tqdm(
+                list(iterator),
+                desc=f"Parsing: {self.criteria_name}",
+                unit="conv",
+            )
+
+        for i, (conv, response) in iterator:
+            try:
+                result = self._parse_and_build_result(response)
+                results.append(result)
+            except Exception as e:
+                logger.error(f"Failed to parse response {i}: {e}")
+                results.append(
+                    LLMJudgmentMetrics.from_score(
+                        score=0,
+                        reasoning="",
+                        criteria=self.criteria_name,
+                        pass_threshold=self.pass_threshold,
+                        error=f"Parse error: {e}",
+                    )
+                )
+
         return results
+
+    def _parse_and_build_result(self, response: str) -> LLMJudgmentMetrics:
+        """Parse LLM response and build the result metrics."""
+        error = None
+
+        # Parse the response to extract score and reasoning
+        parsed = self._parse_response(response)
+        score = parsed.get("score")
+        reasoning = parsed.get("reasoning", "")
+
+        if score is None:
+            error = "Failed to parse score from response"
+            score = 0
+
+        # Derive judgment/category from score based on judgment_type
+        judgment = None
+        category = None
+
+        if self.judgment_type == JudgmentType.BOOL:
+            judgment = score >= 50
+
+        elif self.judgment_type == JudgmentType.ENUM and self.enum_values:
+            n = len(self.enum_values)
+            if n > 1:
+                idx = int((score / 100) * n)
+                idx = max(0, min(idx, n - 1))
+            else:
+                idx = 0
+            category = self.enum_values[idx]
+
+        return LLMJudgmentMetrics.from_score(
+            score=score,
+            reasoning=reasoning,
+            criteria=self.criteria_name,
+            pass_threshold=self.pass_threshold,
+            judgment=judgment,
+            category=category,
+            raw_response=response if error else None,
+            error=error,
+        )
 
     @classmethod
     def from_api_judge_config(

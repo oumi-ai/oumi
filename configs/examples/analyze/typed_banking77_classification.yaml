@@ -11,7 +11,7 @@
 # We also evaluate query quality to identify potentially confusing examples.
 
 dataset_path: "/Users/ryanarman/code/scratch/ryan_hillclimbing_experiments/banking77/notebooks/data/banking77_train.jsonl"
-sample_count: 20  # Start small for testing (increase for real evaluation)
+sample_count: 10 # Start small for testing (increase for real evaluation)
 output_path: ./analysis_output/banking77_classification
 
 # =============================================================================
@@ -25,27 +25,28 @@ analyzers:
   - id: llm
     params:
       criteria_name: "query_quality"
-      target_scope: first_user  # Only evaluate the user's query
+      target_scope: first_user # Only evaluate the user's query
       prompt_template: |
         You are evaluating user queries for a banking intent classification training dataset.
-        
+
         Assess the quality of this user query for SFT (Supervised Fine-Tuning) training:
-        
+
         Consider:
         1. CLARITY: Is the query clear and understandable?
         2. SPECIFICITY: Does it clearly indicate a specific banking intent?
         3. AMBIGUITY: Could this query reasonably belong to multiple intent categories?
         4. NATURALNESS: Does it sound like a real customer query?
         5. DIFFICULTY: Is this an easy or hard example to classify?
-        
+
         A HIGH score (70-100) means: Clear, unambiguous, good training example
         A MEDIUM score (40-69) means: Somewhat clear but may have minor issues
         A LOW score (0-39) means: Ambiguous, confusing, or poor training example
-        
+
         Rate the quality of this query for training purposes.
       model_name: gpt-4o-mini
       api_provider: openai
       pass_threshold: 50
+      num_workers: 1000 # Parallel LLM calls via inference engine
 
   # ---------------------------------------------------------------------------
   # Helpfulness Assessment using LLM
@@ -54,29 +55,30 @@ analyzers:
   - id: llm
     params:
       criteria_name: "training_helpfulness"
-      target_scope: conversation  # Evaluate the full conversation
+      target_scope: conversation # Evaluate the full conversation
       prompt_template: |
         You are evaluating a banking intent classification training example.
-        
+
         The conversation has:
         - A system prompt with classification instructions
         - A user query that needs to be classified
         - An assistant response with the predicted intent ID
-        
+
         Evaluate how HELPFUL this example is for training a classification model:
-        
+
         Consider:
         1. Is the user query representative of real customer inquiries?
         2. Is the query-to-intent mapping intuitive and learnable?
         3. Would training on this example help the model generalize?
         4. Are there any red flags (typos, nonsensical text, edge cases)?
-        
+
         HIGH score (70-100): Excellent training example, clear and helpful
         MEDIUM score (40-69): Acceptable but not ideal
         LOW score (0-39): Poor example, may confuse the model
       model_name: gpt-4o-mini
       api_provider: openai
       pass_threshold: 50
+      num_workers: 1000 # Parallel LLM calls via inference engine
 
 # =============================================================================
 # CUSTOM METRICS (Rule-based)
@@ -181,7 +183,7 @@ tests:
     type: percentage
     metric: label_accuracy.matches
     condition: "== True"
-    min_percentage: 100.0  # Training data should have 100% match
+    min_percentage: 100.0 # Training data should have 100% match
     severity: high
     title: "Label Accuracy"
     description: "Assistant responses should match ground truth labels (expect 100% for train set)"

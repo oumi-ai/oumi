@@ -139,8 +139,20 @@ class AnalysisPipeline:
                 primary_analyzers.append(analyzer)
 
         # Run primary conversation-level analyzers first
-        for analyzer in primary_analyzers:
+        try:
+            from tqdm import tqdm
+            primary_iter = tqdm(
+                primary_analyzers,
+                desc="Running analyzers",
+                unit="analyzer",
+            )
+        except ImportError:
+            primary_iter = primary_analyzers
+
+        for analyzer in primary_iter:
             name = self._get_analyzer_name(analyzer)
+            if hasattr(primary_iter, 'set_postfix'):
+                primary_iter.set_postfix(current=name)
             logger.debug(f"Running conversation analyzer: {name}")
             try:
                 results = analyzer.analyze_batch(conversations)
