@@ -1,0 +1,249 @@
+# Banking77 Dataset Quality Analysis Demo
+# ========================================
+# Demonstrates:
+# 1. Rule-based accuracy check: Does assistant response match ground truth label?
+# 2. LLM quality assessment: Is the user query clear and suitable for SFT training?
+#
+# Usage:
+#   oumi analyze --config configs/examples/analyze/typed_banking77_classification.yaml --typed
+#
+# This is a TRAINING dataset - the assistant responses should match ground truth 100%.
+# We also evaluate query quality to identify potentially confusing examples.
+
+dataset_path: "/Users/ryanarman/code/scratch/ryan_hillclimbing_experiments/banking77/notebooks/data/banking77_train.jsonl"
+sample_count: 20  # Start small for testing (increase for real evaluation)
+output_path: ./analysis_output/banking77_classification
+
+# =============================================================================
+# ANALYZERS
+# =============================================================================
+analyzers:
+  # ---------------------------------------------------------------------------
+  # Query Quality Assessment using LLM
+  # Evaluates if the user query is clear, unambiguous, and suitable for training
+  # ---------------------------------------------------------------------------
+  - id: llm
+    params:
+      criteria_name: "query_quality"
+      target_scope: first_user  # Only evaluate the user's query
+      prompt_template: |
+        You are evaluating user queries for a banking intent classification training dataset.
+        
+        Assess the quality of this user query for SFT (Supervised Fine-Tuning) training:
+        
+        Consider:
+        1. CLARITY: Is the query clear and understandable?
+        2. SPECIFICITY: Does it clearly indicate a specific banking intent?
+        3. AMBIGUITY: Could this query reasonably belong to multiple intent categories?
+        4. NATURALNESS: Does it sound like a real customer query?
+        5. DIFFICULTY: Is this an easy or hard example to classify?
+        
+        A HIGH score (70-100) means: Clear, unambiguous, good training example
+        A MEDIUM score (40-69) means: Somewhat clear but may have minor issues
+        A LOW score (0-39) means: Ambiguous, confusing, or poor training example
+        
+        Rate the quality of this query for training purposes.
+      model_name: gpt-4o-mini
+      api_provider: openai
+      pass_threshold: 50
+
+  # ---------------------------------------------------------------------------
+  # Helpfulness Assessment using LLM
+  # Evaluates if the full conversation is helpful for model training
+  # ---------------------------------------------------------------------------
+  - id: llm
+    params:
+      criteria_name: "training_helpfulness"
+      target_scope: conversation  # Evaluate the full conversation
+      prompt_template: |
+        You are evaluating a banking intent classification training example.
+        
+        The conversation has:
+        - A system prompt with classification instructions
+        - A user query that needs to be classified
+        - An assistant response with the predicted intent ID
+        
+        Evaluate how HELPFUL this example is for training a classification model:
+        
+        Consider:
+        1. Is the user query representative of real customer inquiries?
+        2. Is the query-to-intent mapping intuitive and learnable?
+        3. Would training on this example help the model generalize?
+        4. Are there any red flags (typos, nonsensical text, edge cases)?
+        
+        HIGH score (70-100): Excellent training example, clear and helpful
+        MEDIUM score (40-69): Acceptable but not ideal
+        LOW score (0-39): Poor example, may confuse the model
+      model_name: gpt-4o-mini
+      api_provider: openai
+      pass_threshold: 50
+
+# =============================================================================
+# CUSTOM METRICS (Rule-based)
+# =============================================================================
+custom_metrics:
+  # ---------------------------------------------------------------------------
+  # Extract ground truth label from metadata
+  # ---------------------------------------------------------------------------
+  - id: ground_truth
+    scope: conversation
+    function: |
+      def compute(conversation):
+          metadata = conversation.metadata or {}
+          label_id = metadata.get("label", -1)
+          label_name = metadata.get("label_name", "unknown")
+          return {
+              "label_id": label_id,
+              "label_name": label_name
+          }
+
+  # ---------------------------------------------------------------------------
+  # Extract assistant's response (the predicted label)
+  # ---------------------------------------------------------------------------
+  - id: assistant_response
+    scope: conversation
+    function: |
+      def compute(conversation):
+          # Find the last assistant message (iterate from end without using reversed)
+          messages = conversation.messages
+          for i in range(len(messages) - 1, -1, -1):
+              msg = messages[i]
+              role_str = str(msg.role).lower() if hasattr(msg, 'role') else ""
+              if 'assistant' in role_str:
+                  content = msg.content if hasattr(msg, 'content') else ""
+                  # Try to parse as integer (the label ID)
+                  try:
+                      response_id = int(str(content).strip())
+                  except:
+                      response_id = -1
+                  return {
+                      "raw_response": str(content).strip(),
+                      "response_id": response_id
+                  }
+          return {"raw_response": "", "response_id": -1}
+
+  # ---------------------------------------------------------------------------
+  # Check if assistant response matches ground truth (should be 100% for train)
+  # ---------------------------------------------------------------------------
+  - id: label_accuracy
+    scope: conversation
+    depends_on:
+      - ground_truth
+      - assistant_response
+    function: |
+      def compute(conversation, results, index):
+          gt = results.get("ground_truth", [])
+          resp = results.get("assistant_response", [])
+          
+          if index >= len(gt) or index >= len(resp):
+              return {"matches": False, "error": "index out of range"}
+          
+          gt_id = gt[index].values.get("label_id", -1)
+          resp_id = resp[index].values.get("response_id", -1)
+          
+          matches = (gt_id == resp_id) and gt_id != -1
+          
+          return {
+              "matches": matches,
+              "ground_truth_id": gt_id,
+              "response_id": resp_id,
+              "ground_truth_name": gt[index].values.get("label_name", "unknown")
+          }
+
+  # ---------------------------------------------------------------------------
+  # Extract user query text for analysis
+  # ---------------------------------------------------------------------------
+  - id: user_query
+    scope: conversation
+    function: |
+      def compute(conversation):
+          # Find the first user message
+          for msg in conversation.messages:
+              if hasattr(msg, 'role') and str(msg.role).lower() in ['user', 'role.user']:
+                  content = msg.content if hasattr(msg, 'content') else ""
+                  word_count = len(str(content).split())
+                  char_count = len(str(content))
+                  return {
+                      "text": str(content),
+                      "word_count": word_count,
+                      "char_count": char_count
+                  }
+          return {"text": "", "word_count": 0, "char_count": 0}
+
+# =============================================================================
+# TESTS
+# =============================================================================
+tests:
+  # ---------------------------------------------------------------------------
+  # Label Accuracy (should be 100% for training data)
+  # ---------------------------------------------------------------------------
+  - id: label_accuracy_check
+    type: percentage
+    metric: label_accuracy.matches
+    condition: "== True"
+    min_percentage: 100.0  # Training data should have 100% match
+    severity: high
+    title: "Label Accuracy"
+    description: "Assistant responses should match ground truth labels (expect 100% for train set)"
+
+  # ---------------------------------------------------------------------------
+  # Query Quality Check
+  # ---------------------------------------------------------------------------
+  - id: high_quality_queries
+    type: percentage
+    metric: query_quality.passed
+    condition: "== True"
+    min_percentage: 80.0
+    severity: medium
+    title: "Query Quality Rate"
+    description: "At least 80% of queries should be clear and suitable for training"
+
+  # ---------------------------------------------------------------------------
+  # Identify Low Quality Examples
+  # ---------------------------------------------------------------------------
+  - id: low_quality_queries
+    type: threshold
+    metric: query_quality.score
+    operator: "<"
+    value: 40
+    max_percentage: 10.0
+    severity: medium
+    title: "Low Quality Query Rate"
+    description: "No more than 10% of queries should be low quality (score < 40)"
+
+  # ---------------------------------------------------------------------------
+  # Training Helpfulness Check
+  # ---------------------------------------------------------------------------
+  - id: helpful_examples
+    type: percentage
+    metric: training_helpfulness.passed
+    condition: "== True"
+    min_percentage: 70.0
+    severity: low
+    title: "Helpful Training Examples"
+    description: "At least 70% of examples should be helpful for training"
+
+  # ---------------------------------------------------------------------------
+  # LLM Success Rate
+  # ---------------------------------------------------------------------------
+  - id: llm_success_rate
+    type: percentage
+    metric: query_quality.passed
+    condition: "!= None"
+    min_percentage: 95.0
+    severity: low
+    title: "LLM Success Rate"
+    description: "LLM analysis should succeed for most samples"
+
+  # ---------------------------------------------------------------------------
+  # Query Length Check (very short queries may be problematic)
+  # ---------------------------------------------------------------------------
+  - id: substantive_queries
+    type: threshold
+    metric: user_query.word_count
+    operator: "<"
+    value: 3
+    max_percentage: 15.0
+    severity: low
+    title: "Very Short Queries"
+    description: "No more than 15% of queries should have fewer than 3 words"
