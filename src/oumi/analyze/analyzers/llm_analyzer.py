@@ -452,6 +452,8 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
         # Parallelization options
         num_workers: int | None = None,
         max_workers: int | None = None,  # Deprecated, use num_workers
+        # Caching options
+        cache_responses: bool = True,
         **kwargs: Any,
     ):
         """Initialize the LLMAnalyzer."""
@@ -508,6 +510,10 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
         self.system_prompt = system_prompt
         self.num_workers = num_workers  # Used by inference engine for parallelization
         self.extra_kwargs = kwargs
+
+        # Caching
+        self.cache_responses = cache_responses
+        self._response_cache: dict[str, LLMJudgmentMetrics] = {}
 
         # Lazy-initialized inference engine
         self._inference_engine = None
@@ -1062,10 +1068,24 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
 
         return responses
 
+    def _get_cache_key(self, prompt: str) -> str:
+        """Generate a cache key for a prompt."""
+        return str(hash(prompt))
+
+    def clear_cache(self) -> None:
+        """Clear the response cache."""
+        self._response_cache.clear()
+        logger.info(f"Cleared cache for {self.criteria_name}")
+
+    @property
+    def cache_size(self) -> int:
+        """Return the number of cached responses."""
+        return len(self._response_cache)
+
     def analyze_batch(
         self, conversations: list[Conversation]
     ) -> list[LLMJudgmentMetrics]:
-        """Analyze a batch of conversations using the inference engine."""
+        """Analyze a batch of conversations with caching and deduplication."""
         try:
             from tqdm import tqdm
             has_tqdm = True
@@ -1078,53 +1098,110 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
             prompt = self._build_prompt(conv)
             prompts.append(prompt)
 
-        # Show progress message
-        if has_tqdm:
-            print(
-                f"LLM: {self.criteria_name} ({self.num_workers}w) - "
-                f"processing {len(prompts)} conversations..."
+        # Check cache and deduplicate within batch
+        cached_results: dict[int, LLMJudgmentMetrics] = {}
+        prompts_to_evaluate: list[tuple[int, str]] = []
+        prompt_to_indices: dict[str, list[int]] = {}  # For deduplication
+
+        for i, prompt in enumerate(prompts):
+            cache_key = self._get_cache_key(prompt)
+
+            # Check global cache first
+            if self.cache_responses and cache_key in self._response_cache:
+                cached_results[i] = self._response_cache[cache_key]
+                logger.debug(f"Cache hit for prompt {i}")
+                continue
+
+            # Check for duplicates within this batch
+            if prompt in prompt_to_indices:
+                # Duplicate within batch - will copy result later
+                prompt_to_indices[prompt].append(i)
+                continue
+
+            # New unique prompt to evaluate
+            prompt_to_indices[prompt] = [i]
+            prompts_to_evaluate.append((i, prompt))
+
+        # Log cache/deduplication stats
+        num_cached = len(cached_results)
+        num_unique = len(prompts_to_evaluate)
+        num_duplicates = len(prompts) - num_cached - num_unique
+        if num_cached > 0 or num_duplicates > 0:
+            logger.info(
+                f"Batch of {len(prompts)}: {num_unique} unique to evaluate, "
+                f"{num_duplicates} duplicates, {num_cached} from cache"
             )
 
-        # Call LLM in batch (inference engine handles parallelization via num_workers)
-        try:
-            responses = self._call_llm_batch(prompts)
-        except Exception as e:
-            logger.error(f"Batch LLM inference failed: {e}")
-            # Return error results for all conversations
-            return [
-                LLMJudgmentMetrics.from_score(
+        # Show progress message
+        if num_unique > 0:
+            msg = f"LLM: {self.criteria_name} ({self.num_workers}w)"
+            if num_cached > 0:
+                msg += f" - {num_unique} to process, {num_cached} cached"
+            else:
+                msg += f" - {num_unique} conversations"
+            logger.info(msg)
+
+        # Call LLM for non-cached unique prompts
+        if prompts_to_evaluate:
+            unique_prompts = [p for _, p in prompts_to_evaluate]
+
+            try:
+                responses = self._call_llm_batch(unique_prompts)
+
+                # Process responses and update cache
+                for (orig_idx, prompt), response in zip(
+                    prompts_to_evaluate, responses
+                ):
+                    try:
+                        result = self._parse_and_build_result(response)
+                    except Exception as e:
+                        logger.error(f"Failed to parse response {orig_idx}: {e}")
+                        result = LLMJudgmentMetrics.from_score(
+                            score=0,
+                            reasoning="",
+                            criteria=self.criteria_name,
+                            pass_threshold=self.pass_threshold,
+                            error=f"Parse error: {e}",
+                        )
+
+                    # Copy result to all indices with this prompt (handles duplicates)
+                    for idx in prompt_to_indices[prompt]:
+                        cached_results[idx] = result
+
+                    # Update cache for future batches
+                    if self.cache_responses:
+                        cache_key = self._get_cache_key(prompt)
+                        self._response_cache[cache_key] = result
+                        logger.debug(f"Cached result for prompt {orig_idx}")
+
+            except Exception as e:
+                logger.error(f"Batch LLM inference failed: {e}")
+                error_result = LLMJudgmentMetrics.from_score(
                     score=0,
                     reasoning="",
                     criteria=self.criteria_name,
                     pass_threshold=self.pass_threshold,
                     error=str(e),
                 )
-                for _ in conversations
-            ]
+                # Set error result for all prompts that needed evaluation
+                for _, prompt in prompts_to_evaluate:
+                    for idx in prompt_to_indices[prompt]:
+                        cached_results[idx] = error_result
 
-        # Parse responses and build results
+        # Reconstruct results in original order
         results = []
-        iterator = enumerate(zip(conversations, responses))
-        if has_tqdm:
-            iterator = tqdm(
-                list(iterator),
-                desc=f"Parsing: {self.criteria_name}",
-                unit="conv",
-            )
-
-        for i, (conv, response) in iterator:
-            try:
-                result = self._parse_and_build_result(response)
-                results.append(result)
-            except Exception as e:
-                logger.error(f"Failed to parse response {i}: {e}")
+        for i in range(len(prompts)):
+            if i in cached_results:
+                results.append(cached_results[i])
+            else:
+                # This shouldn't happen, but handle gracefully
                 results.append(
                     LLMJudgmentMetrics.from_score(
                         score=0,
                         reasoning="",
                         criteria=self.criteria_name,
                         pass_threshold=self.pass_threshold,
-                        error=f"Parse error: {e}",
+                        error="Missing result",
                     )
                 )
 
