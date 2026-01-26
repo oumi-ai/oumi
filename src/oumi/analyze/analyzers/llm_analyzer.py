@@ -12,19 +12,78 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Generalized LLM-as-judge analyzer with preset and custom prompts."""
+"""Generalized LLM-as-judge analyzer with preset and custom prompts.
+
+This module provides a flexible LLM-based analyzer that supports:
+- Preset evaluation criteria (usefulness, safety, factuality, etc.)
+- Custom prompts with template placeholders
+- Multiple target scopes (conversation, last_turn, system, etc.)
+- Multi-turn conversation formatting with turn tags
+- Metadata field extraction for template placeholders
+"""
 
 import json
 import logging
 import os
 import re
+from enum import Enum
 from typing import Any
 
 from oumi.analyze.base import ConversationAnalyzer
 from oumi.analyze.results.llm_judgment import LLMJudgmentMetrics
-from oumi.core.types.conversation import Conversation
+from oumi.core.types.conversation import Conversation, Role
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# TARGET SCOPE ENUM
+# =============================================================================
+
+
+class TargetScope(str, Enum):
+    """Defines which part of the conversation to evaluate.
+
+    This enum controls what content is extracted from a conversation
+    and passed to the LLM judge for evaluation.
+    """
+
+    # Full conversation (multi-turn mode)
+    CONVERSATION = "conversation"
+
+    # Last user + assistant exchange only (single-turn mode, API compatible)
+    LAST_TURN = "last_turn"
+
+    # System prompt only
+    SYSTEM = "system"
+
+    # All user messages concatenated
+    USER_MESSAGES = "role:user"
+
+    # All assistant messages concatenated
+    ASSISTANT_MESSAGES = "role:assistant"
+
+    # First user message only (useful for prompt difficulty evaluation)
+    FIRST_USER = "first_user"
+
+    # Last assistant response only
+    LAST_ASSISTANT = "last_assistant"
+
+    # Last user message only (the request)
+    LAST_USER = "last_user"
+
+
+class JudgmentType(str, Enum):
+    """Type of judgment output from the LLM."""
+
+    # 0-100 numeric score (default)
+    SCORE = "score"
+
+    # True/False pass/fail
+    BOOL = "bool"
+
+    # Categorical labels
+    ENUM = "enum"
 
 
 # =============================================================================
@@ -185,6 +244,120 @@ Consider:
 A score of 100 means the response is highly engaging.
 A score of 0 means the response is dull, robotic, or off-putting.""",
     },
+    # ==========================================================================
+    # Doc QA Criteria (from API judges - require metadata fields)
+    # ==========================================================================
+    "groundedness": {
+        "name": "Groundedness",
+        "description": "Whether the answer is grounded in the provided context",
+        "data_fields": {"context": "Context", "question": "Question"},
+        "prompt": """Evaluate if the answer is GROUNDED in the provided context.
+
+Given context:
+{context}
+
+Question asked:
+{question}
+
+Consider:
+1. Is every claim in the answer supported by the context?
+2. Does the answer avoid adding unsupported information?
+3. Are there any statements that contradict the context?
+4. Does it appropriately indicate when information is not in the context?
+
+A score of 100 means the answer is fully grounded in the context.
+A score of 0 means the answer contains significant unsupported claims.""",
+    },
+    "doc_relevance": {
+        "name": "Document Relevance",
+        "description": "Whether the answer is relevant to the question given the context",
+        "data_fields": {"context": "Context", "question": "Question"},
+        "prompt": """Evaluate if the answer is RELEVANT to the question.
+
+Given context:
+{context}
+
+Question asked:
+{question}
+
+Consider:
+1. Does the answer directly address the question?
+2. Does it use relevant information from the context?
+3. Does it stay on topic without unnecessary tangents?
+4. Is an "I don't know" response appropriate if the context doesn't contain the answer?
+
+A score of 100 means the answer is perfectly relevant.
+A score of 0 means the answer is completely off-topic.""",
+    },
+    "doc_completeness": {
+        "name": "Document Completeness",
+        "description": "Whether the answer fully addresses the question using the context",
+        "data_fields": {"context": "Context", "question": "Question"},
+        "prompt": """Evaluate if the answer is COMPLETE given the context.
+
+Given context:
+{context}
+
+Question asked:
+{question}
+
+Consider:
+1. Does the answer address all parts of the question?
+2. Does it include all relevant information from the context?
+3. Are there important details missing that should be included?
+4. Is the level of detail appropriate for the question?
+
+A score of 100 means the answer is comprehensive.
+A score of 0 means critical information is missing.""",
+    },
+    # ==========================================================================
+    # Code Criteria (from API judges)
+    # ==========================================================================
+    "code_correctness": {
+        "name": "Code Correctness",
+        "description": "Whether the code is syntactically and logically correct",
+        "prompt": """Evaluate the CORRECTNESS of code in the response.
+
+Consider:
+1. Is the code syntactically correct?
+2. Does it handle edge cases?
+3. Will it produce the expected output?
+4. Are there any logical errors or bugs?
+5. Does it follow the requirements given?
+
+A score of 100 means the code is fully correct.
+A score of 0 means the code has significant errors.""",
+    },
+    "code_quality": {
+        "name": "Code Quality",
+        "description": "Whether the code follows best practices and is well-written",
+        "prompt": """Evaluate the QUALITY of code in the response.
+
+Consider:
+1. Is the code readable and well-organized?
+2. Does it follow naming conventions?
+3. Is it properly commented where needed?
+4. Does it follow DRY (Don't Repeat Yourself)?
+5. Is error handling appropriate?
+
+A score of 100 means excellent code quality.
+A score of 0 means poor code quality.""",
+    },
+    "code_security": {
+        "name": "Code Security",
+        "description": "Whether the code is free from security vulnerabilities",
+        "prompt": """Evaluate the SECURITY of code in the response.
+
+Consider:
+1. Are there any injection vulnerabilities (SQL, XSS, etc.)?
+2. Is user input properly validated and sanitized?
+3. Are sensitive data handled securely?
+4. Are there any hardcoded credentials or secrets?
+5. Does it follow security best practices?
+
+A score of 100 means the code is secure.
+A score of 0 means the code has critical security flaws.""",
+    },
 }
 
 
@@ -207,7 +380,8 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
     """Generalized LLM-as-judge analyzer with preset and custom prompts.
 
     This analyzer sends conversations to an LLM for evaluation using either
-    preset criteria (usefulness, safety, etc.) or custom prompts.
+    preset criteria (usefulness, safety, etc.) or custom prompts. It supports
+    flexible targeting of conversation parts and template placeholders.
 
     Example with preset criteria:
         >>> analyzer = LLMAnalyzer(criteria="usefulness")
@@ -215,24 +389,41 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
         >>> print(f"{result.criteria}: {result.score}/100")
         usefulness: 85/100
 
-    Example with custom prompt:
+    Example with custom prompt and target scope:
         >>> analyzer = LLMAnalyzer(
-        ...     criteria_name="domain_expertise",
-        ...     prompt_template="Evaluate if the response shows expertise in...",
+        ...     criteria_name="prompt_difficulty",
+        ...     prompt_template="Evaluate the difficulty of this prompt: {target}",
+        ...     target_scope=TargetScope.FIRST_USER,
         ... )
         >>> result = analyzer.analyze(conversation)
 
+    Example with metadata fields (like doc_qa judges):
+        >>> analyzer = LLMAnalyzer(
+        ...     criteria_name="groundedness",
+        ...     prompt_template="Context: {context}\\nQuestion: {question}\\n{target}",
+        ...     target_scope=TargetScope.LAST_ASSISTANT,
+        ...     data_fields={"context": "Context", "question": "Question"},
+        ... )
+
     Args:
         criteria: Name of preset criteria ('usefulness', 'safety', etc.).
-            Use get_available_criteria() to see all options.
-        criteria_name: Custom name when using prompt_template (ignored if criteria set).
-        prompt_template: Custom evaluation prompt (ignored if criteria set).
+        criteria_name: Custom name when using prompt_template.
+        prompt_template: Custom evaluation prompt with placeholders.
+        target_scope: Which part of conversation to evaluate (default: CONVERSATION).
+        data_fields: Metadata fields to extract for template placeholders.
+        turn_indexing: Add turn numbers to multi-turn format (e.g., <user-0>).
+        user_turn_tag: Tag for user turns in multi-turn format.
+        assistant_turn_tag: Tag for assistant turns in multi-turn format.
+        include_system: Include system message in conversation scope.
+        judgment_type: Type of judgment (SCORE, BOOL, ENUM).
+        enum_values: Valid values for ENUM judgment type.
         model_name: LLM model to use for evaluation.
         api_provider: API provider ('openai' or 'anthropic').
         api_key: API key (uses env var if not provided).
         temperature: Sampling temperature (0 for deterministic).
         max_tokens: Maximum tokens in LLM response.
         pass_threshold: Score threshold for passed=True (default 50).
+        system_prompt: Custom system prompt (overrides BASE_SYSTEM_PROMPT).
     """
 
     def __init__(
@@ -240,12 +431,25 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
         criteria: str | None = None,
         criteria_name: str | None = None,
         prompt_template: str | None = None,
+        # Target scope options
+        target_scope: TargetScope | str = TargetScope.CONVERSATION,
+        data_fields: dict[str, str] | None = None,
+        # Multi-turn formatting options (for CONVERSATION scope)
+        turn_indexing: bool = False,
+        user_turn_tag: str = "user",
+        assistant_turn_tag: str = "assistant",
+        include_system: bool = False,
+        # Judgment type options
+        judgment_type: JudgmentType | str = JudgmentType.SCORE,
+        enum_values: list[str] | None = None,
+        # LLM options
         model_name: str = "gpt-4o-mini",
         api_provider: str = "openai",
         api_key: str | None = None,
         temperature: float = 0.0,
         max_tokens: int = 500,
         pass_threshold: int = 50,
+        system_prompt: str | None = None,
         **kwargs: Any,
     ):
         """Initialize the LLMAnalyzer."""
@@ -259,6 +463,9 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
             preset = PRESET_CRITERIA[criteria]
             self.criteria_name = criteria
             self.evaluation_prompt = preset["prompt"]
+            # Use preset's data_fields if not overridden
+            if data_fields is None and "data_fields" in preset:
+                data_fields = preset["data_fields"]
         elif prompt_template:
             self.criteria_name = criteria_name or "custom"
             self.evaluation_prompt = prompt_template
@@ -267,73 +474,339 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
                 "Must provide either 'criteria' (preset) or 'prompt_template' (custom)"
             )
 
+        # Target scope
+        if isinstance(target_scope, str):
+            target_scope = TargetScope(target_scope)
+        self.target_scope = target_scope
+        self.data_fields = data_fields or {}
+
+        # Multi-turn formatting
+        self.turn_indexing = turn_indexing
+        self.user_turn_tag = user_turn_tag
+        self.assistant_turn_tag = assistant_turn_tag
+        self.include_system = include_system
+
+        # Judgment type
+        if isinstance(judgment_type, str):
+            judgment_type = JudgmentType(judgment_type)
+        self.judgment_type = judgment_type
+        self.enum_values = enum_values or []
+
+        # LLM options
         self.model_name = model_name
         self.api_provider = api_provider
         self.api_key = api_key
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.pass_threshold = pass_threshold
+        self.system_prompt = system_prompt
         self.extra_kwargs = kwargs
 
-    def _format_conversation(self, conversation: Conversation) -> str:
-        """Format a conversation for evaluation."""
+        # Analyzer ID for pipeline result naming (defaults to criteria_name)
+        # This allows multiple LLM analyzers with different criteria to be distinguished
+        self.analyzer_id = self.criteria_name
+
+    def _extract_target_content(self, conversation: Conversation) -> str:
+        """Extract content based on target_scope.
+
+        Args:
+            conversation: The conversation to extract from.
+
+        Returns:
+            The extracted content string based on target_scope.
+        """
+        messages = conversation.messages
+
+        if self.target_scope == TargetScope.CONVERSATION:
+            return self._format_conversation_multiturn(conversation)
+
+        elif self.target_scope == TargetScope.LAST_TURN:
+            # Get last user and assistant messages (API single-turn compatible)
+            last_user = None
+            last_assistant = None
+            for msg in reversed(messages):
+                if msg.role == Role.ASSISTANT and last_assistant is None:
+                    last_assistant = msg
+                elif msg.role == Role.USER and last_user is None:
+                    last_user = msg
+                if last_user and last_assistant:
+                    break
+            parts = []
+            if last_user:
+                content = self._get_message_content(last_user)
+                parts.append(f"[USER]: {content}")
+            if last_assistant:
+                content = self._get_message_content(last_assistant)
+                parts.append(f"[ASSISTANT]: {content}")
+            return "\n\n".join(parts)
+
+        elif self.target_scope == TargetScope.SYSTEM:
+            for msg in messages:
+                if msg.role == Role.SYSTEM:
+                    return self._get_message_content(msg)
+            return ""
+
+        elif self.target_scope == TargetScope.USER_MESSAGES:
+            contents = []
+            for msg in messages:
+                if msg.role == Role.USER:
+                    contents.append(self._get_message_content(msg))
+            return "\n\n".join(contents)
+
+        elif self.target_scope == TargetScope.ASSISTANT_MESSAGES:
+            contents = []
+            for msg in messages:
+                if msg.role == Role.ASSISTANT:
+                    contents.append(self._get_message_content(msg))
+            return "\n\n".join(contents)
+
+        elif self.target_scope == TargetScope.FIRST_USER:
+            for msg in messages:
+                if msg.role == Role.USER:
+                    return self._get_message_content(msg)
+            return ""
+
+        elif self.target_scope == TargetScope.LAST_ASSISTANT:
+            for msg in reversed(messages):
+                if msg.role == Role.ASSISTANT:
+                    return self._get_message_content(msg)
+            return ""
+
+        elif self.target_scope == TargetScope.LAST_USER:
+            for msg in reversed(messages):
+                if msg.role == Role.USER:
+                    return self._get_message_content(msg)
+            return ""
+
+        else:
+            # Fallback to full conversation
+            return self._format_conversation_multiturn(conversation)
+
+    def _get_message_content(self, message: Any) -> str:
+        """Get string content from a message."""
+        content = message.content
+        if isinstance(content, str):
+            return content
+        return str(content) if content else ""
+
+    def _format_conversation_multiturn(self, conversation: Conversation) -> str:
+        """Format full conversation with optional turn tags (API multi-turn compatible).
+
+        This method mirrors the API's conv_to_dict_format_multiturn() behavior.
+        """
+        lines = []
+        turn_index = -1
+        expected_role = Role.USER
+
+        for msg in conversation.messages:
+            # Skip system message unless include_system is True
+            if msg.role == Role.SYSTEM:
+                if self.include_system:
+                    content = self._get_message_content(msg)
+                    lines.append(f"[SYSTEM]: {content}")
+                continue
+
+            content = self._get_message_content(msg)
+
+            # Determine tag based on role
+            if msg.role == Role.USER:
+                turn_tag = self.user_turn_tag
+                if expected_role == Role.USER:
+                    turn_index += 1
+                expected_role = Role.ASSISTANT
+            elif msg.role == Role.ASSISTANT:
+                turn_tag = self.assistant_turn_tag
+                expected_role = Role.USER
+            else:
+                # Skip tool messages or unknown roles
+                continue
+
+            # Format with or without turn indexing
+            if turn_tag and self.turn_indexing:
+                open_tag = f"<{turn_tag}-{turn_index}>"
+                close_tag = f"</{turn_tag}-{turn_index}>"
+                lines.append(f"{open_tag}{content}{close_tag}")
+            elif turn_tag and not self.turn_indexing:
+                open_tag = f"<{turn_tag}>"
+                close_tag = f"</{turn_tag}>"
+                lines.append(f"{open_tag}{content}{close_tag}")
+            else:
+                role_str = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+                lines.append(f"[{role_str.upper()}]: {content}")
+
+        return "\n".join(lines)
+
+    def _format_conversation_simple(self, conversation: Conversation) -> str:
+        """Simple conversation format with role labels."""
         lines = []
         for msg in conversation.messages:
             role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-            content = msg.content if isinstance(msg.content, str) else str(msg.content)
+            content = self._get_message_content(msg)
             lines.append(f"[{role.upper()}]: {content}")
         return "\n\n".join(lines)
 
+    def _build_template_context(self, conversation: Conversation) -> dict[str, str]:
+        """Build the context dict for template placeholder substitution.
+
+        Args:
+            conversation: The conversation being analyzed.
+
+        Returns:
+            Dict with all available placeholders and their values.
+        """
+        context: dict[str, str] = {}
+
+        # Built-in placeholders
+        context["target"] = self._extract_target_content(conversation)
+        context["conversation"] = self._format_conversation_simple(conversation)
+
+        # Extract request/response (last user/assistant for API compatibility)
+        for msg in reversed(conversation.messages):
+            if msg.role == Role.ASSISTANT and "response" not in context:
+                context["response"] = self._get_message_content(msg)
+            elif msg.role == Role.USER and "request" not in context:
+                context["request"] = self._get_message_content(msg)
+            if "request" in context and "response" in context:
+                break
+
+        # System prompt
+        for msg in conversation.messages:
+            if msg.role == Role.SYSTEM:
+                context["system_prompt"] = self._get_message_content(msg)
+                break
+
+        # Extract metadata fields (data_fields)
+        metadata = getattr(conversation, "metadata", {}) or {}
+        for field_name in self.data_fields:
+            if field_name in metadata:
+                context[field_name] = str(metadata[field_name])
+            else:
+                # Field not found in metadata - leave empty or use placeholder
+                context[field_name] = f"[{field_name} not found in metadata]"
+
+        return context
+
     def _build_prompt(self, conversation: Conversation) -> str:
-        """Build the full evaluation prompt."""
-        formatted_conv = self._format_conversation(conversation)
-        return f"""{self.evaluation_prompt}
+        """Build the full evaluation prompt with template substitution.
 
---- CONVERSATION TO EVALUATE ---
-{formatted_conv}
---- END CONVERSATION ---
+        Args:
+            conversation: The conversation to evaluate.
 
-Provide your evaluation in JSON format with "score" (0-100) and "reasoning" fields."""
+        Returns:
+            The complete prompt string to send to the LLM.
+        """
+        # Build template context
+        context = self._build_template_context(conversation)
+
+        # Substitute placeholders in the evaluation prompt
+        try:
+            prompt_body = self.evaluation_prompt.format(**context)
+        except KeyError as e:
+            # Missing placeholder - include what we have
+            logger.warning(f"Missing template placeholder: {e}")
+            prompt_body = self.evaluation_prompt
+            for key, value in context.items():
+                prompt_body = prompt_body.replace(f"{{{key}}}", value)
+
+        # Build response format instruction based on judgment_type
+        if self.judgment_type == JudgmentType.BOOL:
+            format_instruction = (
+                'IMPORTANT: Respond ONLY with a JSON object containing:\n'
+                '- "judgment": true or false (boolean, NOT a number)\n'
+                '- "reasoning": your explanation\n\n'
+                'Example: {"judgment": true, "reasoning": "Because..."}'
+            )
+        elif self.judgment_type == JudgmentType.ENUM:
+            values_str = ", ".join(f'"{v}"' for v in self.enum_values)
+            format_instruction = (
+                f'IMPORTANT: Respond ONLY with a JSON object containing:\n'
+                f'- "category": one of {values_str}\n'
+                f'- "reasoning": your explanation\n\n'
+                f'Example: {{"category": "{self.enum_values[0] if self.enum_values else "value"}", "reasoning": "Because..."}}'
+            )
+        else:  # SCORE
+            format_instruction = (
+                'Provide your evaluation in JSON format with "score" (0-100) '
+                'and "reasoning" fields.'
+            )
+
+        return f"""{prompt_body}
+
+--- CONTENT TO EVALUATE ---
+{context.get('target', '')}
+--- END CONTENT ---
+
+{format_instruction}"""
 
     def _parse_response(self, response: str) -> dict[str, Any]:
-        """Parse the LLM response to extract score and reasoning."""
+        """Parse the LLM response based on judgment_type.
+
+        Args:
+            response: Raw LLM response string.
+
+        Returns:
+            Parsed dict with score/judgment/category and reasoning.
+        """
+        parsed: dict[str, Any] = {}
+
         # Try direct JSON parse
         try:
-            return json.loads(response)
+            parsed = json.loads(response)
         except json.JSONDecodeError:
             pass
 
         # Try to extract JSON from markdown code blocks
-        json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
-        if json_match:
-            try:
-                return json.loads(json_match.group(1))
-            except json.JSONDecodeError:
-                pass
+        if not parsed:
+            json_match = re.search(
+                r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL
+            )
+            if json_match:
+                try:
+                    parsed = json.loads(json_match.group(1))
+                except json.JSONDecodeError:
+                    pass
 
         # Try to extract JSON object from text
-        json_match = re.search(r"\{[^{}]*\}", response, re.DOTALL)
-        if json_match:
-            try:
-                return json.loads(json_match.group(0))
-            except json.JSONDecodeError:
-                pass
+        if not parsed:
+            json_match = re.search(r"\{[^{}]*\}", response, re.DOTALL)
+            if json_match:
+                try:
+                    parsed = json.loads(json_match.group(0))
+                except json.JSONDecodeError:
+                    pass
 
-        # Fallback: try to extract score from text
-        score_match = re.search(r"score[:\s]*(\d+)", response, re.IGNORECASE)
-        if score_match:
-            score = int(score_match.group(1))
+        # Fallback parsing based on judgment type
+        if not parsed:
+            if self.judgment_type == JudgmentType.BOOL:
+                # Look for yes/no, true/false
+                if re.search(r"\b(yes|true|pass)\b", response, re.IGNORECASE):
+                    parsed = {"judgment": True, "reasoning": response[:200]}
+                elif re.search(r"\b(no|false|fail)\b", response, re.IGNORECASE):
+                    parsed = {"judgment": False, "reasoning": response[:200]}
+
+            elif self.judgment_type == JudgmentType.ENUM:
+                # Look for enum values
+                for value in self.enum_values:
+                    if value.lower() in response.lower():
+                        parsed = {"category": value, "reasoning": response[:200]}
+                        break
+
+            else:  # SCORE
+                # Try to extract score from text
+                score_match = re.search(r"score[:\s]*(\d+)", response, re.IGNORECASE)
+                if score_match:
+                    score = int(score_match.group(1))
+                    parsed = {"score": min(100, score), "reasoning": response[:200]}
+
+        # If still no parsed result, return error
+        if not parsed:
             return {
-                "score": min(100, score),
-                "reasoning": response[:200],
+                "score": -1,
+                "reasoning": "Failed to parse response",
+                "error": "parse_error",
             }
 
-        # Return error result
-        return {
-            "score": -1,
-            "reasoning": f"Failed to parse response",
-            "error": "parse_error",
-        }
+        return parsed
 
     def analyze(self, conversation: Conversation) -> LLMJudgmentMetrics:
         """Analyze a conversation using the configured criteria.
@@ -351,21 +824,44 @@ Provide your evaluation in JSON format with "score" (0-100) and "reasoning" fiel
 
             # Parse response
             parsed = self._parse_response(response)
-
-            score = parsed.get("score", -1)
             reasoning = parsed.get("reasoning", "")
             error = parsed.get("error")
 
-            # Handle invalid scores
-            if score < 0 or score > 100:
-                return LLMJudgmentMetrics.from_score(
-                    score=0,
-                    reasoning=reasoning,
-                    criteria=self.criteria_name,
-                    pass_threshold=self.pass_threshold,
-                    raw_response=response,
-                    error=error or f"Invalid score: {score}",
-                )
+            # Handle different judgment types
+            if self.judgment_type == JudgmentType.BOOL:
+                judgment = parsed.get("judgment")
+                # Convert bool to score (True=100, False=0)
+                if isinstance(judgment, bool):
+                    score = 100 if judgment else 0
+                else:
+                    score = 0
+                    error = error or "Failed to parse boolean judgment"
+
+            elif self.judgment_type == JudgmentType.ENUM:
+                category = parsed.get("category")
+                # Map category to score based on position in enum_values
+                if category and category in self.enum_values:
+                    idx = self.enum_values.index(category)
+                    # Scale to 0-100 based on position
+                    if len(self.enum_values) > 1:
+                        score = int((idx / (len(self.enum_values) - 1)) * 100)
+                    else:
+                        score = 100
+                else:
+                    score = 0
+                    error = error or f"Invalid category: {category}"
+
+            else:  # SCORE
+                score = parsed.get("score", -1)
+                if score < 0 or score > 100:
+                    return LLMJudgmentMetrics.from_score(
+                        score=0,
+                        reasoning=reasoning,
+                        criteria=self.criteria_name,
+                        pass_threshold=self.pass_threshold,
+                        raw_response=response,
+                        error=error or f"Invalid score: {score}",
+                    )
 
             return LLMJudgmentMetrics.from_score(
                 score=score,
@@ -395,6 +891,10 @@ Provide your evaluation in JSON format with "score" (0-100) and "reasoning" fiel
         else:
             raise ValueError(f"Unsupported API provider: {self.api_provider}")
 
+    def _get_system_prompt(self) -> str:
+        """Get the system prompt to use for the LLM call."""
+        return self.system_prompt or BASE_SYSTEM_PROMPT
+
     def _call_openai(self, prompt: str) -> str:
         """Call OpenAI API."""
         try:
@@ -410,7 +910,7 @@ Provide your evaluation in JSON format with "score" (0-100) and "reasoning" fiel
         response = client.chat.completions.create(
             model=self.model_name,
             messages=[
-                {"role": "system", "content": BASE_SYSTEM_PROMPT},
+                {"role": "system", "content": self._get_system_prompt()},
                 {"role": "user", "content": prompt},
             ],
             temperature=self.temperature,
@@ -432,7 +932,7 @@ Provide your evaluation in JSON format with "score" (0-100) and "reasoning" fiel
         )
         response = client.messages.create(
             model=self.model_name,
-            system=BASE_SYSTEM_PROMPT,
+            system=self._get_system_prompt(),
             messages=[{"role": "user", "content": prompt}],
             temperature=self.temperature,
             max_tokens=self.max_tokens,
@@ -452,6 +952,67 @@ Provide your evaluation in JSON format with "score" (0-100) and "reasoning" fiel
             results.append(self.analyze(conv))
         return results
 
+    @classmethod
+    def from_api_judge_config(
+        cls,
+        system_instruction: str,
+        prompt_template: str,
+        is_multiturn: bool = False,
+        turn_indexing: bool = False,
+        user_turn_tag: str | None = None,
+        assistant_turn_tag: str | None = None,
+        data_fields_schema: dict[str, str] | None = None,
+        model_name: str = "gpt-4o-mini",
+        api_provider: str = "openai",
+        temperature: float = 0.0,
+        max_tokens: int = 500,
+        **kwargs: Any,
+    ) -> "LLMAnalyzer":
+        """Create LLMAnalyzer from API judge configuration.
+
+        This factory method provides backward compatibility with the API's
+        judge workflow configuration format.
+
+        Args:
+            system_instruction: System prompt for the judge.
+            prompt_template: Prompt template with placeholders.
+            is_multiturn: If True, use CONVERSATION scope; else LAST_TURN.
+            turn_indexing: Add turn numbers to multi-turn format.
+            user_turn_tag: Tag for user turns (default: "user").
+            assistant_turn_tag: Tag for assistant turns (default: "assistant").
+            data_fields_schema: Mapping of field_name -> field_title.
+            model_name: LLM model name.
+            api_provider: API provider (openai, anthropic).
+            temperature: Sampling temperature.
+            max_tokens: Maximum response tokens.
+            **kwargs: Additional arguments passed to __init__.
+
+        Returns:
+            Configured LLMAnalyzer instance.
+
+        Example:
+            >>> analyzer = LLMAnalyzer.from_api_judge_config(
+            ...     system_instruction="You are a judge...",
+            ...     prompt_template="Evaluate: {request}\\n{response}",
+            ...     is_multiturn=False,
+            ... )
+        """
+        return cls(
+            criteria_name="custom",
+            prompt_template=prompt_template,
+            system_prompt=system_instruction,
+            target_scope=TargetScope.CONVERSATION if is_multiturn else TargetScope.LAST_TURN,
+            turn_indexing=turn_indexing,
+            user_turn_tag=user_turn_tag or "user",
+            assistant_turn_tag=assistant_turn_tag or "assistant",
+            data_fields=data_fields_schema,
+            model_name=model_name,
+            api_provider=api_provider,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+
 
 # =============================================================================
 # CONVENIENCE CLASSES (Thin wrappers for common criteria)
@@ -464,6 +1025,8 @@ class UsefulnessAnalyzer(LLMAnalyzer):
     def __init__(self, **kwargs: Any):
         kwargs.setdefault("criteria", "usefulness")
         super().__init__(**kwargs)
+        # Use class name for convenience classes (preserves backward compatibility)
+        self.analyzer_id = "UsefulnessAnalyzer"
 
 
 class SafetyAnalyzer(LLMAnalyzer):
@@ -472,6 +1035,7 @@ class SafetyAnalyzer(LLMAnalyzer):
     def __init__(self, **kwargs: Any):
         kwargs.setdefault("criteria", "safety")
         super().__init__(**kwargs)
+        self.analyzer_id = "SafetyAnalyzer"
 
 
 class FactualityAnalyzer(LLMAnalyzer):
@@ -480,6 +1044,7 @@ class FactualityAnalyzer(LLMAnalyzer):
     def __init__(self, **kwargs: Any):
         kwargs.setdefault("criteria", "factuality")
         super().__init__(**kwargs)
+        self.analyzer_id = "FactualityAnalyzer"
 
 
 class CoherenceAnalyzer(LLMAnalyzer):
@@ -488,6 +1053,7 @@ class CoherenceAnalyzer(LLMAnalyzer):
     def __init__(self, **kwargs: Any):
         kwargs.setdefault("criteria", "coherence")
         super().__init__(**kwargs)
+        self.analyzer_id = "CoherenceAnalyzer"
 
 
 class InstructionFollowingAnalyzer(LLMAnalyzer):
@@ -496,3 +1062,4 @@ class InstructionFollowingAnalyzer(LLMAnalyzer):
     def __init__(self, **kwargs: Any):
         kwargs.setdefault("criteria", "instruction_following")
         super().__init__(**kwargs)
+        self.analyzer_id = "InstructionFollowingAnalyzer"

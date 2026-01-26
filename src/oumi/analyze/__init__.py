@@ -41,8 +41,10 @@ from oumi.analyze.analyzers.llm_analyzer import (
     CoherenceAnalyzer,
     FactualityAnalyzer,
     InstructionFollowingAnalyzer,
+    JudgmentType,
     LLMAnalyzer,
     SafetyAnalyzer,
+    TargetScope,
     UsefulnessAnalyzer,
     get_available_criteria,
     get_criteria_info,
@@ -115,6 +117,10 @@ __all__ = [
     "FactualityAnalyzer",
     "CoherenceAnalyzer",
     "InstructionFollowingAnalyzer",
+    # Enums
+    "TargetScope",
+    "JudgmentType",
+    # Utilities
     "get_available_criteria",
     "get_criteria_info",
     # Result models
