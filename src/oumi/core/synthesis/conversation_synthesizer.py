@@ -50,6 +50,7 @@ class ConversationSynthesizer:
             remote_params=inference_config.remote_params,
         )
         self._inference_config = inference_config
+        self._default_turn_order = [Role.USER, Role.ASSISTANT]
 
     def synthesize(
         self,
@@ -76,13 +77,18 @@ class ConversationSynthesizer:
         )
 
         records: list[dict[str, dict | str]] = []
+        planner_id = (
+            multiturn_attributes.conversation_planner.id
+            if multiturn_attributes.conversation_planner
+            else None
+        )
         for sample in samples:
             conversation, plan = self._synthesize_sample(sample, multiturn_attributes)
             record: dict[str, dict | str] = {
                 multiturn_attributes.id: conversation.to_dict()
             }
-            if plan:
-                record["conversation_plan"] = plan
+            if plan and planner_id:
+                record[planner_id] = plan
             records.append(record)
 
         return records
@@ -172,21 +178,22 @@ class ConversationSynthesizer:
             A tuple of (Conversation object with generated messages, plan string).
         """
         history: list[Message] = []
-        target_turns = self._select_target_turns(multiturn_attribute)
+        turn_order = multiturn_attribute.turn_order or self._default_turn_order
+        target_turns = self._select_target_turns(multiturn_attribute, turn_order)
 
         logger.debug(f"Synthesizing conversation with {target_turns} turns")
 
         sample_with_context = {**sample, "target_turns": target_turns}
 
         plan = self._generate_plan(sample_with_context, multiturn_attribute)
-        sample_with_context["conversation_plan"] = plan
+        if multiturn_attribute.conversation_planner:
+            planner_id = multiturn_attribute.conversation_planner.id
+            sample_with_context[planner_id] = plan
 
         for turn_idx in range(target_turns):
             sample_with_context["current_turn"] = turn_idx + 1
 
-            role = multiturn_attribute.turn_order[
-                turn_idx % len(multiturn_attribute.turn_order)
-            ]
+            role = turn_order[turn_idx % len(turn_order)]
             prompt_messages: list[Message] = []
             prompt_messages.extend(
                 self._format_messages(
@@ -211,19 +218,23 @@ class ConversationSynthesizer:
             generated_text = self._extract_response(inference_results)[0]
             history.append(Message(role=role, content=generated_text))
 
-        return Conversation(messages=history), plan
+        output_messages = self._format_messages(
+            sample_with_context, multiturn_attribute.output_system_messages
+        )
+        output_messages.extend(history)
+        return Conversation(messages=output_messages), plan
 
-    def _select_target_turns(self, multiturn_attribute: MultiTurnAttribute) -> int:
+    def _select_target_turns(
+        self, multiturn_attribute: MultiTurnAttribute, turn_order: list[Role]
+    ) -> int:
         min_turns = multiturn_attribute.min_turns
         max_turns = multiturn_attribute.max_turns
         target_turns = random.randint(min_turns, max_turns)
-        if Role.ASSISTANT not in multiturn_attribute.turn_order:
+        if Role.ASSISTANT not in turn_order:
             return target_turns
 
         def role_at(turn_count: int) -> Role:
-            return multiturn_attribute.turn_order[
-                (turn_count - 1) % len(multiturn_attribute.turn_order)
-            ]
+            return turn_order[(turn_count - 1) % len(turn_order)]
 
         if role_at(target_turns) == Role.ASSISTANT:
             return target_turns
@@ -262,16 +273,16 @@ class ConversationSynthesizer:
         multiturn_attribute: MultiTurnAttribute,
         role: Role,
     ) -> Message | None:
-        persona = None
+        system_instructions = None
         if role == Role.USER:
-            persona = multiturn_attribute.user_persona
+            system_instructions = multiturn_attribute.user_system_instructions
         elif role == Role.ASSISTANT:
-            persona = multiturn_attribute.assistant_persona
-        if persona is None:
+            system_instructions = multiturn_attribute.assistant_system_instructions
+        if system_instructions is None:
             return None
         formatted_prompt = self._formatter.format(
             sample,
-            persona.system_prompt,
+            system_instructions,
             missing_values_allowed=False,
         )
         return Message(role=Role.SYSTEM, content=formatted_prompt.strip())

@@ -283,7 +283,6 @@ strategy_params:
     - id: "support_conversation"
       min_turns: 4
       max_turns: 12
-      turn_order: [USER, ASSISTANT]
 
       # Plan the conversation flow before generating turns
       conversation_planner:
@@ -320,45 +319,42 @@ strategy_params:
 
               Output only the plan, nothing else.
 
-      user_persona:
-        id: "customer"
-        role: USER
-        description: "A customer contacting support"
-        system_prompt: |
-          You are {customer_name}, a {customer_type.name} customer contacting BrightTech Electronics support.
+      user_system_instructions: |
+        You are {customer_name}, a {customer_type.name} customer contacting BrightTech Electronics support.
 
-          Your personality: {customer_type.description}
-          Your specific issue: {issue_detail}
-          How you interact: {customer_interaction.description}
+        Your personality: {customer_type.description}
+        Your specific issue: {issue_detail}
+        How you interact: {customer_interaction.description}
 
-          Conversation plan:
-          {conversation_plan}
+        Conversation plan:
+        {conversation_plan}
 
-          You are on turn {current_turn} of {target_turns}.
+        You are on turn {current_turn} of {target_turns}.
 
-          Guidelines:
-          - Follow the plan's direction for this turn, but respond naturally
-          - Stay in character throughout the conversation
-          - Your opening message was: "{customer_opener}"
-          - Build on the conversation naturally
-          - If cooperative, provide information when asked
-          - If difficult or skeptical, be challenging but stay realistic
-          - Do not break character or acknowledge you are an AI
+        Guidelines:
+        - Follow the plan's direction for this turn, but respond naturally
+        - Stay in character throughout the conversation
+        - Your opening message was: "{customer_opener}"
+        - Build on the conversation naturally
+        - If cooperative, provide information when asked
+        - If difficult or skeptical, be challenging but stay realistic
+        - Do not break character or acknowledge you are an AI
 
-      assistant_persona:
-        id: "support_agent"
-        role: ASSISTANT
-        description: "A customer support agent for BrightTech Electronics"
-        system_prompt: |
-          {system_instruction.description}
+      assistant_system_instructions: |
+        {system_instruction.description}
 
-          Conversation plan:
-          {conversation_plan}
+        Conversation plan:
+        {conversation_plan}
 
-          You are on turn {current_turn} of {target_turns}.
-          Follow the plan's direction for this turn.
+        You are on turn {current_turn} of {target_turns}.
+        Follow the plan's direction for this turn.
 
       system_messages: []
+
+      output_system_messages:
+        - role: SYSTEM
+          content: |
+            {system_instruction.description}
 
       turn_instructions:
         USER:

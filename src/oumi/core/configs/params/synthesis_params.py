@@ -450,64 +450,6 @@ class GeneratedAttribute:
 
 
 @dataclass
-class MultiTurnPersona:
-    """Persona for a multi-turn interaction."""
-
-    id: str
-    """Unique identifier for the persona."""
-
-    role: Role
-    """Role of the persona."""
-
-    description: str
-    """Description of the persona."""
-
-    system_prompt: str
-    """System message to define the persona."""
-
-    def __post_init__(self):
-        """Verifies/populates params."""
-        if not self.id:
-            raise ValueError("MultiTurnPersona.id cannot be empty.")
-        if not self.role:
-            raise ValueError("MultiTurnPersona.role cannot be empty.")
-        if not self.description:
-            raise ValueError("MultiTurnPersona.description cannot be empty.")
-        if not self.system_prompt:
-            raise ValueError("MultiTurnPersona.system_prompt cannot be empty.")
-
-
-@dataclass
-class ConversationPlanner:
-    """Generate plan for how the conversation should proceed."""
-
-    id: str
-    """ID to be used when referencing the attribute during synthesis."""
-
-    instruction_messages: list[TextMessage]
-    """List of messages providing instructions for generating this attribute."""
-
-    postprocessing_params: GeneratedAttributePostprocessingParams | None = None
-    """Postprocessing parameters for the generated attribute."""
-
-    def __post_init__(self):
-        """Verifies/populates params."""
-        if not self.id:
-            raise ValueError("ConversationPlanner.id cannot be empty.")
-        if not self.instruction_messages:
-            raise ValueError(
-                "ConversationPlanner.instruction_messages cannot be empty."
-            )
-        if self.postprocessing_params:
-            if self.id == self.postprocessing_params.id:
-                raise ValueError(
-                    "ConversationPlanner.id and "
-                    "GeneratedAttributePostprocessingParams.id "
-                    "cannot be the same."
-                )
-
-
-@dataclass
 class MultiTurnAttribute:
     """Attributes that enable multi-turn interactions."""
 
@@ -517,30 +459,35 @@ class MultiTurnAttribute:
     min_turns: int
     """Minimum number of turns (messages) required for the attribute."""
 
-    turn_order: list[Role]
-    """The order in which turns should be taken (repeats as a cycle)."""
-
     max_turns: int
     """Maximum number of turns (messages) allowed for the attribute."""
-
-    user_persona: MultiTurnPersona
-    """Persona for the user/customer. Defines how user messages are generated."""
-
-    assistant_persona: MultiTurnPersona
-    """Persona for the assistant/agent. Defines how assistant messages are generated."""
-
-    system_messages: list[TextMessage]
-    """System messages prepended to each turn generation."""
 
     turn_instructions: dict[Role, TextMessage]
     """Per-role instruction template for generating a turn."""
 
-    conversation_planner: ConversationPlanner | None = None
+    turn_order: list[Role] | None = None
+    """The order in which turns should be taken (repeats as a cycle).
+
+    Defaults to [Role.USER, Role.ASSISTANT] if not specified."""
+
+    user_system_instructions: str | None = None
+    """System instructions for user turns."""
+
+    assistant_system_instructions: str | None = None
+    """System instructions for assistant turns."""
+
+    system_messages: list[TextMessage] | None = None
+    """System messages prepended to each turn generation."""
+
+    output_system_messages: list[TextMessage] | None = None
+    """System messages prepended to the final output conversation."""
+
+    conversation_planner: GeneratedAttribute | None = None
     """Optional planner for generating a conversation plan before turn generation.
 
     When provided, the planner generates a plan that is injected into the sample
-    context as {conversation_plan}. The plan can be referenced in persona prompts
-    and turn instructions to guide the conversation flow.
+    context as {conversation_planner.id}. The plan can be referenced in persona
+    prompts and turn instructions to guide the conversation flow.
 
     The planner also has access to {target_turns} to know the conversation length."""
 
@@ -548,34 +495,24 @@ class MultiTurnAttribute:
         """Verifies/populates params."""
         if not self.id:
             raise ValueError("MultiTurnAttribute.id cannot be empty.")
-        if not self.turn_order:
-            raise ValueError("MultiTurnAttribute.turn_order cannot be empty.")
-        if any(not isinstance(role, Role) for role in self.turn_order):
-            raise ValueError("MultiTurnAttribute.turn_order must use Role values.")
         if self.min_turns < 1:
             raise ValueError("MultiTurnAttribute.min_turns must be at least 1.")
         if self.max_turns is not None and self.max_turns < self.min_turns:
             raise ValueError(
                 "MultiTurnAttribute.max_turns must be greater than min_turns."
             )
-        if not self.user_persona:
-            raise ValueError("MultiTurnAttribute.user_persona cannot be empty.")
-        if not self.assistant_persona:
-            raise ValueError("MultiTurnAttribute.assistant_persona cannot be empty.")
-        if self.user_persona is not None and self.user_persona.role != Role.USER:
-            raise ValueError("MultiTurnAttribute.user_persona.role must be USER.")
-        if (
-            self.assistant_persona is not None
-            and self.assistant_persona.role != Role.ASSISTANT
-        ):
-            raise ValueError(
-                "MultiTurnAttribute.assistant_persona.role must be ASSISTANT."
-            )
         if self.system_messages:
             for message in self.system_messages:
                 if not isinstance(message.content, str) or not message.content:
                     raise ValueError(
                         "MultiTurnAttribute.system_messages must be non-empty strings."
+                    )
+        if self.output_system_messages:
+            for message in self.output_system_messages:
+                if not isinstance(message.content, str) or not message.content:
+                    raise ValueError(
+                        "MultiTurnAttribute.output_system_messages must be"
+                        "non-empty strings."
                     )
         if not self.turn_instructions:
             raise ValueError("MultiTurnAttribute.turn_instructions cannot be empty.")
@@ -588,14 +525,19 @@ class MultiTurnAttribute:
                 raise ValueError(
                     "MultiTurnAttribute.turn_instructions must be non-empty strings."
                 )
-        invalid_roles = [
-            role for role in self.turn_order if role not in self.turn_instructions
-        ]
-        if invalid_roles:
-            raise ValueError(
-                "MultiTurnAttribute.turn_instructions must define a template for "
-                "every role in turn_order."
-            )
+        if self.turn_order is not None:
+            if not self.turn_order:
+                raise ValueError("MultiTurnAttribute.turn_order cannot be empty.")
+            if any(not isinstance(role, Role) for role in self.turn_order):
+                raise ValueError("MultiTurnAttribute.turn_order must use Role values.")
+            invalid_roles = [
+                role for role in self.turn_order if role not in self.turn_instructions
+            ]
+            if invalid_roles:
+                raise ValueError(
+                    "MultiTurnAttribute.turn_instructions must define a template for "
+                    "every role in turn_order."
+                )
 
 
 class TransformationType(str, Enum):
