@@ -1,0 +1,231 @@
+# Example configuration for LLM-as-Judge Analyzers
+# Evaluates conversations using multiple criteria with standardized 0-100 scoring
+#
+# IMPORTANT: LLM analyzers require an API key!
+# Set the OPENAI_API_KEY environment variable before running.
+#
+# Usage (CLI):
+#   export OPENAI_API_KEY=your-api-key
+#   oumi analyze --config configs/examples/analyze/typed_usefulness_example.yaml --typed
+#
+# Usage (Python API):
+#   import os
+#   os.environ["OPENAI_API_KEY"] = "your-api-key"
+#
+#   from oumi.analyze import run_from_config_file, print_summary
+#   results = run_from_config_file('configs/examples/analyze/typed_usefulness_example.yaml')
+#   print_summary(results)
+#
+# Available LLM Analyzer Metrics (standardized for ALL criteria):
+#   - <Analyzer>.score      (0-100 normalized score)
+#   - <Analyzer>.reasoning  (LLM explanation)
+#   - <Analyzer>.label      (poor/fair/good/excellent)
+#   - <Analyzer>.passed     (true if score >= pass_threshold)
+#   - <Analyzer>.criteria   (which criteria was evaluated)
+#   - <Analyzer>.error      (null if successful)
+#
+# Available Preset Criteria:
+#   usefulness, safety, factuality, coherence, instruction_following,
+#   relevance, completeness, clarity, engagement
+#
+# Or use custom prompts with: LLMAnalyzer(prompt_template="...")
+
+# Dataset configuration
+dataset_path: "/Users/ryanarman/data/openassistant/openassistant_oasst1.jsonl"
+split: train
+sample_count: 10  # Small sample for testing (LLM calls are slow/expensive)
+
+# Output configuration
+output_path: ./analysis_output/llm_judge_test
+
+# Analyzers to run
+analyzers:
+  # Length analyzer (fast, no API required)
+  - id: length
+    params:
+      count_tokens: true
+      tiktoken_encoding: cl100k_base
+
+  # Usefulness analyzer - preset criteria
+  - id: usefulness
+    params:
+      model_name: gpt-4o-mini
+      api_provider: openai
+      temperature: 0.0
+      pass_threshold: 50  # Score >= 50 means "passed"
+
+  # Safety analyzer - preset criteria
+  - id: safety
+    params:
+      model_name: gpt-4o-mini
+      api_provider: openai
+      temperature: 0.0
+      pass_threshold: 70  # Higher threshold for safety
+
+  # Generic LLM analyzer with custom prompt
+  - id: llm
+    params:
+      criteria_name: "technical_accuracy"
+      prompt_template: |
+        Evaluate the TECHNICAL ACCURACY of the assistant's response.
+
+        Consider:
+        1. Are technical terms used correctly?
+        2. Are code examples (if any) syntactically correct?
+        3. Are technical explanations accurate?
+        4. Would a domain expert agree with the response?
+
+        A score of 100 means technically perfect.
+        A score of 0 means contains serious technical errors.
+      model_name: gpt-4o-mini
+      api_provider: openai
+
+# Tests to run on the computed metrics
+tests:
+  # ============================================================
+  # Usefulness Tests (0-100 scale)
+  # ============================================================
+
+  # Most conversations should pass usefulness (>= 50)
+  - id: high_usefulness_rate
+    type: percentage
+    metric: UsefulnessAnalyzer.passed
+    condition: "== True"
+    min_percentage: 80.0
+    severity: high
+    title: "High usefulness pass rate"
+    description: "At least 80% of conversations should pass usefulness (score >= 50)"
+
+  # Check for excellent responses (score >= 75)
+  - id: some_excellent_responses
+    type: threshold
+    metric: UsefulnessAnalyzer.score
+    operator: ">="
+    value: 75
+    min_percentage: 20.0
+    severity: low
+    title: "Some excellent responses"
+    description: "At least 20% should be excellent (score >= 75)"
+
+  # Few poor responses (score < 25)
+  - id: few_poor_responses
+    type: threshold
+    metric: UsefulnessAnalyzer.score
+    operator: "<"
+    value: 25
+    max_percentage: 10.0
+    severity: high
+    title: "Few poor responses"
+    description: "Less than 10% should be poor (score < 25)"
+
+  # ============================================================
+  # Safety Tests
+  # ============================================================
+
+  # All responses should pass safety (>= 70)
+  - id: high_safety_rate
+    type: percentage
+    metric: SafetyAnalyzer.passed
+    condition: "== True"
+    min_percentage: 95.0
+    severity: high
+    title: "High safety pass rate"
+    description: "At least 95% of responses should be safe (score >= 70)"
+
+  # No severely unsafe responses
+  - id: no_unsafe_responses
+    type: threshold
+    metric: SafetyAnalyzer.score
+    operator: "<"
+    value: 25
+    max_percentage: 1.0
+    severity: high
+    title: "No severely unsafe responses"
+    description: "Less than 1% should be severely unsafe (score < 25)"
+
+  # ============================================================
+  # Error Rate Tests
+  # ============================================================
+
+  - id: low_evaluation_errors
+    type: percentage
+    metric: UsefulnessAnalyzer.error
+    condition: "!= None"
+    max_percentage: 5.0
+    severity: medium
+    title: "Low evaluation error rate"
+    description: "Less than 5% of evaluations should fail"
+
+# Custom metrics combining multiple analyzers
+custom_metrics:
+  # Combined quality score (average of usefulness + safety)
+  - id: combined_quality
+    scope: conversation
+    description: "Combined quality score averaging usefulness and safety"
+    depends_on:
+      - UsefulnessAnalyzer
+      - SafetyAnalyzer
+    output_schema:
+      - name: combined_score
+        type: float
+        description: "Average of usefulness and safety scores (0-100)"
+      - name: both_passed
+        type: bool
+        description: "Both usefulness and safety passed their thresholds"
+      - name: combined_label
+        type: str
+        description: "Overall quality label"
+    function: |
+      def compute(conversation, results, index):
+          usefulness = results["UsefulnessAnalyzer"][index]
+          safety = results["SafetyAnalyzer"][index]
+
+          combined = (usefulness.score + safety.score) / 2
+          both_passed = usefulness.passed and safety.passed
+
+          if combined >= 75:
+              label = "excellent"
+          elif combined >= 50:
+              label = "good"
+          elif combined >= 25:
+              label = "fair"
+          else:
+              label = "poor"
+
+          return {
+              "combined_score": round(combined, 1),
+              "both_passed": both_passed,
+              "combined_label": label
+          }
+
+  # Quality per token (efficiency metric)
+  - id: quality_efficiency
+    scope: conversation
+    description: "Quality relative to response length"
+    depends_on:
+      - LengthAnalyzer
+      - UsefulnessAnalyzer
+    output_schema:
+      - name: score_per_100_tokens
+        type: float
+        description: "Usefulness score normalized per 100 tokens"
+      - name: is_efficient
+        type: bool
+        description: "High quality with reasonable length"
+    function: |
+      def compute(conversation, results, index):
+          length = results["LengthAnalyzer"][index]
+          usefulness = results["UsefulnessAnalyzer"][index]
+
+          tokens = length.total_tokens or 1
+          score = usefulness.score
+
+          score_per_100 = (score / tokens) * 100
+
+          # Efficient = good score (>= 50) without being too long (< 1000 tokens)
+          is_efficient = score >= 50 and tokens < 1000
+
+          return {
+              "score_per_100_tokens": round(score_per_100, 3),
+              "is_efficient": is_efficient
+          }

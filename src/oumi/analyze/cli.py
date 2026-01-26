@@ -57,9 +57,32 @@ def register_analyzer(name: str):
 def _register_builtin_analyzers():
     """Register built-in analyzers in the registry."""
     from oumi.analyze.analyzers.length import LengthAnalyzer
+    from oumi.analyze.analyzers.llm_analyzer import (
+        CoherenceAnalyzer,
+        FactualityAnalyzer,
+        InstructionFollowingAnalyzer,
+        LLMAnalyzer,
+        SafetyAnalyzer,
+        UsefulnessAnalyzer,
+    )
 
+    # Non-LLM analyzers
     ANALYZER_REGISTRY["length"] = LengthAnalyzer
-    ANALYZER_REGISTRY["LengthAnalyzer"] = LengthAnalyzer  # Also register by class name
+    ANALYZER_REGISTRY["LengthAnalyzer"] = LengthAnalyzer
+
+    # LLM-based analyzers
+    ANALYZER_REGISTRY["llm"] = LLMAnalyzer
+    ANALYZER_REGISTRY["LLMAnalyzer"] = LLMAnalyzer
+    ANALYZER_REGISTRY["usefulness"] = UsefulnessAnalyzer
+    ANALYZER_REGISTRY["UsefulnessAnalyzer"] = UsefulnessAnalyzer
+    ANALYZER_REGISTRY["safety"] = SafetyAnalyzer
+    ANALYZER_REGISTRY["SafetyAnalyzer"] = SafetyAnalyzer
+    ANALYZER_REGISTRY["factuality"] = FactualityAnalyzer
+    ANALYZER_REGISTRY["FactualityAnalyzer"] = FactualityAnalyzer
+    ANALYZER_REGISTRY["coherence"] = CoherenceAnalyzer
+    ANALYZER_REGISTRY["CoherenceAnalyzer"] = CoherenceAnalyzer
+    ANALYZER_REGISTRY["instruction_following"] = InstructionFollowingAnalyzer
+    ANALYZER_REGISTRY["InstructionFollowingAnalyzer"] = InstructionFollowingAnalyzer
 
 
 # Call on module import

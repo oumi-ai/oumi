@@ -37,6 +37,16 @@ Example usage:
 
 # Import analyzers
 from oumi.analyze.analyzers.length import LengthAnalyzer
+from oumi.analyze.analyzers.llm_analyzer import (
+    CoherenceAnalyzer,
+    FactualityAnalyzer,
+    InstructionFollowingAnalyzer,
+    LLMAnalyzer,
+    SafetyAnalyzer,
+    UsefulnessAnalyzer,
+    get_available_criteria,
+    get_criteria_info,
+)
 from oumi.analyze.base import (
     ConversationAnalyzer,
     DatasetAnalyzer,
@@ -81,6 +91,7 @@ from oumi.analyze.pipeline import AnalysisPipeline
 
 # Import result models
 from oumi.analyze.results.length import LengthMetrics
+from oumi.analyze.results.llm_judgment import LLMJudgmentMetrics
 
 # Import testing
 from oumi.analyze.testing import TestEngine, TestResult, TestSummary
@@ -98,8 +109,17 @@ __all__ = [
     "to_analysis_dataframe",
     # Analyzers
     "LengthAnalyzer",
+    "LLMAnalyzer",
+    "UsefulnessAnalyzer",
+    "SafetyAnalyzer",
+    "FactualityAnalyzer",
+    "CoherenceAnalyzer",
+    "InstructionFollowingAnalyzer",
+    "get_available_criteria",
+    "get_criteria_info",
     # Result models
     "LengthMetrics",
+    "LLMJudgmentMetrics",
     # Config
     "TypedAnalyzeConfig",
     "AnalyzerConfig",

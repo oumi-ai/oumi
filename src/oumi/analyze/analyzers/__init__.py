@@ -19,7 +19,28 @@ the base analyzer classes and return typed result models.
 """
 
 from oumi.analyze.analyzers.length import LengthAnalyzer
+from oumi.analyze.analyzers.llm_analyzer import (
+    CoherenceAnalyzer,
+    FactualityAnalyzer,
+    InstructionFollowingAnalyzer,
+    LLMAnalyzer,
+    SafetyAnalyzer,
+    UsefulnessAnalyzer,
+    get_available_criteria,
+    get_criteria_info,
+)
 
 __all__ = [
+    # Non-LLM analyzers
     "LengthAnalyzer",
+    # LLM-based analyzers
+    "LLMAnalyzer",
+    "UsefulnessAnalyzer",
+    "SafetyAnalyzer",
+    "FactualityAnalyzer",
+    "CoherenceAnalyzer",
+    "InstructionFollowingAnalyzer",
+    # Utilities
+    "get_available_criteria",
+    "get_criteria_info",
 ]
