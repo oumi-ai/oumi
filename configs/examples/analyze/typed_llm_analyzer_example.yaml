@@ -1,0 +1,183 @@
+# Example configuration demonstrating the Unified LLM Analyzer Framework
+#
+# This config shows all the new features:
+# - Target scopes (conversation, last_turn, system, first_user, etc.)
+# - Multi-turn formatting with turn tags
+# - Template placeholders with metadata fields
+# - Different judgment types (score, bool, enum)
+#
+# IMPORTANT: Requires an OpenAI API key!
+#   export OPENAI_API_KEY=your-api-key
+#
+# Usage:
+#   oumi analyze --config configs/examples/analyze/typed_llm_analyzer_example.yaml --typed
+#
+# Available Target Scopes:
+#   - conversation: Full conversation (multi-turn)
+#   - last_turn: Last user + assistant exchange (single-turn, API compatible)
+#   - system: System prompt only
+#   - first_user: First user message (prompt difficulty)
+#   - last_assistant: Last assistant response
+#   - last_user: Last user message (the request)
+#   - role:user: All user messages
+#   - role:assistant: All assistant messages
+#
+# Available Judgment Types:
+#   - score: 0-100 numeric (default)
+#   - bool: True/False pass/fail
+#   - enum: Categorical labels
+
+# Dataset configuration
+dataset_path: "/Users/ryanarman/data/openassistant/openassistant_oasst1.jsonl"
+split: train
+sample_count: 5  # Small sample since we have many LLM calls
+
+# Output configuration
+output_path: ./analysis_output/llm_analyzer_demo
+
+# Analyzers demonstrating different features
+analyzers:
+  # ==========================================================================
+  # 1. Basic preset criteria (default: full conversation scope)
+  # Uses convenience class - results stored as "UsefulnessAnalyzer"
+  # ==========================================================================
+  - id: usefulness
+    params:
+      model_name: gpt-4o-mini
+      api_provider: openai
+
+  # ==========================================================================
+  # 2. Target scope: last_turn (API single-turn compatible)
+  # Results stored as "response_safety" (from criteria_name)
+  # ==========================================================================
+  - id: safety
+    params:
+      model_name: gpt-4o-mini
+      target_scope: last_turn  # Only evaluate last user-assistant exchange
+
+  # ==========================================================================
+  # 3. Target scope: first_user (evaluate prompt difficulty)
+  # Uses generic LLM analyzer with custom prompt
+  # Results stored as "prompt_difficulty" (from criteria_name)
+  # ==========================================================================
+  - id: llm
+    params:
+      criteria_name: "prompt_difficulty"
+      target_scope: first_user
+      judgment_type: enum
+      enum_values: ["easy", "medium", "hard", "expert"]
+      prompt_template: |
+        Evaluate the DIFFICULTY of this user prompt/question.
+
+        Consider:
+        1. Does it require specialized knowledge?
+        2. How complex is the reasoning required?
+        3. Is it ambiguous or straightforward?
+        4. Would an average person be able to answer it?
+
+        Classify as:
+        - easy: Simple factual question, common knowledge
+        - medium: Requires some thought or basic domain knowledge
+        - hard: Requires significant expertise or complex reasoning
+        - expert: Requires deep domain expertise or multi-step reasoning
+      model_name: gpt-4o-mini
+
+  # ==========================================================================
+  # 4. Target scope: last_assistant (evaluate response only)
+  # Results stored as "response_completeness" (from criteria_name)
+  # ==========================================================================
+  - id: llm
+    params:
+      criteria_name: "response_completeness"
+      criteria: completeness
+      target_scope: last_assistant  # Only the response, not the question
+      model_name: gpt-4o-mini
+
+  # ==========================================================================
+  # 5. Multi-turn with turn indexing (API multi-turn compatible)
+  # Results stored as "conversation_coherence" (from criteria_name)
+  # ==========================================================================
+  - id: llm
+    params:
+      criteria_name: "conversation_coherence"
+      criteria: coherence
+      target_scope: conversation
+      turn_indexing: true  # Add turn numbers: <user-0>, <assistant-0>, etc.
+      user_turn_tag: "human"
+      assistant_turn_tag: "ai"
+      model_name: gpt-4o-mini
+
+  # ==========================================================================
+  # 6. Boolean judgment type (pass/fail)
+  # Results stored as "contains_code" (from criteria_name)
+  # ==========================================================================
+  - id: llm
+    params:
+      criteria_name: "contains_code"
+      target_scope: last_assistant
+      judgment_type: bool
+      prompt_template: |
+        Does this response contain any code snippets or programming examples?
+
+        Answer YES if the response includes:
+        - Code blocks (markdown ```code```)
+        - Inline code snippets
+        - Programming examples
+        - Command line instructions
+
+        Answer NO if the response is purely textual explanation.
+      model_name: gpt-4o-mini
+
+# Tests for the computed metrics
+# Note: Metric paths use the analyzer_id (criteria_name for LLMAnalyzer)
+tests:
+  # Usefulness tests (uses UsefulnessAnalyzer convenience class)
+  - id: high_usefulness_rate
+    type: percentage
+    metric: UsefulnessAnalyzer.passed
+    condition: "== True"
+    min_percentage: 70.0
+    severity: medium
+    title: "Usefulness pass rate"
+    description: "At least 70% should pass usefulness threshold"
+
+  # Safety tests (uses SafetyAnalyzer convenience class)
+  - id: high_safety_rate
+    type: percentage
+    metric: SafetyAnalyzer.passed
+    condition: "== True"
+    min_percentage: 95.0
+    severity: high
+    title: "Safety pass rate"
+    description: "At least 95% should be safe"
+
+  # Prompt difficulty distribution (LLM analyzer with criteria_name)
+  - id: no_expert_prompts
+    type: threshold
+    metric: prompt_difficulty.category
+    operator: "=="
+    value: "expert"
+    max_percentage: 20.0
+    severity: low
+    title: "Expert prompt rate"
+    description: "No more than 20% should be expert-level prompts"
+
+  # Coherence for multi-turn (LLM analyzer with criteria_name)
+  - id: coherent_conversations
+    type: percentage
+    metric: conversation_coherence.passed
+    condition: "== True"
+    min_percentage: 80.0
+    severity: medium
+    title: "Coherence pass rate"
+    description: "At least 80% of conversations should be coherent"
+
+  # Boolean judgment test (LLM analyzer with criteria_name)
+  - id: code_detection
+    type: percentage
+    metric: contains_code.passed
+    condition: "== True"
+    max_percentage: 50.0
+    severity: low
+    title: "Contains code rate"
+    description: "Verify code detection is working (most responses should NOT contain code)"
