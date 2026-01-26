@@ -461,7 +461,8 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
                     f"Unknown criteria '{criteria}'. Available: {available}"
                 )
             preset = PRESET_CRITERIA[criteria]
-            self.criteria_name = criteria
+            # Use criteria_name if provided, otherwise default to criteria
+            self.criteria_name = criteria_name or criteria
             self.evaluation_prompt = preset["prompt"]
             # Use preset's data_fields if not overridden
             if data_fields is None and "data_fields" in preset:
@@ -708,27 +709,35 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
             for key, value in context.items():
                 prompt_body = prompt_body.replace(f"{{{key}}}", value)
 
-        # Build response format instruction based on judgment_type
+        # Build response format instruction - always ask for score
+        # For ENUM/BOOL, we add context about what the score represents
         if self.judgment_type == JudgmentType.BOOL:
-            format_instruction = (
-                'IMPORTANT: Respond ONLY with a JSON object containing:\n'
-                '- "judgment": true or false (boolean, NOT a number)\n'
-                '- "reasoning": your explanation\n\n'
-                'Example: {"judgment": true, "reasoning": "Because..."}'
+            scale_context = (
+                "Score 0 = definitely NO/FALSE, Score 100 = definitely YES/TRUE. "
+                "Scores >= 50 will be interpreted as TRUE."
             )
-        elif self.judgment_type == JudgmentType.ENUM:
-            values_str = ", ".join(f'"{v}"' for v in self.enum_values)
-            format_instruction = (
-                f'IMPORTANT: Respond ONLY with a JSON object containing:\n'
-                f'- "category": one of {values_str}\n'
-                f'- "reasoning": your explanation\n\n'
-                f'Example: {{"category": "{self.enum_values[0] if self.enum_values else "value"}", "reasoning": "Because..."}}'
-            )
-        else:  # SCORE
-            format_instruction = (
-                'Provide your evaluation in JSON format with "score" (0-100) '
-                'and "reasoning" fields.'
-            )
+        elif self.judgment_type == JudgmentType.ENUM and self.enum_values:
+            # Build scale description from enum values
+            n = len(self.enum_values)
+            if n > 1:
+                ranges = []
+                step = 100 / n
+                for i, val in enumerate(self.enum_values):
+                    low = int(i * step)
+                    high = int((i + 1) * step) - 1 if i < n - 1 else 100
+                    ranges.append(f"{low}-{high} = {val}")
+                scale_context = f"Score ranges: {', '.join(ranges)}."
+            else:
+                scale_context = f"Score 0-100 maps to: {self.enum_values[0]}."
+        else:
+            scale_context = "Score 0 = worst, Score 100 = best."
+
+        format_instruction = (
+            f'{scale_context}\n\n'
+            'Provide your evaluation in JSON format with "score" (0-100) '
+            'and "reasoning" fields.\n'
+            'Example: {"score": 75, "reasoning": "Because..."}'
+        )
 
         return f"""{prompt_body}
 
@@ -775,28 +784,25 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
                 except json.JSONDecodeError:
                     pass
 
-        # Fallback parsing based on judgment type
-        if not parsed:
-            if self.judgment_type == JudgmentType.BOOL:
-                # Look for yes/no, true/false
-                if re.search(r"\b(yes|true|pass)\b", response, re.IGNORECASE):
-                    parsed = {"judgment": True, "reasoning": response[:200]}
-                elif re.search(r"\b(no|false|fail)\b", response, re.IGNORECASE):
-                    parsed = {"judgment": False, "reasoning": response[:200]}
+        # Fallback parsing - always look for score (unified approach)
+        if not parsed or "score" not in parsed:
+            # Try to extract score from text
+            score_match = re.search(r"score[:\s]*(\d+)", response, re.IGNORECASE)
+            if score_match:
+                score = int(score_match.group(1))
+                parsed["score"] = min(100, max(0, score))
+                if "reasoning" not in parsed:
+                    parsed["reasoning"] = response[:200]
 
-            elif self.judgment_type == JudgmentType.ENUM:
-                # Look for enum values
-                for value in self.enum_values:
-                    if value.lower() in response.lower():
-                        parsed = {"category": value, "reasoning": response[:200]}
-                        break
-
-            else:  # SCORE
-                # Try to extract score from text
-                score_match = re.search(r"score[:\s]*(\d+)", response, re.IGNORECASE)
-                if score_match:
-                    score = int(score_match.group(1))
-                    parsed = {"score": min(100, score), "reasoning": response[:200]}
+            # If still no score, try to extract any number
+            if "score" not in parsed:
+                num_match = re.search(r"\b(\d{1,3})\b", response)
+                if num_match:
+                    score = int(num_match.group(1))
+                    if 0 <= score <= 100:
+                        parsed["score"] = score
+                        if "reasoning" not in parsed:
+                            parsed["reasoning"] = response[:200]
 
         # If still no parsed result, return error
         if not parsed:
@@ -811,6 +817,12 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
     def analyze(self, conversation: Conversation) -> LLMJudgmentMetrics:
         """Analyze a conversation using the configured criteria.
 
+        All judgment types use score-based prompting. The score is then
+        converted to the appropriate derived value:
+        - SCORE: Used directly (0-100)
+        - BOOL: score >= 50 → True, else False
+        - ENUM: score mapped to enum value based on position
+
         Args:
             conversation: The conversation to evaluate.
 
@@ -822,52 +834,50 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
             prompt = self._build_prompt(conversation)
             response = self._call_llm(prompt)
 
-            # Parse response
+            # Parse response - always expect score
             parsed = self._parse_response(response)
             reasoning = parsed.get("reasoning", "")
             error = parsed.get("error")
 
-            # Handle different judgment types
+            # Extract score (unified approach)
+            score = parsed.get("score", -1)
+            if not isinstance(score, int) or score < 0 or score > 100:
+                return LLMJudgmentMetrics.from_score(
+                    score=0,
+                    reasoning=reasoning,
+                    criteria=self.criteria_name,
+                    pass_threshold=self.pass_threshold,
+                    raw_response=response,
+                    error=error or f"Invalid or missing score: {score}",
+                )
+
+            # Derive judgment/category from score based on judgment_type
+            judgment: bool | None = None
+            category: str | None = None
+
             if self.judgment_type == JudgmentType.BOOL:
-                judgment = parsed.get("judgment")
-                # Convert bool to score (True=100, False=0)
-                if isinstance(judgment, bool):
-                    score = 100 if judgment else 0
+                # Score >= 50 means True
+                judgment = score >= 50
+
+            elif self.judgment_type == JudgmentType.ENUM and self.enum_values:
+                # Map score to enum category based on position
+                n = len(self.enum_values)
+                if n > 1:
+                    # Divide 0-100 into n buckets
+                    idx = int((score / 100) * n)
+                    idx = max(0, min(idx, n - 1))  # Clamp to valid range
                 else:
-                    score = 0
-                    error = error or "Failed to parse boolean judgment"
+                    idx = 0
+                category = self.enum_values[idx]
 
-            elif self.judgment_type == JudgmentType.ENUM:
-                category = parsed.get("category")
-                # Map category to score based on position in enum_values
-                if category and category in self.enum_values:
-                    idx = self.enum_values.index(category)
-                    # Scale to 0-100 based on position
-                    if len(self.enum_values) > 1:
-                        score = int((idx / (len(self.enum_values) - 1)) * 100)
-                    else:
-                        score = 100
-                else:
-                    score = 0
-                    error = error or f"Invalid category: {category}"
-
-            else:  # SCORE
-                score = parsed.get("score", -1)
-                if score < 0 or score > 100:
-                    return LLMJudgmentMetrics.from_score(
-                        score=0,
-                        reasoning=reasoning,
-                        criteria=self.criteria_name,
-                        pass_threshold=self.pass_threshold,
-                        raw_response=response,
-                        error=error or f"Invalid score: {score}",
-                    )
-
+            # Return with all derived values
             return LLMJudgmentMetrics.from_score(
                 score=score,
                 reasoning=reasoning,
                 criteria=self.criteria_name,
                 pass_threshold=self.pass_threshold,
+                judgment=judgment,
+                category=category,
                 raw_response=response if error else None,
                 error=error,
             )

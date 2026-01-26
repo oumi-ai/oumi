@@ -117,15 +117,18 @@ analyzers:
       target_scope: last_assistant
       judgment_type: bool
       prompt_template: |
-        Does this response contain any code snippets or programming examples?
+        Evaluate how much code this response contains.
 
-        Answer YES if the response includes:
+        Consider these as code:
         - Code blocks (markdown ```code```)
         - Inline code snippets
         - Programming examples
         - Command line instructions
 
-        Answer NO if the response is purely textual explanation.
+        Rate based on code presence:
+        - 0: No code at all, purely textual explanation
+        - 50+: Contains some code snippets or examples
+        - 100: Primarily code-focused response
       model_name: gpt-4o-mini
 
 # Tests for the computed metrics
