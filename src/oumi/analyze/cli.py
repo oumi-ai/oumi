@@ -563,9 +563,16 @@ def print_summary(results: dict[str, Any]) -> None:
         for col in metric_cols:
             values = df[col].dropna()
             if len(values) > 0:
+                # Skip list-type columns (e.g., message_token_counts)
+                if values.apply(lambda x: isinstance(x, list)).any():
+                    continue
                 if values.dtype in ["int64", "float64"]:
                     console.print(
                         f"  {col}: mean={values.mean():.2f}, min={values.min()}, max={values.max()}"
                     )
                 else:
-                    console.print(f"  {col}: {values.value_counts().head(3).to_dict()}")
+                    try:
+                        console.print(f"  {col}: {values.value_counts().head(3).to_dict()}")
+                    except TypeError:
+                        # Skip unhashable types
+                        continue

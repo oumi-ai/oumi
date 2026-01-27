@@ -45,13 +45,12 @@ const LLM_ANALYZER_TYPES = ['usefulness', 'safety', 'coherence', 'factuality'] a
 const AVAILABLE_ANALYZERS = {
   length: {
     name: 'Length Analyzer',
-    description: 'Analyze text length in words, characters, and tokens',
+    description: 'Compute token length metrics for conversations',
     params: [
-      { key: 'count_tokens', type: 'boolean', default: false, label: 'Count Tokens' },
       { key: 'tiktoken_encoding', type: 'string', default: 'cl100k_base', label: 'Tiktoken Encoding' },
       { key: 'compute_role_stats', type: 'boolean', default: false, label: 'Compute Role Stats' },
     ],
-    metrics: ['total_words', 'total_chars', 'total_tokens', 'num_messages', 'avg_words_per_message']
+    metrics: ['total_tokens', 'num_messages', 'avg_tokens_per_message']
   },
   usefulness: {
     name: 'Usefulness Analyzer',

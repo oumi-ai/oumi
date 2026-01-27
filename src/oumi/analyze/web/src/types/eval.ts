@@ -62,10 +62,9 @@ export interface AnalysisResult {
   error?: string
   
   // Length analyzer fields
-  total_words?: number
-  total_chars?: number
   total_tokens?: number
   num_messages?: number
+  avg_tokens_per_message?: number
   
   // Allow additional fields
   [key: string]: unknown
