@@ -1629,7 +1629,7 @@ def analyze_view(
             "-p",
             help="Port to run the web viewer on.",
         ),
-    ] = 8501,
+    ] = 8765,
     host: Annotated[
         str,
         typer.Option(
@@ -1637,29 +1637,63 @@ def analyze_view(
             help="Host address to bind to.",
         ),
     ] = "localhost",
+    legacy: Annotated[
+        bool,
+        typer.Option(
+            "--legacy",
+            help="Use the legacy Streamlit-based viewer instead of the React UI.",
+        ),
+    ] = False,
+    no_browser: Annotated[
+        bool,
+        typer.Option(
+            "--no-browser",
+            help="Don't automatically open the browser.",
+        ),
+    ] = False,
 ):
-    """Launch the Streamlit web viewer for analysis results.
+    """Launch the web viewer for analysis results.
 
     The web viewer provides:
     - Browse and compare past analysis runs
     - Interactive results table with filters
     - Charts and visualizations
-    - Config editor to create/edit analysis configs
-    - Export options (CSV, JSON, HTML)
+    - Export options
 
-    Requires: pip install 'oumi[analyze-ui]'
+    By default, uses the new React-based UI. Use --legacy for the Streamlit viewer.
 
     Args:
         port: Port to run the web viewer on.
         host: Host address to bind to.
+        legacy: Use the legacy Streamlit viewer.
+        no_browser: Don't automatically open the browser.
     """
+    if legacy:
+        _launch_streamlit_viewer(port, host)
+    else:
+        _launch_react_viewer(port, host, not no_browser)
+
+
+def _launch_react_viewer(port: int, host: str, open_browser: bool) -> None:
+    """Launch the React-based web viewer."""
+    from oumi.analyze.serve import serve_ui
+
+    try:
+        serve_ui(port=port, host=host, open_browser=open_browser)
+    except KeyboardInterrupt:
+        cli_utils.CONSOLE.print("\n[dim]Web viewer stopped.[/dim]")
+
+
+def _launch_streamlit_viewer(port: int, host: str) -> None:
+    """Launch the legacy Streamlit-based web viewer."""
     # Check if streamlit is available
     try:
         import streamlit  # noqa: F401
     except ImportError:
         cli_utils.CONSOLE.print(
-            "[red]Error:[/red] Streamlit is required for the web viewer.\n"
-            "Install with: [cyan]pip install 'oumi[analyze-ui]'[/cyan]"
+            "[red]Error:[/red] Streamlit is required for the legacy web viewer.\n"
+            "Install with: [cyan]pip install 'oumi[analyze-ui]'[/cyan]\n"
+            "Or use the default React viewer (remove --legacy flag)."
         )
         raise typer.Exit(code=1)
 
@@ -1672,7 +1706,7 @@ def analyze_view(
         raise typer.Exit(code=1)
 
     cli_utils.CONSOLE.print(
-        f"[green]Starting Analyze Web Viewer...[/green]\n"
+        f"[green]Starting Analyze Web Viewer (Streamlit)...[/green]\n"
         f"Open in browser: [cyan]http://{host}:{port}[/cyan]\n"
         f"Press Ctrl+C to stop."
     )
