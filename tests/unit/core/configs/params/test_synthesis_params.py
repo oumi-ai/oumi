@@ -24,6 +24,7 @@ from oumi.core.configs.params.synthesis_params import (
     ExampleSource,
     GeneralSynthesisParams,
     GeneratedAttribute,
+    MultiTurnAttribute,
     SampledAttribute,
     SampledAttributeValue,
     SegmentationStrategy,
@@ -436,6 +437,80 @@ def test_generated_attribute_invalid():
         GeneratedAttribute(
             id="test",
             instruction_messages=None,  # type: ignore
+        )
+
+
+def test_multiturn_attribute_requires_default_roles_when_turn_order_missing():
+    with pytest.raises(
+        ValueError,
+        match=(
+            "MultiTurnAttribute.role_turn_instructions must define templates "
+            "for Role.USER and Role.ASSISTANT when turn_order is omitted."
+        ),
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_turn_instructions={Role.USER: "Turn {current_turn}"},
+        )
+
+
+def test_multiturn_attribute_id_collision_with_conversation_planner():
+    with pytest.raises(
+        ValueError, match="GeneralSynthesisParams contains duplicate attribute IDs"
+    ):
+        GeneralSynthesisParams(
+            multiturn_attributes=[
+                MultiTurnAttribute(
+                    id="conversation",
+                    min_turns=1,
+                    max_turns=2,
+                    role_turn_instructions={
+                        Role.USER: "Turn {current_turn}",
+                        Role.ASSISTANT: "Turn {current_turn}",
+                    },
+                    conversation_planner=GeneratedAttribute(
+                        id="conversation",
+                        instruction_messages=[
+                            TextMessage(role=Role.SYSTEM, content="Plan it."),
+                        ],
+                    ),
+                )
+            ]
+        )
+
+
+def test_multiturn_attribute_planner_id_collision_with_generated_attribute():
+    with pytest.raises(
+        ValueError, match="GeneralSynthesisParams contains duplicate attribute IDs"
+    ):
+        GeneralSynthesisParams(
+            generated_attributes=[
+                GeneratedAttribute(
+                    id="conversation_plan",
+                    instruction_messages=[
+                        TextMessage(role=Role.SYSTEM, content="System message"),
+                    ],
+                )
+            ],
+            multiturn_attributes=[
+                MultiTurnAttribute(
+                    id="conversation",
+                    min_turns=1,
+                    max_turns=2,
+                    role_turn_instructions={
+                        Role.USER: "Turn {current_turn}",
+                        Role.ASSISTANT: "Turn {current_turn}",
+                    },
+                    conversation_planner=GeneratedAttribute(
+                        id="conversation_plan",
+                        instruction_messages=[
+                            TextMessage(role=Role.SYSTEM, content="Plan it."),
+                        ],
+                    ),
+                )
+            ],
         )
 
 
