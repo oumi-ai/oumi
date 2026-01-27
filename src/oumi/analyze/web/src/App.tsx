@@ -53,7 +53,14 @@ function App() {
 
   const handleEditInWizard = () => {
     if (evalData) {
-      setEditConfig(evalData.config)
+      // Include the eval name with a timestamp suffix to distinguish from the original
+      const timestamp = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', '')
+      const newName = `${evalData.metadata.name}_${timestamp}`
+      const configWithName = {
+        ...evalData.config,
+        eval_name: newName,
+      }
+      setEditConfig(configWithName)
       setShowWizard(true)
     }
   }

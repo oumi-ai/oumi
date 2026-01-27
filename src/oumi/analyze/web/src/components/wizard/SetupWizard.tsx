@@ -407,6 +407,14 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
       tests: [],
     }
   })
+
+  // Update config when initialConfig changes (e.g., opening wizard for different eval)
+  useEffect(() => {
+    if (initialConfig) {
+      setConfig(parseConfigToWizard(initialConfig))
+      setCurrentStep(0)
+    }
+  }, [initialConfig])
   
   const isEditMode = !!initialConfig
 

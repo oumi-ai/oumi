@@ -334,6 +334,7 @@ class TypedAnalyzeConfig:
             tests.append(TestConfigYAML(**test_data))
 
         return cls(
+            eval_name=data.get("eval_name"),
             dataset_name=data.get("dataset_name"),
             dataset_path=data.get("dataset_path"),
             split=data.get("split", "train"),
