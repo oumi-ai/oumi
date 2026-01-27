@@ -532,46 +532,37 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     return metrics
   }, [config.analyzers, config.customMetrics])
 
-  // Check if only tests changed (analyzers and custom_metrics are the same)
+  // Check if only tests changed by comparing generated configs (excluding tests section)
   const onlyTestsChanged = useCallback((): boolean => {
     if (!initialConfig) return false
     
-    // Compare analyzers
-    const initialAnalyzers = (initialConfig.analyzers as Array<{id: string; instance_id?: string; params?: Record<string, unknown>}>) || []
-    const currentAnalyzers = config.analyzers
+    // Parse original config to wizard format and generate YAML
+    const parsedInitial = parseConfigToWizard(initialConfig)
+    const initialYaml = generateYaml(parsedInitial)
+    const currentYaml = generateYaml(config)
     
-    if (initialAnalyzers.length !== currentAnalyzers.length) return false
-    
-    // Sort both arrays by id for comparison
-    const sortedInitial = [...initialAnalyzers].sort((a, b) => (a.id || '').localeCompare(b.id || ''))
-    const sortedCurrent = [...currentAnalyzers].sort((a, b) => a.id.localeCompare(b.id))
-    
-    for (let i = 0; i < sortedInitial.length; i++) {
-      const init = sortedInitial[i]
-      const curr = sortedCurrent[i]
-      
-      // Compare id and instance_id
-      if (init.id !== curr.id) return false
-      if ((init.instance_id || init.id) !== (curr.instanceId || curr.type)) return false
-      
-      // Compare params (simplified - just check stringified)
-      if (JSON.stringify(init.params || {}) !== JSON.stringify(curr.params || {})) return false
+    // Remove the tests section from both for comparison
+    // Tests section starts with "tests:" and goes to end of file
+    const stripTests = (yaml: string) => {
+      const testsIndex = yaml.indexOf('\ntests:')
+      return testsIndex === -1 ? yaml : yaml.substring(0, testsIndex)
     }
     
-    // Compare custom_metrics
-    const initialCustomMetrics = (initialConfig.custom_metrics as Array<{id: string}>) || []
-    const currentCustomMetrics = config.customMetrics
+    const initialWithoutTests = stripTests(initialYaml)
+    const currentWithoutTests = stripTests(currentYaml)
     
-    if (initialCustomMetrics.length !== currentCustomMetrics.length) return false
+    const matches = initialWithoutTests === currentWithoutTests
     
-    // If custom metrics exist, compare their IDs
-    const initialMetricIds = initialCustomMetrics.map(m => m.id).sort()
-    const currentMetricIds = currentCustomMetrics.map(m => m.id).sort()
+    if (matches) {
+      console.log('onlyTestsChanged: ✅ Only tests changed - can use cache')
+    } else {
+      console.log('onlyTestsChanged: ❌ Analyzers or other config changed')
+      console.log('Initial (no tests):', initialWithoutTests)
+      console.log('Current (no tests):', currentWithoutTests)
+    }
     
-    if (JSON.stringify(initialMetricIds) !== JSON.stringify(currentMetricIds)) return false
-    
-    return true
-  }, [initialConfig, config.analyzers, config.customMetrics])
+    return matches
+  }, [initialConfig, config])
 
   const handleRunAnalysis = useCallback(() => {
     const yaml = generateYaml(config)
