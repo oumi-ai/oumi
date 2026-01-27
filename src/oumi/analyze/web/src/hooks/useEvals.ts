@@ -96,6 +96,39 @@ async function fetchJobStatus(jobId: string): Promise<JobStatus> {
 }
 
 /**
+ * Rename an eval
+ */
+async function renameEvalApi(evalId: string, newName: string): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/rename`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ eval_id: evalId, name: newName }),
+  })
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || `Failed to rename: ${response.statusText}`)
+  }
+  return response.json()
+}
+
+/**
+ * Hook to rename an eval
+ */
+export function useRenameEval() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ evalId, newName }: { evalId: string; newName: string }) => 
+      renameEvalApi(evalId, newName),
+    onSuccess: (_, variables) => {
+      // Refresh both evals list and the specific eval
+      queryClient.invalidateQueries({ queryKey: ['evals'] })
+      queryClient.invalidateQueries({ queryKey: ['eval', variables.evalId] })
+    },
+  })
+}
+
+/**
  * Hook to run an analysis and track progress
  */
 export function useRunAnalysis() {

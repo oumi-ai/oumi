@@ -288,7 +288,8 @@ def _run_typed_analysis_cli(
             from oumi.analyze.storage import AnalyzeStorage
 
             storage = AnalyzeStorage()
-            eval_name = Path(config).stem
+            # Use eval_name from config if provided, otherwise use config filename
+            eval_name = typed_config.eval_name or Path(config).stem
 
             # Convert config to dict (it's a dataclass)
             config_dict = asdict(typed_config)

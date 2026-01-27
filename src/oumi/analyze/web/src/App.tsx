@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useEvalList, useEval, useRunAnalysis } from '@/hooks/useEvals'
+import { useEvalList, useEval, useRunAnalysis, useRenameEval } from '@/hooks/useEvals'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { ResultsView } from '@/components/results/ResultsView'
@@ -20,6 +20,13 @@ function App() {
   const { data: evals, isLoading: evalsLoading, refetch } = useEvalList()
   const { data: evalData, isLoading: evalLoading } = useEval(selectedEvalId)
   const { run, reset, jobStatus } = useRunAnalysis()
+  const renameEval = useRenameEval()
+
+  const handleRename = (newName: string) => {
+    if (selectedEvalId) {
+      renameEval.mutate({ evalId: selectedEvalId, newName })
+    }
+  }
 
   const handleEditInWizard = () => {
     if (evalData) {
@@ -120,7 +127,7 @@ function App() {
 
         {selectedEvalId && evalData ? (
           <>
-            <Header evalData={evalData}>
+            <Header evalData={evalData} onRename={handleRename}>
               <ExportMenu evalData={evalData} />
             </Header>
             <div className="flex-1 overflow-auto p-6">

@@ -94,6 +94,7 @@ const AVAILABLE_ANALYZERS = {
 type AnalyzerKey = keyof typeof AVAILABLE_ANALYZERS
 
 interface WizardConfig {
+  name: string
   datasetPath: string
   datasetName: string
   sampleCount: number
@@ -145,6 +146,7 @@ function migrateParams(params: Record<string, unknown>): Record<string, unknown>
 /** Parse a config object into WizardConfig format */
 function parseConfigToWizard(config: Record<string, unknown>): WizardConfig {
   const wizardConfig: WizardConfig = {
+    name: (config.eval_name as string) || '',
     datasetPath: (config.dataset_path as string) || '',
     datasetName: (config.dataset_name as string) || '',
     sampleCount: (config.sample_count as number) || 100,
@@ -212,6 +214,11 @@ const STEPS = [
 
 function generateYaml(config: WizardConfig): string {
   const lines: string[] = []
+  
+  // Analysis name (optional)
+  if (config.name.trim()) {
+    lines.push(`eval_name: ${config.name.trim()}`)
+  }
   
   // Dataset config
   if (config.datasetPath) {
@@ -291,6 +298,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
       return parseConfigToWizard(initialConfig)
     }
     return {
+      name: '',
       datasetPath: '',
       datasetName: '',
       sampleCount: 100,
@@ -436,13 +444,29 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
   const renderDatasetStep = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium mb-2">Dataset Source</h3>
+        <h3 className="text-lg font-medium mb-2">Analysis Setup</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Choose a local file or a HuggingFace dataset.
+          Name your analysis and choose a dataset source.
         </p>
       </div>
 
       <div className="space-y-4">
+        <div>
+          <Label htmlFor="analysisName">Analysis Name</Label>
+          <Input
+            id="analysisName"
+            placeholder="My Analysis"
+            className="mt-1.5"
+            value={config.name}
+            onChange={(e) => updateConfig({ name: e.target.value })}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Optional. Leave blank to auto-generate from config filename.
+          </p>
+        </div>
+
+        <Separator />
+
         <div>
           <Label htmlFor="datasetPath">Local File Path</Label>
           <div className="flex gap-2 mt-1.5">

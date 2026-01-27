@@ -251,6 +251,9 @@ class TypedAnalyzeConfig:
         report_title: Custom title for the report.
     """
 
+    # Eval name (optional, for web viewer)
+    eval_name: str | None = None
+
     # Dataset source
     dataset_name: str | None = None
     dataset_path: str | None = None

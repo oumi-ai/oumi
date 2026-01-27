@@ -1,6 +1,8 @@
-import { ReactNode } from 'react'
-import { Calendar, Database, FileText } from 'lucide-react'
+import { ReactNode, useState, useRef, useEffect } from 'react'
+import { Calendar, Database, FileText, Pencil, Check, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { formatRelativeTime } from '@/lib/utils'
 import type { EvalData } from '@/types/eval'
 import { computeTestSummary } from '@/types/eval'
@@ -8,17 +10,77 @@ import { computeTestSummary } from '@/types/eval'
 interface HeaderProps {
   evalData: EvalData
   children?: ReactNode
+  onRename?: (newName: string) => void
 }
 
-export function Header({ evalData, children }: HeaderProps) {
+export function Header({ evalData, children, onRename }: HeaderProps) {
   const { metadata } = evalData
   const testSummary = computeTestSummary(evalData.test_results)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editName, setEditName] = useState(metadata.name)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  const handleSave = () => {
+    if (editName.trim() && editName !== metadata.name) {
+      onRename?.(editName.trim())
+    }
+    setIsEditing(false)
+  }
+
+  const handleCancel = () => {
+    setEditName(metadata.name)
+    setIsEditing(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSave()
+    if (e.key === 'Escape') handleCancel()
+  }
 
   return (
     <div className="border-b bg-background px-6 py-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">{metadata.name}</h1>
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  ref={inputRef}
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="text-2xl font-semibold h-10 w-80"
+                />
+                <Button variant="ghost" size="icon" onClick={handleSave} className="h-8 w-8">
+                  <Check className="h-4 w-4 text-green-500" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={handleCancel} className="h-8 w-8">
+                  <X className="h-4 w-4 text-red-500" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-2xl font-semibold">{metadata.name}</h1>
+                {onRename && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsEditing(true)}
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
           <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />

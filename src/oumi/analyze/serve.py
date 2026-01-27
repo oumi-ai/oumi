@@ -77,8 +77,40 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
         """Handle POST requests."""
         if self.path == "/api/run":
             self.start_analysis()
+        elif self.path == "/api/rename":
+            self.rename_eval()
         else:
             self.send_error(404, "Not found")
+
+    def rename_eval(self):
+        """Rename an eval."""
+        try:
+            from oumi.analyze.storage import AnalyzeStorage
+
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)
+
+            eval_id = data.get("eval_id", "")
+            new_name = data.get("name", "")
+
+            if not eval_id or not new_name:
+                self._send_json({"error": "eval_id and name required"}, 400)
+                return
+
+            storage = AnalyzeStorage()
+            success = storage.rename_eval(eval_id, new_name)
+
+            if success:
+                # Also update the served copy
+                self._refresh_storage_index(storage.base_dir)
+                self._send_json({"success": True, "eval_id": eval_id, "name": new_name})
+            else:
+                self._send_json({"error": "Eval not found"}, 404)
+
+        except Exception as e:
+            logger.error(f"Error renaming eval: {e}")
+            self._send_json({"error": str(e)}, 500)
 
     def _send_json(self, data: dict, status: int = 200):
         """Send a JSON response."""
