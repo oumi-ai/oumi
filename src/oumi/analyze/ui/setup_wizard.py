@@ -400,9 +400,15 @@ def _render_analyzers_section() -> None:
             categories[cat] = []
         categories[cat].append((analyzer_id, analyzer))
 
-    # Selected analyzers
-    selected = st.session_state.wizard_config.get("analyzers", [])
+    # Selected analyzers - use list copy to avoid reference issues
+    selected = list(st.session_state.wizard_config.get("analyzers", []))
     selected_ids = [a["id"] for a in selected]
+
+    # Initialize checkbox keys from session state if not present
+    for analyzer_id in AVAILABLE_ANALYZERS.keys():
+        key = f"analyzer_{analyzer_id}"
+        if key not in st.session_state:
+            st.session_state[key] = analyzer_id in selected_ids
 
     # Render by category
     for category, analyzers in categories.items():
@@ -412,27 +418,28 @@ def _render_analyzers_section() -> None:
             col1, col2 = st.columns([3, 1])
 
             with col1:
-                is_selected = analyzer_id in selected_ids
-                if st.checkbox(
+                # Use the key's current value as the source of truth
+                checkbox_key = f"analyzer_{analyzer_id}"
+                is_checked = st.checkbox(
                     f"**{analyzer['name']}**",
-                    value=is_selected,
-                    key=f"analyzer_{analyzer_id}",
+                    value=st.session_state.get(checkbox_key, analyzer_id in selected_ids),
+                    key=checkbox_key,
                     help=analyzer["description"],
-                ):
-                    if analyzer_id not in selected_ids:
-                        # Add analyzer
-                        new_analyzer = {
-                            "id": analyzer_id,
-                            "instance_id": analyzer_id,
-                            "params": {},
-                        }
-                        selected.append(new_analyzer)
-                        selected_ids.append(analyzer_id)
-                else:
-                    if analyzer_id in selected_ids:
-                        # Remove analyzer
-                        selected = [a for a in selected if a["id"] != analyzer_id]
-                        selected_ids = [a["id"] for a in selected]
+                )
+
+                if is_checked and analyzer_id not in selected_ids:
+                    # Add analyzer
+                    new_analyzer = {
+                        "id": analyzer_id,
+                        "instance_id": analyzer_id,
+                        "params": {},
+                    }
+                    selected.append(new_analyzer)
+                    selected_ids.append(analyzer_id)
+                elif not is_checked and analyzer_id in selected_ids:
+                    # Remove analyzer
+                    selected = [a for a in selected if a["id"] != analyzer_id]
+                    selected_ids = [a["id"] for a in selected]
 
             with col2:
                 st.caption(analyzer["description"][:50] + "...")
@@ -806,6 +813,13 @@ def _render_tests_section() -> None:
 def _render_generate_section() -> None:
     """Render the config generation and run section."""
 
+    # Check if any analyzers are configured
+    wizard_config = st.session_state.wizard_config
+    if not wizard_config.get("analyzers"):
+        st.warning(
+            "⚠️ No analyzers selected. Go to the **Analyzers** section above to add some."
+        )
+
     # Generate YAML config
     config = _generate_yaml_config()
     yaml_str = yaml.dump(config, default_flow_style=False, sort_keys=False)
@@ -944,8 +958,8 @@ def _generate_yaml_config() -> dict[str, Any]:
         if analyzer.get("instance_id") and analyzer["instance_id"] != analyzer["id"]:
             analyzer_config["instance_id"] = analyzer["instance_id"]
         if analyzer.get("params"):
-            # Filter out empty params
-            params = {k: v for k, v in analyzer["params"].items() if v}
+            # Filter out None and empty string params (but keep False and 0)
+            params = {k: v for k, v in analyzer["params"].items() if v is not None and v != ""}
             if params:
                 analyzer_config["params"] = params
         yaml_config["analyzers"].append(analyzer_config)

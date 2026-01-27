@@ -293,7 +293,8 @@ def _render_sample_conversations_by_index(
         if conversations and idx < len(conversations):
             conv = conversations[idx]
         _render_single_sample(
-            idx, result, metric.split(".")[-1] if metric else "", conversation=conv
+            idx, result, metric.split(".")[-1] if metric else "", conversation=conv,
+            key_prefix=f"test_{metric}_{idx}"
         )
 
     if len(samples_to_show) > max_samples:
@@ -431,7 +432,7 @@ def _render_sample_conversations(
         conv = None
         if conversations and i < len(conversations):
             conv = conversations[i]
-        _render_single_sample(i, result, fname, conversation=conv)
+        _render_single_sample(i, result, fname, conversation=conv, key_prefix=f"analyzer_{fname}_{i}")
 
     if len(failed_samples) > max_samples:
         st.caption(f"... and {len(failed_samples) - max_samples} more samples with issues")
@@ -442,6 +443,7 @@ def _render_single_sample(
     result: dict[str, Any],
     field_name: str,
     conversation: dict[str, Any] | None = None,
+    key_prefix: str = "",
 ) -> None:
     """Render a single sample with its analysis result and conversation.
 
@@ -497,16 +499,18 @@ def _render_single_sample(
 
         # Show conversation content if available
         if conversation:
-            _render_conversation(conversation)
+            conv_key = f"{key_prefix}_sample_{index}" if key_prefix else f"sample_{index}"
+            _render_conversation(conversation, key_prefix=conv_key)
 
         st.markdown("---")
 
 
-def _render_conversation(conversation: dict[str, Any]) -> None:
+def _render_conversation(conversation: dict[str, Any], key_prefix: str = "") -> None:
     """Render conversation messages in a chat-like format.
 
     Args:
         conversation: Conversation dict with messages.
+        key_prefix: Unique prefix for widget keys to avoid duplicates.
     """
     messages = conversation.get("messages", [])
     if not messages:
@@ -556,6 +560,7 @@ def _render_conversation(conversation: dict[str, Any]) -> None:
             if is_truncated:
                 st.markdown(f"> {display_content}")
                 # Use a unique key for each message's expander
+                unique_key = f"full_msg_{key_prefix}_{i}" if key_prefix else f"full_msg_{id(conversation)}_{i}"
                 with st.expander("📄 Show full message", expanded=False):
                     st.text_area(
                         label=f"Full {role} message",
@@ -563,7 +568,7 @@ def _render_conversation(conversation: dict[str, Any]) -> None:
                         height=300,
                         disabled=True,
                         label_visibility="collapsed",
-                        key=f"full_msg_{id(conversation)}_{i}",
+                        key=unique_key,
                     )
             else:
                 st.markdown(f"> {display_content}")
