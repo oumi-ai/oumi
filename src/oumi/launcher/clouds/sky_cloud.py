@@ -50,7 +50,7 @@ class SkyCloud(BaseCloud):
             for cluster in self._client.status()
             if (
                 isinstance(cluster["handle"].launched_resources.cloud, cloud_class)
-                and cluster["status"] == sky.ClusterStatus.UP
+                and cluster["status"] in (sky.ClusterStatus.UP, sky.ClusterStatus.INIT)
             )
         ]
 
