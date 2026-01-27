@@ -23,6 +23,7 @@ analyzers:
   # Evaluates if the user query is clear, unambiguous, and suitable for training
   # ---------------------------------------------------------------------------
   - id: llm
+    instance_id: query_quality  # Must match criteria_name for metric paths to work
     params:
       criteria_name: "query_quality"
       target_scope: first_user # Only evaluate the user's query
@@ -53,6 +54,7 @@ analyzers:
   # Evaluates if the full conversation is helpful for model training
   # ---------------------------------------------------------------------------
   - id: llm
+    instance_id: training_helpfulness  # Must match criteria_name for metric paths to work
     params:
       criteria_name: "training_helpfulness"
       target_scope: conversation # Evaluate the full conversation

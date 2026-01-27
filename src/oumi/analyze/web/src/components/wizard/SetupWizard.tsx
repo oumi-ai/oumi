@@ -36,6 +36,9 @@ import {
 import { cn } from '@/lib/utils'
 import { useRunAnalysis } from '@/hooks/useEvals'
 
+// LLM analyzer types that need special handling (use id: llm with criteria param)
+const LLM_ANALYZER_TYPES = ['usefulness', 'safety', 'coherence', 'factuality'] as const
+
 // Available analyzers with their parameters and metrics
 const AVAILABLE_ANALYZERS = {
   length: {
@@ -54,7 +57,7 @@ const AVAILABLE_ANALYZERS = {
     params: [
       { key: 'model_name', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
       { key: 'api_provider', type: 'select', options: ['openai', 'anthropic'] as const, default: 'openai', label: 'API Provider' },
-      { key: 'target_scope', type: 'select', options: ['CONVERSATION', 'LAST_TURN', 'FIRST_USER'] as const, default: 'CONVERSATION', label: 'Target Scope' },
+      { key: 'target_scope', type: 'select', options: ['conversation', 'last_turn', 'first_user'] as const, default: 'conversation', label: 'Target Scope' },
     ],
     metrics: ['score', 'passed', 'label', 'reasoning']
   },
@@ -211,14 +214,30 @@ function generateYaml(config: WizardConfig): string {
   // Analyzers
   lines.push('analyzers:')
   config.analyzers.forEach(analyzer => {
-    // Use the analyzer type as the id (e.g., "length", "usefulness")
-    lines.push(`  - id: ${analyzer.type}`)
-    const paramEntries = Object.entries(analyzer.params).filter(([, v]) => v !== undefined && v !== '')
-    if (paramEntries.length > 0) {
-      lines.push('    params:')
+    const isLlmAnalyzer = (LLM_ANALYZER_TYPES as readonly string[]).includes(analyzer.type)
+    
+    if (isLlmAnalyzer) {
+      // For LLM analyzers, use id: llm with criteria param to ensure correct metric paths
+      // This avoids the issue where UsefulnessAnalyzer etc. override analyzer_id
+      lines.push(`  - id: llm`)
+      lines.push(`    instance_id: ${analyzer.type}`)
+      lines.push(`    params:`)
+      lines.push(`      criteria: ${analyzer.type}`)
+      const paramEntries = Object.entries(analyzer.params).filter(([, v]) => v !== undefined && v !== '')
       paramEntries.forEach(([key, value]) => {
         lines.push(`      ${key}: ${value}`)
       })
+    } else {
+      // For non-LLM analyzers (like length), use the type directly
+      lines.push(`  - id: ${analyzer.type}`)
+      lines.push(`    instance_id: ${analyzer.type}`)
+      const paramEntries = Object.entries(analyzer.params).filter(([, v]) => v !== undefined && v !== '')
+      if (paramEntries.length > 0) {
+        lines.push('    params:')
+        paramEntries.forEach(([key, value]) => {
+          lines.push(`      ${key}: ${value}`)
+        })
+      }
     }
   })
   lines.push('')
@@ -362,7 +381,8 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     config.analyzers.forEach(analyzer => {
       const analyzerDef = AVAILABLE_ANALYZERS[analyzer.type]
       analyzerDef.metrics.forEach(m => {
-        metrics.push(`${analyzer.id}.${m}`)
+        // Use analyzer.type as the prefix since instance_id matches the type
+        metrics.push(`${analyzer.type}.${m}`)
       })
     })
     return metrics
