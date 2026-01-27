@@ -347,11 +347,14 @@ class TestEngine:
         total_count = len(values)
         affected_pct = 100.0 * affected_count / total_count if total_count > 0 else 0.0
 
-        # Check against max_percentage if set
-        if test.max_percentage is not None:
-            passed = affected_pct <= test.max_percentage
-        else:
-            # If no max_percentage, any violations fail the test
+        # Check against thresholds
+        passed = True
+        if test.max_percentage is not None and affected_pct > test.max_percentage:
+            passed = False
+        if test.min_percentage is not None and affected_pct < test.min_percentage:
+            passed = False
+        # If neither is set, any violations fail the test
+        if test.max_percentage is None and test.min_percentage is None:
             passed = affected_count == 0
 
         return TestResult(
@@ -364,11 +367,13 @@ class TestEngine:
             affected_count=affected_count,
             total_count=total_count,
             affected_percentage=round(affected_pct, 2),
-            threshold=test.max_percentage,
+            threshold=test.max_percentage or test.min_percentage,
             sample_indices=affected_indices[:50],  # Limit to first 50
             details={
                 "operator": test.operator,
                 "value": test.value,
+                "max_percentage": test.max_percentage,
+                "min_percentage": test.min_percentage,
                 "failure_reasons": {k: v for k, v in list(failure_reasons.items())[:50]},
             },
         )

@@ -371,6 +371,7 @@ function generateYaml(config: WizardConfig): string {
       if (test.type === 'threshold') {
         if (test.operator) lines.push(`    operator: "${test.operator}"`)
         if (test.value !== undefined) lines.push(`    value: ${test.value}`)
+        if (test.maxPercentage !== undefined) lines.push(`    max_percentage: ${test.maxPercentage}`)
         if (test.minPercentage !== undefined) lines.push(`    min_percentage: ${test.minPercentage}`)
       } else if (test.type === 'percentage') {
         // Percentage tests require a condition - use provided or default to '== True'
@@ -885,73 +886,101 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
 
               {/* Type-specific fields */}
               {test.type === 'threshold' && (
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Label className="text-xs">Operator</Label>
-                    <Select
-                      value={test.operator}
-                      onValueChange={(value) => updateTest(index, { operator: value })}
-                    >
-                      <SelectTrigger className="mt-1 h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value=">">{'>'}</SelectItem>
-                        <SelectItem value=">=">{'>='}</SelectItem>
-                        <SelectItem value="<">{'<'}</SelectItem>
-                        <SelectItem value="<=">{'<='}</SelectItem>
-                        <SelectItem value="==">{'=='}</SelectItem>
-                        <SelectItem value="!=">{'!='}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Flag samples where metric {test.operator || '>'} value. Use <strong>Max %</strong> to allow up to X% violations, 
+                    or <strong>Min %</strong> to require at least X% match the condition.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Operator</Label>
+                      <Select
+                        value={test.operator}
+                        onValueChange={(value) => updateTest(index, { operator: value })}
+                      >
+                        <SelectTrigger className="mt-1 h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value=">">{'>'}</SelectItem>
+                          <SelectItem value=">=">{'>='}</SelectItem>
+                          <SelectItem value="<">{'<'}</SelectItem>
+                          <SelectItem value="<=">{'<='}</SelectItem>
+                          <SelectItem value="==">{'=='}</SelectItem>
+                          <SelectItem value="!=">{'!='}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Value</Label>
+                      <Input
+                        className="mt-1 h-8 text-xs"
+                        type="number"
+                        value={test.value}
+                        onChange={(e) => updateTest(index, { value: parseFloat(e.target.value) })}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-xs">Value</Label>
-                    <Input
-                      className="mt-1 h-8 text-xs"
-                      type="number"
-                      value={test.value}
-                      onChange={(e) => updateTest(index, { value: parseFloat(e.target.value) })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Min %</Label>
-                    <Input
-                      className="mt-1 h-8 text-xs"
-                      type="number"
-                      placeholder="Optional"
-                      value={test.minPercentage ?? ''}
-                      onChange={(e) => updateTest(index, { 
-                        minPercentage: e.target.value ? parseFloat(e.target.value) : undefined 
-                      })}
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Max % Allowed</Label>
+                      <Input
+                        className="mt-1 h-8 text-xs"
+                        type="number"
+                        placeholder="e.g., 10 (at most 10% violate)"
+                        value={test.maxPercentage ?? ''}
+                        onChange={(e) => updateTest(index, { 
+                          maxPercentage: e.target.value ? parseFloat(e.target.value) : undefined 
+                        })}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Min % Required</Label>
+                      <Input
+                        className="mt-1 h-8 text-xs"
+                        type="number"
+                        placeholder="e.g., 90 (at least 90% match)"
+                        value={test.minPercentage ?? ''}
+                        onChange={(e) => updateTest(index, { 
+                          minPercentage: e.target.value ? parseFloat(e.target.value) : undefined 
+                        })}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
 
               {test.type === 'percentage' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs">Min Percentage</Label>
-                    <Input
-                      className="mt-1 h-8 text-xs"
-                      type="number"
-                      value={test.minPercentage ?? ''}
-                      onChange={(e) => updateTest(index, { 
-                        minPercentage: e.target.value ? parseFloat(e.target.value) : undefined 
-                      })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Max Percentage</Label>
-                    <Input
-                      className="mt-1 h-8 text-xs"
-                      type="number"
-                      value={test.maxPercentage ?? ''}
-                      onChange={(e) => updateTest(index, { 
-                        maxPercentage: e.target.value ? parseFloat(e.target.value) : undefined 
-                      })}
-                    />
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Set the required percentage of samples that must match the condition (e.g., passed == True).
+                    Use <strong>Min %</strong> to require at least X% pass, or <strong>Max %</strong> to allow at most X% to match.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Min Percentage</Label>
+                      <Input
+                        className="mt-1 h-8 text-xs"
+                        type="number"
+                        placeholder="e.g., 80 (at least 80% pass)"
+                        value={test.minPercentage ?? ''}
+                        onChange={(e) => updateTest(index, { 
+                          minPercentage: e.target.value ? parseFloat(e.target.value) : undefined 
+                        })}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Max Percentage</Label>
+                      <Input
+                        className="mt-1 h-8 text-xs"
+                        type="number"
+                        placeholder="e.g., 10 (at most 10% fail)"
+                        value={test.maxPercentage ?? ''}
+                        onChange={(e) => updateTest(index, { 
+                          maxPercentage: e.target.value ? parseFloat(e.target.value) : undefined 
+                        })}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
