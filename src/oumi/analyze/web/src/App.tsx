@@ -53,12 +53,37 @@ function App() {
 
   const handleEditInWizard = () => {
     if (evalData) {
-      // Include the eval name with a timestamp suffix to distinguish from the original
-      const timestamp = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', '')
-      const newName = `${evalData.metadata.name}_${timestamp}`
+      // Extract base name by stripping any existing version suffix (_v2, _v3, etc.) or timestamps
+      const currentName = evalData.metadata.name
+      const baseName = currentName
+        .replace(/_v\d+$/, '')  // Remove _v2, _v3, etc.
+        .replace(/_\d{4}-\d{2}-\d{2}_\d{4}$/, '')  // Remove timestamp suffix
+        .replace(/_\d{4}-\d{2}-\d{2}_\d{4}_\d{4}-\d{2}-\d{2}_\d{4}$/, '')  // Remove double timestamps
+      
+      // Find the highest existing version number for this base name
+      const versionPattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_v(\\d+)$`)
+      let maxVersion = 1
+      for (const evalItem of evals || []) {
+        // Check if this eval matches the base name directly (it's version 1)
+        if (evalItem.name === baseName) {
+          maxVersion = Math.max(maxVersion, 1)
+        }
+        // Check if this eval has a version suffix
+        const match = evalItem.name.match(versionPattern)
+        if (match) {
+          maxVersion = Math.max(maxVersion, parseInt(match[1], 10))
+        }
+      }
+      
+      // Create new name with next version number
+      const newVersion = maxVersion + 1
+      const newName = `${baseName}_v${newVersion}`
+      
       const configWithName = {
         ...evalData.config,
         eval_name: newName,
+        // Store parent reference for linking
+        parent_eval_id: evalData.metadata.id,
       }
       setEditConfig(configWithName)
       setShowWizard(true)

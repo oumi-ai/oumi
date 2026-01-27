@@ -253,6 +253,9 @@ class TypedAnalyzeConfig:
 
     # Eval name (optional, for web viewer)
     eval_name: str | None = None
+    
+    # Parent eval ID (for linking derived analyses)
+    parent_eval_id: str | None = None
 
     # Dataset source
     dataset_name: str | None = None
@@ -335,6 +338,7 @@ class TypedAnalyzeConfig:
 
         return cls(
             eval_name=data.get("eval_name"),
+            parent_eval_id=data.get("parent_eval_id"),
             dataset_name=data.get("dataset_name"),
             dataset_path=data.get("dataset_path"),
             split=data.get("split", "train"),

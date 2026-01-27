@@ -104,6 +104,7 @@ interface CustomMetric {
 
 interface WizardConfig {
   name: string
+  parentEvalId?: string  // For linking derived analyses
   datasetPath: string
   datasetName: string
   sampleCount: number
@@ -159,6 +160,7 @@ function migrateParams(params: Record<string, unknown>): Record<string, unknown>
 function parseConfigToWizard(config: Record<string, unknown>): WizardConfig {
   const wizardConfig: WizardConfig = {
     name: (config.eval_name as string) || '',
+    parentEvalId: (config.parent_eval_id as string) || undefined,
     datasetPath: (config.dataset_path as string) || '',
     datasetName: (config.dataset_name as string) || '',
     sampleCount: (config.sample_count as number) || 100,
@@ -279,6 +281,11 @@ function generateYaml(config: WizardConfig): string {
   // Analysis name (optional)
   if (config.name.trim()) {
     lines.push(`eval_name: ${config.name.trim()}`)
+  }
+  
+  // Parent eval ID (for linking derived analyses)
+  if (config.parentEvalId) {
+    lines.push(`parent_eval_id: ${config.parentEvalId}`)
   }
   
   // Dataset config
