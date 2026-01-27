@@ -320,9 +320,7 @@ def test_synthesize_with_multiturn_attributes(
     mock_conv_synth = mock_conv_synth_class.return_value
     mock_conv_synth.synthesize.return_value = [
         {
-            multiturn_attr.id: {
-                "messages": [{"role": "user", "content": "Hello"}]
-            },
+            multiturn_attr.id: {"messages": [{"role": "user", "content": "Hello"}]},
             multiturn_attr.conversation_planner.id: "Plan",
         }
         for _ in sample_dataset
@@ -337,9 +335,7 @@ def test_synthesize_with_multiturn_attributes(
     )
     mock_conv_synth.synthesize.assert_called_once_with(sample_dataset, multiturn_attr)
     assert all(multiturn_attr.id in item for item in result)
-    assert all(
-        multiturn_attr.conversation_planner.id in item for item in result
-    )
+    assert all(multiturn_attr.conversation_planner.id in item for item in result)
 
 
 @patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
