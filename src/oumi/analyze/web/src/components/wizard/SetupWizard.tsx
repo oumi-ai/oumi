@@ -31,7 +31,8 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
-  Terminal
+  Terminal,
+  X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRunAnalysis } from '@/hooks/useEvals'
@@ -1013,7 +1014,15 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
   if (isRunning) {
     return (
       <Card className="w-full max-w-4xl mx-auto">
-        <CardHeader>
+        <CardHeader className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleBackFromRunning}
+            className="absolute right-4 top-4 h-8 w-8 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </Button>
           <CardTitle>Running Analysis</CardTitle>
           <CardDescription>
             Your analysis is being processed. This may take a few minutes.
@@ -1028,7 +1037,15 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
+      <CardHeader className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onCancel}
+          className="absolute right-4 top-4 h-8 w-8 text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </Button>
         <CardTitle>{isEditMode ? 'Edit Analysis' : 'Create New Analysis'}</CardTitle>
         <CardDescription>
           {isEditMode 
