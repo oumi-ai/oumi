@@ -4,7 +4,6 @@ import { cn, formatRelativeTime } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import type { EvalMetadata } from '@/types/eval'
 
 interface SidebarProps {
@@ -24,7 +23,6 @@ export function Sidebar({ evals, selectedId, onSelect, isLoading, onNewAnalysis 
       e.id.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const selectedEval = evals.find((e) => e.id === selectedId)
 
   return (
     <div className="w-80 border-r bg-muted/30 flex flex-col h-full">
@@ -81,39 +79,6 @@ export function Sidebar({ evals, selectedId, onSelect, isLoading, onNewAnalysis 
         </div>
       </ScrollArea>
 
-      {/* Quick Stats for Selected */}
-      {selectedEval && (
-        <>
-          <Separator />
-          <div className="p-4 space-y-3">
-            <h3 className="text-sm font-medium text-muted-foreground">Quick Stats</h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Samples</span>
-                <span className="font-medium">{selectedEval.sample_count}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Analyzers</span>
-                <span className="font-medium">{selectedEval.analyzer_count}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Pass Rate</span>
-                <span className="font-medium">
-                  {selectedEval.pass_rate !== null
-                    ? `${selectedEval.pass_rate.toFixed(1)}%`
-                    : 'N/A'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Tests</span>
-                <span className="font-medium">
-                  {selectedEval.tests_passed}/{selectedEval.test_count}
-                </span>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   )
 }
