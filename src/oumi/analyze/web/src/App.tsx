@@ -10,7 +10,7 @@ import { ExportMenu } from '@/components/actions/ExportMenu'
 import { RunningOverlay } from '@/components/running/RunningOverlay'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Plus, BarChart3, FileCode, TestTube, PieChart, Pencil } from 'lucide-react'
+import { Plus, BarChart3, FileCode, TestTube, PieChart } from 'lucide-react'
 
 function App() {
   const [selectedEvalId, setSelectedEvalId] = useState<string | null>(null)
@@ -121,10 +121,6 @@ function App() {
         {selectedEvalId && evalData ? (
           <>
             <Header evalData={evalData}>
-              <Button variant="outline" size="sm" onClick={handleEditInWizard}>
-                <Pencil className="h-4 w-4 mr-1" />
-                Edit
-              </Button>
               <ExportMenu evalData={evalData} />
             </Header>
             <div className="flex-1 overflow-auto p-6">
@@ -150,7 +146,11 @@ function App() {
                   <ChartsView evalData={evalData} />
                 </TabsContent>
                 <TabsContent value="config">
-                  <ConfigEditor evalData={evalData} onRunAnalysis={handleRunFromConfig} />
+                  <ConfigEditor 
+                    evalData={evalData} 
+                    onRunAnalysis={handleRunFromConfig} 
+                    onEditInWizard={handleEditInWizard}
+                  />
                 </TabsContent>
               </Tabs>
             </div>
