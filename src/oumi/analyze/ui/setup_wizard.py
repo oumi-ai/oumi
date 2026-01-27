@@ -1,0 +1,1064 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Setup wizard component for creating new analysis configurations."""
+
+import json
+import tempfile
+from pathlib import Path
+from typing import Any
+
+import streamlit as st
+import yaml
+
+
+# Available analyzers with their descriptions and metrics
+# These match the actual implementations in oumi.analyze.analyzers
+AVAILABLE_ANALYZERS = {
+    "length": {
+        "name": "Length Analyzer",
+        "description": "Analyze message lengths (characters, words, tokens)",
+        "category": "Rule-based",
+        "params": {
+            "count_tokens": {
+                "type": "checkbox",
+                "default": False,
+                "description": "Whether to compute token counts (uses tiktoken)",
+            },
+            "tiktoken_encoding": {
+                "type": "text",
+                "default": "cl100k_base",
+                "description": "Tiktoken encoding name (e.g., cl100k_base for GPT-4)",
+            },
+            "compute_role_stats": {
+                "type": "checkbox",
+                "default": True,
+                "description": "Compute per-role (user/assistant) word counts",
+            },
+        },
+        "metrics": [
+            {"name": "total_chars", "type": "number", "description": "Total characters"},
+            {"name": "total_words", "type": "number", "description": "Total words"},
+            {"name": "total_tokens", "type": "number", "description": "Total tokens (if enabled)"},
+            {"name": "avg_chars_per_message", "type": "number"},
+            {"name": "avg_words_per_message", "type": "number"},
+            {"name": "num_messages", "type": "number", "description": "Number of messages"},
+            {"name": "user_total_words", "type": "number", "description": "User word count"},
+            {"name": "assistant_total_words", "type": "number", "description": "Assistant word count"},
+        ],
+    },
+    "llm": {
+        "name": "LLM Analyzer (Custom)",
+        "description": "Use an LLM to evaluate conversations with a custom prompt",
+        "category": "LLM-based",
+        "params": {
+            "criteria": {
+                "type": "text",
+                "default": "quality",
+                "description": "Name for this evaluation criteria",
+            },
+            "custom_prompt": {
+                "type": "textarea",
+                "default": "",
+                "description": "Custom evaluation prompt. Use {conversation} placeholder.",
+            },
+            "api_provider": {
+                "type": "select",
+                "options": ["openai", "anthropic"],
+                "default": "openai",
+                "description": "LLM API provider",
+            },
+            "model_name": {
+                "type": "text",
+                "default": "gpt-4o-mini",
+                "description": "Model name to use",
+            },
+            "num_workers": {
+                "type": "number",
+                "default": 4,
+                "description": "Number of parallel workers for API calls",
+            },
+        },
+        "metrics": [
+            {"name": "score", "type": "number", "range": "0-100"},
+            {"name": "passed", "type": "boolean", "description": "True if score >= 50"},
+            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {"name": "reasoning", "type": "text", "description": "LLM's explanation"},
+        ],
+    },
+    "usefulness": {
+        "name": "Usefulness Analyzer",
+        "description": "Evaluate how useful/helpful the assistant's response is",
+        "category": "LLM-based (Preset)",
+        "params": {
+            "api_provider": {
+                "type": "select",
+                "options": ["openai", "anthropic"],
+                "default": "openai",
+                "description": "LLM API provider",
+            },
+            "model_name": {
+                "type": "text",
+                "default": "gpt-4o-mini",
+                "description": "Model name to use",
+            },
+            "num_workers": {
+                "type": "number",
+                "default": 4,
+                "description": "Number of parallel workers",
+            },
+        },
+        "metrics": [
+            {"name": "score", "type": "number", "range": "0-100"},
+            {"name": "passed", "type": "boolean"},
+            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {"name": "reasoning", "type": "text"},
+        ],
+    },
+    "safety": {
+        "name": "Safety Analyzer",
+        "description": "Evaluate safety and appropriateness of responses",
+        "category": "LLM-based (Preset)",
+        "params": {
+            "api_provider": {
+                "type": "select",
+                "options": ["openai", "anthropic"],
+                "default": "openai",
+                "description": "LLM API provider",
+            },
+            "model_name": {
+                "type": "text",
+                "default": "gpt-4o-mini",
+                "description": "Model name to use",
+            },
+            "num_workers": {
+                "type": "number",
+                "default": 4,
+                "description": "Number of parallel workers",
+            },
+        },
+        "metrics": [
+            {"name": "score", "type": "number", "range": "0-100", "description": "Higher = safer"},
+            {"name": "passed", "type": "boolean"},
+            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {"name": "reasoning", "type": "text"},
+        ],
+    },
+    "coherence": {
+        "name": "Coherence Analyzer",
+        "description": "Evaluate logical flow and coherence of responses",
+        "category": "LLM-based (Preset)",
+        "params": {
+            "api_provider": {
+                "type": "select",
+                "options": ["openai", "anthropic"],
+                "default": "openai",
+                "description": "LLM API provider",
+            },
+            "model_name": {
+                "type": "text",
+                "default": "gpt-4o-mini",
+                "description": "Model name to use",
+            },
+            "num_workers": {
+                "type": "number",
+                "default": 4,
+                "description": "Number of parallel workers",
+            },
+        },
+        "metrics": [
+            {"name": "score", "type": "number", "range": "0-100"},
+            {"name": "passed", "type": "boolean"},
+            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {"name": "reasoning", "type": "text"},
+        ],
+    },
+    "factuality": {
+        "name": "Factuality Analyzer",
+        "description": "Evaluate factual accuracy of responses",
+        "category": "LLM-based (Preset)",
+        "params": {
+            "api_provider": {
+                "type": "select",
+                "options": ["openai", "anthropic"],
+                "default": "openai",
+                "description": "LLM API provider",
+            },
+            "model_name": {
+                "type": "text",
+                "default": "gpt-4o-mini",
+                "description": "Model name to use",
+            },
+            "num_workers": {
+                "type": "number",
+                "default": 4,
+                "description": "Number of parallel workers",
+            },
+        },
+        "metrics": [
+            {"name": "score", "type": "number", "range": "0-100"},
+            {"name": "passed", "type": "boolean"},
+            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {"name": "reasoning", "type": "text"},
+        ],
+    },
+    "instruction_following": {
+        "name": "Instruction Following Analyzer",
+        "description": "Evaluate how well responses follow instructions",
+        "category": "LLM-based (Preset)",
+        "params": {
+            "api_provider": {
+                "type": "select",
+                "options": ["openai", "anthropic"],
+                "default": "openai",
+                "description": "LLM API provider",
+            },
+            "model_name": {
+                "type": "text",
+                "default": "gpt-4o-mini",
+                "description": "Model name to use",
+            },
+            "num_workers": {
+                "type": "number",
+                "default": 4,
+                "description": "Number of parallel workers",
+            },
+        },
+        "metrics": [
+            {"name": "score", "type": "number", "range": "0-100"},
+            {"name": "passed", "type": "boolean"},
+            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {"name": "reasoning", "type": "text"},
+        ],
+    },
+}
+
+
+def render_setup_wizard() -> None:
+    """Render the setup wizard for creating new analysis configurations."""
+    st.header("Create New Analysis")
+    st.caption("Configure your dataset, analyzers, and tests step by step.")
+
+    # Initialize session state
+    if "wizard_step" not in st.session_state:
+        st.session_state.wizard_step = 1
+    if "wizard_config" not in st.session_state:
+        st.session_state.wizard_config = {
+            "dataset_path": None,
+            "dataset_name": None,
+            "sample_count": None,
+            "analyzers": [],
+            "tests": [],
+            "custom_metrics": [],
+        }
+
+    # Step navigation
+    steps = ["Upload Dataset", "Choose Analyzers", "Configure Tests", "Generate & Run"]
+    _render_step_navigation(steps)
+
+    st.divider()
+
+    # Render current step
+    current_step = st.session_state.wizard_step
+    if current_step == 1:
+        _render_dataset_step()
+    elif current_step == 2:
+        _render_analyzers_step()
+    elif current_step == 3:
+        _render_tests_step()
+    elif current_step == 4:
+        _render_generate_step()
+
+
+def _render_step_navigation(steps: list[str]) -> None:
+    """Render the step navigation bar."""
+    cols = st.columns(len(steps))
+    for i, (col, step_name) in enumerate(zip(cols, steps)):
+        step_num = i + 1
+        with col:
+            is_current = st.session_state.wizard_step == step_num
+            is_completed = st.session_state.wizard_step > step_num
+
+            if is_completed:
+                icon = "✅"
+            elif is_current:
+                icon = "🔵"
+            else:
+                icon = "⚪"
+
+            # Make completed steps clickable
+            if is_completed or is_current:
+                if st.button(
+                    f"{icon} {step_name}",
+                    key=f"step_{step_num}",
+                    use_container_width=True,
+                    type="primary" if is_current else "secondary",
+                ):
+                    st.session_state.wizard_step = step_num
+                    st.rerun()
+            else:
+                st.button(
+                    f"{icon} {step_name}",
+                    key=f"step_{step_num}",
+                    use_container_width=True,
+                    disabled=True,
+                )
+
+
+def _render_dataset_step() -> None:
+    """Render the dataset upload step."""
+    st.subheader("Step 1: Upload Dataset")
+    st.markdown(
+        "Upload a JSONL file with conversations, or specify a HuggingFace dataset."
+    )
+
+    # Tabs for different input methods
+    tab1, tab2 = st.tabs(["📁 Upload File", "🤗 HuggingFace Dataset"])
+
+    with tab1:
+        uploaded_file = st.file_uploader(
+            "Upload JSONL file",
+            type=["jsonl", "json"],
+            help="Upload a file with conversations in JSONL or JSON format",
+        )
+
+        if uploaded_file is not None:
+            # Save to temp file and preview
+            try:
+                content = uploaded_file.read().decode("utf-8")
+                lines = content.strip().split("\n")
+
+                # Parse and preview
+                samples = []
+                for line in lines[:5]:  # Preview first 5
+                    try:
+                        samples.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+
+                if samples:
+                    st.success(f"✅ Loaded {len(lines)} conversations")
+
+                    # Save file path
+                    temp_dir = Path(tempfile.gettempdir()) / "oumi_analyze"
+                    temp_dir.mkdir(exist_ok=True)
+                    temp_path = temp_dir / uploaded_file.name
+                    with open(temp_path, "w") as f:
+                        f.write(content)
+                    st.session_state.wizard_config["dataset_path"] = str(temp_path)
+                    st.session_state.wizard_config["dataset_name"] = None
+
+                    # Preview
+                    with st.expander("Preview first conversation"):
+                        st.json(samples[0])
+                else:
+                    st.error("Could not parse the file. Please check the format.")
+
+            except Exception as e:
+                st.error(f"Error reading file: {e}")
+
+    with tab2:
+        col1, col2 = st.columns(2)
+        with col1:
+            dataset_name = st.text_input(
+                "Dataset name",
+                placeholder="HuggingFaceTB/everyday-conversations-llama3.1-2k",
+                help="HuggingFace dataset name",
+            )
+        with col2:
+            split = st.selectbox("Split", ["train", "test", "validation"], index=0)
+
+        subset = st.text_input(
+            "Subset (optional)",
+            placeholder="default",
+            help="Dataset subset/configuration",
+        )
+
+        if dataset_name:
+            st.session_state.wizard_config["dataset_name"] = dataset_name
+            st.session_state.wizard_config["split"] = split
+            st.session_state.wizard_config["subset"] = subset or None
+            st.session_state.wizard_config["dataset_path"] = None
+            st.success(f"✅ Will use dataset: {dataset_name}")
+
+    # Sample count
+    st.divider()
+    sample_count = st.number_input(
+        "Number of samples to analyze",
+        min_value=1,
+        max_value=10000,
+        value=100,
+        help="Limit the number of conversations to analyze (useful for testing)",
+    )
+    st.session_state.wizard_config["sample_count"] = sample_count
+
+    # Navigation
+    st.divider()
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col3:
+        can_proceed = (
+            st.session_state.wizard_config.get("dataset_path")
+            or st.session_state.wizard_config.get("dataset_name")
+        )
+        if st.button(
+            "Next: Choose Analyzers →",
+            disabled=not can_proceed,
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state.wizard_step = 2
+            st.rerun()
+
+
+def _render_analyzers_step() -> None:
+    """Render the analyzer selection step."""
+    st.subheader("Step 2: Choose Analyzers")
+    st.markdown(
+        "Select the analyzers to run on your dataset. "
+        "Each analyzer produces metrics that can be used in tests."
+    )
+
+    # Group analyzers by category
+    categories = {}
+    for analyzer_id, analyzer in AVAILABLE_ANALYZERS.items():
+        cat = analyzer["category"]
+        if cat not in categories:
+            categories[cat] = []
+        categories[cat].append((analyzer_id, analyzer))
+
+    # Selected analyzers
+    selected = st.session_state.wizard_config.get("analyzers", [])
+    selected_ids = [a["id"] for a in selected]
+
+    # Render by category
+    for category, analyzers in categories.items():
+        st.markdown(f"**{category}**")
+
+        for analyzer_id, analyzer in analyzers:
+            col1, col2 = st.columns([3, 1])
+
+            with col1:
+                is_selected = analyzer_id in selected_ids
+                if st.checkbox(
+                    f"**{analyzer['name']}**",
+                    value=is_selected,
+                    key=f"analyzer_{analyzer_id}",
+                    help=analyzer["description"],
+                ):
+                    if analyzer_id not in selected_ids:
+                        # Add analyzer
+                        new_analyzer = {
+                            "id": analyzer_id,
+                            "instance_id": analyzer_id,
+                            "params": {},
+                        }
+                        selected.append(new_analyzer)
+                        selected_ids.append(analyzer_id)
+                else:
+                    if analyzer_id in selected_ids:
+                        # Remove analyzer
+                        selected = [a for a in selected if a["id"] != analyzer_id]
+                        selected_ids = [a["id"] for a in selected]
+
+            with col2:
+                st.caption(analyzer["description"][:50] + "...")
+
+        st.session_state.wizard_config["analyzers"] = selected
+
+    # Configure selected analyzers
+    if selected:
+        st.divider()
+        st.markdown("### Configure Selected Analyzers")
+
+        for i, analyzer_config in enumerate(selected):
+            analyzer_id = analyzer_config["id"]
+            analyzer_info = AVAILABLE_ANALYZERS.get(analyzer_id, {})
+
+            with st.expander(f"⚙️ {analyzer_info.get('name', analyzer_id)}", expanded=False):
+                # Instance ID (for multiple instances of same analyzer)
+                instance_id = st.text_input(
+                    "Instance ID",
+                    value=analyzer_config.get("instance_id", analyzer_id),
+                    key=f"instance_{i}",
+                    help="Unique identifier (useful if using same analyzer multiple times)",
+                )
+                selected[i]["instance_id"] = instance_id
+
+                # Parameters
+                params = analyzer_info.get("params", {})
+                if params:
+                    st.markdown("**Parameters:**")
+                    for param_name, param_config in params.items():
+                        # Check conditional visibility
+                        if "conditional" in param_config:
+                            cond_field = list(param_config["conditional"].keys())[0]
+                            cond_value = param_config["conditional"][cond_field]
+                            current_value = selected[i].get("params", {}).get(cond_field)
+                            if current_value != cond_value:
+                                continue
+
+                        param_type = param_config.get("type", "text")
+                        default = param_config.get("default", "")
+
+                        if param_type == "select":
+                            value = st.selectbox(
+                                param_name,
+                                param_config["options"],
+                                index=param_config["options"].index(default)
+                                if default in param_config["options"]
+                                else 0,
+                                key=f"param_{i}_{param_name}",
+                                help=param_config.get("description"),
+                            )
+                        elif param_type == "number":
+                            value = st.number_input(
+                                param_name,
+                                value=int(default) if default else 0,
+                                key=f"param_{i}_{param_name}",
+                                help=param_config.get("description"),
+                            )
+                        elif param_type == "checkbox":
+                            value = st.checkbox(
+                                param_name,
+                                value=bool(default) if default else False,
+                                key=f"param_{i}_{param_name}",
+                                help=param_config.get("description"),
+                            )
+                        elif param_type == "textarea":
+                            value = st.text_area(
+                                param_name,
+                                value=default if default else "",
+                                key=f"param_{i}_{param_name}",
+                                help=param_config.get("description"),
+                                height=100,
+                            )
+                        else:
+                            value = st.text_input(
+                                param_name,
+                                value=str(default) if default else "",
+                                key=f"param_{i}_{param_name}",
+                                help=param_config.get("description"),
+                            )
+
+                        if "params" not in selected[i]:
+                            selected[i]["params"] = {}
+                        selected[i]["params"][param_name] = value
+
+                # Show available metrics
+                metrics = analyzer_info.get("metrics", [])
+                if metrics:
+                    st.markdown("**Available Metrics:**")
+                    for metric in metrics:
+                        metric_desc = f"`{instance_id}.{metric['name']}` ({metric['type']})"
+                        if "range" in metric:
+                            metric_desc += f" - Range: {metric['range']}"
+                        if "values" in metric:
+                            metric_desc += f" - Values: {metric['values']}"
+                        st.caption(metric_desc)
+
+    # Custom metrics info
+    st.divider()
+    with st.expander("💡 Custom Metrics", expanded=False):
+        st.markdown("""
+        You can also create **custom metrics** that combine or transform analyzer outputs.
+        
+        Example custom metric in YAML:
+        ```yaml
+        custom_metrics:
+          - id: response_quality_score
+            compute: |
+              base_score = get('llm_quality.score', 0)
+              length_penalty = min(get('length.total_length', 0) / 1000, 20)
+              return base_score - length_penalty
+            depends_on:
+              - llm_quality
+              - length
+        ```
+        
+        Custom metrics can be added manually to the generated YAML config.
+        """)
+
+    # Navigation
+    st.divider()
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        if st.button("← Back", use_container_width=True):
+            st.session_state.wizard_step = 1
+            st.rerun()
+    with col3:
+        if st.button(
+            "Next: Configure Tests →",
+            disabled=len(selected) == 0,
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state.wizard_step = 3
+            st.rerun()
+
+
+def _render_tests_step() -> None:
+    """Render the test configuration step."""
+    st.subheader("Step 3: Configure Tests")
+    st.markdown(
+        "Define tests to validate your analysis results. "
+        "Tests check if metrics meet certain conditions."
+    )
+
+    # Get available metrics from selected analyzers
+    available_metrics = _get_available_metrics()
+
+    # Current tests
+    tests = st.session_state.wizard_config.get("tests", [])
+
+    # Add new test
+    st.markdown("### Add Test")
+
+    # Test type selection OUTSIDE the form so it triggers re-render
+    if "test_type_selection" not in st.session_state:
+        st.session_state.test_type_selection = "percentage"
+
+    col_type1, col_type2 = st.columns(2)
+    with col_type1:
+        test_type = st.selectbox(
+            "Test Type",
+            ["percentage", "threshold", "range"],
+            index=["percentage", "threshold", "range"].index(
+                st.session_state.test_type_selection
+            ),
+            help="Type of test to run",
+            key="test_type_select",
+        )
+        # Update session state if changed
+        if test_type != st.session_state.test_type_selection:
+            st.session_state.test_type_selection = test_type
+            st.rerun()
+
+    # Show description based on test type
+    if test_type == "percentage":
+        st.caption("📊 *Check what % of samples meet a condition*")
+    elif test_type == "threshold":
+        st.caption("📏 *Check samples against a threshold value*")
+    elif test_type == "range":
+        st.caption("📐 *Check if values fall within a range*")
+
+    with st.form("add_test_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            test_id = st.text_input(
+                "Test ID",
+                placeholder="high_quality_responses",
+                help="Unique identifier for this test",
+            )
+            test_title = st.text_input(
+                "Title",
+                placeholder="High Quality Responses",
+                help="Human-readable title",
+            )
+
+        with col2:
+            severity = st.selectbox(
+                "Severity",
+                ["high", "medium", "low"],
+                index=1,
+                help="Severity level if test fails",
+            )
+
+        # Metric selection
+        if available_metrics:
+            metric = st.selectbox(
+                "Metric",
+                available_metrics,
+                help="Select the metric to test",
+            )
+        else:
+            metric = st.text_input(
+                "Metric",
+                placeholder="analyzer_name.metric_name",
+                help="Enter the metric path",
+            )
+
+        # Test-type specific fields based on selection
+        if test_type == "percentage":
+            col1, col2 = st.columns(2)
+            with col1:
+                condition = st.text_input(
+                    "Condition",
+                    placeholder="== True",
+                    help="Condition to check (e.g., '== True', '> 50', '!= None')",
+                )
+            with col2:
+                pct_mode = st.selectbox(
+                    "Requirement",
+                    ["At least (min)", "At most (max)"],
+                    help="Whether you need minimum or maximum percentage",
+                )
+
+            pct_value = st.number_input(
+                "Percentage threshold",
+                min_value=0.0,
+                max_value=100.0,
+                value=80.0,
+                help="The percentage threshold",
+            )
+
+        elif test_type == "threshold":
+            col1, col2 = st.columns(2)
+            with col1:
+                operator = st.selectbox(
+                    "Operator",
+                    [">=", ">", "<=", "<", "==", "!="],
+                    help="Comparison operator",
+                )
+            with col2:
+                threshold_value = st.number_input(
+                    "Threshold Value",
+                    value=50.0,
+                    help="Value to compare against",
+                )
+
+            st.markdown("**Percentage requirement** *(optional)*")
+            col3, col4 = st.columns(2)
+            with col3:
+                threshold_pct_mode = st.selectbox(
+                    "Requirement type",
+                    ["None (all must pass)", "At most (max %)", "At least (min %)"],
+                    help="Leave as 'None' if ALL samples must pass",
+                )
+            with col4:
+                threshold_pct_value = st.number_input(
+                    "Percentage",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=15.0,
+                    help="Percentage threshold (ignored if 'None' selected)",
+                )
+
+        elif test_type == "range":
+            col1, col2 = st.columns(2)
+            with col1:
+                min_value = st.number_input("Min Value", value=0.0)
+            with col2:
+                max_value = st.number_input("Max Value", value=100.0)
+
+            range_max_pct = st.number_input(
+                "Max % outside range",
+                min_value=0.0,
+                max_value=100.0,
+                value=0.0,
+                help="Maximum % of samples allowed outside the range (0 = none allowed)",
+            )
+
+        description = st.text_area(
+            "Description",
+            placeholder="Describe what this test checks...",
+            help="Optional description of the test",
+        )
+
+        if st.form_submit_button("Add Test", type="primary"):
+            if test_id and metric:
+                new_test = {
+                    "id": test_id,
+                    "type": test_type,
+                    "metric": metric,
+                    "severity": severity,
+                    "title": test_title or test_id,
+                    "description": description,
+                }
+
+                if test_type == "percentage":
+                    new_test["condition"] = condition
+                    if pct_mode == "At least (min)":
+                        new_test["min_percentage"] = pct_value
+                    else:
+                        new_test["max_percentage"] = pct_value
+
+                elif test_type == "threshold":
+                    new_test["operator"] = operator
+                    new_test["value"] = threshold_value
+                    # Add percentage requirement if specified
+                    if threshold_pct_mode == "At most (max %)":
+                        new_test["max_percentage"] = threshold_pct_value
+                    elif threshold_pct_mode == "At least (min %)":
+                        new_test["min_percentage"] = threshold_pct_value
+
+                elif test_type == "range":
+                    new_test["min_value"] = min_value
+                    new_test["max_value"] = max_value
+                    if range_max_pct and range_max_pct > 0:
+                        new_test["max_percentage"] = range_max_pct
+
+                tests.append(new_test)
+                st.session_state.wizard_config["tests"] = tests
+                st.success(f"Added test: {test_id}")
+                st.rerun()
+            else:
+                st.error("Please provide Test ID and Metric")
+
+    # Show current tests
+    if tests:
+        st.divider()
+        st.markdown("### Current Tests")
+
+        for i, test in enumerate(tests):
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.markdown(f"**{test.get('title', test['id'])}**")
+                st.caption(f"`{test['metric']}` | Type: {test['type']} | Severity: {test['severity']}")
+            with col2:
+                if test["type"] == "percentage":
+                    st.caption(f"Min: {test.get('min_percentage', 0)}%")
+                elif test["type"] == "threshold":
+                    st.caption(f"{test.get('operator', '')} {test.get('value', '')}")
+            with col3:
+                if st.button("🗑️", key=f"delete_test_{i}"):
+                    tests.pop(i)
+                    st.session_state.wizard_config["tests"] = tests
+                    st.rerun()
+
+    # Info about tests
+    st.divider()
+    with st.expander("💡 Test Types Explained", expanded=False):
+        st.markdown("""
+        **Percentage Test**: Check what % of samples meet a condition
+        - Example: "At least 80% of responses should pass quality check"
+        - Config: `metric: quality.passed`, `condition: == True`, `min_percentage: 80`
+        
+        **Threshold Test**: Check samples against a threshold value
+        - Example 1: "All responses should score >= 50" (no percentage)
+        - Config: `metric: quality.score`, `operator: >=`, `value: 50`
+        
+        - Example 2: "No more than 15% should have < 3 words"
+        - Config: `metric: length.total_words`, `operator: <`, `value: 3`, `max_percentage: 15`
+        
+        **Range Test**: Check if values fall within a range
+        - Example: "Response length should be between 50-500 words"
+        - Config: `metric: length.total_words`, `min_value: 50`, `max_value: 500`
+        
+        ---
+        
+        **Percentage Options:**
+        - `min_percentage`: At least X% must match (fail if fewer)
+        - `max_percentage`: At most X% can match (fail if more)
+        """)
+
+    # Navigation
+    st.divider()
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        if st.button("← Back", use_container_width=True):
+            st.session_state.wizard_step = 2
+            st.rerun()
+    with col3:
+        if st.button(
+            "Next: Generate Config →",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state.wizard_step = 4
+            st.rerun()
+
+
+def _render_generate_step() -> None:
+    """Render the config generation and run step."""
+    st.subheader("Step 4: Generate & Run")
+
+    # Generate YAML config
+    config = _generate_yaml_config()
+    yaml_str = yaml.dump(config, default_flow_style=False, sort_keys=False)
+
+    # Summary
+    st.markdown("### Configuration Summary")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        dataset = (
+            st.session_state.wizard_config.get("dataset_name")
+            or st.session_state.wizard_config.get("dataset_path", "").split("/")[-1]
+        )
+        st.metric("Dataset", dataset[:30] + "..." if len(dataset) > 30 else dataset)
+    with col2:
+        st.metric("Analyzers", len(st.session_state.wizard_config.get("analyzers", [])))
+    with col3:
+        st.metric("Tests", len(st.session_state.wizard_config.get("tests", [])))
+
+    # YAML editor
+    st.divider()
+    st.markdown("### Generated YAML Configuration")
+    st.caption("Review and edit the configuration before running.")
+
+    edited_yaml = st.text_area(
+        "Configuration",
+        value=yaml_str,
+        height=400,
+        key="config_yaml_editor",
+        label_visibility="collapsed",
+    )
+
+    # Actions
+    st.divider()
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        if st.button("← Back", use_container_width=True):
+            st.session_state.wizard_step = 3
+            st.rerun()
+
+    with col2:
+        # Download YAML
+        st.download_button(
+            "📥 Download YAML",
+            data=edited_yaml,
+            file_name="analysis_config.yaml",
+            mime="text/yaml",
+            use_container_width=True,
+        )
+
+    with col3:
+        # Save to configs
+        config_name = st.text_input(
+            "Config name",
+            value="my_analysis",
+            key="save_config_name",
+            label_visibility="collapsed",
+        )
+
+    with col4:
+        if st.button("💾 Save Config", use_container_width=True):
+            try:
+                from oumi.analyze.storage import AnalyzeStorage
+
+                storage = AnalyzeStorage()
+                parsed_config = yaml.safe_load(edited_yaml)
+                path = storage.save_config(config_name, parsed_config)
+                st.success(f"Saved to: {path}")
+            except Exception as e:
+                st.error(f"Error saving: {e}")
+
+    # Run analysis
+    st.divider()
+    st.markdown("### Run Analysis")
+
+    if st.button("🚀 Run Analysis", type="primary", use_container_width=True):
+        _run_analysis(edited_yaml)
+
+
+def _get_available_metrics() -> list[str]:
+    """Get list of available metrics from selected analyzers."""
+    metrics = []
+    analyzers = st.session_state.wizard_config.get("analyzers", [])
+
+    for analyzer in analyzers:
+        analyzer_id = analyzer.get("id")
+        instance_id = analyzer.get("instance_id", analyzer_id)
+        analyzer_info = AVAILABLE_ANALYZERS.get(analyzer_id, {})
+
+        for metric in analyzer_info.get("metrics", []):
+            metrics.append(f"{instance_id}.{metric['name']}")
+
+    return metrics
+
+
+def _generate_yaml_config() -> dict[str, Any]:
+    """Generate YAML configuration from wizard state."""
+    config = st.session_state.wizard_config
+
+    yaml_config: dict[str, Any] = {}
+
+    # Dataset
+    if config.get("dataset_path"):
+        yaml_config["dataset_path"] = config["dataset_path"]
+    elif config.get("dataset_name"):
+        yaml_config["dataset_name"] = config["dataset_name"]
+        if config.get("split"):
+            yaml_config["split"] = config["split"]
+        if config.get("subset"):
+            yaml_config["subset"] = config["subset"]
+
+    if config.get("sample_count"):
+        yaml_config["sample_count"] = config["sample_count"]
+
+    # Output
+    yaml_config["output_path"] = "./analysis_output"
+
+    # Analyzers
+    yaml_config["analyzers"] = []
+    for analyzer in config.get("analyzers", []):
+        analyzer_config = {
+            "id": analyzer["id"],
+        }
+        if analyzer.get("instance_id") and analyzer["instance_id"] != analyzer["id"]:
+            analyzer_config["instance_id"] = analyzer["instance_id"]
+        if analyzer.get("params"):
+            # Filter out empty params
+            params = {k: v for k, v in analyzer["params"].items() if v}
+            if params:
+                analyzer_config["params"] = params
+        yaml_config["analyzers"].append(analyzer_config)
+
+    # Tests
+    if config.get("tests"):
+        yaml_config["tests"] = config["tests"]
+
+    # Custom metrics placeholder
+    if config.get("custom_metrics"):
+        yaml_config["custom_metrics"] = config["custom_metrics"]
+
+    return yaml_config
+
+
+def _run_analysis(yaml_str: str) -> None:
+    """Run the analysis with the given YAML configuration."""
+    import subprocess
+    import tempfile
+
+    try:
+        # Parse and validate YAML
+        config = yaml.safe_load(yaml_str)
+
+        # Save to temp file
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as f:
+            yaml.dump(config, f)
+            config_path = f.name
+
+        # Run analysis
+        st.info("Running analysis... This may take a while.")
+
+        with st.spinner("Analyzing..."):
+            result = subprocess.run(
+                ["oumi", "analyze", "--config", config_path, "--typed"],
+                capture_output=True,
+                text=True,
+            )
+
+        if result.returncode == 0:
+            st.success("✅ Analysis complete!")
+            st.caption("View results in the 'Results' tab or refresh this page.")
+
+            # Show output
+            if result.stdout:
+                with st.expander("Output", expanded=True):
+                    st.code(result.stdout)
+        else:
+            st.error("❌ Analysis failed")
+            if result.stderr:
+                st.code(result.stderr)
+            if result.stdout:
+                st.code(result.stdout)
+
+    except yaml.YAMLError as e:
+        st.error(f"Invalid YAML: {e}")
+    except Exception as e:
+        st.error(f"Error: {e}")

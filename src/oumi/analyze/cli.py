@@ -334,9 +334,9 @@ def run_typed_analysis(
             analyzer_config.params,
         )
         if analyzer is not None:
-            # Set instance ID if different from type
-            if analyzer_config.instance_id != analyzer_config.id:
-                analyzer.analyzer_id = analyzer_config.instance_id
+            # Always set analyzer_id to match config (use instance_id or id)
+            # This ensures results are keyed by the config ID, not class name
+            analyzer.analyzer_id = analyzer_config.instance_id or analyzer_config.id
             analyzers.append(analyzer)
 
     # Create custom metrics

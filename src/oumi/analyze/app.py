@@ -44,6 +44,7 @@ from oumi.analyze.ui.charts import render_charts
 from oumi.analyze.ui.config_editor import render_config_editor
 from oumi.analyze.ui.exports import render_exports
 from oumi.analyze.ui.results import render_results_table
+from oumi.analyze.ui.setup_wizard import render_setup_wizard
 from oumi.analyze.ui.sidebar import render_sidebar
 
 
@@ -57,46 +58,33 @@ def main():
 
     # Main content area
     if eval_data is None:
-        # No eval selected - show welcome/empty state
-        st.title("Oumi Analyze Viewer")
-        st.markdown(
-            """
-            Welcome to the **Oumi Analyze Viewer**!
+        # No eval selected - show welcome with setup wizard
+        st.title("Oumi Analyze")
 
-            This tool helps you:
-            - 📊 Browse and compare analysis runs
-            - 🔍 Filter and search results
-            - 📈 Visualize score distributions and pass rates
-            - ✏️ Create and edit analysis configurations
-            - 📥 Export results in various formats
+        # Create tabs for new users
+        tab_wizard, tab_config = st.tabs([
+            "🚀 Create New Analysis",
+            "✏️ YAML Editor",
+        ])
 
-            ### Getting Started
+        with tab_wizard:
+            render_setup_wizard()
 
-            1. Run an analysis first:
-               ```bash
-               oumi analyze --config your_config.yaml --typed
-               ```
-
-            2. Refresh this page to see your results
-
-            Or use the **Config Editor** tab to create a new configuration.
-            """
-        )
-
-        # Still show config editor for creating new configs
-        st.divider()
-        tab1, = st.tabs(["Config Editor"])
-        with tab1:
+        with tab_config:
+            st.markdown("### Manual Configuration")
+            st.caption("For advanced users who prefer editing YAML directly.")
             render_config_editor(storage, None)
+
         return
 
     # Show eval name as title
     st.title(f"📊 {eval_data.metadata.name}")
 
     # Create tabs
-    tab_results, tab_charts, tab_config, tab_export = st.tabs([
+    tab_results, tab_charts, tab_new, tab_config, tab_export = st.tabs([
         "📋 Results",
         "📈 Charts",
+        "🚀 New Analysis",
         "✏️ Config Editor",
         "📥 Export",
     ])
@@ -106,6 +94,9 @@ def main():
 
     with tab_charts:
         render_charts(eval_data)
+
+    with tab_new:
+        render_setup_wizard()
 
     with tab_config:
         render_config_editor(storage, eval_data)

@@ -345,8 +345,13 @@ def _get_problematic_indices(
     """
     sample_indices = set(test.get("sample_indices", []))
     total_count = test.get("total_count", 0)
-    threshold = test.get("threshold", 0)
-    affected_percentage = test.get("affected_percentage", 0)
+    threshold = test.get("threshold")
+    affected_percentage = test.get("affected_percentage")
+
+    # Handle None values
+    if threshold is None or affected_percentage is None:
+        # Can't determine test type, return sample_indices as-is
+        return sorted(sample_indices)
 
     # Determine test type based on whether we're checking min or max
     # If affected_percentage < threshold, it's likely a min_percentage test

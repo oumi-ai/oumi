@@ -18,6 +18,7 @@ from oumi.analyze.ui.charts import render_charts
 from oumi.analyze.ui.config_editor import render_config_editor
 from oumi.analyze.ui.exports import render_exports
 from oumi.analyze.ui.results import render_results_table
+from oumi.analyze.ui.setup_wizard import render_setup_wizard
 from oumi.analyze.ui.sidebar import render_sidebar
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "render_charts",
     "render_config_editor",
     "render_exports",
+    "render_setup_wizard",
 ]
