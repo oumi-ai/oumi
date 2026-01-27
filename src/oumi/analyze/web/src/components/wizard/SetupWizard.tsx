@@ -1184,7 +1184,9 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
             <div className="max-w-md mx-auto mb-6">
               <Progress value={progressPercent} className="h-3" />
               <p className="text-sm text-muted-foreground mt-2">
-                {jobStatus?.progress || 0} / {jobStatus?.total || 100} samples processed
+                {jobStatus?.progress && jobStatus?.total 
+                  ? `${jobStatus.progress} / ${jobStatus.total} samples processed`
+                  : 'Processing...'}
               </p>
             </div>
           )}

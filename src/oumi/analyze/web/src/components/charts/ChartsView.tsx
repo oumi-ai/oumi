@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { PassRateChart } from './PassRateChart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import {
@@ -140,11 +139,6 @@ export function ChartsView({ evalData }: ChartsViewProps) {
     analyzerNames.length > 0 ? analyzerNames[0] : ''
   )
 
-  // Check if any analyzer has passed/failed data
-  const hasPassedData = Object.values(analysis_results).some((results) =>
-    results.some((r) => r.passed !== undefined)
-  )
-
   // Get fields for selected analyzer
   const selectedResults = analysis_results[selectedAnalyzer] || []
   const numericFields = useMemo(() => getNumericFields(selectedResults), [selectedResults])
@@ -163,11 +157,6 @@ export function ChartsView({ evalData }: ChartsViewProps) {
 
   return (
     <div className="space-y-6">
-      {/* Pass Rate Chart */}
-      {hasPassedData && (
-        <PassRateChart analysisResults={analysis_results} />
-      )}
-
       {/* Analyzer-specific charts */}
       <Card>
         <CardHeader>

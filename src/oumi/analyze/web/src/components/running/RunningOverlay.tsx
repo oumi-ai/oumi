@@ -14,7 +14,9 @@ interface RunningOverlayProps {
 export function RunningOverlay({ jobStatus, onCancel, onRetry }: RunningOverlayProps) {
   if (!jobStatus) return null
 
-  const progressPercent = Math.round((jobStatus.progress / jobStatus.total) * 100)
+  const progressPercent = jobStatus.total > 0 
+    ? Math.round((jobStatus.progress / jobStatus.total) * 100) 
+    : 0
   const isComplete = jobStatus.status === 'completed'
   const isFailed = jobStatus.status === 'failed'
   const isRunning = jobStatus.status === 'running' || jobStatus.status === 'pending'
@@ -52,7 +54,9 @@ export function RunningOverlay({ jobStatus, onCancel, onRetry }: RunningOverlayP
             <div>
               <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
-                {jobStatus.progress} / {jobStatus.total} samples
+                {jobStatus.progress > 0 && jobStatus.total > 0
+                  ? `${jobStatus.progress} / ${jobStatus.total} samples`
+                  : 'Processing...'}
               </p>
             </div>
           )}
