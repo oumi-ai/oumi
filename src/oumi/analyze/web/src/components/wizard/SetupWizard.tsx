@@ -139,6 +139,8 @@ interface SetupWizardProps {
   onCancel?: () => void
   /** Initial config to edit (for edit mode) */
   initialConfig?: Record<string, unknown>
+  /** Initial step to start on (0=Dataset, 1=Analyzers, 2=Tests) */
+  initialStep?: number
 }
 
 /** Migrate old param names to new ones */
@@ -397,8 +399,8 @@ function generateYaml(config: WizardConfig): string {
   return lines.join('\n')
 }
 
-export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig }: SetupWizardProps) {
-  const [currentStep, setCurrentStep] = useState(0)
+export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig, initialStep = 0 }: SetupWizardProps) {
+  const [currentStep, setCurrentStep] = useState(initialStep)
   const [isRunning, setIsRunning] = useState(false)
   const [config, setConfig] = useState<WizardConfig>(() => {
     if (initialConfig) {
@@ -420,9 +422,9 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
   useEffect(() => {
     if (initialConfig) {
       setConfig(parseConfigToWizard(initialConfig))
-      setCurrentStep(0)
+      setCurrentStep(initialStep)
     }
-  }, [initialConfig])
+  }, [initialConfig, initialStep])
   
   const isEditMode = !!initialConfig
 

@@ -25,6 +25,7 @@ function App() {
   const [selectedEvalId, setSelectedEvalId] = useState<string | null>(null)
   const [showWizard, setShowWizard] = useState(false)
   const [editConfig, setEditConfig] = useState<Record<string, unknown> | null>(null)
+  const [wizardInitialStep, setWizardInitialStep] = useState(0)
   const [isRunningFromConfig, setIsRunningFromConfig] = useState(false)
   const [showCopiedDialog, setShowCopiedDialog] = useState(false)
   const { data: evals, isLoading: evalsLoading, refetch } = useEvalList()
@@ -87,6 +88,43 @@ function App() {
         parent_eval_id: evalData.metadata.id,
       }
       setEditConfig(configWithName)
+      setWizardInitialStep(0)
+      setShowWizard(true)
+    }
+  }
+
+  // Open wizard at tests step for quick test editing
+  const handleEditTests = () => {
+    if (evalData) {
+      // Same name generation logic as handleEditInWizard
+      const currentName = evalData.metadata.name
+      const baseName = currentName
+        .replace(/_v\d+$/, '')
+        .replace(/_\d{4}-\d{2}-\d{2}_\d{4}$/, '')
+        .replace(/_\d{4}-\d{2}-\d{2}_\d{4}_\d{4}-\d{2}-\d{2}_\d{4}$/, '')
+      
+      const versionPattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_v(\\d+)$`)
+      let maxVersion = 1
+      for (const evalItem of evals || []) {
+        if (evalItem.name === baseName) {
+          maxVersion = Math.max(maxVersion, 1)
+        }
+        const match = evalItem.name.match(versionPattern)
+        if (match) {
+          maxVersion = Math.max(maxVersion, parseInt(match[1], 10))
+        }
+      }
+      
+      const newVersion = maxVersion + 1
+      const newName = `${baseName}_v${newVersion}`
+      
+      const configWithName = {
+        ...evalData.config,
+        eval_name: newName,
+        parent_eval_id: evalData.metadata.id,
+      }
+      setEditConfig(configWithName)
+      setWizardInitialStep(2) // Start at Tests step
       setShowWizard(true)
     }
   }
@@ -112,6 +150,7 @@ function App() {
   const handleCloseWizard = () => {
     setShowWizard(false)
     setEditConfig(null)
+    setWizardInitialStep(0)
   }
 
   // Check if only tests changed between two configs
@@ -257,6 +296,7 @@ function App() {
             onRunComplete={handleRunComplete}
             onCancel={handleCloseWizard}
             initialConfig={editConfig ?? undefined}
+            initialStep={wizardInitialStep}
           />
         </main>
       </div>
@@ -307,7 +347,7 @@ function App() {
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="results">
-                  <ResultsView evalData={evalData} />
+                  <ResultsView evalData={evalData} onEditTests={handleEditTests} />
                 </TabsContent>
                 <TabsContent value="charts">
                   <ChartsView evalData={evalData} />

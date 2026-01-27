@@ -459,11 +459,13 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
         """Initialize the LLMAnalyzer."""
         # Handle backward compatibility: max_workers -> num_workers
         if num_workers is None:
-            num_workers = max_workers if max_workers is not None else 4
+            num_workers = max_workers if max_workers is not None else 1000
         # Resolve criteria and prompt
         # Support both 'criteria' and 'criteria_name' for preset lookup (unified interface)
-        preset_key = criteria or (criteria_name if criteria_name in PRESET_CRITERIA else None)
-        
+        preset_key = criteria or (
+            criteria_name if criteria_name in PRESET_CRITERIA else None
+        )
+
         if preset_key:
             if preset_key not in PRESET_CRITERIA:
                 available = ", ".join(get_available_criteria())
@@ -651,7 +653,9 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
                 close_tag = f"</{turn_tag}>"
                 lines.append(f"{open_tag}{content}{close_tag}")
             else:
-                role_str = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+                role_str = (
+                    msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+                )
                 lines.append(f"[{role_str.upper()}]: {content}")
 
         return "\n".join(lines)
@@ -752,7 +756,7 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
             scale_context = "Score 0 = worst, Score 100 = best."
 
         format_instruction = (
-            f'{scale_context}\n\n'
+            f"{scale_context}\n\n"
             'Provide your evaluation in JSON format with "score" (0-100) '
             'and "reasoning" fields.\n'
             'Example: {"score": 75, "reasoning": "Because..."}'
@@ -761,7 +765,7 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
         return f"""{prompt_body}
 
 --- CONTENT TO EVALUATE ---
-{context.get('target', '')}
+{context.get("target", "")}
 --- END CONTENT ---
 
 {format_instruction}"""
@@ -1091,6 +1095,7 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
         """Analyze a batch of conversations with caching and deduplication."""
         try:
             from tqdm import tqdm
+
             has_tqdm = True
         except ImportError:
             has_tqdm = False
@@ -1152,9 +1157,7 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
                 responses = self._call_llm_batch(unique_prompts)
 
                 # Process responses and update cache
-                for (orig_idx, prompt), response in zip(
-                    prompts_to_evaluate, responses
-                ):
+                for (orig_idx, prompt), response in zip(prompts_to_evaluate, responses):
                     try:
                         result = self._parse_and_build_result(response)
                     except Exception as e:
@@ -1299,7 +1302,9 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
             criteria_name="custom",
             prompt_template=prompt_template,
             system_prompt=system_instruction,
-            target_scope=TargetScope.CONVERSATION if is_multiturn else TargetScope.LAST_TURN,
+            target_scope=TargetScope.CONVERSATION
+            if is_multiturn
+            else TargetScope.LAST_TURN,
             turn_indexing=turn_indexing,
             user_turn_tag=user_turn_tag or "user",
             assistant_turn_tag=assistant_turn_tag or "assistant",

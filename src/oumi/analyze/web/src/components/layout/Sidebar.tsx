@@ -210,45 +210,37 @@ function EvalListItem({ eval: evalMeta, isSelected, onClick, onDelete }: EvalLis
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <p className="font-medium truncate">{evalMeta.name}</p>
-            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span>{formatRelativeTime(evalMeta.created_at)}</span>
-            </div>
+        <div>
+          <p className="font-medium truncate">{evalMeta.name}</p>
+          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+            <Clock className="h-3 w-3 shrink-0" />
+            <span>{formatRelativeTime(evalMeta.created_at)}</span>
           </div>
-          
-          {hasTests && (
-            <div className="flex items-center gap-1">
-              {passRate !== null && passRate >= 1.0 ? (
-                <Badge variant="success" className="flex items-center gap-1">
-                  <CheckCircle className="h-3 w-3" />
-                  {(passRate * 100).toFixed(0)}%
-                </Badge>
-              ) : passRate !== null && passRate > 0 ? (
-                <Badge variant="warning" className="flex items-center gap-1">
-                  {(passRate * 100).toFixed(0)}%
-                </Badge>
-              ) : passRate !== null ? (
-                <Badge variant="error" className="flex items-center gap-1">
-                  <XCircle className="h-3 w-3" />
-                  {(passRate * 100).toFixed(0)}%
-                </Badge>
-              ) : (
-                <Badge variant="secondary">N/A</Badge>
-              )}
-            </div>
-          )}
         </div>
 
-        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-          <span>{evalMeta.sample_count} samples</span>
-          <span>{evalMeta.analyzer_count} analyzers</span>
-          {hasTests && (
-            <span>
-              {evalMeta.tests_passed}/{evalMeta.test_count} tests
-            </span>
+        <div className="flex items-center justify-between gap-3 mt-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <span>{evalMeta.sample_count} samples</span>
+            <span>{evalMeta.analyzer_count} analyzers</span>
+            {hasTests && (
+              <span>
+                {evalMeta.tests_passed}/{evalMeta.test_count} tests
+              </span>
+            )}
+          </div>
+          
+          {hasTests && passRate !== null && (
+            <Badge 
+              variant={passRate >= 1.0 ? "success" : passRate > 0 ? "warning" : "error"} 
+              className="flex items-center gap-1"
+            >
+              {passRate >= 1.0 && <CheckCircle className="h-3 w-3" />}
+              {passRate === 0 && <XCircle className="h-3 w-3" />}
+              {Math.round(passRate * 100)}%
+            </Badge>
+          )}
+          {hasTests && passRate === null && (
+            <Badge variant="secondary">N/A</Badge>
           )}
         </div>
       </div>
