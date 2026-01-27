@@ -128,7 +128,7 @@ def k8s_cloud_builder() -> SkyCloud:
     return SkyCloud(SkyClient.SupportedClouds.K8S.value)
 
 
-@register_cloud_builder("nebuis")
-def nebuis_cloud_builder() -> SkyCloud:
+@register_cloud_builder("nebius")
+def nebius_cloud_builder() -> SkyCloud:
     """Builds a SkyCloud instance for Nebius."""
     return SkyCloud(SkyClient.SupportedClouds.NEBIUS.value)

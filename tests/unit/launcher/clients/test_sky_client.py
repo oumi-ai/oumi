@@ -86,9 +86,9 @@ def test_sky_client_k8s_name():
     assert client.SupportedClouds.K8S.value == "k8s"
 
 
-def test_sky_client_nebuis_name():
+def test_sky_client_nebius_name():
     client = SkyClient()
-    assert client.SupportedClouds.NEBIUS.value == "nebuis"
+    assert client.SupportedClouds.NEBIUS.value == "nebius"
 
 
 def test_convert_job_to_task(

@@ -168,7 +168,7 @@ class SkyClient:
         RUNPOD = "runpod"
         LAMBDA = "lambda"
         K8S = "k8s"
-        NEBIUS = "nebuis"
+        NEBIUS = "nebius"
 
     def __init__(self):
         """Initializes a new instance of the SkyClient class."""
