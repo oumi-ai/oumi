@@ -52,7 +52,8 @@ const AVAILABLE_ANALYZERS = {
     name: 'Usefulness Analyzer',
     description: 'Evaluate response usefulness using LLM',
     params: [
-      { key: 'model', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
+      { key: 'model_name', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
+      { key: 'api_provider', type: 'select', options: ['openai', 'anthropic'] as const, default: 'openai', label: 'API Provider' },
       { key: 'target_scope', type: 'select', options: ['CONVERSATION', 'LAST_TURN', 'FIRST_USER'] as const, default: 'CONVERSATION', label: 'Target Scope' },
     ],
     metrics: ['score', 'passed', 'label', 'reasoning']
@@ -61,7 +62,8 @@ const AVAILABLE_ANALYZERS = {
     name: 'Safety Analyzer',
     description: 'Check content for safety issues',
     params: [
-      { key: 'model', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
+      { key: 'model_name', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
+      { key: 'api_provider', type: 'select', options: ['openai', 'anthropic'] as const, default: 'openai', label: 'API Provider' },
     ],
     metrics: ['score', 'passed', 'label', 'reasoning']
   },
@@ -69,7 +71,8 @@ const AVAILABLE_ANALYZERS = {
     name: 'Coherence Analyzer',
     description: 'Evaluate conversation coherence',
     params: [
-      { key: 'model', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
+      { key: 'model_name', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
+      { key: 'api_provider', type: 'select', options: ['openai', 'anthropic'] as const, default: 'openai', label: 'API Provider' },
     ],
     metrics: ['score', 'passed', 'label', 'reasoning']
   },
@@ -77,7 +80,8 @@ const AVAILABLE_ANALYZERS = {
     name: 'Factuality Analyzer',
     description: 'Check factual accuracy of responses',
     params: [
-      { key: 'model', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
+      { key: 'model_name', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
+      { key: 'api_provider', type: 'select', options: ['openai', 'anthropic'] as const, default: 'openai', label: 'API Provider' },
     ],
     metrics: ['score', 'passed', 'label', 'reasoning']
   },
@@ -115,6 +119,72 @@ interface SetupWizardProps {
   onComplete?: (yamlConfig: string) => void
   onRunComplete?: (evalId: string | null) => void
   onCancel?: () => void
+  /** Initial config to edit (for edit mode) */
+  initialConfig?: Record<string, unknown>
+}
+
+/** Migrate old param names to new ones */
+function migrateParams(params: Record<string, unknown>): Record<string, unknown> {
+  const migrated = { ...params }
+  // Migrate 'model' -> 'model_name' for LLM analyzers
+  if ('model' in migrated && !('model_name' in migrated)) {
+    migrated.model_name = migrated.model
+    delete migrated.model
+  }
+  // Add default api_provider if missing for LLM analyzers
+  if ('model_name' in migrated && !('api_provider' in migrated)) {
+    migrated.api_provider = 'openai'
+  }
+  return migrated
+}
+
+/** Parse a config object into WizardConfig format */
+function parseConfigToWizard(config: Record<string, unknown>): WizardConfig {
+  const wizardConfig: WizardConfig = {
+    datasetPath: (config.dataset_path as string) || '',
+    datasetName: (config.dataset_name as string) || '',
+    sampleCount: (config.sample_count as number) || 100,
+    outputPath: (config.output_path as string) || './analysis_output',
+    analyzers: [],
+    tests: [],
+  }
+
+  // Parse analyzers
+  const analyzers = config.analyzers as Array<Record<string, unknown>> | undefined
+  if (analyzers && Array.isArray(analyzers)) {
+    wizardConfig.analyzers = analyzers.map((a) => {
+      const analyzerType = (a.id as string) || 'length'
+      const rawParams = (a.params as Record<string, unknown>) || {}
+      // Migrate old param names to new ones
+      const params = migrateParams(rawParams)
+      return {
+        id: analyzerType,
+        type: (AVAILABLE_ANALYZERS[analyzerType as AnalyzerKey] ? analyzerType : 'length') as AnalyzerKey,
+        params,
+      }
+    })
+  }
+
+  // Parse tests
+  const tests = config.tests as Array<Record<string, unknown>> | undefined
+  if (tests && Array.isArray(tests)) {
+    wizardConfig.tests = tests.map((t) => ({
+      id: (t.id as string) || `test_${Math.random().toString(36).slice(2, 6)}`,
+      type: (t.type as 'threshold' | 'percentage' | 'range') || 'threshold',
+      metric: (t.metric as string) || '',
+      title: (t.title as string) || '',
+      description: (t.description as string) || '',
+      severity: (t.severity as 'low' | 'medium' | 'high') || 'medium',
+      operator: t.operator as string | undefined,
+      value: t.value as number | undefined,
+      minPercentage: (t.min_percentage as number) ?? (t.minPercentage as number | undefined),
+      maxPercentage: (t.max_percentage as number) ?? (t.maxPercentage as number | undefined),
+      minValue: (t.min_value as number) ?? (t.minValue as number | undefined),
+      maxValue: (t.max_value as number) ?? (t.maxValue as number | undefined),
+    }))
+  }
+
+  return wizardConfig
 }
 
 const STEPS = [
@@ -181,17 +251,24 @@ function generateYaml(config: WizardConfig): string {
   return lines.join('\n')
 }
 
-export function SetupWizard({ onComplete, onRunComplete, onCancel }: SetupWizardProps) {
+export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig }: SetupWizardProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [isRunning, setIsRunning] = useState(false)
-  const [config, setConfig] = useState<WizardConfig>({
-    datasetPath: '',
-    datasetName: '',
-    sampleCount: 100,
-    outputPath: './analysis_output',
-    analyzers: [],
-    tests: [],
+  const [config, setConfig] = useState<WizardConfig>(() => {
+    if (initialConfig) {
+      return parseConfigToWizard(initialConfig)
+    }
+    return {
+      datasetPath: '',
+      datasetName: '',
+      sampleCount: 100,
+      outputPath: './analysis_output',
+      analyzers: [],
+      tests: [],
+    }
   })
+  
+  const isEditMode = !!initialConfig
 
   const { run, reset, jobStatus, isStarting } = useRunAnalysis()
 
@@ -920,9 +997,11 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel }: SetupWizard
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <CardTitle>Create New Analysis</CardTitle>
+        <CardTitle>{isEditMode ? 'Edit Analysis' : 'Create New Analysis'}</CardTitle>
         <CardDescription>
-          Set up a new dataset analysis by following these steps.
+          {isEditMode 
+            ? 'Modify the configuration and re-run the analysis.'
+            : 'Set up a new dataset analysis by following these steps.'}
         </CardDescription>
       </CardHeader>
       <CardContent>

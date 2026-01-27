@@ -10,15 +10,23 @@ import { ExportMenu } from '@/components/actions/ExportMenu'
 import { RunningOverlay } from '@/components/running/RunningOverlay'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Plus, BarChart3, FileCode, TestTube, PieChart } from 'lucide-react'
+import { Plus, BarChart3, FileCode, TestTube, PieChart, Pencil } from 'lucide-react'
 
 function App() {
   const [selectedEvalId, setSelectedEvalId] = useState<string | null>(null)
   const [showWizard, setShowWizard] = useState(false)
+  const [editConfig, setEditConfig] = useState<Record<string, unknown> | null>(null)
   const [isRunningFromConfig, setIsRunningFromConfig] = useState(false)
   const { data: evals, isLoading: evalsLoading, refetch } = useEvalList()
   const { data: evalData, isLoading: evalLoading } = useEval(selectedEvalId)
   const { run, reset, jobStatus } = useRunAnalysis()
+
+  const handleEditInWizard = () => {
+    if (evalData) {
+      setEditConfig(evalData.config)
+      setShowWizard(true)
+    }
+  }
 
   const handleWizardComplete = (yamlConfig: string) => {
     // Copy to clipboard and show notification
@@ -33,8 +41,14 @@ function App() {
         setSelectedEvalId(evalId)
       }
       setShowWizard(false)
+      setEditConfig(null)
       setIsRunningFromConfig(false)
     })
+  }
+
+  const handleCloseWizard = () => {
+    setShowWizard(false)
+    setEditConfig(null)
   }
 
   const handleRunFromConfig = (yamlConfig: string) => {
@@ -64,16 +78,20 @@ function App() {
           selectedId={selectedEvalId}
           onSelect={(id) => {
             setSelectedEvalId(id)
-            setShowWizard(false)
+            handleCloseWizard()
           }}
           isLoading={evalsLoading}
-          onNewAnalysis={() => setShowWizard(true)}
+          onNewAnalysis={() => {
+            setEditConfig(null)
+            setShowWizard(true)
+          }}
         />
         <main className="flex-1 flex flex-col overflow-auto p-6">
           <SetupWizard
             onComplete={handleWizardComplete}
             onRunComplete={handleRunComplete}
-            onCancel={() => setShowWizard(false)}
+            onCancel={handleCloseWizard}
+            initialConfig={editConfig ?? undefined}
           />
         </main>
       </div>
@@ -103,6 +121,10 @@ function App() {
         {selectedEvalId && evalData ? (
           <>
             <Header evalData={evalData}>
+              <Button variant="outline" size="sm" onClick={handleEditInWizard}>
+                <Pencil className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
               <ExportMenu evalData={evalData} />
             </Header>
             <div className="flex-1 overflow-auto p-6">
