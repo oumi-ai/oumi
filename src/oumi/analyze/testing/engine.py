@@ -333,10 +333,13 @@ class TestEngine:
 
         # Find values that violate the threshold
         affected_indices = []
+        failure_reasons: dict[int, str] = {}
         for i, value in enumerate(values):
             try:
                 if op_func(value, test.value):
                     affected_indices.append(i)
+                    # Create reason string
+                    failure_reasons[i] = f"{value} {test.operator} {test.value}"
             except (TypeError, ValueError):
                 pass
 
@@ -363,6 +366,11 @@ class TestEngine:
             affected_percentage=round(affected_pct, 2),
             threshold=test.max_percentage,
             sample_indices=affected_indices[:50],  # Limit to first 50
+            details={
+                "operator": test.operator,
+                "value": test.value,
+                "failure_reasons": {k: v for k, v in list(failure_reasons.items())[:50]},
+            },
         )
 
     def _run_percentage_test(
@@ -428,25 +436,42 @@ class TestEngine:
         except ValueError:
             compare_value = value_str
 
-        # Count matches
-        affected_indices = []
+        # Count matches and non-matches
+        matching_indices = []
+        non_matching_indices = []
+        failure_reasons: dict[int, str] = {}
         for i, value in enumerate(values):
             try:
                 if op_func(value, compare_value):
-                    affected_indices.append(i)
+                    matching_indices.append(i)
+                else:
+                    non_matching_indices.append(i)
+                    failure_reasons[i] = f"{value} does not match {test.condition}"
             except (TypeError, ValueError):
-                pass
+                non_matching_indices.append(i)
+                failure_reasons[i] = f"Cannot evaluate: {value}"
 
-        affected_count = len(affected_indices)
+        matching_count = len(matching_indices)
         total_count = len(values)
-        affected_pct = 100.0 * affected_count / total_count if total_count > 0 else 0.0
+        matching_pct = 100.0 * matching_count / total_count if total_count > 0 else 0.0
 
         # Check against thresholds
         passed = True
-        if test.max_percentage is not None and affected_pct > test.max_percentage:
+        if test.max_percentage is not None and matching_pct > test.max_percentage:
             passed = False
-        if test.min_percentage is not None and affected_pct < test.min_percentage:
+        if test.min_percentage is not None and matching_pct < test.min_percentage:
             passed = False
+
+        # For min_percentage tests, affected samples are those that don't match
+        # For max_percentage tests, affected samples are those that do match
+        if test.min_percentage is not None and not passed:
+            affected_indices = non_matching_indices
+            affected_count = len(non_matching_indices)
+            affected_pct = 100.0 * affected_count / total_count if total_count > 0 else 0.0
+        else:
+            affected_indices = matching_indices
+            affected_count = matching_count
+            affected_pct = matching_pct
 
         return TestResult(
             test_id=test.id,
@@ -460,6 +485,12 @@ class TestEngine:
             affected_percentage=round(affected_pct, 2),
             threshold=test.max_percentage or test.min_percentage,
             sample_indices=affected_indices[:50],
+            details={
+                "condition": test.condition,
+                "matching_count": matching_count,
+                "matching_percentage": round(matching_pct, 2),
+                "failure_reasons": {k: v for k, v in list(failure_reasons.items())[:50]},
+            },
         )
 
     def _run_range_test(
