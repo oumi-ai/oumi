@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Search, CheckCircle, XCircle, Clock, BarChart3 } from 'lucide-react'
+import { Search, CheckCircle, XCircle, Clock, BarChart3, Plus } from 'lucide-react'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import type { EvalMetadata } from '@/types/eval'
 
@@ -11,9 +12,10 @@ interface SidebarProps {
   selectedId: string | null
   onSelect: (id: string) => void
   isLoading: boolean
+  onNewAnalysis?: () => void
 }
 
-export function Sidebar({ evals, selectedId, onSelect, isLoading }: SidebarProps) {
+export function Sidebar({ evals, selectedId, onSelect, isLoading, onNewAnalysis }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
   const filteredEvals = evals.filter(
@@ -28,9 +30,16 @@ export function Sidebar({ evals, selectedId, onSelect, isLoading }: SidebarProps
     <div className="w-80 border-r bg-muted/30 flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b">
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-semibold">Oumi Analyze</h1>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-semibold">Oumi Analyze</h1>
+          </div>
+          {onNewAnalysis && (
+            <Button variant="outline" size="sm" onClick={onNewAnalysis}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         
         {/* Search */}

@@ -1,3 +1,4 @@
+import { ReactNode } from 'react'
 import { Calendar, Database, FileText } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { formatRelativeTime } from '@/lib/utils'
@@ -6,9 +7,10 @@ import { computeTestSummary } from '@/types/eval'
 
 interface HeaderProps {
   evalData: EvalData
+  children?: ReactNode
 }
 
-export function Header({ evalData }: HeaderProps) {
+export function Header({ evalData, children }: HeaderProps) {
   const { metadata } = evalData
   const testSummary = computeTestSummary(evalData.test_results)
 
@@ -37,7 +39,7 @@ export function Header({ evalData }: HeaderProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {/* Pass Rate Badge */}
           {testSummary.total_tests > 0 && (
             <div className="text-center">
@@ -66,6 +68,9 @@ export function Header({ evalData }: HeaderProps) {
               </Badge>
             )}
           </div>
+
+          {/* Action buttons from parent */}
+          {children}
         </div>
       </div>
     </div>
