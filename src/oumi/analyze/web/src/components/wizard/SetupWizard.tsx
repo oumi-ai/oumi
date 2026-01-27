@@ -156,13 +156,25 @@ function parseConfigToWizard(config: Record<string, unknown>): WizardConfig {
   const analyzers = config.analyzers as Array<Record<string, unknown>> | undefined
   if (analyzers && Array.isArray(analyzers)) {
     wizardConfig.analyzers = analyzers.map((a) => {
-      const analyzerType = (a.id as string) || 'length'
+      let analyzerType = (a.id as string) || 'length'
       const rawParams = (a.params as Record<string, unknown>) || {}
+      
+      // For LLM analyzers (id: llm), use instance_id or criteria param as the type
+      if (analyzerType === 'llm') {
+        const instanceId = a.instance_id as string | undefined
+        const criteria = rawParams.criteria as string | undefined
+        analyzerType = instanceId || criteria || 'usefulness'
+      }
+      
       // Migrate old param names to new ones
       const params = migrateParams(rawParams)
+      
+      // Check if analyzer type is supported, fallback to length
+      const isSupported = AVAILABLE_ANALYZERS[analyzerType as AnalyzerKey] !== undefined
+      
       return {
         id: analyzerType,
-        type: (AVAILABLE_ANALYZERS[analyzerType as AnalyzerKey] ? analyzerType : 'length') as AnalyzerKey,
+        type: (isSupported ? analyzerType : 'length') as AnalyzerKey,
         params,
       }
     })
