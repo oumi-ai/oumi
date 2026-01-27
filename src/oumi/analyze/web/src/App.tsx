@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useEvalList, useEval, useRunAnalysis, useRenameEval, useDeleteEval } from '@/hooks/useEvals'
+import yaml from 'js-yaml'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { ResultsView } from '@/components/results/ResultsView'
@@ -28,7 +29,7 @@ function App() {
   const [showCopiedDialog, setShowCopiedDialog] = useState(false)
   const { data: evals, isLoading: evalsLoading, refetch } = useEvalList()
   const { data: evalData, isLoading: evalLoading } = useEval(selectedEvalId)
-  const { run, reset, jobStatus } = useRunAnalysis()
+  const { run, runTestsOnlyCached, reset, jobStatus } = useRunAnalysis()
   const renameEval = useRenameEval()
   const deleteEval = useDeleteEval()
 
@@ -113,10 +114,110 @@ function App() {
     setEditConfig(null)
   }
 
-  const handleRunFromConfig = (yamlConfig: string) => {
+  // Check if only tests changed between two configs
+  // We compare: analyzer ids/instance_ids, custom_metric ids, and dataset settings
+  // We intentionally DON'T compare params deeply (whitespace in multiline strings causes false negatives)
+  const onlyTestsChanged = useCallback((oldConfig: Record<string, unknown>, newConfig: Record<string, unknown>): boolean => {
+    // Compare analyzers by id and instance_id only (not params - too fragile with multiline strings)
+    const oldAnalyzers = (oldConfig.analyzers as Array<{id: string; instance_id?: string}>) || []
+    const newAnalyzers = (newConfig.analyzers as Array<{id: string; instance_id?: string}>) || []
+    
+    if (oldAnalyzers.length !== newAnalyzers.length) {
+      console.log('Analyzer count mismatch:', oldAnalyzers.length, 'vs', newAnalyzers.length)
+      return false
+    }
+    
+    // Sort both arrays by instance_id for comparison
+    const sortedOld = [...oldAnalyzers].sort((a, b) => (a.instance_id || a.id || '').localeCompare(b.instance_id || b.id || ''))
+    const sortedNew = [...newAnalyzers].sort((a, b) => (a.instance_id || a.id || '').localeCompare(b.instance_id || b.id || ''))
+    
+    for (let i = 0; i < sortedOld.length; i++) {
+      const oldA = sortedOld[i]
+      const newA = sortedNew[i]
+      
+      if (oldA.id !== newA.id) {
+        console.log('Analyzer id mismatch:', oldA.id, 'vs', newA.id)
+        return false
+      }
+      if ((oldA.instance_id || oldA.id) !== (newA.instance_id || newA.id)) {
+        console.log('Analyzer instance_id mismatch:', oldA.instance_id, 'vs', newA.instance_id)
+        return false
+      }
+    }
+    
+    // Compare custom_metrics by ID only (not function content - too fragile)
+    const oldCustomMetrics = (oldConfig.custom_metrics as Array<{id: string}>) || []
+    const newCustomMetrics = (newConfig.custom_metrics as Array<{id: string}>) || []
+    
+    if (oldCustomMetrics.length !== newCustomMetrics.length) {
+      console.log('Custom metrics count mismatch:', oldCustomMetrics.length, 'vs', newCustomMetrics.length)
+      return false
+    }
+    
+    const oldMetricIds = oldCustomMetrics.map(m => m.id).sort()
+    const newMetricIds = newCustomMetrics.map(m => m.id).sort()
+    
+    for (let i = 0; i < oldMetricIds.length; i++) {
+      if (oldMetricIds[i] !== newMetricIds[i]) {
+        console.log('Custom metric id mismatch:', oldMetricIds[i], 'vs', newMetricIds[i])
+        return false
+      }
+    }
+    
+    // Compare dataset settings (must be the same)
+    if (oldConfig.dataset_path !== newConfig.dataset_path) {
+      console.log('Dataset path mismatch:', oldConfig.dataset_path, 'vs', newConfig.dataset_path)
+      return false
+    }
+    if (oldConfig.dataset_name !== newConfig.dataset_name) {
+      console.log('Dataset name mismatch:', oldConfig.dataset_name, 'vs', newConfig.dataset_name)
+      return false
+    }
+    if (oldConfig.sample_count !== newConfig.sample_count) {
+      console.log('Sample count mismatch:', oldConfig.sample_count, 'vs', newConfig.sample_count)
+      return false
+    }
+    
+    return true
+  }, [])
+
+  const handleRunFromConfig = useCallback((yamlConfig: string) => {
     setIsRunningFromConfig(true)
+    
+    // Try to detect if only tests changed
+    if (evalData && selectedEvalId) {
+      try {
+        const newConfig = yaml.load(yamlConfig) as Record<string, unknown>
+        const oldConfig = evalData.config
+        
+        console.log('=== Comparing configs ===')
+        console.log('Old analyzers:', oldConfig.analyzers)
+        console.log('New analyzers:', newConfig.analyzers)
+        console.log('Old custom_metrics:', oldConfig.custom_metrics)
+        console.log('New custom_metrics:', newConfig.custom_metrics)
+        console.log('Old dataset_path:', oldConfig.dataset_path)
+        console.log('New dataset_path:', newConfig.dataset_path)
+        
+        const testsOnly = onlyTestsChanged(oldConfig, newConfig)
+        console.log('Only tests changed?', testsOnly)
+        
+        if (testsOnly) {
+          console.log('✅ Using cached results - calling runTestsOnlyCached')
+          runTestsOnlyCached(yamlConfig, selectedEvalId)
+          return
+        } else {
+          console.log('❌ Config changed - running full analysis')
+        }
+      } catch (e) {
+        console.warn('Could not parse config for comparison:', e)
+      }
+    } else {
+      console.log('No evalData or selectedEvalId - running full analysis')
+    }
+    
+    // Run full analysis
     run(yamlConfig)
-  }
+  }, [evalData, selectedEvalId, onlyTestsChanged, run, runTestsOnlyCached])
 
   const handleCancelRun = () => {
     setIsRunningFromConfig(false)

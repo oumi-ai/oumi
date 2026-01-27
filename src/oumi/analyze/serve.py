@@ -77,6 +77,8 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
         """Handle POST requests."""
         if self.path == "/api/run":
             self.start_analysis()
+        elif self.path == "/api/run-tests-only":
+            self.run_tests_only()
         elif self.path == "/api/rename":
             self.rename_eval()
         elif self.path == "/api/delete":
@@ -211,6 +213,107 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             logger.error(f"Error starting analysis: {e}")
+            self._send_json({"error": str(e)}, 500)
+
+    def run_tests_only(self):
+        """Run tests only, reusing cached analyzer results from a parent eval."""
+        try:
+            import yaml
+            from oumi.analyze.storage import AnalyzeStorage
+            from oumi.analyze.testing.engine import TestEngine, TestConfig, TestType
+            from oumi.analyze.testing.results import TestSeverity
+            from oumi.analyze.config import TestConfigYAML
+            
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)
+
+            parent_eval_id = data.get("parent_eval_id")
+            yaml_config = data.get("config", "")
+            
+            if not parent_eval_id:
+                self._send_json({"error": "No parent_eval_id provided"}, 400)
+                return
+            if not yaml_config:
+                self._send_json({"error": "No config provided"}, 400)
+                return
+
+            # Load parent eval data
+            storage = AnalyzeStorage(self.storage_dir)
+            parent_eval = storage.load_eval(parent_eval_id)
+            if not parent_eval:
+                self._send_json({"error": f"Parent eval {parent_eval_id} not found"}, 404)
+                return
+
+            # Parse new config to get tests
+            new_config = yaml.safe_load(yaml_config)
+            new_tests = new_config.get("tests", [])
+            
+            # Convert test configs to TestConfig objects
+            test_configs = []
+            for test_data in new_tests:
+                test_config = TestConfig(
+                    id=test_data.get("id", ""),
+                    type=TestType(test_data.get("type", "threshold")),
+                    metric=test_data.get("metric", ""),
+                    severity=TestSeverity(test_data.get("severity", "medium")),
+                    title=test_data.get("title", ""),
+                    description=test_data.get("description", ""),
+                    operator=test_data.get("operator"),
+                    value=test_data.get("value"),
+                    condition=test_data.get("condition"),
+                    max_percentage=test_data.get("max_percentage"),
+                    min_percentage=test_data.get("min_percentage"),
+                    min_value=test_data.get("min_value"),
+                    max_value=test_data.get("max_value"),
+                )
+                test_configs.append(test_config)
+
+            # Convert parent analysis results to format expected by test engine
+            # The test engine expects dict[str, list[BaseModel]], but we have dict[str, list[dict]]
+            # We need to wrap the dicts in a simple object
+            from pydantic import BaseModel
+            
+            class DictWrapper(BaseModel):
+                """Wrapper to make dict accessible as BaseModel."""
+                class Config:
+                    extra = "allow"
+            
+            analysis_results = {}
+            for analyzer_name, results in parent_eval.analysis_results.items():
+                analysis_results[analyzer_name] = [DictWrapper(**r) for r in results]
+
+            # Run tests
+            engine = TestEngine(test_configs)
+            test_summary = engine.run(analysis_results)
+
+            # Create new eval with same analysis results but new tests
+            new_eval_name = new_config.get("eval_name", f"{parent_eval.metadata.name}_v2")
+            
+            # Save the new eval
+            new_eval_id = storage.save_eval(
+                name=new_eval_name,
+                config=new_config,
+                analysis_results=parent_eval.analysis_results,
+                test_results=test_summary.to_dict(),
+                conversations=parent_eval.conversations,
+            )
+
+            # Refresh index
+            self._refresh_storage_index(self.storage_dir)
+
+            self._send_json({
+                "status": "completed",
+                "eval_id": new_eval_id,
+                "message": "Tests re-run successfully with cached analyzer results",
+                "tests_passed": test_summary.passed_tests,
+                "tests_total": test_summary.total_tests,
+            })
+
+        except Exception as e:
+            logger.error(f"Error running tests only: {e}")
+            import traceback
+            traceback.print_exc()
             self._send_json({"error": str(e)}, 500)
 
     def _run_analysis_job(self, job: AnalysisJob, storage_dir: Path):

@@ -461,15 +461,18 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
         if num_workers is None:
             num_workers = max_workers if max_workers is not None else 4
         # Resolve criteria and prompt
-        if criteria:
-            if criteria not in PRESET_CRITERIA:
+        # Support both 'criteria' and 'criteria_name' for preset lookup (unified interface)
+        preset_key = criteria or (criteria_name if criteria_name in PRESET_CRITERIA else None)
+        
+        if preset_key:
+            if preset_key not in PRESET_CRITERIA:
                 available = ", ".join(get_available_criteria())
                 raise ValueError(
-                    f"Unknown criteria '{criteria}'. Available: {available}"
+                    f"Unknown criteria '{preset_key}'. Available: {available}"
                 )
-            preset = PRESET_CRITERIA[criteria]
-            # Use criteria_name if provided, otherwise default to criteria
-            self.criteria_name = criteria_name or criteria
+            preset = PRESET_CRITERIA[preset_key]
+            # Use criteria_name if provided, otherwise default to preset_key
+            self.criteria_name = criteria_name or preset_key
             self.evaluation_prompt = preset["prompt"]
             # Use preset's data_fields if not overridden
             if data_fields is None and "data_fields" in preset:
@@ -479,7 +482,7 @@ class LLMAnalyzer(ConversationAnalyzer[LLMJudgmentMetrics]):
             self.evaluation_prompt = prompt_template
         else:
             raise ValueError(
-                "Must provide either 'criteria' (preset) or 'prompt_template' (custom)"
+                "Must provide either 'criteria'/'criteria_name' (preset) or 'prompt_template' (custom)"
             )
 
         # Target scope

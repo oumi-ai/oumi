@@ -306,6 +306,7 @@ function generateYaml(config: WizardConfig): string {
     
     if (isLlmAnalyzer) {
       // For LLM analyzers, always use criteria_name - it controls the metric prefix
+      // The backend now accepts criteria_name for both presets and custom prompts
       const instanceId = analyzer.instanceId || analyzer.type
       lines.push(`  - id: llm`)
       lines.push(`    instance_id: ${instanceId}`)
@@ -425,7 +426,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
   
   const isEditMode = !!initialConfig
 
-  const { run, reset, jobStatus, isStarting } = useRunAnalysis()
+  const { run, runTestsOnlyCached, reset, jobStatus, isStarting } = useRunAnalysis()
 
   // Handle job completion
   useEffect(() => {
@@ -531,11 +532,60 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     return metrics
   }, [config.analyzers, config.customMetrics])
 
+  // Check if only tests changed (analyzers and custom_metrics are the same)
+  const onlyTestsChanged = useCallback((): boolean => {
+    if (!initialConfig) return false
+    
+    // Compare analyzers
+    const initialAnalyzers = (initialConfig.analyzers as Array<{id: string; instance_id?: string; params?: Record<string, unknown>}>) || []
+    const currentAnalyzers = config.analyzers
+    
+    if (initialAnalyzers.length !== currentAnalyzers.length) return false
+    
+    // Sort both arrays by id for comparison
+    const sortedInitial = [...initialAnalyzers].sort((a, b) => (a.id || '').localeCompare(b.id || ''))
+    const sortedCurrent = [...currentAnalyzers].sort((a, b) => a.id.localeCompare(b.id))
+    
+    for (let i = 0; i < sortedInitial.length; i++) {
+      const init = sortedInitial[i]
+      const curr = sortedCurrent[i]
+      
+      // Compare id and instance_id
+      if (init.id !== curr.id) return false
+      if ((init.instance_id || init.id) !== (curr.instanceId || curr.type)) return false
+      
+      // Compare params (simplified - just check stringified)
+      if (JSON.stringify(init.params || {}) !== JSON.stringify(curr.params || {})) return false
+    }
+    
+    // Compare custom_metrics
+    const initialCustomMetrics = (initialConfig.custom_metrics as Array<{id: string}>) || []
+    const currentCustomMetrics = config.customMetrics
+    
+    if (initialCustomMetrics.length !== currentCustomMetrics.length) return false
+    
+    // If custom metrics exist, compare their IDs
+    const initialMetricIds = initialCustomMetrics.map(m => m.id).sort()
+    const currentMetricIds = currentCustomMetrics.map(m => m.id).sort()
+    
+    if (JSON.stringify(initialMetricIds) !== JSON.stringify(currentMetricIds)) return false
+    
+    return true
+  }, [initialConfig, config.analyzers, config.customMetrics])
+
   const handleRunAnalysis = useCallback(() => {
     const yaml = generateYaml(config)
     setIsRunning(true)
-    run(yaml)
-  }, [config, run])
+    
+    // If only tests changed and we have a parent eval, reuse cached results
+    const parentEvalId = config.parentEvalId
+    if (parentEvalId && onlyTestsChanged()) {
+      console.log('Only tests changed - reusing cached analyzer results')
+      runTestsOnlyCached(yaml, parentEvalId)
+    } else {
+      run(yaml)
+    }
+  }, [config, run, runTestsOnlyCached, onlyTestsChanged])
 
   const handleCopyConfig = useCallback(() => {
     const yaml = generateYaml(config)

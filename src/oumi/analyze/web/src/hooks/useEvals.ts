@@ -85,6 +85,29 @@ async function startAnalysis(yamlConfig: string): Promise<{ job_id: string }> {
 }
 
 /**
+ * Run tests only, reusing cached analyzer results
+ */
+async function runTestsOnly(yamlConfig: string, parentEvalId: string): Promise<{ 
+  status: string
+  eval_id: string
+  message: string 
+}> {
+  const response = await fetch(`${API_BASE_URL}/run-tests-only`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      config: yamlConfig,
+      parent_eval_id: parentEvalId,
+    }),
+  })
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || `Failed to run tests: ${response.statusText}`)
+  }
+  return response.json()
+}
+
+/**
  * Fetch job status
  */
 async function fetchJobStatus(jobId: string): Promise<JobStatus> {
@@ -168,6 +191,7 @@ export function useRunAnalysis() {
   const [jobId, setJobId] = useState<string | null>(null)
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
   const [isPolling, setIsPolling] = useState(false)
+  const [isRunningTestsOnly, setIsRunningTestsOnly] = useState(false)
 
   // Poll for job status
   useEffect(() => {
@@ -212,24 +236,76 @@ export function useRunAnalysis() {
     },
   })
 
+  // Mutation for running tests only (synchronous, no polling needed)
+  const testsOnlyMutation = useMutation({
+    mutationFn: ({ config, parentEvalId }: { config: string; parentEvalId: string }) => 
+      runTestsOnly(config, parentEvalId),
+    onSuccess: (data) => {
+      setJobStatus({
+        id: 'tests-only',
+        status: 'completed',
+        progress: 100,
+        total: 100,
+        message: data.message,
+        error: null,
+        eval_id: data.eval_id,
+        log_lines: ['Tests re-run using cached analyzer results'],
+      })
+      queryClient.invalidateQueries({ queryKey: ['evals'] })
+    },
+    onError: (error: Error) => {
+      setJobStatus({
+        id: 'tests-only',
+        status: 'failed',
+        progress: 0,
+        total: 100,
+        message: 'Failed to run tests',
+        error: error.message,
+        eval_id: null,
+        log_lines: [],
+      })
+    },
+  })
+
   const run = useCallback((yamlConfig: string) => {
     setJobId(null)
     setJobStatus(null)
+    setIsRunningTestsOnly(false)
     startMutation.mutate(yamlConfig)
   }, [startMutation])
+
+  // Run tests only, reusing cached results from parent
+  const runTestsOnlyCached = useCallback((yamlConfig: string, parentEvalId: string) => {
+    setJobId(null)
+    setJobStatus({
+      id: 'tests-only',
+      status: 'running',
+      progress: 50,
+      total: 100,
+      message: 'Re-running tests with cached analyzer results...',
+      error: null,
+      eval_id: null,
+      log_lines: [],
+    })
+    setIsRunningTestsOnly(true)
+    testsOnlyMutation.mutate({ config: yamlConfig, parentEvalId })
+  }, [testsOnlyMutation])
 
   const reset = useCallback(() => {
     setJobId(null)
     setJobStatus(null)
     setIsPolling(false)
+    setIsRunningTestsOnly(false)
   }, [])
 
   return {
     run,
+    runTestsOnlyCached,
     reset,
     jobId,
     jobStatus,
-    isStarting: startMutation.isPending,
-    startError: startMutation.error,
+    isStarting: startMutation.isPending || testsOnlyMutation.isPending,
+    startError: startMutation.error || testsOnlyMutation.error,
+    isRunningTestsOnly,
   }
 }

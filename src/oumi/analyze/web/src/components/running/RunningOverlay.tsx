@@ -54,9 +54,11 @@ export function RunningOverlay({ jobStatus, onCancel, onRetry }: RunningOverlayP
             <div>
               <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-muted-foreground mt-1">
-                {jobStatus.progress > 0 && jobStatus.total > 0
-                  ? `${jobStatus.progress} / ${jobStatus.total} samples`
-                  : 'Processing...'}
+                {jobStatus.id === 'tests-only' 
+                  ? 'Re-running tests with cached results (no analyzer computation)...'
+                  : jobStatus.progress > 0 && jobStatus.total > 0
+                    ? `${jobStatus.progress} / ${jobStatus.total} samples`
+                    : 'Processing...'}
               </p>
             </div>
           )}
