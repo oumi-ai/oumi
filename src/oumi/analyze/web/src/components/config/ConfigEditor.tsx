@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import Editor from '@monaco-editor/react'
+import yaml from 'js-yaml'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,62 +13,14 @@ interface ConfigEditorProps {
   onRunAnalysis?: (config: string) => void
 }
 
-// Convert config object to YAML string
+// Convert config object to YAML string using js-yaml
 function configToYaml(config: Record<string, unknown>): string {
-  const toYamlValue = (value: unknown, indent: number = 0): string => {
-    const spaces = '  '.repeat(indent)
-    
-    if (value === null || value === undefined) {
-      return 'null'
-    }
-    
-    if (typeof value === 'string') {
-      // Check if needs quoting
-      if (value.includes('\n') || value.includes(':') || value.includes('#')) {
-        return `"${value.replace(/"/g, '\\"')}"`
-      }
-      return value
-    }
-    
-    if (typeof value === 'number' || typeof value === 'boolean') {
-      return String(value)
-    }
-    
-    if (Array.isArray(value)) {
-      if (value.length === 0) return '[]'
-      return value.map((item) => {
-        if (typeof item === 'object' && item !== null) {
-          const objYaml = Object.entries(item)
-            .map(([k, v], j) => {
-              const prefix = j === 0 ? '- ' : '  '
-              return `${spaces}${prefix}${k}: ${toYamlValue(v, indent + 1)}`
-            })
-            .join('\n')
-          return objYaml
-        }
-        return `${spaces}- ${toYamlValue(item, indent + 1)}`
-      }).join('\n')
-    }
-    
-    if (typeof value === 'object') {
-      const entries = Object.entries(value)
-      if (entries.length === 0) return '{}'
-      return entries
-        .map(([k, v]) => `${spaces}${k}: ${toYamlValue(v, indent + 1)}`)
-        .join('\n')
-    }
-    
-    return String(value)
-  }
-  
-  return Object.entries(config)
-    .map(([key, value]) => {
-      if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
-        return `${key}:\n${toYamlValue(value, 1)}`
-      }
-      return `${key}: ${toYamlValue(value)}`
-    })
-    .join('\n\n')
+  return yaml.dump(config, {
+    indent: 2,
+    lineWidth: -1, // Don't wrap lines
+    noRefs: true,  // Don't use YAML references
+    sortKeys: false, // Keep original key order
+  })
 }
 
 export function ConfigEditor({ evalData, onRunAnalysis }: ConfigEditorProps) {

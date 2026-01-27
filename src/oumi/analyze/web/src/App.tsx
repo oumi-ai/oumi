@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useEvalList, useEval } from '@/hooks/useEvals'
+import { useEvalList, useEval, useRunAnalysis } from '@/hooks/useEvals'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { ResultsView } from '@/components/results/ResultsView'
@@ -7,6 +7,7 @@ import { ChartsView } from '@/components/charts/ChartsView'
 import { ConfigEditor } from '@/components/config/ConfigEditor'
 import { SetupWizard } from '@/components/wizard/SetupWizard'
 import { ExportMenu } from '@/components/actions/ExportMenu'
+import { RunningOverlay } from '@/components/running/RunningOverlay'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Plus, BarChart3, FileCode, TestTube, PieChart } from 'lucide-react'
@@ -14,8 +15,10 @@ import { Plus, BarChart3, FileCode, TestTube, PieChart } from 'lucide-react'
 function App() {
   const [selectedEvalId, setSelectedEvalId] = useState<string | null>(null)
   const [showWizard, setShowWizard] = useState(false)
+  const [isRunningFromConfig, setIsRunningFromConfig] = useState(false)
   const { data: evals, isLoading: evalsLoading, refetch } = useEvalList()
   const { data: evalData, isLoading: evalLoading } = useEval(selectedEvalId)
+  const { run, reset, jobStatus } = useRunAnalysis()
 
   const handleWizardComplete = (yamlConfig: string) => {
     // Copy to clipboard and show notification
@@ -30,7 +33,26 @@ function App() {
         setSelectedEvalId(evalId)
       }
       setShowWizard(false)
+      setIsRunningFromConfig(false)
     })
+  }
+
+  const handleRunFromConfig = (yamlConfig: string) => {
+    setIsRunningFromConfig(true)
+    run(yamlConfig)
+  }
+
+  const handleCancelRun = () => {
+    setIsRunningFromConfig(false)
+    reset()
+  }
+
+  // Handle job completion when running from config
+  if (isRunningFromConfig && jobStatus?.status === 'completed') {
+    // Auto-redirect after completion
+    setTimeout(() => {
+      handleRunComplete(jobStatus.eval_id)
+    }, 1500)
   }
 
   // Show wizard view
@@ -69,6 +91,15 @@ function App() {
       />
       
       <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Running overlay when re-running from config */}
+        {isRunningFromConfig && (
+          <RunningOverlay 
+            jobStatus={jobStatus} 
+            onCancel={handleCancelRun}
+            onRetry={() => evalData && handleRunFromConfig(JSON.stringify(evalData.config))}
+          />
+        )}
+
         {selectedEvalId && evalData ? (
           <>
             <Header evalData={evalData}>
@@ -97,7 +128,7 @@ function App() {
                   <ChartsView evalData={evalData} />
                 </TabsContent>
                 <TabsContent value="config">
-                  <ConfigEditor evalData={evalData} />
+                  <ConfigEditor evalData={evalData} onRunAnalysis={handleRunFromConfig} />
                 </TabsContent>
               </Tabs>
             </div>
