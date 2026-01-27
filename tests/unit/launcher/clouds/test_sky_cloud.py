@@ -775,3 +775,7 @@ def test_azure_cloud_builder_registered():
 
 def test_k8s_cloud_builder_registered():
     assert REGISTRY.contains("k8s", RegistryType.CLOUD)
+
+
+def test_nebius_cloud_builder_registered():
+    assert REGISTRY.contains("nebius", RegistryType.CLOUD)
