@@ -112,6 +112,7 @@ function App() {
           }}
           onDelete={handleDelete}
           isLoading={evalsLoading}
+          onLogoClick={() => setSelectedEvalId(null)}
           onNewAnalysis={() => {
             setEditConfig(null)
             setShowWizard(true)
@@ -138,6 +139,7 @@ function App() {
         onDelete={handleDelete}
         isLoading={evalsLoading}
         onNewAnalysis={() => setShowWizard(true)}
+        onLogoClick={() => setSelectedEvalId(null)}
       />
       
       <main className="flex-1 flex flex-col overflow-hidden">

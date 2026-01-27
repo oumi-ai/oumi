@@ -23,9 +23,10 @@ interface SidebarProps {
   onDelete?: (id: string) => void
   isLoading: boolean
   onNewAnalysis?: () => void
+  onLogoClick?: () => void
 }
 
-export function Sidebar({ evals, selectedId, onSelect, onDelete, isLoading, onNewAnalysis }: SidebarProps) {
+export function Sidebar({ evals, selectedId, onSelect, onDelete, isLoading, onNewAnalysis, onLogoClick }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<EvalMetadata | null>(null)
 
@@ -41,10 +42,13 @@ export function Sidebar({ evals, selectedId, onSelect, onDelete, isLoading, onNe
       {/* Header */}
       <div className="p-4 border-b">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
+          <button 
+            onClick={onLogoClick}
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          >
             <BarChart3 className="h-6 w-6 text-primary" />
             <h1 className="text-xl font-semibold">Oumi Analyze</h1>
-          </div>
+          </button>
           {onNewAnalysis && (
             <Button variant="outline" size="sm" onClick={onNewAnalysis}>
               <Plus className="h-4 w-4" />
