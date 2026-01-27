@@ -48,6 +48,45 @@ from oumi.analyze.ui.setup_wizard import render_setup_wizard
 from oumi.analyze.ui.sidebar import render_sidebar
 
 
+def _render_editor_with_toggle(
+    storage: AnalyzeStorage,
+    eval_data,
+    key_prefix: str = "main",
+) -> None:
+    """Render editor with UI/YAML toggle.
+
+    Args:
+        storage: Storage instance.
+        eval_data: Current eval data (can be None).
+        key_prefix: Prefix for session state keys.
+    """
+    # Initialize toggle state
+    toggle_key = f"{key_prefix}_editor_mode"
+    if toggle_key not in st.session_state:
+        st.session_state[toggle_key] = "ui"  # Default to UI editor
+
+    # Toggle switch
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        mode = st.radio(
+            "Editor Mode",
+            ["UI Editor", "YAML Editor"],
+            index=0 if st.session_state[toggle_key] == "ui" else 1,
+            horizontal=True,
+            key=f"{key_prefix}_mode_radio",
+            label_visibility="collapsed",
+        )
+        st.session_state[toggle_key] = "ui" if mode == "UI Editor" else "yaml"
+
+    st.divider()
+
+    # Render based on mode
+    if st.session_state[toggle_key] == "ui":
+        render_setup_wizard()
+    else:
+        render_config_editor(storage, eval_data)
+
+
 def main():
     """Main entry point for the Streamlit app."""
     # Initialize storage
@@ -58,22 +97,11 @@ def main():
 
     # Main content area
     if eval_data is None:
-        # No eval selected - show welcome with setup wizard
+        # No eval selected - show welcome with editor
         st.title("Oumi Analyze")
+        st.markdown("Create a new analysis configuration to get started.")
 
-        # Create tabs for new users
-        tab_wizard, tab_config = st.tabs([
-            "🚀 Create New Analysis",
-            "✏️ YAML Editor",
-        ])
-
-        with tab_wizard:
-            render_setup_wizard()
-
-        with tab_config:
-            st.markdown("### Manual Configuration")
-            st.caption("For advanced users who prefer editing YAML directly.")
-            render_config_editor(storage, None)
+        _render_editor_with_toggle(storage, None, key_prefix="welcome")
 
         return
 
@@ -81,11 +109,10 @@ def main():
     st.title(f"📊 {eval_data.metadata.name}")
 
     # Create tabs
-    tab_results, tab_charts, tab_new, tab_config, tab_export = st.tabs([
+    tab_results, tab_charts, tab_config, tab_export = st.tabs([
         "📋 Results",
         "📈 Charts",
-        "🚀 New Analysis",
-        "✏️ Config Editor",
+        "✏️ Config",
         "📥 Export",
     ])
 
@@ -95,11 +122,8 @@ def main():
     with tab_charts:
         render_charts(eval_data)
 
-    with tab_new:
-        render_setup_wizard()
-
     with tab_config:
-        render_config_editor(storage, eval_data)
+        _render_editor_with_toggle(storage, eval_data, key_prefix="config")
 
     with tab_export:
         render_exports(eval_data)

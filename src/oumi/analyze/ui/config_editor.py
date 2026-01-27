@@ -25,6 +25,13 @@ import yaml
 
 from oumi.analyze.storage import AnalyzeStorage, EvalData
 
+# Try to import streamlit-ace for syntax highlighting
+try:
+    from streamlit_ace import st_ace
+    HAS_ACE_EDITOR = True
+except ImportError:
+    HAS_ACE_EDITOR = False
+
 
 # Example config template
 EXAMPLE_CONFIG = '''# Analysis Configuration
@@ -104,17 +111,47 @@ def render_config_editor(storage: AnalyzeStorage, eval_data: EvalData | None) ->
             )
             st.rerun()
 
-    # Config editor
-    config_yaml = st.text_area(
-        "Configuration (YAML)",
-        value=st.session_state.config_yaml,
-        height=400,
-        key="config_editor_area",
-        help="Edit your analysis configuration in YAML format.",
-    )
+    # Config editor with syntax highlighting
+    if HAS_ACE_EDITOR:
+        config_yaml = st_ace(
+            value=st.session_state.config_yaml,
+            language="yaml",
+            theme="monokai",  # Dark theme like Promptfoo
+            height=450,
+            key="config_ace_editor",
+            font_size=14,
+            tab_size=2,
+            show_gutter=True,
+            show_print_margin=False,
+            wrap=True,
+            auto_update=True,
+        )
+    else:
+        # Fallback to regular text area with some styling
+        st.markdown(
+            """
+            <style>
+            .stTextArea textarea {
+                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                font-size: 14px;
+                background-color: #1e1e1e;
+                color: #d4d4d4;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        config_yaml = st.text_area(
+            "Configuration (YAML)",
+            value=st.session_state.config_yaml,
+            height=400,
+            key="config_editor_area",
+            help="Install 'streamlit-ace' for syntax highlighting: pip install streamlit-ace",
+        )
 
     # Update session state
-    st.session_state.config_yaml = config_yaml
+    if config_yaml:
+        st.session_state.config_yaml = config_yaml
 
     # Validation
     config_valid, config_dict, error_msg = _validate_config(config_yaml)

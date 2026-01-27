@@ -247,12 +247,7 @@ AVAILABLE_ANALYZERS = {
 
 def render_setup_wizard() -> None:
     """Render the setup wizard for creating new analysis configurations."""
-    st.header("Create New Analysis")
-    st.caption("Configure your dataset, analyzers, and tests step by step.")
-
     # Initialize session state
-    if "wizard_step" not in st.session_state:
-        st.session_state.wizard_step = 1
     if "wizard_config" not in st.session_state:
         st.session_state.wizard_config = {
             "dataset_path": None,
@@ -263,65 +258,51 @@ def render_setup_wizard() -> None:
             "custom_metrics": [],
         }
 
-    # Step navigation
-    steps = ["Upload Dataset", "Choose Analyzers", "Configure Tests", "Generate & Run"]
-    _render_step_navigation(steps)
+    # Check what's configured for status indicators
+    config = st.session_state.wizard_config
+    has_dataset = bool(config.get("dataset_path") or config.get("dataset_name"))
+    has_analyzers = len(config.get("analyzers", [])) > 0
+    has_tests = len(config.get("tests", [])) > 0
+
+    # Summary bar at top
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        dataset_name = (
+            config.get("dataset_name") or
+            (config.get("dataset_path", "") or "").split("/")[-1] or
+            "Not set"
+        )
+        status = "✅" if has_dataset else "⚪"
+        st.metric(f"{status} Dataset", dataset_name[:20] + "..." if len(dataset_name) > 20 else dataset_name)
+    with col2:
+        status = "✅" if has_analyzers else "⚪"
+        st.metric(f"{status} Analyzers", len(config.get("analyzers", [])))
+    with col3:
+        status = "✅" if has_tests else "⚪"
+        st.metric(f"{status} Tests", len(config.get("tests", [])))
+    with col4:
+        samples = config.get("sample_count", 100)
+        st.metric("Samples", samples)
 
     st.divider()
 
-    # Render current step
-    current_step = st.session_state.wizard_step
-    if current_step == 1:
-        _render_dataset_step()
-    elif current_step == 2:
-        _render_analyzers_step()
-    elif current_step == 3:
-        _render_tests_step()
-    elif current_step == 4:
-        _render_generate_step()
+    # Accordion-style sections - all accessible anytime
+    with st.expander("📁 **1. Dataset**", expanded=not has_dataset):
+        _render_dataset_section()
+
+    with st.expander("🔍 **2. Analyzers**", expanded=has_dataset and not has_analyzers):
+        _render_analyzers_section()
+
+    with st.expander("✅ **3. Tests**", expanded=has_analyzers and not has_tests):
+        _render_tests_section()
+
+    with st.expander("🚀 **4. Generate & Run**", expanded=has_dataset and has_analyzers):
+        _render_generate_section()
 
 
-def _render_step_navigation(steps: list[str]) -> None:
-    """Render the step navigation bar."""
-    cols = st.columns(len(steps))
-    for i, (col, step_name) in enumerate(zip(cols, steps)):
-        step_num = i + 1
-        with col:
-            is_current = st.session_state.wizard_step == step_num
-            is_completed = st.session_state.wizard_step > step_num
-
-            if is_completed:
-                icon = "✅"
-            elif is_current:
-                icon = "🔵"
-            else:
-                icon = "⚪"
-
-            # Make completed steps clickable
-            if is_completed or is_current:
-                if st.button(
-                    f"{icon} {step_name}",
-                    key=f"step_{step_num}",
-                    use_container_width=True,
-                    type="primary" if is_current else "secondary",
-                ):
-                    st.session_state.wizard_step = step_num
-                    st.rerun()
-            else:
-                st.button(
-                    f"{icon} {step_name}",
-                    key=f"step_{step_num}",
-                    use_container_width=True,
-                    disabled=True,
-                )
-
-
-def _render_dataset_step() -> None:
-    """Render the dataset upload step."""
-    st.subheader("Step 1: Upload Dataset")
-    st.markdown(
-        "Upload a JSONL file with conversations, or specify a HuggingFace dataset."
-    )
+def _render_dataset_section() -> None:
+    """Render the dataset configuration section."""
+    st.markdown("Upload a JSONL file or specify a HuggingFace dataset.")
 
     # Tabs for different input methods
     tab1, tab2 = st.tabs(["📁 Upload File", "🤗 HuggingFace Dataset"])
@@ -393,37 +374,19 @@ def _render_dataset_step() -> None:
             st.success(f"✅ Will use dataset: {dataset_name}")
 
     # Sample count
-    st.divider()
+    st.markdown("---")
     sample_count = st.number_input(
         "Number of samples to analyze",
         min_value=1,
         max_value=10000,
-        value=100,
+        value=st.session_state.wizard_config.get("sample_count") or 100,
         help="Limit the number of conversations to analyze (useful for testing)",
     )
     st.session_state.wizard_config["sample_count"] = sample_count
 
-    # Navigation
-    st.divider()
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col3:
-        can_proceed = (
-            st.session_state.wizard_config.get("dataset_path")
-            or st.session_state.wizard_config.get("dataset_name")
-        )
-        if st.button(
-            "Next: Choose Analyzers →",
-            disabled=not can_proceed,
-            type="primary",
-            use_container_width=True,
-        ):
-            st.session_state.wizard_step = 2
-            st.rerun()
 
-
-def _render_analyzers_step() -> None:
-    """Render the analyzer selection step."""
-    st.subheader("Step 2: Choose Analyzers")
+def _render_analyzers_section() -> None:
+    """Render the analyzer selection section."""
     st.markdown(
         "Select the analyzers to run on your dataset. "
         "Each analyzer produces metrics that can be used in tests."
@@ -474,7 +437,8 @@ def _render_analyzers_step() -> None:
             with col2:
                 st.caption(analyzer["description"][:50] + "...")
 
-        st.session_state.wizard_config["analyzers"] = selected
+    # Save selected analyzers AFTER processing all categories
+    st.session_state.wizard_config["analyzers"] = selected
 
     # Configure selected analyzers
     if selected:
@@ -567,6 +531,9 @@ def _render_analyzers_step() -> None:
                             metric_desc += f" - Values: {metric['values']}"
                         st.caption(metric_desc)
 
+        # Save after parameter configuration
+        st.session_state.wizard_config["analyzers"] = selected
+
     # Custom metrics info
     st.divider()
     with st.expander("💡 Custom Metrics", expanded=False):
@@ -589,27 +556,9 @@ def _render_analyzers_step() -> None:
         Custom metrics can be added manually to the generated YAML config.
         """)
 
-    # Navigation
-    st.divider()
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col1:
-        if st.button("← Back", use_container_width=True):
-            st.session_state.wizard_step = 1
-            st.rerun()
-    with col3:
-        if st.button(
-            "Next: Configure Tests →",
-            disabled=len(selected) == 0,
-            type="primary",
-            use_container_width=True,
-        ):
-            st.session_state.wizard_step = 3
-            st.rerun()
 
-
-def _render_tests_step() -> None:
-    """Render the test configuration step."""
-    st.subheader("Step 3: Configure Tests")
+def _render_tests_section() -> None:
+    """Render the test configuration section."""
     st.markdown(
         "Define tests to validate your analysis results. "
         "Tests check if metrics meet certain conditions."
@@ -853,26 +802,9 @@ def _render_tests_step() -> None:
         - `max_percentage`: At most X% can match (fail if more)
         """)
 
-    # Navigation
-    st.divider()
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col1:
-        if st.button("← Back", use_container_width=True):
-            st.session_state.wizard_step = 2
-            st.rerun()
-    with col3:
-        if st.button(
-            "Next: Generate Config →",
-            type="primary",
-            use_container_width=True,
-        ):
-            st.session_state.wizard_step = 4
-            st.rerun()
 
-
-def _render_generate_step() -> None:
-    """Render the config generation and run step."""
-    st.subheader("Step 4: Generate & Run")
+def _render_generate_section() -> None:
+    """Render the config generation and run section."""
 
     # Generate YAML config
     config = _generate_yaml_config()
@@ -882,10 +814,9 @@ def _render_generate_step() -> None:
     st.markdown("### Configuration Summary")
     col1, col2, col3 = st.columns(3)
     with col1:
-        dataset = (
-            st.session_state.wizard_config.get("dataset_name")
-            or st.session_state.wizard_config.get("dataset_path", "").split("/")[-1]
-        )
+        dataset_name = st.session_state.wizard_config.get("dataset_name")
+        dataset_path = st.session_state.wizard_config.get("dataset_path") or ""
+        dataset = dataset_name or dataset_path.split("/")[-1] or "Not set"
         st.metric("Dataset", dataset[:30] + "..." if len(dataset) > 30 else dataset)
     with col2:
         st.metric("Analyzers", len(st.session_state.wizard_config.get("analyzers", [])))
@@ -897,24 +828,36 @@ def _render_generate_step() -> None:
     st.markdown("### Generated YAML Configuration")
     st.caption("Review and edit the configuration before running.")
 
-    edited_yaml = st.text_area(
-        "Configuration",
-        value=yaml_str,
-        height=400,
-        key="config_yaml_editor",
-        label_visibility="collapsed",
-    )
+    # Use ace editor if available for syntax highlighting
+    try:
+        from streamlit_ace import st_ace
+        edited_yaml = st_ace(
+            value=yaml_str,
+            language="yaml",
+            theme="monokai",
+            height=400,
+            key="config_yaml_editor",
+            font_size=14,
+            tab_size=2,
+            show_gutter=True,
+            show_print_margin=False,
+            wrap=True,
+            auto_update=True,
+        )
+    except ImportError:
+        edited_yaml = st.text_area(
+            "Configuration",
+            value=yaml_str,
+            height=400,
+            key="config_yaml_editor",
+            label_visibility="collapsed",
+        )
 
     # Actions
     st.divider()
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        if st.button("← Back", use_container_width=True):
-            st.session_state.wizard_step = 3
-            st.rerun()
-
-    with col2:
         # Download YAML
         st.download_button(
             "📥 Download YAML",
@@ -924,16 +867,17 @@ def _render_generate_step() -> None:
             use_container_width=True,
         )
 
-    with col3:
+    with col2:
         # Save to configs
         config_name = st.text_input(
             "Config name",
             value="my_analysis",
             key="save_config_name",
             label_visibility="collapsed",
+            placeholder="Config name",
         )
 
-    with col4:
+    with col3:
         if st.button("💾 Save Config", use_container_width=True):
             try:
                 from oumi.analyze.storage import AnalyzeStorage
