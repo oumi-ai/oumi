@@ -221,19 +221,19 @@ function EvalListItem({ eval: evalMeta, isSelected, onClick, onDelete }: EvalLis
           
           {hasTests && (
             <div className="flex items-center gap-1">
-              {passRate !== null && passRate >= 100 ? (
+              {passRate !== null && passRate >= 1.0 ? (
                 <Badge variant="success" className="flex items-center gap-1">
                   <CheckCircle className="h-3 w-3" />
-                  {passRate.toFixed(0)}%
+                  {(passRate * 100).toFixed(0)}%
                 </Badge>
               ) : passRate !== null && passRate > 0 ? (
                 <Badge variant="warning" className="flex items-center gap-1">
-                  {passRate.toFixed(0)}%
+                  {(passRate * 100).toFixed(0)}%
                 </Badge>
               ) : passRate !== null ? (
                 <Badge variant="error" className="flex items-center gap-1">
                   <XCircle className="h-3 w-3" />
-                  {passRate.toFixed(0)}%
+                  {(passRate * 100).toFixed(0)}%
                 </Badge>
               ) : (
                 <Badge variant="secondary">N/A</Badge>
