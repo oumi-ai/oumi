@@ -81,25 +81,13 @@ def mock_multiturn_attribute():
         min_turns=2,
         max_turns=16,
         turn_order=[Role.USER, Role.ASSISTANT],
-        user_system_instructions=(
-            "You are a {customer_type} customer with issue: {issue}"
-        ),
-        assistant_system_instructions="You are a helpful support agent.",
-        system_messages=[
-            TextMessage(
-                role=Role.SYSTEM,
-                content="This is a customer support conversation.",
-            ),
-        ],
-        turn_instructions={
-            Role.USER: TextMessage(
-                role=Role.USER,
-                content="Respond. This is turn {current_turn} of {target_turns}.",
-            ),
-            Role.ASSISTANT: TextMessage(
-                role=Role.USER,
-                content="Respond. This is turn {current_turn} of {target_turns}.",
-            ),
+        role_system_prompts={
+            Role.USER: "You are a {customer_type} customer with issue: {issue}",
+            Role.ASSISTANT: "You are a helpful support agent.",
+        },
+        role_turn_instructions={
+            Role.USER: "Respond. This is turn {current_turn} of {target_turns}.",
+            Role.ASSISTANT: "Respond. This is turn {current_turn} of {target_turns}.",
         },
         conversation_planner=GeneratedAttribute(
             id="conversation_plan",
@@ -115,12 +103,7 @@ def mock_multiturn_attribute():
             ],
             postprocessing_params=None,
         ),
-        output_system_messages=[
-            TextMessage(
-                role=Role.SYSTEM,
-                content="This is a customer support conversation about {issue}.",
-            ),
-        ],
+        output_system_prompt="This is a customer support conversation about {issue}.",
     )
 
 
@@ -178,13 +161,13 @@ def test_synthesize_with_empty_samples(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_output_system_messages_prepended_to_conversation(
+def test_output_system_prompt_prepended_to_conversation(
     mock_build_inference_engine,
     mock_general_synthesis_params,
     mock_multiturn_attribute,
     mock_inference_config,
 ):
-    """Test that output_system_messages are formatted and prepended to conversation."""
+    """Test that output_system_prompt is formatted and prepended to conversation."""
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
     mock_inference_engine.infer.return_value = [
@@ -258,9 +241,9 @@ def test_synthesize_without_conversation_planner(
         id="test_conversation",
         min_turns=2,
         max_turns=2,
-        turn_instructions={
-            Role.USER: TextMessage(role=Role.USER, content="Turn {current_turn}"),
-            Role.ASSISTANT: TextMessage(role=Role.USER, content="Turn {current_turn}"),
+        role_turn_instructions={
+            Role.USER: "Turn {current_turn}",
+            Role.ASSISTANT: "Turn {current_turn}",
         },
     )
 
@@ -293,9 +276,9 @@ def test_default_turn_order_is_user_then_assistant(
         min_turns=2,
         max_turns=2,
         # turn_order not specified - should default to [USER, ASSISTANT]
-        turn_instructions={
-            Role.USER: TextMessage(role=Role.USER, content="Turn {current_turn}"),
-            Role.ASSISTANT: TextMessage(role=Role.USER, content="Turn {current_turn}"),
+        role_turn_instructions={
+            Role.USER: "Turn {current_turn}",
+            Role.ASSISTANT: "Turn {current_turn}",
         },
     )
 
@@ -332,9 +315,9 @@ def test_custom_turn_order_assistant_first(
         min_turns=2,
         max_turns=2,
         turn_order=[Role.ASSISTANT, Role.USER],
-        turn_instructions={
-            Role.USER: TextMessage(role=Role.USER, content="Turn {current_turn}"),
-            Role.ASSISTANT: TextMessage(role=Role.USER, content="Turn {current_turn}"),
+        role_turn_instructions={
+            Role.USER: "Turn {current_turn}",
+            Role.ASSISTANT: "Turn {current_turn}",
         },
     )
 

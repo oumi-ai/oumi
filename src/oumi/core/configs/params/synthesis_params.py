@@ -462,7 +462,7 @@ class MultiTurnAttribute:
     max_turns: int
     """Maximum number of turns (messages) allowed for the attribute."""
 
-    turn_instructions: dict[Role, TextMessage]
+    role_turn_instructions: dict[Role, str]
     """Per-role instruction template for generating a turn."""
 
     turn_order: list[Role] | None = None
@@ -470,17 +470,11 @@ class MultiTurnAttribute:
 
     Defaults to [Role.USER, Role.ASSISTANT] if not specified."""
 
-    user_system_instructions: str | None = None
-    """System instructions for user turns."""
+    role_system_prompts: dict[Role, str] | None = None
+    """Per-role system prompts to prepend during generation."""
 
-    assistant_system_instructions: str | None = None
-    """System instructions for assistant turns."""
-
-    system_messages: list[TextMessage] | None = None
-    """System messages prepended to each turn generation."""
-
-    output_system_messages: list[TextMessage] | None = None
-    """System messages prepended to the final output conversation."""
+    output_system_prompt: str | None = None
+    """System prompt prepended to the final output conversation."""
 
     conversation_planner: GeneratedAttribute | None = None
     """Optional planner for generating a conversation plan before turn generation.
@@ -501,29 +495,45 @@ class MultiTurnAttribute:
             raise ValueError(
                 "MultiTurnAttribute.max_turns must be greater than min_turns."
             )
-        if self.system_messages:
-            for message in self.system_messages:
-                if not isinstance(message.content, str) or not message.content:
-                    raise ValueError(
-                        "MultiTurnAttribute.system_messages must be non-empty strings."
-                    )
-        if self.output_system_messages:
-            for message in self.output_system_messages:
-                if not isinstance(message.content, str) or not message.content:
-                    raise ValueError(
-                        "MultiTurnAttribute.output_system_messages must be"
-                        "non-empty strings."
-                    )
-        if not self.turn_instructions:
-            raise ValueError("MultiTurnAttribute.turn_instructions cannot be empty.")
-        if any(not isinstance(role, Role) for role in self.turn_instructions):
-            raise ValueError(
-                "MultiTurnAttribute.turn_instructions keys must be Role values."
-            )
-        for instruction in self.turn_instructions.values():
-            if not isinstance(instruction.content, str) or not instruction.content:
+        if self.role_system_prompts is not None:
+            if not isinstance(self.role_system_prompts, dict):
                 raise ValueError(
-                    "MultiTurnAttribute.turn_instructions must be non-empty strings."
+                    "MultiTurnAttribute.role_system_prompts must be a dict."
+                )
+            if any(
+                not isinstance(role, Role) for role in self.role_system_prompts.keys()
+            ):
+                raise ValueError(
+                    "MultiTurnAttribute.role_system_prompts keys must be Role values."
+                )
+            for prompt in self.role_system_prompts.values():
+                if not isinstance(prompt, str) or not prompt:
+                    raise ValueError(
+                        "MultiTurnAttribute.role_system_prompts must use non-empty "
+                        "strings."
+                    )
+        if self.output_system_prompt is not None:
+            if (
+                not isinstance(self.output_system_prompt, str)
+                or not self.output_system_prompt
+            ):
+                raise ValueError(
+                    "MultiTurnAttribute.output_system_prompt must be a non-empty "
+                    "string."
+                )
+        if not self.role_turn_instructions:
+            raise ValueError(
+                "MultiTurnAttribute.role_turn_instructions cannot be empty."
+            )
+        if any(not isinstance(role, Role) for role in self.role_turn_instructions):
+            raise ValueError(
+                "MultiTurnAttribute.role_turn_instructions keys must be Role values."
+            )
+        for instruction in self.role_turn_instructions.values():
+            if not isinstance(instruction, str) or not instruction:
+                raise ValueError(
+                    "MultiTurnAttribute.role_turn_instructions must be non-empty "
+                    "strings."
                 )
         if self.turn_order is not None:
             if not self.turn_order:
@@ -531,12 +541,14 @@ class MultiTurnAttribute:
             if any(not isinstance(role, Role) for role in self.turn_order):
                 raise ValueError("MultiTurnAttribute.turn_order must use Role values.")
             invalid_roles = [
-                role for role in self.turn_order if role not in self.turn_instructions
+                role
+                for role in self.turn_order
+                if role not in self.role_turn_instructions
             ]
             if invalid_roles:
                 raise ValueError(
-                    "MultiTurnAttribute.turn_instructions must define a template for "
-                    "every role in turn_order."
+                    "MultiTurnAttribute.role_turn_instructions must define a template "
+                    "for every role in turn_order."
                 )
 
 

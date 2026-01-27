@@ -195,20 +195,17 @@ class ConversationSynthesizer:
 
             role = turn_order[turn_idx % len(turn_order)]
             prompt_messages: list[Message] = []
-            prompt_messages.extend(
-                self._format_messages(
-                    sample_with_context, multiturn_attribute.system_messages
-                )
-            )
-            persona_message = self._persona_system_message(
+            role_prompt = self._role_system_message(
                 sample_with_context, multiturn_attribute, role
             )
-            if persona_message:
-                prompt_messages.append(persona_message)
+            if role_prompt:
+                prompt_messages.append(role_prompt)
             prompt_messages.extend(history)
 
-            instruction = multiturn_attribute.turn_instructions[role]
-            instruction_msg = self._format_message(sample_with_context, instruction)
+            instruction = multiturn_attribute.role_turn_instructions[role]
+            instruction_msg = self._format_turn_instruction(
+                sample_with_context, instruction
+            )
             prompt_messages.append(instruction_msg)
 
             inference_results = self._inference_engine.infer(
@@ -218,9 +215,12 @@ class ConversationSynthesizer:
             generated_text = self._extract_response(inference_results)[0]
             history.append(Message(role=role, content=generated_text))
 
-        output_messages = self._format_messages(
-            sample_with_context, multiturn_attribute.output_system_messages
+        output_messages: list[Message] = []
+        output_message = self._format_output_system_message(
+            sample_with_context, multiturn_attribute.output_system_prompt
         )
+        if output_message:
+            output_messages.append(output_message)
         output_messages.extend(history)
         return Conversation(messages=output_messages), plan
 
@@ -267,22 +267,41 @@ class ConversationSynthesizer:
         )
         return Message(role=message.role, content=formatted_content.strip())
 
-    def _persona_system_message(
+    def _format_turn_instruction(self, sample: dict, instruction: str) -> Message:
+        formatted_content = self._formatter.format(
+            sample,
+            instruction,
+            missing_values_allowed=False,
+        )
+        return Message(role=Role.USER, content=formatted_content.strip())
+
+    def _format_output_system_message(
+        self,
+        sample: dict,
+        system_message: str | None,
+    ) -> Message | None:
+        if system_message is None:
+            return None
+        formatted_content = self._formatter.format(
+            sample,
+            system_message,
+            missing_values_allowed=False,
+        )
+        return Message(role=Role.SYSTEM, content=formatted_content.strip())
+
+    def _role_system_message(
         self,
         sample: dict,
         multiturn_attribute: MultiTurnAttribute,
         role: Role,
     ) -> Message | None:
-        system_instructions = None
-        if role == Role.USER:
-            system_instructions = multiturn_attribute.user_system_instructions
-        elif role == Role.ASSISTANT:
-            system_instructions = multiturn_attribute.assistant_system_instructions
-        if system_instructions is None:
+        role_prompts = multiturn_attribute.role_system_prompts or {}
+        system_prompt = role_prompts.get(role)
+        if system_prompt is None:
             return None
         formatted_prompt = self._formatter.format(
             sample,
-            system_instructions,
+            system_prompt,
             missing_values_allowed=False,
         )
         return Message(role=Role.SYSTEM, content=formatted_prompt.strip())

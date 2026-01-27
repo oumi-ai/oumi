@@ -319,73 +319,66 @@ strategy_params:
 
               Output only the plan, nothing else.
 
-      user_system_instructions: |
-        You are {customer_name}, a {customer_type.name} customer contacting BrightTech Electronics support.
+      role_system_prompts:
+        USER: |
+          You are {customer_name}, a {customer_type.name} customer contacting BrightTech Electronics support.
 
-        Your personality: {customer_type.description}
-        Your specific issue: {issue_detail}
-        How you interact: {customer_interaction.description}
+          Your personality: {customer_type.description}
+          Your specific issue: {issue_detail}
+          How you interact: {customer_interaction.description}
 
-        Conversation plan:
-        {conversation_plan}
+          Conversation plan:
+          {conversation_plan}
 
-        You are on turn {current_turn} of {target_turns}.
+          You are on turn {current_turn} of {target_turns}.
 
-        Guidelines:
-        - Follow the plan's direction for this turn, but respond naturally
-        - Stay in character throughout the conversation
-        - Your opening message was: "{customer_opener}"
-        - Build on the conversation naturally
-        - If cooperative, provide information when asked
-        - If difficult or skeptical, be challenging but stay realistic
-        - Do not break character or acknowledge you are an AI
+          Guidelines:
+          - Follow the plan's direction for this turn, but respond naturally
+          - Stay in character throughout the conversation
+          - Your opening message was: "{customer_opener}"
+          - Build on the conversation naturally
+          - If cooperative, provide information when asked
+          - If difficult or skeptical, be challenging but stay realistic
+          - Do not break character or acknowledge you are an AI
 
-      assistant_system_instructions: |
+        ASSISTANT: |
+          {system_instruction.description}
+
+          Conversation plan:
+          {conversation_plan}
+
+          You are on turn {current_turn} of {target_turns}.
+          Follow the plan's direction for this turn.
+
+      output_system_prompt: |
         {system_instruction.description}
 
-        Conversation plan:
-        {conversation_plan}
+      role_turn_instructions:
+        USER: |
+          Respond as the customer in this conversation with a BrightTech Electronics support agent.
+          This is turn {current_turn} of {target_turns}.
 
-        You are on turn {current_turn} of {target_turns}.
-        Follow the plan's direction for this turn.
+          If this is your first message in the conversation (there are no previous messages from the agent), start the conversation with your opening message: "{customer_opener}"
 
-      system_messages: []
+          If the agent has already responded to you, continue the conversation naturally by responding to what they just said.
 
-      output_system_messages:
-        - role: SYSTEM
-          content: |
-            {system_instruction.description}
+          Remember:
+          - Your personality: {customer_type.description}
+          - Your specific issue: {issue_detail}
+          - Interaction style: {customer_interaction.description}
+          - Follow the conversation plan for this turn
 
-      turn_instructions:
-        USER:
-          role: USER
-          content: |
-            Respond as the customer in this conversation with a BrightTech Electronics support agent.
-            This is turn {current_turn} of {target_turns}.
+          Keep your response concise and realistic. Stay in character as {customer_name}.
+          Output only the customer's message, nothing else.
+        ASSISTANT: |
+          Respond as the support agent in this conversation.
+          This is turn {current_turn} of {target_turns}.
 
-            If this is your first message in the conversation (there are no previous messages from the agent), start the conversation with your opening message: "{customer_opener}"
-
-            If the agent has already responded to you, continue the conversation naturally by responding to what they just said.
-
-            Remember:
-            - Your personality: {customer_type.description}
-            - Your specific issue: {issue_detail}
-            - Interaction style: {customer_interaction.description}
-            - Follow the conversation plan for this turn
-
-            Keep your response concise and realistic. Stay in character as {customer_name}.
-            Output only the customer's message, nothing else.
-        ASSISTANT:
-          role: USER
-          content: |
-            Respond as the support agent in this conversation.
-            This is turn {current_turn} of {target_turns}.
-
-            Follow the system instruction format with ACTION blocks.
-            Be helpful, professional, and work toward resolving the customer's issue.
-            Keep responses concise and actionable.
-            Follow the conversation plan for this turn.
-            Output only the agent's response, nothing else.
+          Follow the system instruction format with ACTION blocks.
+          Be helpful, professional, and work toward resolving the customer's issue.
+          Keep responses concise and actionable.
+          Follow the conversation plan for this turn.
+          Output only the agent's response, nothing else.
 
   # Include only relevant attributes in output
   passthrough_attributes:
