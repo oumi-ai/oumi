@@ -209,6 +209,7 @@ class TestEngine:
                 severity=test.severity,
                 title=test.title or test.id,
                 description=test.description,
+                metric=test.metric or "",
                 error=f"Metric '{test.metric}' not found in results",
             )
 
@@ -225,6 +226,7 @@ class TestEngine:
                 passed=False,
                 severity=test.severity,
                 title=test.title or test.id,
+                metric=test.metric or "",
                 error=f"Unknown test type: {test.type}",
             )
 
@@ -314,6 +316,7 @@ class TestEngine:
                 passed=False,
                 severity=test.severity,
                 title=test.title or test.id,
+                metric=test.metric or "",
                 error="Threshold test requires 'operator' and 'value'",
             )
 
@@ -324,6 +327,7 @@ class TestEngine:
                 passed=False,
                 severity=test.severity,
                 title=test.title or test.id,
+                metric=test.metric or "",
                 error=f"Unknown operator: {test.operator}",
             )
 
@@ -353,6 +357,7 @@ class TestEngine:
             severity=test.severity,
             title=test.title or test.id,
             description=test.description,
+            metric=test.metric or "",
             affected_count=affected_count,
             total_count=total_count,
             affected_percentage=round(affected_pct, 2),
@@ -382,6 +387,7 @@ class TestEngine:
                 passed=False,
                 severity=test.severity,
                 title=test.title or test.id,
+                metric=test.metric or "",
                 error="Percentage test requires 'condition'",
             )
 
@@ -393,6 +399,7 @@ class TestEngine:
                 passed=False,
                 severity=test.severity,
                 title=test.title or test.id,
+                metric=test.metric or "",
                 error=f"Invalid condition format: {test.condition}",
             )
 
@@ -404,6 +411,7 @@ class TestEngine:
                 passed=False,
                 severity=test.severity,
                 title=test.title or test.id,
+                metric=test.metric or "",
                 error=f"Unknown operator in condition: {op_str}",
             )
 
@@ -446,6 +454,7 @@ class TestEngine:
             severity=test.severity,
             title=test.title or test.id,
             description=test.description,
+            metric=test.metric or "",
             affected_count=affected_count,
             total_count=total_count,
             affected_percentage=round(affected_pct, 2),
@@ -475,6 +484,7 @@ class TestEngine:
                 passed=False,
                 severity=test.severity,
                 title=test.title or test.id,
+                metric=test.metric or "",
                 error="Range test requires 'min_value' and/or 'max_value'",
             )
 
@@ -506,6 +516,7 @@ class TestEngine:
             severity=test.severity,
             title=test.title or test.id,
             description=test.description,
+            metric=test.metric or "",
             affected_count=affected_count,
             total_count=total_count,
             affected_percentage=round(affected_pct, 2),

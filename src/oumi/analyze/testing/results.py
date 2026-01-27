@@ -37,6 +37,7 @@ class TestResult(BaseModel):
         severity: Severity level of the test.
         title: Human-readable title.
         description: Description of what the test checks.
+        metric: The metric being tested (e.g., "analyzer_name.field").
         affected_count: Number of samples that failed the test.
         total_count: Total number of samples tested.
         affected_percentage: Percentage of samples affected.
@@ -52,6 +53,7 @@ class TestResult(BaseModel):
     severity: TestSeverity = TestSeverity.MEDIUM
     title: str = ""
     description: str = ""
+    metric: str = ""
     affected_count: int = 0
     total_count: int = 0
     affected_percentage: float = 0.0

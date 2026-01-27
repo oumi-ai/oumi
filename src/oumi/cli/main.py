@@ -18,7 +18,7 @@ import traceback
 
 import typer
 
-from oumi.cli.analyze import analyze
+from oumi.cli.analyze import analyze, analyze_view
 from oumi.cli.cache import card as cache_card
 from oumi.cli.cache import get as cache_get
 from oumi.cli.cache import ls as cache_ls
@@ -108,11 +108,17 @@ def get_app() -> typer.Typer:
     )(quantize)
 
     # Data
-    app.command(
-        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+    analyze_app = typer.Typer(pretty_exceptions_enable=False)
+    analyze_app.callback(invoke_without_command=True)(analyze)
+    analyze_app.command(name="view", help="Launch the web viewer for analysis results.")(
+        analyze_view
+    )
+    app.add_typer(
+        analyze_app,
+        name="analyze",
         help="Compute statistics and metrics for a dataset.",
         rich_help_panel="Data",
-    )(analyze)
+    )
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Generate synthetic training & evaluation data.",

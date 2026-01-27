@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
@@ -279,6 +281,53 @@ def _run_typed_analysis_cli(
                 f"\n[green]Results saved to:[/green] {typed_config.output_path}"
             )
 
+        # Save to eval storage for web viewer
+        try:
+            from dataclasses import asdict
+
+            from oumi.analyze.storage import AnalyzeStorage
+
+            storage = AnalyzeStorage()
+            eval_name = Path(config).stem
+
+            # Convert config to dict (it's a dataclass)
+            config_dict = asdict(typed_config)
+
+            # Handle test_summary - may be a Pydantic model or dict
+            test_summary = results.get("test_summary")
+            if test_summary is not None:
+                if hasattr(test_summary, "model_dump"):
+                    test_summary = test_summary.model_dump()
+                elif not isinstance(test_summary, dict):
+                    test_summary = {}
+
+            # Serialize conversations for storage
+            conversations_data = []
+            raw_conversations = results.get("conversations", [])
+            for conv in raw_conversations:
+                if hasattr(conv, "to_dict"):
+                    conversations_data.append(conv.to_dict())
+                elif hasattr(conv, "model_dump"):
+                    conversations_data.append(conv.model_dump())
+                elif isinstance(conv, dict):
+                    conversations_data.append(conv)
+
+            eval_id = storage.save_eval(
+                name=eval_name,
+                config=config_dict,
+                analysis_results=results.get("results", {}),
+                test_results=test_summary or {},
+                config_path=config,
+                dataset_path=typed_config.dataset_path,
+                conversations=conversations_data,
+            )
+            cli_utils.CONSOLE.print(
+                f"[dim]Eval saved (ID: {eval_id}). "
+                f"View with: oumi analyze view[/dim]"
+            )
+        except Exception as e:
+            logger.debug(f"Could not save to eval storage: {e}")
+
     except FileNotFoundError as e:
         logger.error(f"Configuration file not found: {e}")
         cli_utils.CONSOLE.print(f"[red]Error:[/red] Configuration file not found: {e}")
@@ -298,12 +347,12 @@ def _run_typed_analysis_cli(
 def analyze(
     ctx: typer.Context,
     config: Annotated[
-        str,
+        str | None,
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
             help="Path to the configuration file for analysis.",
         ),
-    ],
+    ] = None,
     output: Annotated[
         str | None,
         typer.Option(
@@ -398,6 +447,18 @@ def analyze(
         level: The logging level for the specified command.
         verbose: Enable verbose logging with additional debug information.
     """
+    # If a subcommand is being invoked, don't run the main analyze logic
+    if ctx.invoked_subcommand is not None:
+        return
+
+    # Config is required when running analyze directly (not as a subcommand)
+    if config is None:
+        cli_utils.CONSOLE.print(
+            "[red]Error:[/red] Missing option '--config' / '-c'.\n"
+            "Run 'oumi analyze --help' for usage."
+        )
+        raise typer.Exit(code=1)
+
     from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 
     # Validate output format early before any expensive operations
@@ -1558,3 +1619,84 @@ def _generate_html_report(
         cli_utils.CONSOLE.print(
             f"[yellow]Warning:[/yellow] Failed to generate HTML report: {e}"
         )
+
+
+def analyze_view(
+    port: Annotated[
+        int,
+        typer.Option(
+            "--port",
+            "-p",
+            help="Port to run the web viewer on.",
+        ),
+    ] = 8501,
+    host: Annotated[
+        str,
+        typer.Option(
+            "--host",
+            help="Host address to bind to.",
+        ),
+    ] = "localhost",
+):
+    """Launch the Streamlit web viewer for analysis results.
+
+    The web viewer provides:
+    - Browse and compare past analysis runs
+    - Interactive results table with filters
+    - Charts and visualizations
+    - Config editor to create/edit analysis configs
+    - Export options (CSV, JSON, HTML)
+
+    Requires: pip install 'oumi[analyze-ui]'
+
+    Args:
+        port: Port to run the web viewer on.
+        host: Host address to bind to.
+    """
+    # Check if streamlit is available
+    try:
+        import streamlit  # noqa: F401
+    except ImportError:
+        cli_utils.CONSOLE.print(
+            "[red]Error:[/red] Streamlit is required for the web viewer.\n"
+            "Install with: [cyan]pip install 'oumi[analyze-ui]'[/cyan]"
+        )
+        raise typer.Exit(code=1)
+
+    # Find the app.py path
+    app_path = Path(__file__).parent.parent / "analyze" / "app.py"
+    if not app_path.exists():
+        cli_utils.CONSOLE.print(
+            f"[red]Error:[/red] Web viewer app not found at: {app_path}"
+        )
+        raise typer.Exit(code=1)
+
+    cli_utils.CONSOLE.print(
+        f"[green]Starting Analyze Web Viewer...[/green]\n"
+        f"Open in browser: [cyan]http://{host}:{port}[/cyan]\n"
+        f"Press Ctrl+C to stop."
+    )
+
+    # Launch streamlit
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "streamlit",
+                "run",
+                str(app_path),
+                "--server.port",
+                str(port),
+                "--server.address",
+                host,
+                "--server.headless",
+                "true",
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        cli_utils.CONSOLE.print(f"[red]Error:[/red] Failed to start web viewer: {e}")
+        raise typer.Exit(code=1)
+    except KeyboardInterrupt:
+        cli_utils.CONSOLE.print("\n[dim]Web viewer stopped.[/dim]")
