@@ -76,7 +76,7 @@ export function ScoreDistribution({ analyzerName, results }: ScoreDistributionPr
               />
               <Bar
                 dataKey="count"
-                fill="hsl(var(--primary))"
+                fill="hsl(217 91% 60%)"
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>
