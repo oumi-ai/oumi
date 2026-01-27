@@ -1,0 +1,76 @@
+model:
+  model_name: "meta-llama/Llama-3.2-1B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: true
+  trust_remote_code: true
+
+data:
+  train:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|start_header_id|>assistant<|end_header_id|>\n\n"
+      instruction_template: "<|start_header_id|>user<|end_header_id|>\n\n"
+    seed: 666
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: data/enterprise/tatqa/train.jsonl
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+  validation:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|start_header_id|>assistant<|end_header_id|>\n\n"
+      instruction_template: "<|start_header_id|>user<|end_header_id|>\n\n"
+    seed: 666
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: data/enterprise/tatqa/val.jsonl
+        sample_count: 100
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+tuning:
+  # Full grid: 2 LR * 2 BS * 2 weight_decay = 8 trials
+  n_trials: 8
+
+  tunable_training_params:
+    learning_rate:
+      type: categorical
+      choices: [1e-5, 5e-5]
+    per_device_train_batch_size:
+      type: categorical
+      choices: [2, 4]
+    weight_decay:
+      type: categorical
+      choices: [0.01, 0.1]
+
+  fixed_training_params:
+    trainer_type: TRL_SFT
+    num_train_epochs: 1
+    gradient_accumulation_steps: 4
+    optimizer: adamw_torch_fused
+    lr_scheduler_type: cosine
+    warmup_ratio: 0.1
+    enable_gradient_checkpointing: true
+    save_steps: 0        # disable intermediate checkpoints
+    save_epoch: false
+    logging_steps: 10
+    eval_strategy: "steps"
+    eval_steps: 10       # run validation every eval_steps
+    trainer_kwargs:
+      save_only_model: true
+    enable_wandb: true
+    output_dir: output/enterprise/llama32_1b
+
+  evaluation_metrics: ["eval_loss", "eval_mean_token_accuracy"]
+  evaluation_direction: ["minimize", "maximize"]
+  custom_eval_metrics: ["enterprise_tatqa"]
+
+  tuner_type: OPTUNA
+  tuner_sampler: "TPESampler"
+  output_dir: output/enterprise/tuning/llama32_1b_tatqa
