@@ -1210,16 +1210,157 @@ Only setting this up starting with smollm2, so earlier runs don't have hyperpara
 We need to do some messy backfilling to infer hyperparam settings for older runs (they're not saved along with the ckpts).
 
 ```sh
-# backfill results from previous base models (one-time throwaway work)
-# TODO clean this up before pushing:
+# ad hoc script to construct results table suitable for pasting into:
+# https://docs.google.com/spreadsheets/d/1LmFGfJRtNp3hpP9dwD7FJ1uN7Z0I8cKX-Z1wZ5ZaW2I
+# (reuse for batches of future results)
 python scripts/enterprise/build_master_results.py \
     --evals-dir /data/tim/evals/ent \
     --output /data/tim/evals/ent/master_results-backfill.csv
+```
 
-# TODO clean this up before pushing:
-python configs/enterprise/ent-expts/append_results.py \
-  --results /data/tim/evals/ent/smollm2_1.7b-ft/collated/results.csv \
-  --checkpoints /data/tim/checkpoints \
-  --master /data/tim/evals/enterprise_results_master.csv \
-  --notes "SmolLM2 1.7B first run"
+
+### Validate that training completes with preset configs
+
+> Note: `run_l1_validation.sh` is a model-generated throwaway script used to launch experiments rapidly and store the results in a useful way. Checking it in for record keeping purposes but use with caution!
+
+**Goal:** "Level 1 validation" --> verify that a preset config runs training successfully end-to-end. We train on PubMedQA (small dataset, quick turnaround) and check that training completes without errors. Subsequent "Level 2 validation" (training produces meaningful gains on multiple tasks) will be done more carefully as it was above for "flagship" small models.
+
+Configs being validated are in `configs/enterprise/training/preset-validation/`. These are copies from the API repo's preset configs with a few adjustments applied.
+
+```sh
+# Run "Level 1" validation for 9 models (make sure pubmedqa SFT completes successfully)
+./scripts/enterprise/run_l1_validation.sh --all
+# ==============================================
+# L1 Validation Summary
+# ==============================================
+# 
+# Succeeded (8):
+#   __ phi35-mini
+#   __ qwen25-1.5b
+#   __ qwen25-3b
+#   __ qwen25-7b
+#   __ qwen25-7b-instruct
+#   __ qwen3-0.6b
+#   __ smollm2-135m
+#   __ smollm2-360m
+# 
+# Failed (1):
+#   __ phi35-moe
+```
+
+Now L1 validation of LoRA configs for these same nine plus the flagships we already have L2 validation for:
+
+```sh
+./scripts/enterprise/run_l1_validation.sh --lora
+# ==============================================
+# L1 Validation Summary
+# ==============================================
+# 
+# Succeeded (15):
+#   __ gemma3-4b-lora
+#   __ llama31-8b-lora
+#   __ llama32-1b-lora
+#   __ llama32-3b-lora
+#   __ phi35-mini-lora
+#   __ qwen25-1.5b-lora
+#   __ qwen25-3b-lora
+#   __ qwen25-7b-instruct-lora
+#   __ qwen25-7b-lora
+#   __ qwen3-0.6b-lora
+#   __ qwen3-4b-lora
+#   __ qwen3-8b-lora
+#   __ smollm2-1.7b-lora
+#   __ smollm2-135m-lora
+#   __ smollm2-360m-lora
+# 
+# Failed (1):
+#   __ phi35-moe-lora
+```
+
+Default configs for all successful runs have been merged into the API repo. We'll revisit Phi-3.5-MoE-instruct (failed) and other larger models after validating remaining configs.
+
+Now run evals for all of the completed Level 1 configs:
+
+```sh
+DATA_DIR=/data/tim/code/oumi/data/enterprise
+CKPT_DIR=/data/tim/checkpoints/l1-validation
+OUT_DIR=/data/tim/evals/ent/l1-validation
+
+# we only want task evals and control evals
+# use only a subset of gpu devices to parallelize
+run_evals_with_devices() {
+  local model=$1 out=$2 gpus=$3
+  echo "=== [$gpus] $model ==="
+  CUDA_VISIBLE_DEVICES=$gpus oumi evaluate -c configs/enterprise/evaluation/task_pubmedqa.yaml \
+    --model.model_name "$model" --model.trust_remote_code true \
+    --tasks.0.eval_kwargs.test_data_path "$DATA_DIR/pubmedqa/test.jsonl" \
+    --output_dir "$out/pubmedqa"
+  CUDA_VISIBLE_DEVICES=$gpus oumi evaluate -c configs/enterprise/evaluation/control_evals.yaml \
+    --model.model_name "$model" --model.trust_remote_code true \
+    --output_dir "$out/control"
+}
+
+# just trigger them manually, too buggy to run in a loop and forget
+run_evals_with_devices "Qwen/Qwen3-0.6B" "$OUT_DIR/baselines/Qwen3-0.6B" 0,1
+run_evals_with_devices "HuggingFaceTB/SmolLM2-1.7B-Instruct" "$OUT_DIR/baselines/HuggingFaceTB/SmolLM2-1.7B-Instruct" 0,1,2,3
+run_evals_with_devices "HuggingFaceTB/SmolLM2-135M-Instruct" "$OUT_DIR/baselines/SmolLM2-135M-Instruct" 0,1,2  # 9 divisible by num devices for 135m
+run_evals_with_devices "Qwen/Qwen2.5-1.5B-Instruct" "$OUT_DIR/baselines/Qwen2.5-1.5B-Instruct" 6,7
+run_evals_with_devices "Qwen/Qwen2.5-3B-Instruct" "$OUT_DIR/baselines/Qwen2.5-3B-Instruct" 6,7
+run_evals_with_devices "microsoft/Phi-3.5-mini-instruct" "$OUT_DIR/baselines/Phi-3.5-mini-instruct" 4,5,6,7
+run_evals_with_devices "Qwen/Qwen2.5-7B" "$OUT_DIR/baselines/Qwen2.5-7B" 0,1
+run_evals_with_devices "Qwen/Qwen2.5-7B-Instruct" "$OUT_DIR/baselines/Qwen2.5-7B-Instruct" 0,1
+run_evals_with_devices "HuggingFaceTB/SmolLM2-360M-Instruct" "$OUT_DIR/baselines/SmolLM2-360M-Instruct" 3
+
+run_evals_with_devices "Qwen/Qwen3-8B" "$OUT_DIR/baselines/Qwen3-8B" 4,5,6,7
+run_evals_with_devices "Qwen/Qwen3-4B-Instruct-2507" "$OUT_DIR/baselines/Qwen3-8B" 4,5,6,7
+
+run_evals_with_devices "$CKPT_DIR/phi35-mini-pubmedqa" "$OUT_DIR/sft/phi35-mini" 4,5,6,7
+run_evals_with_devices "$CKPT_DIR/phi35-mini-lora-pubmedqa" "$OUT_DIR/sft/phi35-mini-lora" 4,5,6,7
+
+run_evals_with_devices "$CKPT_DIR/smollm2-135m-pubmedqa" "$OUT_DIR/sft/smollm2-135m" 3
+run_evals_with_devices "$CKPT_DIR/smollm2-360m-pubmedqa" "$OUT_DIR/sft/smollm2-360m" 3
+
+run_evals_with_devices "$CKPT_DIR/qwen3-0.6b-pubmedqa" "$OUT_DIR/sft/qwen3-0.6b" 0,1
+run_evals_with_devices "$CKPT_DIR/qwen25-1.5b-pubmedqa" "$OUT_DIR/sft/qwen25-1.5b" 0,1
+run_evals_with_devices "$CKPT_DIR/qwen25-3b-pubmedqa" "$OUT_DIR/sft/qwen25-3b" 0,1
+run_evals_with_devices "$CKPT_DIR/qwen25-7b-pubmedqa" "$OUT_DIR/sft/qwen25-7b" 0,1
+run_evals_with_devices "$CKPT_DIR/qwen25-7b-instruct-pubmedqa" "$OUT_DIR/sft/qwen25-7b-instruct" 0,1
+
+run_evals_with_devices "$CKPT_DIR/smollm2-135m-lora-pubmedqa" "$OUT_DIR/sft/smollm2-135m-lora" 3
+run_evals_with_devices "$CKPT_DIR/smollm2-360m-lora-pubmedqa" "$OUT_DIR/sft/smollm2-360m-lora" 3
+run_evals_with_devices "$CKPT_DIR/smollm2-1.7b-lora-pubmedqa" "$OUT_DIR/sft/smollm2-1.7b-lora" 3
+
+run_evals_with_devices "$CKPT_DIR/gemma3-4b-lora-pubmedqa" "$OUT_DIR/sft/gemma3-4b-lora" 4,5,6,7
+
+run_evals_with_devices "$CKPT_DIR/llama31-8b-lora-pubmedqa" "$OUT_DIR/sft/llama31-8b-lora" 0,1
+run_evals_with_devices "$CKPT_DIR/llama32-1b-lora-pubmedqa" "$OUT_DIR/sft/llama32-1b-lora" 0,1
+run_evals_with_devices "$CKPT_DIR/llama32-3b-lora-pubmedqa" "$OUT_DIR/sft/llama32-3b-lora" 0,1
+
+run_evals_with_devices "$CKPT_DIR/qwen25-1.5b-lora-pubmedqa" "$OUT_DIR/sft/qwen25-1.5b-lora" 2,3
+run_evals_with_devices "$CKPT_DIR/qwen25-3b-lora-pubmedqa" "$OUT_DIR/sft/qwen25-3b-lora" 2,3
+run_evals_with_devices "$CKPT_DIR/qwen3-0.6b-lora-pubmedqa" "$OUT_DIR/sft/qwen3-0.6b-lora" 2,3
+
+run_evals_with_devices "$CKPT_DIR/qwen3-4b-lora-pubmedqa" "$OUT_DIR/sft/qwen3-4b-lora" 4,5,6,7
+run_evals_with_devices "$CKPT_DIR/qwen3-8b-lora-pubmedqa" "$OUT_DIR/sft/qwen3-8b-lora" 4,5,6,7
+run_evals_with_devices "$CKPT_DIR/qwen25-7b-instruct-lora-pubmedqa" "$OUT_DIR/sft/qwen25-7b-instruct-lora" 4,5,6,7
+run_evals_with_devices "$CKPT_DIR/qwen25-7b-lora-pubmedqa" "$OUT_DIR/sft/qwen25-7b-lora" 4,5,6,7
+```
+
+Results added here: https://docs.google.com/spreadsheets/d/1LmFGfJRtNp3hpP9dwD7FJ1uN7Z0I8cKX-Z1wZ5ZaW2I/edit?gid=1744914547#gid=1744914547
+
+
+#### Remaining Models to Validate
+
+- Qwen3-32B (Current default LoRA config for Qwen3-32b --> OOM on 8xH100 </3)
+- Phi-3.5-MoE-instruct (failed L1 validation tests)
+- Llama-4-Scout-17B-16E-Instruct (MoE, may need more compute)
+- SmolLM v1: 135M, 360M, 1.7B (superseded by SmolLM2 but worth having, lower priority)
+
+```bash
+# fails with OOM, pod dies and new one spawns
+oumi distributed torchrun --nproc_per_node=8 -m oumi train \
+  -c configs/enterprise/training/preset-validation/Qwen_Qwen3-32B_lora.yaml \
+  --data.train.datasets.0.dataset_path=data/enterprise/pubmedqa/train.jsonl \
+  --data.validation.datasets.0.dataset_path=data/enterprise/pubmedqa/val.jsonl \
+  --training.output_dir=/data/tim/checkpoints/l1-validation/qwen3-32b-lora-pubmedqa
 ```

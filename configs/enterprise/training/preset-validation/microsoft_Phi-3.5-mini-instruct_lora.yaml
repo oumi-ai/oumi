@@ -1,0 +1,88 @@
+# Preset LoRA training configuration for Phi-3.5-mini-instruct.
+# Adapted for L1 validation.
+
+model:
+  model_name: "microsoft/Phi-3.5-mini-instruct"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: false
+
+data:
+  train:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|assistant|>\n"
+      instruction_template: "<|user|>\n"
+    seed: 666
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+  validation:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|assistant|>\n"
+      instruction_template: "<|user|>\n"
+    seed: 666
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+training:
+  use_peft: true
+  trainer_type: "TRL_SFT"
+  save_steps: 0
+  save_epoch: false
+  num_train_epochs: 2
+
+  # Effective batch size on 8-gpu node: 2 * 2 * 8 = 32
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 2
+  max_grad_norm: 1.0
+
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  ddp_find_unused_parameters: false
+  optimizer: "adamw_torch_fused"
+  learning_rate: 3.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  compile: false
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 5
+  log_model_summary: false
+  eval_strategy: "steps"
+  eval_steps: 10
+  empty_device_cache_steps: 50
+  include_performance_metrics: true
+  enable_wandb: true
+
+peft:
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+    - "qkv_proj"
+    - "o_proj"
+    - "gate_up_proj"
+    - "down_proj"
+
+fsdp:
+  enable_fsdp: true
+  forward_prefetch: true
+  sharding_strategy: "HYBRID_SHARD"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Phi3DecoderLayer"
