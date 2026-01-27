@@ -18,11 +18,19 @@ function App() {
   const { data: evalData, isLoading: evalLoading } = useEval(selectedEvalId)
 
   const handleWizardComplete = (yamlConfig: string) => {
-    // Copy to clipboard and show instructions
+    // Copy to clipboard and show notification
     navigator.clipboard.writeText(yamlConfig)
-    alert('Configuration copied to clipboard!\n\nTo run the analysis, save this config to a file and run:\n\noumi analyze --config your_config.yaml --typed')
-    setShowWizard(false)
-    refetch()
+    alert('Configuration copied to clipboard!\n\nYou can also run it with:\noumi analyze --config your_config.yaml --typed')
+  }
+
+  const handleRunComplete = (evalId: string | null) => {
+    // Refresh evals list and select the new eval
+    refetch().then(() => {
+      if (evalId) {
+        setSelectedEvalId(evalId)
+      }
+      setShowWizard(false)
+    })
   }
 
   // Show wizard view
@@ -42,6 +50,7 @@ function App() {
         <main className="flex-1 flex flex-col overflow-auto p-6">
           <SetupWizard
             onComplete={handleWizardComplete}
+            onRunComplete={handleRunComplete}
             onCancel={() => setShowWizard(false)}
           />
         </main>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Progress } from '@/components/ui/progress'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -25,9 +27,14 @@ import {
   Plus,
   Trash2,
   Upload,
-  Play
+  Play,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Terminal
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useRunAnalysis } from '@/hooks/useEvals'
 
 // Available analyzers with their parameters and metrics
 const AVAILABLE_ANALYZERS = {
@@ -106,6 +113,7 @@ interface WizardConfig {
 
 interface SetupWizardProps {
   onComplete?: (yamlConfig: string) => void
+  onRunComplete?: (evalId: string | null) => void
   onCancel?: () => void
 }
 
@@ -133,8 +141,8 @@ function generateYaml(config: WizardConfig): string {
   // Analyzers
   lines.push('analyzers:')
   config.analyzers.forEach(analyzer => {
-    lines.push(`  - id: ${analyzer.id}`)
-    lines.push(`    type: ${analyzer.type}`)
+    // Use the analyzer type as the id (e.g., "length", "usefulness")
+    lines.push(`  - id: ${analyzer.type}`)
     const paramEntries = Object.entries(analyzer.params).filter(([, v]) => v !== undefined && v !== '')
     if (paramEntries.length > 0) {
       lines.push('    params:')
@@ -173,8 +181,9 @@ function generateYaml(config: WizardConfig): string {
   return lines.join('\n')
 }
 
-export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
+export function SetupWizard({ onComplete, onRunComplete, onCancel }: SetupWizardProps) {
   const [currentStep, setCurrentStep] = useState(0)
+  const [isRunning, setIsRunning] = useState(false)
   const [config, setConfig] = useState<WizardConfig>({
     datasetPath: '',
     datasetName: '',
@@ -183,6 +192,19 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
     analyzers: [],
     tests: [],
   })
+
+  const { run, reset, jobStatus, isStarting } = useRunAnalysis()
+
+  // Handle job completion
+  useEffect(() => {
+    if (jobStatus?.status === 'completed') {
+      // Wait a moment to show the success state
+      const timer = setTimeout(() => {
+        onRunComplete?.(jobStatus.eval_id)
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [jobStatus?.status, jobStatus?.eval_id, onRunComplete])
 
   const updateConfig = useCallback((updates: Partial<WizardConfig>) => {
     setConfig(prev => ({ ...prev, ...updates }))
@@ -269,10 +291,22 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
     return metrics
   }, [config.analyzers])
 
-  const handleComplete = useCallback(() => {
+  const handleRunAnalysis = useCallback(() => {
     const yaml = generateYaml(config)
+    setIsRunning(true)
+    run(yaml)
+  }, [config, run])
+
+  const handleCopyConfig = useCallback(() => {
+    const yaml = generateYaml(config)
+    navigator.clipboard.writeText(yaml)
     onComplete?.(yaml)
   }, [config, onComplete])
+
+  const handleBackFromRunning = useCallback(() => {
+    setIsRunning(false)
+    reset()
+  }, [reset])
 
   const canProceed = () => {
     switch (currentStep) {
@@ -778,6 +812,111 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
     )
   }
 
+  const renderRunningStep = () => {
+    const progressPercent = jobStatus ? Math.round((jobStatus.progress / jobStatus.total) * 100) : 0
+    const isComplete = jobStatus?.status === 'completed'
+    const isFailed = jobStatus?.status === 'failed'
+
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-8">
+          {/* Status Icon */}
+          <div className="mb-6">
+            {isComplete ? (
+              <CheckCircle2 className="h-16 w-16 mx-auto text-green-500" />
+            ) : isFailed ? (
+              <XCircle className="h-16 w-16 mx-auto text-red-500" />
+            ) : (
+              <Loader2 className="h-16 w-16 mx-auto text-primary animate-spin" />
+            )}
+          </div>
+
+          {/* Status Message */}
+          <h3 className="text-xl font-semibold mb-2">
+            {isComplete ? 'Analysis Complete!' : isFailed ? 'Analysis Failed' : 'Running Analysis...'}
+          </h3>
+          <p className="text-muted-foreground mb-6">
+            {jobStatus?.message || 'Starting analysis...'}
+          </p>
+
+          {/* Progress Bar */}
+          {!isComplete && !isFailed && (
+            <div className="max-w-md mx-auto mb-6">
+              <Progress value={progressPercent} className="h-3" />
+              <p className="text-sm text-muted-foreground mt-2">
+                {jobStatus?.progress || 0} / {jobStatus?.total || 100} samples processed
+              </p>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {isFailed && jobStatus?.error && (
+            <div className="max-w-md mx-auto mb-6 p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400">{jobStatus.error}</p>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {isComplete && (
+            <div className="max-w-md mx-auto mb-6 p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+              <p className="text-sm text-green-600 dark:text-green-400">
+                Analysis completed successfully! Redirecting to results...
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Log Output */}
+        {jobStatus?.log_lines && jobStatus.log_lines.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Terminal className="h-4 w-4" />
+              <Label>Output Log</Label>
+            </div>
+            <ScrollArea className="h-48 border rounded-md bg-zinc-950 p-4">
+              <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">
+                {jobStatus.log_lines.join('\n')}
+              </pre>
+            </ScrollArea>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center justify-center gap-4 pt-4">
+          {isFailed && (
+            <>
+              <Button variant="outline" onClick={handleBackFromRunning}>
+                <ChevronLeft className="h-4 w-4 mr-2" />
+                Back to Config
+              </Button>
+              <Button onClick={handleRunAnalysis}>
+                <Play className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Show running view
+  if (isRunning) {
+    return (
+      <Card className="w-full max-w-4xl mx-auto">
+        <CardHeader>
+          <CardTitle>Running Analysis</CardTitle>
+          <CardDescription>
+            Your analysis is being processed. This may take a few minutes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {renderRunningStep()}
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
@@ -851,10 +990,20 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
               <ChevronRight className="h-4 w-4 ml-2" />
             </Button>
           ) : (
-            <Button onClick={handleComplete}>
-              <Play className="h-4 w-4 mr-2" />
-              Create & Run Analysis
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleCopyConfig}>
+                <FileCode className="h-4 w-4 mr-2" />
+                Copy Config
+              </Button>
+              <Button onClick={handleRunAnalysis} disabled={isStarting}>
+                {isStarting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4 mr-2" />
+                )}
+                Run Analysis
+              </Button>
+            </div>
           )}
         </div>
       </CardContent>

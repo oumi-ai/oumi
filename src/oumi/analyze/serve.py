@@ -3,6 +3,7 @@
 This module provides a simple HTTP server that serves:
 1. Static React app files from the dist/ folder
 2. JSON data from the analyze storage (~/.oumi/analyze/)
+3. API endpoints for running analysis and tracking progress
 """
 
 import http.server
@@ -11,30 +12,274 @@ import logging
 import os
 import shutil
 import socketserver
+import subprocess
 import tempfile
 import threading
+import time
+import uuid
 import webbrowser
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# In-memory job storage
+@dataclass
+class AnalysisJob:
+    """Tracks a running analysis job."""
+    id: str
+    status: str  # 'pending', 'running', 'completed', 'failed'
+    config_path: str
+    output_path: str
+    progress: int = 0
+    total: int = 100
+    message: str = ""
+    error: str | None = None
+    eval_id: str | None = None
+    log_lines: list[str] = field(default_factory=list)
+    created_at: float = field(default_factory=time.time)
+
+# Global job registry
+_jobs: dict[str, AnalysisJob] = {}
+
 
 class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
     """HTTP handler that serves React app and JSON data."""
 
-    def __init__(self, *args, data_dir: Path, **kwargs):
+    def __init__(self, *args, data_dir: Path, storage_dir: Path, **kwargs):
         self.data_dir = data_dir
+        self.storage_dir = storage_dir
         super().__init__(*args, **kwargs)
+
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests."""
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
 
     def do_GET(self):
         """Handle GET requests."""
         # Route /data/* requests to the data directory
         if self.path.startswith("/data/"):
             self.serve_data()
+        elif self.path.startswith("/api/jobs/"):
+            self.get_job_status()
+        elif self.path == "/api/jobs":
+            self.list_jobs()
         else:
             # Serve static files
             super().do_GET()
+
+    def do_POST(self):
+        """Handle POST requests."""
+        if self.path == "/api/run":
+            self.start_analysis()
+        else:
+            self.send_error(404, "Not found")
+
+    def _send_json(self, data: dict, status: int = 200):
+        """Send a JSON response."""
+        content = json.dumps(data).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", len(content))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(content)
+
+    def start_analysis(self):
+        """Start a new analysis job."""
+        try:
+            # Read request body
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)
+
+            yaml_config = data.get("config", "")
+            if not yaml_config:
+                self._send_json({"error": "No config provided"}, 400)
+                return
+
+            # Create job
+            job_id = str(uuid.uuid4())[:8]
+            
+            # Save config to temp file
+            config_dir = Path(tempfile.gettempdir()) / "oumi_analyze_jobs"
+            config_dir.mkdir(exist_ok=True)
+            config_path = config_dir / f"{job_id}.yaml"
+            config_path.write_text(yaml_config)
+
+            # Parse output_path from config
+            output_path = "./analysis_output"
+            for line in yaml_config.split("\n"):
+                if line.startswith("output_path:"):
+                    output_path = line.split(":", 1)[1].strip()
+                    break
+
+            job = AnalysisJob(
+                id=job_id,
+                status="pending",
+                config_path=str(config_path),
+                output_path=output_path,
+                message="Starting analysis...",
+            )
+            _jobs[job_id] = job
+
+            # Start analysis in background thread
+            thread = threading.Thread(
+                target=self._run_analysis_job,
+                args=(job, self.storage_dir),
+                daemon=True,
+            )
+            thread.start()
+
+            self._send_json({
+                "job_id": job_id,
+                "status": "pending",
+                "message": "Analysis job created",
+            })
+
+        except Exception as e:
+            logger.error(f"Error starting analysis: {e}")
+            self._send_json({"error": str(e)}, 500)
+
+    def _run_analysis_job(self, job: AnalysisJob, storage_dir: Path):
+        """Run the analysis job in a background thread."""
+        try:
+            job.status = "running"
+            job.message = "Running analysis..."
+
+            # Run the oumi analyze command
+            cmd = [
+                "oumi", "analyze",
+                "--config", job.config_path,
+                "--typed",
+            ]
+            
+            logger.info(f"Running: {' '.join(cmd)}")
+            
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+
+            # Read output line by line
+            for line in iter(process.stdout.readline, ""):
+                line = line.rstrip()
+                job.log_lines.append(line)
+                
+                # Parse progress from output
+                if "Analyzing" in line and "/" in line:
+                    # Try to parse "Analyzing 5/100..." style output
+                    try:
+                        parts = line.split()
+                        for part in parts:
+                            if "/" in part:
+                                nums = part.split("/")
+                                if len(nums) == 2 and nums[0].isdigit() and nums[1].isdigit():
+                                    job.progress = int(nums[0])
+                                    job.total = int(nums[1])
+                                    break
+                    except (ValueError, IndexError):
+                        pass
+                
+                # Update message with latest line
+                if line:
+                    job.message = line[-100:]  # Truncate long lines
+
+            process.wait()
+
+            if process.returncode == 0:
+                job.status = "completed"
+                job.progress = job.total
+                job.message = "Analysis completed successfully!"
+                
+                # Refresh the index.json to include new eval
+                self._refresh_storage_index(storage_dir)
+                
+                # Try to find the eval ID from output path
+                output_dir = Path(job.output_path)
+                if output_dir.exists():
+                    # Look for the eval in storage
+                    index_path = storage_dir / "index.json"
+                    if index_path.exists():
+                        index_data = json.loads(index_path.read_text())
+                        evals = index_data.get("evals", [])
+                        if evals:
+                            # Get the most recent eval
+                            job.eval_id = evals[0].get("id")
+            else:
+                job.status = "failed"
+                job.error = f"Analysis failed with exit code {process.returncode}"
+                job.message = job.error
+
+        except Exception as e:
+            logger.error(f"Error running analysis job {job.id}: {e}")
+            job.status = "failed"
+            job.error = str(e)
+            job.message = f"Error: {e}"
+
+    def _refresh_storage_index(self, storage_dir: Path):
+        """Refresh the serving directory with latest files from storage."""
+        try:
+            # Copy updated index.json
+            index_src = storage_dir / "index.json"
+            index_dst = self.data_dir / "index.json"
+            if index_src.exists():
+                shutil.copy2(index_src, index_dst)
+            
+            # Copy any new eval files
+            evals_src = storage_dir / "evals"
+            evals_dst = self.data_dir / "evals"
+            if evals_src.exists():
+                evals_dst.mkdir(exist_ok=True)
+                for eval_file in evals_src.glob("*.json"):
+                    shutil.copy2(eval_file, evals_dst / eval_file.name)
+                    
+            logger.info("Refreshed storage index")
+        except Exception as e:
+            logger.error(f"Error refreshing storage index: {e}")
+
+    def get_job_status(self):
+        """Get the status of a specific job."""
+        # Extract job ID from path: /api/jobs/{job_id}
+        job_id = self.path.split("/")[-1]
+        
+        job = _jobs.get(job_id)
+        if not job:
+            self._send_json({"error": "Job not found"}, 404)
+            return
+
+        self._send_json({
+            "id": job.id,
+            "status": job.status,
+            "progress": job.progress,
+            "total": job.total,
+            "message": job.message,
+            "error": job.error,
+            "eval_id": job.eval_id,
+            "log_lines": job.log_lines[-50:],  # Last 50 lines
+        })
+
+    def list_jobs(self):
+        """List all jobs."""
+        jobs_list = [
+            {
+                "id": job.id,
+                "status": job.status,
+                "progress": job.progress,
+                "total": job.total,
+                "message": job.message,
+            }
+            for job in _jobs.values()
+        ]
+        self._send_json({"jobs": jobs_list})
 
     def serve_data(self):
         """Serve JSON data files from the storage directory."""
@@ -77,12 +322,12 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
             logger.debug(f"{self.address_string()} - {format % args}")
 
 
-def create_handler(data_dir: Path):
-    """Create a handler class with the data directory bound."""
+def create_handler(data_dir: Path, storage_dir: Path):
+    """Create a handler class with the data and storage directories bound."""
 
     class BoundHandler(AnalyzeUIHandler):
         def __init__(self, *args, **kwargs):
-            super().__init__(*args, data_dir=data_dir, **kwargs)
+            super().__init__(*args, data_dir=data_dir, storage_dir=storage_dir, **kwargs)
 
     return BoundHandler
 
@@ -177,8 +422,8 @@ def serve_ui(
     serve_dir = prepare_serving_directory(storage_dir)
     data_dir = serve_dir / "data"
 
-    # Create handler with data dir
-    handler_class = create_handler(data_dir)
+    # Create handler with data dir and storage dir
+    handler_class = create_handler(data_dir, storage_dir)
 
     # Change to serve directory
     original_dir = os.getcwd()
