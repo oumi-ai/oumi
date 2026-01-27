@@ -550,6 +550,18 @@ class MultiTurnAttribute:
                     "MultiTurnAttribute.role_turn_instructions must define a template "
                     "for every role in turn_order."
                 )
+        else:
+            default_roles = {Role.USER, Role.ASSISTANT}
+            missing_default_roles = [
+                role
+                for role in default_roles
+                if role not in self.role_turn_instructions
+            ]
+            if missing_default_roles:
+                raise ValueError(
+                    "MultiTurnAttribute.role_turn_instructions must define templates "
+                    "for Role.USER and Role.ASSISTANT when turn_order is omitted."
+                )
 
 
 class TransformationType(str, Enum):
@@ -894,6 +906,23 @@ class GeneralSynthesisParams(BaseParams):
             attribute_id = transformed_attribute.id
             self._check_attribute_ids(all_attribute_ids, attribute_id)
 
+    def _check_multiturn_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from multiturn attributes for uniqueness."""
+        if self.multiturn_attributes is None:
+            return
+
+        if len(self.multiturn_attributes) == 0:
+            raise ValueError(
+                "GeneralSynthesisParams.multiturn_attributes cannot be empty."
+            )
+
+        for multiturn_attribute in self.multiturn_attributes:
+            attribute_id = multiturn_attribute.id
+            self._check_attribute_ids(all_attribute_ids, attribute_id)
+            if multiturn_attribute.conversation_planner:
+                planner_id = multiturn_attribute.conversation_planner.id
+                self._check_attribute_ids(all_attribute_ids, planner_id)
+
     def _check_combination_sampling_sample_rates(self) -> None:
         """Validate that the combination sample rates are <= 1.0."""
         if self.combination_sampling is None:
@@ -931,6 +960,7 @@ class GeneralSynthesisParams(BaseParams):
         self._check_example_source_attribute_ids(all_attribute_ids)
         self._check_sampled_attribute_ids(all_attribute_ids)
         self._check_generated_attribute_ids(all_attribute_ids)
+        self._check_multiturn_attribute_ids(all_attribute_ids)
         self._check_transformed_attribute_ids(all_attribute_ids)
         self._check_passthrough_attribute_ids()
         self._check_combination_sampling_sample_rates()

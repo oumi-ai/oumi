@@ -246,27 +246,6 @@ class ConversationSynthesizer:
                 return turn_count
         return target_turns
 
-    def _format_messages(
-        self,
-        sample: dict,
-        instruction_messages: list[TextMessage] | None,
-    ) -> list[Message]:
-        if not instruction_messages:
-            return []
-        return [
-            self._format_message(sample, message) for message in instruction_messages
-        ]
-
-    def _format_message(self, sample: dict, message: TextMessage) -> Message:
-        if not isinstance(message.content, str):
-            return Message(role=message.role, content=message.content)
-        formatted_content = self._formatter.format(
-            sample,
-            message.content,
-            missing_values_allowed=False,
-        )
-        return Message(role=message.role, content=formatted_content.strip())
-
     def _format_turn_instruction(self, sample: dict, instruction: str) -> Message:
         formatted_content = self._formatter.format(
             sample,
