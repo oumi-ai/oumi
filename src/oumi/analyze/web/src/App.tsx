@@ -10,13 +10,22 @@ import { ExportMenu } from '@/components/actions/ExportMenu'
 import { RunningOverlay } from '@/components/running/RunningOverlay'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Plus, BarChart3, FileCode, TestTube, PieChart } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Plus, BarChart3, FileCode, TestTube, PieChart, CheckCircle } from 'lucide-react'
 
 function App() {
   const [selectedEvalId, setSelectedEvalId] = useState<string | null>(null)
   const [showWizard, setShowWizard] = useState(false)
   const [editConfig, setEditConfig] = useState<Record<string, unknown> | null>(null)
   const [isRunningFromConfig, setIsRunningFromConfig] = useState(false)
+  const [showCopiedDialog, setShowCopiedDialog] = useState(false)
   const { data: evals, isLoading: evalsLoading, refetch } = useEvalList()
   const { data: evalData, isLoading: evalLoading } = useEval(selectedEvalId)
   const { run, reset, jobStatus } = useRunAnalysis()
@@ -52,7 +61,7 @@ function App() {
   const handleWizardComplete = (yamlConfig: string) => {
     // Copy to clipboard and show notification
     navigator.clipboard.writeText(yamlConfig)
-    alert('Configuration copied to clipboard!\n\nYou can also run it with:\noumi analyze --config your_config.yaml --typed')
+    setShowCopiedDialog(true)
   }
 
   const handleRunComplete = (evalId: string | null) => {
@@ -198,6 +207,32 @@ function App() {
           </div>
         )}
       </main>
+
+      {/* Config Copied Success Dialog */}
+      <Dialog open={showCopiedDialog} onOpenChange={setShowCopiedDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Configuration Copied
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Your configuration has been copied to the clipboard.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-muted p-3 rounded-md">
+            <p className="text-sm font-medium mb-1">Run it with:</p>
+            <code className="text-xs bg-background p-2 rounded block">
+              oumi analyze --config your_config.yaml --typed
+            </code>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowCopiedDialog(false)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

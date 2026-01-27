@@ -4,6 +4,16 @@ import { cn, formatRelativeTime } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import type { EvalMetadata } from '@/types/eval'
 
 interface SidebarProps {
@@ -17,6 +27,7 @@ interface SidebarProps {
 
 export function Sidebar({ evals, selectedId, onSelect, onDelete, isLoading, onNewAnalysis }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<EvalMetadata | null>(null)
 
   const filteredEvals = evals.filter(
     (e) =>
@@ -73,11 +84,7 @@ export function Sidebar({ evals, selectedId, onSelect, onDelete, isLoading, onNe
                   eval={evalMeta}
                   isSelected={evalMeta.id === selectedId}
                   onClick={() => onSelect(evalMeta.id)}
-                  onDelete={onDelete ? () => {
-                    if (window.confirm(`Delete "${evalMeta.name}"? This cannot be undone.`)) {
-                      onDelete(evalMeta.id)
-                    }
-                  } : undefined}
+                  onDelete={onDelete ? () => setDeleteTarget(evalMeta) : undefined}
                 />
               ))}
             </div>
@@ -85,6 +92,31 @@ export function Sidebar({ evals, selectedId, onSelect, onDelete, isLoading, onNe
         </div>
       </ScrollArea>
 
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Analysis</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteTarget?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTarget && onDelete) {
+                  onDelete(deleteTarget.id)
+                }
+                setDeleteTarget(null)
+              }}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

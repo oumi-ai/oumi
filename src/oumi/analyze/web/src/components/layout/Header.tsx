@@ -3,6 +3,17 @@ import { Calendar, Database, FileText, Pencil, Check, X, Trash2 } from 'lucide-r
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { formatRelativeTime } from '@/lib/utils'
 import type { EvalData } from '@/types/eval'
 import { computeTestSummary } from '@/types/eval'
@@ -135,20 +146,36 @@ export function Header({ evalData, children, onRename, onDelete }: HeaderProps) 
           {/* Action buttons from parent */}
           {children}
 
-          {/* Delete button */}
+          {/* Delete button with confirmation dialog */}
           {onDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                if (window.confirm(`Delete "${metadata.name}"? This cannot be undone.`)) {
-                  onDelete()
-                }
-              }}
-              className="h-9 w-9 text-muted-foreground hover:text-red-500 hover:bg-red-50"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Analysis</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete "{metadata.name}"? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={onDelete}
+                    className="bg-red-500 hover:bg-red-600"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       </div>
