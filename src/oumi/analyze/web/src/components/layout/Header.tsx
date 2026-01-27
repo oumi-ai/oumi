@@ -1,5 +1,5 @@
 import { ReactNode, useState, useRef, useEffect } from 'react'
-import { Calendar, Database, FileText, Pencil, Check, X } from 'lucide-react'
+import { Calendar, Database, FileText, Pencil, Check, X, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,9 +11,10 @@ interface HeaderProps {
   evalData: EvalData
   children?: ReactNode
   onRename?: (newName: string) => void
+  onDelete?: () => void
 }
 
-export function Header({ evalData, children, onRename }: HeaderProps) {
+export function Header({ evalData, children, onRename, onDelete }: HeaderProps) {
   const { metadata } = evalData
   const testSummary = computeTestSummary(evalData.test_results)
   const [isEditing, setIsEditing] = useState(false)
@@ -133,6 +134,22 @@ export function Header({ evalData, children, onRename }: HeaderProps) {
 
           {/* Action buttons from parent */}
           {children}
+
+          {/* Delete button */}
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                if (window.confirm(`Delete "${metadata.name}"? This cannot be undone.`)) {
+                  onDelete()
+                }
+              }}
+              className="h-9 w-9 text-muted-foreground hover:text-red-500 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

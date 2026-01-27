@@ -79,8 +79,43 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
             self.start_analysis()
         elif self.path == "/api/rename":
             self.rename_eval()
+        elif self.path == "/api/delete":
+            self.delete_eval()
         else:
             self.send_error(404, "Not found")
+
+    def delete_eval(self):
+        """Delete an eval."""
+        try:
+            from oumi.analyze.storage import AnalyzeStorage
+
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)
+
+            eval_id = data.get("eval_id", "")
+
+            if not eval_id:
+                self._send_json({"error": "eval_id required"}, 400)
+                return
+
+            storage = AnalyzeStorage()
+            success = storage.delete_eval(eval_id)
+
+            if success:
+                # Also update the served copy
+                self._refresh_storage_index(storage.base_dir)
+                # Remove the eval file from served directory
+                eval_file = self.data_dir / "evals" / f"{eval_id}.json"
+                if eval_file.exists():
+                    eval_file.unlink()
+                self._send_json({"success": True, "eval_id": eval_id})
+            else:
+                self._send_json({"error": "Eval not found"}, 404)
+
+        except Exception as e:
+            logger.error(f"Error deleting eval: {e}")
+            self._send_json({"error": str(e)}, 500)
 
     def rename_eval(self):
         """Rename an eval."""

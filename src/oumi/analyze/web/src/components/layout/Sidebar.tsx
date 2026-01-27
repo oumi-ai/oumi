@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Search, CheckCircle, XCircle, Clock, BarChart3, Plus } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Search, CheckCircle, XCircle, Clock, BarChart3, Plus, Trash2 } from 'lucide-react'
 import { cn, formatRelativeTime } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
@@ -10,11 +10,12 @@ interface SidebarProps {
   evals: EvalMetadata[]
   selectedId: string | null
   onSelect: (id: string) => void
+  onDelete?: (id: string) => void
   isLoading: boolean
   onNewAnalysis?: () => void
 }
 
-export function Sidebar({ evals, selectedId, onSelect, isLoading, onNewAnalysis }: SidebarProps) {
+export function Sidebar({ evals, selectedId, onSelect, onDelete, isLoading, onNewAnalysis }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
   const filteredEvals = evals.filter(
@@ -72,6 +73,11 @@ export function Sidebar({ evals, selectedId, onSelect, isLoading, onNewAnalysis 
                   eval={evalMeta}
                   isSelected={evalMeta.id === selectedId}
                   onClick={() => onSelect(evalMeta.id)}
+                  onDelete={onDelete ? () => {
+                    if (window.confirm(`Delete "${evalMeta.name}"? This cannot be undone.`)) {
+                      onDelete(evalMeta.id)
+                    }
+                  } : undefined}
                 />
               ))}
             </div>
@@ -87,62 +93,129 @@ interface EvalListItemProps {
   eval: EvalMetadata
   isSelected: boolean
   onClick: () => void
+  onDelete?: () => void
 }
 
-function EvalListItem({ eval: evalMeta, isSelected, onClick }: EvalListItemProps) {
+function EvalListItem({ eval: evalMeta, isSelected, onClick, onDelete }: EvalListItemProps) {
   const passRate = evalMeta.pass_rate
   const hasTests = evalMeta.test_count > 0
+  const [offsetX, setOffsetX] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startX = useRef(0)
+  const DELETE_THRESHOLD = 80
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!onDelete) return
+    startX.current = e.clientX
+    setIsDragging(true)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return
+    const diff = startX.current - e.clientX
+    // Only allow sliding left (positive diff)
+    setOffsetX(Math.max(0, Math.min(diff, DELETE_THRESHOLD + 20)))
+  }
+
+  const handleMouseUp = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    
+    if (offsetX >= DELETE_THRESHOLD) {
+      // Keep it open to show delete button
+      setOffsetX(DELETE_THRESHOLD)
+    } else {
+      // Snap back
+      setOffsetX(0)
+    }
+  }
+
+  const handleMouseLeave = () => {
+    if (isDragging) {
+      setIsDragging(false)
+      if (offsetX < DELETE_THRESHOLD) {
+        setOffsetX(0)
+      }
+    }
+  }
+
+  const handleDeleteClick = () => {
+    setOffsetX(0)
+    onDelete?.()
+  }
 
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'w-full text-left p-3 rounded-lg transition-colors',
-        'hover:bg-accent',
-        isSelected && 'bg-accent'
+    <div className="relative overflow-hidden rounded-lg">
+      {/* Delete button background */}
+      {onDelete && (
+        <button
+          onClick={handleDeleteClick}
+          className={cn(
+            "absolute right-0 top-0 bottom-0 flex items-center justify-center bg-red-500 text-white transition-all",
+            offsetX > 0 ? "w-20" : "w-0"
+          )}
+        >
+          <Trash2 className="h-5 w-5" />
+        </button>
       )}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <p className="font-medium truncate">{evalMeta.name}</p>
-          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            <span>{formatRelativeTime(evalMeta.created_at)}</span>
-          </div>
-        </div>
-        
-        {hasTests && (
-          <div className="flex items-center gap-1">
-            {passRate !== null && passRate >= 100 ? (
-              <Badge variant="success" className="flex items-center gap-1">
-                <CheckCircle className="h-3 w-3" />
-                {passRate.toFixed(0)}%
-              </Badge>
-            ) : passRate !== null && passRate > 0 ? (
-              <Badge variant="warning" className="flex items-center gap-1">
-                {passRate.toFixed(0)}%
-              </Badge>
-            ) : passRate !== null ? (
-              <Badge variant="error" className="flex items-center gap-1">
-                <XCircle className="h-3 w-3" />
-                {passRate.toFixed(0)}%
-              </Badge>
-            ) : (
-              <Badge variant="secondary">N/A</Badge>
-            )}
-          </div>
-        )}
-      </div>
 
-      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-        <span>{evalMeta.sample_count} samples</span>
-        <span>{evalMeta.analyzer_count} analyzers</span>
-        {hasTests && (
-          <span>
-            {evalMeta.tests_passed}/{evalMeta.test_count} tests
-          </span>
+      {/* Main content */}
+      <div
+        className={cn(
+          'relative w-full text-left p-3 rounded-lg cursor-pointer bg-background',
+          'hover:bg-accent',
+          isSelected && 'bg-accent',
+          isDragging ? '' : 'transition-transform duration-200'
         )}
+        style={{ transform: `translateX(-${offsetX}px)` }}
+        onClick={() => offsetX === 0 && onClick()}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium truncate">{evalMeta.name}</p>
+            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              <span>{formatRelativeTime(evalMeta.created_at)}</span>
+            </div>
+          </div>
+          
+          {hasTests && (
+            <div className="flex items-center gap-1">
+              {passRate !== null && passRate >= 100 ? (
+                <Badge variant="success" className="flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3" />
+                  {passRate.toFixed(0)}%
+                </Badge>
+              ) : passRate !== null && passRate > 0 ? (
+                <Badge variant="warning" className="flex items-center gap-1">
+                  {passRate.toFixed(0)}%
+                </Badge>
+              ) : passRate !== null ? (
+                <Badge variant="error" className="flex items-center gap-1">
+                  <XCircle className="h-3 w-3" />
+                  {passRate.toFixed(0)}%
+                </Badge>
+              ) : (
+                <Badge variant="secondary">N/A</Badge>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+          <span>{evalMeta.sample_count} samples</span>
+          <span>{evalMeta.analyzer_count} analyzers</span>
+          {hasTests && (
+            <span>
+              {evalMeta.tests_passed}/{evalMeta.test_count} tests
+            </span>
+          )}
+        </div>
       </div>
-    </button>
+    </div>
   )
 }

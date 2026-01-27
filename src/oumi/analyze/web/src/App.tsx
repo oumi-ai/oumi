@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useEvalList, useEval, useRunAnalysis, useRenameEval } from '@/hooks/useEvals'
+import { useEvalList, useEval, useRunAnalysis, useRenameEval, useDeleteEval } from '@/hooks/useEvals'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { ResultsView } from '@/components/results/ResultsView'
@@ -21,10 +21,24 @@ function App() {
   const { data: evalData, isLoading: evalLoading } = useEval(selectedEvalId)
   const { run, reset, jobStatus } = useRunAnalysis()
   const renameEval = useRenameEval()
+  const deleteEval = useDeleteEval()
 
   const handleRename = (newName: string) => {
     if (selectedEvalId) {
       renameEval.mutate({ evalId: selectedEvalId, newName })
+    }
+  }
+
+  const handleDelete = (evalId?: string) => {
+    const idToDelete = evalId || selectedEvalId
+    if (idToDelete) {
+      deleteEval.mutate(idToDelete, {
+        onSuccess: () => {
+          if (idToDelete === selectedEvalId) {
+            setSelectedEvalId(null)
+          }
+        }
+      })
     }
   }
 
@@ -87,6 +101,7 @@ function App() {
             setSelectedEvalId(id)
             handleCloseWizard()
           }}
+          onDelete={handleDelete}
           isLoading={evalsLoading}
           onNewAnalysis={() => {
             setEditConfig(null)
@@ -111,6 +126,7 @@ function App() {
         evals={evals ?? []}
         selectedId={selectedEvalId}
         onSelect={setSelectedEvalId}
+        onDelete={handleDelete}
         isLoading={evalsLoading}
         onNewAnalysis={() => setShowWizard(true)}
       />
@@ -127,7 +143,7 @@ function App() {
 
         {selectedEvalId && evalData ? (
           <>
-            <Header evalData={evalData} onRename={handleRename}>
+            <Header evalData={evalData} onRename={handleRename} onDelete={() => handleDelete()}>
               <ExportMenu evalData={evalData} />
             </Header>
             <div className="flex-1 overflow-auto p-6">

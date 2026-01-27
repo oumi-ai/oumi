@@ -129,6 +129,38 @@ export function useRenameEval() {
 }
 
 /**
+ * Delete an eval
+ */
+async function deleteEvalApi(evalId: string): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ eval_id: evalId }),
+  })
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || `Failed to delete: ${response.statusText}`)
+  }
+  return response.json()
+}
+
+/**
+ * Hook to delete an eval
+ */
+export function useDeleteEval() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (evalId: string) => deleteEvalApi(evalId),
+    onSuccess: (_, evalId) => {
+      // Refresh evals list and remove the specific eval from cache
+      queryClient.invalidateQueries({ queryKey: ['evals'] })
+      queryClient.removeQueries({ queryKey: ['eval', evalId] })
+    },
+  })
+}
+
+/**
  * Hook to run an analysis and track progress
  */
 export function useRunAnalysis() {
