@@ -146,6 +146,7 @@ gcp = [
 kubernetes = ["skypilot[kubernetes]"]
 lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
+nebius = ["skypilot[nebius]"]
 
 synthesis = [
     "pdftext>=0.6.3; python_version >= '3.10'", # Document ingestion for synthesis
