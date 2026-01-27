@@ -22,6 +22,7 @@ from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
+    MultiTurnAttribute,
     TextMessage,
     TransformationStrategy,
     TransformationType,
@@ -30,6 +31,7 @@ from oumi.core.configs.params.synthesis_params import (
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
 from oumi.core.synthesis.attribute_transformation import AttributeTransformer
+from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
 from oumi.core.synthesis.data_synthesizer import DataSynthesizer
 from oumi.core.synthesis.dataset_planner import DatasetPlanner
 from oumi.core.synthesis.synthesis_pipeline import SynthesisPipeline
@@ -40,6 +42,12 @@ from oumi.core.types.conversation import Role
 def mock_attribute_synthesizer():
     """Create a mock attribute synthesizer."""
     return Mock(spec=AttributeSynthesizer)
+
+
+@pytest.fixture
+def mock_conversation_synthesizer():
+    """Create a mock conversation synthesizer."""
+    return Mock(spec=ConversationSynthesizer)
 
 
 @pytest.fixture
@@ -106,6 +114,46 @@ def synthesis_config_with_transformed_attributes():
 
 
 @pytest.fixture
+def synthesis_config_with_multiturn_attributes():
+    """Create a synthesis config with multi-turn attributes."""
+    multiturn_attribute = MultiTurnAttribute(
+        id="multiturn_conversation",
+        min_turns=2,
+        max_turns=16,
+        turn_order=[Role.USER, Role.ASSISTANT],
+        role_system_prompts={
+            Role.USER: "You are a {customer_type} customer with issue: {issue}",
+            Role.ASSISTANT: "You are a helpful support agent.",
+        },
+        role_turn_instructions={
+            Role.USER: "Respond. This is turn {current_turn} of {target_turns}.",
+            Role.ASSISTANT: "Respond. This is turn {current_turn} of {target_turns}.",
+        },
+        conversation_planner=GeneratedAttribute(
+            id="conversation_plan",
+            instruction_messages=[
+                TextMessage(
+                    role=Role.SYSTEM,
+                    content="You are a conversation planner.",
+                ),
+                TextMessage(
+                    role=Role.USER,
+                    content="Plan a {target_turns}-turn conversation about {issue}.",
+                ),
+            ],
+            postprocessing_params=None,
+        ),
+        output_system_prompt="This is a customer support conversation about {issue}.",
+    )
+    strategy_params = GeneralSynthesisParams(multiturn_attributes=[multiturn_attribute])
+    return SynthesisConfig(
+        num_samples=3,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+
+@pytest.fixture
 def synthesis_config_with_passthrough_attributes():
     """Create a synthesis config with passthrough attributes."""
     strategy_params = GeneralSynthesisParams(passthrough_attributes=["attr1", "attr2"])
@@ -144,7 +192,9 @@ def sample_dataset():
 @patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
 @patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
 @patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")
+@patch("oumi.core.synthesis.synthesis_pipeline.ConversationSynthesizer")
 def test_synthesis_pipeline_initialization_with_generated_attributes(
+    mock_conv_synth,
     mock_attr_synth,
     mock_attr_transformer,
     mock_dataset_planner,
@@ -241,6 +291,55 @@ def test_synthesize_with_generated_attributes(
     # Verify data synthesizer was called
     mock_data_synthesizer.synthesize.assert_called_once_with(sample_dataset)
     assert result == synthesized_dataset
+
+
+@patch("oumi.core.synthesis.synthesis_pipeline.ConversationSynthesizer")
+@patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")
+def test_synthesize_with_multiturn_attributes(
+    mock_attr_synth,
+    mock_attr_transformer_class,
+    mock_dataset_planner_class,
+    mock_conv_synth_class,
+    synthesis_config_with_multiturn_attributes,
+    sample_dataset,
+    mock_dataset_planner,
+    mock_attribute_transformer,
+):
+    """Test synthesis flow with multi-turn attributes."""
+    mock_attr_transformer_class.return_value = mock_attribute_transformer
+    mock_dataset_planner_class.return_value = mock_dataset_planner
+    mock_dataset_planner.plan.return_value = sample_dataset
+
+    multiturn_attr = (
+        synthesis_config_with_multiturn_attributes.strategy_params.multiturn_attributes[
+            0
+        ]
+    )
+    mock_conv_synth = mock_conv_synth_class.return_value
+    mock_conv_synth.synthesize.return_value = [
+        {
+            multiturn_attr.id: {
+                "messages": [{"role": "user", "content": "Hello"}]
+            },
+            multiturn_attr.conversation_planner.id: "Plan",
+        }
+        for _ in sample_dataset
+    ]
+
+    pipeline = SynthesisPipeline(synthesis_config_with_multiturn_attributes)
+    result = pipeline.synthesize()
+
+    mock_conv_synth_class.assert_called_once_with(
+        synthesis_config_with_multiturn_attributes.strategy_params,
+        synthesis_config_with_multiturn_attributes.inference_config,
+    )
+    mock_conv_synth.synthesize.assert_called_once_with(sample_dataset, multiturn_attr)
+    assert all(multiturn_attr.id in item for item in result)
+    assert all(
+        multiturn_attr.conversation_planner.id in item for item in result
+    )
 
 
 @patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
