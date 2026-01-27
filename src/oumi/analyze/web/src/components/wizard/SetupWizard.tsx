@@ -32,7 +32,8 @@ import {
   CheckCircle2,
   XCircle,
   Terminal,
-  X
+  X,
+  Code,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRunAnalysis } from '@/hooks/useEvals'
@@ -93,6 +94,15 @@ const AVAILABLE_ANALYZERS = {
 
 type AnalyzerKey = keyof typeof AVAILABLE_ANALYZERS
 
+interface CustomMetric {
+  id: string
+  scope: string
+  function: string
+  description?: string
+  output_schema?: unknown[]
+  depends_on?: string[]
+}
+
 interface WizardConfig {
   name: string
   datasetPath: string
@@ -102,8 +112,10 @@ interface WizardConfig {
   analyzers: {
     id: string
     type: AnalyzerKey
+    instanceId?: string  // For custom LLM analyzers, stores the original instance_id
     params: Record<string, unknown>
   }[]
+  customMetrics: CustomMetric[]
   tests: {
     id: string
     type: 'threshold' | 'percentage' | 'range'
@@ -113,6 +125,7 @@ interface WizardConfig {
     severity: 'low' | 'medium' | 'high'
     operator?: string
     value?: number
+    condition?: string  // For percentage tests, e.g., '== True'
     minPercentage?: number
     maxPercentage?: number
     minValue?: number
@@ -152,6 +165,7 @@ function parseConfigToWizard(config: Record<string, unknown>): WizardConfig {
     sampleCount: (config.sample_count as number) || 100,
     outputPath: (config.output_path as string) || './analysis_output',
     analyzers: [],
+    customMetrics: [],
     tests: [],
   }
 
@@ -161,26 +175,52 @@ function parseConfigToWizard(config: Record<string, unknown>): WizardConfig {
     wizardConfig.analyzers = analyzers.map((a) => {
       let analyzerType = (a.id as string) || 'length'
       const rawParams = (a.params as Record<string, unknown>) || {}
+      const instanceId = a.instance_id as string | undefined
+      let customInstanceId: string | undefined = undefined
       
-      // For LLM analyzers (id: llm), use instance_id or criteria param as the type
+      // For LLM analyzers (id: llm), determine the analyzer type
       if (analyzerType === 'llm') {
-        const instanceId = a.instance_id as string | undefined
         const criteria = rawParams.criteria as string | undefined
-        analyzerType = instanceId || criteria || 'usefulness'
+        const criteriaName = rawParams.criteria_name as string | undefined
+        const resolvedType = instanceId || criteria || criteriaName || 'usefulness'
+        
+        // Check if it's a known LLM analyzer type
+        const isKnownLlmType = AVAILABLE_ANALYZERS[resolvedType as AnalyzerKey] !== undefined
+        if (isKnownLlmType) {
+          analyzerType = resolvedType
+        } else {
+          // Custom LLM analyzer - use 'usefulness' UI but preserve the custom instance_id
+          analyzerType = 'usefulness'
+          customInstanceId = resolvedType
+        }
       }
       
       // Migrate old param names to new ones
       const params = migrateParams(rawParams)
       
-      // Check if analyzer type is supported, fallback to length
+      // Check if analyzer type is supported
       const isSupported = AVAILABLE_ANALYZERS[analyzerType as AnalyzerKey] !== undefined
       
       return {
         id: analyzerType,
         type: (isSupported ? analyzerType : 'length') as AnalyzerKey,
+        instanceId: customInstanceId,
         params,
       }
     })
+  }
+
+  // Parse custom metrics
+  const customMetrics = config.custom_metrics as Array<Record<string, unknown>> | undefined
+  if (customMetrics && Array.isArray(customMetrics)) {
+    wizardConfig.customMetrics = customMetrics.map((m) => ({
+      id: (m.id as string) || '',
+      scope: (m.scope as string) || 'conversation',
+      function: (m.function as string) || '',
+      description: m.description as string | undefined,
+      output_schema: m.output_schema as unknown[] | undefined,
+      depends_on: m.depends_on as string[] | undefined,
+    }))
   }
 
   // Parse tests
@@ -195,6 +235,7 @@ function parseConfigToWizard(config: Record<string, unknown>): WizardConfig {
       severity: (t.severity as 'low' | 'medium' | 'high') || 'medium',
       operator: t.operator as string | undefined,
       value: t.value as number | undefined,
+      condition: t.condition as string | undefined,
       minPercentage: (t.min_percentage as number) ?? (t.minPercentage as number | undefined),
       maxPercentage: (t.max_percentage as number) ?? (t.maxPercentage as number | undefined),
       minValue: (t.min_value as number) ?? (t.minValue as number | undefined),
@@ -211,6 +252,27 @@ const STEPS = [
   { id: 'tests', title: 'Tests', icon: TestTube },
   { id: 'review', title: 'Review', icon: FileCode },
 ]
+
+/** Format a value for YAML output, handling multiline strings properly */
+function formatYamlValue(key: string, value: unknown, indent: string): string[] {
+  const strValue = String(value)
+  
+  // Check if it's a multiline string
+  if (typeof value === 'string' && strValue.includes('\n')) {
+    const lines = [`${indent}${key}: |`]
+    strValue.split('\n').forEach(line => {
+      lines.push(`${indent}  ${line}`)
+    })
+    return lines
+  }
+  
+  // Check if value needs quoting (contains special chars)
+  if (typeof value === 'string' && /[:#{}[\],&*?|<>=!%@`]/.test(strValue)) {
+    return [`${indent}${key}: "${strValue.replace(/"/g, '\\"')}"`]
+  }
+  
+  return [`${indent}${key}: ${strValue}`]
+}
 
 function generateYaml(config: WizardConfig): string {
   const lines: string[] = []
@@ -237,15 +299,18 @@ function generateYaml(config: WizardConfig): string {
     const isLlmAnalyzer = (LLM_ANALYZER_TYPES as readonly string[]).includes(analyzer.type)
     
     if (isLlmAnalyzer) {
-      // For LLM analyzers, use id: llm with criteria param to ensure correct metric paths
-      // This avoids the issue where UsefulnessAnalyzer etc. override analyzer_id
+      // For LLM analyzers, always use criteria_name - it controls the metric prefix
+      const instanceId = analyzer.instanceId || analyzer.type
       lines.push(`  - id: llm`)
-      lines.push(`    instance_id: ${analyzer.type}`)
+      lines.push(`    instance_id: ${instanceId}`)
       lines.push(`    params:`)
-      lines.push(`      criteria: ${analyzer.type}`)
-      const paramEntries = Object.entries(analyzer.params).filter(([, v]) => v !== undefined && v !== '')
+      lines.push(`      criteria_name: ${instanceId}`)
+      // Filter out criteria/criteria_name since we're already outputting it above
+      const paramEntries = Object.entries(analyzer.params).filter(
+        ([k, v]) => v !== undefined && v !== '' && !['criteria', 'criteria_name'].includes(k)
+      )
       paramEntries.forEach(([key, value]) => {
-        lines.push(`      ${key}: ${value}`)
+        lines.push(...formatYamlValue(key, value, '      '))
       })
     } else {
       // For non-LLM analyzers (like length), use the type directly
@@ -255,12 +320,43 @@ function generateYaml(config: WizardConfig): string {
       if (paramEntries.length > 0) {
         lines.push('    params:')
         paramEntries.forEach(([key, value]) => {
-          lines.push(`      ${key}: ${value}`)
+          lines.push(...formatYamlValue(key, value, '      '))
         })
       }
     }
   })
   lines.push('')
+  
+  // Custom metrics
+  if (config.customMetrics.length > 0) {
+    lines.push('custom_metrics:')
+    config.customMetrics.forEach(metric => {
+      lines.push(`  - id: ${metric.id}`)
+      lines.push(`    scope: ${metric.scope}`)
+      // Use YAML literal block for multiline function
+      lines.push(`    function: |`)
+      metric.function.split('\n').forEach(line => {
+        lines.push(`      ${line}`)
+      })
+      if (metric.description) {
+        lines.push(`    description: "${metric.description}"`)
+      }
+      if (metric.output_schema && metric.output_schema.length > 0) {
+        lines.push(`    output_schema: ${JSON.stringify(metric.output_schema)}`)
+      } else {
+        lines.push(`    output_schema: []`)
+      }
+      if (metric.depends_on && metric.depends_on.length > 0) {
+        lines.push(`    depends_on:`)
+        metric.depends_on.forEach(dep => {
+          lines.push(`      - ${dep}`)
+        })
+      } else {
+        lines.push(`    depends_on: []`)
+      }
+    })
+    lines.push('')
+  }
   
   // Tests
   if (config.tests.length > 0) {
@@ -278,6 +374,9 @@ function generateYaml(config: WizardConfig): string {
         if (test.value !== undefined) lines.push(`    value: ${test.value}`)
         if (test.minPercentage !== undefined) lines.push(`    min_percentage: ${test.minPercentage}`)
       } else if (test.type === 'percentage') {
+        // Percentage tests require a condition - use provided or default to '== True'
+        const condition = test.condition || '== True'
+        lines.push(`    condition: "${condition}"`)
         if (test.minPercentage !== undefined) lines.push(`    min_percentage: ${test.minPercentage}`)
         if (test.maxPercentage !== undefined) lines.push(`    max_percentage: ${test.maxPercentage}`)
       } else if (test.type === 'range') {
@@ -304,6 +403,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
       sampleCount: 100,
       outputPath: './analysis_output',
       analyzers: [],
+      customMetrics: [],
       tests: [],
     }
   })
@@ -399,15 +499,22 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
 
   const getAvailableMetrics = useCallback(() => {
     const metrics: string[] = []
+    // Metrics from analyzers
     config.analyzers.forEach(analyzer => {
       const analyzerDef = AVAILABLE_ANALYZERS[analyzer.type]
+      // Use instanceId for custom LLM analyzers, otherwise use type
+      const metricPrefix = analyzer.instanceId || analyzer.type
       analyzerDef.metrics.forEach(m => {
-        // Use analyzer.type as the prefix since instance_id matches the type
-        metrics.push(`${analyzer.type}.${m}`)
+        metrics.push(`${metricPrefix}.${m}`)
       })
     })
+    // Metrics from custom metrics (use id as prefix + common field names)
+    config.customMetrics.forEach(customMetric => {
+      // Add the custom metric id as a prefix for common patterns
+      metrics.push(`${customMetric.id}.*`)
+    })
     return metrics
-  }, [config.analyzers])
+  }, [config.analyzers, config.customMetrics])
 
   const handleRunAnalysis = useCallback(() => {
     const yaml = generateYaml(config)
@@ -578,14 +685,18 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
             <div className="space-y-4">
               {config.analyzers.map((analyzer, index) => {
                 const analyzerDef = AVAILABLE_ANALYZERS[analyzer.type]
+                const displayName = analyzer.instanceId 
+                  ? `Custom LLM: ${analyzer.instanceId}` 
+                  : analyzerDef.name
+                const metricPrefix = analyzer.instanceId || analyzer.type
                 return (
                   <Card key={index}>
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div>
-                          <h5 className="font-medium">{analyzerDef.name}</h5>
+                          <h5 className="font-medium">{displayName}</h5>
                           <p className="text-xs text-muted-foreground">
-                            Metrics: {analyzerDef.metrics.join(', ')}
+                            Metrics: {analyzerDef.metrics.map(m => `${metricPrefix}.${m}`).join(', ')}
                           </p>
                         </div>
                         <Button
@@ -875,6 +986,47 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
             <p className="text-sm">Tests help validate your analysis results automatically.</p>
           </div>
         )}
+
+        {/* Custom Metrics (read-only display) */}
+        {config.customMetrics.length > 0 && (
+          <>
+            <Separator className="my-6" />
+            <div>
+              <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
+                <Code className="h-5 w-5 text-orange-500" />
+                Custom Metrics
+                <Badge variant="secondary" className="ml-2">{config.customMetrics.length}</Badge>
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                These custom metrics are defined in your config and will be preserved.
+                Edit them directly in the YAML/JSON config if needed.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {config.customMetrics.map((metric, index) => (
+                <Card key={index} className="bg-muted/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{metric.id}</Badge>
+                        <span className="text-xs text-muted-foreground">scope: {metric.scope}</span>
+                      </div>
+                      {metric.depends_on && metric.depends_on.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          depends on: {metric.depends_on.join(', ')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs font-mono bg-background p-2 rounded max-h-24 overflow-auto">
+                      <pre className="whitespace-pre-wrap">{metric.function.slice(0, 200)}{metric.function.length > 200 ? '...' : ''}</pre>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     )
   }
@@ -891,7 +1043,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className={cn("grid gap-4", config.customMetrics.length > 0 ? "grid-cols-4" : "grid-cols-3")}>
           <Card>
             <CardContent className="p-4 text-center">
               <Database className="h-8 w-8 mx-auto mb-2 text-blue-500" />
@@ -910,6 +1062,17 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
               </p>
             </CardContent>
           </Card>
+          {config.customMetrics.length > 0 && (
+            <Card>
+              <CardContent className="p-4 text-center">
+                <Code className="h-8 w-8 mx-auto mb-2 text-orange-500" />
+                <p className="text-sm font-medium">Custom Metrics</p>
+                <p className="text-xs text-muted-foreground">
+                  {config.customMetrics.length} defined
+                </p>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardContent className="p-4 text-center">
               <TestTube className="h-8 w-8 mx-auto mb-2 text-purple-500" />
