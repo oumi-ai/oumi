@@ -24,11 +24,9 @@ from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
-    GeneratedAttribute,
     MultiTurnAttribute,
     SampledAttribute,
     SampledAttributeValue,
-    TextMessage,
 )
 from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -81,28 +79,11 @@ def mock_multiturn_attribute():
         min_turns=2,
         max_turns=16,
         turn_order=[Role.USER, Role.ASSISTANT],
-        role_system_prompts={
-            Role.USER: "You are a {customer_type} customer with issue: {issue}",
+        role_instruction_messages={
+            Role.USER: "You are a {customer_type} customer with issue: {issue}.",
             Role.ASSISTANT: "You are a helpful support agent.",
         },
-        role_turn_instructions={
-            Role.USER: "Respond. This is turn {current_turn} of {target_turns}.",
-            Role.ASSISTANT: "Respond. This is turn {current_turn} of {target_turns}.",
-        },
-        conversation_planner=GeneratedAttribute(
-            id="conversation_plan",
-            instruction_messages=[
-                TextMessage(
-                    role=Role.SYSTEM,
-                    content="You are a conversation planner.",
-                ),
-                TextMessage(
-                    role=Role.USER,
-                    content="Plan a {target_turns}-turn conversation about {issue}.",
-                ),
-            ],
-            postprocessing_params=None,
-        ),
+        conversation_planner="Plan a {target_turns}-turn conversation about {issue}.",
         output_system_prompt="This is a customer support conversation about {issue}.",
     )
 
@@ -199,13 +180,13 @@ def test_output_system_prompt_prepended_to_conversation(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_conversation_planner_id_used_as_output_key(
+def test_conversation_plan_used_as_output_key(
     mock_build_inference_engine,
     mock_general_synthesis_params,
     mock_multiturn_attribute,
     mock_inference_config,
 ):
-    """Test that conversation_planner.id is used as the key for the plan in output."""
+    """Test that conversation_plan is used as the key for the plan in output."""
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
     mock_inference_engine.infer.return_value = [
@@ -221,7 +202,7 @@ def test_conversation_planner_id_used_as_output_key(
     result = synthesizer.synthesize(samples, mock_multiturn_attribute)
 
     assert len(result) == 1
-    # The fixture's conversation_planner has id="conversation_plan"
+    # Plan should always be returned under the fixed key.
     assert "conversation_plan" in result[0]
 
 
@@ -230,7 +211,7 @@ def test_synthesize_without_conversation_planner(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """Test that synthesize works without a conversation planner."""
+    """Test that synthesize works without a user planner override."""
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
     mock_inference_engine.infer.return_value = [
@@ -241,9 +222,9 @@ def test_synthesize_without_conversation_planner(
         id="test_conversation",
         min_turns=2,
         max_turns=2,
-        role_turn_instructions={
-            Role.USER: "Turn {current_turn}",
-            Role.ASSISTANT: "Turn {current_turn}",
+        role_instruction_messages={
+            Role.USER: "You are a user in a conversation.",
+            Role.ASSISTANT: "You are an assistant in a conversation.",
         },
     )
 
@@ -255,7 +236,7 @@ def test_synthesize_without_conversation_planner(
     result = synthesizer.synthesize([{}], multiturn_attr)
 
     assert len(result) == 1
-    assert "conversation_plan" not in result[0]
+    assert "conversation_plan" in result[0]
     assert multiturn_attr.id in result[0]
 
 
@@ -276,9 +257,9 @@ def test_default_turn_order_is_user_then_assistant(
         min_turns=2,
         max_turns=2,
         # turn_order not specified - should default to [USER, ASSISTANT]
-        role_turn_instructions={
-            Role.USER: "Turn {current_turn}",
-            Role.ASSISTANT: "Turn {current_turn}",
+        role_instruction_messages={
+            Role.USER: "You are a user",
+            Role.ASSISTANT: "You are an assistant",
         },
     )
 
@@ -315,9 +296,9 @@ def test_custom_turn_order_assistant_first(
         min_turns=2,
         max_turns=2,
         turn_order=[Role.ASSISTANT, Role.USER],
-        role_turn_instructions={
-            Role.USER: "Turn {current_turn}",
-            Role.ASSISTANT: "Turn {current_turn}",
+        role_instruction_messages={
+            Role.USER: "You are a user",
+            Role.ASSISTANT: "You are an assistant",
         },
     )
 
@@ -338,7 +319,7 @@ def test_custom_turn_order_assistant_first(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_format_instructions_replaces_placeholders(
+def test_format_persona_replaces_placeholders(
     mock_build_inference_engine,
     mock_general_synthesis_params,
     mock_multiturn_attribute,
@@ -352,15 +333,78 @@ def test_format_instructions_replaces_placeholders(
         mock_inference_config,
     )
 
-    sample = {"target_turns": 5, "issue": "billing"}
-    result = synthesizer._format_instructions(
+    sample = {"customer_type": "frustrated", "issue": "billing"}
+    result = synthesizer._format_persona(
         sample,
-        mock_multiturn_attribute.conversation_planner.instruction_messages,
+        "You are a {customer_type} customer with issue: {issue}.",
+        Role.USER,
     )
 
-    assert isinstance(result, Conversation)
-    assert len(result.messages) == 2
-    assert result.messages[0].role == Role.SYSTEM
-    assert result.messages[0].content == "You are a conversation planner."
-    assert result.messages[1].role == Role.USER
-    assert result.messages[1].content == "Plan a 5-turn conversation about billing."
+    assert isinstance(result, Message)
+    assert result.role == Role.SYSTEM
+    assert result.content == "You are a frustrated customer with issue: billing."
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_role_context_formats_personas(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _build_role_context formats personas with sample values."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a {customer_type} customer.",
+            Role.ASSISTANT: "You are a helpful agent.",
+        },
+    )
+
+    sample = {"customer_type": "frustrated"}
+    result = synthesizer._build_role_context(sample, multiturn_attr)
+
+    assert "[USER]" in result
+    assert "You are a frustrated customer." in result
+    assert "[ASSISTANT]" in result
+    assert "You are a helpful agent." in result
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_planner_prompt_includes_role_context(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that planner prompt includes formatted role context."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a {customer_type} customer.",
+            Role.ASSISTANT: "You are a helpful agent.",
+        },
+    )
+
+    sample = {"customer_type": "frustrated", "target_turns": 4}
+
+    planner = synthesizer._create_planner_prompt(multiturn_attr, sample)
+
+    user_message = planner.messages[1].content
+    assert "Role context:" in user_message
+    assert "You are a frustrated customer." in user_message
+    assert "You are a helpful agent." in user_message

@@ -462,7 +462,7 @@ class MultiTurnAttribute:
     max_turns: int
     """Maximum number of turns (messages) allowed for the attribute."""
 
-    role_turn_instructions: dict[Role, str]
+    role_instruction_messages: dict[Role, str]
     """Per-role instruction template for generating a turn."""
 
     turn_order: list[Role] | None = None
@@ -470,48 +470,73 @@ class MultiTurnAttribute:
 
     Defaults to [Role.USER, Role.ASSISTANT] if not specified."""
 
-    role_system_prompts: dict[Role, str] | None = None
-    """Per-role system prompts to prepend during generation."""
-
     output_system_prompt: str | None = None
     """System prompt prepended to the final output conversation."""
 
-    conversation_planner: GeneratedAttribute | None = None
+    conversation_planner: str | None = None
     """Optional planner for generating a conversation plan before turn generation.
 
-    When provided, the planner generates a plan that is injected into the sample
-    context as {conversation_planner.id}. The plan can be referenced in persona
-    prompts and turn instructions to guide the conversation flow.
-
-    The planner also has access to {target_turns} to know the conversation length."""
+    Allows user to specify custom instructions for the planner while planning
+    out the conversation."""
 
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
             raise ValueError("MultiTurnAttribute.id cannot be empty.")
+        if self.role_instruction_messages:
+            normalized_role_messages: dict[Role, str] = {}
+            for role_key, persona in self.role_instruction_messages.items():
+                if isinstance(role_key, Role):
+                    normalized_role = role_key
+                elif isinstance(role_key, str):
+                    try:
+                        normalized_role = Role[role_key.upper()]
+                    except KeyError:
+                        try:
+                            normalized_role = Role(role_key)
+                        except ValueError as exc:
+                            raise ValueError(
+                                "MultiTurnAttribute.role_instruction_messages contains "
+                                f"unknown role: {role_key}"
+                            ) from exc
+                else:
+                    raise ValueError(
+                        "MultiTurnAttribute.role_instruction_messages keys must be "
+                        "Role or str values."
+                    )
+
+                if not isinstance(persona, str):
+                    raise ValueError(
+                        "MultiTurnAttribute.role_instruction_messages values must "
+                        "be strings."
+                    )
+
+                normalized_role_messages[normalized_role] = persona
+
+            self.role_instruction_messages = normalized_role_messages
         if self.min_turns < 1:
             raise ValueError("MultiTurnAttribute.min_turns must be at least 1.")
         if self.max_turns is not None and self.max_turns < self.min_turns:
             raise ValueError(
                 "MultiTurnAttribute.max_turns must be greater than min_turns."
             )
-        if self.role_system_prompts is not None:
-            if not isinstance(self.role_system_prompts, dict):
+        if not self.role_instruction_messages:
+            raise ValueError(
+                "MultiTurnAttribute.role_instruction_messages cannot be empty."
+            )
+
+        turn_order = self.turn_order or [Role.USER, Role.ASSISTANT]
+        for role in turn_order:
+            if role not in self.role_instruction_messages:
                 raise ValueError(
-                    "MultiTurnAttribute.role_system_prompts must be a dict."
+                    "MultiTurnAttribute.role_instruction_messages must define "
+                    f"instructions for role: {role}"
                 )
-            if any(
-                not isinstance(role, Role) for role in self.role_system_prompts.keys()
-            ):
+            if not self.role_instruction_messages[role]:
                 raise ValueError(
-                    "MultiTurnAttribute.role_system_prompts keys must be Role values."
+                    "MultiTurnAttribute.role_instruction_messages must include "
+                    f"a non-empty persona for role: {role}"
                 )
-            for prompt in self.role_system_prompts.values():
-                if not isinstance(prompt, str) or not prompt:
-                    raise ValueError(
-                        "MultiTurnAttribute.role_system_prompts must use non-empty "
-                        "strings."
-                    )
         if self.output_system_prompt is not None:
             if (
                 not isinstance(self.output_system_prompt, str)
@@ -520,47 +545,6 @@ class MultiTurnAttribute:
                 raise ValueError(
                     "MultiTurnAttribute.output_system_prompt must be a non-empty "
                     "string."
-                )
-        if not self.role_turn_instructions:
-            raise ValueError(
-                "MultiTurnAttribute.role_turn_instructions cannot be empty."
-            )
-        if any(not isinstance(role, Role) for role in self.role_turn_instructions):
-            raise ValueError(
-                "MultiTurnAttribute.role_turn_instructions keys must be Role values."
-            )
-        for instruction in self.role_turn_instructions.values():
-            if not isinstance(instruction, str) or not instruction:
-                raise ValueError(
-                    "MultiTurnAttribute.role_turn_instructions must be non-empty "
-                    "strings."
-                )
-        if self.turn_order is not None:
-            if not self.turn_order:
-                raise ValueError("MultiTurnAttribute.turn_order cannot be empty.")
-            if any(not isinstance(role, Role) for role in self.turn_order):
-                raise ValueError("MultiTurnAttribute.turn_order must use Role values.")
-            invalid_roles = [
-                role
-                for role in self.turn_order
-                if role not in self.role_turn_instructions
-            ]
-            if invalid_roles:
-                raise ValueError(
-                    "MultiTurnAttribute.role_turn_instructions must define a template "
-                    "for every role in turn_order."
-                )
-        else:
-            default_roles = {Role.USER, Role.ASSISTANT}
-            missing_default_roles = [
-                role
-                for role in default_roles
-                if role not in self.role_turn_instructions
-            ]
-            if missing_default_roles:
-                raise ValueError(
-                    "MultiTurnAttribute.role_turn_instructions must define templates "
-                    "for Role.USER and Role.ASSISTANT when turn_order is omitted."
                 )
 
 
@@ -814,6 +798,11 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_attribute_ids(self, attribute_ids: set[str], id: str):
         """Check if the attribute ID is already in the set."""
+        if id == "conversation_plan":
+            raise ValueError(
+                "GeneralSynthesisParams does not allow 'conversation_plan' "
+                "as an attribute ID because it is reserved for multiturn planning."
+            )
         if id in attribute_ids:
             raise ValueError(
                 f"GeneralSynthesisParams contains duplicate attribute IDs: {id}"
@@ -919,9 +908,6 @@ class GeneralSynthesisParams(BaseParams):
         for multiturn_attribute in self.multiturn_attributes:
             attribute_id = multiturn_attribute.id
             self._check_attribute_ids(all_attribute_ids, attribute_id)
-            if multiturn_attribute.conversation_planner:
-                planner_id = multiturn_attribute.conversation_planner.id
-                self._check_attribute_ids(all_attribute_ids, planner_id)
 
     def _check_combination_sampling_sample_rates(self) -> None:
         """Validate that the combination sample rates are <= 1.0."""

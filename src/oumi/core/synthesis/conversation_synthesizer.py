@@ -20,7 +20,6 @@ from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
-    TextMessage,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -77,18 +76,12 @@ class ConversationSynthesizer:
         )
 
         records: list[dict[str, dict | str]] = []
-        planner_id = (
-            multiturn_attributes.conversation_planner.id
-            if multiturn_attributes.conversation_planner
-            else None
-        )
         for sample in samples:
             conversation, plan = self._synthesize_sample(sample, multiturn_attributes)
             record: dict[str, dict | str] = {
-                multiturn_attributes.id: conversation.to_dict()
+                multiturn_attributes.id: conversation.to_dict(),
+                "conversation_plan": plan,
             }
-            if plan and planner_id:
-                record[planner_id] = plan
             records.append(record)
 
         return records
@@ -109,55 +102,103 @@ class ConversationSynthesizer:
             for inference_result in inference_conversations
         ]
 
-    def _format_instructions(
-        self,
-        sample: dict,
-        instruction_messages: list[TextMessage],
-    ) -> Conversation:
-        """Format the instructions for the sample."""
-        new_messages = []
-        for turn in instruction_messages:
-            if not isinstance(turn.content, str):
-                new_messages.append(turn)
-                continue
-
-            formatted_content = self._formatter.format(
-                sample,
-                turn.content,
-                missing_values_allowed=False,
-            )
-            new_message = Message(
-                role=turn.role,
-                content=formatted_content,
-            )
-            new_messages.append(new_message)
-
-        return Conversation(messages=new_messages)
-
-    def _generate_plan(
-        self,
-        sample: dict,
-        multiturn_attribute: MultiTurnAttribute,
-    ) -> str:
-        """Generate a plan for how the conversation should proceed.
+    def _format_persona(self, sample: dict, persona: str, role: Role) -> Message:
+        """Format the persona for the sample.
 
         Args:
-            sample: The sample dict containing attributes (including target_turns).
-            multiturn_attribute: The multi-turn attribute with conversation_planner.
+            sample: The sample dict containing all attributes.
+            persona: The persona string to format.
+            role: The role for this persona.
 
         Returns:
-            The generated conversation plan as a string, or empty string if no planner.
+            A Message with the formatted persona as a SYSTEM message.
         """
-        if not multiturn_attribute.conversation_planner:
-            return ""
+        formatted_content = self._formatter.format(
+            sample,
+            persona,
+            missing_values_allowed=False,
+        )
+        return Message(
+            role=Role.SYSTEM,
+            content=formatted_content,
+        )
+
+    def _build_role_context(
+        self, sample: dict, multiturn_attribute: MultiTurnAttribute
+    ) -> str:
+        """Build formatted role context for the planner.
+
+        Formats the persona strings for each role.
+        The returned string has curly braces escaped ({{ and }}) so it can be
+        safely embedded in another template without causing format errors.
+        """
+        parts = []
+        for role, persona in multiturn_attribute.role_instruction_messages.items():
+            formatted = self._formatter.format(
+                sample, persona, missing_values_allowed=False
+            )
+            parts.append(f"[{role.value.upper()}]\n{formatted}")
+
+        result = "\n\n".join(parts)
+        return result.replace("{", "{{").replace("}", "}}")
+
+    def _create_planner_prompt(
+        self, multiturn_attribute: MultiTurnAttribute, sample: dict
+    ) -> Conversation:
+        """Create the planner prompt template with role context.
+
+        Returns a Conversation.
+        """
+        role_context = self._build_role_context(sample, multiturn_attribute)
+
+        base_prompt = (
+            "Plan a {target_turns}-turn conversation. "
+            "Create a turn-by-turn plan. Format each turn as: "
+            "Turn N: [USER/ASSISTANT] Brief description of what happens. "
+            "Guidelines: "
+            "- Ensure the conversation flows naturally and logically. "
+            "- Each turn should build on or respond to the previous turn. "
+            "- Pace the conversation for {target_turns} turns. "
+            "- Focus on the purpose of each turn, not exact wording. "
+        )
+
+        if role_context:
+            base_prompt += f"\n\nRole context:\n{role_context}"
+
+        if multiturn_attribute.conversation_planner:
+            base_prompt += (
+                "\n\nAdditional instructions: "
+                f"{multiturn_attribute.conversation_planner}"
+            )
+
+        base_prompt += "\n\nOutput only the plan, nothing else."
+
+        return Conversation(
+            messages=[
+                Message(
+                    role=Role.SYSTEM,
+                    content=(
+                        "You are a conversation planner. Create conversation outlines "
+                        "that flow logically from start to finish."
+                    ),
+                ),
+                Message(role=Role.USER, content=base_prompt),
+            ],
+        )
+
+    def _generate_plan(self, sample: dict, planner: Conversation) -> str:
+        """Generate a plan for how the conversation should proceed."""
+        new_messages = []
+        for msg in planner.messages:
+            if isinstance(msg.content, str):
+                formatted = self._formatter.format(sample, msg.content)
+                new_messages.append(Message(role=msg.role, content=formatted))
+            else:
+                new_messages.append(msg)
+        formatted_planner = Conversation(messages=new_messages)
 
         inference_results = self._inference_engine.infer(
-            [
-                self._format_instructions(
-                    sample,
-                    multiturn_attribute.conversation_planner.instruction_messages,
-                )
-            ],
+            [formatted_planner],
             inference_config=self._inference_config,
         )
 
@@ -185,29 +226,28 @@ class ConversationSynthesizer:
 
         sample_with_context = {**sample, "target_turns": target_turns}
 
-        plan = self._generate_plan(sample_with_context, multiturn_attribute)
-        if multiturn_attribute.conversation_planner:
-            planner_id = multiturn_attribute.conversation_planner.id
-            sample_with_context[planner_id] = plan
+        planner = self._create_planner_prompt(multiturn_attribute, sample_with_context)
+        plan = self._generate_plan(sample_with_context, planner)
+        sample_with_context["conversation_plan"] = plan
 
         for turn_idx in range(target_turns):
             sample_with_context["current_turn"] = turn_idx + 1
 
             role = turn_order[turn_idx % len(turn_order)]
             prompt_messages: list[Message] = []
-            role_prompt = self._role_system_message(
-                sample_with_context, multiturn_attribute, role
-            )
-            if role_prompt:
-                prompt_messages.append(role_prompt)
+
+            persona = multiturn_attribute.role_instruction_messages[role]
+            formatted_persona = self._format_persona(sample_with_context, persona, role)
+            prompt_messages.append(formatted_persona)
+
+            # Add conversation history
             prompt_messages.extend(history)
 
-            instruction = multiturn_attribute.role_turn_instructions[role]
-            instruction_msg = self._format_turn_instruction(
-                sample_with_context, instruction
+            turn_info = (
+                f"You are now on turn {sample_with_context['current_turn']} "
+                f"of {target_turns}. Generate your response for this turn."
             )
-            prompt_messages.append(instruction_msg)
-
+            prompt_messages.append(Message(role=Role.USER, content=turn_info))
             inference_results = self._inference_engine.infer(
                 [Conversation(messages=prompt_messages)],
                 inference_config=self._inference_config,
@@ -246,14 +286,6 @@ class ConversationSynthesizer:
                 return turn_count
         return target_turns
 
-    def _format_turn_instruction(self, sample: dict, instruction: str) -> Message:
-        formatted_content = self._formatter.format(
-            sample,
-            instruction,
-            missing_values_allowed=False,
-        )
-        return Message(role=Role.USER, content=formatted_content.strip())
-
     def _format_output_system_message(
         self,
         sample: dict,
@@ -264,23 +296,5 @@ class ConversationSynthesizer:
         formatted_content = self._formatter.format(
             sample,
             system_message,
-            missing_values_allowed=False,
         )
         return Message(role=Role.SYSTEM, content=formatted_content.strip())
-
-    def _role_system_message(
-        self,
-        sample: dict,
-        multiturn_attribute: MultiTurnAttribute,
-        role: Role,
-    ) -> Message | None:
-        role_prompts = multiturn_attribute.role_system_prompts or {}
-        system_prompt = role_prompts.get(role)
-        if system_prompt is None:
-            return None
-        formatted_prompt = self._formatter.format(
-            sample,
-            system_prompt,
-            missing_values_allowed=False,
-        )
-        return Message(role=Role.SYSTEM, content=formatted_prompt.strip())

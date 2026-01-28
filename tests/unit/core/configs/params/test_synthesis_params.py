@@ -440,77 +440,85 @@ def test_generated_attribute_invalid():
         )
 
 
-def test_multiturn_attribute_requires_default_roles_when_turn_order_missing():
+def test_multiturn_attribute_invalid_min_turns():
+    with pytest.raises(
+        ValueError, match="MultiTurnAttribute.min_turns must be at least 1."
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=0,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+        )
+
+
+def test_multiturn_attribute_invalid_max_turns():
+    with pytest.raises(
+        ValueError,
+        match="MultiTurnAttribute.max_turns must be greater than min_turns.",
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=2,
+            max_turns=1,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+        )
+
+
+def test_multiturn_attribute_invalid_output_system_prompt():
+    with pytest.raises(
+        ValueError,
+        match="MultiTurnAttribute.output_system_prompt must be a non-empty string.",
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+            output_system_prompt="",
+        )
+
+
+def test_multiturn_attribute_missing_role_instructions():
+    with pytest.raises(
+        ValueError,
+        match="MultiTurnAttribute.role_instruction_messages must define instructions",
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+            },
+        )
+
+
+def test_multiturn_attribute_empty_role_instructions():
     with pytest.raises(
         ValueError,
         match=(
-            "MultiTurnAttribute.role_turn_instructions must define templates "
-            "for Role.USER and Role.ASSISTANT when turn_order is omitted."
+            "MultiTurnAttribute.role_instruction_messages must include a "
+            "non-empty persona"
         ),
     ):
         MultiTurnAttribute(
             id="conversation",
             min_turns=1,
             max_turns=2,
-            role_turn_instructions={Role.USER: "Turn {current_turn}"},
-        )
-
-
-def test_multiturn_attribute_id_collision_with_conversation_planner():
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams contains duplicate attribute IDs"
-    ):
-        GeneralSynthesisParams(
-            multiturn_attributes=[
-                MultiTurnAttribute(
-                    id="conversation",
-                    min_turns=1,
-                    max_turns=2,
-                    role_turn_instructions={
-                        Role.USER: "Turn {current_turn}",
-                        Role.ASSISTANT: "Turn {current_turn}",
-                    },
-                    conversation_planner=GeneratedAttribute(
-                        id="conversation",
-                        instruction_messages=[
-                            TextMessage(role=Role.SYSTEM, content="Plan it."),
-                        ],
-                    ),
-                )
-            ]
-        )
-
-
-def test_multiturn_attribute_planner_id_collision_with_generated_attribute():
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams contains duplicate attribute IDs"
-    ):
-        GeneralSynthesisParams(
-            generated_attributes=[
-                GeneratedAttribute(
-                    id="conversation_plan",
-                    instruction_messages=[
-                        TextMessage(role=Role.SYSTEM, content="System message"),
-                    ],
-                )
-            ],
-            multiturn_attributes=[
-                MultiTurnAttribute(
-                    id="conversation",
-                    min_turns=1,
-                    max_turns=2,
-                    role_turn_instructions={
-                        Role.USER: "Turn {current_turn}",
-                        Role.ASSISTANT: "Turn {current_turn}",
-                    },
-                    conversation_planner=GeneratedAttribute(
-                        id="conversation_plan",
-                        instruction_messages=[
-                            TextMessage(role=Role.SYSTEM, content="Plan it."),
-                        ],
-                    ),
-                )
-            ],
+            role_instruction_messages={
+                Role.USER: "",
+                Role.ASSISTANT: "You are an assistant.",
+            },
         )
 
 
@@ -666,6 +674,18 @@ def test_general_synthesis_params_valid():
                 ],
             )
         ],
+        multiturn_attributes=[
+            MultiTurnAttribute(
+                id="conversation",
+                min_turns=1,
+                max_turns=2,
+                role_instruction_messages={
+                    Role.USER: "You are a user. Turn {current_turn}",
+                    Role.ASSISTANT: "You are an assistant. Turn {current_turn}",
+                },
+                conversation_planner="Plan a {target_turns}-turn conversation.",
+            )
+        ],
         transformed_attributes=[
             TransformedAttribute(
                 id="trans1",
@@ -749,6 +769,24 @@ def test_general_synthesis_params_invalid():
             input_data=[
                 DatasetSource(path="data1.jsonl", attribute_map={"attr1": "new_attr1"}),
                 DatasetSource(path="data2.jsonl", attribute_map={"attr1": "new_attr1"}),
+            ]
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "GeneralSynthesisParams does not allow 'conversation_plan' as an "
+            "attribute ID"
+        ),
+    ):
+        GeneralSynthesisParams(
+            generated_attributes=[
+                GeneratedAttribute(
+                    id="conversation_plan",
+                    instruction_messages=[
+                        TextMessage(role=Role.SYSTEM, content="System message"),
+                    ],
+                )
             ]
         )
 

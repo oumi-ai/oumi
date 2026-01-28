@@ -121,28 +121,11 @@ def synthesis_config_with_multiturn_attributes():
         min_turns=2,
         max_turns=16,
         turn_order=[Role.USER, Role.ASSISTANT],
-        role_system_prompts={
-            Role.USER: "You are a {customer_type} customer with issue: {issue}",
+        role_instruction_messages={
+            Role.USER: "You are a {customer_type} customer with issue: {issue}.",
             Role.ASSISTANT: "You are a helpful support agent.",
         },
-        role_turn_instructions={
-            Role.USER: "Respond. This is turn {current_turn} of {target_turns}.",
-            Role.ASSISTANT: "Respond. This is turn {current_turn} of {target_turns}.",
-        },
-        conversation_planner=GeneratedAttribute(
-            id="conversation_plan",
-            instruction_messages=[
-                TextMessage(
-                    role=Role.SYSTEM,
-                    content="You are a conversation planner.",
-                ),
-                TextMessage(
-                    role=Role.USER,
-                    content="Plan a {target_turns}-turn conversation about {issue}.",
-                ),
-            ],
-            postprocessing_params=None,
-        ),
+        conversation_planner="Plan a {target_turns}-turn conversation about {issue}.",
         output_system_prompt="This is a customer support conversation about {issue}.",
     )
     strategy_params = GeneralSynthesisParams(multiturn_attributes=[multiturn_attribute])
@@ -321,7 +304,7 @@ def test_synthesize_with_multiturn_attributes(
     mock_conv_synth.synthesize.return_value = [
         {
             multiturn_attr.id: {"messages": [{"role": "user", "content": "Hello"}]},
-            multiturn_attr.conversation_planner.id: "Plan",
+            "conversation_plan": "Plan",
         }
         for _ in sample_dataset
     ]
@@ -335,7 +318,7 @@ def test_synthesize_with_multiturn_attributes(
     )
     mock_conv_synth.synthesize.assert_called_once_with(sample_dataset, multiturn_attr)
     assert all(multiturn_attr.id in item for item in result)
-    assert all(multiturn_attr.conversation_planner.id in item for item in result)
+    assert all("conversation_plan" in item for item in result)
 
 
 @patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
