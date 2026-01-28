@@ -28,6 +28,7 @@ function App() {
   const [wizardInitialStep, setWizardInitialStep] = useState(0)
   const [isRunningFromConfig, setIsRunningFromConfig] = useState(false)
   const [showCopiedDialog, setShowCopiedDialog] = useState(false)
+  const [activeTab, setActiveTab] = useState('results')
   const { data: evals, isLoading: evalsLoading, refetch } = useEvalList()
   const { data: evalData, isLoading: evalLoading } = useEval(selectedEvalId)
   const { run, runTestsOnlyCached, reset, jobStatus } = useRunAnalysis()
@@ -308,7 +309,10 @@ function App() {
       <Sidebar
         evals={evals ?? []}
         selectedId={selectedEvalId}
-        onSelect={setSelectedEvalId}
+        onSelect={(id) => {
+          setSelectedEvalId(id)
+          setActiveTab('results')  // Always show results tab when selecting an eval
+        }}
         onDelete={handleDelete}
         isLoading={evalsLoading}
         onNewAnalysis={() => setShowWizard(true)}
@@ -331,7 +335,7 @@ function App() {
               <ExportMenu evalData={evalData} />
             </Header>
             <div className="flex-1 overflow-auto p-6">
-              <Tabs defaultValue="results" className="w-full">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="mb-4">
                   <TabsTrigger value="results" className="gap-2">
                     <TestTube className="h-4 w-4" />
