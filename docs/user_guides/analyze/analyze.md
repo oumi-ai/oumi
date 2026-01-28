@@ -6,6 +6,7 @@
 :hidden:
 
 analyze_config
+typed_analyzer_runbook
 ```
 
 Oumi's dataset analysis framework helps you understand training data before and after fine-tuning. Compute metrics, identify outliers, compare datasets, and create filtered subsets.

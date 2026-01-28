@@ -19,9 +19,12 @@
 #   list_metrics("LengthAnalyzer")  # Shows specific analyzer
 
 # Dataset configuration
-dataset_path: "/Users/ryanarman/data/openassistant/openassistant_oasst1.jsonl"
+# Option 1: Use a public HuggingFace dataset (recommended for testing)
+dataset_name: argilla/databricks-dolly-15k-curated-en
+# Option 2: Use a local file (uncomment and set path)
+# dataset_path: "/path/to/your/dataset.jsonl"
 split: train
-sample_count: 1000 # Limit to 10 samples for quick testing
+sample_count: 100  # Analyze 100 samples for testing
 
 # Output configuration
 output_path: ./analysis_output/typed_length_test

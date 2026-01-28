@@ -4,14 +4,19 @@
 # 1. Rule-based accuracy check: Does assistant response match ground truth label?
 # 2. LLM quality assessment: Is the user query clear and suitable for SFT training?
 #
+# NOTE: This example requires the Banking77 dataset. You can:
+# 1. Download from HuggingFace: datasets.load_dataset("PolyAI/banking77")
+# 2. Convert to JSONL with messages format
+# 3. Update the dataset_path below
+#
 # Usage:
 #   oumi analyze --config configs/examples/analyze/typed_banking77_classification.yaml --typed
 #
 # This is a TRAINING dataset - the assistant responses should match ground truth 100%.
 # We also evaluate query quality to identify potentially confusing examples.
 
-# dataset_path: "/Users/ryanarman/code/scratch/ryan_hillclimbing_experiments/banking77/notebooks/data/banking77_train.jsonl" # train set
-dataset_path: "/Users/ryanarman/code/scratch/ryan_hillclimbing_experiments/banking77/notebooks/data/full_fft_results_3304.jsonl" # test inference results
+# Update this path to your Banking77 dataset
+dataset_path: "/path/to/your/banking77_dataset.jsonl"
 sample_count: 100 # Start small for testing (increase for real evaluation)
 output_path: ./analysis_output/banking77_classification
 

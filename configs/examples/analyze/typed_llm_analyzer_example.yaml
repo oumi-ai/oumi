@@ -28,9 +28,12 @@
 #   - enum: Categorical labels
 
 # Dataset configuration
-dataset_path: "/Users/ryanarman/data/openassistant/openassistant_oasst1.jsonl"
+# Option 1: Use a public HuggingFace dataset (recommended for testing)
+dataset_name: argilla/databricks-dolly-15k-curated-en
+# Option 2: Use a local file (uncomment and set path)
+# dataset_path: "/path/to/your/dataset.jsonl"
 split: train
-sample_count: 5  # Small sample since we have many LLM calls
+sample_count: 5  # Small sample since we have many LLM calls (keep low to save API costs)
 
 # Output configuration
 output_path: ./analysis_output/llm_analyzer_demo

@@ -1,0 +1,140 @@
+# Quick Start Configuration for Typed Analyzer Framework
+# =========================================================
+#
+# This config uses a public HuggingFace dataset so anyone can run it
+# without needing local data files.
+#
+# INSTALLATION:
+#   pip install -e ".[analyze]"
+#
+# USAGE:
+#   # Basic run (no API key needed)
+#   oumi analyze --config configs/examples/analyze/typed_quickstart.yaml --typed
+#
+#   # List available metrics
+#   oumi analyze --config configs/examples/analyze/typed_quickstart.yaml --typed --list-metrics
+#
+# This example runs ONLY the length analyzer (no LLM API calls required).
+# For LLM-based analysis, see typed_llm_analyzer_example.yaml
+
+# Dataset configuration - using public HuggingFace dataset
+dataset_name: argilla/databricks-dolly-15k-curated-en
+split: train
+sample_count: 50  # Analyze 50 conversations
+
+# Output configuration
+output_path: ./analysis_output/quickstart
+
+# Analyzers to run
+analyzers:
+  - id: length
+    params:
+      tiktoken_encoding: cl100k_base  # GPT-4 tokenizer for accurate counts
+      compute_role_stats: true        # Compute per-role statistics
+
+# Custom metrics (optional - demonstrates the feature)
+custom_metrics:
+  # Check if assistant gives short or long responses
+  - id: response_length_category
+    scope: conversation
+    description: "Categorizes response length"
+    depends_on:
+      - length
+    output_schema:
+      - name: category
+        type: str
+        description: "short, medium, or long"
+      - name: avg_tokens_per_message
+        type: float
+        description: "Average tokens per message"
+    function: |
+      def compute(conversation, results, index):
+          length_result = results["length"][index]
+          total = getattr(length_result, "total_tokens", 0) or 0
+          num_msgs = getattr(length_result, "num_messages", 1) or 1
+          avg = total / num_msgs
+          
+          if avg < 100:
+              cat = "short"
+          elif avg < 500:
+              cat = "medium"
+          else:
+              cat = "long"
+          
+          return {"category": cat, "avg_tokens_per_message": round(avg, 1)}
+
+  # Check conversation structure
+  - id: conversation_structure
+    scope: conversation
+    description: "Basic conversation structure checks"
+    output_schema:
+      - name: num_turns
+        type: int
+        description: "Number of turns (user-assistant pairs)"
+      - name: starts_with_user
+        type: bool
+        description: "Whether conversation starts with user"
+      - name: ends_with_assistant
+        type: bool
+        description: "Whether conversation ends with assistant"
+    function: |
+      def compute(conversation):
+          messages = conversation.messages
+          if not messages:
+              return {"num_turns": 0, "starts_with_user": False, "ends_with_assistant": False}
+          
+          roles = [m.role.value if hasattr(m.role, 'value') else str(m.role) for m in messages]
+          non_system = [r for r in roles if r != "system"]
+          
+          num_turns = len([r for r in non_system if r == "user"])
+          starts_user = non_system[0] == "user" if non_system else False
+          ends_assistant = non_system[-1] == "assistant" if non_system else False
+          
+          return {
+              "num_turns": num_turns,
+              "starts_with_user": starts_user,
+              "ends_with_assistant": ends_assistant
+          }
+
+# Validation tests
+tests:
+  # Basic length checks
+  - id: reasonable_length
+    type: threshold
+    metric: length.total_tokens
+    operator: ">"
+    value: 4096
+    max_percentage: 10.0
+    severity: medium
+    title: "Reasonable conversation length"
+    description: "Most conversations should fit in 4K context"
+
+  - id: not_empty
+    type: threshold
+    metric: length.total_tokens
+    operator: "<"
+    value: 10
+    max_percentage: 1.0
+    severity: high
+    title: "Non-empty conversations"
+    description: "Conversations should have meaningful content"
+
+  - id: multi_turn
+    type: threshold
+    metric: length.num_messages
+    operator: "<"
+    value: 2
+    max_percentage: 5.0
+    severity: low
+    title: "Multi-turn conversations"
+    description: "Most should have at least 2 messages"
+
+  # Custom metric tests
+  - id: proper_structure
+    type: percentage
+    metric: conversation_structure.ends_with_assistant
+    condition: "== True"
+    min_percentage: 90.0
+    severity: medium
+    title: "Proper conversation structure"
+    description: "Conversations should end with assistant response"

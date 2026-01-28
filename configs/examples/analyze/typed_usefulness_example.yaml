@@ -31,7 +31,10 @@
 # Or use custom prompts with: LLMAnalyzer(prompt_template="...")
 
 # Dataset configuration
-dataset_path: "/Users/ryanarman/data/openassistant/openassistant_oasst1.jsonl"
+# Option 1: Use a public HuggingFace dataset (recommended for testing)
+dataset_name: argilla/databricks-dolly-15k-curated-en
+# Option 2: Use a local file (uncomment and set path)
+# dataset_path: "/path/to/your/dataset.jsonl"
 split: train
 sample_count: 10  # Small sample for testing (LLM calls are slow/expensive)
 
