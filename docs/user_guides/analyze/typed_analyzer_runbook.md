@@ -75,6 +75,40 @@ df = results['dataframe']  # Pandas DataFrame
 test_summary = results['test_summary']  # Test results (if configured)
 ```
 
+### Web UI Viewer
+
+Launch an interactive web interface to view, create, and manage analyses:
+
+```bash
+oumi analyze view
+```
+
+This opens a browser at `http://localhost:8765` with:
+
+**Features:**
+- **Dashboard** - View all past analyses with pass/fail status
+- **Results View** - Interactive table showing test results, metrics, and sample data
+- **Charts View** - Visualizations of metric distributions
+- **Config Editor** - View and edit YAML configurations with syntax highlighting
+- **Create Analysis Wizard** - Step-by-step UI to create new analyses:
+  - Select dataset (local file path or HuggingFace dataset)
+  - Choose analyzers and configure parameters
+  - Define validation tests
+  - Run analysis directly from the UI
+
+**Creating a New Analysis in the UI:**
+1. Click **"Create New Analysis"** button
+2. **Dataset step**: Enter a local file path OR a HuggingFace dataset name with split (e.g., `HuggingFaceH4/ultrachat_200k` with split `train_sft`)
+3. **Analyzers step**: Select analyzers like `length`, `usefulness`, `safety`, etc.
+4. **Tests step**: Add validation tests for your metrics
+5. **Review step**: Preview the generated YAML config and run the analysis
+
+**Tips:**
+- For local files, type the full absolute path (e.g., `/Users/you/data/dataset.jsonl`)
+- For HuggingFace datasets, check the dataset page for available splits (not always `train`)
+- Results are saved and persist between sessions
+- Click on any analysis in the sidebar to view its results
+
 ## Example Configurations
 
 ### 1. Length Analysis (No LLM required)
