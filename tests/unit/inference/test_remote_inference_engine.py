@@ -2079,7 +2079,7 @@ async def test_get_batch_results():
             status=200,
             body=json.dumps(
                 {
-                    "custom_id": "request-1",
+                    "custom_id": "request-0",
                     "response": {
                         "body": {
                             "choices": [
@@ -2207,7 +2207,7 @@ def test_get_batch_results_public():
             status=200,
             body=json.dumps(
                 {
-                    "custom_id": "request-1",
+                    "custom_id": "request-0",
                     "response": {
                         "body": {
                             "choices": [
@@ -2243,6 +2243,109 @@ def test_get_batch_results_public():
         assert len(results) == 1
         assert results[0].messages[-1].content == "Hello there!"
         assert results[0].messages[-1].role == Role.ASSISTANT
+
+
+@pytest.mark.asyncio
+async def test_get_batch_results_maps_by_custom_id_not_position():
+    """Test that batch results are mapped by custom_id, not positional order."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload={
+                "id": "batch-123",
+                "status": "completed",
+                "request_counts": {
+                    "total": 3,
+                    "completed": 3,
+                    "failed": 0,
+                },
+                "output_file_id": "file-output-123",
+            },
+        )
+
+        results_content = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "custom_id": "request-2",
+                        "response": {
+                            "body": {
+                                "choices": [
+                                    {
+                                        "message": {
+                                            "role": "assistant",
+                                            "content": "Response for conversation 2",
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "custom_id": "request-0",
+                        "response": {
+                            "body": {
+                                "choices": [
+                                    {
+                                        "message": {
+                                            "role": "assistant",
+                                            "content": "Response for conversation 0",
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "custom_id": "request-1",
+                        "response": {
+                            "body": {
+                                "choices": [
+                                    {
+                                        "message": {
+                                            "role": "assistant",
+                                            "content": "Response for conversation 1",
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                ),
+            ]
+        )
+
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=results_content,
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        conversations = [
+            Conversation(messages=[Message(content="Question 0", role=Role.USER)]),
+            Conversation(messages=[Message(content="Question 1", role=Role.USER)]),
+            Conversation(messages=[Message(content="Question 2", role=Role.USER)]),
+        ]
+
+        results = await engine._get_batch_results_with_mapping(
+            "batch-123",
+            conversations,
+        )
+
+        assert len(results) == 3
+        assert results[0].messages[-1].content == "Response for conversation 0"
+        assert results[1].messages[-1].content == "Response for conversation 1"
+        assert results[2].messages[-1].content == "Response for conversation 2"
 
 
 @pytest.mark.asyncio
