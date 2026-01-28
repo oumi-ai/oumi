@@ -1,5 +1,5 @@
 import { ReactNode, useState, useRef, useEffect } from 'react'
-import { Calendar, Database, FileText, Pencil, Check, X, Trash2 } from 'lucide-react'
+import { Calendar, Database, Pencil, Check, X, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -102,14 +102,6 @@ export function Header({ evalData, children, onRename, onDelete }: HeaderProps) 
               <Database className="h-4 w-4" />
               <span>{metadata.sample_count} samples</span>
             </div>
-            {metadata.config_path && (
-              <div className="flex items-center gap-1">
-                <FileText className="h-4 w-4" />
-                <span className="truncate max-w-[200px]" title={metadata.config_path}>
-                  {metadata.config_path.split('/').pop()}
-                </span>
-              </div>
-            )}
           </div>
         </div>
 
