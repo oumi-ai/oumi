@@ -320,9 +320,9 @@ def evaluate(
 
     logger.info("Starting evaluation...")
 
-    lm_eval_output = lm_harness_evaluate(  # type: ignore[arg-type]
+    lm_eval_output = lm_harness_evaluate(
         lm,
-        task_dict,
+        task_dict,  # type: ignore[arg-type]
         log_samples=task_params.log_samples or False,
         limit=task_params.num_samples,
         apply_chat_template=is_multimodal,
