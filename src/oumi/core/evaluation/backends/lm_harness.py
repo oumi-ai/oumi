@@ -320,9 +320,9 @@ def evaluate(
 
     logger.info("Starting evaluation...")
 
-    lm_eval_output = lm_harness_evaluate(
-        lm,
-        task_dict,
+    lm_eval_output = lm_harness_evaluate(  # type: ignore[arg-type]
+        lm=lm,
+        task_dict=task_dict,
         log_samples=task_params.log_samples or False,
         limit=task_params.num_samples,
         apply_chat_template=is_multimodal,
@@ -374,7 +374,7 @@ def evaluate(
     backend_task_config["config"]["model"] = lm_harness_model
     backend_task_config["config"]["model_args"] = lm_harness_model_params
     if hasattr(lm, "get_model_info"):
-        backend_task_config["config"].update(lm.get_model_info())
+        backend_task_config["config"].update(lm.get_model_info())  # type: ignore[attr-defined]
 
     # Add configuration settings related to the task.
     backend_task_config["config"]["task_params"] = task_params

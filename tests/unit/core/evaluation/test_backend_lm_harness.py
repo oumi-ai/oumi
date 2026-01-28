@@ -3,7 +3,6 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-from lm_eval.api.task import ConfigurableTask
 
 from oumi.core.configs import (
     EvaluationConfig,
@@ -282,7 +281,7 @@ def test_evaluate(mock_patches_for_evaluate):
     torch_random_seed = 12345
 
     # Mock the outputs of functions that evaluate() calls.
-    mock_task_dict = {"mmlu": MagicMock(spec=ConfigurableTask)}
+    mock_task_dict = {"mmlu": MagicMock()}
     mock_lm_harness_model_args = {"pretrained": "openai-community/gpt2"}
     mock_results = {
         "results": {"mmlu": {"acc": 0.77}},
@@ -328,8 +327,9 @@ def test_evaluate(mock_patches_for_evaluate):
     mock_lm_harness_get_model_class.assert_called_once_with("hf")
 
     mock_lm_harness_evaluate.assert_called_once()
-    args, kwargs = mock_lm_harness_evaluate.call_args
-    assert args[1] == mock_task_dict  # task_dict is now the second positional argument
+    kwargs = mock_lm_harness_evaluate.call_args.kwargs
+    assert kwargs["lm"] is not None
+    assert kwargs["task_dict"] == mock_task_dict
     assert kwargs["limit"] == 222
     assert not kwargs["apply_chat_template"]
 
