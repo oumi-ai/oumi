@@ -16,13 +16,15 @@
 
 This module provides functions to analyze sample conversations and
 suggest appropriate analyzers, custom metrics, and tests using an LLM.
+
+Uses OpenAI's structured outputs for guaranteed schema compliance.
 """
 
-import json
 import logging
 import os
-from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
 
 from oumi.core.types.conversation import Conversation
 
@@ -34,54 +36,105 @@ MAX_CONVERSATION_CHARS = 1500
 MAX_TOTAL_CHARS = 6000
 
 
-@dataclass
-class AnalyzerSuggestion:
+# =============================================================================
+# Pydantic Models for Structured Outputs
+# =============================================================================
+
+
+class OutputField(BaseModel):
+    """Schema for a custom metric output field."""
+
+    name: str = Field(description="Field name in the output dict")
+    type: str = Field(description="Python type: int, float, bool, str, list")
+    description: str = Field(default="", description="What this field represents")
+
+
+class AnalyzerSuggestion(BaseModel):
     """A suggested analyzer configuration."""
 
-    id: str
-    reason: str
-    params: dict[str, Any] = field(default_factory=dict)
+    id: str = Field(
+        description=(
+            "Analyzer ID: length, usefulness, safety, coherence, "
+            "factuality, or instruction_following"
+        )
+    )
+    reason: str = Field(description="Why this analyzer is useful for this dataset")
+    # Note: params removed - OpenAI structured outputs requires strict schemas
+    # The frontend will use default params for each analyzer type
 
 
-@dataclass
-class CustomMetricSuggestion:
+class CustomMetricSuggestion(BaseModel):
     """A suggested custom metric."""
 
-    id: str
-    function: str
-    reason: str
-    output_schema: list[dict[str, str]] = field(default_factory=list)
-    description: str = ""
+    id: str = Field(description="Unique metric ID (snake_case)")
+    description: str = Field(default="", description="What this metric measures")
+    function: str = Field(
+        description="Python function code: def compute(conversation): ..."
+    )
+    output_schema: list[OutputField] = Field(
+        default_factory=list, description="Output field definitions"
+    )
+    reason: str = Field(description="Why this metric is useful for this dataset")
 
 
-@dataclass
-class TestSuggestion:
+class TestSuggestion(BaseModel):
     """A suggested test configuration."""
 
-    id: str
-    type: str  # threshold, percentage, range
-    metric: str
-    reason: str
-    title: str = ""
-    description: str = ""
-    severity: str = "medium"
-    operator: str | None = None
-    value: float | int | None = None
-    condition: str | None = None
-    max_percentage: float | None = None
-    min_percentage: float | None = None
-    min_value: float | None = None
-    max_value: float | None = None
+    id: str = Field(description="Unique test ID (snake_case)")
+    type: Literal["threshold", "percentage", "range"] = Field(description="Test type")
+    metric: str = Field(description="Metric path: AnalyzerName.field_name")
+    title: str = Field(default="", description="Human-readable title")
+    description: str = Field(default="", description="What this test checks")
+    severity: Literal["low", "medium", "high"] = Field(
+        default="medium", description="Test severity"
+    )
+    reason: str = Field(description="Why this test is important")
+    # Threshold test fields
+    operator: str | None = Field(
+        default=None, description="Comparison operator: <, >, <=, >=, ==, !="
+    )
+    value: float | int | None = Field(default=None, description="Threshold value")
+    # Percentage test fields
+    condition: str | None = Field(
+        default=None,
+        description="Condition for percentage tests: == True, != None, etc.",
+    )
+    max_percentage: float | None = Field(
+        default=None, description="Max % of samples that can fail"
+    )
+    min_percentage: float | None = Field(
+        default=None, description="Min % of samples that must pass"
+    )
+    # Range test fields
+    min_value: float | None = Field(
+        default=None, description="Minimum value for range tests"
+    )
+    max_value: float | None = Field(
+        default=None, description="Maximum value for range tests"
+    )
 
 
-@dataclass
-class SuggestionResponse:
-    """Complete suggestion response from the LLM."""
+class SuggestionsOutput(BaseModel):
+    """Structured output from the LLM for suggestions."""
 
-    analyzers: list[AnalyzerSuggestion] = field(default_factory=list)
-    custom_metrics: list[CustomMetricSuggestion] = field(default_factory=list)
-    tests: list[TestSuggestion] = field(default_factory=list)
-    error: str | None = None
+    analyzers: list[AnalyzerSuggestion] = Field(
+        default_factory=list, description="List of suggested analyzers"
+    )
+    custom_metrics: list[CustomMetricSuggestion] = Field(
+        default_factory=list, description="List of suggested custom metrics"
+    )
+    tests: list[TestSuggestion] = Field(
+        default_factory=list, description="List of suggested tests"
+    )
+
+
+class SuggestionResponse(BaseModel):
+    """Complete suggestion response including potential errors."""
+
+    analyzers: list[AnalyzerSuggestion] = Field(default_factory=list)
+    custom_metrics: list[CustomMetricSuggestion] = Field(default_factory=list)
+    tests: list[TestSuggestion] = Field(default_factory=list)
+    error: str | None = Field(default=None)
 
 
 def get_analyzer_catalog() -> dict[str, dict[str, Any]]:
@@ -185,7 +238,9 @@ def get_analyzer_catalog() -> dict[str, dict[str, Any]]:
     }
 
 
-def _truncate_conversation(conv: Conversation, max_chars: int = MAX_CONVERSATION_CHARS) -> str:
+def _truncate_conversation(
+    conv: Conversation, max_chars: int = MAX_CONVERSATION_CHARS
+) -> str:
     """Format and truncate a conversation for the prompt.
 
     Args:
@@ -200,7 +255,15 @@ def _truncate_conversation(conv: Conversation, max_chars: int = MAX_CONVERSATION
 
     for msg in conv.messages:
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-        content = msg.content or ""
+        # Handle content that might be string or list of ContentItem
+        raw_content = msg.content
+        if isinstance(raw_content, str):
+            content = raw_content
+        elif raw_content is None:
+            content = ""
+        else:
+            # Handle list of ContentItem - extract text content
+            content = str(raw_content)
 
         # Truncate individual message if needed
         if len(content) > 500:
@@ -261,12 +324,15 @@ def build_suggestion_prompt(
         metrics_str = ", ".join(info["metrics"])
         good_for_str = "; ".join(info["good_for"])
         catalog_text += f"""
-- **{analyzer_id}** ({info['name']}): {info['description']}
+- **{analyzer_id}** ({info["name"]}): {info["description"]}
   Metrics: {metrics_str}
   Good for: {good_for_str}
 """
 
-    system_prompt = """You are an expert data quality analyst helping users configure analyzers for their conversational datasets.
+    # Note: JSON schema is handled automatically by OpenAI's structured outputs
+    # We just need to provide context and guidelines
+    system_prompt = (
+        """You are an expert data quality analyst helping users configure analyzers for their conversational datasets.
 
 Your task is to analyze sample conversations and recommend:
 1. **Analyzers**: Which built-in analyzers would be useful for this data
@@ -274,7 +340,9 @@ Your task is to analyze sample conversations and recommend:
 3. **Tests**: Quality tests to run on the analysis results
 
 Available Analyzers:
-""" + catalog_text + """
+"""
+        + catalog_text
+        + """
 
 Test Types:
 - **threshold**: Check if a metric exceeds/falls below a value (e.g., total_tokens < 4096)
@@ -286,49 +354,19 @@ Guidelines:
 - Always suggest "length" analyzer as it's fast and universally useful
 - Suggest LLM-based analyzers only if content quality evaluation is relevant
 - Custom metrics should extract metadata or compute simple derived values
+- For custom metric functions, use: def compute(conversation): ... return {"field": value}
 - Tests should catch data quality issues (too long, low quality, etc.)
-- Be conservative - don't overwhelm users with too many suggestions
-
-Respond ONLY in valid JSON format matching this schema:
-{
-  "analyzers": [
-    {"id": "analyzer_id", "reason": "Why this analyzer is useful for this data", "params": {}}
-  ],
-  "custom_metrics": [
-    {
-      "id": "metric_id",
-      "description": "What this metric measures",
-      "function": "def compute(conversation):\\n    # Python code\\n    return {\\"field\\": value}",
-      "output_schema": [{"name": "field", "type": "float", "description": "Field description"}],
-      "reason": "Why this metric is useful"
-    }
-  ],
-  "tests": [
-    {
-      "id": "test_id",
-      "type": "threshold|percentage|range",
-      "metric": "AnalyzerName.metric_name",
-      "title": "Human readable title",
-      "description": "What this test checks",
-      "severity": "low|medium|high",
-      "operator": "< | > | <= | >= | == | !=" (for threshold),
-      "value": 1000 (for threshold),
-      "condition": "== True" (for percentage),
-      "min_percentage": 95.0 (for percentage),
-      "max_percentage": 5.0 (for percentage),
-      "min_value": 0 (for range),
-      "max_value": 100 (for range),
-      "reason": "Why this test is important"
-    }
-  ]
-}"""
+- Be conservative - don't overwhelm users with too many suggestions (2-4 analyzers, 0-2 custom metrics, 2-4 tests)"""
+    )
 
     # Format sample conversations
     conversations_text = _format_conversations_for_prompt(conversations)
 
     # Analyze some patterns
     num_conversations = len(conversations)
-    avg_messages = sum(len(c.messages) for c in conversations) / max(num_conversations, 1)
+    avg_messages = sum(len(c.messages) for c in conversations) / max(
+        num_conversations, 1
+    )
     has_metadata = any(c.metadata for c in conversations)
 
     metadata_fields = set()
@@ -355,143 +393,79 @@ Based on this data, what analyzers, custom metrics, and tests would you recommen
     return system_prompt, user_prompt
 
 
-def parse_suggestion_response(response_text: str) -> SuggestionResponse:
-    """Parse and validate the LLM response.
-
-    Args:
-        response_text: Raw LLM response text.
-
-    Returns:
-        Validated SuggestionResponse.
-    """
-    try:
-        # Try to extract JSON from the response
-        # Handle cases where LLM wraps JSON in markdown code blocks
-        text = response_text.strip()
-        if text.startswith("```"):
-            # Remove markdown code blocks
-            lines = text.split("\n")
-            json_lines = []
-            in_block = False
-            for line in lines:
-                if line.startswith("```"):
-                    in_block = not in_block
-                    continue
-                if in_block or not line.startswith("```"):
-                    json_lines.append(line)
-            text = "\n".join(json_lines)
-
-        data = json.loads(text)
-
-        # Parse analyzers
-        analyzers = []
-        for item in data.get("analyzers", []):
-            analyzers.append(
-                AnalyzerSuggestion(
-                    id=item.get("id", ""),
-                    reason=item.get("reason", ""),
-                    params=item.get("params", {}),
-                )
-            )
-
-        # Parse custom metrics
-        custom_metrics = []
-        for item in data.get("custom_metrics", []):
-            custom_metrics.append(
-                CustomMetricSuggestion(
-                    id=item.get("id", ""),
-                    function=item.get("function", ""),
-                    reason=item.get("reason", ""),
-                    output_schema=item.get("output_schema", []),
-                    description=item.get("description", ""),
-                )
-            )
-
-        # Parse tests
-        tests = []
-        for item in data.get("tests", []):
-            tests.append(
-                TestSuggestion(
-                    id=item.get("id", ""),
-                    type=item.get("type", "threshold"),
-                    metric=item.get("metric", ""),
-                    reason=item.get("reason", ""),
-                    title=item.get("title", ""),
-                    description=item.get("description", ""),
-                    severity=item.get("severity", "medium"),
-                    operator=item.get("operator"),
-                    value=item.get("value"),
-                    condition=item.get("condition"),
-                    max_percentage=item.get("max_percentage"),
-                    min_percentage=item.get("min_percentage"),
-                    min_value=item.get("min_value"),
-                    max_value=item.get("max_value"),
-                )
-            )
-
-        return SuggestionResponse(
-            analyzers=analyzers,
-            custom_metrics=custom_metrics,
-            tests=tests,
-        )
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse LLM response as JSON: {e}")
-        return SuggestionResponse(error=f"Failed to parse response: {e}")
-    except Exception as e:
-        logger.error(f"Error parsing suggestion response: {e}")
-        return SuggestionResponse(error=str(e))
-
-
-def _call_openai(
+def _call_openai_structured(
     system_prompt: str,
     user_prompt: str,
     model: str = "gpt-4o-mini",
     api_key: str | None = None,
-) -> str:
-    """Call OpenAI API to generate suggestions.
+) -> SuggestionResponse:
+    """Call OpenAI API with structured outputs for guaranteed schema compliance.
+
+    Uses OpenAI's beta.chat.completions.parse() method which:
+    - Guarantees the response matches our Pydantic schema
+    - Eliminates JSON parsing errors
+    - Provides type-safe access to response fields
 
     Args:
-        system_prompt: System message.
-        user_prompt: User message.
-        model: Model to use.
-        api_key: Optional API key (defaults to env var).
+        system_prompt: System message with context and instructions.
+        user_prompt: User message with sample data.
+        model: Model to use (must support structured outputs).
+        api_key: Optional API key (defaults to OPENAI_API_KEY env var).
 
     Returns:
-        LLM response text.
-
-    Raises:
-        ValueError: If API key is not available.
-        Exception: If API call fails.
+        SuggestionResponse with parsed suggestions or error.
     """
     try:
         from openai import OpenAI
     except ImportError:
-        raise ImportError(
-            "openai package is required for suggestions. "
+        return SuggestionResponse(
+            error="openai package is required for suggestions. "
             "Install with: pip install openai"
         )
 
     api_key = api_key or os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        raise ValueError(
-            "OpenAI API key not found. Set OPENAI_API_KEY environment variable "
-            "or pass api_key parameter."
+        return SuggestionResponse(
+            error="OpenAI API key not found. Set OPENAI_API_KEY environment variable."
         )
 
-    client = OpenAI(api_key=api_key)
+    try:
+        client = OpenAI(api_key=api_key)
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.3,  # Lower temperature for more consistent output
-        max_tokens=2000,
-    )
+        # Use structured outputs with Pydantic model
+        # This guarantees the response matches our schema exactly
+        completion = client.beta.chat.completions.parse(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=SuggestionsOutput,
+            temperature=0.3,  # Lower temperature for more consistent output
+            max_tokens=2000,
+        )
 
-    return response.choices[0].message.content or ""
+        # Extract the parsed response
+        parsed = completion.choices[0].message.parsed
+
+        if parsed is None:
+            # Check if there was a refusal
+            refusal = completion.choices[0].message.refusal
+            if refusal:
+                logger.warning(f"Model refused to generate suggestions: {refusal}")
+                return SuggestionResponse(error=f"Model refused: {refusal}")
+            return SuggestionResponse(error="No suggestions generated")
+
+        # Convert to SuggestionResponse (which includes error field)
+        return SuggestionResponse(
+            analyzers=parsed.analyzers,
+            custom_metrics=parsed.custom_metrics,
+            tests=parsed.tests,
+        )
+
+    except Exception as e:
+        logger.error(f"OpenAI API call failed: {e}")
+        return SuggestionResponse(error=f"API call failed: {e}")
 
 
 def generate_suggestions(
@@ -550,24 +524,27 @@ def generate_suggestions(
     catalog = get_analyzer_catalog()
     system_prompt, user_prompt = build_suggestion_prompt(conversations, catalog)
 
-    # Call LLM
-    try:
-        logger.info(f"Calling {model} for suggestions...")
-        response_text = _call_openai(system_prompt, user_prompt, model, api_key)
-        logger.info("Received suggestions from LLM")
-    except ValueError as e:
-        # API key missing
-        return SuggestionResponse(error=str(e))
-    except Exception as e:
-        logger.error(f"LLM call failed: {e}")
-        return SuggestionResponse(error=f"LLM call failed: {e}")
+    # Call LLM with structured outputs
+    logger.info(f"Calling {model} for suggestions with structured outputs...")
+    response = _call_openai_structured(system_prompt, user_prompt, model, api_key)
 
-    # Parse response
-    return parse_suggestion_response(response_text)
+    if response.error:
+        logger.error(f"Suggestion generation failed: {response.error}")
+    else:
+        logger.info(
+            f"Generated {len(response.analyzers)} analyzer, "
+            f"{len(response.custom_metrics)} custom metric, "
+            f"and {len(response.tests)} test suggestions"
+        )
+
+    return response
 
 
 def suggestion_response_to_dict(response: SuggestionResponse) -> dict[str, Any]:
     """Convert SuggestionResponse to a JSON-serializable dictionary.
+
+    Since SuggestionResponse is a Pydantic model, this uses model_dump()
+    for clean serialization with proper handling of nested models.
 
     Args:
         response: The suggestion response to convert.
@@ -575,39 +552,4 @@ def suggestion_response_to_dict(response: SuggestionResponse) -> dict[str, Any]:
     Returns:
         Dictionary suitable for JSON serialization.
     """
-    return {
-        "analyzers": [
-            {"id": a.id, "reason": a.reason, "params": a.params}
-            for a in response.analyzers
-        ],
-        "custom_metrics": [
-            {
-                "id": m.id,
-                "function": m.function,
-                "reason": m.reason,
-                "output_schema": m.output_schema,
-                "description": m.description,
-            }
-            for m in response.custom_metrics
-        ],
-        "tests": [
-            {
-                "id": t.id,
-                "type": t.type,
-                "metric": t.metric,
-                "reason": t.reason,
-                "title": t.title,
-                "description": t.description,
-                "severity": t.severity,
-                "operator": t.operator,
-                "value": t.value,
-                "condition": t.condition,
-                "max_percentage": t.max_percentage,
-                "min_percentage": t.min_percentage,
-                "min_value": t.min_value,
-                "max_value": t.max_value,
-            }
-            for t in response.tests
-        ],
-        "error": response.error,
-    }
+    return response.model_dump()
