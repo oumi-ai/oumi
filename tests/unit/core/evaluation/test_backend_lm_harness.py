@@ -327,9 +327,10 @@ def test_evaluate(mock_patches_for_evaluate):
     mock_lm_harness_get_model_class.assert_called_once_with("hf")
 
     mock_lm_harness_evaluate.assert_called_once()
-    kwargs = mock_lm_harness_evaluate.call_args.kwargs
-    assert kwargs["lm"] is not None
-    assert kwargs["task_dict"] == mock_task_dict
+    args, kwargs = mock_lm_harness_evaluate.call_args
+    assert len(args) == 2
+    assert args[0] is not None  # lm
+    assert args[1] == mock_task_dict  # task_dict
     assert kwargs["limit"] == 222
     assert not kwargs["apply_chat_template"]
 
