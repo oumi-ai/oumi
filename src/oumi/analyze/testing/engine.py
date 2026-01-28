@@ -274,22 +274,39 @@ class TestEngine:
 
     def _get_nested_value(
         self,
-        obj: BaseModel,
+        obj: Any,
         field_path: list[str],
     ) -> Any | None:
-        """Get a nested field value from a Pydantic model.
+        """Get a nested field value from a Pydantic model or CustomMetricResult.
+
+        Handles both:
+        - Regular analyzer results: result.field_name
+        - Custom metric results: result.values["field_name"]
 
         Args:
-            obj: Pydantic model instance.
+            obj: Pydantic model instance or dict-wrapped object.
             field_path: List of field names to traverse.
 
         Returns:
             Field value or None if not found.
         """
-        current = obj
-        for field in field_path:
+        current: Any = obj
+        for i, field in enumerate(field_path):
             if hasattr(current, field):
                 current = getattr(current, field)
+            # Check if this is a CustomMetricResult with values dict
+            elif hasattr(current, "values"):
+                values_attr = getattr(current, "values", None)
+                if isinstance(values_attr, dict):
+                    # Try to get the remaining path from values dict
+                    remaining_path = field_path[i:]
+                    temp: Any = values_attr
+                    for f in remaining_path:
+                        if isinstance(temp, dict) and f in temp:
+                            temp = temp[f]
+                        else:
+                            return None
+                    return temp
             else:
                 return None
         return current

@@ -10,8 +10,9 @@
 # This is a TRAINING dataset - the assistant responses should match ground truth 100%.
 # We also evaluate query quality to identify potentially confusing examples.
 
-dataset_path: "/Users/ryanarman/code/scratch/ryan_hillclimbing_experiments/banking77/notebooks/data/banking77_train.jsonl"
-sample_count: 10 # Start small for testing (increase for real evaluation)
+# dataset_path: "/Users/ryanarman/code/scratch/ryan_hillclimbing_experiments/banking77/notebooks/data/banking77_train.jsonl" # train set
+dataset_path: "/Users/ryanarman/code/scratch/ryan_hillclimbing_experiments/banking77/notebooks/data/full_fft_results_3304.jsonl" # test inference results
+sample_count: 100 # Start small for testing (increase for real evaluation)
 output_path: ./analysis_output/banking77_classification
 
 # =============================================================================
@@ -22,8 +23,14 @@ analyzers:
   # Query Quality Assessment using LLM
   # Evaluates if the user query is clear, unambiguous, and suitable for training
   # ---------------------------------------------------------------------------
+  - id: length
+    instance_id: length # Explicit instance_id for results access
+    params:
+      tiktoken_encoding: cl100k_base # GPT-4 tokenizer
+      compute_role_stats: true # Compute per-role statistics
+
   - id: llm
-    instance_id: query_quality  # Must match criteria_name for metric paths to work
+    instance_id: query_quality # Must match criteria_name for metric paths to work
     params:
       criteria_name: "query_quality"
       target_scope: first_user # Only evaluate the user's query
@@ -54,7 +61,7 @@ analyzers:
   # Evaluates if the full conversation is helpful for model training
   # ---------------------------------------------------------------------------
   - id: llm
-    instance_id: training_helpfulness  # Must match criteria_name for metric paths to work
+    instance_id: training_helpfulness # Must match criteria_name for metric paths to work
     params:
       criteria_name: "training_helpfulness"
       target_scope: conversation # Evaluate the full conversation
@@ -94,7 +101,7 @@ custom_metrics:
     function: |
       def compute(conversation):
           metadata = conversation.metadata or {}
-          label_id = metadata.get("label", -1)
+          label_id = int(metadata.get("label", -1))
           label_name = metadata.get("label_name", "unknown")
           return {
               "label_id": label_id,
@@ -159,6 +166,15 @@ custom_metrics:
   # ---------------------------------------------------------------------------
   - id: user_query
     scope: conversation
+    output_schema:
+      - name: text
+        type: str
+        description: "The user query text"
+      - name: word_count
+        type: int
+        description: "The number of words in the user query"
+      - name: char_count
+        type: int
     function: |
       def compute(conversation):
           # Find the first user message
@@ -247,7 +263,7 @@ tests:
     metric: user_query.word_count
     operator: "<"
     value: 3
-    max_percentage: 15.0
+    max_percentage: 10.0
     severity: low
     title: "Very Short Queries"
-    description: "No more than 15% of queries should have fewer than 3 words"
+    description: "No more than 10% of queries should have fewer than 3 words"
