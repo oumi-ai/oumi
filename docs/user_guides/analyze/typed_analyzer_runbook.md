@@ -226,18 +226,32 @@ The analyzer supports multiple formats:
 1. **Local JSONL files** - Set `dataset_path`
 2. **HuggingFace datasets** - Set `dataset_name`
 
-Expected conversation format (Oumi native):
+### Recommended Public Datasets
+
+| Dataset | Format | Turns | Notes |
+|---------|--------|-------|-------|
+| `HuggingFaceH4/ultrachat_200k` | messages | Multi-turn (4-14) | Recommended for testing |
+| `argilla/databricks-dolly-15k-curated-en` | instruction/response | Single-turn | Simpler format |
+| `OpenAssistant/oasst2` | messages | Multi-turn | Human feedback data |
+
+### Expected Conversation Format (Oumi native)
 
 ```json
 {
   "messages": [
     {"role": "user", "content": "Hello!"},
-    {"role": "assistant", "content": "Hi there!"}
+    {"role": "assistant", "content": "Hi there!"},
+    {"role": "user", "content": "How are you?"},
+    {"role": "assistant", "content": "I'm doing well!"}
   ]
 }
 ```
 
-Also supports: Alpaca format, prompt/response pairs, and more.
+### Also Supported
+
+- **Alpaca format**: `instruction`, `input`, `output` fields
+- **Prompt/response pairs**: `prompt`/`response`, `question`/`answer`
+- **Dolly format**: `original-instruction`, `original-response`
 
 ## Discover Available Metrics
 

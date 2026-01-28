@@ -138,6 +138,7 @@ interface WizardConfig {
   parentEvalId?: string  // For linking derived analyses
   datasetPath: string
   datasetName: string
+  split: string
   sampleCount: number
   outputPath: string
   analyzers: {
@@ -196,6 +197,7 @@ function parseConfigToWizard(config: Record<string, unknown>): WizardConfig {
     parentEvalId: (config.parent_eval_id as string) || undefined,
     datasetPath: (config.dataset_path as string) || '',
     datasetName: (config.dataset_name as string) || '',
+    split: (config.split as string) || 'train',
     sampleCount: (config.sample_count as number) || 100,
     outputPath: (config.output_path as string) || './analysis_output',
     analyzers: [],
@@ -326,6 +328,7 @@ function generateYaml(config: WizardConfig): string {
     lines.push(`dataset_path: ${config.datasetPath}`)
   } else if (config.datasetName) {
     lines.push(`dataset_name: ${config.datasetName}`)
+    lines.push(`split: ${config.split || 'train'}`)
   }
   
   lines.push(`sample_count: ${config.sampleCount}`)
@@ -452,6 +455,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
       name: '',
       datasetPath: '',
       datasetName: '',
+      split: 'train',
       sampleCount: 100,
       outputPath: './analysis_output',
       analyzers: [],
@@ -744,15 +748,27 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           <Separator className="flex-1" />
         </div>
 
-        <div>
-          <Label htmlFor="datasetName">HuggingFace Dataset</Label>
-          <Input
-            id="datasetName"
-            placeholder="username/dataset_name"
-            className="mt-1.5"
-            value={config.datasetName}
-            onChange={(e) => updateConfig({ datasetName: e.target.value, datasetPath: '' })}
-          />
+        <div className="grid grid-cols-3 gap-4">
+          <div className="col-span-2">
+            <Label htmlFor="datasetName">HuggingFace Dataset</Label>
+            <Input
+              id="datasetName"
+              placeholder="HuggingFaceH4/ultrachat_200k"
+              className="mt-1.5"
+              value={config.datasetName}
+              onChange={(e) => updateConfig({ datasetName: e.target.value, datasetPath: '' })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="split">Split</Label>
+            <Input
+              id="split"
+              placeholder="train"
+              className="mt-1.5"
+              value={config.split}
+              onChange={(e) => updateConfig({ split: e.target.value })}
+            />
+          </div>
         </div>
 
         <Separator />

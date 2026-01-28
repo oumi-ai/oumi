@@ -178,20 +178,12 @@ def load_conversations_from_dataset(
     Returns:
         List of Conversation objects.
     """
-    from oumi.builders import build_dataset
-    from oumi.core.configs import DatasetParams
+    from datasets import load_dataset
 
     logger.info(f"Loading dataset: {dataset_name} (split={split}, subset={subset})")
 
-    # Build dataset params
-    dataset_params = DatasetParams(
-        dataset_name=dataset_name,
-        split=split,
-        subset=subset,
-    )
-
-    # Build dataset
-    dataset = build_dataset(dataset_params)
+    # Load dataset directly from HuggingFace
+    dataset = load_dataset(dataset_name, subset, split=split)
 
     # Convert to conversations
     conversations = []
@@ -264,14 +256,45 @@ def _item_to_conversation(item: Any, index: int) -> Conversation | None:
                         messages.append(Message(role=role, content=content))
                 return Conversation(messages=messages, metadata={"source_index": index})
 
-        # Check for prompt/response format
-        if "prompt" in item or "instruction" in item:
-            prompt = item.get("prompt", item.get("instruction", ""))
-            response = item.get(
-                "response", item.get("output", item.get("completion", ""))
-            )
+        # Check for prompt/response format (multiple common variations)
+        prompt = None
+        response = None
+        context = None
+
+        # Try different field names for prompt/instruction
+        for key in ["prompt", "instruction", "original-instruction", "question", "input"]:
+            if key in item and item[key]:
+                prompt = item[key]
+                break
+
+        # Try different field names for response/output
+        for key in [
+            "response",
+            "output",
+            "completion",
+            "original-response",
+            "answer",
+            "target",
+        ]:
+            if key in item and item[key]:
+                response = item[key]
+                break
+
+        # Try different field names for context (optional)
+        for key in ["context", "original-context", "input_context"]:
+            if key in item and item[key]:
+                context = item[key]
+                break
+
+        if prompt:
+            # Combine context with prompt if available
+            if context:
+                full_prompt = f"{context}\n\n{prompt}"
+            else:
+                full_prompt = str(prompt)
+
             messages = [
-                Message(role=Role.USER, content=str(prompt)),
+                Message(role=Role.USER, content=full_prompt),
             ]
             if response:
                 messages.append(Message(role=Role.ASSISTANT, content=str(response)))

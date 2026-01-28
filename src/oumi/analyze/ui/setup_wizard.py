@@ -354,11 +354,15 @@ def _render_dataset_section() -> None:
         with col1:
             dataset_name = st.text_input(
                 "Dataset name",
-                placeholder="HuggingFaceTB/everyday-conversations-llama3.1-2k",
-                help="HuggingFace dataset name",
+                placeholder="HuggingFaceH4/ultrachat_200k",
+                help="HuggingFace dataset name (e.g., HuggingFaceH4/ultrachat_200k uses split 'train_sft')",
             )
         with col2:
-            split = st.selectbox("Split", ["train", "test", "validation"], index=0)
+            split = st.text_input(
+                "Split",
+                value="train",
+                help="Dataset split (e.g., train, test, train_sft, validation)",
+            )
 
         subset = st.text_input(
             "Subset (optional)",

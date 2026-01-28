@@ -20,10 +20,10 @@
 
 # Dataset configuration
 # Option 1: Use a public HuggingFace dataset (recommended for testing)
-dataset_name: argilla/databricks-dolly-15k-curated-en
+dataset_name: HuggingFaceH4/ultrachat_200k
 # Option 2: Use a local file (uncomment and set path)
 # dataset_path: "/path/to/your/dataset.jsonl"
-split: train
+split: train_sft
 sample_count: 100  # Analyze 100 samples for testing
 
 # Output configuration

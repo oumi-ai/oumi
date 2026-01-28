@@ -17,9 +17,9 @@
 # This example runs ONLY the length analyzer (no LLM API calls required).
 # For LLM-based analysis, see typed_llm_analyzer_example.yaml
 
-# Dataset configuration - using public HuggingFace dataset
-dataset_name: argilla/databricks-dolly-15k-curated-en
-split: train
+# Dataset configuration - using public HuggingFace dataset with multi-turn conversations
+dataset_name: HuggingFaceH4/ultrachat_200k
+split: train_sft
 sample_count: 50  # Analyze 50 conversations
 
 # Output configuration
