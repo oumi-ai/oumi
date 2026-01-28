@@ -83,6 +83,8 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
             self.rename_eval()
         elif self.path == "/api/delete":
             self.delete_eval()
+        elif self.path == "/api/upload-dataset":
+            self.upload_dataset()
         else:
             self.send_error(404, "Not found")
 
@@ -117,6 +119,40 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             logger.error(f"Error deleting eval: {e}")
+            self._send_json({"error": str(e)}, 500)
+
+    def upload_dataset(self):
+        """Upload a dataset file and return the path."""
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)
+
+            filename = data.get("filename", "uploaded_dataset.jsonl")
+            content = data.get("content", "")
+
+            if not content:
+                self._send_json({"error": "No file content provided"}, 400)
+                return
+
+            # Save to temp directory
+            upload_dir = Path(tempfile.gettempdir()) / "oumi_analyze_uploads"
+            upload_dir.mkdir(exist_ok=True)
+
+            # Use a unique filename to avoid conflicts
+            import uuid
+
+            unique_filename = f"{uuid.uuid4().hex[:8]}_{filename}"
+            file_path = upload_dir / unique_filename
+
+            with open(file_path, "w") as f:
+                f.write(content)
+
+            logger.info(f"Uploaded dataset to: {file_path}")
+            self._send_json({"success": True, "path": str(file_path)})
+
+        except Exception as e:
+            logger.error(f"Error uploading dataset: {e}")
             self._send_json({"error": str(e)}, 500)
 
     def rename_eval(self):

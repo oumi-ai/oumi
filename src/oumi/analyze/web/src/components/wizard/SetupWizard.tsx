@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -491,6 +491,80 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     setConfig(prev => ({ ...prev, ...updates }))
   }, [])
 
+  // File upload handling
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+
+  const handleFileSelect = useCallback(async (file: File) => {
+    setIsUploading(true)
+    try {
+      // Read file content
+      const content = await file.text()
+      
+      // Upload to server
+      const response = await fetch('/api/upload-dataset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.name,
+          content: content
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (result.success && result.path) {
+        updateConfig({ 
+          datasetPath: result.path,
+          datasetName: '' 
+        })
+      } else {
+        console.error('Upload failed:', result.error)
+        // Fallback to just filename with a warning
+        updateConfig({ 
+          datasetPath: file.name,
+          datasetName: '' 
+        })
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error)
+      // Fallback to just filename
+      updateConfig({ 
+        datasetPath: file.name,
+        datasetName: '' 
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }, [updateConfig])
+
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      handleFileSelect(file)
+    }
+  }, [handleFileSelect])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      handleFileSelect(file)
+    }
+  }, [handleFileSelect])
+
   const addAnalyzer = useCallback((type: AnalyzerKey) => {
     const analyzer = AVAILABLE_ANALYZERS[type]
     const defaultParams: Record<string, unknown> = {}
@@ -729,17 +803,47 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
 
         <div>
           <Label htmlFor="datasetPath">Local File Path</Label>
-          <div className="flex gap-2 mt-1.5">
+          <div 
+            className={`flex gap-2 mt-1.5 p-2 rounded-md border-2 border-dashed transition-colors ${
+              isDragging ? 'border-primary bg-primary/5' : 'border-transparent'
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <Input
               id="datasetPath"
               placeholder="/path/to/dataset.jsonl"
               value={config.datasetPath}
               onChange={(e) => updateConfig({ datasetPath: e.target.value, datasetName: '' })}
+              className="flex-1"
             />
-            <Button variant="outline" size="icon">
-              <Upload className="h-4 w-4" />
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileInputChange}
+              accept=".jsonl,.json"
+              className="hidden"
+            />
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              title="Browse for file"
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <span className="animate-spin">⏳</span>
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {isUploading 
+              ? 'Uploading...' 
+              : 'Type the full path directly, or drop/upload a file (creates a temp copy)'}
+          </p>
         </div>
 
         <div className="flex items-center gap-4">
