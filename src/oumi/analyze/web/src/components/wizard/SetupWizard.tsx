@@ -557,10 +557,10 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
 
   const addTest = useCallback(() => {
     const testId = `test_${config.tests.length + 1}`
+    // Add new test at the beginning so it's immediately visible
     setConfig(prev => ({
       ...prev,
       tests: [
-        ...prev.tests,
         {
           id: testId,
           type: 'threshold',
@@ -570,7 +570,8 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           severity: 'medium',
           operator: '>',
           value: 0,
-        }
+        },
+        ...prev.tests,
       ]
     }))
   }, [config.tests.length])
