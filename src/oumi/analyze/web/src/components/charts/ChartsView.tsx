@@ -53,14 +53,27 @@ const tooltipStyle = {
   itemStyle: { color: 'hsl(var(--popover-foreground))' },
 }
 
+// Helper to flatten result - handles both regular analyzers and custom metrics
+// Regular: {score: 85, passed: true}
+// Custom metrics: {values: {label_id: 52, label_name: "request_refund"}}
+function flattenResult(result: AnalysisResult): Record<string, unknown> {
+  // Check if this is a custom metric result with nested 'values'
+  if ('values' in result && typeof result.values === 'object' && result.values !== null) {
+    return { ...result, ...result.values }
+  }
+  return result
+}
+
 // Helper to get numeric fields from results
 function getNumericFields(results: AnalysisResult[]): string[] {
   if (results.length === 0) return []
   
-  const sample = results[0]
+  const sample = flattenResult(results[0])
   const numericFields: string[] = []
   
   for (const [key, value] of Object.entries(sample)) {
+    // Skip the nested 'values' object itself
+    if (key === 'values') continue
     // Include all numeric fields including score
     if (typeof value === 'number') {
       numericFields.push(key)
@@ -74,10 +87,12 @@ function getNumericFields(results: AnalysisResult[]): string[] {
 function getCategoricalFields(results: AnalysisResult[]): string[] {
   if (results.length === 0) return []
   
-  const sample = results[0]
+  const sample = flattenResult(results[0])
   const categoricalFields: string[] = []
   
   for (const [key, value] of Object.entries(sample)) {
+    // Skip the nested 'values' object itself
+    if (key === 'values') continue
     if (typeof value === 'string' && !['reasoning', 'error'].includes(key)) {
       categoricalFields.push(key)
     }
@@ -193,7 +208,7 @@ export function ChartsView({ evalData }: ChartsViewProps) {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {numericFields.map((field) => {
                       const values = selectedResults
-                        .map(r => r[field])
+                        .map(r => flattenResult(r)[field])
                         .filter((v): v is number => typeof v === 'number')
                       const histogramData = createHistogramData(values)
                       const avgValue = values.reduce((a, b) => a + b, 0) / values.length
@@ -251,7 +266,7 @@ export function ChartsView({ evalData }: ChartsViewProps) {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {categoricalFields.map((field) => {
                       const values = selectedResults
-                        .map(r => r[field])
+                        .map(r => flattenResult(r)[field])
                         .filter((v): v is string | boolean => 
                           typeof v === 'string' || typeof v === 'boolean'
                         )

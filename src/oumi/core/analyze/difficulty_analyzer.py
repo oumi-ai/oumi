@@ -461,17 +461,23 @@ class DifficultyAnalyzer(SampleAnalyzer):
             )
 
             if self.include_component_scores:
-                col_name = make_analyzer_column_name(column, analyzer_id, "requires_reasoning")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "requires_reasoning"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("requires_reasoning")
                 )
 
-                col_name = make_analyzer_column_name(column, analyzer_id, "requires_domain_knowledge")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "requires_domain_knowledge"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("requires_domain_knowledge")
                 )
 
-                col_name = make_analyzer_column_name(column, analyzer_id, "constraint_count")
+                col_name = make_analyzer_column_name(
+                    column, analyzer_id, "constraint_count"
+                )
                 result_df[col_name] = analysis_results.apply(
                     lambda r: r.get("constraint_count")
                 )

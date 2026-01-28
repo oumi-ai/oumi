@@ -39,7 +39,7 @@ import { cn } from '@/lib/utils'
 import { useRunAnalysis } from '@/hooks/useEvals'
 
 // LLM analyzer types that need special handling (use id: llm with criteria param)
-const LLM_ANALYZER_TYPES = ['usefulness', 'safety', 'coherence', 'factuality'] as const
+const LLM_ANALYZER_TYPES = ['usefulness', 'safety', 'coherence', 'factuality', 'custom_llm'] as const
 
 // Available analyzers with their parameters and metrics
 const AVAILABLE_ANALYZERS = {
@@ -89,7 +89,38 @@ const AVAILABLE_ANALYZERS = {
     ],
     metrics: ['score', 'passed', 'label', 'reasoning']
   },
+  custom_llm: {
+    name: 'Custom LLM Analyzer',
+    description: 'Create your own LLM-as-judge with a custom prompt',
+    params: [
+      { key: 'criteria_name', type: 'string', default: 'custom_eval', label: 'Metric Name (ID)' },
+      { key: 'prompt_template', type: 'textarea', default: 'Evaluate the following conversation:\n\n{target}\n\nProvide a score from 0-100.', label: 'Prompt Template' },
+      { key: 'model_name', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
+      { key: 'api_provider', type: 'select', options: ['openai', 'anthropic'] as const, default: 'openai', label: 'API Provider' },
+      { key: 'target_scope', type: 'select', options: ['conversation', 'last_turn', 'first_user'] as const, default: 'conversation', label: 'Target Scope' },
+    ],
+    metrics: ['score', 'passed', 'label', 'reasoning']
+  },
 }
+
+// Default custom metric template
+const DEFAULT_CUSTOM_METRIC_FUNCTION = `def compute(conversation):
+    """
+    Extract or compute a custom metric from the conversation.
+    
+    Args:
+        conversation: A Conversation object with:
+            - messages: List of Message objects (role, content)
+            - metadata: Dict with any metadata fields
+    
+    Returns:
+        A dict with your metric values, e.g.:
+        {"label_id": 5, "label_name": "billing"}
+    """
+    metadata = conversation.metadata or {}
+    return {
+        "value": metadata.get("some_field", "default")
+    }`
 
 type AnalyzerKey = keyof typeof AVAILABLE_ANALYZERS
 
@@ -98,7 +129,7 @@ interface CustomMetric {
   scope: string
   function: string
   description?: string
-  output_schema?: unknown[]
+  output_schema?: Array<{name: string; type: string; description?: string}>
   depends_on?: string[]
 }
 
@@ -221,7 +252,7 @@ function parseConfigToWizard(config: Record<string, unknown>): WizardConfig {
       scope: (m.scope as string) || 'conversation',
       function: (m.function as string) || '',
       description: m.description as string | undefined,
-      output_schema: m.output_schema as unknown[] | undefined,
+      output_schema: m.output_schema as Array<{name: string; type: string; description?: string}> | undefined,
       depends_on: m.depends_on as string[] | undefined,
     }))
   }
@@ -307,13 +338,18 @@ function generateYaml(config: WizardConfig): string {
     const isLlmAnalyzer = (LLM_ANALYZER_TYPES as readonly string[]).includes(analyzer.type)
     
     if (isLlmAnalyzer) {
-      // For LLM analyzers, always use criteria_name - it controls the metric prefix
-      // The backend now accepts criteria_name for both presets and custom prompts
-      const instanceId = analyzer.instanceId || analyzer.type
+      // For LLM analyzers, use criteria_name - it controls the metric prefix
+      // For custom_llm, get criteria_name from params; for presets, use the type
+      const isCustomLlm = analyzer.type === 'custom_llm'
+      const instanceId = isCustomLlm 
+        ? (analyzer.params.criteria_name as string) || 'custom_eval'
+        : (analyzer.instanceId || analyzer.type)
+      
       lines.push(`  - id: llm`)
       lines.push(`    instance_id: ${instanceId}`)
       lines.push(`    params:`)
       lines.push(`      criteria_name: ${instanceId}`)
+      
       // Filter out criteria/criteria_name since we're already outputting it above
       const paramEntries = Object.entries(analyzer.params).filter(
         ([k, v]) => v !== undefined && v !== '' && !['criteria', 'criteria_name'].includes(k)
@@ -350,8 +386,14 @@ function generateYaml(config: WizardConfig): string {
       if (metric.description) {
         lines.push(`    description: "${metric.description}"`)
       }
-      if (metric.output_schema && metric.output_schema.length > 0) {
-        lines.push(`    output_schema: ${JSON.stringify(metric.output_schema)}`)
+      // Output schema
+      if (metric.output_schema && (metric.output_schema as unknown[]).length > 0) {
+        lines.push(`    output_schema:`)
+        ;(metric.output_schema as Array<{name: string; type?: string; description?: string}>).forEach(field => {
+          lines.push(`      - name: ${field.name}`)
+          if (field.type) lines.push(`        type: ${field.type}`)
+          if (field.description) lines.push(`        description: "${field.description}"`)
+        })
       } else {
         lines.push(`    output_schema: []`)
       }
@@ -481,6 +523,38 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     }))
   }, [])
 
+  // Custom Metrics management
+  const addCustomMetric = useCallback(() => {
+    const metricId = `custom_${config.customMetrics.length + 1}`
+    setConfig(prev => ({
+      ...prev,
+      customMetrics: [
+        ...prev.customMetrics,
+        {
+          id: metricId,
+          scope: 'conversation',
+          function: DEFAULT_CUSTOM_METRIC_FUNCTION,
+        }
+      ]
+    }))
+  }, [config.customMetrics.length])
+
+  const removeCustomMetric = useCallback((index: number) => {
+    setConfig(prev => ({
+      ...prev,
+      customMetrics: prev.customMetrics.filter((_, i) => i !== index)
+    }))
+  }, [])
+
+  const updateCustomMetric = useCallback((index: number, updates: Partial<CustomMetric>) => {
+    setConfig(prev => ({
+      ...prev,
+      customMetrics: prev.customMetrics.map((m, i) => 
+        i === index ? { ...m, ...updates } : m
+      )
+    }))
+  }, [])
+
   const addTest = useCallback(() => {
     const testId = `test_${config.tests.length + 1}`
     setConfig(prev => ({
@@ -520,16 +594,32 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     // Metrics from analyzers
     config.analyzers.forEach(analyzer => {
       const analyzerDef = AVAILABLE_ANALYZERS[analyzer.type]
-      // Use instanceId for custom LLM analyzers, otherwise use type
-      const metricPrefix = analyzer.instanceId || analyzer.type
+      // For custom_llm, use criteria_name from params; for presets use instanceId or type
+      let metricPrefix: string
+      if (analyzer.type === 'custom_llm') {
+        metricPrefix = (analyzer.params.criteria_name as string) || 'custom_eval'
+      } else {
+        metricPrefix = analyzer.instanceId || analyzer.type
+      }
       analyzerDef.metrics.forEach(m => {
         metrics.push(`${metricPrefix}.${m}`)
       })
     })
-    // Metrics from custom metrics (use id as prefix + common field names)
+    // Metrics from custom metrics
     config.customMetrics.forEach(customMetric => {
-      // Add the custom metric id as a prefix for common patterns
-      metrics.push(`${customMetric.id}.*`)
+      // Get field names from output_schema
+      const schemaFields = (customMetric.output_schema as Array<{name?: string}>)
+        ?.map(s => s.name)
+        .filter(Boolean) || []
+      
+      if (schemaFields.length > 0) {
+        schemaFields.forEach(field => {
+          metrics.push(`${customMetric.id}.${field}`)
+        })
+      } else {
+        // No schema defined yet - show hint
+        metrics.push(`${customMetric.id}.* (define output schema)`)
+      }
     })
     return metrics
   }, [config.analyzers, config.customMetrics])
@@ -767,44 +857,62 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
                       </div>
                       
                       {analyzerDef.params.length > 0 && (
-                        <div className="grid grid-cols-2 gap-3">
-                          {analyzerDef.params.map(param => (
-                            <div key={param.key}>
-                              <Label className="text-xs">{param.label}</Label>
-                              {param.type === 'boolean' ? (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Checkbox
-                                    checked={analyzer.params[param.key] as boolean}
-                                    onCheckedChange={(checked) => 
-                                      updateAnalyzerParam(index, param.key, checked)
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            {analyzerDef.params.filter(p => p.type !== 'textarea').map(param => (
+                              <div key={param.key}>
+                                <Label className="text-xs">{param.label}</Label>
+                                {param.type === 'boolean' ? (
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Checkbox
+                                      checked={analyzer.params[param.key] as boolean}
+                                      onCheckedChange={(checked) => 
+                                        updateAnalyzerParam(index, param.key, checked)
+                                      }
+                                    />
+                                  </div>
+                                ) : param.type === 'select' && 'options' in param ? (
+                                  <Select
+                                    value={analyzer.params[param.key] as string}
+                                    onValueChange={(value) => 
+                                      updateAnalyzerParam(index, param.key, value)
+                                    }
+                                  >
+                                    <SelectTrigger className="mt-1 h-8 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {(param.options as readonly string[]).map((opt: string) => (
+                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Input
+                                    className="mt-1 h-8 text-xs"
+                                    value={analyzer.params[param.key] as string}
+                                    onChange={(e) => 
+                                      updateAnalyzerParam(index, param.key, e.target.value)
                                     }
                                   />
-                                </div>
-                              ) : param.type === 'select' && 'options' in param ? (
-                                <Select
-                                  value={analyzer.params[param.key] as string}
-                                  onValueChange={(value) => 
-                                    updateAnalyzerParam(index, param.key, value)
-                                  }
-                                >
-                                  <SelectTrigger className="mt-1 h-8 text-xs">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {(param.options as readonly string[]).map((opt: string) => (
-                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <Input
-                                  className="mt-1 h-8 text-xs"
-                                  value={analyzer.params[param.key] as string}
-                                  onChange={(e) => 
-                                    updateAnalyzerParam(index, param.key, e.target.value)
-                                  }
-                                />
-                              )}
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          {/* Textarea params (like prompt_template) get full width */}
+                          {analyzerDef.params.filter(p => p.type === 'textarea').map(param => (
+                            <div key={param.key}>
+                              <Label className="text-xs">{param.label}</Label>
+                              <p className="text-xs text-muted-foreground mb-1">
+                                Use {'{target}'} as placeholder for the conversation content
+                              </p>
+                              <textarea
+                                className="mt-1 w-full h-32 text-xs font-mono p-2 border rounded-md bg-background resize-y"
+                                value={analyzer.params[param.key] as string}
+                                onChange={(e) => 
+                                  updateAnalyzerParam(index, param.key, e.target.value)
+                                }
+                              />
                             </div>
                           ))}
                         </div>
@@ -817,6 +925,175 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           </div>
         </>
       )}
+
+      {/* Custom Python Metrics Section */}
+      <Separator className="my-6" />
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h3 className="text-lg font-medium flex items-center gap-2">
+              <Code className="h-5 w-5 text-orange-500" />
+              Custom Python Metrics
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Extract custom fields from conversations using Python functions.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={addCustomMetric}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Metric
+          </Button>
+        </div>
+
+        {config.customMetrics.length > 0 && (
+          <div className="space-y-4 mt-4">
+            {config.customMetrics.map((metric, index) => (
+              <Card key={index}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h5 className="font-medium">Custom Metric {index + 1}</h5>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeCustomMetric(index)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <Label className="text-xs">Metric ID</Label>
+                      <Input
+                        className="mt-1 h-8 text-xs"
+                        placeholder="e.g., ground_truth"
+                        value={metric.id}
+                        onChange={(e) => updateCustomMetric(index, { id: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Scope</Label>
+                      <Select
+                        value={metric.scope}
+                        onValueChange={(value) => updateCustomMetric(index, { scope: value })}
+                      >
+                        <SelectTrigger className="mt-1 h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="conversation">Conversation</SelectItem>
+                          <SelectItem value="message">Message</SelectItem>
+                          <SelectItem value="dataset">Dataset</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  {/* Output Schema */}
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-xs">Output Schema (required)</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={() => {
+                          const currentSchema = (metric.output_schema as Array<{name: string; type: string; description?: string}>) || []
+                          updateCustomMetric(index, {
+                            output_schema: [...currentSchema, { name: '', type: 'string', description: '' }]
+                          })
+                        }}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add Field
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Define the fields your function returns (must match your return dict keys)
+                    </p>
+                    
+                    {((metric.output_schema as Array<{name: string; type: string; description?: string}>) || []).length === 0 ? (
+                      <div className="text-xs text-muted-foreground italic p-2 border border-dashed rounded">
+                        No output fields defined. Click "Add Field" to define what your function returns.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {((metric.output_schema as Array<{name: string; type: string; description?: string}>) || []).map((field, fieldIdx) => (
+                          <div key={fieldIdx} className="flex items-center gap-2 p-2 bg-muted/30 rounded">
+                            <Input
+                              className="h-7 text-xs flex-1"
+                              placeholder="field_name"
+                              value={field.name}
+                              onChange={(e) => {
+                                const currentSchema = [...((metric.output_schema as Array<{name: string; type: string; description?: string}>) || [])]
+                                currentSchema[fieldIdx] = { ...currentSchema[fieldIdx], name: e.target.value }
+                                updateCustomMetric(index, { output_schema: currentSchema })
+                              }}
+                            />
+                            <Select
+                              value={field.type}
+                              onValueChange={(value) => {
+                                const currentSchema = [...((metric.output_schema as Array<{name: string; type: string; description?: string}>) || [])]
+                                currentSchema[fieldIdx] = { ...currentSchema[fieldIdx], type: value }
+                                updateCustomMetric(index, { output_schema: currentSchema })
+                              }}
+                            >
+                              <SelectTrigger className="h-7 text-xs w-24">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="string">string</SelectItem>
+                                <SelectItem value="int">int</SelectItem>
+                                <SelectItem value="float">float</SelectItem>
+                                <SelectItem value="bool">bool</SelectItem>
+                                <SelectItem value="any">any</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              className="h-7 text-xs flex-1"
+                              placeholder="description (optional)"
+                              value={field.description || ''}
+                              onChange={(e) => {
+                                const currentSchema = [...((metric.output_schema as Array<{name: string; type: string; description?: string}>) || [])]
+                                currentSchema[fieldIdx] = { ...currentSchema[fieldIdx], description: e.target.value }
+                                updateCustomMetric(index, { output_schema: currentSchema })
+                              }}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={() => {
+                                const currentSchema = [...((metric.output_schema as Array<{name: string; type: string; description?: string}>) || [])]
+                                currentSchema.splice(fieldIdx, 1)
+                                updateCustomMetric(index, { output_schema: currentSchema })
+                              }}
+                            >
+                              <X className="h-3 w-3 text-red-500" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Python Function</Label>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Return a dict with your metric values. Access conversation.messages and conversation.metadata.
+                    </p>
+                    <textarea
+                      className="mt-1 w-full h-40 text-xs font-mono p-2 border rounded-md bg-muted/50 resize-y"
+                      value={metric.function}
+                      onChange={(e) => updateCustomMetric(index, { function: e.target.value })}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 
@@ -882,19 +1159,23 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label className="text-xs">Metric</Label>
-                  <Select
-                    value={test.metric}
-                    onValueChange={(value) => updateTest(index, { metric: value })}
-                  >
-                    <SelectTrigger className="mt-1 h-8 text-xs">
-                      <SelectValue placeholder="Select metric" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableMetrics.map(m => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                  <div className="relative mt-1">
+                    <Input
+                      className="h-8 text-xs pr-8"
+                      placeholder="e.g., length.total_tokens"
+                      value={test.metric}
+                      onChange={(e) => updateTest(index, { metric: e.target.value })}
+                      list={`metrics-${index}`}
+                    />
+                    <datalist id={`metrics-${index}`}>
+                      {availableMetrics.filter(m => !m.includes('(specify')).map(m => (
+                        <option key={m} value={m} />
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </datalist>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Type or select from suggestions
+                  </p>
                 </div>
                 <div>
                   <Label className="text-xs">Test Type</Label>
