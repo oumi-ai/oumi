@@ -486,7 +486,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     isDismissed: suggestionsDismissed,
     unappliedAnalyzers,
     unappliedCustomMetrics,
-    unappliedTests,
+    // Note: unappliedTests not used - we compute filtered version based on selected analyzers
     appliedAnalyzers,
     appliedCustomMetrics,
     appliedTests,
@@ -814,15 +814,51 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     markAllCustomMetricsApplied()
   }, [suggestions, appliedAnalyzers, appliedCustomMetrics, applyAnalyzerSuggestion, applyCustomMetricSuggestion, markAllAnalyzersApplied, markAllCustomMetricsApplied])
 
-  // Apply all test suggestions
+  // Apply all test suggestions (only relevant ones)
   const applyAllTestSuggestions = useCallback(() => {
+    const availableMetrics = getAvailableMetricPrefixes()
     suggestions?.tests.forEach(s => {
-      if (!appliedTests.has(s.id)) {
+      if (!appliedTests.has(s.id) && isTestRelevant(s.metric, availableMetrics)) {
         applyTestSuggestion(s)
       }
     })
     markAllTestsApplied()
   }, [suggestions, appliedTests, applyTestSuggestion, markAllTestsApplied])
+
+  // Get the metric prefixes (analyzer IDs) from selected analyzers and custom metrics
+  const getAvailableMetricPrefixes = useCallback((): Set<string> => {
+    const prefixes = new Set<string>()
+    
+    // Add prefixes from selected analyzers
+    config.analyzers.forEach(analyzer => {
+      if (analyzer.type === 'custom_llm') {
+        prefixes.add((analyzer.params.criteria_name as string) || 'custom_eval')
+      } else {
+        prefixes.add(analyzer.instanceId || analyzer.type)
+      }
+    })
+    
+    // Add prefixes from custom metrics
+    config.customMetrics.forEach(customMetric => {
+      prefixes.add(customMetric.id)
+    })
+    
+    return prefixes
+  }, [config.analyzers, config.customMetrics])
+
+  // Check if a test's metric is relevant to the selected analyzers
+  const isTestRelevant = useCallback((metric: string, availablePrefixes: Set<string>): boolean => {
+    // Extract the analyzer/metric prefix from "AnalyzerName.field_name"
+    const prefix = metric.split('.')[0]
+    return availablePrefixes.has(prefix)
+  }, [])
+
+  // Get filtered test suggestions (only tests for selected analyzers)
+  const getRelevantTestSuggestions = useCallback(() => {
+    if (!suggestions?.tests) return []
+    const availablePrefixes = getAvailableMetricPrefixes()
+    return suggestions.tests.filter(test => isTestRelevant(test.metric, availablePrefixes))
+  }, [suggestions?.tests, getAvailableMetricPrefixes, isTestRelevant])
 
   const getAvailableMetrics = useCallback(() => {
     const metrics: string[] = []
@@ -1410,26 +1446,35 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           </p>
         </div>
 
-        {/* AI Suggestions Panel for Tests */}
-        {suggestionsDismissed && unappliedTests.length > 0 ? (
-          <SuggestionPanelMinimized
-            suggestionCount={unappliedTests.length}
-            onClick={undismissSuggestions}
-          />
-        ) : (
-          <SuggestionPanel
-            status={suggestionsStatus}
-            error={suggestionsError}
-            isDismissed={suggestionsDismissed}
-            onDismiss={dismissSuggestions}
-            onUndismiss={undismissSuggestions}
-            type="tests"
-            testSuggestions={suggestions?.tests || []}
-            appliedTests={appliedTests}
-            onApplyTest={applyTestSuggestion}
-            onApplyAll={applyAllTestSuggestions}
-          />
-        )}
+        {/* AI Suggestions Panel for Tests - filtered to only show relevant tests */}
+        {(() => {
+          const relevantTests = getRelevantTestSuggestions()
+          const unappliedRelevantTests = relevantTests.filter(t => !appliedTests.has(t.id))
+          
+          if (suggestionsDismissed && unappliedRelevantTests.length > 0) {
+            return (
+              <SuggestionPanelMinimized
+                suggestionCount={unappliedRelevantTests.length}
+                onClick={undismissSuggestions}
+              />
+            )
+          }
+          
+          return (
+            <SuggestionPanel
+              status={suggestionsStatus}
+              error={suggestionsError}
+              isDismissed={suggestionsDismissed}
+              onDismiss={dismissSuggestions}
+              onUndismiss={undismissSuggestions}
+              type="tests"
+              testSuggestions={relevantTests}
+              appliedTests={appliedTests}
+              onApplyTest={applyTestSuggestion}
+              onApplyAll={applyAllTestSuggestions}
+            />
+          )
+        })()}
 
         <Button onClick={addTest} variant="outline" className="w-full">
           <Plus className="h-4 w-4 mr-2" />
