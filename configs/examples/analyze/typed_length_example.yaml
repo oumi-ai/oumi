@@ -29,28 +29,13 @@ output_path: ./analysis_output/typed_length_test
 # Analyzers to run
 analyzers:
   - id: length
+    instance_id: length  # Explicit instance_id for results access
     params:
-      count_tokens: true # Enable token counting
       tiktoken_encoding: cl100k_base # GPT-4 tokenizer
       compute_role_stats: true # Compute per-role statistics
 
 # Custom metrics
 custom_metrics:
-  - id: word_to_char_ratio
-    scope: conversation
-    description: "Ratio of words to characters (indicates avg word length)"
-    output_schema:
-      - name: ratio
-        type: float
-        description: "Words / characters ratio (typical: 0.15-0.20 for English)"
-    function: |
-      def compute(conversation):
-          total_chars = sum(len(m.content) for m in conversation.messages if hasattr(m, 'content') and isinstance(m.content, str))
-          total_words = sum(len(m.content.split()) for m in conversation.messages if hasattr(m, 'content') and isinstance(m.content, str))
-          if total_chars == 0:
-              return {"ratio": 0.0}
-          return {"ratio": total_words / total_chars}
-
   - id: assistant_ends_with_full_stop
     scope: message
     description: "Whether the assistant message ends with a full stop"
@@ -66,48 +51,74 @@ custom_metrics:
     scope: conversation
     description: "Estimated cost based on token count"
     depends_on:
-      - LengthAnalyzer
+      - length
     output_schema:
       - name: cost_usd
         type: float
         description: "Estimated cost in USD (tokens * $0.001 per 1k tokens)"
     function: |
       def compute(conversation, results, index):
-          # Access LengthAnalyzer results for this conversation
-          length_result = results["LengthAnalyzer"][index]
-          tokens = length_result.total_tokens or 0
+          # Access length analyzer results - they are Pydantic models, use attribute access
+          length_result = results["length"][index]
+          tokens = getattr(length_result, "total_tokens", 0) or 0
           cost_per_1k = 0.001  # $0.001 per 1k tokens
           return {"cost_usd": tokens * cost_per_1k / 1000}
 
-  # Example: Custom metric that depends on ANOTHER custom metric
-  - id: text_density_category
+  # Custom metric to calculate tokens per message ratio
+  - id: tokens_per_message
     scope: conversation
-    description: "Categorizes text density based on word-to-char ratio"
+    description: "Average tokens per message in the conversation"
     depends_on:
-      - word_to_char_ratio # Depends on another custom metric!
+      - length  # Depends on the length analyzer
     output_schema:
-      - name: category
-        type: str
-        description: "Text density category: verbose, normal, or dense"
-      - name: is_typical
+      - name: avg_tokens
+        type: float
+        description: "Average tokens per message"
+      - name: is_concise
         type: bool
-        description: "Whether the ratio is in the typical range (0.12-0.18)"
+        description: "Whether messages are concise (< 200 tokens avg)"
     function: |
       def compute(conversation, results, index):
-          # Access the word_to_char_ratio custom metric result
-          ratio_result = results["word_to_char_ratio"][index]
-          ratio = ratio_result.values["ratio"]
+          # Access analyzer results - they are Pydantic models, use attribute access
+          length_result = results["length"][index]
+          total_tokens = getattr(length_result, "total_tokens", 0) or 0
+          num_messages = getattr(length_result, "num_messages", 1) or 1
+          avg = total_tokens / num_messages
+          return {
+              "avg_tokens": avg,
+              "is_concise": avg < 200
+          }
 
-          # Categorize based on ratio
-          if ratio > 0.18:
-              category = "verbose"  # Short words, many spaces
-          elif ratio < 0.12:
-              category = "dense"    # Long words, technical text
+  # Example: Custom metric that depends on ANOTHER custom metric
+  - id: conversation_complexity
+    scope: conversation
+    description: "Categorizes conversation complexity based on tokens per message"
+    depends_on:
+      - tokens_per_message  # Depends on another custom metric!
+    output_schema:
+      - name: complexity
+        type: str
+        description: "Complexity category: simple, moderate, or complex"
+      - name: is_suitable_for_training
+        type: bool
+        description: "Whether complexity is suitable for training (moderate)"
+    function: |
+      def compute(conversation, results, index):
+          # Access the tokens_per_message custom metric result
+          # Custom metric results have a .values dict
+          tpm_result = results["tokens_per_message"][index]
+          avg_tokens = tpm_result.values.get("avg_tokens", 0)
+
+          # Categorize based on average tokens per message
+          if avg_tokens < 100:
+              complexity = "simple"      # Very short exchanges
+          elif avg_tokens > 500:
+              complexity = "complex"     # Long detailed messages
           else:
-              category = "normal"
+              complexity = "moderate"    # Good for training
 
-          is_typical = 0.12 <= ratio <= 0.18
-          return {"category": category, "is_typical": is_typical}
+          is_suitable = complexity == "moderate"
+          return {"complexity": complexity, "is_suitable_for_training": is_suitable}
 
   # ============================================================
   # Quality Check Metrics
@@ -377,21 +388,10 @@ custom_metrics:
 # Tests to run on the computed metrics
 # Use format: AnalyzerName.metric_name
 tests:
-  # Check that conversations aren't too short
-  - id: min_words
-    type: threshold
-    metric: LengthAnalyzer.total_words
-    operator: "<"
-    value: 5
-    max_percentage: 5.0 # Allow at most 5% to fail
-    severity: medium
-    title: "Very short conversations"
-    description: "Conversations with fewer than 5 words may lack substance"
-
   # Check that conversations aren't excessively long
   - id: max_tokens
     type: threshold
-    metric: LengthAnalyzer.total_tokens
+    metric: length.total_tokens
     operator: ">"
     value: 8000
     max_percentage: 2.0 # Allow at most 2% to exceed
@@ -402,7 +402,7 @@ tests:
   # Check that most conversations have multiple messages
   - id: multi_turn
     type: threshold
-    metric: LengthAnalyzer.num_messages
+    metric: length.num_messages
     operator: "<"
     value: 2
     max_percentage: 10.0
@@ -410,17 +410,15 @@ tests:
     title: "Single-turn conversations"
     description: "Conversations with only one message"
 
-  # Test for custom metric: word-to-char ratio should be reasonable
-  # Typical English text has ~0.15-0.20 ratio (avg word length 5-7 chars)
-  - id: word_char_ratio_check
-    type: threshold
-    metric: word_to_char_ratio.ratio
-    operator: "<"
-    value: 0.05
-    max_percentage: 5.0
+  # Test for custom metric that depends on analyzer
+  - id: concise_messages_check
+    type: percentage
+    metric: tokens_per_message.is_concise
+    condition: "== True"
+    min_percentage: 50.0
     severity: low
-    title: "Unusual word-to-char ratio"
-    description: "Very low ratio may indicate long words or non-text content"
+    title: "Messages are concise"
+    description: "At least 50% of conversations should have concise messages (< 200 tokens avg)"
 
   - id: assistant_ends_with_full_stop_check
     type: threshold
@@ -443,14 +441,14 @@ tests:
     description: "Estimated cost should be less than $0.01"
 
   # Test for custom metric that depends on another custom metric
-  - id: typical_text_density
+  - id: suitable_complexity
     type: percentage
-    metric: text_density_category.is_typical
+    metric: conversation_complexity.is_suitable_for_training
     condition: "== True"
-    min_percentage: 80.0
+    min_percentage: 50.0
     severity: low
-    title: "Text density is typical"
-    description: "At least 80% of conversations should have typical text density"
+    title: "Suitable complexity for training"
+    description: "At least 50% of conversations should have moderate complexity"
 
   # ============================================================
   # Quality Check Tests
@@ -499,7 +497,7 @@ tests:
   # Fits in 4K context
   - id: fits_4k_context
     type: threshold
-    metric: LengthAnalyzer.total_tokens
+    metric: length.total_tokens
     operator: ">"
     value: 4096
     max_percentage: 10.0
