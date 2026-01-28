@@ -93,9 +93,6 @@ class AttributeSynthesizer:
     ) -> str:
         """Submit a batch inference job for attribute synthesis.
 
-        This method submits the inference job to a batch API (e.g., OpenAI Batch API)
-        and returns a batch ID that can be used to poll for status and retrieve results.
-
         Args:
             samples: The samples to synthesize values for.
             generated_attribute: The generated attribute to synthesize a value for.
@@ -154,9 +151,6 @@ class AttributeSynthesizer:
     ) -> list[dict[str, str]]:
         """Get results from a completed batch inference job.
 
-        This method retrieves the results from a completed batch job and applies
-        the same postprocessing as the synchronous synthesize() method.
-
         Args:
             batch_id: The batch ID returned from synthesize_batch().
             samples: The original samples that were submitted for synthesis.
@@ -175,7 +169,6 @@ class AttributeSynthesizer:
                 "support batch inference."
             )
 
-        # Recreate the inference conversations to pass to get_batch_results
         inference_conversations: list[Conversation] = []
         for sample in samples:
             inference_conversations.append(

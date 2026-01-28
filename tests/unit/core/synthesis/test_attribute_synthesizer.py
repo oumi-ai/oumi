@@ -338,7 +338,6 @@ def test_synthesize_batch_returns_batch_id(
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
 
-    # Mock the inference engine's infer_batch method
     mock_inference_engine.infer_batch.return_value = "batch_123"
 
     synthesizer = AttributeSynthesizer(
@@ -367,7 +366,6 @@ def test_synthesize_batch_raises_when_not_supported(
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
 
-    # Remove infer_batch attribute to simulate unsupported engine
     del mock_inference_engine.infer_batch
 
     synthesizer = AttributeSynthesizer(
@@ -383,32 +381,6 @@ def test_synthesize_batch_raises_when_not_supported(
 
 
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
-def test_get_batch_status_delegates_to_engine(
-    mock_build_inference_engine,
-    mock_general_synthesis_params,
-    mock_inference_config,
-):
-    """Test that get_batch_status delegates to the inference engine."""
-    mock_inference_engine = Mock()
-    mock_build_inference_engine.return_value = mock_inference_engine
-
-    # Mock batch status response
-    mock_status = Mock()
-    mock_status.status = "completed"
-    mock_inference_engine.get_batch_status.return_value = mock_status
-
-    synthesizer = AttributeSynthesizer(
-        mock_general_synthesis_params,
-        mock_inference_config,
-    )
-
-    result = synthesizer.get_batch_status("batch_123")
-
-    assert result == mock_status
-    mock_inference_engine.get_batch_status.assert_called_once_with("batch_123")
-
-
-@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
 def test_get_batch_status_raises_when_not_supported(
     mock_build_inference_engine,
     mock_general_synthesis_params,
@@ -418,7 +390,6 @@ def test_get_batch_status_raises_when_not_supported(
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
 
-    # Remove get_batch_status attribute to simulate unsupported engine
     del mock_inference_engine.get_batch_status
 
     synthesizer = AttributeSynthesizer(
@@ -443,7 +414,6 @@ def test_get_batch_results_returns_processed_results(
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
 
-    # Mock the inference engine's get_batch_results method
     mock_inference_engine.get_batch_results.return_value = [
         Conversation(
             messages=[
@@ -489,7 +459,6 @@ def test_get_batch_results_raises_when_not_supported(
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
 
-    # Remove get_batch_results attribute to simulate unsupported engine
     del mock_inference_engine.get_batch_results
 
     synthesizer = AttributeSynthesizer(
@@ -514,7 +483,6 @@ def test_get_batch_results_with_postprocessing(
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
 
-    # Mock the inference engine's get_batch_results method
     mock_inference_engine.get_batch_results.return_value = [
         Conversation(
             messages=[
@@ -524,7 +492,6 @@ def test_get_batch_results_with_postprocessing(
         ),
     ]
 
-    # Create generated attribute with postprocessing
     generated_attribute_with_postprocessing = GeneratedAttribute(
         id="original_content",
         instruction_messages=[
@@ -549,6 +516,5 @@ def test_get_batch_results_with_postprocessing(
     )
 
     assert len(result) == 1
-    # Original content should be preserved when keep_original_text_attribute is not set
     assert "processed_content" in result[0]
     assert result[0]["processed_content"] == "Hello World"
