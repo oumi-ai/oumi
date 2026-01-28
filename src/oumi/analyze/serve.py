@@ -85,6 +85,8 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
             self.delete_eval()
         elif self.path == "/api/upload-dataset":
             self.upload_dataset()
+        elif self.path == "/api/suggest":
+            self.generate_suggestions()
         else:
             self.send_error(404, "Not found")
 
@@ -153,6 +155,56 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             logger.error(f"Error uploading dataset: {e}")
+            self._send_json({"error": str(e)}, 500)
+
+    def generate_suggestions(self):
+        """Generate AI-powered suggestions for analyzers, metrics, and tests."""
+        try:
+            from oumi.analyze.suggest import (
+                generate_suggestions,
+                suggestion_response_to_dict,
+            )
+
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)
+
+            dataset_path = data.get("dataset_path")
+            dataset_name = data.get("dataset_name")
+            split = data.get("split", "train")
+            subset = data.get("subset")
+            sample_count = data.get("sample_count", 5)
+
+            if not dataset_path and not dataset_name:
+                self._send_json(
+                    {"error": "Either dataset_path or dataset_name is required"}, 400
+                )
+                return
+
+            logger.info(
+                f"Generating suggestions for dataset: "
+                f"{dataset_path or dataset_name} (samples={sample_count})"
+            )
+
+            # Generate suggestions
+            response = generate_suggestions(
+                dataset_path=dataset_path,
+                dataset_name=dataset_name,
+                split=split,
+                subset=subset,
+                sample_count=sample_count,
+            )
+
+            # Convert to dict for JSON response
+            result = suggestion_response_to_dict(response)
+
+            if response.error:
+                self._send_json(result, 500)
+            else:
+                self._send_json(result)
+
+        except Exception as e:
+            logger.error(f"Error generating suggestions: {e}")
             self._send_json({"error": str(e)}, 500)
 
     def rename_eval(self):

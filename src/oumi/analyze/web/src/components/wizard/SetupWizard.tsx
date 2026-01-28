@@ -37,6 +37,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRunAnalysis } from '@/hooks/useEvals'
+import { useSuggestions, type AnalyzerSuggestion, type CustomMetricSuggestion, type TestSuggestion } from '@/hooks/useSuggestions'
+import { SuggestionPanel, SuggestionPanelMinimized } from './SuggestionPanel'
 
 // LLM analyzer types that need special handling (use id: llm with criteria param)
 const LLM_ANALYZER_TYPES = ['usefulness', 'safety', 'coherence', 'factuality', 'custom_llm'] as const
@@ -476,6 +478,29 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
 
   const { run, runTestsOnlyCached, reset, jobStatus, isStarting } = useRunAnalysis()
 
+  // AI-powered suggestions
+  const {
+    status: suggestionsStatus,
+    suggestions,
+    error: suggestionsError,
+    isDismissed: suggestionsDismissed,
+    unappliedAnalyzers,
+    unappliedCustomMetrics,
+    unappliedTests,
+    appliedAnalyzers,
+    appliedCustomMetrics,
+    appliedTests,
+    triggerSuggestions,
+    markAnalyzerApplied,
+    markCustomMetricApplied,
+    markTestApplied,
+    markAllAnalyzersApplied,
+    markAllCustomMetricsApplied,
+    markAllTestsApplied,
+    dismiss: dismissSuggestions,
+    undismiss: undismissSuggestions,
+  } = useSuggestions()
+
   // Handle job completion
   useEffect(() => {
     if (jobStatus?.status === 'completed') {
@@ -667,6 +692,137 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
       tests: prev.tests.map((t, i) => i === index ? { ...t, ...updates } : t)
     }))
   }, [])
+
+  // Handle step navigation with suggestion triggering
+  const handleNextStep = useCallback(() => {
+    // Trigger suggestions when leaving the Dataset step (step 0)
+    if (currentStep === 0 && (config.datasetPath || config.datasetName)) {
+      triggerSuggestions({
+        dataset_path: config.datasetPath || undefined,
+        dataset_name: config.datasetName || undefined,
+        split: config.split || 'train',
+        sample_count: 5, // Analyze 5 samples for suggestions
+      })
+    }
+    setCurrentStep(currentStep + 1)
+  }, [currentStep, config.datasetPath, config.datasetName, config.split, triggerSuggestions])
+
+  // Apply an analyzer suggestion
+  const applyAnalyzerSuggestion = useCallback((suggestion: AnalyzerSuggestion) => {
+    // Check if already added
+    if (config.analyzers.some(a => a.type === suggestion.id)) {
+      markAnalyzerApplied(suggestion.id)
+      return
+    }
+
+    // Get default params from AVAILABLE_ANALYZERS
+    const analyzerKey = suggestion.id as AnalyzerKey
+    const analyzerDef = AVAILABLE_ANALYZERS[analyzerKey]
+    if (!analyzerDef) {
+      console.warn(`Unknown analyzer: ${suggestion.id}`)
+      return
+    }
+
+    const defaultParams: Record<string, unknown> = {}
+    analyzerDef.params.forEach(p => {
+      defaultParams[p.key] = suggestion.params?.[p.key] ?? p.default
+    })
+
+    setConfig(prev => ({
+      ...prev,
+      analyzers: [
+        ...prev.analyzers,
+        {
+          id: suggestion.id,
+          type: analyzerKey,
+          params: defaultParams,
+        }
+      ]
+    }))
+    markAnalyzerApplied(suggestion.id)
+  }, [config.analyzers, markAnalyzerApplied])
+
+  // Apply a custom metric suggestion
+  const applyCustomMetricSuggestion = useCallback((suggestion: CustomMetricSuggestion) => {
+    // Check if already added
+    if (config.customMetrics.some(m => m.id === suggestion.id)) {
+      markCustomMetricApplied(suggestion.id)
+      return
+    }
+
+    setConfig(prev => ({
+      ...prev,
+      customMetrics: [
+        ...prev.customMetrics,
+        {
+          id: suggestion.id,
+          scope: 'conversation',
+          function: suggestion.function,
+          description: suggestion.description,
+          output_schema: suggestion.output_schema,
+        }
+      ]
+    }))
+    markCustomMetricApplied(suggestion.id)
+  }, [config.customMetrics, markCustomMetricApplied])
+
+  // Apply a test suggestion
+  const applyTestSuggestion = useCallback((suggestion: TestSuggestion) => {
+    // Check if already added
+    if (config.tests.some(t => t.id === suggestion.id)) {
+      markTestApplied(suggestion.id)
+      return
+    }
+
+    setConfig(prev => ({
+      ...prev,
+      tests: [
+        {
+          id: suggestion.id,
+          type: suggestion.type,
+          metric: suggestion.metric,
+          title: suggestion.title || '',
+          description: suggestion.description || '',
+          severity: suggestion.severity || 'medium',
+          operator: suggestion.operator,
+          value: suggestion.value,
+          condition: suggestion.condition,
+          maxPercentage: suggestion.max_percentage,
+          minPercentage: suggestion.min_percentage,
+          minValue: suggestion.min_value,
+          maxValue: suggestion.max_value,
+        },
+        ...prev.tests,
+      ]
+    }))
+    markTestApplied(suggestion.id)
+  }, [config.tests, markTestApplied])
+
+  // Apply all analyzer and custom metric suggestions
+  const applyAllAnalyzerSuggestions = useCallback(() => {
+    suggestions?.analyzers.forEach(s => {
+      if (!appliedAnalyzers.has(s.id)) {
+        applyAnalyzerSuggestion(s)
+      }
+    })
+    suggestions?.custom_metrics.forEach(s => {
+      if (!appliedCustomMetrics.has(s.id)) {
+        applyCustomMetricSuggestion(s)
+      }
+    })
+    markAllAnalyzersApplied()
+    markAllCustomMetricsApplied()
+  }, [suggestions, appliedAnalyzers, appliedCustomMetrics, applyAnalyzerSuggestion, applyCustomMetricSuggestion, markAllAnalyzersApplied, markAllCustomMetricsApplied])
+
+  // Apply all test suggestions
+  const applyAllTestSuggestions = useCallback(() => {
+    suggestions?.tests.forEach(s => {
+      if (!appliedTests.has(s.id)) {
+        applyTestSuggestion(s)
+      }
+    })
+    markAllTestsApplied()
+  }, [suggestions, appliedTests, applyTestSuggestion, markAllTestsApplied])
 
   const getAvailableMetrics = useCallback(() => {
     const metrics: string[] = []
@@ -910,6 +1066,30 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           Choose the analyzers you want to run on your dataset.
         </p>
       </div>
+
+      {/* AI Suggestions Panel */}
+      {suggestionsDismissed && (unappliedAnalyzers.length > 0 || unappliedCustomMetrics.length > 0) ? (
+        <SuggestionPanelMinimized
+          suggestionCount={unappliedAnalyzers.length + unappliedCustomMetrics.length}
+          onClick={undismissSuggestions}
+        />
+      ) : (
+        <SuggestionPanel
+          status={suggestionsStatus}
+          error={suggestionsError}
+          isDismissed={suggestionsDismissed}
+          onDismiss={dismissSuggestions}
+          onUndismiss={undismissSuggestions}
+          type="analyzers"
+          analyzerSuggestions={suggestions?.analyzers || []}
+          customMetricSuggestions={suggestions?.custom_metrics || []}
+          appliedAnalyzers={appliedAnalyzers}
+          appliedCustomMetrics={appliedCustomMetrics}
+          onApplyAnalyzer={applyAnalyzerSuggestion}
+          onApplyCustomMetric={applyCustomMetricSuggestion}
+          onApplyAll={applyAllAnalyzerSuggestions}
+        />
+      )}
 
       {/* Available Analyzers */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1229,6 +1409,27 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
             Create tests to validate your analysis results. Tests are optional but recommended.
           </p>
         </div>
+
+        {/* AI Suggestions Panel for Tests */}
+        {suggestionsDismissed && unappliedTests.length > 0 ? (
+          <SuggestionPanelMinimized
+            suggestionCount={unappliedTests.length}
+            onClick={undismissSuggestions}
+          />
+        ) : (
+          <SuggestionPanel
+            status={suggestionsStatus}
+            error={suggestionsError}
+            isDismissed={suggestionsDismissed}
+            onDismiss={dismissSuggestions}
+            onUndismiss={undismissSuggestions}
+            type="tests"
+            testSuggestions={suggestions?.tests || []}
+            appliedTests={appliedTests}
+            onApplyTest={applyTestSuggestion}
+            onApplyAll={applyAllTestSuggestions}
+          />
+        )}
 
         <Button onClick={addTest} variant="outline" className="w-full">
           <Plus className="h-4 w-4 mr-2" />
@@ -1788,7 +1989,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           
           {currentStep < STEPS.length - 1 ? (
             <Button
-              onClick={() => setCurrentStep(currentStep + 1)}
+              onClick={handleNextStep}
               disabled={!canProceed()}
             >
               Next
