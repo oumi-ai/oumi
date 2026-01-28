@@ -1351,16 +1351,42 @@ Results added here: https://docs.google.com/spreadsheets/d/1LmFGfJRtNp3hpP9dwD7F
 
 #### Remaining Models to Validate
 
-- Qwen3-32B (Current default LoRA config for Qwen3-32b --> OOM on 8xH100 </3)
-- Phi-3.5-MoE-instruct (failed L1 validation tests)
-- Llama-4-Scout-17B-16E-Instruct (MoE, may need more compute)
-- SmolLM v1: 135M, 360M, 1.7B (superseded by SmolLM2 but worth having, lower priority)
+- [x] Qwen3-32B (Current default LoRA config for Qwen3-32b --> OOM on 8xH100 </3)
+- [ ] Phi-3.5-MoE-instruct (failed L1 validation tests)
+- [ ] Llama-4-Scout-17B-16E-Instruct (MoE, may need more compute)
+- [ ] SmolLM v1: 135M, 360M, 1.7B (superseded by SmolLM2 but worth having, lower priority)
 
-```bash
-# fails with OOM, pod dies and new one spawns
-oumi distributed torchrun --nproc_per_node=8 -m oumi train \
-  -c configs/enterprise/training/preset-validation/Qwen_Qwen3-32B_lora.yaml \
-  --data.train.datasets.0.dataset_path=data/enterprise/pubmedqa/train.jsonl \
-  --data.validation.datasets.0.dataset_path=data/enterprise/pubmedqa/val.jsonl \
-  --training.output_dir=/data/tim/checkpoints/l1-validation/qwen3-32b-lora-pubmedqa
+##### `Qwen_Qwen3-32B_lora`
+
+> For full worklog of raw notes and configurations attempted to get a working config, see [`qwen3-32b-lora-oom-notes.md`](qwen3-32b-lora-oom-notes.md).
+
+After a bunch of debugging and config tweaks, we managed to find a configuration that works for Qwen3-32b LoRA. The final validated config is `configs/enterprise/training/preset-validation/Qwen_Qwen3-32B_lora.yaml` (note use of new config field `force_full_state_dict_on_final_save`).
+
+Some highlights:
+
+- Initially the job would OOM during the first backward pass. This was resolved by setting `fsdp.cpu_offload false` (and reducing `dataloader_prefetch_factor` to `2`, though this is likely less impactful). This enabled training to actually run. 
+- Once training was able to run, final ckpt saving would also lead to OOM, as the trainer was configured to save the full checkpoint along with the LoRA adapter when using FSDP.
+
+We were able to resolve this with a couple of code changes (model-generated fix and summary :p):
+
+- The problem was that FSDP causes OOM during checkpoint save, because FULL_STATE_DICT gathers all 64GB of sharded base model parameters onto rank 0—even though only the ~77MB LoRA adapter needs to be saved.
+- The fix is to add a new `fsdp.force_full_state_dict_on_final_save` flag (defaults to `True` for backwards compatibility), and a memory-efficient `_save_fsdp_peft_adapter()` method that uses `FSDP.summon_full_params(rank0_only=True)` to gather only trainable adapter weights, then saves them in standard PEFT format via `peft.get_peft_model_state_dict().`
+
+Modified files are:
+
 ```
+src/oumi/core/configs/params/fsdp_params.py
+src/oumi/core/trainers/hf_trainer.py
+```
+
+Here are the minimal config changes from the original preset config needed to get training to complete and the model to be saved without hitting OOM:
+
+| Setting | Original | Run 17 |
+|---------|----------|--------|
+| `dataloader_prefetch_factor` | 32 | 2 |
+| `empty_device_cache_steps` | 50 | 10 |
+| `fsdp.cpu_offload` | true | false |
+| `fsdp.force_full_state_dict_on_final_save` | *(default: true)* | false (new flag, see above) | 
+
+
+The final model (`run-17`) achieves substantial gains on pubmedqa compared to Qwen3-32b base (accuracy 12% --> 79%, macro F1 11.94% --> 55.59%) after a single epoch of training.

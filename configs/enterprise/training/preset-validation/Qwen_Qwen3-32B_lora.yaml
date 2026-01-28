@@ -1,0 +1,96 @@
+# Preset LoRA training configuration for Qwen3-32B.
+# Adapted for L1 validation.
+# Note: Large model, may need multi-node or reduced batch size.
+
+model:
+  model_name: "Qwen/Qwen3-32B"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: False
+
+data:
+  train:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|im_start|>assistant\n"
+      instruction_template: "<|im_start|>user\n"
+    seed: 42
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: dict
+
+  validation:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|im_start|>assistant\n"
+      instruction_template: "<|im_start|>user\n"
+    seed: 42
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: dict
+
+training:
+  use_peft: True
+  trainer_type: "TRL_SFT"
+  save_steps: 0
+  save_epoch: False
+  num_train_epochs: 2
+
+  # Effective batch size on 8-gpu node: 1 * 4 * 8 = 32
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 5.0e-05
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  compile: False
+
+  seed: 42
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 2
+
+  logging_steps: 5
+  log_model_summary: False  # Avoid materializing full model for summary
+  eval_strategy: "steps"
+  eval_steps: 10
+  empty_device_cache_steps: 10
+  include_performance_metrics: True
+  enable_wandb: True
+
+peft:
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+fsdp:
+  enable_fsdp: True
+  forward_prefetch: True
+  sharding_strategy: "FULL_SHARD"
+  cpu_offload: False  # Disabled to avoid system RAM OOM on single node
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Qwen3DecoderLayer"
+  force_full_state_dict_on_final_save: False  # Use memory-efficient adapter save

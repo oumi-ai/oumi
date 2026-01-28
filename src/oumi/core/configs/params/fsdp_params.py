@@ -237,3 +237,20 @@ class FSDPParams(BaseParams):
     When enabled, each FSDP module broadcasts parameters and buffers from rank 0
     to ensure replication across ranks.
     """
+
+    force_full_state_dict_on_final_save: bool = True
+    """Whether to force FULL_STATE_DICT when saving the final model checkpoint.
+
+    When True (default), the final model save gathers all sharded parameters to rank 0
+    for a complete, non-sharded checkpoint. This ensures the saved model can be loaded
+    without FSDP, but may cause OOM on a single nodefor very large models.
+
+    When False, the final save respects the configured `state_dict_type`. This is useful
+    for large (>=~32b) models where gathering causes OOM, especially with PEFT/LoRA
+    where only adapter weights need to be saved. HuggingFace's PEFT integration should
+    handle extracting and saving just the adapter weights without gathering the full
+    base model.
+
+    Note: When False, ensure your save workflow is compatible with the configured
+    state_dict_type.
+    """

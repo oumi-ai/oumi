@@ -16,7 +16,9 @@ import pathlib
 from typing import cast
 
 import peft
+import torch
 import transformers
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 from oumi.core.configs import TrainingConfig
 from oumi.core.configs.params.peft_params import PeftSaveMode
@@ -135,9 +137,24 @@ class HuggingFaceTrainer(BaseTrainer):
 
         For FSDP, all ranks should call into this function
         """
-        if final:
-            # For the final checkpoint, we need to save the FULL_STATE_DICT instead of
-            # the default STATE_DICT.
+        # Memory-efficient adapter-only save for PEFT (useful for large models that will OOM on save)
+        if config.training.use_peft and not config.fsdp.force_full_state_dict_on_final_save:
+            logger.info(
+                "Attempting memory-efficient PEFT adapter save for FSDP "
+                "(only gathering trainable adapter weights)."
+            )
+            try:
+                self._save_fsdp_peft_adapter(config)
+                return
+            except Exception as e:
+                logger.warning(
+                    f"Memory-efficient PEFT save failed: {e}. "
+                    "Falling back to standard FSDP save."
+                )
+
+        if final and config.fsdp.force_full_state_dict_on_final_save:
+            # For the final checkpoint, gather all sharded parameters to rank 0 for a complete, non-sharded checkpoint.
+            # NB: This may cause OOM for models ~>=32b.
             if (
                 self._hf_trainer.is_fsdp_enabled
                 and self._hf_trainer.accelerator.state.fsdp_plugin is not None
@@ -146,10 +163,77 @@ class HuggingFaceTrainer(BaseTrainer):
                 self._hf_trainer.accelerator.state.fsdp_plugin.set_state_dict_type(
                     "FULL_STATE_DICT"
                 )
+        elif final:
+            logger.info(
+                f"Saving final model with state_dict_type={config.fsdp.state_dict_type}. "
+                "Set fsdp.force_full_state_dict_on_final_save=True to gather full state."
+            )
 
         output_dir = config.training.output_dir
         self._hf_trainer.save_model(output_dir)
         logger.info(f"Model has been saved at {output_dir}")
+
+    def _save_fsdp_peft_adapter(self, config: TrainingConfig) -> None:
+        """Saves only the PEFT adapter weights for FSDP models.
+
+        This is a memory-efficient alternative to the standard FSDP save that avoids
+        gathering the full model state dict. Instead, it only gathers the trainable
+        adapter parameters, which are much smaller than the frozen base model.
+
+        Args:
+            config: The Oumi training config.
+        """
+        import torch.distributed as dist
+
+        output_dir = pathlib.Path(config.training.output_dir)
+        model = self._hf_trainer.model
+
+        if model is None:
+            raise ValueError("Model is None, cannot save PEFT adapter")
+
+        # Cast to the expected FSDP-wrapped module type
+        fsdp_model = cast(torch.nn.Module, model)
+
+        # Use FSDP's summon_full_params to temporarily gather parameters
+        # with rank0_only=True so only rank 0 has the full params in memory
+        with FSDP.summon_full_params(fsdp_model, writeback=False, rank0_only=True):
+            if is_world_process_zero():
+                # Cast to PeftModel for type checking
+                peft_model = cast(peft.PeftModel, model)
+
+                # Extract only the PEFT adapter state dict (not the full model)
+                adapter_state_dict = peft.get_peft_model_state_dict(peft_model)
+
+                # Save the adapter weights
+                output_dir.mkdir(parents=True, exist_ok=True)
+                adapter_path = output_dir / "adapter_model.safetensors"
+
+                # Use safetensors for efficient saving
+                try:
+                    from safetensors.torch import save_file
+                    save_file(adapter_state_dict, adapter_path)
+                except ImportError:
+                    # Fallback to torch.save if safetensors not available
+                    torch.save(adapter_state_dict, output_dir / "adapter_model.bin")
+
+                # Save the adapter config
+                if hasattr(peft_model, "peft_config"):
+                    # Get the active adapter config
+                    active_adapter = peft_model.active_adapter
+                    if isinstance(active_adapter, list):
+                        active_adapter = active_adapter[0]
+                    adapter_config = peft_model.peft_config[active_adapter]
+                    adapter_config.save_pretrained(output_dir)
+
+                # Save tokenizer if available
+                if self._hf_trainer.processing_class is not None:
+                    self._hf_trainer.processing_class.save_pretrained(output_dir)
+
+                logger.info(f"PEFT adapter saved at {output_dir}")
+
+        # Synchronize all ranks
+        if dist.is_initialized():
+            dist.barrier()
 
         if self._processor is not None:
             self._processor.save_config(output_dir)
