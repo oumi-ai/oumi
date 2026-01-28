@@ -455,7 +455,7 @@ def test_get_batch_results_raises_when_not_supported(
     mock_generated_attribute,
     mock_inference_config,
 ):
-    """Test that get_batch_results raises NotImplementedError for unsupported engines."""
+    """Test that get_batch_results raises for unsupported engines."""
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
 

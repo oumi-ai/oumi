@@ -98,10 +98,10 @@ class AttributeSynthesizer:
             generated_attribute: The generated attribute to synthesize a value for.
 
         Returns:
-            The batch ID that can be used with get_batch_status() and get_batch_results().
+            The batch ID that can be used with get_batch_status and get_batch_results.
 
         Raises:
-            NotImplementedError: If the inference engine does not support batch inference.
+            NotImplementedError: If the inference engine does not support batch.
         """
         if not hasattr(self._inference_engine, "infer_batch"):
             raise NotImplementedError(
@@ -134,7 +134,7 @@ class AttributeSynthesizer:
             BatchInfo containing the job status and progress information.
 
         Raises:
-            NotImplementedError: If the inference engine does not support batch inference.
+            NotImplementedError: If the inference engine does not support batch.
         """
         if not hasattr(self._inference_engine, "get_batch_status"):
             raise NotImplementedError(
@@ -161,7 +161,7 @@ class AttributeSynthesizer:
             value added to the dictionary (same format as synthesize()).
 
         Raises:
-            NotImplementedError: If the inference engine does not support batch inference.
+            NotImplementedError: If the inference engine does not support batch.
         """
         if not hasattr(self._inference_engine, "get_batch_results"):
             raise NotImplementedError(
@@ -242,8 +242,7 @@ class AttributeSynthesizer:
 
         if not generated_attribute.postprocessing_params:
             return [
-                {generated_attribute.id: response}
-                for response in original_responses
+                {generated_attribute.id: response} for response in original_responses
             ]
 
         keep_original = (
@@ -251,8 +250,7 @@ class AttributeSynthesizer:
         )
         if keep_original:
             records = [
-                {generated_attribute.id: response}
-                for response in original_responses
+                {generated_attribute.id: response} for response in original_responses
             ]
         else:
             records = [{} for _ in original_responses]
