@@ -21,7 +21,7 @@
 
 strategy: GENERAL
 num_samples: 1
-output_path: multiturn_conversation_dataset_no_planner.jsonl
+output_path: multiturn_conversation_dataset.jsonl
 
 strategy_params:
   # Define conversation scenarios and customer types
@@ -322,7 +322,7 @@ strategy_params:
   # Include only relevant attributes in output
   passthrough_attributes:
     - support_conversation # The multi-turn conversation generated above
-    - conversation_plan # The conversation plan used to guide the conversation
+    - support_conversation_plan # The conversation plan (namespaced as {attribute_id}_plan)
 
 # Example inference configuration
 inference_config:

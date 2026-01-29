@@ -98,9 +98,14 @@ def test_synthesize_returns_list_of_dicts(
     """Test that synthesize returns a list of dictionaries."""
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
-    mock_inference_engine.infer.return_value = [
-        Conversation(messages=[Message(role=Role.ASSISTANT, content="Response")])
-    ]
+
+    def infer_side_effect(conversations, **kwargs):
+        return [
+            Conversation(messages=[Message(role=Role.ASSISTANT, content="Response")])
+            for _ in conversations
+        ]
+
+    mock_inference_engine.infer.side_effect = infer_side_effect
 
     synthesizer = ConversationSynthesizer(
         mock_general_synthesis_params,
@@ -115,10 +120,11 @@ def test_synthesize_returns_list_of_dicts(
 
     assert isinstance(result, list)
     assert len(result) == len(samples)
+    plan_key = f"{mock_multiturn_attribute.id}_plan"
     for item in result:
         assert isinstance(item, dict)
         assert mock_multiturn_attribute.id in item
-        assert "conversation_plan" in item
+        assert plan_key in item
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -180,13 +186,13 @@ def test_output_system_prompt_prepended_to_conversation(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_conversation_plan_used_as_output_key(
+def test_conversation_plan_uses_namespaced_key(
     mock_build_inference_engine,
     mock_general_synthesis_params,
     mock_multiturn_attribute,
     mock_inference_config,
 ):
-    """Test that conversation_plan is used as the key for the plan in output."""
+    """Test that conversation_plan is stored under a namespaced key."""
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
     mock_inference_engine.infer.return_value = [
@@ -202,8 +208,9 @@ def test_conversation_plan_used_as_output_key(
     result = synthesizer.synthesize(samples, mock_multiturn_attribute)
 
     assert len(result) == 1
-    # Plan should always be returned under the fixed key.
-    assert "conversation_plan" in result[0]
+    # Plan should be returned under a namespaced key: {attribute_id}_plan
+    plan_key = f"{mock_multiturn_attribute.id}_plan"
+    assert plan_key in result[0]
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -236,7 +243,8 @@ def test_synthesize_without_conversation_planner(
     result = synthesizer.synthesize([{}], multiturn_attr)
 
     assert len(result) == 1
-    assert "conversation_plan" in result[0]
+    plan_key = f"{multiturn_attr.id}_plan"
+    assert plan_key in result[0]
     assert multiturn_attr.id in result[0]
 
 

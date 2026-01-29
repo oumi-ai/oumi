@@ -798,10 +798,10 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_attribute_ids(self, attribute_ids: set[str], id: str):
         """Check if the attribute ID is already in the set."""
-        if id == "conversation_plan":
+        if id in ("target_turns", "turn_order", "current_turn"):
             raise ValueError(
-                "GeneralSynthesisParams does not allow 'conversation_plan' "
-                "as an attribute ID because it is reserved for multiturn planning."
+                f"GeneralSynthesisParams does not allow '{id}' "
+                "as an attribute ID because it is reserved for multiturn synthesis."
             )
         if id in attribute_ids:
             raise ValueError(

@@ -772,23 +772,24 @@ def test_general_synthesis_params_invalid():
             ]
         )
 
-    with pytest.raises(
-        ValueError,
-        match=(
-            "GeneralSynthesisParams does not allow 'conversation_plan' as an "
-            "attribute ID"
-        ),
-    ):
-        GeneralSynthesisParams(
-            generated_attributes=[
-                GeneratedAttribute(
-                    id="conversation_plan",
-                    instruction_messages=[
-                        TextMessage(role=Role.SYSTEM, content="System message"),
-                    ],
-                )
-            ]
-        )
+    # Test all reserved attribute IDs
+    reserved_ids = ["target_turns", "turn_order", "current_turn"]
+    for reserved_id in reserved_ids:
+        with pytest.raises(
+            ValueError,
+            match=f"GeneralSynthesisParams does not allow '{reserved_id}' as an "
+            "attribute ID",
+        ):
+            GeneralSynthesisParams(
+                generated_attributes=[
+                    GeneratedAttribute(
+                        id=reserved_id,
+                        instruction_messages=[
+                            TextMessage(role=Role.SYSTEM, content="System message"),
+                        ],
+                    )
+                ]
+            )
 
     # Test combination sampling rates sum > 1.0
     with pytest.raises(
