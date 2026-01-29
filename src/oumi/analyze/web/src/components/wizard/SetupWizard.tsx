@@ -41,7 +41,7 @@ import { useSuggestions, type AnalyzerSuggestion, type CustomMetricSuggestion, t
 import { SuggestionPanel, SuggestionPanelMinimized } from './SuggestionPanel'
 
 // LLM analyzer types that need special handling (use id: llm with criteria param)
-const LLM_ANALYZER_TYPES = ['usefulness', 'safety', 'coherence', 'factuality', 'custom_llm'] as const
+const LLM_ANALYZER_TYPES = ['usefulness', 'safety', 'coherence', 'factuality', 'instruction_following', 'custom_llm'] as const
 
 // Available analyzers with their parameters and metrics
 const AVAILABLE_ANALYZERS = {
@@ -107,6 +107,16 @@ const AVAILABLE_ANALYZERS = {
     params: [
       { key: 'model_name', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
       { key: 'api_provider', type: 'select', options: ['openai', 'anthropic'] as const, default: 'openai', label: 'API Provider' },
+    ],
+    metrics: ['score', 'passed', 'label', 'reasoning']
+  },
+  instruction_following: {
+    name: 'Instruction Following Analyzer',
+    description: 'Evaluate how well responses follow given instructions',
+    params: [
+      { key: 'model_name', type: 'string', default: 'gpt-4o-mini', label: 'Model' },
+      { key: 'api_provider', type: 'select', options: ['openai', 'anthropic'] as const, default: 'openai', label: 'API Provider' },
+      { key: 'target_scope', type: 'select', options: ['conversation', 'last_turn', 'first_user'] as const, default: 'conversation', label: 'Target Scope' },
     ],
     metrics: ['score', 'passed', 'label', 'reasoning']
   },
