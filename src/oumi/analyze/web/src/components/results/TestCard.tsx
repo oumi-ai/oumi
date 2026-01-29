@@ -199,8 +199,75 @@ export function TestCard({ test, evalData }: TestCardProps) {
               </div>
             )}
 
-            {/* Sample Conversations */}
-            {problematicIndices.length > 0 && evalData.conversations.length > 0 ? (
+            {/* Dataset-level test - show value comparison instead of samples */}
+            {test.total_count === 1 ? (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium">Dataset-Level Result</h4>
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-muted-foreground block mb-1">Metric</span>
+                      <span className="font-mono text-sm">{test.metric}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs text-muted-foreground block mb-1">Actual Value</span>
+                      {(() => {
+                        // Extract actual value from failure reasons or details
+                        const failureReasons = test.details?.failure_reasons as Record<string, string> | undefined
+                        const reason = failureReasons?.['0'] || ''
+                        // Parse value from reason like "1 does not satisfy > 2" or "0.05 < 0.1"
+                        const valueMatch = reason.match(/^([\d.]+)/)
+                        const actualValue = valueMatch ? valueMatch[1] : 
+                          (test.details?.passing_count !== undefined ? 
+                            `${test.details.passing_count}/${test.total_count} passing` : 
+                            'N/A')
+                        return (
+                          <span className={cn(
+                            "font-mono text-lg font-semibold",
+                            test.passed ? "text-green-600" : "text-red-600"
+                          )}>
+                            {actualValue}
+                          </span>
+                        )
+                      })()}
+                    </div>
+                    <div className="text-center px-4">
+                      <span className="text-xs text-muted-foreground block mb-1">Condition</span>
+                      <span className="font-mono text-sm">
+                        {String(test.details?.operator ?? '')} {String(test.details?.value ?? '')}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground block mb-1">Result</span>
+                      {test.passed ? (
+                        <Badge variant="default" className="bg-green-600">PASSED</Badge>
+                      ) : (
+                        <Badge variant="destructive">FAILED</Badge>
+                      )}
+                    </div>
+                  </div>
+                  {(() => {
+                    const reasons = test.details?.failure_reasons as Record<string, string> | undefined
+                    const reason = reasons?.['0']
+                    if (!test.passed && reason) {
+                      return (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <span className="text-xs text-muted-foreground">Reason: </span>
+                          <span className="text-sm text-red-600 dark:text-red-400">
+                            {String(reason)}
+                          </span>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This is a dataset-level metric that produces a single result for the entire dataset.
+                </p>
+              </div>
+            ) : problematicIndices.length > 0 && evalData.conversations.length > 0 ? (
+              /* Sample Conversations for conversation-level tests */
               <div className="space-y-3">
                 <h4 className="text-sm font-medium">
                   Sample Conversations with Issues ({problematicIndices.length} affected)
