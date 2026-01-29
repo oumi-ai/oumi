@@ -67,7 +67,7 @@ dependencies = [
     "pydantic>=2.11,<2.13",
     "responses>=0.25,<0.26",
     "safetensors>=0.6,<0.8",
-    "skypilot>=0.10.2,<0.11",  # 0.11rc has a breaking change that
+    "skypilot>=0.10.2,<0.12",  # 0.11rc has a breaking change that
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "torch>=2.6,<2.10.0",      # vllm only supports up to torch==2.7
     "torchao>=0.12,<0.16",     # Used by transformers
