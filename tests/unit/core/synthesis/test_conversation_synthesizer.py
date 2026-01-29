@@ -1,0 +1,418 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Tests for ConversationSynthesizer."""
+
+from unittest.mock import Mock, patch
+
+import pytest
+
+from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.params.model_params import ModelParams
+from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.configs.params.synthesis_params import (
+    GeneralSynthesisParams,
+    MultiTurnAttribute,
+    SampledAttribute,
+    SampledAttributeValue,
+)
+from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
+from oumi.core.types.conversation import Conversation, Message, Role
+
+
+@pytest.fixture
+def mock_inference_config():
+    """Create a mock inference config."""
+    mock = Mock(spec=InferenceConfig)
+    mock.engine = InferenceEngineType.NATIVE
+    mock.model = Mock(spec=ModelParams)
+    mock.remote_params = Mock(spec=RemoteParams)
+    return mock
+
+
+@pytest.fixture
+def mock_general_synthesis_params():
+    """Create mock GeneralSynthesisParams for testing."""
+    return GeneralSynthesisParams(
+        sampled_attributes=[
+            SampledAttribute(
+                id="style",
+                name="Writing Style",
+                description="The style of writing to use",
+                possible_values=[
+                    SampledAttributeValue(
+                        id="formal",
+                        name="Formal",
+                        description="A formal writing style",
+                    ),
+                    SampledAttributeValue(
+                        id="casual",
+                        name="Casual",
+                        description="A casual writing style",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+
+@pytest.fixture
+def mock_multiturn_attribute():
+    """Create a mock multiturn attribute for testing.
+
+    Uses placeholders: {customer_type}, {issue}
+    """
+    return MultiTurnAttribute(
+        id="multiturn_conversation",
+        min_turns=2,
+        max_turns=16,
+        turn_order=[Role.USER, Role.ASSISTANT],
+        role_instruction_messages={
+            Role.USER: "You are a {customer_type} customer with issue: {issue}.",
+            Role.ASSISTANT: "You are a helpful support agent.",
+        },
+        conversation_planner="Plan a {target_turns}-turn conversation about {issue}.",
+        output_system_prompt="This is a customer support conversation about {issue}.",
+    )
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_returns_list_of_dicts(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """Test that synthesize returns a list of dictionaries."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    def infer_side_effect(conversations, **kwargs):
+        return [
+            Conversation(messages=[Message(role=Role.ASSISTANT, content="Response")])
+            for _ in conversations
+        ]
+
+    mock_inference_engine.infer.side_effect = infer_side_effect
+
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    samples = [
+        {"customer_type": "frustrated", "issue": "billing problem"},
+        {"customer_type": "friendly", "issue": "product question"},
+    ]
+    result = synthesizer.synthesize(samples, mock_multiturn_attribute)
+
+    assert isinstance(result, list)
+    assert len(result) == len(samples)
+    plan_key = f"{mock_multiturn_attribute.id}_plan"
+    for item in result:
+        assert isinstance(item, dict)
+        assert mock_multiturn_attribute.id in item
+        assert plan_key in item
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_with_empty_samples(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """Test that synthesize returns empty list for empty samples."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    result = synthesizer.synthesize([], mock_multiturn_attribute)
+
+    assert result == []
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_output_system_prompt_prepended_to_conversation(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """Test that output_system_prompt is formatted and prepended to conversation."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    mock_inference_engine.infer.return_value = [
+        Conversation(messages=[Message(role=Role.ASSISTANT, content="Response")])
+    ]
+
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    samples = [{"customer_type": "frustrated", "issue": "billing problem"}]
+    result = synthesizer.synthesize(samples, mock_multiturn_attribute)
+
+    assert len(result) == 1
+    conversation = result[0][mock_multiturn_attribute.id]
+    assert isinstance(conversation, dict)
+    messages = conversation["messages"]
+
+    # First message should be the formatted output system message
+    assert messages[0]["role"] == "system"
+    assert messages[0]["content"] == (
+        "This is a customer support conversation about billing problem."
+    )
+
+    # Subsequent messages should be the conversation history
+    assert messages[1]["role"] == "user"
+    assert messages[2]["role"] == "assistant"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_conversation_plan_uses_namespaced_key(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """Test that conversation_plan is stored under a namespaced key."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    mock_inference_engine.infer.return_value = [
+        Conversation(messages=[Message(role=Role.ASSISTANT, content="Response")])
+    ]
+
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    samples = [{"customer_type": "friendly", "issue": "product question"}]
+    result = synthesizer.synthesize(samples, mock_multiturn_attribute)
+
+    assert len(result) == 1
+    # Plan should be returned under a namespaced key: {attribute_id}_plan
+    plan_key = f"{mock_multiturn_attribute.id}_plan"
+    assert plan_key in result[0]
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_without_conversation_planner(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that synthesize works without a user planner override."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    mock_inference_engine.infer.return_value = [
+        Conversation(messages=[Message(role=Role.ASSISTANT, content="Response")])
+    ]
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user in a conversation.",
+            Role.ASSISTANT: "You are an assistant in a conversation.",
+        },
+    )
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    result = synthesizer.synthesize([{}], multiturn_attr)
+
+    assert len(result) == 1
+    plan_key = f"{multiturn_attr.id}_plan"
+    assert plan_key in result[0]
+    assert multiturn_attr.id in result[0]
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_default_turn_order_is_user_then_assistant(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that default turn_order is [USER, ASSISTANT] when not specified."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    mock_inference_engine.infer.return_value = [
+        Conversation(messages=[Message(role=Role.ASSISTANT, content="Response")])
+    ]
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        # turn_order not specified - should default to [USER, ASSISTANT]
+        role_instruction_messages={
+            Role.USER: "You are a user",
+            Role.ASSISTANT: "You are an assistant",
+        },
+    )
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    result = synthesizer.synthesize([{}], multiturn_attr)
+
+    conversation = result[0][multiturn_attr.id]
+    assert isinstance(conversation, dict)
+    messages = conversation["messages"]
+
+    # Default order: USER first, then ASSISTANT
+    assert messages[0]["role"] == "user"
+    assert messages[1]["role"] == "assistant"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_custom_turn_order_assistant_first(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that custom turn_order [ASSISTANT, USER] is respected."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    mock_inference_engine.infer.return_value = [
+        Conversation(messages=[Message(role=Role.ASSISTANT, content="Response")])
+    ]
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        turn_order=[Role.ASSISTANT, Role.USER],
+        role_instruction_messages={
+            Role.USER: "You are a user",
+            Role.ASSISTANT: "You are an assistant",
+        },
+    )
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    result = synthesizer.synthesize([{}], multiturn_attr)
+
+    conversation = result[0][multiturn_attr.id]
+    assert isinstance(conversation, dict)
+    messages = conversation["messages"]
+
+    # Custom order: ASSISTANT first, then USER
+    assert messages[0]["role"] == "assistant"
+    assert messages[1]["role"] == "user"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_format_persona_replaces_placeholders(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """Test that _format_instructions replaces placeholders with sample values."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    sample = {"customer_type": "frustrated", "issue": "billing"}
+    result = synthesizer._format_persona(
+        sample,
+        "You are a {customer_type} customer with issue: {issue}.",
+        Role.USER,
+    )
+
+    assert isinstance(result, Message)
+    assert result.role == Role.SYSTEM
+    assert result.content == "You are a frustrated customer with issue: billing."
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_role_context_formats_personas(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _build_role_context formats personas with sample values."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a {customer_type} customer.",
+            Role.ASSISTANT: "You are a helpful agent.",
+        },
+    )
+
+    sample = {"customer_type": "frustrated"}
+    result = synthesizer._build_role_context(sample, multiturn_attr)
+
+    assert "[USER]" in result
+    assert "You are a frustrated customer." in result
+    assert "[ASSISTANT]" in result
+    assert "You are a helpful agent." in result
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_planner_prompt_includes_role_context(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that planner prompt includes formatted role context."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a {customer_type} customer.",
+            Role.ASSISTANT: "You are a helpful agent.",
+        },
+    )
+
+    sample = {"customer_type": "frustrated", "target_turns": 4}
+
+    planner = synthesizer._create_planner_prompt(multiturn_attr, sample)
+
+    user_message = planner.messages[1].content
+    assert "Role context:" in user_message
+    assert "You are a frustrated customer." in user_message
+    assert "You are a helpful agent." in user_message
