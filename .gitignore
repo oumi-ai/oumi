@@ -35,7 +35,8 @@ downloads/
 eggs/
 .eggs/
 lib/
-!src/oumi/analyze/web/src/lib/
+!**/analyze/web/src/lib/
+!**/analyze/web/src/lib/**
 lib64/
 parts/
 sdist/
