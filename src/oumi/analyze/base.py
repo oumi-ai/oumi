@@ -313,6 +313,46 @@ class DatasetAnalyzer(ABC, Generic[TResult]):
                 )
     """
 
+    @classmethod
+    def get_result_schema(cls) -> dict:
+        """Get the JSON schema for this analyzer's result model."""
+        result_type = cls._get_result_type()
+        if result_type and hasattr(result_type, "model_json_schema"):
+            return result_type.model_json_schema()
+        return {}
+
+    @classmethod
+    def get_metric_names(cls) -> list[str]:
+        """Get the list of metric field names this analyzer produces."""
+        result_type = cls._get_result_type()
+        if result_type and hasattr(result_type, "model_fields"):
+            return list(result_type.model_fields.keys())
+        return []
+
+    @classmethod
+    def get_metric_descriptions(cls) -> dict[str, str]:
+        """Get descriptions for each metric field."""
+        result_type = cls._get_result_type()
+        if result_type and hasattr(result_type, "model_fields"):
+            descriptions = {}
+            for name, field_info in result_type.model_fields.items():
+                desc = field_info.description or ""
+                descriptions[name] = desc
+            return descriptions
+        return {}
+
+    @classmethod
+    def _get_result_type(cls) -> type | None:
+        """Get the result type from the generic parameter."""
+        import typing
+
+        for base in getattr(cls, "__orig_bases__", []):
+            if hasattr(base, "__origin__") and base.__origin__ is DatasetAnalyzer:
+                args = typing.get_args(base)
+                if args:
+                    return args[0]
+        return None
+
     @abstractmethod
     def analyze(self, conversations: list[Conversation]) -> TResult:
         """Analyze an entire dataset and return typed results.

@@ -174,6 +174,19 @@ function createPieData(values: (string | boolean)[]): { name: string; value: num
   return Object.entries(counts).map(([name, value]) => ({ name, value }))
 }
 
+// Helper to normalize results - handles both array (conversation-level) and single object (dataset-level)
+function normalizeResults(results: AnalysisResult[] | AnalysisResult | undefined): AnalysisResult[] {
+  if (!results) return []
+  if (Array.isArray(results)) return results
+  // Single object (dataset-level analyzer) - wrap in array
+  return [results]
+}
+
+// Check if analyzer is dataset-level (returns single result instead of array)
+function isDatasetLevelAnalyzer(results: AnalysisResult[] | AnalysisResult | undefined): boolean {
+  return results !== undefined && !Array.isArray(results)
+}
+
 export function ChartsView({ evalData }: ChartsViewProps) {
   const { analysis_results } = evalData
   const analyzerNames = Object.keys(analysis_results)
@@ -182,8 +195,10 @@ export function ChartsView({ evalData }: ChartsViewProps) {
     analyzerNames.length > 0 ? analyzerNames[0] : ''
   )
 
-  // Get fields for selected analyzer
-  const selectedResults = analysis_results[selectedAnalyzer] || []
+  // Get fields for selected analyzer - normalize to always be an array
+  const rawResults = analysis_results[selectedAnalyzer]
+  const isDatasetLevel = isDatasetLevelAnalyzer(rawResults)
+  const selectedResults = normalizeResults(rawResults)
   const numericFields = useMemo(() => getNumericFields(selectedResults), [selectedResults])
   const categoricalFields = useMemo(() => getCategoricalFields(selectedResults), [selectedResults])
 
@@ -223,7 +238,39 @@ export function ChartsView({ evalData }: ChartsViewProps) {
           </div>
         </CardHeader>
         <CardContent>
-          {numericFields.length === 0 && categoricalFields.length === 0 ? (
+          {isDatasetLevel ? (
+            // Dataset-level analyzer - show key-value summary instead of charts
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                This is a dataset-level analyzer that produces a single result for the entire dataset.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {Object.entries(flattenResult(selectedResults[0] || {})).map(([key, value]) => {
+                  // Skip complex values like arrays and objects
+                  if (key === 'values') return null
+                  if (Array.isArray(value) && value.length > 5) return null
+                  if (typeof value === 'object' && value !== null) return null
+                  
+                  return (
+                    <Card key={key} className="bg-muted/50">
+                      <CardContent className="p-4">
+                        <div className="text-sm text-muted-foreground">
+                          {key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                        </div>
+                        <div className="text-2xl font-semibold mt-1">
+                          {typeof value === 'number' 
+                            ? value % 1 === 0 ? value : value.toFixed(2)
+                            : Array.isArray(value) 
+                              ? value.length 
+                              : String(value)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            </div>
+          ) : numericFields.length === 0 && categoricalFields.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>No chartable fields for this analyzer.</p>
             </div>

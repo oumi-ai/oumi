@@ -318,7 +318,11 @@ class TestEngine:
     ) -> TestResult:
         """Run a threshold test.
 
-        Checks what percentage of values violate the threshold.
+        Checks that values meet the threshold condition. Samples that DON'T
+        meet the condition are considered failures.
+
+        For example, if test says "response_ratio > 0.5", samples with
+        response_ratio <= 0.5 are failures (they don't meet the threshold).
 
         Args:
             test: Test configuration.
@@ -348,29 +352,42 @@ class TestEngine:
                 error=f"Unknown operator: {test.operator}",
             )
 
-        # Find values that violate the threshold
+        # Find values that FAIL to meet the threshold (don't satisfy the condition)
         affected_indices = []
         failure_reasons: dict[int, str] = {}
+        passing_count = 0
         for i, value in enumerate(values):
             try:
                 if op_func(value, test.value):
+                    # Value meets the threshold - this is a PASS
+                    passing_count += 1
+                else:
+                    # Value does NOT meet threshold - this is a FAILURE
                     affected_indices.append(i)
-                    # Create reason string
-                    failure_reasons[i] = f"{value} {test.operator} {test.value}"
+                    failure_reasons[i] = (
+                        f"{value} does not satisfy {test.operator} {test.value}"
+                    )
             except (TypeError, ValueError):
-                pass
+                # Can't evaluate - treat as failure
+                affected_indices.append(i)
+                failure_reasons[i] = f"Cannot evaluate: {value}"
 
         affected_count = len(affected_indices)
         total_count = len(values)
         affected_pct = 100.0 * affected_count / total_count if total_count > 0 else 0.0
+        passing_pct = 100.0 * passing_count / total_count if total_count > 0 else 0.0
 
-        # Check against thresholds
+        # Determine if test passes based on thresholds
         passed = True
-        if test.max_percentage is not None and affected_pct > test.max_percentage:
-            passed = False
-        if test.min_percentage is not None and affected_pct < test.min_percentage:
-            passed = False
-        # If neither is set, any violations fail the test
+        if test.max_percentage is not None:
+            # max_percentage means: at most this % can FAIL
+            if affected_pct > test.max_percentage:
+                passed = False
+        if test.min_percentage is not None:
+            # min_percentage means: at least this % must PASS
+            if passing_pct < test.min_percentage:
+                passed = False
+        # If neither is set, ALL samples must pass (no failures allowed)
         if test.max_percentage is None and test.min_percentage is None:
             passed = affected_count == 0
 
@@ -391,6 +408,8 @@ class TestEngine:
                 "value": test.value,
                 "max_percentage": test.max_percentage,
                 "min_percentage": test.min_percentage,
+                "passing_count": passing_count,
+                "passing_percentage": round(passing_pct, 2),
                 "failure_reasons": {k: v for k, v in list(failure_reasons.items())[:50]},
             },
         )

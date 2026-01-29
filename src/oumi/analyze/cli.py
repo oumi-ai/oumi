@@ -56,6 +56,7 @@ def register_analyzer(name: str):
 # Register built-in analyzers
 def _register_builtin_analyzers():
     """Register built-in analyzers in the registry."""
+    from oumi.analyze.analyzers.deduplication import DeduplicationAnalyzer
     from oumi.analyze.analyzers.length import LengthAnalyzer
     from oumi.analyze.analyzers.llm_analyzer import (
         CoherenceAnalyzer,
@@ -66,12 +67,19 @@ def _register_builtin_analyzers():
         UsefulnessAnalyzer,
     )
     from oumi.analyze.analyzers.quality import DataQualityAnalyzer
+    from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer
 
     # Non-LLM analyzers (fast, cheap)
     ANALYZER_REGISTRY["length"] = LengthAnalyzer
     ANALYZER_REGISTRY["LengthAnalyzer"] = LengthAnalyzer
     ANALYZER_REGISTRY["quality"] = DataQualityAnalyzer
     ANALYZER_REGISTRY["DataQualityAnalyzer"] = DataQualityAnalyzer
+    ANALYZER_REGISTRY["turn_stats"] = TurnStatsAnalyzer
+    ANALYZER_REGISTRY["TurnStatsAnalyzer"] = TurnStatsAnalyzer
+
+    # Dataset-level analyzers
+    ANALYZER_REGISTRY["deduplication"] = DeduplicationAnalyzer
+    ANALYZER_REGISTRY["DeduplicationAnalyzer"] = DeduplicationAnalyzer
 
     # LLM-based analyzers
     ANALYZER_REGISTRY["llm"] = LLMAnalyzer

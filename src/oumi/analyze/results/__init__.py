@@ -18,10 +18,15 @@ This module contains strongly-typed result models that analyzers return.
 Each model defines the exact schema of metrics an analyzer produces.
 """
 
+from oumi.analyze.results.deduplication import DeduplicationResult, DuplicateGroup
 from oumi.analyze.results.length import LengthMetrics
 from oumi.analyze.results.llm_judgment import LLMJudgmentMetrics
+from oumi.analyze.results.turn_stats import TurnStatsMetrics
 
 __all__ = [
     "LengthMetrics",
     "LLMJudgmentMetrics",
+    "TurnStatsMetrics",
+    "DeduplicationResult",
+    "DuplicateGroup",
 ]

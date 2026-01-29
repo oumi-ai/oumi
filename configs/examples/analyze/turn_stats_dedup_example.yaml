@@ -1,0 +1,124 @@
+# Example configuration demonstrating TurnStatsAnalyzer and DeduplicationAnalyzer
+#
+# TurnStatsAnalyzer (conversation-level): Computes turn statistics per conversation
+# DeduplicationAnalyzer (dataset-level): Finds duplicate conversations across the dataset
+#
+# Run with:
+#   oumi analyze --config configs/examples/analyze/turn_stats_dedup_example.yaml --typed
+
+# Dataset configuration - using a HuggingFace dataset with prompt/response format
+dataset_name: "yahma/alpaca-cleaned"
+split: "train"
+sample_count: 100  # Limit for testing
+
+# Or use a local JSONL file:
+# dataset_path: "data/sample_conversations.jsonl"
+
+# Analyzers to run
+analyzers:
+  # Length analyzer for basic token metrics
+  - id: LengthAnalyzer
+    params:
+      tiktoken_encoding: "cl100k_base"
+      compute_role_stats: true
+
+  # Turn statistics analyzer (conversation-level)
+  - id: TurnStatsAnalyzer
+    params:
+      include_system_in_counts: false
+
+  # Data quality analyzer for basic quality checks
+  - id: DataQualityAnalyzer
+    params:
+      check_turn_pattern: true
+      check_empty_content: true
+      check_refusals: true
+
+  # Deduplication analyzer (dataset-level)
+  - id: DeduplicationAnalyzer
+    params:
+      hash_method: "normalized"    # "exact" or "normalized"
+      include_system: false        # Include system messages in hash
+      include_roles: true          # Include role prefixes in hash
+      sample_text_length: 100      # Max sample text in results
+
+# Tests to validate the data
+tests:
+  # === Turn Statistics Tests ===
+  
+  # Ensure most conversations have balanced turns
+  - id: response_ratio_check
+    type: threshold
+    metric: "TurnStatsAnalyzer.response_ratio"
+    operator: ">"
+    value: 0.5
+    severity: low
+    title: "Response ratio check"
+    description: "Assistant responses should be at least half as long as user messages"
+
+  # Check for reasonable conversation length
+  - id: min_turns_check
+    type: threshold
+    metric: "TurnStatsAnalyzer.num_turns"
+    operator: ">="
+    value: 2
+    severity: high
+    title: "Minimum turns check"
+    description: "Conversations should have at least 2 turns"
+
+  # Most conversations should have assistant responses
+  - id: has_assistant_response
+    type: percentage
+    metric: "TurnStatsAnalyzer.num_assistant_turns"
+    condition: ">= 1"
+    min_percentage: 95
+    severity: high
+    title: "Has assistant response"
+    description: "At least 95% of conversations should have an assistant response"
+
+  # === Deduplication Tests ===
+  
+  # Duplicate ratio should be low
+  - id: low_duplicate_ratio
+    type: threshold
+    metric: "DeduplicationAnalyzer.duplicate_ratio"
+    operator: "<"
+    value: 0.1
+    severity: high
+    title: "Low duplicate ratio"
+    description: "Less than 10% of conversations should be duplicates"
+
+  # No large duplicate groups
+  - id: no_large_dup_groups
+    type: threshold
+    metric: "DeduplicationAnalyzer.largest_group_size"
+    operator: "<"
+    value: 10
+    severity: medium
+    title: "No large duplicate groups"
+    description: "No single piece of content should appear more than 10 times"
+
+  # === Quality Tests ===
+
+  # Most conversations should pass basic quality
+  - id: basic_quality_check
+    type: percentage
+    metric: "DataQualityAnalyzer.passes_basic_quality"
+    condition: "== True"
+    min_percentage: 90
+    severity: medium
+    title: "Basic quality check"
+    description: "At least 90% should pass basic quality checks"
+
+  # Few policy refusals
+  - id: no_policy_refusals
+    type: percentage
+    metric: "DataQualityAnalyzer.has_policy_refusal"
+    condition: "== False"
+    min_percentage: 95
+    severity: low
+    title: "No policy refusals"
+    description: "Less than 5% should contain policy refusals"
+
+# Output configuration
+output_path: "./analysis_results"

@@ -18,6 +18,7 @@ This module contains concrete analyzer implementations that inherit from
 the base analyzer classes and return typed result models.
 """
 
+from oumi.analyze.analyzers.deduplication import DeduplicationAnalyzer
 from oumi.analyze.analyzers.length import LengthAnalyzer
 from oumi.analyze.analyzers.llm_analyzer import (
     CoherenceAnalyzer,
@@ -31,10 +32,14 @@ from oumi.analyze.analyzers.llm_analyzer import (
     get_available_criteria,
     get_criteria_info,
 )
+from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer
 
 __all__ = [
     # Non-LLM analyzers
     "LengthAnalyzer",
+    "TurnStatsAnalyzer",
+    # Dataset-level analyzers
+    "DeduplicationAnalyzer",
     # LLM-based analyzers
     "LLMAnalyzer",
     "UsefulnessAnalyzer",

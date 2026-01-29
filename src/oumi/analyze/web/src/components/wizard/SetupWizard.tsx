@@ -77,6 +77,31 @@ const AVAILABLE_ANALYZERS = {
       'num_consecutive_same_role', 'empty_turn_count', 'estimated_tokens', 'refusal_count'
     ]
   },
+  turn_stats: {
+    name: 'Turn Statistics Analyzer',
+    description: 'Compute turn counts, per-role statistics, and response length ratios',
+    params: [
+      { key: 'include_system_in_counts', type: 'boolean', default: false, label: 'Include System in Counts' },
+    ],
+    metrics: [
+      'num_turns', 'num_user_turns', 'num_assistant_turns', 'has_system_message',
+      'avg_user_chars', 'avg_assistant_chars', 'total_user_chars', 'total_assistant_chars',
+      'response_ratio', 'assistant_turn_ratio', 'first_turn_role', 'last_turn_role'
+    ]
+  },
+  deduplication: {
+    name: 'Deduplication Analyzer',
+    description: 'Detect duplicate conversations across the dataset (dataset-level)',
+    params: [
+      { key: 'hash_method', type: 'select', options: ['normalized', 'exact'] as const, default: 'normalized', label: 'Hash Method' },
+      { key: 'include_system', type: 'boolean', default: false, label: 'Include System Messages' },
+      { key: 'include_roles', type: 'boolean', default: true, label: 'Include Role Prefixes' },
+    ],
+    metrics: [
+      'total_conversations', 'unique_conversations', 'duplicate_count', 'duplicate_ratio',
+      'num_duplicate_groups', 'largest_group_size'
+    ]
+  },
   // --- LLM-based Analyzers ---
   usefulness: {
     name: 'Usefulness Analyzer',
