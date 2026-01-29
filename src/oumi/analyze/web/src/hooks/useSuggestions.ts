@@ -1,6 +1,55 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 const API_BASE_URL = '/api'
+const STORAGE_KEY = 'oumi_analyze_suggestions'
+
+/**
+ * Persisted suggestion state for localStorage
+ */
+interface PersistedSuggestionState {
+  suggestions: SuggestionResponse | null
+  userPrompt: string
+  appliedAnalyzers: string[]
+  appliedCustomMetrics: string[]
+  appliedTests: string[]
+}
+
+/**
+ * Load suggestion state from localStorage
+ */
+function loadPersistedState(): PersistedSuggestionState | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      return JSON.parse(stored)
+    }
+  } catch (e) {
+    console.warn('Failed to load suggestions from localStorage:', e)
+  }
+  return null
+}
+
+/**
+ * Save suggestion state to localStorage
+ */
+function savePersistedState(state: PersistedSuggestionState): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  } catch (e) {
+    console.warn('Failed to save suggestions to localStorage:', e)
+  }
+}
+
+/**
+ * Clear suggestion state from localStorage
+ */
+function clearPersistedState(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch (e) {
+    console.warn('Failed to clear suggestions from localStorage:', e)
+  }
+}
 
 /**
  * Suggested analyzer configuration
@@ -50,6 +99,8 @@ export interface SuggestionResponse {
   custom_metrics: CustomMetricSuggestion[]
   tests: TestSuggestion[]
   error?: string | null
+  /** The user's original prompt used to generate these suggestions */
+  user_query?: string | null
 }
 
 /**
@@ -119,17 +170,59 @@ async function fetchSuggestions(config: DatasetConfig): Promise<SuggestionRespon
  * ```
  */
 export function useSuggestions() {
-  const [status, setStatus] = useState<SuggestionStatus>('idle')
-  const [suggestions, setSuggestions] = useState<SuggestionResponse | null>(null)
+  // Initialize state from localStorage if available
+  const [initialized, setInitialized] = useState(false)
+  const [status, setStatus] = useState<SuggestionStatus>(() => {
+    const persisted = loadPersistedState()
+    return persisted?.suggestions ? 'success' : 'idle'
+  })
+  const [suggestions, setSuggestions] = useState<SuggestionResponse | null>(() => {
+    const persisted = loadPersistedState()
+    return persisted?.suggestions || null
+  })
   const [error, setError] = useState<string | null>(null)
   
+  // Store the user's query/prompt for display and editing
+  const [userPrompt, setUserPrompt] = useState<string>(() => {
+    const persisted = loadPersistedState()
+    return persisted?.userPrompt || ''
+  })
+  
   // Track which suggestions have been applied
-  const [appliedAnalyzers, setAppliedAnalyzers] = useState<Set<string>>(new Set())
-  const [appliedCustomMetrics, setAppliedCustomMetrics] = useState<Set<string>>(new Set())
-  const [appliedTests, setAppliedTests] = useState<Set<string>>(new Set())
+  const [appliedAnalyzers, setAppliedAnalyzers] = useState<Set<string>>(() => {
+    const persisted = loadPersistedState()
+    return new Set(persisted?.appliedAnalyzers || [])
+  })
+  const [appliedCustomMetrics, setAppliedCustomMetrics] = useState<Set<string>>(() => {
+    const persisted = loadPersistedState()
+    return new Set(persisted?.appliedCustomMetrics || [])
+  })
+  const [appliedTests, setAppliedTests] = useState<Set<string>>(() => {
+    const persisted = loadPersistedState()
+    return new Set(persisted?.appliedTests || [])
+  })
   
   // Track if panel is dismissed
   const [isDismissed, setIsDismissed] = useState(false)
+
+  // Persist state to localStorage when it changes
+  useEffect(() => {
+    // Skip initial render to avoid overwriting with potentially stale state
+    if (!initialized) {
+      setInitialized(true)
+      return
+    }
+    
+    if (suggestions) {
+      savePersistedState({
+        suggestions,
+        userPrompt,
+        appliedAnalyzers: Array.from(appliedAnalyzers),
+        appliedCustomMetrics: Array.from(appliedCustomMetrics),
+        appliedTests: Array.from(appliedTests),
+      })
+    }
+  }, [initialized, suggestions, userPrompt, appliedAnalyzers, appliedCustomMetrics, appliedTests])
 
   /**
    * Trigger suggestion generation for a dataset
@@ -137,6 +230,9 @@ export function useSuggestions() {
   const triggerSuggestions = useCallback(async (config: DatasetConfig) => {
     // Don't re-fetch if already loading
     if (status === 'loading') return
+
+    // Store the user's prompt
+    setUserPrompt(config.user_query || '')
 
     // Reset applied state for new suggestions
     setAppliedAnalyzers(new Set())
@@ -155,6 +251,10 @@ export function useSuggestions() {
         setStatus('error')
       } else {
         setSuggestions(result)
+        // Update user prompt from response (server echoes it back for persistence)
+        if (result.user_query) {
+          setUserPrompt(result.user_query)
+        }
         setStatus('success')
       }
     } catch (e) {
@@ -227,9 +327,26 @@ export function useSuggestions() {
   }, [])
 
   /**
-   * Reset all state
+   * Reset all state and clear localStorage
    */
   const reset = useCallback(() => {
+    setStatus('idle')
+    setSuggestions(null)
+    setError(null)
+    setUserPrompt('')
+    setAppliedAnalyzers(new Set())
+    setAppliedCustomMetrics(new Set())
+    setAppliedTests(new Set())
+    setIsDismissed(false)
+    clearPersistedState()
+  }, [])
+
+  /**
+   * Reset suggestions for editing - clears suggestions but preserves the prompt
+   * Returns the current prompt so the caller can use it
+   */
+  const resetForEdit = useCallback(() => {
+    const currentPrompt = userPrompt
     setStatus('idle')
     setSuggestions(null)
     setError(null)
@@ -237,7 +354,9 @@ export function useSuggestions() {
     setAppliedCustomMetrics(new Set())
     setAppliedTests(new Set())
     setIsDismissed(false)
-  }, [])
+    clearPersistedState()
+    return currentPrompt
+  }, [userPrompt])
 
   /**
    * Get unapplied analyzer suggestions
@@ -274,6 +393,7 @@ export function useSuggestions() {
     suggestions,
     error,
     isDismissed,
+    userPrompt,
     
     // Derived state
     unappliedAnalyzers,
@@ -297,5 +417,6 @@ export function useSuggestions() {
     dismiss,
     undismiss,
     reset,
+    resetForEdit,
   }
 }

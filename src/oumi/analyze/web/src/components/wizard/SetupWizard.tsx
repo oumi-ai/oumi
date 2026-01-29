@@ -548,6 +548,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     suggestions,
     error: suggestionsError,
     isDismissed: suggestionsDismissed,
+    userPrompt: suggestionsUserPrompt,
     unappliedAnalyzers,
     unappliedCustomMetrics,
     // Note: unappliedTests not used - we compute filtered version based on selected analyzers
@@ -563,7 +564,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     markAllTestsApplied,
     dismiss: dismissSuggestions,
     undismiss: undismissSuggestions,
-    reset: resetSuggestions,
+    resetForEdit: resetSuggestionsForEdit,
   } = useSuggestions()
 
   // Handle job completion
@@ -824,8 +825,15 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     setCurrentStep(currentStep + 1)
   }, [currentStep])
 
-  // State for AI suggestion user query
-  const [suggestionQuery, setSuggestionQuery] = useState('')
+  // State for AI suggestion user query - initialize from persisted prompt if available
+  const [suggestionQuery, setSuggestionQuery] = useState(suggestionsUserPrompt || '')
+  
+  // Sync local query state when persisted prompt changes (e.g., loaded from localStorage)
+  useEffect(() => {
+    if (suggestionsUserPrompt && !suggestionQuery) {
+      setSuggestionQuery(suggestionsUserPrompt)
+    }
+  }, [suggestionsUserPrompt, suggestionQuery])
 
   // Request AI suggestions with optional user query
   const requestAISuggestions = useCallback(() => {
@@ -839,6 +847,12 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
       user_query: suggestionQuery || undefined,
     })
   }, [config.datasetPath, config.datasetName, config.split, config.subset, suggestionQuery, triggerSuggestions])
+
+  // Handle "Edit prompt & regenerate" - reset but keep the prompt in the input
+  const handleEditSuggestions = useCallback(() => {
+    const currentPrompt = resetSuggestionsForEdit()
+    setSuggestionQuery(currentPrompt)
+  }, [resetSuggestionsForEdit])
 
   // Apply an analyzer suggestion
   const applyAnalyzerSuggestion = useCallback((suggestion: AnalyzerSuggestion) => {
@@ -1368,6 +1382,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           status={suggestionsStatus}
           error={suggestionsError}
           isDismissed={suggestionsDismissed}
+          userPrompt={suggestionsUserPrompt}
           onDismiss={dismissSuggestions}
           onUndismiss={undismissSuggestions}
           type="analyzers"
@@ -1378,7 +1393,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           onApplyAnalyzer={applyAnalyzerSuggestion}
           onApplyCustomMetric={applyCustomMetricSuggestion}
           onApplyAll={applyAllAnalyzerSuggestions}
-          onTryAgain={resetSuggestions}
+          onTryAgain={handleEditSuggestions}
         />
       )}
 
@@ -1720,6 +1735,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
               status={suggestionsStatus}
               error={suggestionsError}
               isDismissed={suggestionsDismissed}
+              userPrompt={suggestionsUserPrompt}
               onDismiss={dismissSuggestions}
               onUndismiss={undismissSuggestions}
               type="tests"
@@ -1727,7 +1743,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
               appliedTests={appliedTests}
               onApplyTest={applyTestSuggestion}
               onApplyAll={applyAllTestSuggestions}
-              onTryAgain={resetSuggestions}
+              onTryAgain={handleEditSuggestions}
             />
           )
         })()}

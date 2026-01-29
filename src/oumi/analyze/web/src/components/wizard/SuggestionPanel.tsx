@@ -28,6 +28,8 @@ interface SuggestionPanelProps {
   error?: string | null
   /** Whether the panel has been dismissed */
   isDismissed: boolean
+  /** The user's prompt that was used to generate suggestions */
+  userPrompt?: string
   /** Callback to dismiss the panel */
   onDismiss: () => void
   /** Callback to show the panel again */
@@ -68,6 +70,7 @@ export function SuggestionPanel({
   status,
   error,
   isDismissed,
+  userPrompt,
   onDismiss,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onUndismiss: _onUndismiss, // Not used in this component - handled by SuggestionPanelMinimized
@@ -177,6 +180,25 @@ export function SuggestionPanel({
               <X className="h-4 w-4" />
             </Button>
           </div>
+          {/* Show user's prompt even when all applied */}
+          {userPrompt && (
+            <div className="mt-3 pt-3 border-t border-green-500/20">
+              <div className="flex items-start gap-2">
+                <span className="text-xs text-muted-foreground whitespace-nowrap mt-0.5">Your prompt:</span>
+                <p className="text-sm text-foreground/80 italic flex-1">"{userPrompt}"</p>
+              </div>
+              {onTryAgain && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 mt-1 text-xs text-green-600"
+                  onClick={onTryAgain}
+                >
+                  Edit prompt & regenerate
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     )
@@ -229,6 +251,25 @@ export function SuggestionPanel({
 
         <CollapsibleContent>
           <div className="px-4 pb-4">
+            {/* Show user's prompt if provided */}
+            {userPrompt && (
+              <div className="mb-3 p-3 rounded-lg bg-muted/50 border border-border/50">
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap mt-0.5">Your prompt:</span>
+                  <p className="text-sm text-foreground/80 italic flex-1">"{userPrompt}"</p>
+                </div>
+                {onTryAgain && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 mt-1 text-xs text-primary"
+                    onClick={onTryAgain}
+                  >
+                    Edit prompt & regenerate
+                  </Button>
+                )}
+              </div>
+            )}
             <div className="max-h-[400px] overflow-y-auto pr-1">
               <div className="space-y-3">
                 {/* Analyzer suggestions */}

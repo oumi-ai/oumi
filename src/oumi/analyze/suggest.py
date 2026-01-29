@@ -150,6 +150,9 @@ class SuggestionResponse(BaseModel):
     custom_metrics: list[CustomMetricSuggestion] = Field(default_factory=list)
     tests: list[TestSuggestion] = Field(default_factory=list)
     error: str | None = Field(default=None)
+    user_query: str | None = Field(
+        default=None, description="The user's original prompt used to generate suggestions"
+    )
 
 
 def get_analyzer_catalog() -> dict[str, dict[str, Any]]:
@@ -814,6 +817,9 @@ def generate_suggestions(
     # Call LLM with structured outputs
     logger.info(f"Calling {model} for suggestions with structured outputs...")
     response = _call_openai_structured(system_prompt, user_prompt, model, api_key)
+
+    # Include the original user query in the response for UI persistence
+    response.user_query = user_query
 
     if response.error:
         logger.error(f"Suggestion generation failed: {response.error}")
