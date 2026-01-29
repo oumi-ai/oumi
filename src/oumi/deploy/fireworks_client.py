@@ -196,6 +196,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         model_name: str,
         model_type: ModelType = ModelType.FULL,
         base_model: str | None = None,
+        progress_callback: Any | None = None,
     ) -> UploadedModel:
         """Upload a model to Fireworks.ai using multi-step flow.
 
@@ -210,6 +211,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             model_name: Model ID to use (e.g., "my-custom-model")
             model_type: Type of model (FULL or ADAPTER)
             base_model: Base model for LoRA adapters (e.g., "accounts/fireworks/models/llama-v3p1-8b-instruct")
+            progress_callback: Optional async callback function for progress updates.
+                Signature: async def callback(stage: str, message: str, details: dict)
+                Stages: "downloading", "extracting", "uploading", "waiting", "validating"
 
         Returns:
             UploadedModel with provider-specific model ID
@@ -279,6 +283,13 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         created_model_name = model_data.get("name", "")
         logger.info(f"✓ Model created: {created_model_name}")
 
+        if progress_callback:
+            await progress_callback(
+                "creating",
+                f"Model resource created on Fireworks: {model_id}",
+                {"provider_model_id": created_model_name},
+            )
+
         # Step 2: Download model files from cloud storage if needed
         # The model_source is likely an S3 presigned URL pointing to an archive
         # We need to download, extract, and get the individual files and their sizes
@@ -289,6 +300,12 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             if model_source.startswith(("http://", "https://")):
                 # Presigned URL - download the archive
                 logger.info("Downloading model archive from presigned URL")
+                if progress_callback:
+                    await progress_callback(
+                        "downloading",
+                        "Downloading model archive from cloud storage...",
+                        {},
+                    )
                 temp_dir = Path(tempfile.mkdtemp())
 
                 # Download the archive
@@ -304,9 +321,23 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
                 logger.info(f"Downloaded {len(response.content)} bytes")
 
+                if progress_callback:
+                    await progress_callback(
+                        "downloading",
+                        f"Download complete ({len(response.content) / 1024 / 1024:.1f} MB)",
+                        {"bytes_downloaded": len(response.content)},
+                    )
+
                 # Extract the archive
                 extract_dir = temp_dir / "extracted"
                 extract_dir.mkdir()
+
+                if progress_callback:
+                    await progress_callback(
+                        "extracting",
+                        "Extracting model archive...",
+                        {},
+                    )
 
                 # Detect archive type and extract
                 if zipfile.is_zipfile(archive_path):
@@ -352,6 +383,14 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             logger.info(f"Found {len(file_sizes)} files to upload")
             logger.info(f"Files to upload: {list(file_sizes.keys())}")
 
+            if progress_callback:
+                await progress_callback(
+                    "extracting",
+                    f"Found {len(file_sizes)} files to upload "
+                    f"({sum(file_sizes.values()) / 1024 / 1024:.1f} MB total)",
+                    {"file_count": len(file_sizes), "files": list(file_sizes.keys())},
+                )
+
             # Check for config.json specifically
             if "config.json" in file_sizes:
                 logger.info(
@@ -385,11 +424,34 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             logger.info(f"Received {len(file_upload_urls)} signed URLs for upload")
 
             # Step 4: Upload each file to its signed URL
+            total_files = len(file_upload_urls)
+            uploaded_count = 0
+            total_bytes = sum(file_sizes.values())
+            uploaded_bytes = 0
+
+            logger.info(
+                f"Starting upload of {total_files} files "
+                f"({total_bytes / 1024 / 1024:.1f} MB total)"
+            )
+
+            if progress_callback:
+                await progress_callback(
+                    "uploading",
+                    f"Starting upload of {total_files} files "
+                    f"({total_bytes / 1024 / 1024:.1f} MB total)",
+                    {"total_files": total_files, "total_bytes": total_bytes},
+                )
+
             async with httpx.AsyncClient(timeout=300.0) as upload_client:
                 for filename, signed_url in file_upload_urls.items():
                     file_path = model_dir / filename
                     file_size = file_sizes[filename]
-                    logger.info(f"Uploading {filename} ({file_size} bytes)")
+                    uploaded_count += 1
+
+                    logger.info(
+                        f"[{uploaded_count}/{total_files}] Uploading {filename} "
+                        f"({file_size / 1024 / 1024:.2f} MB)..."
+                    )
 
                     async with aiofiles.open(file_path, "rb") as f:
                         content = await f.read()
@@ -403,21 +465,116 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                         },
                     )
                     upload_response.raise_for_status()
-                    logger.info(f"✓ Uploaded {filename}")
+                    uploaded_bytes += file_size
+                    logger.info(
+                        f"[{uploaded_count}/{total_files}] ✓ Uploaded {filename} "
+                        f"({uploaded_bytes / 1024 / 1024:.1f} MB / "
+                        f"{total_bytes / 1024 / 1024:.1f} MB complete)"
+                    )
 
-            # Step 5: Trigger validation
-            logger.info("Triggering model validation")
+                    if progress_callback:
+                        await progress_callback(
+                            "uploading",
+                            f"Uploaded {filename} ({uploaded_count}/{total_files} files, "
+                            f"{uploaded_bytes / 1024 / 1024:.1f} MB / "
+                            f"{total_bytes / 1024 / 1024:.1f} MB)",
+                            {
+                                "current_file": filename,
+                                "uploaded_count": uploaded_count,
+                                "total_files": total_files,
+                                "uploaded_bytes": uploaded_bytes,
+                                "total_bytes": total_bytes,
+                            },
+                        )
 
-            # Add retry logic with delay - Fireworks may need time to process uploaded files
-            max_retries = 3
-            retry_delay = 5  # seconds
+            logger.info(
+                f"✓ All {total_files} files uploaded successfully "
+                f"({total_bytes / 1024 / 1024:.1f} MB total)"
+            )
+
+            if progress_callback:
+                await progress_callback(
+                    "uploading",
+                    f"All {total_files} files uploaded successfully "
+                    f"({total_bytes / 1024 / 1024:.1f} MB total)",
+                    {"status": "complete", "total_files": total_files},
+                )
+
+            # Step 5: Wait for GCS propagation before triggering validation
+            # Fireworks needs time to recognize uploaded files in GCS
+            propagation_delay = 300  # 5 minutes
+            logger.info(
+                f"⏳ Waiting {propagation_delay // 60} minutes for files to propagate "
+                f"on Fireworks infrastructure before validation..."
+            )
+
+            if progress_callback:
+                await progress_callback(
+                    "waiting",
+                    f"Waiting {propagation_delay // 60} minutes for files to propagate "
+                    f"on Fireworks infrastructure...",
+                    {"wait_seconds": propagation_delay},
+                )
+
+            # Log progress every 30 seconds during the wait
+            wait_interval = 30
+            elapsed = 0
+            while elapsed < propagation_delay:
+                await asyncio.sleep(wait_interval)
+                elapsed += wait_interval
+                remaining = propagation_delay - elapsed
+                if remaining > 0:
+                    logger.info(
+                        f"⏳ Propagation wait: {elapsed // 60}m {elapsed % 60}s elapsed, "
+                        f"{remaining // 60}m {remaining % 60}s remaining..."
+                    )
+                    if progress_callback:
+                        await progress_callback(
+                            "waiting",
+                            f"Propagation wait: {elapsed // 60}m {elapsed % 60}s elapsed, "
+                            f"{remaining // 60}m {remaining % 60}s remaining...",
+                            {
+                                "elapsed_seconds": elapsed,
+                                "remaining_seconds": remaining,
+                            },
+                        )
+
+            logger.info("⏳ Propagation wait complete. Triggering model validation...")
+
+            if progress_callback:
+                await progress_callback(
+                    "validating",
+                    "Propagation wait complete. Starting validation...",
+                    {},
+                )
+
+            # Add retry logic with delay - Fireworks may need additional time
+            max_retries = 5
+            retry_delay = 60  # 1 minute between retries
 
             for attempt in range(max_retries):
                 if attempt > 0:
                     logger.info(
-                        f"Retry attempt {attempt + 1}/{max_retries} after {retry_delay}s delay..."
+                        f"🔄 Validation retry {attempt + 1}/{max_retries}: "
+                        f"Waiting {retry_delay}s before next attempt..."
                     )
                     await asyncio.sleep(retry_delay)
+                    logger.info(
+                        f"🔄 Validation retry {attempt + 1}/{max_retries}: "
+                        f"Sending validation request..."
+                    )
+                else:
+                    logger.info(
+                        f"🔄 Validation attempt {attempt + 1}/{max_retries}: "
+                        f"Sending validation request..."
+                    )
+
+                if progress_callback:
+                    await progress_callback(
+                        "validating",
+                        f"Validation attempt {attempt + 1}/{max_retries}...",
+                        {"attempt": attempt + 1, "max_retries": max_retries},
+                    )
 
                 response = await self._client.get(
                     f"/v1/accounts/{self.account_id}/models/{model_id}:validateUpload"
@@ -427,9 +584,10 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 if response.status_code >= 400:
                     error_body = response.text
                     logger.error(
-                        f"Fireworks validation API error response: {error_body}"
+                        f"❌ Validation attempt {attempt + 1}/{max_retries} failed!"
                     )
-                    logger.error(f"Status code: {response.status_code}")
+                    logger.error(f"   Status code: {response.status_code}")
+                    logger.error(f"   Error response: {error_body}")
 
                     # If this is the last retry, check if it's the config.json error
                     if attempt == max_retries - 1:
@@ -444,13 +602,42 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                             )
                             # Don't raise - continue despite validation error
                             break
+                        else:
+                            logger.error(
+                                f"❌ All {max_retries} validation attempts failed. "
+                                f"Last error: {error_body}"
+                            )
                     else:
                         # Not last retry, continue to next attempt
+                        logger.info(
+                            f"   Will retry in {retry_delay}s "
+                            f"({max_retries - attempt - 1} retries remaining)"
+                        )
+                        if progress_callback:
+                            await progress_callback(
+                                "validating",
+                                f"Validation failed, retrying in {retry_delay}s "
+                                f"({max_retries - attempt - 1} retries remaining)...",
+                                {
+                                    "attempt": attempt + 1,
+                                    "max_retries": max_retries,
+                                    "error": error_body,
+                                    "status": "retrying",
+                                },
+                            )
                         continue
 
                 # Success - break out of retry loop
                 response.raise_for_status()
-                logger.info("✓ Validation triggered successfully")
+                logger.info(
+                    f"✓ Validation triggered successfully on attempt {attempt + 1}"
+                )
+                if progress_callback:
+                    await progress_callback(
+                        "validating",
+                        f"Validation successful on attempt {attempt + 1}",
+                        {"status": "success", "attempt": attempt + 1},
+                    )
                 break
 
         finally:
@@ -664,12 +851,15 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             HardwareConfig(accelerator="amd_mi300x", count=1),
         ]
 
-    async def list_models(self, include_public: bool = False) -> list[Model]:
+    async def list_models(
+        self, include_public: bool = False, organization: str | None = None
+    ) -> list[Model]:
         """List models uploaded to Fireworks.ai.
 
         Args:
             include_public: If True, include public/platform models. If False (default),
                            only return user-uploaded custom models.
+            organization: Not used for Fireworks.ai (included for interface compatibility).
 
         Returns:
             List of Model objects with status information

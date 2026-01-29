@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 
 class DeploymentProvider(str, Enum):
@@ -69,6 +70,7 @@ class Model:
     model_type: ModelType | None = None
     created_at: datetime | None = None
     base_model: str | None = None
+    organization: str | None = None
 
 
 @dataclass
@@ -84,6 +86,7 @@ class Endpoint:
     autoscaling: AutoscalingConfig
     created_at: datetime | None = None
     display_name: str | None = None
+    inference_model_name: str | None = None  # Model name to use for inference calls
 
 
 class BaseDeploymentClient(ABC):
@@ -98,6 +101,7 @@ class BaseDeploymentClient(ABC):
         model_name: str,
         model_type: ModelType = ModelType.FULL,
         base_model: str | None = None,
+        progress_callback: Any | None = None,
     ) -> UploadedModel:
         """Upload a model to the provider.
 
@@ -106,6 +110,8 @@ class BaseDeploymentClient(ABC):
             model_name: Display name for the model
             model_type: Type of model (FULL or ADAPTER)
             base_model: Base model for LoRA adapters
+            progress_callback: Optional async callback for progress updates.
+                Signature: async def callback(stage: str, message: str, details: dict)
 
         Returns:
             UploadedModel with provider-specific model ID
@@ -207,12 +213,16 @@ class BaseDeploymentClient(ABC):
         pass
 
     @abstractmethod
-    async def list_models(self, include_public: bool = False) -> list["Model"]:
+    async def list_models(
+        self, include_public: bool = False, organization: str | None = None
+    ) -> list["Model"]:
         """List models uploaded to this provider.
 
         Args:
             include_public: If True, include public/platform models. If False (default),
                            only return user-uploaded custom models.
+            organization: If provided, filter results to only models belonging to this
+                         organization (provider-specific).
 
         Returns:
             List of Model objects with status information

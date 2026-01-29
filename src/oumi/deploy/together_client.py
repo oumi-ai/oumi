@@ -141,6 +141,9 @@ class TogetherDeploymentClient(BaseDeploymentClient):
             autoscaling=autoscaling,
             created_at=created_at,
             display_name=data.get("display_name"),
+            # Together.ai's "name" field is the model name to use for inference
+            # (includes auto-generated suffix, e.g., "org/model-name-abc123")
+            inference_model_name=data.get("name"),
         )
 
     async def upload_model(
@@ -149,6 +152,7 @@ class TogetherDeploymentClient(BaseDeploymentClient):
         model_name: str,
         model_type: ModelType = ModelType.FULL,
         base_model: str | None = None,
+        progress_callback: Any | None = None,
     ) -> UploadedModel:
         """Upload a model to Together.ai.
 
@@ -157,10 +161,13 @@ class TogetherDeploymentClient(BaseDeploymentClient):
             model_name: Display name for the model
             model_type: Type of model (FULL or ADAPTER)
             base_model: Base model for LoRA adapters
+            progress_callback: Optional callback for progress updates (not used by Together,
+                which has its own job-based status tracking)
 
         Returns:
             UploadedModel with provider-specific model ID
         """
+        _ = progress_callback  # Together uses job-based status tracking instead
         import logging
 
         logger = logging.getLogger(__name__)
@@ -277,11 +284,12 @@ class TogetherDeploymentClient(BaseDeploymentClient):
             response_data = data
 
         # Together.ai may return the model ID in different fields
-        # Try: model_id, id, name
+        # Try: model_id, model, id
+        # Note: Don't use 'name' field as Together.ai adds a unique suffix to it
         provider_model_id = (
             response_data.get("model_id")
+            or response_data.get("model")
             or response_data.get("id")
-            or response_data.get("name")
             or ""
         )
 
@@ -397,8 +405,8 @@ class TogetherDeploymentClient(BaseDeploymentClient):
     async def get_model_status(self, model_id: str) -> str:
         """Get the status of an uploaded model.
 
-        Note: For custom uploaded models, use get_job_status() instead.
-        This method is for checking pre-existing models in the Together.ai catalog.
+        This method handles both public models (via direct API) and custom
+        uploaded models (via models list fallback).
 
         Args:
             model_id: Together.ai model ID
@@ -415,10 +423,39 @@ class TogetherDeploymentClient(BaseDeploymentClient):
                 "This usually means the model upload did not return a valid model ID."
             )
 
-        response = await self._client.get(f"/models/{model_id}")
-        response.raise_for_status()
-        data = response.json()
-        return data.get("status", "unknown")
+        # First try direct model lookup (works for public models)
+        try:
+            response = await self._client.get(f"/models/{model_id}")
+            response.raise_for_status()
+            data = response.json()
+            return data.get("status", "unknown")
+        except Exception:
+            pass
+
+        # For custom uploaded models, the direct endpoint returns 404.
+        # Fall back to searching the /models list.
+        try:
+            response = await self._client.get("/models")
+            response.raise_for_status()
+            data = response.json()
+
+            items = data if isinstance(data, list) else data.get("data", [])
+            for item in items:
+                item_id = item.get("id", "")
+                # Check for exact match or match with org prefix
+                if item_id == model_id or item_id.endswith(f"/{model_id}"):
+                    # Custom models have 'running' field instead of 'status'
+                    # running=false means model is ready to deploy
+                    if "running" in item:
+                        return "ready"
+                    return item.get("status", "ready")
+
+            # Model not found in list
+            raise ValueError(f"Model {model_id} not found in Together.ai models")
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError(f"Failed to get model status for {model_id}: {e}")
 
     async def create_endpoint(
         self,
@@ -578,12 +615,16 @@ class TogetherDeploymentClient(BaseDeploymentClient):
 
         return hardware_list
 
-    async def list_models(self, include_public: bool = False) -> list[Model]:
+    async def list_models(
+        self, include_public: bool = False, organization: str | None = None
+    ) -> list[Model]:
         """List models uploaded to Together.ai.
 
         Args:
             include_public: If True, include public/platform models. If False (default),
                            only return user-uploaded custom models (upload + fine-tuning jobs).
+            organization: If provided, filter results to only models belonging to this
+                         organization (e.g., 'oumi_admin').
 
         Returns:
             List of Model objects with status information
@@ -794,6 +835,9 @@ class TogetherDeploymentClient(BaseDeploymentClient):
                         except (ValueError, TypeError):
                             pass
 
+                    # Get organization from API response
+                    model_organization = item.get("organization")
+
                     models.append(
                         Model(
                             model_id=model_id,
@@ -803,6 +847,7 @@ class TogetherDeploymentClient(BaseDeploymentClient):
                             model_type=model_type,
                             created_at=created_at,
                             base_model=None,
+                            organization=model_organization,
                         )
                     )
             except Exception as e:
@@ -810,6 +855,10 @@ class TogetherDeploymentClient(BaseDeploymentClient):
 
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Failed to fetch catalog models: {e}")
+
+        # Filter by organization if specified
+        if organization:
+            models = [m for m in models if m.organization == organization]
 
         return models
 

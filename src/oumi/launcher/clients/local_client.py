@@ -207,9 +207,50 @@ class LocalClient:
             self._jobs[job_id] = _LocalJob(status=status, config=job)
             return status
 
+    def _check_and_update_orphaned_jobs(self) -> None:
+        """Check for orphaned RUNNING jobs and mark them as failed.
+
+        A job is considered orphaned if it's marked as RUNNING but no process
+        is currently running (process died without updating status).
+        Must be called with mutex held.
+        """
+        for job in self._jobs.values():
+            if job.status.status != _JobState.RUNNING.value:
+                continue
+
+            # If job is RUNNING but no process exists, it's orphaned
+            if self._running_process is None:
+                job.status.status = _JobState.FAILED.value
+                job.status.state = JobState.FAILED
+                job.status.done = True
+                job.status.metadata = (
+                    "Job process terminated unexpectedly (orphaned job detected)"
+                )
+                continue
+
+            # If process exists, check if it's still alive
+            poll_result = self._running_process.poll()
+            if poll_result is not None:
+                # Process has exited but status wasn't updated
+                if poll_result == 0:
+                    job.status.status = _JobState.COMPLETED.value
+                    job.status.state = JobState.SUCCEEDED
+                    job.status.metadata = (
+                        "Job completed (recovered from orphaned state)"
+                    )
+                else:
+                    job.status.status = _JobState.FAILED.value
+                    job.status.state = JobState.FAILED
+                    job.status.metadata = (
+                        f"Job failed with exit code {poll_result} "
+                        "(recovered from orphaned state)"
+                    )
+                job.status.done = True
+
     def list_jobs(self) -> list[JobStatus]:
         """Returns a list of job statuses."""
         with self._mutex:
+            self._check_and_update_orphaned_jobs()
             return [job.status for job in self._jobs.values()]
 
     def get_job(self, job_id: str) -> JobStatus | None:
@@ -221,11 +262,11 @@ class LocalClient:
         Returns:
             The job status if found, None otherwise.
         """
-        job_list = self.list_jobs()
-        for job in job_list:
-            if job.id == job_id:
-                return job
-        return None
+        with self._mutex:
+            self._check_and_update_orphaned_jobs()
+            if job_id in self._jobs:
+                return self._jobs[job_id].status
+            return None
 
     def cancel(self, job_id) -> JobStatus | None:
         """Cancels the specified job.
