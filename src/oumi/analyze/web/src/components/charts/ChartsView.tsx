@@ -83,6 +83,22 @@ function getNumericFields(results: AnalysisResult[]): string[] {
   return numericFields
 }
 
+// Fields to exclude from charts - these have too many unique values or are detail fields
+const EXCLUDED_CHART_FIELDS = new Set([
+  'reasoning',
+  'error',
+  'turn_sequence',        // Comma-separated role sequence, many unique values
+  'truncation_reason',    // Free-text reason
+  'quality_issues',       // List of issues
+  'invalid_value_patterns', // List of patterns
+  'refusal_phrases',      // List of phrases
+  'unmatched_tags',       // List of tags
+  'empty_turn_indices',   // List of indices
+])
+
+// Maximum number of unique values for a field to be chartable
+const MAX_UNIQUE_VALUES_FOR_CHART = 25
+
 // Helper to get categorical fields from results
 function getCategoricalFields(results: AnalysisResult[]): string[] {
   if (results.length === 0) return []
@@ -93,8 +109,20 @@ function getCategoricalFields(results: AnalysisResult[]): string[] {
   for (const [key, value] of Object.entries(sample)) {
     // Skip the nested 'values' object itself
     if (key === 'values') continue
-    if (typeof value === 'string' && !['reasoning', 'error'].includes(key)) {
-      categoricalFields.push(key)
+    // Skip excluded fields
+    if (EXCLUDED_CHART_FIELDS.has(key)) continue
+    // Skip arrays (lists) - not suitable for pie charts
+    if (Array.isArray(value)) continue
+    
+    if (typeof value === 'string') {
+      // Check if this string field has too many unique values
+      const uniqueValues = new Set(results.map(r => {
+        const flattened = flattenResult(r)
+        return String(flattened[key] ?? '')
+      }))
+      if (uniqueValues.size <= MAX_UNIQUE_VALUES_FOR_CHART) {
+        categoricalFields.push(key)
+      }
     }
     if (typeof value === 'boolean') {
       categoricalFields.push(key)
