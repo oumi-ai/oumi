@@ -141,6 +141,7 @@ interface WizardConfig {
   datasetPath: string
   datasetName: string
   split: string
+  subset?: string  // HuggingFace dataset config/subset
   sampleCount: number
   outputPath: string
   analyzers: {
@@ -330,6 +331,9 @@ function generateYaml(config: WizardConfig): string {
     lines.push(`dataset_path: ${config.datasetPath}`)
   } else if (config.datasetName) {
     lines.push(`dataset_name: ${config.datasetName}`)
+    if (config.subset) {
+      lines.push(`subset: ${config.subset}`)
+    }
     lines.push(`split: ${config.split || 'train'}`)
   }
   
@@ -520,6 +524,67 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+
+  // HuggingFace dataset info
+  const [datasetInfo, setDatasetInfo] = useState<{
+    splits: string[]
+    configs: string[]
+    loading: boolean
+    error: string | null
+    loadedDataset: string | null  // Track which dataset the info is for
+  }>({
+    splits: [],
+    configs: [],
+    loading: false,
+    error: null,
+    loadedDataset: null,
+  })
+
+  const fetchDatasetInfo = useCallback(async (datasetName: string) => {
+    if (!datasetName.trim()) return
+
+    setDatasetInfo(prev => ({ ...prev, loading: true, error: null }))
+
+    try {
+      const response = await fetch('/api/dataset-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataset_name: datasetName }),
+      })
+
+      const result = await response.json()
+
+      if (result.error) {
+        setDatasetInfo(prev => ({
+          ...prev,
+          loading: false,
+          error: result.error,
+          loadedDataset: null,
+        }))
+      } else {
+        setDatasetInfo({
+          splits: result.splits || ['train'],
+          configs: result.configs || [],
+          loading: false,
+          error: null,
+          loadedDataset: datasetName,
+        })
+        // Auto-select first split if current split not in list
+        if (result.splits && result.splits.length > 0) {
+          if (!result.splits.includes(config.split)) {
+            updateConfig({ split: result.splits[0] })
+          }
+        }
+      }
+    } catch (e) {
+      setDatasetInfo(prev => ({
+        ...prev,
+        loading: false,
+        error: e instanceof Error ? e.message : 'Failed to fetch dataset info',
+        loadedDataset: null,
+      }))
+    }
+  }, [config.split, updateConfig])
 
   const handleFileSelect = useCallback(async (file: File) => {
     setIsUploading(true)
@@ -1044,26 +1109,103 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           <Separator className="flex-1" />
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
-            <Label htmlFor="datasetName">HuggingFace Dataset</Label>
-            <Input
-              id="datasetName"
-              placeholder="HuggingFaceH4/ultrachat_200k"
-              className="mt-1.5"
-              value={config.datasetName}
-              onChange={(e) => updateConfig({ datasetName: e.target.value, datasetPath: '' })}
-            />
-          </div>
+        <div className="space-y-3">
           <div>
-            <Label htmlFor="split">Split</Label>
-            <Input
-              id="split"
-              placeholder="train"
-              className="mt-1.5"
-              value={config.split}
-              onChange={(e) => updateConfig({ split: e.target.value })}
-            />
+            <Label htmlFor="datasetName">HuggingFace Dataset</Label>
+            <div className="flex gap-2 mt-1.5">
+              <Input
+                id="datasetName"
+                placeholder="HuggingFaceH4/ultrachat_200k"
+                className="flex-1"
+                value={config.datasetName}
+                onChange={(e) => {
+                  updateConfig({ datasetName: e.target.value, datasetPath: '' })
+                  // Clear dataset info if name changed
+                  if (e.target.value !== datasetInfo.loadedDataset) {
+                    setDatasetInfo(prev => ({ ...prev, loadedDataset: null, splits: [], configs: [] }))
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && config.datasetName) {
+                    e.preventDefault()
+                    fetchDatasetInfo(config.datasetName)
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => fetchDatasetInfo(config.datasetName)}
+                disabled={!config.datasetName || datasetInfo.loading}
+                title="Load dataset info to see available splits"
+              >
+                {datasetInfo.loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  'Load'
+                )}
+              </Button>
+            </div>
+            {datasetInfo.error && (
+              <p className="text-xs text-destructive mt-1">{datasetInfo.error}</p>
+            )}
+            {datasetInfo.loadedDataset && !datasetInfo.error && (
+              <p className="text-xs text-green-600 mt-1">
+                Dataset found with {datasetInfo.splits.length} split(s)
+                {datasetInfo.configs.length > 0 && ` and ${datasetInfo.configs.length} config(s)`}
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="split">Split</Label>
+              {datasetInfo.splits.length > 0 ? (
+                <Select
+                  value={config.split}
+                  onValueChange={(value) => updateConfig({ split: value })}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Select split" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {datasetInfo.splits.map((split) => (
+                      <SelectItem key={split} value={split}>
+                        {split}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="split"
+                  placeholder="train"
+                  className="mt-1.5"
+                  value={config.split}
+                  onChange={(e) => updateConfig({ split: e.target.value })}
+                />
+              )}
+            </div>
+            {datasetInfo.configs.length > 0 && (
+              <div>
+                <Label htmlFor="subset">Config/Subset</Label>
+                <Select
+                  value={config.subset || '__default__'}
+                  onValueChange={(value) => updateConfig({ subset: value === '__default__' ? undefined : value })}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Default" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__default__">Default</SelectItem>
+                    {datasetInfo.configs.map((cfg) => (
+                      <SelectItem key={cfg} value={cfg}>
+                        {cfg}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </div>
 

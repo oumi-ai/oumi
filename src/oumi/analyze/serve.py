@@ -87,6 +87,8 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
             self.upload_dataset()
         elif self.path == "/api/suggest":
             self.generate_suggestions()
+        elif self.path == "/api/dataset-info":
+            self.get_dataset_info()
         else:
             self.send_error(404, "Not found")
 
@@ -205,6 +207,56 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             logger.error(f"Error generating suggestions: {e}")
+            self._send_json({"error": str(e)}, 500)
+
+    def get_dataset_info(self):
+        """Get information about a HuggingFace dataset, including available splits."""
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)
+
+            dataset_name = data.get("dataset_name", "")
+            subset = data.get("subset")  # Optional config/subset name
+
+            if not dataset_name:
+                self._send_json({"error": "dataset_name required"}, 400)
+                return
+
+            logger.info(f"Fetching info for dataset: {dataset_name}")
+
+            try:
+                from datasets import get_dataset_config_names, get_dataset_split_names
+
+                # Get available configs/subsets
+                try:
+                    configs = get_dataset_config_names(dataset_name)
+                except Exception:
+                    configs = []
+
+                # Get available splits for the specified config (or default)
+                try:
+                    splits = get_dataset_split_names(
+                        dataset_name,
+                        config_name=subset if subset else (configs[0] if configs else None)
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not get splits: {e}")
+                    splits = ["train"]  # Default fallback
+
+                self._send_json({
+                    "dataset_name": dataset_name,
+                    "configs": configs,
+                    "splits": splits,
+                })
+
+            except ImportError:
+                self._send_json({
+                    "error": "datasets library not installed"
+                }, 500)
+
+        except Exception as e:
+            logger.error(f"Error getting dataset info: {e}")
             self._send_json({"error": str(e)}, 500)
 
     def rename_eval(self):
