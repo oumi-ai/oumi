@@ -94,16 +94,28 @@ class TestSuggestion(BaseModel):
         default=None, description="Comparison operator: <, >, <=, >=, ==, !="
     )
     value: float | int | None = Field(default=None, description="Threshold value")
-    # Percentage test fields
+    # Percentage test fields - USE POSITIVE CONDITIONS with min_percentage
     condition: str | None = Field(
         default=None,
-        description="Condition for percentage tests: == True, != None, etc.",
+        description=(
+            "Condition for percentage tests. ALWAYS use POSITIVE conditions "
+            "(e.g., '== True' for has_alternating_turns) with min_percentage "
+            "for clearer failure messages. NEVER use '== False' with max_percentage."
+        ),
     )
     max_percentage: float | None = Field(
-        default=None, description="Max % of samples that can fail"
+        default=None,
+        description=(
+            "Max % of samples matching the condition. Use for BAD metrics "
+            "(e.g., max 5% can have total_tokens > 8000)."
+        ),
     )
     min_percentage: float | None = Field(
-        default=None, description="Min % of samples that must pass"
+        default=None,
+        description=(
+            "Min % of samples that must match the condition. Use for GOOD metrics "
+            "(e.g., at least 95% should have has_alternating_turns == True)."
+        ),
     )
     # Range test fields
     min_value: float | None = Field(
@@ -162,6 +174,34 @@ def get_analyzer_catalog() -> dict[str, dict[str, Any]]:
             "params": {
                 "tiktoken_encoding": "Token encoding to use (default: cl100k_base)",
                 "compute_role_stats": "Whether to compute per-role statistics",
+            },
+        },
+        "quality": {
+            "name": "Data Quality Analyzer",
+            "description": "Fast, non-LLM quality checks for data validation",
+            "metrics": [
+                "has_alternating_turns",
+                "has_empty_turns",
+                "has_invalid_values",
+                "fits_4k_context",
+                "appears_truncated",
+                "has_policy_refusal",
+                "has_unbalanced_tags",
+                "passes_basic_quality",
+            ],
+            "good_for": [
+                "Detecting malformed conversations (non-alternating turns)",
+                "Finding empty or whitespace-only messages",
+                "Detecting serialization errors (NaN, null values)",
+                "Checking for truncated conversations",
+                "Finding policy refusal responses",
+                "Checking for unbalanced thinking/code tags",
+            ],
+            "params": {
+                "check_turn_pattern": "Whether to check for alternating turns",
+                "check_empty_content": "Whether to check for empty messages",
+                "check_truncation": "Whether to check for truncation",
+                "check_refusals": "Whether to check for policy refusals",
             },
         },
         "usefulness": {
@@ -345,18 +385,34 @@ Available Analyzers:
         + """
 
 Test Types:
-- **threshold**: Check if a metric exceeds/falls below a value (e.g., total_tokens < 4096)
-- **percentage**: Check what % of samples meet a condition (e.g., 95% should have passed == True)
+- **threshold**: Check if a metric exceeds/falls below a value (e.g., total_tokens > 8000 with max_percentage: 5.0)
+- **percentage**: Check what % of samples meet a condition (see IMPORTANT rules below)
 - **range**: Check if a metric falls within a range (e.g., score between 50 and 100)
+
+IMPORTANT - Test Writing Rules for Clear Failure Messages:
+- For boolean quality metrics, ALWAYS use POSITIVE conditions with min_percentage
+- Example: "has_alternating_turns == True" with min_percentage: 95 (NOT "== False" with max_percentage: 5)
+- This ensures failure messages show the actual BAD samples, not the good ones
+- For "passes_basic_quality", use: condition "== True", min_percentage: 90
+
+Good test patterns:
+- quality.has_alternating_turns: condition "== True", min_percentage: 95
+- quality.has_empty_turns: condition "== False", min_percentage: 100 (meaning 0% should have empty turns)
+- quality.passes_basic_quality: condition "== True", min_percentage: 90
+- length.total_tokens: type threshold, operator ">", value 8000, max_percentage: 5
+
+BAD patterns (NEVER use these):
+- condition "== False" with max_percentage (confusing failure messages)
 
 Guidelines:
 - Only suggest analyzers that make sense for the data
-- Always suggest "length" analyzer as it's fast and universally useful
-- Suggest LLM-based analyzers only if content quality evaluation is relevant
-- Custom metrics should extract metadata or compute simple derived values
+- Always suggest "length" and "quality" analyzers as they are fast, cheap, and universally useful
+- The "quality" analyzer checks for: alternating turns, empty messages, invalid values (NaN), truncation, policy refusals, and unbalanced tags
+- Suggest LLM-based analyzers (usefulness, safety, etc.) only if content quality evaluation is specifically relevant
+- Custom metrics should extract metadata or compute simple derived values not covered by built-in analyzers
 - For custom metric functions, use: def compute(conversation): ... return {"field": value}
-- Tests should catch data quality issues (too long, low quality, etc.)
-- Be conservative - don't overwhelm users with too many suggestions (2-4 analyzers, 0-2 custom metrics, 2-4 tests)"""
+- Tests should catch data quality issues using the quality analyzer metrics
+- Be conservative - don't overwhelm users with too many suggestions (2-3 analyzers, 0-1 custom metrics, 2-4 tests)"""
     )
 
     # Format sample conversations
@@ -456,16 +512,98 @@ def _call_openai_structured(
                 return SuggestionResponse(error=f"Model refused: {refusal}")
             return SuggestionResponse(error="No suggestions generated")
 
+        # Normalize tests to use positive conditions for clearer failure messages
+        normalized_tests = _normalize_test_suggestions(parsed.tests)
+
         # Convert to SuggestionResponse (which includes error field)
         return SuggestionResponse(
             analyzers=parsed.analyzers,
             custom_metrics=parsed.custom_metrics,
-            tests=parsed.tests,
+            tests=normalized_tests,
         )
 
     except Exception as e:
         logger.error(f"OpenAI API call failed: {e}")
         return SuggestionResponse(error=f"API call failed: {e}")
+
+
+def _normalize_test_suggestions(tests: list[TestSuggestion]) -> list[TestSuggestion]:
+    """Normalize test suggestions to use positive conditions.
+
+    Converts confusing patterns like "== False" with max_percentage to
+    the clearer "== True" with min_percentage equivalent.
+
+    Args:
+        tests: List of test suggestions from LLM.
+
+    Returns:
+        Normalized test suggestions with clearer conditions.
+    """
+    normalized = []
+
+    for test in tests:
+        # Only process percentage tests with the problematic pattern
+        if test.type != "percentage" or test.condition is None:
+            normalized.append(test)
+            continue
+
+        condition = test.condition.strip().lower()
+
+        # Check for the bad pattern: "== false" with max_percentage
+        if (
+            condition in ("== false", "==false")
+            and test.max_percentage is not None
+            and test.min_percentage is None
+        ):
+            # Convert to positive: "== True" with min_percentage = 100 - max_percentage
+            new_min_pct = 100.0 - test.max_percentage
+            normalized.append(
+                TestSuggestion(
+                    id=test.id,
+                    type=test.type,
+                    metric=test.metric,
+                    title=test.title,
+                    description=test.description,
+                    severity=test.severity,
+                    reason=test.reason,
+                    condition="== True",
+                    min_percentage=new_min_pct,
+                    max_percentage=None,
+                )
+            )
+            logger.info(
+                f"Normalized test '{test.id}': '== False' max={test.max_percentage}% "
+                f"-> '== True' min={new_min_pct}%"
+            )
+        # Check for: "!= true" with max_percentage (same issue)
+        elif (
+            condition in ("!= true", "!=true")
+            and test.max_percentage is not None
+            and test.min_percentage is None
+        ):
+            new_min_pct = 100.0 - test.max_percentage
+            normalized.append(
+                TestSuggestion(
+                    id=test.id,
+                    type=test.type,
+                    metric=test.metric,
+                    title=test.title,
+                    description=test.description,
+                    severity=test.severity,
+                    reason=test.reason,
+                    condition="== True",
+                    min_percentage=new_min_pct,
+                    max_percentage=None,
+                )
+            )
+            logger.info(
+                f"Normalized test '{test.id}': '!= True' max={test.max_percentage}% "
+                f"-> '== True' min={new_min_pct}%"
+            )
+        else:
+            normalized.append(test)
+
+    return normalized
 
 
 def generate_suggestions(

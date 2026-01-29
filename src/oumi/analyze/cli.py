@@ -65,10 +65,13 @@ def _register_builtin_analyzers():
         SafetyAnalyzer,
         UsefulnessAnalyzer,
     )
+    from oumi.analyze.analyzers.quality import DataQualityAnalyzer
 
-    # Non-LLM analyzers
+    # Non-LLM analyzers (fast, cheap)
     ANALYZER_REGISTRY["length"] = LengthAnalyzer
     ANALYZER_REGISTRY["LengthAnalyzer"] = LengthAnalyzer
+    ANALYZER_REGISTRY["quality"] = DataQualityAnalyzer
+    ANALYZER_REGISTRY["DataQualityAnalyzer"] = DataQualityAnalyzer
 
     # LLM-based analyzers
     ANALYZER_REGISTRY["llm"] = LLMAnalyzer

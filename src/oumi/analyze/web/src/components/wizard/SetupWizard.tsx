@@ -45,6 +45,7 @@ const LLM_ANALYZER_TYPES = ['usefulness', 'safety', 'coherence', 'factuality', '
 
 // Available analyzers with their parameters and metrics
 const AVAILABLE_ANALYZERS = {
+  // --- Non-LLM Analyzers (fast, cheap) ---
   length: {
     name: 'Length Analyzer',
     description: 'Compute token length metrics for conversations',
@@ -54,6 +55,24 @@ const AVAILABLE_ANALYZERS = {
     ],
     metrics: ['total_tokens', 'num_messages', 'avg_tokens_per_message']
   },
+  quality: {
+    name: 'Data Quality Analyzer',
+    description: 'Basic quality checks: empty turns, invalid values, truncation, refusals, tag balance',
+    params: [
+      { key: 'check_turn_pattern', type: 'boolean', default: true, label: 'Check Turn Pattern' },
+      { key: 'check_empty_content', type: 'boolean', default: true, label: 'Check Empty Content' },
+      { key: 'check_invalid_values', type: 'boolean', default: true, label: 'Check Invalid Values' },
+      { key: 'check_truncation', type: 'boolean', default: true, label: 'Check Truncation' },
+      { key: 'check_refusals', type: 'boolean', default: true, label: 'Check Policy Refusals' },
+      { key: 'check_tags', type: 'boolean', default: true, label: 'Check Tag Balance' },
+    ],
+    metrics: [
+      'has_alternating_turns', 'has_empty_turns', 'has_invalid_values',
+      'fits_4k_context', 'appears_truncated', 'has_policy_refusal',
+      'has_unbalanced_tags', 'passes_basic_quality'
+    ]
+  },
+  // --- LLM-based Analyzers ---
   usefulness: {
     name: 'Usefulness Analyzer',
     description: 'Evaluate response usefulness using LLM',
@@ -879,17 +898,6 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     markAllCustomMetricsApplied()
   }, [suggestions, appliedAnalyzers, appliedCustomMetrics, applyAnalyzerSuggestion, applyCustomMetricSuggestion, markAllAnalyzersApplied, markAllCustomMetricsApplied])
 
-  // Apply all test suggestions (only relevant ones)
-  const applyAllTestSuggestions = useCallback(() => {
-    const availableMetrics = getAvailableMetricPrefixes()
-    suggestions?.tests.forEach(s => {
-      if (!appliedTests.has(s.id) && isTestRelevant(s.metric, availableMetrics)) {
-        applyTestSuggestion(s)
-      }
-    })
-    markAllTestsApplied()
-  }, [suggestions, appliedTests, applyTestSuggestion, markAllTestsApplied])
-
   // Get the metric prefixes (analyzer IDs) from selected analyzers and custom metrics
   const getAvailableMetricPrefixes = useCallback((): Set<string> => {
     const prefixes = new Set<string>()
@@ -917,6 +925,17 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     const prefix = metric.split('.')[0]
     return availablePrefixes.has(prefix)
   }, [])
+
+  // Apply all test suggestions (only relevant ones)
+  const applyAllTestSuggestions = useCallback(() => {
+    const availableMetrics = getAvailableMetricPrefixes()
+    suggestions?.tests.forEach(s => {
+      if (!appliedTests.has(s.id) && isTestRelevant(s.metric, availableMetrics)) {
+        applyTestSuggestion(s)
+      }
+    })
+    markAllTestsApplied()
+  }, [suggestions, appliedTests, applyTestSuggestion, markAllTestsApplied, getAvailableMetricPrefixes, isTestRelevant])
 
   // Get filtered test suggestions (only tests for selected analyzers)
   const getRelevantTestSuggestions = useCallback(() => {
