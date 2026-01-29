@@ -77,7 +77,17 @@ test_summary = results['test_summary']  # Test results (if configured)
 
 ### Web UI Viewer
 
-Launch an interactive web interface to view, create, and manage analyses:
+Launch an interactive web interface to view, create, and manage analyses.
+
+**First-time setup** (requires Node.js 18+):
+
+```bash
+cd src/oumi/analyze/web
+npm install
+npm run build
+```
+
+Then run:
 
 ```bash
 oumi analyze view

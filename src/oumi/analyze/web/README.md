@@ -2,50 +2,52 @@
 
 React-based web interface for viewing analysis results.
 
-## Development
+## Quick Start
 
 ### Prerequisites
 
 - Node.js 18+
-- npm or pnpm
+- npm
 
-### Setup
+### Build & Run
 
 ```bash
-# Install dependencies
+# Install dependencies and build
 npm install
-
-# Start development server
-npm run dev
-```
-
-The dev server runs at `http://localhost:5173` with hot reload.
-
-For the React app to fetch data during development, you need to start the Python data server:
-
-```bash
-# In another terminal, start the Python server
-python -m oumi.analyze.serve --port 8765
-```
-
-### Build
-
-```bash
-# Build for production
 npm run build
-```
 
-The built files are placed in `dist/` and will be served by the CLI.
-
-## Usage
-
-After building, use the CLI to view analysis results:
-
-```bash
+# Then use the CLI to view results
 oumi analyze view
 ```
 
 This serves the React app at `http://localhost:8765` and opens your browser.
+
+## Development
+
+### Dev Server
+
+```bash
+# Start development server with hot reload
+npm run dev
+```
+
+The dev server runs at `http://localhost:5173`.
+
+For the React app to fetch data during development, start the Python data server in another terminal:
+
+```bash
+python -m oumi.analyze.serve --port 8765
+```
+
+### Rebuild After Changes
+
+After making changes, rebuild:
+
+```bash
+npm run build
+```
+
+The built files are placed in `dist/` and served by the CLI.
 
 ## Architecture
 
