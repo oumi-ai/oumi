@@ -183,14 +183,23 @@ def get_analyzer_catalog() -> dict[str, dict[str, Any]]:
             "name": "Data Quality Analyzer",
             "description": "Fast, non-LLM quality checks for data validation",
             "metrics": [
+                # Boolean indicators (use percentage tests with condition)
                 "has_alternating_turns",
                 "has_empty_turns",
                 "has_invalid_values",
                 "fits_4k_context",
+                "fits_8k_context",
                 "appears_truncated",
+                "ends_mid_sentence",
                 "has_policy_refusal",
+                "has_think_tags",
                 "has_unbalanced_tags",
                 "passes_basic_quality",
+                # Numeric counts (use threshold tests with operator)
+                "num_consecutive_same_role",
+                "empty_turn_count",
+                "estimated_tokens",
+                "refusal_count",
             ],
             "good_for": [
                 "Detecting malformed conversations (non-alternating turns)",

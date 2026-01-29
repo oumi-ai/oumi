@@ -53,9 +53,66 @@ AVAILABLE_ANALYZERS = {
             {"name": "total_tokens", "type": "number", "description": "Total tokens (if enabled)"},
             {"name": "avg_chars_per_message", "type": "number"},
             {"name": "avg_words_per_message", "type": "number"},
+            {"name": "avg_tokens_per_message", "type": "number"},
             {"name": "num_messages", "type": "number", "description": "Number of messages"},
             {"name": "user_total_words", "type": "number", "description": "User word count"},
             {"name": "assistant_total_words", "type": "number", "description": "Assistant word count"},
+        ],
+    },
+    "quality": {
+        "name": "Data Quality Analyzer",
+        "description": "Fast, non-LLM quality checks for data validation",
+        "category": "Rule-based",
+        "params": {
+            "check_turn_pattern": {
+                "type": "checkbox",
+                "default": True,
+                "description": "Check for proper alternating user-assistant turns",
+            },
+            "check_empty_content": {
+                "type": "checkbox",
+                "default": True,
+                "description": "Check for empty or whitespace-only messages",
+            },
+            "check_invalid_values": {
+                "type": "checkbox",
+                "default": True,
+                "description": "Check for invalid serialization patterns (NaN, null)",
+            },
+            "check_truncation": {
+                "type": "checkbox",
+                "default": True,
+                "description": "Check for truncated/incomplete responses",
+            },
+            "check_refusals": {
+                "type": "checkbox",
+                "default": True,
+                "description": "Check for policy refusal patterns",
+            },
+            "check_tags": {
+                "type": "checkbox",
+                "default": True,
+                "description": "Check for unbalanced thinking/code tags",
+            },
+        },
+        "metrics": [
+            # Boolean indicators
+            {"name": "has_alternating_turns", "type": "boolean", "description": "Proper turn order"},
+            {"name": "has_empty_turns", "type": "boolean", "description": "Contains empty messages"},
+            {"name": "has_invalid_values", "type": "boolean", "description": "Contains NaN/null"},
+            {"name": "fits_4k_context", "type": "boolean", "description": "Fits 4K context window"},
+            {"name": "fits_8k_context", "type": "boolean", "description": "Fits 8K context window"},
+            {"name": "appears_truncated", "type": "boolean", "description": "Response appears cut off"},
+            {"name": "ends_mid_sentence", "type": "boolean", "description": "Ends without punctuation"},
+            {"name": "has_policy_refusal", "type": "boolean", "description": "Contains refusal"},
+            {"name": "has_think_tags", "type": "boolean", "description": "Contains thinking tags"},
+            {"name": "has_unbalanced_tags", "type": "boolean", "description": "Unmatched tag pairs"},
+            {"name": "passes_basic_quality", "type": "boolean", "description": "Passes all checks"},
+            # Numeric counts
+            {"name": "num_consecutive_same_role", "type": "number", "description": "Consecutive same-role count"},
+            {"name": "empty_turn_count", "type": "number", "description": "Number of empty turns"},
+            {"name": "estimated_tokens", "type": "number", "description": "Estimated token count"},
+            {"name": "refusal_count", "type": "number", "description": "Number of refusal messages"},
         ],
     },
     "llm": {
@@ -606,11 +663,11 @@ def _render_tests_section() -> None:
 
     # Show description based on test type
     if test_type == "percentage":
-        st.caption("📊 *Check what % of samples meet a condition*")
+        st.caption("📊 *Check what % of samples meet a condition (best for boolean metrics like has_empty_turns)*")
     elif test_type == "threshold":
-        st.caption("📏 *Check samples against a threshold value*")
+        st.caption("📏 *Check samples against a value (works with numbers OR booleans)*")
     elif test_type == "range":
-        st.caption("📐 *Check if values fall within a range*")
+        st.caption("📐 *Check if numeric values fall within a range*")
 
     with st.form("add_test_form"):
         col1, col2 = st.columns(2)
@@ -674,7 +731,7 @@ def _render_tests_section() -> None:
             )
 
         elif test_type == "threshold":
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns([1, 1, 1])
             with col1:
                 operator = st.selectbox(
                     "Operator",
@@ -682,11 +739,24 @@ def _render_tests_section() -> None:
                     help="Comparison operator",
                 )
             with col2:
-                threshold_value = st.number_input(
-                    "Threshold Value",
-                    value=50.0,
-                    help="Value to compare against",
+                value_type = st.selectbox(
+                    "Value Type",
+                    ["Number", "Boolean"],
+                    help="Type of value to compare",
                 )
+            with col3:
+                if value_type == "Boolean":
+                    threshold_value = st.selectbox(
+                        "Value",
+                        [True, False],
+                        help="Boolean value to compare",
+                    )
+                else:
+                    threshold_value = st.number_input(
+                        "Value",
+                        value=50.0,
+                        help="Numeric value to compare",
+                    )
 
             st.markdown("**Percentage requirement** *(optional)*")
             col3, col4 = st.columns(2)
@@ -792,25 +862,27 @@ def _render_tests_section() -> None:
     with st.expander("💡 Test Types Explained", expanded=False):
         st.markdown("""
         **Percentage Test**: Check what % of samples meet a condition
-        - Example: "At least 80% of responses should pass quality check"
-        - Config: `metric: quality.passed`, `condition: == True`, `min_percentage: 80`
+        - Best for: Boolean metrics (has_empty_turns, passes_basic_quality)
+        - Example: "At least 95% should NOT have empty turns"
+        - Config: `metric: quality.has_empty_turns`, `condition: == False`, `min_percentage: 95`
         
-        **Threshold Test**: Check samples against a threshold value
-        - Example 1: "All responses should score >= 50" (no percentage)
-        - Config: `metric: quality.score`, `operator: >=`, `value: 50`
+        **Threshold Test**: Check samples against a value (number OR boolean)
+        - Works with: Numeric metrics (total_tokens, score) OR boolean metrics
+        - Example 1 (numeric): "No more than 5% should exceed 8000 tokens"
+        - Config: `metric: length.total_tokens`, `operator: >`, `value: 8000`, `max_percentage: 5`
         
-        - Example 2: "No more than 15% should have < 3 words"
-        - Config: `metric: length.total_words`, `operator: <`, `value: 3`, `max_percentage: 15`
+        - Example 2 (boolean): "No more than 5% should have refusals"
+        - Config: `metric: quality.has_policy_refusal`, `operator: ==`, `value: True`, `max_percentage: 5`
         
-        **Range Test**: Check if values fall within a range
+        **Range Test**: Check if numeric values fall within a range
         - Example: "Response length should be between 50-500 words"
         - Config: `metric: length.total_words`, `min_value: 50`, `max_value: 500`
         
         ---
         
         **Percentage Options:**
-        - `min_percentage`: At least X% must match (fail if fewer)
-        - `max_percentage`: At most X% can match (fail if more)
+        - `min_percentage`: At least X% must match (fail if fewer match)
+        - `max_percentage`: At most X% can match (fail if more match)
         """)
 
 

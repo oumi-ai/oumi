@@ -69,9 +69,12 @@ const AVAILABLE_ANALYZERS = {
       { key: 'check_tags', type: 'boolean', default: true, label: 'Check Tag Balance' },
     ],
     metrics: [
+      // Boolean indicators
       'has_alternating_turns', 'has_empty_turns', 'has_invalid_values',
-      'fits_4k_context', 'appears_truncated', 'has_policy_refusal',
-      'has_unbalanced_tags', 'passes_basic_quality'
+      'fits_4k_context', 'fits_8k_context', 'appears_truncated', 'ends_mid_sentence',
+      'has_policy_refusal', 'has_think_tags', 'has_unbalanced_tags', 'passes_basic_quality',
+      // Numeric counts
+      'num_consecutive_same_role', 'empty_turn_count', 'estimated_tokens', 'refusal_count'
     ]
   },
   // --- LLM-based Analyzers ---
@@ -190,7 +193,8 @@ interface WizardConfig {
     description: string
     severity: 'low' | 'medium' | 'high'
     operator?: string
-    value?: number
+    value?: number | boolean  // Can be number or boolean for threshold tests
+    valueType?: 'number' | 'boolean'  // Track the value type for UI
     condition?: string  // For percentage tests, e.g., '== True'
     minPercentage?: number
     maxPercentage?: number
@@ -1816,7 +1820,27 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
                     Flag samples where metric {test.operator || '>'} value. Use <strong>Max %</strong> to allow up to X% violations, 
                     or <strong>Min %</strong> to require at least X% match the condition.
                   </p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs">Value Type</Label>
+                      <Select
+                        value={test.valueType || 'number'}
+                        onValueChange={(value) => updateTest(index, { 
+                          valueType: value as 'number' | 'boolean',
+                          value: value === 'boolean' ? true : 0,
+                          // Reset operator to == when switching to boolean if current operator is not valid
+                          operator: value === 'boolean' && !['==', '!='].includes(test.operator || '') ? '==' : test.operator
+                        })}
+                      >
+                        <SelectTrigger className="mt-1 h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="number">Number</SelectItem>
+                          <SelectItem value="boolean">Boolean</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div>
                       <Label className="text-xs">Operator</Label>
                       <Select
@@ -1827,23 +1851,47 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value=">">{'>'}</SelectItem>
-                          <SelectItem value=">=">{'>='}</SelectItem>
-                          <SelectItem value="<">{'<'}</SelectItem>
-                          <SelectItem value="<=">{'<='}</SelectItem>
-                          <SelectItem value="==">{'=='}</SelectItem>
-                          <SelectItem value="!=">{'!='}</SelectItem>
+                          {(test.valueType || 'number') === 'boolean' ? (
+                            <>
+                              <SelectItem value="==">{'=='}</SelectItem>
+                              <SelectItem value="!=">{'!='}</SelectItem>
+                            </>
+                          ) : (
+                            <>
+                              <SelectItem value=">">{'>'}</SelectItem>
+                              <SelectItem value=">=">{'>='}</SelectItem>
+                              <SelectItem value="<">{'<'}</SelectItem>
+                              <SelectItem value="<=">{'<='}</SelectItem>
+                              <SelectItem value="==">{'=='}</SelectItem>
+                              <SelectItem value="!=">{'!='}</SelectItem>
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label className="text-xs">Value</Label>
-                      <Input
-                        className="mt-1 h-8 text-xs"
-                        type="number"
-                        value={test.value}
-                        onChange={(e) => updateTest(index, { value: parseFloat(e.target.value) })}
-                      />
+                      {(test.valueType || 'number') === 'boolean' ? (
+                        <Select
+                          value={String(test.value ?? true)}
+                          onValueChange={(value) => updateTest(index, { value: value === 'true' })}
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="true">True</SelectItem>
+                            <SelectItem value="false">False</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          className="mt-1 h-8 text-xs"
+                          type="number"
+                          value={typeof test.value === 'number' ? test.value : 0}
+                          onChange={(e) => updateTest(index, { value: parseFloat(e.target.value) })}
+                        />
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
