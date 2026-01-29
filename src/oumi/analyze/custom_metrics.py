@@ -39,7 +39,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from oumi.analyze.base import ConversationAnalyzer, MessageAnalyzer
+from oumi.analyze.base import ConversationAnalyzer, DatasetAnalyzer, MessageAnalyzer
 from oumi.analyze.config import CustomMetricConfig
 from oumi.core.types.conversation import Conversation, Message
 
@@ -357,9 +357,185 @@ class CustomMessageMetric(MessageAnalyzer[CustomMetricResult]):
             return CustomMetricResult(values={"error": str(e)})
 
 
+class CustomDatasetMetric(DatasetAnalyzer[CustomMetricResult]):
+    """Analyzer wrapper for custom dataset-level metrics.
+
+    Executes a user-defined Python function on the entire dataset at once.
+    This is useful for computing statistics that require access to all
+    conversations, such as histograms, clustering, or duplicate detection.
+
+    The function can have two signatures:
+        def compute(conversations: list[Conversation]) -> dict[str, Any]
+        def compute(conversations: list[Conversation], results: dict) -> dict[str, Any]
+
+    The second signature allows accessing results from other analyzers:
+        def compute(conversations, results):
+            all_labels = [r.values["label_id"] for r in results["ground_truth"]]
+            from collections import Counter
+            return {"label_histogram": dict(Counter(all_labels))}
+
+    Args:
+        metric_id: Unique identifier for the metric.
+        function_code: Python code defining the compute function.
+        description: Optional description of the metric.
+        depends_on: List of analyzer names this metric depends on.
+    """
+
+    # Class variable to hold results for derived metrics
+    _pipeline_results: dict[str, Any] | None = None
+
+    def __init__(
+        self,
+        metric_id: str,
+        function_code: str,
+        description: str | None = None,
+        depends_on: list[str] | None = None,
+    ):
+        """Initialize the custom dataset metric.
+
+        Args:
+            metric_id: Unique identifier for the metric.
+            function_code: Python code defining the compute function.
+            description: Optional description of the metric.
+            depends_on: List of analyzer names this metric depends on.
+        """
+        self.metric_id = metric_id
+        self.analyzer_id = metric_id  # For pipeline naming
+        self.function_code = function_code
+        self.description = description
+        self.depends_on = depends_on or []
+        self._compute_func: Callable | None = None
+        self._uses_results = False
+
+        # Compile the function
+        self._compile_function()
+
+    def _compile_function(self) -> None:
+        """Compile the user-provided function code."""
+        # Create a namespace with allowed imports and builtins
+        namespace: dict[str, Any] = {
+            "__builtins__": {
+                # Safe builtins
+                "len": len,
+                "sum": sum,
+                "min": min,
+                "max": max,
+                "abs": abs,
+                "round": round,
+                "int": int,
+                "float": float,
+                "str": str,
+                "bool": bool,
+                "list": list,
+                "dict": dict,
+                "set": set,
+                "tuple": tuple,
+                "range": range,
+                "enumerate": enumerate,
+                "zip": zip,
+                "map": map,
+                "filter": filter,
+                "sorted": sorted,
+                "any": any,
+                "all": all,
+                "isinstance": isinstance,
+                "hasattr": hasattr,
+                "getattr": getattr,
+                "True": True,
+                "False": False,
+                "None": None,
+            },
+        }
+
+        # Add common imports
+        try:
+            import re
+
+            namespace["re"] = re
+        except ImportError:
+            pass
+
+        # Add collections for histogram computation
+        try:
+            from collections import Counter
+
+            namespace["Counter"] = Counter
+        except ImportError:
+            pass
+
+        # Execute the function definition
+        try:
+            exec(self.function_code, namespace)
+        except Exception as e:
+            raise ValueError(
+                f"Failed to compile custom dataset metric '{self.metric_id}': {e}"
+            )
+
+        # Get the compute function
+        if "compute" not in namespace:
+            raise ValueError(
+                f"Custom dataset metric '{self.metric_id}' must define a "
+                "'compute' function. "
+                "Example: def compute(conversations): return {'count': len(conversations)}"
+            )
+
+        self._compute_func = namespace["compute"]
+
+        # Check if function accepts results parameter
+        import inspect
+
+        if self._compute_func is not None:
+            sig = inspect.signature(self._compute_func)
+            self._uses_results = len(sig.parameters) >= 2
+
+    def analyze(self, conversations: list[Conversation]) -> CustomMetricResult:
+        """Run the custom metric on the entire dataset.
+
+        Args:
+            conversations: All conversations in the dataset.
+
+        Returns:
+            CustomMetricResult with computed values.
+        """
+        if self._compute_func is None:
+            return CustomMetricResult(values={})
+
+        try:
+            # If function uses results, pass them
+            if self._uses_results and self._pipeline_results is not None:
+                result = self._compute_func(conversations, self._pipeline_results)
+            else:
+                result = self._compute_func(conversations)
+
+            if not isinstance(result, dict):
+                raise ValueError(
+                    f"Custom dataset metric '{self.metric_id}' must return a dict, "
+                    f"got {type(result).__name__}"
+                )
+            return CustomMetricResult(values=result)
+        except Exception as e:
+            logger.warning(
+                f"Custom dataset metric '{self.metric_id}' failed: {e}"
+            )
+            return CustomMetricResult(values={"error": str(e)})
+
+    @classmethod
+    def set_pipeline_results(cls, results: dict[str, Any]) -> None:
+        """Set the pipeline results for derived metrics.
+
+        Called by the pipeline after running primary analyzers.
+        """
+        cls._pipeline_results = results
+
+    @classmethod
+    def clear_pipeline_results(cls) -> None:
+        """Clear the pipeline results."""
+        cls._pipeline_results = None
+
+
 def create_custom_metric(
     config: CustomMetricConfig,
-) -> CustomConversationMetric | CustomMessageMetric:
+) -> CustomConversationMetric | CustomMessageMetric | CustomDatasetMetric:
     """Create a custom metric analyzer from configuration.
 
     Args:
@@ -380,6 +556,13 @@ def create_custom_metric(
             metric_id=config.id,
             function_code=config.function,
             description=config.description,
+        )
+    elif config.scope == "dataset":
+        return CustomDatasetMetric(
+            metric_id=config.id,
+            function_code=config.function,
+            description=config.description,
+            depends_on=getattr(config, "depends_on", None),
         )
     else:
         raise ValueError(f"Unknown custom metric scope: {config.scope}")

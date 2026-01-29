@@ -16,7 +16,7 @@
 # We also evaluate query quality to identify potentially confusing examples.
 
 # Update this path to your Banking77 dataset
-dataset_path: "/path/to/your/banking77_dataset.jsonl"
+dataset_path: "/Users/ryanarman/code/scratch/ryan_hillclimbing_experiments/banking77/notebooks/data/full_fft_results_3304.jsonl"
 sample_count: 100 # Start small for testing (increase for real evaluation)
 output_path: ./analysis_output/banking77_classification
 
@@ -103,6 +103,14 @@ custom_metrics:
   # ---------------------------------------------------------------------------
   - id: ground_truth
     scope: conversation
+    description: "Extract ground truth label from conversation metadata"
+    output_schema:
+      - name: label_id
+        type: int
+        description: "Numeric ID of the ground truth label (-1 if missing)"
+      - name: label_name
+        type: str
+        description: "Human-readable name of the ground truth label"
     function: |
       def compute(conversation):
           metadata = conversation.metadata or {}
@@ -118,6 +126,14 @@ custom_metrics:
   # ---------------------------------------------------------------------------
   - id: assistant_response
     scope: conversation
+    description: "Extract the assistant's predicted label from the response"
+    output_schema:
+      - name: raw_response
+        type: str
+        description: "Raw text content of the assistant's response"
+      - name: response_id
+        type: int
+        description: "Parsed label ID from response (-1 if parsing failed)"
     function: |
       def compute(conversation):
           # Find the last assistant message (iterate from end without using reversed)
@@ -143,9 +159,23 @@ custom_metrics:
   # ---------------------------------------------------------------------------
   - id: label_accuracy
     scope: conversation
+    description: "Compare assistant response to ground truth label"
     depends_on:
       - ground_truth
       - assistant_response
+    output_schema:
+      - name: matches
+        type: bool
+        description: "Whether the response matches the ground truth label"
+      - name: ground_truth_id
+        type: int
+        description: "The ground truth label ID"
+      - name: response_id
+        type: int
+        description: "The label ID from the assistant response"
+      - name: ground_truth_name
+        type: str
+        description: "Human-readable name of the ground truth label"
     function: |
       def compute(conversation, results, index):
           gt = results.get("ground_truth", [])
@@ -171,6 +201,7 @@ custom_metrics:
   # ---------------------------------------------------------------------------
   - id: user_query
     scope: conversation
+    description: "Extract the user query text and compute basic statistics"
     output_schema:
       - name: text
         type: str
@@ -194,6 +225,76 @@ custom_metrics:
                       "char_count": char_count
                   }
           return {"text": "", "word_count": 0, "char_count": 0}
+
+  # ---------------------------------------------------------------------------
+  # Dataset-level: Label Distribution Histogram
+  # Computes statistics about class label distribution across the entire dataset
+  # ---------------------------------------------------------------------------
+  - id: label_distribution
+    scope: dataset
+    depends_on:
+      - ground_truth
+    description: "Dataset-level statistics about class label distribution"
+    output_schema:
+      - name: total_samples
+        type: int
+        description: "Total number of samples in the dataset"
+      - name: num_classes
+        type: int
+        description: "Number of unique class labels"
+      - name: avg_samples_per_class
+        type: float
+        description: "Average number of samples per class"
+      - name: min_class_count
+        type: int
+        description: "Minimum number of samples in any class"
+      - name: max_class_count
+        type: int
+        description: "Maximum number of samples in any class"
+      - name: imbalance_ratio
+        type: float
+        description: "Ratio of max to min class count (higher = more imbalanced)"
+    function: |
+      def compute(conversations, results):
+          # Get all label IDs and names from the ground_truth metric
+          gt_results = results.get("ground_truth", [])
+          
+          label_ids = []
+          label_names = []
+          for r in gt_results:
+              vals = r.values if hasattr(r, 'values') else {}
+              label_ids.append(vals.get("label_id", -1))
+              label_names.append(vals.get("label_name", "unknown"))
+          
+          # Count occurrences using Counter
+          id_counts = Counter(label_ids)
+          name_counts = Counter(label_names)
+          
+          # Compute statistics
+          total_samples = len(label_ids)
+          num_classes = len(id_counts)
+          
+          # Find most and least common
+          most_common = name_counts.most_common(5)
+          least_common = name_counts.most_common()[-5:] if len(name_counts) > 5 else []
+          
+          # Class balance metrics
+          counts = list(id_counts.values())
+          avg_per_class = total_samples / num_classes if num_classes > 0 else 0
+          min_class_count = min(counts) if counts else 0
+          max_class_count = max(counts) if counts else 0
+          imbalance_ratio = max_class_count / min_class_count if min_class_count > 0 else 0
+          
+          return {
+              "total_samples": total_samples,
+              "num_classes": num_classes,
+              "avg_samples_per_class": round(avg_per_class, 2),
+              "min_class_count": min_class_count,
+              "max_class_count": max_class_count,
+              "imbalance_ratio": round(imbalance_ratio, 2),
+              "top_5_classes": [{"name": n, "count": c} for n, c in most_common],
+              "bottom_5_classes": [{"name": n, "count": c} for n, c in least_common],
+          }
 
 # =============================================================================
 # TESTS

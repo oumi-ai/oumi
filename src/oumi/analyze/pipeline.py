@@ -195,7 +195,20 @@ class AnalysisPipeline:
                 raise
 
         # Run dataset-level analyzers
+        # Separate primary and derived dataset analyzers
+        from oumi.analyze.custom_metrics import CustomDatasetMetric
+
+        primary_dataset_analyzers = []
+        derived_dataset_analyzers = []
+
         for analyzer in self._dataset_analyzers:
+            if isinstance(analyzer, CustomDatasetMetric) and analyzer.depends_on:
+                derived_dataset_analyzers.append(analyzer)
+            else:
+                primary_dataset_analyzers.append(analyzer)
+
+        # Run primary dataset analyzers first
+        for analyzer in primary_dataset_analyzers:
             name = self._get_analyzer_name(analyzer)
             logger.debug(f"Running dataset analyzer: {name}")
             try:
@@ -205,6 +218,24 @@ class AnalysisPipeline:
             except Exception as e:
                 logger.error(f"  Failed {name}: {e}")
                 raise
+
+        # Run derived dataset analyzers (with access to all results)
+        if derived_dataset_analyzers:
+            logger.debug("Running derived dataset analyzers...")
+            CustomDatasetMetric.set_pipeline_results(self._results)
+            try:
+                for analyzer in derived_dataset_analyzers:
+                    name = self._get_analyzer_name(analyzer)
+                    logger.debug(f"Running derived dataset analyzer: {name}")
+                    try:
+                        result = analyzer.analyze(conversations)
+                        self._results[name] = result  # Single result, not list
+                        logger.debug(f"  Completed {name}")
+                    except Exception as e:
+                        logger.error(f"  Failed {name}: {e}")
+                        raise
+            finally:
+                CustomDatasetMetric.clear_pipeline_results()
 
         logger.info(f"Analysis complete: {len(self._results)} analyzer results")
 

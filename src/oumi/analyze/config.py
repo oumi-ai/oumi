@@ -100,14 +100,14 @@ class CustomMetricConfig:
 
     Attributes:
         id: Unique identifier for the metric.
-        scope: Scope of the metric ("message" or "conversation").
+        scope: Scope of the metric ("message", "conversation", or "dataset").
         function: Python code defining a compute() function.
         description: Description of what the metric computes.
         output_schema: List of output field definitions.
     """
 
     id: str
-    scope: str = "conversation"  # "message" or "conversation"
+    scope: str = "conversation"  # "message", "conversation", or "dataset"
     function: str = ""
     description: str | None = None
     output_schema: list[OutputFieldSchema] = field(default_factory=list)
@@ -115,9 +115,10 @@ class CustomMetricConfig:
 
     def __post_init__(self):
         """Validate the configuration."""
-        if self.scope not in ("message", "conversation"):
+        if self.scope not in ("message", "conversation", "dataset"):
             raise ValueError(
-                f"Invalid scope '{self.scope}'. Must be 'message' or 'conversation'."
+                f"Invalid scope '{self.scope}'. "
+                "Must be 'message', 'conversation', or 'dataset'."
             )
 
     def get_metric_paths(self) -> list[str]:

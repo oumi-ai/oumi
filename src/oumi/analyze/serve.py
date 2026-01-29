@@ -414,7 +414,7 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
                 test_configs.append(test_config)
 
             # Convert parent analysis results to format expected by test engine
-            # The test engine expects dict[str, list[BaseModel]], but we have dict[str, list[dict]]
+            # The test engine expects dict[str, list[BaseModel] | BaseModel]
             # We need to wrap the dicts in a simple object
             from pydantic import BaseModel
             
@@ -425,7 +425,12 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
             
             analysis_results = {}
             for analyzer_name, results in parent_eval.analysis_results.items():
-                analysis_results[analyzer_name] = [DictWrapper(**r) for r in results]
+                if isinstance(results, list):
+                    # Conversation-level analyzer - list of results
+                    analysis_results[analyzer_name] = [DictWrapper(**r) for r in results]
+                else:
+                    # Dataset-level analyzer - single result
+                    analysis_results[analyzer_name] = DictWrapper(**results)
 
             # Run tests
             engine = TestEngine(test_configs)
