@@ -9,12 +9,12 @@
 #
 # USAGE:
 #   # Basic run (no API key needed)
-#   oumi analyze --config configs/examples/analyze/typed_quickstart.yaml --typed
+#   oumi analyze --config configs/examples/analyze/analyze_quick_start.yaml --typed
 #
 #   # List available metrics
-#   oumi analyze --config configs/examples/analyze/typed_quickstart.yaml --typed --list-metrics
+#   oumi analyze --config configs/examples/analyze/analyze_quick_start.yaml --typed --list-metrics
 #
-# This example runs ONLY the length analyzer (no LLM API calls required).
+# This example runs the length and quality analyzers (no LLM API calls required).
 # For LLM-based analysis, see typed_llm_analyzer_example.yaml
 
 # Dataset configuration - using public HuggingFace dataset with multi-turn conversations
@@ -25,12 +25,23 @@ sample_count: 50  # Analyze 50 conversations
 # Output configuration
 output_path: ./analysis_output/quickstart
 
-# Analyzers to run
+# Analyzers to run (both are fast, non-LLM analyzers)
 analyzers:
+  # Length analyzer - computes token counts
   - id: length
     params:
       tiktoken_encoding: cl100k_base  # GPT-4 tokenizer for accurate counts
       compute_role_stats: true        # Compute per-role statistics
+
+  # Quality analyzer - basic data quality checks (fast, no LLM needed)
+  - id: quality
+    params:
+      check_turn_pattern: true      # Check for alternating user-assistant turns
+      check_empty_content: true     # Check for empty messages
+      check_invalid_values: true    # Check for NaN, null, None as strings
+      check_truncation: true        # Check for abruptly cut-off conversations
+      check_refusals: true          # Check for policy refusal patterns
+      check_tags: true              # Check for unbalanced think/code tags
 
 # Custom metrics (optional - demonstrates the feature)
 custom_metrics:
@@ -63,42 +74,11 @@ custom_metrics:
           
           return {"category": cat, "avg_tokens_per_message": round(avg, 1)}
 
-  # Check conversation structure
-  - id: conversation_structure
-    scope: conversation
-    description: "Basic conversation structure checks"
-    output_schema:
-      - name: num_turns
-        type: int
-        description: "Number of turns (user-assistant pairs)"
-      - name: starts_with_user
-        type: bool
-        description: "Whether conversation starts with user"
-      - name: ends_with_assistant
-        type: bool
-        description: "Whether conversation ends with assistant"
-    function: |
-      def compute(conversation):
-          messages = conversation.messages
-          if not messages:
-              return {"num_turns": 0, "starts_with_user": False, "ends_with_assistant": False}
-          
-          roles = [m.role.value if hasattr(m.role, 'value') else str(m.role) for m in messages]
-          non_system = [r for r in roles if r != "system"]
-          
-          num_turns = len([r for r in non_system if r == "user"])
-          starts_user = non_system[0] == "user" if non_system else False
-          ends_assistant = non_system[-1] == "assistant" if non_system else False
-          
-          return {
-              "num_turns": num_turns,
-              "starts_with_user": starts_user,
-              "ends_with_assistant": ends_assistant
-          }
-
 # Validation tests
 tests:
-  # Basic length checks
+  # ============================================================
+  # Length-based tests
+  # ============================================================
   - id: reasonable_length
     type: threshold
     metric: length.total_tokens
@@ -129,12 +109,50 @@ tests:
     title: "Multi-turn conversations"
     description: "Most should have at least 2 messages"
 
-  # Custom metric tests
-  - id: proper_structure
+  # ============================================================
+  # Quality-based tests (using the quality analyzer)
+  # ============================================================
+  - id: alternating_turns
     type: percentage
-    metric: conversation_structure.ends_with_assistant
+    metric: quality.has_alternating_turns
     condition: "== True"
+    min_percentage: 95.0
+    severity: high
+    title: "Proper turn structure"
+    description: "Conversations should have alternating user-assistant turns"
+
+  - id: no_empty_messages
+    type: percentage
+    metric: quality.has_empty_turns
+    condition: "== False"
+    min_percentage: 100.0
+    severity: high
+    title: "No empty messages"
+    description: "All messages should have content"
+
+  - id: no_truncation
+    type: percentage
+    metric: quality.appears_truncated
+    condition: "== False"
+    min_percentage: 95.0
+    severity: medium
+    title: "Complete conversations"
+    description: "Conversations should not appear truncated"
+
+  - id: low_refusal_rate
+    type: percentage
+    metric: quality.has_policy_refusal
+    condition: "== False"
     min_percentage: 90.0
     severity: medium
-    title: "Proper conversation structure"
-    description: "Conversations should end with assistant response"
+    title: "Low policy refusal rate"
+    description: "Most conversations should not contain policy refusals"
+
+  - id: passes_quality
+    type: percentage
+    metric: quality.passes_basic_quality
+    condition: "== True"
+    min_percentage: 85.0
+    severity: medium
+    title: "Overall quality"
+    description: "Most conversations should pass all basic quality checks"

@@ -49,14 +49,17 @@ pip install rich
 ### Run with CLI
 
 ```bash
-# Basic length analysis
+# Quick start - runs length + quality analyzers (no API key needed)
+oumi analyze --config configs/examples/analyze/analyze_quick_start.yaml --typed
+
+# Length-only analysis with advanced examples
 oumi analyze --config configs/examples/analyze/typed_length_example.yaml --typed
 
 # LLM-based analysis (requires API key)
 oumi analyze --config configs/examples/analyze/typed_llm_analyzer_example.yaml --typed
 
 # List available metrics
-oumi analyze --config configs/examples/analyze/typed_length_example.yaml --typed --list-metrics
+oumi analyze --config configs/examples/analyze/analyze_quick_start.yaml --typed --list-metrics
 ```
 
 ### Run with Python API
@@ -65,7 +68,7 @@ oumi analyze --config configs/examples/analyze/typed_length_example.yaml --typed
 from oumi.analyze import run_from_config_file, print_summary
 
 # Run analysis
-results = run_from_config_file('configs/examples/analyze/typed_length_example.yaml')
+results = run_from_config_file('configs/examples/analyze/analyze_quick_start.yaml')
 
 # Print summary
 print_summary(results)
@@ -121,7 +124,45 @@ This opens a browser at `http://localhost:8765` with:
 
 ## Example Configurations
 
-### 1. Length Analysis (No LLM required)
+### 1. Quick Start (Recommended - No LLM required)
+
+Located at: `configs/examples/analyze/analyze_quick_start.yaml`
+
+This is the recommended starting point. It runs both the **length** and **quality** analyzers for comprehensive data validation without any API calls.
+
+```yaml
+dataset_name: HuggingFaceH4/ultrachat_200k
+split: train_sft
+sample_count: 50
+
+output_path: ./analysis_output/quickstart
+
+analyzers:
+  - id: length
+    params:
+      tiktoken_encoding: cl100k_base
+      compute_role_stats: true
+
+  - id: quality  # Fast data quality checks
+    params:
+      check_turn_pattern: true      # Alternating user-assistant turns
+      check_empty_content: true     # Empty messages
+      check_invalid_values: true    # NaN, null, None as strings
+      check_truncation: true        # Abruptly cut-off conversations
+      check_refusals: true          # Policy refusal patterns
+      check_tags: true              # Unbalanced think/code tags
+
+tests:
+  - id: alternating_turns
+    type: percentage
+    metric: quality.has_alternating_turns
+    condition: "== True"
+    min_percentage: 95.0
+    severity: high
+    title: "Proper turn structure"
+```
+
+### 2. Length Analysis (Advanced examples)
 
 Located at: `configs/examples/analyze/typed_length_example.yaml`
 
@@ -148,7 +189,7 @@ tests:
     title: "Conversations exceeding token limit"
 ```
 
-### 2. LLM-based Analysis (Requires API key)
+### 3. LLM-based Analysis (Requires API key)
 
 Located at: `configs/examples/analyze/typed_llm_analyzer_example.yaml`
 
@@ -185,6 +226,7 @@ analyzers:
 | Analyzer ID | Type | Description |
 |-------------|------|-------------|
 | `length` | Non-LLM | Token/word counts, message statistics |
+| `quality` | Non-LLM | Data quality checks: turn patterns, empty messages, truncation, refusals, tag balance |
 | `usefulness` | LLM | Evaluates response usefulness |
 | `safety` | LLM | Checks for unsafe content |
 | `coherence` | LLM | Evaluates conversation coherence |
