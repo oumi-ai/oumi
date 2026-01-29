@@ -61,6 +61,8 @@ export interface DatasetConfig {
   split?: string
   subset?: string
   sample_count?: number
+  /** User's description of their goals and what issues they want to check */
+  user_query?: string
 }
 
 /**
@@ -80,7 +82,8 @@ async function fetchSuggestions(config: DatasetConfig): Promise<SuggestionRespon
       dataset_name: config.dataset_name,
       split: config.split || 'train',
       subset: config.subset,
-      sample_count: config.sample_count || 5,
+      sample_count: config.sample_count || 1,
+      user_query: config.user_query,
     }),
   })
 

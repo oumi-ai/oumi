@@ -3,7 +3,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   ChevronDown,
   ChevronUp,
@@ -55,6 +54,8 @@ interface SuggestionPanelProps {
   onApplyTest?: (suggestion: TestSuggestion) => void
   /** Callback to apply all suggestions */
   onApplyAll?: () => void
+  /** Callback to try again with a new query */
+  onTryAgain?: () => void
 }
 
 /**
@@ -81,6 +82,7 @@ export function SuggestionPanel({
   onApplyCustomMetric,
   onApplyTest,
   onApplyAll,
+  onTryAgain,
 }: SuggestionPanelProps) {
   const [isOpen, setIsOpen] = useState(true)
 
@@ -227,7 +229,7 @@ export function SuggestionPanel({
 
         <CollapsibleContent>
           <div className="px-4 pb-4">
-            <ScrollArea className="max-h-[300px]">
+            <div className="max-h-[400px] overflow-y-auto pr-1">
               <div className="space-y-3">
                 {/* Analyzer suggestions */}
                 {type === 'analyzers' && unappliedAnalyzers.length > 0 && (
@@ -283,22 +285,31 @@ export function SuggestionPanel({
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
-            {/* Apply all button */}
-            {unappliedCount > 1 && (
-              <div className="mt-3 pt-3 border-t">
+            {/* Action buttons */}
+            <div className="mt-3 pt-3 border-t flex gap-2">
+              {unappliedCount > 1 && (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full"
+                  className="flex-1"
                   onClick={onApplyAll}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Apply All {unappliedCount} Suggestions
+                  Apply All {unappliedCount}
                 </Button>
-              </div>
-            )}
+              )}
+              {onTryAgain && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onTryAgain}
+                >
+                  Try Again
+                </Button>
+              )}
+            </div>
           </div>
         </CollapsibleContent>
       </Card>

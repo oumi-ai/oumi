@@ -175,7 +175,8 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
             dataset_name = data.get("dataset_name")
             split = data.get("split", "train")
             subset = data.get("subset")
-            sample_count = data.get("sample_count", 5)
+            sample_count = data.get("sample_count", 1)
+            user_query = data.get("user_query")
 
             if not dataset_path and not dataset_name:
                 self._send_json(
@@ -187,6 +188,8 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
                 f"Generating suggestions for dataset: "
                 f"{dataset_path or dataset_name} (samples={sample_count})"
             )
+            if user_query:
+                logger.info(f"User query: {user_query[:100]}...")
 
             # Generate suggestions
             response = generate_suggestions(
@@ -195,6 +198,7 @@ class AnalyzeUIHandler(http.server.SimpleHTTPRequestHandler):
                 split=split,
                 subset=subset,
                 sample_count=sample_count,
+                user_query=user_query,
             )
 
             # Convert to dict for JSON response

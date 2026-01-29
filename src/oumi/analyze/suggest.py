@@ -54,8 +54,8 @@ class AnalyzerSuggestion(BaseModel):
 
     id: str = Field(
         description=(
-            "Analyzer ID: length, usefulness, safety, coherence, "
-            "factuality, or instruction_following"
+            "Analyzer ID: length, quality, usefulness, safety, coherence, "
+            "factuality, or instruction_following. Suggest only 2-3 total."
         )
     )
     reason: str = Field(description="Why this analyzer is useful for this dataset")
@@ -130,13 +130,16 @@ class SuggestionsOutput(BaseModel):
     """Structured output from the LLM for suggestions."""
 
     analyzers: list[AnalyzerSuggestion] = Field(
-        default_factory=list, description="List of suggested analyzers"
+        default_factory=list,
+        description="List of 2-3 suggested analyzers (always include length and quality)",
     )
     custom_metrics: list[CustomMetricSuggestion] = Field(
-        default_factory=list, description="List of suggested custom metrics"
+        default_factory=list,
+        description="0-2 simple custom metrics if needed (no imports, simple logic only)",
     )
     tests: list[TestSuggestion] = Field(
-        default_factory=list, description="List of suggested tests"
+        default_factory=list,
+        description="List of 2-4 suggested tests for the most important quality checks",
     )
 
 
@@ -348,12 +351,14 @@ def _format_conversations_for_prompt(
 def build_suggestion_prompt(
     conversations: list[Conversation],
     catalog: dict[str, dict[str, Any]],
+    user_query: str | None = None,
 ) -> tuple[str, str]:
     """Build the system and user prompts for suggestion generation.
 
     Args:
         conversations: Sample conversations to analyze.
         catalog: Analyzer catalog from get_analyzer_catalog().
+        user_query: Optional user description of their goals and issues to check.
 
     Returns:
         Tuple of (system_prompt, user_prompt).
@@ -372,12 +377,24 @@ def build_suggestion_prompt(
     # Note: JSON schema is handled automatically by OpenAI's structured outputs
     # We just need to provide context and guidelines
     system_prompt = (
-        """You are an expert data quality analyst helping users configure analyzers for their conversational datasets.
+        """You are an expert data quality analyst helping users prepare conversational datasets for SFT (Supervised Fine-Tuning) of Large Language Models.
+
+**Primary Goal**: Help users identify and flag problematic examples in their dataset so they can either DROP those examples or FIX them before training. Clean, high-quality training data is essential for effective fine-tuning.
 
 Your task is to analyze sample conversations and recommend:
-1. **Analyzers**: Which built-in analyzers would be useful for this data
-2. **Custom Metrics**: Any custom Python metrics that could extract useful information
-3. **Tests**: Quality tests to run on the analysis results
+1. **Analyzers**: Which built-in analyzers would catch relevant issues
+2. **Custom Metrics**: Any custom Python metrics to extract useful information or detect specific issues
+3. **Tests**: Quality tests that will flag problematic examples for review
+
+Common data quality issues that harm SFT training:
+- Malformed conversations (wrong turn order, empty messages)
+- Truncated or incomplete responses
+- Excessive policy refusals ("I cannot help with that")
+- Unbalanced or missing special tokens (think tags, code blocks)
+- Too-long conversations that exceed context limits
+- Low-quality or unhelpful responses
+- Factually incorrect information
+- Unsafe or inappropriate content
 
 Available Analyzers:
 """
@@ -385,34 +402,140 @@ Available Analyzers:
         + """
 
 Test Types:
-- **threshold**: Check if a metric exceeds/falls below a value (e.g., total_tokens > 8000 with max_percentage: 5.0)
-- **percentage**: Check what % of samples meet a condition (see IMPORTANT rules below)
-- **range**: Check if a metric falls within a range (e.g., score between 50 and 100)
+- **threshold**: For NUMERIC metrics. Check if value exceeds/falls below threshold.
+- **percentage**: For BOOLEAN metrics. Check what % of samples meet condition.
+- **range**: For NUMERIC metrics. Check if value falls within min/max range.
 
-IMPORTANT - Test Writing Rules for Clear Failure Messages:
-- For boolean quality metrics, ALWAYS use POSITIVE conditions with min_percentage
-- Example: "has_alternating_turns == True" with min_percentage: 95 (NOT "== False" with max_percentage: 5)
-- This ensures failure messages show the actual BAD samples, not the good ones
-- For "passes_basic_quality", use: condition "== True", min_percentage: 90
+CRITICAL - Metric Path Format:
+- Built-in analyzers: analyzer_id.field_name (e.g., "length.total_tokens", "quality.has_empty_turns")
+- Custom metrics: custom_metric_id.field_name (e.g., "my_metric.my_field")
+- NEVER use just the metric id without the field name
 
-Good test patterns:
-- quality.has_alternating_turns: condition "== True", min_percentage: 95
-- quality.has_empty_turns: condition "== False", min_percentage: 100 (meaning 0% should have empty turns)
-- quality.passes_basic_quality: condition "== True", min_percentage: 90
+CRITICAL - Match Test Type to Metric Type:
+- Boolean fields (has_empty_turns, passes_basic_quality): use "percentage" test with condition
+- Numeric fields (total_tokens, score): use "threshold" test with operator/value
+- NEVER use "condition" with numeric metrics or "operator" with boolean metrics
+
+Test Rules for percentage tests (FOLLOW EXACTLY):
+- ONLY use min_percentage, NEVER use max_percentage for percentage tests
+- Set max_percentage to null always
+- Use POSITIVE framing: what percentage SHOULD pass
+- For NEGATIVE indicators (has_empty_turns, appears_truncated, has_policy_refusal), use "== False" to check that samples do NOT have the issue
+- For POSITIVE indicators (has_alternating_turns, passes_basic_quality), use "== True" to check that samples HAVE the quality
+
+SEMANTICS EXPLANATION:
+- "condition: == False, min_percentage: 95" means "At least 95% of samples should NOT have this issue"
+- "condition: == True, min_percentage: 95" means "At least 95% of samples SHOULD have this quality"
+
+CORRECT percentage test examples (copy these patterns exactly):
+- quality.has_alternating_turns: condition "== True", min_percentage: 95 (95% should have proper turn order)
+- quality.has_empty_turns: condition "== False", min_percentage: 100 (100% should NOT have empty turns)
+- quality.appears_truncated: condition "== False", min_percentage: 95 (95% should NOT be truncated)
+- quality.has_policy_refusal: condition "== False", min_percentage: 95 (95% should NOT have refusals)
+- quality.passes_basic_quality: condition "== True", min_percentage: 90 (90% should pass quality)
+- custom_metric.has_short_responses: condition "== False", min_percentage: 95 (95% should NOT have short responses)
+
+CORRECT threshold test examples:
 - length.total_tokens: type threshold, operator ">", value 8000, max_percentage: 5
 
-BAD patterns (NEVER use these):
-- condition "== False" with max_percentage (confusing failure messages)
+FORBIDDEN patterns (will cause errors):
+- NEVER set both min_percentage AND max_percentage
+- NEVER use max_percentage with percentage tests (only use min_percentage)
+- NEVER use "condition" for numeric metrics
+
+Complete test YAML examples to follow:
+
+Example 1 - Check ABSENCE of refusals (negative indicator):
+  id: no_policy_refusals
+  type: percentage
+  metric: quality.has_policy_refusal
+  title: "No Policy Refusals"
+  description: "Ensures at least 95% of conversations do NOT contain policy refusals."
+  condition: "== False"
+  min_percentage: 95
+  max_percentage: null
+  severity: high
+
+Example 2 - Check PRESENCE of good turn order (positive indicator):
+  id: proper_turn_order
+  type: percentage
+  metric: quality.has_alternating_turns
+  title: "Proper Turn Order"
+  description: "Ensures at least 95% of conversations have proper alternating turns."
+  condition: "== True"
+  min_percentage: 95
+  max_percentage: null
+  severity: medium
+
+Example 3 - Check ABSENCE of truncation (negative indicator):
+  id: no_truncation
+  type: percentage
+  metric: quality.appears_truncated
+  title: "No Truncated Responses"
+  description: "Ensures at least 95% of responses are NOT truncated."
+  condition: "== False"
+  min_percentage: 95
+  max_percentage: null
+  severity: high
+
+Custom Metric Examples (keep code simple, NO imports):
+
+Example 1 - Check if assistant ends with punctuation:
+```python
+def compute(message):
+    if str(message.role.value) != "assistant":
+        return {"ends_properly": True}
+    content = message.content or ""
+    ends_properly = content.strip().endswith((".", "!", "?", '"', "'"))
+    return {"ends_properly": ends_properly}
+```
+output_schema: [{"name": "ends_properly", "type": "bool"}]
+scope: message
+
+Example 2 - Extract metadata field:
+```python
+def compute(conversation):
+    metadata = conversation.metadata or {}
+    label = metadata.get("label", "unknown")
+    return {"label": label, "has_label": label != "unknown"}
+```
+output_schema: [{"name": "label", "type": "str"}, {"name": "has_label", "type": "bool"}]
+scope: conversation
+
+Example 3 - Count short assistant responses:
+```python
+def compute(conversation):
+    count = 0
+    for m in conversation.messages:
+        if str(m.role.value) == "assistant":
+            words = len((m.content or "").split())
+            if words < 10:
+                count += 1
+    return {"short_response_count": count, "has_short_responses": count > 0}
+```
+output_schema: [{"name": "short_response_count", "type": "int"}, {"name": "has_short_responses", "type": "bool"}]
+scope: conversation
+
+Example 4 - Use length analyzer results (depends_on):
+```python
+def compute(conversation, results, index):
+    length_result = results["length"][index]
+    total_tokens = getattr(length_result, "total_tokens", 0) or 0
+    num_messages = getattr(length_result, "num_messages", 1) or 1
+    avg_tokens = total_tokens / num_messages
+    return {"avg_tokens_per_msg": round(avg_tokens, 1), "is_verbose": avg_tokens > 200}
+```
+output_schema: [{"name": "avg_tokens_per_msg", "type": "float"}, {"name": "is_verbose", "type": "bool"}]
+scope: conversation
+depends_on: ["length"]
+NOTE: When using depends_on, the function signature is: def compute(conversation, results, index)
 
 Guidelines:
-- Only suggest analyzers that make sense for the data
-- Always suggest "length" and "quality" analyzers as they are fast, cheap, and universally useful
-- The "quality" analyzer checks for: alternating turns, empty messages, invalid values (NaN), truncation, policy refusals, and unbalanced tags
-- Suggest LLM-based analyzers (usefulness, safety, etc.) only if content quality evaluation is specifically relevant
-- Custom metrics should extract metadata or compute simple derived values not covered by built-in analyzers
-- For custom metric functions, use: def compute(conversation): ... return {"field": value}
-- Tests should catch data quality issues using the quality analyzer metrics
-- Be conservative - don't overwhelm users with too many suggestions (2-3 analyzers, 0-1 custom metrics, 2-4 tests)"""
+- Suggest 2-4 analyzers total (always include "length" and "quality")
+- LLM-based analyzers (usefulness, safety, coherence, etc.) are useful but expensive - suggest 1-2 if relevant
+- Custom metrics: only suggest 0-2 if truly needed, keep code simple (NO imports, NO complex logic)
+- Suggest 3-6 tests that catch the most important data quality issues
+- Tests should have clear thresholds that flag examples needing human review"""
     )
 
     # Format sample conversations
@@ -432,19 +555,32 @@ Guidelines:
 
     metadata_note = ""
     if metadata_fields:
-        metadata_note = f"\nNote: Conversations have metadata fields: {', '.join(sorted(metadata_fields))}"
+        metadata_note = (
+            f"\nNote: Conversations have metadata fields: "
+            f"{', '.join(sorted(metadata_fields))}"
+        )
 
-    user_prompt = f"""Analyze these {num_conversations} sample conversations and suggest appropriate analyzers, custom metrics, and tests.
+    # Build user prompt with optional user query
+    user_query_section = ""
+    if user_query and user_query.strip():
+        user_query_section = f"""
+**User's Goals and Concerns:**
+{user_query.strip()}
+
+Please tailor your suggestions to address these specific concerns while also catching general data quality issues.
+"""
+
+    user_prompt = f"""Analyze these {num_conversations} sample conversations and suggest appropriate analyzers, custom metrics, and tests for SFT training data preparation.
 
 Dataset Statistics:
 - Number of samples shown: {num_conversations}
 - Average messages per conversation: {avg_messages:.1f}
 - Has metadata: {has_metadata}{metadata_note}
-
+{user_query_section}
 Sample Conversations:
 {conversations_text}
 
-Based on this data, what analyzers, custom metrics, and tests would you recommend? Remember to be selective and only suggest what's truly useful for this specific data."""
+Based on this data{" and the user's goals" if user_query else ""}, what analyzers, custom metrics, and tests would you recommend to ensure this dataset is clean and high-quality for fine-tuning?"""
 
     return system_prompt, user_prompt
 
@@ -497,7 +633,7 @@ def _call_openai_structured(
                 {"role": "user", "content": user_prompt},
             ],
             response_format=SuggestionsOutput,
-            temperature=0.3,  # Lower temperature for more consistent output
+            temperature=0.3,
             max_tokens=2000,
         )
 
@@ -611,9 +747,10 @@ def generate_suggestions(
     dataset_name: str | None = None,
     split: str = "train",
     subset: str | None = None,
-    sample_count: int = 5,
+    sample_count: int = 1,
     model: str = "gpt-4o-mini",
     api_key: str | None = None,
+    user_query: str | None = None,
 ) -> SuggestionResponse:
     """Generate analyzer, metric, and test suggestions for a dataset.
 
@@ -628,6 +765,7 @@ def generate_suggestions(
         sample_count: Number of sample conversations to analyze.
         model: LLM model to use for suggestions.
         api_key: Optional OpenAI API key.
+        user_query: Optional user description of goals and issues to check.
 
     Returns:
         SuggestionResponse with analyzers, custom_metrics, and tests.
@@ -660,7 +798,9 @@ def generate_suggestions(
 
     # Get analyzer catalog and build prompt
     catalog = get_analyzer_catalog()
-    system_prompt, user_prompt = build_suggestion_prompt(conversations, catalog)
+    system_prompt, user_prompt = build_suggestion_prompt(
+        conversations, catalog, user_query
+    )
 
     # Call LLM with structured outputs
     logger.info(f"Calling {model} for suggestions with structured outputs...")

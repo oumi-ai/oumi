@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import Editor from '@monaco-editor/react'
+import { Textarea } from '@/components/ui/textarea'
 import { 
   ChevronRight, 
   ChevronLeft, 
@@ -34,6 +35,7 @@ import {
   Terminal,
   X,
   Code,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRunAnalysis } from '@/hooks/useEvals'
@@ -532,6 +534,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     markAllTestsApplied,
     dismiss: dismissSuggestions,
     undismiss: undismissSuggestions,
+    reset: resetSuggestions,
   } = useSuggestions()
 
   // Handle job completion
@@ -787,19 +790,26 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     }))
   }, [])
 
-  // Handle step navigation with suggestion triggering
+  // Handle step navigation
   const handleNextStep = useCallback(() => {
-    // Trigger suggestions when leaving the Dataset step (step 0)
-    if (currentStep === 0 && (config.datasetPath || config.datasetName)) {
-      triggerSuggestions({
-        dataset_path: config.datasetPath || undefined,
-        dataset_name: config.datasetName || undefined,
-        split: config.split || 'train',
-        sample_count: 5, // Analyze 5 samples for suggestions
-      })
-    }
     setCurrentStep(currentStep + 1)
-  }, [currentStep, config.datasetPath, config.datasetName, config.split, triggerSuggestions])
+  }, [currentStep])
+
+  // State for AI suggestion user query
+  const [suggestionQuery, setSuggestionQuery] = useState('')
+
+  // Request AI suggestions with optional user query
+  const requestAISuggestions = useCallback(() => {
+    if (!config.datasetPath && !config.datasetName) return
+    triggerSuggestions({
+      dataset_path: config.datasetPath || undefined,
+      dataset_name: config.datasetName || undefined,
+      split: config.split || 'train',
+      subset: config.subset || undefined,
+      sample_count: 1,
+      user_query: suggestionQuery || undefined,
+    })
+  }, [config.datasetPath, config.datasetName, config.split, config.subset, suggestionQuery, triggerSuggestions])
 
   // Apply an analyzer suggestion
   const applyAnalyzerSuggestion = useCallback((suggestion: AnalyzerSuggestion) => {
@@ -1270,12 +1280,56 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
       <div>
         <h3 className="text-lg font-medium mb-2">Select Analyzers</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Choose the analyzers you want to run on your dataset.
+          Choose the analyzers you want to run on your dataset. Use AI to help you configure based on your goals.
         </p>
       </div>
 
-      {/* AI Suggestions Panel */}
-      {suggestionsDismissed && (unappliedAnalyzers.length > 0 || unappliedCustomMetrics.length > 0) ? (
+      {/* AI Suggestions Section */}
+      {suggestionsStatus === 'idle' ? (
+        <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-primary/10">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 mt-0.5">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-medium text-sm">Get AI Suggestions</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Let AI analyze your dataset and suggest analyzers, custom metrics, and tests to prepare your data for SFT fine-tuning.
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-3 ml-11">
+              <div>
+                <Label htmlFor="suggestion-query" className="text-xs font-medium">
+                  Describe your goals (optional)
+                </Label>
+                <Textarea
+                  id="suggestion-query"
+                  className="mt-1.5 text-sm"
+                  placeholder="e.g., This is a coding assistant dataset. I want to check for incomplete responses, ensure code blocks are properly formatted, and catch any conversations where the model refused to help..."
+                  value={suggestionQuery}
+                  onChange={(e) => setSuggestionQuery(e.target.value)}
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Describe your dataset and what issues you want to catch. Leave empty for general suggestions.
+                </p>
+              </div>
+              
+              <Button 
+                onClick={requestAISuggestions}
+                disabled={!config.datasetPath && !config.datasetName}
+                className="w-full"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Analyze Dataset & Get Suggestions
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : suggestionsDismissed && (unappliedAnalyzers.length > 0 || unappliedCustomMetrics.length > 0) ? (
         <SuggestionPanelMinimized
           suggestionCount={unappliedAnalyzers.length + unappliedCustomMetrics.length}
           onClick={undismissSuggestions}
@@ -1295,6 +1349,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           onApplyAnalyzer={applyAnalyzerSuggestion}
           onApplyCustomMetric={applyCustomMetricSuggestion}
           onApplyAll={applyAllAnalyzerSuggestions}
+          onTryAgain={resetSuggestions}
         />
       )}
 
@@ -1643,6 +1698,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
               appliedTests={appliedTests}
               onApplyTest={applyTestSuggestion}
               onApplyAll={applyAllTestSuggestions}
+              onTryAgain={resetSuggestions}
             />
           )
         })()}
