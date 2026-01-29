@@ -13,6 +13,8 @@ coverage_html/
 notebooks/*tutorial*
 # Evaluation results
 results/
+!src/oumi/analyze/results/
+!src/oumi/analyze/results/**
 
 # Pyright Config
 pyrightconfig.json
