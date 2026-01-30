@@ -565,7 +565,18 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     dismiss: dismissSuggestions,
     undismiss: undismissSuggestions,
     editPrompt: editSuggestionsPrompt,
+    reset: resetSuggestions,
   } = useSuggestions()
+
+  // Clear suggestion state when starting a NEW analysis (not editing)
+  // This ensures previous prompts don't leak between different analyses
+  useEffect(() => {
+    if (!initialConfig) {
+      resetSuggestions()
+    }
+    // Only run on mount, not on every initialConfig change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Handle job completion
   useEffect(() => {
