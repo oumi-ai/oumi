@@ -321,8 +321,7 @@ def _run_typed_analysis_cli(
                 conversations=conversations_data,
             )
             cli_utils.CONSOLE.print(
-                f"[dim]Eval saved (ID: {eval_id}). "
-                f"View with: oumi analyze view[/dim]"
+                f"[dim]Eval saved (ID: {eval_id}). View with: oumi analyze view[/dim]"
             )
         except Exception as e:
             logger.debug(f"Could not save to eval storage: {e}")
