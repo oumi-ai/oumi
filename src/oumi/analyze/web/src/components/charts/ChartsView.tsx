@@ -21,7 +21,8 @@ import {
   Cell,
   Legend,
 } from 'recharts'
-import type { EvalData, AnalysisResult } from '@/types/eval'
+import type { EvalData, AnalysisResult, ResultGroup } from '@/types/eval'
+import { GroupedResultsView } from './GroupedResultsView'
 
 interface ChartsViewProps {
   evalData: EvalData
@@ -187,6 +188,101 @@ function isDatasetLevelAnalyzer(results: AnalysisResult[] | AnalysisResult | und
   return results !== undefined && !Array.isArray(results)
 }
 
+// Convert deduplication groups to generic ResultGroup format
+function convertDeduplicationGroups(result: AnalysisResult): ResultGroup[] {
+  const groups = result.duplicate_groups as Array<{
+    indices: number[]
+    similarity: number
+    sample_text: string | null
+  }> | undefined
+
+  if (!groups || !Array.isArray(groups)) return []
+
+  const total = (result.total_conversations as number) || 0
+
+  return groups.map((group, index) => ({
+    name: `Group ${index + 1}`,
+    indices: group.indices,
+    count: group.indices.length,
+    percentage: total > 0 ? (group.indices.length / total) * 100 : 0,
+    sample_text: group.sample_text,
+    metadata: { similarity: group.similarity },
+  }))
+}
+
+// Component for dataset-level analyzer results
+interface DatasetLevelViewProps {
+  result: AnalysisResult | undefined
+  conversations: EvalData['conversations']
+}
+
+function DatasetLevelView({ result, conversations }: DatasetLevelViewProps) {
+  if (!result) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No results available for this analyzer.
+      </div>
+    )
+  }
+
+  const flattened = flattenResult(result)
+
+  // Check for grouped data (deduplication, etc.)
+  const duplicateGroups = convertDeduplicationGroups(result)
+  const hasDuplicateGroups = duplicateGroups.length > 0
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground mb-4">
+        This is a dataset-level analyzer that produces a single result for the entire dataset.
+      </p>
+      
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {Object.entries(flattened).map(([key, value]) => {
+          // Skip complex values like arrays and objects
+          if (key === 'values') return null
+          if (key === 'duplicate_groups') return null
+          if (key === 'duplicate_indices') return null
+          if (key === 'keep_indices') return null
+          if (Array.isArray(value) && value.length > 5) return null
+          if (typeof value === 'object' && value !== null) return null
+          
+          return (
+            <Card key={key} className="bg-muted/50">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">
+                  {key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                </div>
+                <div className="text-2xl font-semibold mt-1">
+                  {typeof value === 'number' 
+                    ? value % 1 === 0 ? value : value.toFixed(2)
+                    : Array.isArray(value) 
+                      ? value.length 
+                      : String(value)}
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Grouped results view for deduplication */}
+      {hasDuplicateGroups && (
+        <GroupedResultsView
+          title="Duplicate Groups"
+          groups={duplicateGroups}
+          conversations={conversations}
+          emptyMessage="No duplicate groups found"
+          showPercentages={true}
+          sortBy="count"
+          markFirstAsKeep={true}
+        />
+      )}
+    </div>
+  )
+}
+
 export function ChartsView({ evalData }: ChartsViewProps) {
   const { analysis_results } = evalData
   const analyzerNames = Object.keys(analysis_results)
@@ -240,36 +336,10 @@ export function ChartsView({ evalData }: ChartsViewProps) {
         <CardContent>
           {isDatasetLevel ? (
             // Dataset-level analyzer - show key-value summary instead of charts
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground mb-4">
-                This is a dataset-level analyzer that produces a single result for the entire dataset.
-              </p>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {Object.entries(flattenResult(selectedResults[0] || {})).map(([key, value]) => {
-                  // Skip complex values like arrays and objects
-                  if (key === 'values') return null
-                  if (Array.isArray(value) && value.length > 5) return null
-                  if (typeof value === 'object' && value !== null) return null
-                  
-                  return (
-                    <Card key={key} className="bg-muted/50">
-                      <CardContent className="p-4">
-                        <div className="text-sm text-muted-foreground">
-                          {key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                        </div>
-                        <div className="text-2xl font-semibold mt-1">
-                          {typeof value === 'number' 
-                            ? value % 1 === 0 ? value : value.toFixed(2)
-                            : Array.isArray(value) 
-                              ? value.length 
-                              : String(value)}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            </div>
+            <DatasetLevelView 
+              result={selectedResults[0]} 
+              conversations={evalData.conversations}
+            />
           ) : numericFields.length === 0 && categoricalFields.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>No chartable fields for this analyzer.</p>

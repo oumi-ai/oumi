@@ -134,3 +134,13 @@ export function computeTestSummary(testResults: EvalData['test_results']): TestS
 export interface EvalIndex {
   evals: EvalMetadata[]
 }
+
+// Generic group structure for dataset-level analyzers (duplicates, languages, labels, etc.)
+export interface ResultGroup {
+  name: string
+  indices: number[]
+  count: number
+  percentage?: number
+  sample_text?: string | null
+  metadata?: Record<string, unknown>
+}
