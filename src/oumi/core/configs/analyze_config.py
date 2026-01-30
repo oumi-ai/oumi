@@ -21,6 +21,7 @@ from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.test_params import TestParams
 
 
 class DatasetSource(Enum):
@@ -43,10 +44,27 @@ class SampleAnalyzerParams(BaseParams):
     """Params for a single sample analyzer plugin."""
 
     id: str = MISSING
-    """Unique identifier for the analyzer."""
+    """Analyzer type identifier (registered name in the registry)."""
+
+    instance_id: str | None = None
+    """Optional unique instance identifier for this analyzer instance.
+
+    If provided, this ID will be used to uniquely identify this analyzer instance
+    and will be used in generated column names. This allows multiple instances of
+    the same analyzer type with different configurations.
+
+    If None, the 'id' field will be used as the instance identifier (auto-populated
+    in __post_init__).
+    """
 
     params: dict[str, Any] = field(default_factory=dict)
     """Analyzer-specific parameters passed to the analyzer constructor."""
+
+    def __post_init__(self):
+        """Auto-populate instance_id if not provided."""
+        # If instance_id is not set, use the analyzer type id
+        if self.instance_id is None:
+            self.instance_id = self.id
 
 
 @dataclass
@@ -119,6 +137,22 @@ class AnalyzeConfig(BaseConfig):
         Use 'tokenizer_name' and 'tokenizer_kwargs' instead.
     """
 
+    chat_template: str | None = None
+    """Optional chat template to use for conversation rendering.
+
+    When specified, conversations will be formatted using the specified chat template
+    (e.g., 'chat_ml', 'llama3-instruct', 'default') instead of the simple
+    'ROLE: content' format. This is useful for LLM judge analyzers to see
+    conversations in the same format the model was trained on.
+
+    Common templates:
+    - 'chat_ml': ChatML format with <|im_start|> tokens
+    - 'llama3-instruct': Llama 3 instruction format
+    - 'default': Basic template with role markers
+
+    If None, uses simple 'ROLE: content' format for backward compatibility.
+    """
+
     # Processor parameters for vision-language datasets
     processor_name: str | None = None
     """Processor name for vision-language datasets.
@@ -139,6 +173,51 @@ class AnalyzeConfig(BaseConfig):
         This field is deprecated and will be removed in a future release.
         Multimodality is now automatically detected based on whether
         'processor_name' is provided.
+    """
+
+    # User-defined tests
+    tests: list[TestParams] = field(default_factory=list)
+    """List of user-defined tests to run on analysis results.
+
+    Tests allow declarative specification of quality checks to run on the
+    analyzed dataset. Each test defines conditions that samples must meet.
+
+    Example:
+        tests:
+          - id: no_pii
+            type: percentage
+            metric: quality__has_pii
+            condition: "== True"
+            max_percentage: 1.0
+            severity: high
+            title: "PII detected in dataset"
+
+    Supported test types:
+        - threshold: Compare metric against a value
+        - percentage: Check % of samples matching a condition
+        - distribution: Check distribution properties
+        - regex: Match regex pattern against text
+        - contains: Check for substrings in text
+        - query: Execute pandas query expression
+        - outliers: Detect statistical outliers
+        - composite: Combine multiple tests
+        - python: Custom Python function
+
+    See TestParams for full documentation of available options.
+    """
+
+    generate_report: bool = False
+    """Whether to generate an HTML report with interactive visualizations.
+
+    Requires the 'plotly' package: pip install 'oumi[analyze_advanced]'
+    The report includes charts, tables, and recommendations in a self-contained
+    HTML file.
+    """
+
+    report_title: str | None = None
+    """Custom title for the HTML report.
+
+    If not provided, a default title will be generated based on the dataset name.
     """
 
     def __post_init__(self):
@@ -203,11 +282,31 @@ class AnalyzeConfig(BaseConfig):
             raise ValueError("`sample_count` must be greater than 0.")
 
         # Validate analyzer configurations
-        analyzer_ids = set()
+        instance_ids = set()
         for analyzer in self.analyzers:
-            # Validate analyzer ID
+            # Validate analyzer ID (type)
             if not analyzer.id:
                 raise ValueError("Analyzer 'id' must be provided")
-            if analyzer.id in analyzer_ids:
-                raise ValueError(f"Duplicate analyzer ID found: '{analyzer.id}'")
-            analyzer_ids.add(analyzer.id)
+
+            # instance_id is now always set (auto-populated in __post_init__)
+            # Check for duplicate instance IDs
+            if analyzer.instance_id in instance_ids:
+                raise ValueError(
+                    f"Duplicate analyzer instance ID found: '{analyzer.instance_id}'. "
+                    f"Each analyzer instance must have a unique 'instance_id'."
+                )
+            instance_ids.add(analyzer.instance_id)
+
+        # Validate test configurations
+        test_ids = set()
+        for test in self.tests:
+            # Check for duplicate test IDs
+            if test.id in test_ids:
+                raise ValueError(
+                    f"Duplicate test ID found: '{test.id}'. "
+                    f"Each test must have a unique 'id'."
+                )
+            test_ids.add(test.id)
+
+            # Validate individual test (detailed validation in TestParams)
+            test.finalize_and_validate()

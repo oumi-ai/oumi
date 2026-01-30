@@ -56,13 +56,22 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
-        if model_params.model_name == "o1-preview":
+        # OpenAI reasoning models (o1 series and similar) have restrictions
+        model_name = model_params.model_name
+        is_reasoning_model = (
+            model_name.startswith("o1-") or
+            model_name.startswith("o1") or
+            "o1" in model_name or
+            model_name in ["gpt-5-mini", "gpt-5-preview"]
+        )
+
+        if is_reasoning_model:
             generation_params = copy.deepcopy(generation_params)
 
-            # o1-preview does NOT support logit_bias.
+            # Reasoning models do NOT support logit_bias.
             generation_params.logit_bias = {}
 
-            # o1-preview only supports temperature = 1.
+            # Reasoning models only support temperature = 1.
             generation_params.temperature = 1.0
 
         return super()._convert_conversation_to_api_input(

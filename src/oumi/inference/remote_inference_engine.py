@@ -27,6 +27,7 @@ from typing import Any
 
 import aiofiles
 import aiohttp
+from aiohttp.resolver import ThreadedResolver
 import jsonlines
 import pydantic
 from tqdm.asyncio import tqdm
@@ -277,6 +278,22 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             Maximum number of connections to allow in the connection pool.
         """
         return _MAX_CONNECTION_LIMIT
+
+    def _create_connector(self) -> aiohttp.TCPConnector:
+        """Create a TCPConnector with system DNS resolver.
+
+        Uses ThreadedResolver instead of the default resolver to avoid
+        aiodns issues on macOS. ThreadedResolver uses the system's DNS
+        resolver which is more reliable.
+
+        Returns:
+            TCPConnector configured with system DNS resolver.
+        """
+        resolver = ThreadedResolver()
+        return aiohttp.TCPConnector(
+            limit=self._get_connection_limit(),
+            resolver=resolver,
+        )
 
     async def _try_record_success(self):
         """Try to record a success."""
@@ -630,7 +647,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         # Limit number of HTTP connections to prevent file descriptor exhaustion.
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        # Use system DNS resolver to avoid aiodns issues on macOS.
+        connector = self._create_connector()
         # Control the number of concurrent tasks via a semaphore.
         semaphore = PoliteAdaptiveSemaphore(
             capacity=self._remote_params.num_workers,
@@ -862,7 +880,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         try:
             # Upload the file
-            connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+            connector = self._create_connector()
             async with aiohttp.ClientSession(connector=connector) as session:
                 headers = self._get_request_headers(self._remote_params)
 
@@ -923,7 +941,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         file_id = await self._upload_batch_file(batch_requests)
 
         # Create batch
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        connector = self._create_connector()
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.post(
@@ -954,7 +972,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             BatchInfo: Current status of the batch job
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        connector = self._create_connector()
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.get(
@@ -982,7 +1000,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             BatchListResponse: List of batch jobs
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        connector = self._create_connector()
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
 
@@ -1124,7 +1142,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             FileListResponse: List of files
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        connector = self._create_connector()
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
 
@@ -1173,7 +1191,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             FileInfo: File information
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        connector = self._create_connector()
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.get(
@@ -1204,7 +1222,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             bool: True if deletion was successful
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        connector = self._create_connector()
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.delete(
@@ -1230,7 +1248,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             str: The file content
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        connector = self._create_connector()
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.get(
