@@ -17,7 +17,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -32,12 +32,12 @@ from oumi.core.types.conversation import Conversation
 logger = logging.getLogger(__name__)
 
 # Type alias for any analyzer
-AnyAnalyzer = Union[
-    MessageAnalyzer[Any],
-    ConversationAnalyzer[Any],
-    DatasetAnalyzer[Any],
-    PreferenceAnalyzer[Any],
-]
+AnyAnalyzer = (
+    MessageAnalyzer[Any]
+    | ConversationAnalyzer[Any]
+    | DatasetAnalyzer[Any]
+    | PreferenceAnalyzer[Any]
+)
 
 
 class AnalysisPipeline:
@@ -127,13 +127,12 @@ class AnalysisPipeline:
         )
 
         # Separate primary and derived analyzers
-        from oumi.analyze.custom_metrics import CustomConversationMetric
-
         primary_analyzers = []
         derived_analyzers = []
 
         for analyzer in self._conversation_analyzers:
-            if isinstance(analyzer, CustomConversationMetric) and analyzer.depends_on:
+            depends_on = getattr(analyzer, "depends_on", None)
+            if depends_on:
                 derived_analyzers.append(analyzer)
             else:
                 primary_analyzers.append(analyzer)
@@ -152,8 +151,10 @@ class AnalysisPipeline:
 
         for analyzer in primary_iter:
             name = self._get_analyzer_name(analyzer)
-            if hasattr(primary_iter, "set_postfix"):
-                primary_iter.set_postfix(current=name)
+            if hasattr(primary_iter, "set_postfix") and callable(
+                getattr(primary_iter, "set_postfix", None)
+            ):
+                primary_iter.set_postfix(current=name)  # type: ignore[union-attr]
             logger.debug(f"Running conversation analyzer: {name}")
             try:
                 results = analyzer.analyze_batch(conversations)
@@ -166,20 +167,16 @@ class AnalysisPipeline:
         # Run derived analyzers (with access to primary results)
         if derived_analyzers:
             logger.debug("Running derived conversation analyzers...")
-            CustomConversationMetric.set_pipeline_results(self._results)
-            try:
-                for analyzer in derived_analyzers:
-                    name = self._get_analyzer_name(analyzer)
-                    logger.debug(f"Running derived analyzer: {name}")
-                    try:
-                        results = analyzer.analyze_batch(conversations)
-                        self._results[name] = results
-                        logger.debug(f"  Completed {name}: {len(results)} results")
-                    except Exception as e:
-                        logger.error(f"  Failed {name}: {e}")
-                        raise
-            finally:
-                CustomConversationMetric.clear_pipeline_results()
+            for analyzer in derived_analyzers:
+                name = self._get_analyzer_name(analyzer)
+                logger.debug(f"Running derived analyzer: {name}")
+                try:
+                    results = analyzer.analyze_batch(conversations)
+                    self._results[name] = results
+                    logger.debug(f"  Completed {name}: {len(results)} results")
+                except Exception as e:
+                    logger.error(f"  Failed {name}: {e}")
+                    raise
 
         # Run message-level analyzers
         for analyzer in self._message_analyzers:
@@ -197,13 +194,12 @@ class AnalysisPipeline:
 
         # Run dataset-level analyzers
         # Separate primary and derived dataset analyzers
-        from oumi.analyze.custom_metrics import CustomDatasetMetric
-
         primary_dataset_analyzers = []
         derived_dataset_analyzers = []
 
         for analyzer in self._dataset_analyzers:
-            if isinstance(analyzer, CustomDatasetMetric) and analyzer.depends_on:
+            depends_on = getattr(analyzer, "depends_on", None)
+            if depends_on:
                 derived_dataset_analyzers.append(analyzer)
             else:
                 primary_dataset_analyzers.append(analyzer)
@@ -223,20 +219,16 @@ class AnalysisPipeline:
         # Run derived dataset analyzers (with access to all results)
         if derived_dataset_analyzers:
             logger.debug("Running derived dataset analyzers...")
-            CustomDatasetMetric.set_pipeline_results(self._results)
-            try:
-                for analyzer in derived_dataset_analyzers:
-                    name = self._get_analyzer_name(analyzer)
-                    logger.debug(f"Running derived dataset analyzer: {name}")
-                    try:
-                        result = analyzer.analyze(conversations)
-                        self._results[name] = result  # Single result, not list
-                        logger.debug(f"  Completed {name}")
-                    except Exception as e:
-                        logger.error(f"  Failed {name}: {e}")
-                        raise
-            finally:
-                CustomDatasetMetric.clear_pipeline_results()
+            for analyzer in derived_dataset_analyzers:
+                name = self._get_analyzer_name(analyzer)
+                logger.debug(f"Running derived dataset analyzer: {name}")
+                try:
+                    result = analyzer.analyze(conversations)
+                    self._results[name] = result  # Single result, not list
+                    logger.debug(f"  Completed {name}")
+                except Exception as e:
+                    logger.error(f"  Failed {name}: {e}")
+                    raise
 
         logger.info(f"Analysis complete: {len(self._results)} analyzer results")
 
@@ -321,8 +313,9 @@ class AnalysisPipeline:
         Returns:
             Name string for the analyzer.
         """
-        if hasattr(analyzer, "analyzer_id"):
-            return analyzer.analyzer_id
+        analyzer_id = getattr(analyzer, "analyzer_id", None)
+        if analyzer_id is not None:
+            return str(analyzer_id)
         return analyzer.__class__.__name__
 
     def _save_cache(self) -> None:

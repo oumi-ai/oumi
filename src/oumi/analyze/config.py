@@ -21,10 +21,10 @@ architecture, supporting both programmatic and YAML-based configuration.
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from oumi.analyze.testing.engine import TestConfig, TestType
-from oumi.analyze.testing.results import TestSeverity
+if TYPE_CHECKING:
+    from oumi.core.configs.params.test_params import TestConfig
 
 
 class AnalyzerType(str, Enum):
@@ -179,12 +179,18 @@ class TestConfigYAML:
     min_value: float | None = None
     max_value: float | None = None
 
-    def to_test_config(self) -> TestConfig:
+    def to_test_config(self) -> "TestConfig":
         """Convert to TestConfig for the test engine.
 
         Returns:
             TestConfig instance.
         """
+        from oumi.core.configs.params.test_params import (
+            TestConfig,
+            TestSeverity,
+            TestType,
+        )
+
         return TestConfig(
             id=self.id,
             type=TestType(self.type),
@@ -405,7 +411,7 @@ class TypedAnalyzeConfig:
             "report_title": self.report_title,
         }
 
-    def get_test_configs(self) -> list[TestConfig]:
+    def get_test_configs(self) -> list["TestConfig"]:
         """Get test configurations for the test engine.
 
         Returns:

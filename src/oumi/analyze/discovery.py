@@ -18,7 +18,9 @@ This module provides functions for discovering what metrics each analyzer
 produces, allowing users to write tests before running analysis.
 
 Example:
-    >>> from oumi.analyze.discovery import list_available_metrics, print_analyzer_metrics
+    >>> from oumi.analyze.discovery import (
+    ...     list_available_metrics, print_analyzer_metrics
+    ... )
     >>>
     >>> # List all metrics from all registered analyzers
     >>> metrics = list_available_metrics()
