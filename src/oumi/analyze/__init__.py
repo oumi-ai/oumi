@@ -62,9 +62,31 @@ from oumi.analyze.registry import (
     register_analyzer,
 )
 
+# Import CLI utilities
+from oumi.analyze.cli import (
+    generate_tests,
+    list_metrics,
+    load_conversations_from_path,
+    print_summary,
+    run_from_config_file,
+    run_typed_analysis,
+    save_results,
+)
+
+# Import custom metrics
+from oumi.analyze.custom_metrics import (
+    CustomConversationMetric,
+    CustomMessageMetric,
+    CustomMetricResult,
+    create_custom_metric,
+)
+
 # Import result models
 from oumi.analyze.results.length import LengthMetrics
 from oumi.analyze.results.turn_stats import TurnStatsMetrics
+
+# Import testing
+from oumi.analyze.testing import TestEngine, TestResult, TestSummary
 
 # Import utilities
 from oumi.analyze.utils.dataframe import to_analysis_dataframe
@@ -85,6 +107,7 @@ __all__ = [
     "TurnStatsMetrics",
     # Utilities
     "to_analysis_dataframe",
+    "load_conversations_from_path",
     # Config
     "TypedAnalyzeConfig",
     "AnalyzerConfig",
@@ -98,4 +121,20 @@ __all__ = [
     "register_analyzer",
     "get_analyzer_class",
     "create_analyzer_from_config",
+    # CLI utilities
+    "run_typed_analysis",
+    "run_from_config_file",
+    "save_results",
+    "print_summary",
+    "list_metrics",
+    "generate_tests",
+    # Testing
+    "TestEngine",
+    "TestResult",
+    "TestSummary",
+    # Custom metrics
+    "CustomConversationMetric",
+    "CustomMessageMetric",
+    "CustomMetricResult",
+    "create_custom_metric",
 ]
