@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import json
-import subprocess
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
@@ -1638,13 +1636,6 @@ def analyze_view(
             help="Host address to bind to.",
         ),
     ] = "localhost",
-    legacy: Annotated[
-        bool,
-        typer.Option(
-            "--legacy",
-            help="Use the legacy Streamlit-based viewer instead of the React UI.",
-        ),
-    ] = False,
     no_browser: Annotated[
         bool,
         typer.Option(
@@ -1661,77 +1652,14 @@ def analyze_view(
     - Charts and visualizations
     - Export options
 
-    By default, uses the new React-based UI. Use --legacy for the Streamlit viewer.
-
     Args:
         port: Port to run the web viewer on.
         host: Host address to bind to.
-        legacy: Use the legacy Streamlit viewer.
         no_browser: Don't automatically open the browser.
     """
-    if legacy:
-        _launch_streamlit_viewer(port, host)
-    else:
-        _launch_react_viewer(port, host, not no_browser)
-
-
-def _launch_react_viewer(port: int, host: str, open_browser: bool) -> None:
-    """Launch the React-based web viewer."""
     from oumi.analyze.serve import serve_ui
 
     try:
-        serve_ui(port=port, host=host, open_browser=open_browser)
-    except KeyboardInterrupt:
-        cli_utils.CONSOLE.print("\n[dim]Web viewer stopped.[/dim]")
-
-
-def _launch_streamlit_viewer(port: int, host: str) -> None:
-    """Launch the legacy Streamlit-based web viewer."""
-    # Check if streamlit is available
-    try:
-        import streamlit  # noqa: F401
-    except ImportError:
-        cli_utils.CONSOLE.print(
-            "[red]Error:[/red] Streamlit is required for the legacy web viewer.\n"
-            "Install with: [cyan]pip install 'oumi[analyze-ui]'[/cyan]\n"
-            "Or use the default React viewer (remove --legacy flag)."
-        )
-        raise typer.Exit(code=1)
-
-    # Find the app.py path
-    app_path = Path(__file__).parent.parent / "analyze" / "app.py"
-    if not app_path.exists():
-        cli_utils.CONSOLE.print(
-            f"[red]Error:[/red] Web viewer app not found at: {app_path}"
-        )
-        raise typer.Exit(code=1)
-
-    cli_utils.CONSOLE.print(
-        f"[green]Starting Analyze Web Viewer (Streamlit)...[/green]\n"
-        f"Open in browser: [cyan]http://{host}:{port}[/cyan]\n"
-        f"Press Ctrl+C to stop."
-    )
-
-    # Launch streamlit
-    try:
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "streamlit",
-                "run",
-                str(app_path),
-                "--server.port",
-                str(port),
-                "--server.address",
-                host,
-                "--server.headless",
-                "true",
-            ],
-            check=True,
-        )
-    except subprocess.CalledProcessError as e:
-        cli_utils.CONSOLE.print(f"[red]Error:[/red] Failed to start web viewer: {e}")
-        raise typer.Exit(code=1)
+        serve_ui(port=port, host=host, open_browser=not no_browser)
     except KeyboardInterrupt:
         cli_utils.CONSOLE.print("\n[dim]Web viewer stopped.[/dim]")
