@@ -429,6 +429,13 @@ class TestEngine:
             affected_pct = non_matching_pct
             failure_reasons = non_matching_reasons
 
+        # For single-value (dataset-level) metrics, include the actual value
+        actual_value = None
+        if total_count == 1 and len(values) == 1:
+            val = values[0]
+            if isinstance(val, (int, float)):
+                actual_value = float(val)
+
         return TestResult(
             test_id=test.id,
             passed=passed,
@@ -440,6 +447,7 @@ class TestEngine:
             total_count=total_count,
             affected_percentage=round(affected_pct, 2),
             threshold=test.max_percentage or test.min_percentage,
+            actual_value=actual_value,
             sample_indices=affected_indices[:50],  # Limit to first 50
             details={
                 "operator": test.operator,
@@ -552,6 +560,13 @@ class TestEngine:
             affected_count = matching_count
             affected_pct = matching_pct
 
+        # For single-value (dataset-level) metrics, include the actual value
+        actual_value = None
+        if total_count == 1 and len(values) == 1:
+            val = values[0]
+            if isinstance(val, (int, float, bool)):
+                actual_value = float(val) if isinstance(val, (int, float)) else (1.0 if val else 0.0)
+
         return TestResult(
             test_id=test.id,
             passed=passed,
@@ -563,6 +578,7 @@ class TestEngine:
             total_count=total_count,
             affected_percentage=round(affected_pct, 2),
             threshold=test.max_percentage or test.min_percentage,
+            actual_value=actual_value,
             sample_indices=affected_indices[:50],
             details={
                 "condition": test.condition,

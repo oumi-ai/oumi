@@ -212,14 +212,28 @@ export function TestCard({ test, evalData }: TestCardProps) {
                     <div className="text-right">
                       <span className="text-xs text-muted-foreground block mb-1">Actual Value</span>
                       {(() => {
-                        // Extract actual value from failure reasons or details
+                        // Prefer actual_value if set (now populated for dataset-level metrics)
+                        if (test.actual_value !== null && test.actual_value !== undefined) {
+                          const displayValue = Number.isInteger(test.actual_value) 
+                            ? test.actual_value 
+                            : test.actual_value.toFixed(2)
+                          return (
+                            <span className={cn(
+                              "font-mono text-lg font-semibold",
+                              test.passed ? "text-green-600" : "text-red-600"
+                            )}>
+                              {displayValue}
+                            </span>
+                          )
+                        }
+                        // Fallback: Extract from failure reasons or details
                         const failureReasons = test.details?.failure_reasons as Record<string, string> | undefined
                         const reason = failureReasons?.['0'] || ''
-                        // Parse value from reason like "1 does not satisfy > 2" or "0.05 < 0.1"
+                        // Parse value from reason like "17 > 1" or "0.05 < 0.1"
                         const valueMatch = reason.match(/^([\d.]+)/)
                         const actualValue = valueMatch ? valueMatch[1] : 
-                          (test.details?.passing_count !== undefined ? 
-                            `${test.details.passing_count}/${test.total_count} passing` : 
+                          (test.details?.matching_count !== undefined ? 
+                            `${test.details.matching_count}/${test.total_count} matching` : 
                             'N/A')
                         return (
                           <span className={cn(
