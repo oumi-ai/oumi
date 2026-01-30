@@ -24,7 +24,7 @@ Each analyzer returns strongly-typed Pydantic models as results.
 """
 
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, get_args
 
 from pydantic import BaseModel
 
@@ -34,21 +34,11 @@ from oumi.core.types.conversation import Conversation, Message
 TResult = TypeVar("TResult", bound=BaseModel)
 
 
-class MessageAnalyzer(ABC, Generic[TResult]):
-    """Base class for analyzers that operate on individual messages.
+class _AnalyzerMetaMixin:
+    """Mixin providing common metadata methods for all analyzer types.
 
-    MessageAnalyzers process single messages and return typed results.
-    Use this for metrics that are meaningful at the message level,
-    such as length, format detection, or content analysis.
-
-    Example:
-        class FormatAnalyzer(MessageAnalyzer[FormatMetrics]):
-            def analyze(self, message: Message) -> FormatMetrics:
-                text = self._get_text_content(message)
-                return FormatMetrics(
-                    has_markdown=self._detect_markdown(text),
-                    has_code_blocks=self._detect_code_blocks(text),
-                )
+    This mixin provides methods to inspect the result type and schema
+    of an analyzer, enabling introspection of available metrics.
     """
 
     @classmethod
@@ -61,7 +51,6 @@ class MessageAnalyzer(ABC, Generic[TResult]):
         Returns:
             JSON schema dictionary for the result model.
         """
-        # Get the result type from the generic parameter
         result_type = cls._get_result_type()
         if result_type and hasattr(result_type, "model_json_schema"):
             return result_type.model_json_schema()
@@ -88,24 +77,55 @@ class MessageAnalyzer(ABC, Generic[TResult]):
         """
         result_type = cls._get_result_type()
         if result_type and hasattr(result_type, "model_fields"):
-            descriptions = {}
-            for name, field_info in result_type.model_fields.items():
-                desc = field_info.description or ""
-                descriptions[name] = desc
-            return descriptions
+            return {
+                name: field_info.description or ""
+                for name, field_info in result_type.model_fields.items()
+            }
         return {}
 
     @classmethod
     def _get_result_type(cls) -> type | None:
-        """Get the result type from the generic parameter."""
-        import typing
+        """Get the result type from the generic parameter.
 
+        Walks through the class's base classes to find the generic type
+        argument (TResult) from the analyzer base class.
+
+        Returns:
+            The result type class, or None if not found.
+        """
+        # Walk through all original bases to find generic parameters
         for base in getattr(cls, "__orig_bases__", []):
-            if hasattr(base, "__origin__") and base.__origin__ is MessageAnalyzer:
-                args = typing.get_args(base)
-                if args:
-                    return args[0]
+            if hasattr(base, "__origin__"):
+                # Check if this base is one of our analyzer types
+                origin = base.__origin__
+                if origin in (
+                    MessageAnalyzer,
+                    ConversationAnalyzer,
+                    DatasetAnalyzer,
+                    PreferenceAnalyzer,
+                ):
+                    args = get_args(base)
+                    if args:
+                        return args[0]
         return None
+
+
+class MessageAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
+    """Base class for analyzers that operate on individual messages.
+
+    MessageAnalyzers process single messages and return typed results.
+    Use this for metrics that are meaningful at the message level,
+    such as length, format detection, or content analysis.
+
+    Example:
+        class FormatAnalyzer(MessageAnalyzer[FormatMetrics]):
+            def analyze(self, message: Message) -> FormatMetrics:
+                text = self._get_text_content(message)
+                return FormatMetrics(
+                    has_markdown=self._detect_markdown(text),
+                    has_code_blocks=self._detect_code_blocks(text),
+                )
+    """
 
     @abstractmethod
     def analyze(self, message: Message) -> TResult:
@@ -166,7 +186,7 @@ class MessageAnalyzer(ABC, Generic[TResult]):
         return " ".join(text_parts)
 
 
-class ConversationAnalyzer(ABC, Generic[TResult]):
+class ConversationAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
     """Base class for analyzers that operate on complete conversations.
 
     ConversationAnalyzers process entire conversations and return typed results.
@@ -183,46 +203,6 @@ class ConversationAnalyzer(ABC, Generic[TResult]):
                 )
                 return LengthMetrics(total_words=total_words, ...)
     """
-
-    @classmethod
-    def get_result_schema(cls) -> dict:
-        """Get the JSON schema for this analyzer's result model."""
-        result_type = cls._get_result_type()
-        if result_type and hasattr(result_type, "model_json_schema"):
-            return result_type.model_json_schema()
-        return {}
-
-    @classmethod
-    def get_metric_names(cls) -> list[str]:
-        """Get the list of metric field names this analyzer produces."""
-        result_type = cls._get_result_type()
-        if result_type and hasattr(result_type, "model_fields"):
-            return list(result_type.model_fields.keys())
-        return []
-
-    @classmethod
-    def get_metric_descriptions(cls) -> dict[str, str]:
-        """Get descriptions for each metric field."""
-        result_type = cls._get_result_type()
-        if result_type and hasattr(result_type, "model_fields"):
-            descriptions = {}
-            for name, field_info in result_type.model_fields.items():
-                desc = field_info.description or ""
-                descriptions[name] = desc
-            return descriptions
-        return {}
-
-    @classmethod
-    def _get_result_type(cls) -> type | None:
-        """Get the result type from the generic parameter."""
-        import typing
-
-        for base in getattr(cls, "__orig_bases__", []):
-            if hasattr(base, "__origin__") and base.__origin__ is ConversationAnalyzer:
-                args = typing.get_args(base)
-                if args:
-                    return args[0]
-        return None
 
     @abstractmethod
     def analyze(self, conversation: Conversation) -> TResult:
@@ -295,7 +275,7 @@ class ConversationAnalyzer(ABC, Generic[TResult]):
         return "\n".join(parts)
 
 
-class DatasetAnalyzer(ABC, Generic[TResult]):
+class DatasetAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
     """Base class for analyzers that operate on entire datasets.
 
     DatasetAnalyzers have access to all conversations at once, enabling
@@ -312,46 +292,6 @@ class DatasetAnalyzer(ABC, Generic[TResult]):
                     total_duplicates=len(duplicates),
                 )
     """
-
-    @classmethod
-    def get_result_schema(cls) -> dict:
-        """Get the JSON schema for this analyzer's result model."""
-        result_type = cls._get_result_type()
-        if result_type and hasattr(result_type, "model_json_schema"):
-            return result_type.model_json_schema()
-        return {}
-
-    @classmethod
-    def get_metric_names(cls) -> list[str]:
-        """Get the list of metric field names this analyzer produces."""
-        result_type = cls._get_result_type()
-        if result_type and hasattr(result_type, "model_fields"):
-            return list(result_type.model_fields.keys())
-        return []
-
-    @classmethod
-    def get_metric_descriptions(cls) -> dict[str, str]:
-        """Get descriptions for each metric field."""
-        result_type = cls._get_result_type()
-        if result_type and hasattr(result_type, "model_fields"):
-            descriptions = {}
-            for name, field_info in result_type.model_fields.items():
-                desc = field_info.description or ""
-                descriptions[name] = desc
-            return descriptions
-        return {}
-
-    @classmethod
-    def _get_result_type(cls) -> type | None:
-        """Get the result type from the generic parameter."""
-        import typing
-
-        for base in getattr(cls, "__orig_bases__", []):
-            if hasattr(base, "__origin__") and base.__origin__ is DatasetAnalyzer:
-                args = typing.get_args(base)
-                if args:
-                    return args[0]
-        return None
 
     @abstractmethod
     def analyze(self, conversations: list[Conversation]) -> TResult:
@@ -380,7 +320,7 @@ class DatasetAnalyzer(ABC, Generic[TResult]):
         return self.analyze(conversations)
 
 
-class PreferenceAnalyzer(ABC, Generic[TResult]):
+class PreferenceAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
     """Base class for analyzers that operate on preference pairs.
 
     PreferenceAnalyzers process chosen/rejected conversation pairs,
