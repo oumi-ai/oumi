@@ -1,0 +1,476 @@
+import { useState, useMemo } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from 'recharts'
+import type { EvalData, AnalysisResult, ResultGroup } from '@/types/eval'
+import { GroupedResultsView } from './GroupedResultsView'
+
+interface ChartsViewProps {
+  evalData: EvalData
+}
+
+// Theme-consistent color palette for charts
+const CHART_COLORS = [
+  'hsl(217 91% 60%)',    // Vibrant blue
+  'hsl(160 60% 45%)',    // Teal
+  'hsl(30 80% 55%)',     // Orange
+  'hsl(280 65% 60%)',    // Purple
+  'hsl(340 75% 55%)',    // Pink
+  'hsl(45 90% 50%)',     // Yellow
+  'hsl(120 60% 45%)',    // Green
+  'hsl(190 70% 50%)',    // Cyan
+]
+
+// Primary color for histograms
+const HISTOGRAM_COLOR = 'hsl(217 91% 60%)' // Vibrant blue
+
+// Tooltip style for consistency
+const tooltipStyle = {
+  contentStyle: {
+    backgroundColor: 'hsl(var(--popover))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: '0.5rem',
+  },
+  labelStyle: { color: 'hsl(var(--popover-foreground))' },
+  itemStyle: { color: 'hsl(var(--popover-foreground))' },
+}
+
+// Helper to flatten result - handles both regular analyzers and custom metrics
+// Regular: {score: 85, passed: true}
+// Custom metrics: {values: {label_id: 52, label_name: "request_refund"}}
+function flattenResult(result: AnalysisResult): Record<string, unknown> {
+  // Check if this is a custom metric result with nested 'values'
+  if ('values' in result && typeof result.values === 'object' && result.values !== null) {
+    return { ...result, ...result.values }
+  }
+  return result
+}
+
+// Helper to get numeric fields from results
+function getNumericFields(results: AnalysisResult[]): string[] {
+  if (results.length === 0) return []
+  
+  const sample = flattenResult(results[0])
+  const numericFields: string[] = []
+  
+  for (const [key, value] of Object.entries(sample)) {
+    // Skip the nested 'values' object itself
+    if (key === 'values') continue
+    // Include all numeric fields including score
+    if (typeof value === 'number') {
+      numericFields.push(key)
+    }
+  }
+  
+  return numericFields
+}
+
+// Fields to exclude from charts - these have too many unique values or are detail fields
+const EXCLUDED_CHART_FIELDS = new Set([
+  'reasoning',
+  'error',
+  'turn_sequence',        // Comma-separated role sequence, many unique values
+  'truncation_reason',    // Free-text reason
+  'quality_issues',       // List of issues
+  'invalid_value_patterns', // List of patterns
+  'refusal_phrases',      // List of phrases
+  'unmatched_tags',       // List of tags
+  'empty_turn_indices',   // List of indices
+])
+
+// Maximum number of unique values for a field to be chartable
+const MAX_UNIQUE_VALUES_FOR_CHART = 25
+
+// Helper to get categorical fields from results
+function getCategoricalFields(results: AnalysisResult[]): string[] {
+  if (results.length === 0) return []
+  
+  const sample = flattenResult(results[0])
+  const categoricalFields: string[] = []
+  
+  for (const [key, value] of Object.entries(sample)) {
+    // Skip the nested 'values' object itself
+    if (key === 'values') continue
+    // Skip excluded fields
+    if (EXCLUDED_CHART_FIELDS.has(key)) continue
+    // Skip arrays (lists) - not suitable for pie charts
+    if (Array.isArray(value)) continue
+    
+    if (typeof value === 'string') {
+      // Check if this string field has too many unique values
+      const uniqueValues = new Set(results.map(r => {
+        const flattened = flattenResult(r)
+        return String(flattened[key] ?? '')
+      }))
+      if (uniqueValues.size <= MAX_UNIQUE_VALUES_FOR_CHART) {
+        categoricalFields.push(key)
+      }
+    }
+    if (typeof value === 'boolean') {
+      categoricalFields.push(key)
+    }
+  }
+  
+  return categoricalFields
+}
+
+// Create histogram data from numeric values
+function createHistogramData(values: number[], bins: number = 10): { range: string; count: number }[] {
+  if (values.length === 0) return []
+  
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  
+  if (min === max) {
+    return [{ range: String(min), count: values.length }]
+  }
+  
+  const binWidth = (max - min) / bins
+  const histogram: { range: string; count: number }[] = []
+  
+  for (let i = 0; i < bins; i++) {
+    const binStart = min + i * binWidth
+    const binEnd = min + (i + 1) * binWidth
+    const count = values.filter(v => 
+      i === bins - 1 ? v >= binStart && v <= binEnd : v >= binStart && v < binEnd
+    ).length
+    
+    histogram.push({
+      range: `${Math.round(binStart)}-${Math.round(binEnd)}`,
+      count,
+    })
+  }
+  
+  return histogram.filter(h => h.count > 0)
+}
+
+// Create pie chart data from categorical values
+function createPieData(values: (string | boolean)[]): { name: string; value: number }[] {
+  const counts: Record<string, number> = {}
+  
+  for (const value of values) {
+    const key = String(value)
+    counts[key] = (counts[key] || 0) + 1
+  }
+  
+  return Object.entries(counts).map(([name, value]) => ({ name, value }))
+}
+
+// Helper to normalize results - handles both array (conversation-level) and single object (dataset-level)
+function normalizeResults(results: AnalysisResult[] | AnalysisResult | undefined): AnalysisResult[] {
+  if (!results) return []
+  if (Array.isArray(results)) return results
+  // Single object (dataset-level analyzer) - wrap in array
+  return [results]
+}
+
+// Check if analyzer is dataset-level (returns single result instead of array)
+function isDatasetLevelAnalyzer(results: AnalysisResult[] | AnalysisResult | undefined): boolean {
+  return results !== undefined && !Array.isArray(results)
+}
+
+// Convert deduplication groups to generic ResultGroup format
+function convertDeduplicationGroups(result: AnalysisResult): ResultGroup[] {
+  const groups = result.duplicate_groups as Array<{
+    indices: number[]
+    similarity: number
+    sample_text: string | null
+  }> | undefined
+
+  if (!groups || !Array.isArray(groups)) return []
+
+  const total = (result.total_conversations as number) || 0
+
+  return groups.map((group, index) => ({
+    name: `Group ${index + 1}`,
+    indices: group.indices,
+    count: group.indices.length,
+    percentage: total > 0 ? (group.indices.length / total) * 100 : 0,
+    sample_text: group.sample_text,
+    metadata: { similarity: group.similarity },
+  }))
+}
+
+// Component for dataset-level analyzer results
+interface DatasetLevelViewProps {
+  result: AnalysisResult | undefined
+  conversations: EvalData['conversations']
+}
+
+function DatasetLevelView({ result, conversations }: DatasetLevelViewProps) {
+  if (!result) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No results available for this analyzer.
+      </div>
+    )
+  }
+
+  const flattened = flattenResult(result)
+
+  // Check for grouped data (deduplication, etc.)
+  const duplicateGroups = convertDeduplicationGroups(result)
+  const hasDuplicateGroups = duplicateGroups.length > 0
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground mb-4">
+        This is a dataset-level analyzer that produces a single result for the entire dataset.
+      </p>
+      
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {Object.entries(flattened).map(([key, value]) => {
+          // Skip complex values like arrays and objects
+          if (key === 'values') return null
+          if (key === 'duplicate_groups') return null
+          if (key === 'duplicate_indices') return null
+          if (key === 'keep_indices') return null
+          if (Array.isArray(value) && value.length > 5) return null
+          if (typeof value === 'object' && value !== null) return null
+          
+          return (
+            <Card key={key} className="bg-muted/50">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">
+                  {key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                </div>
+                <div className="text-2xl font-semibold mt-1">
+                  {typeof value === 'number' 
+                    ? value % 1 === 0 ? value : value.toFixed(2)
+                    : Array.isArray(value) 
+                      ? value.length 
+                      : String(value)}
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Grouped results view for deduplication */}
+      {hasDuplicateGroups && (
+        <GroupedResultsView
+          title="Duplicate Groups"
+          groups={duplicateGroups}
+          conversations={conversations}
+          emptyMessage="No duplicate groups found"
+          showPercentages={true}
+          sortBy="count"
+          markFirstAsKeep={true}
+        />
+      )}
+    </div>
+  )
+}
+
+export function ChartsView({ evalData }: ChartsViewProps) {
+  const { analysis_results } = evalData
+  const analyzerNames = Object.keys(analysis_results)
+  
+  const [selectedAnalyzer, setSelectedAnalyzer] = useState<string>(
+    analyzerNames.length > 0 ? analyzerNames[0] : ''
+  )
+
+  // Get fields for selected analyzer - normalize to always be an array
+  const rawResults = analysis_results[selectedAnalyzer]
+  const isDatasetLevel = isDatasetLevelAnalyzer(rawResults)
+  const selectedResults = normalizeResults(rawResults)
+  const numericFields = useMemo(() => getNumericFields(selectedResults), [selectedResults])
+  const categoricalFields = useMemo(() => getCategoricalFields(selectedResults), [selectedResults])
+
+  if (analyzerNames.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <p>No analysis results available.</p>
+        <p className="text-sm mt-2">
+          Run an analysis to see charts and visualizations.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Analyzer-specific charts */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Analyzer Metrics</CardTitle>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="analyzer-select" className="text-sm">Analyzer:</Label>
+              <Select value={selectedAnalyzer} onValueChange={setSelectedAnalyzer}>
+                <SelectTrigger className="w-48" id="analyzer-select">
+                  <SelectValue placeholder="Select analyzer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {analyzerNames.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isDatasetLevel ? (
+            // Dataset-level analyzer - show key-value summary instead of charts
+            <DatasetLevelView 
+              result={selectedResults[0]} 
+              conversations={evalData.conversations}
+            />
+          ) : numericFields.length === 0 && categoricalFields.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No chartable fields for this analyzer.</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {/* Numeric field histograms */}
+              {numericFields.length > 0 && (
+                <div>
+                  <h3 className="text-md font-medium mb-4">Numeric Distributions</h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {numericFields.map((field) => {
+                      const values = selectedResults
+                        .map(r => flattenResult(r)[field])
+                        .filter((v): v is number => typeof v === 'number')
+                      const histogramData = createHistogramData(values)
+                      const avgValue = values.reduce((a, b) => a + b, 0) / values.length
+                      const minValue = Math.min(...values)
+                      const maxValue = Math.max(...values)
+                      
+                      return (
+                        <Card key={field}>
+                          <CardHeader>
+                            <CardTitle className="text-base">
+                              {field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                            </CardTitle>
+                            <div className="flex gap-4 text-sm text-muted-foreground">
+                              <span>Avg: {avgValue.toFixed(1)}</span>
+                              <span>Min: {minValue.toFixed(1)}</span>
+                              <span>Max: {maxValue.toFixed(1)}</span>
+                              <span>N: {values.length}</span>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="h-64">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={histogramData}>
+                                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                  <XAxis 
+                                    dataKey="range" 
+                                    className="text-xs"
+                                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                                  />
+                                  <YAxis 
+                                    className="text-xs"
+                                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                                  />
+                                  <Tooltip {...tooltipStyle} />
+                                  <Bar 
+                                    dataKey="count" 
+                                    fill={HISTOGRAM_COLOR}
+                                    radius={[4, 4, 0, 0]}
+                                  />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Categorical field pie charts */}
+              {categoricalFields.length > 0 && (
+                <div>
+                  <h3 className="text-md font-medium mb-4">Categorical Distributions</h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {categoricalFields.map((field) => {
+                      const values = selectedResults
+                        .map(r => flattenResult(r)[field])
+                        .filter((v): v is string | boolean => 
+                          typeof v === 'string' || typeof v === 'boolean'
+                        )
+                      const pieData = createPieData(values)
+                      const total = pieData.reduce((sum, d) => sum + d.value, 0)
+                      
+                      return (
+                        <Card key={field}>
+                          <CardHeader>
+                            <CardTitle className="text-base">
+                              {field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                            </CardTitle>
+                            <div className="flex gap-4 text-sm text-muted-foreground">
+                              <span>Categories: {pieData.length}</span>
+                              <span>N: {total}</span>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="h-64">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={pieData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={50}
+                                    outerRadius={80}
+                                    paddingAngle={2}
+                                    dataKey="value"
+                                    label={({ name, percent }) => 
+                                      `${name} (${(percent * 100).toFixed(0)}%)`
+                                    }
+                                    labelLine={false}
+                                  >
+                                    {pieData.map((_, index) => (
+                                      <Cell 
+                                        key={`cell-${index}`} 
+                                        fill={CHART_COLORS[index % CHART_COLORS.length]} 
+                                      />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip {...tooltipStyle} />
+                                  <Legend 
+                                    wrapperStyle={{ color: 'hsl(var(--foreground))' }}
+                                  />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

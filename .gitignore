@@ -1,3 +1,5 @@
+analysis_output/
+
 # Local experiments
 tmp/
 wandb/
@@ -11,6 +13,10 @@ coverage_html/
 notebooks/*tutorial*
 # Evaluation results
 results/
+!src/oumi/analyze/results/
+!src/oumi/analyze/results/**
+!src/oumi/analyze/web/src/components/results/
+!src/oumi/analyze/web/src/components/results/**
 
 # Pyright Config
 pyrightconfig.json
@@ -33,6 +39,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!**/analyze/web/src/lib/
+!**/analyze/web/src/lib/**
 lib64/
 parts/
 sdist/
