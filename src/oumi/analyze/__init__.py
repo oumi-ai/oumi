@@ -31,7 +31,24 @@ Example usage:
     results = pipeline.run(conversations)
 """
 
-from oumi.analyze.analyzers import LengthAnalyzer, TurnStatsAnalyzer
+from oumi.analyze.analyzers import (
+    CoherenceAnalyzer,
+    DataQualityAnalyzer,
+    DeduplicationAnalyzer,
+    FactualityAnalyzer,
+    InstructionFollowingAnalyzer,
+    LengthAnalyzer,
+    LLMAnalyzer,
+    SafetyAnalyzer,
+    TurnStatsAnalyzer,
+    UsefulnessAnalyzer,
+)
+from oumi.analyze.analyzers.llm_criteria import (
+    JudgmentType,
+    TargetScope,
+    get_available_criteria,
+    get_criteria_info,
+)
 from oumi.analyze.base import (
     ConversationAnalyzer,
     DatasetAnalyzer,
@@ -82,7 +99,10 @@ from oumi.analyze.custom_metrics import (
 )
 
 # Import result models
+from oumi.analyze.results.deduplication import DeduplicationMetrics
 from oumi.analyze.results.length import LengthMetrics
+from oumi.analyze.results.llm_judgment import LLMJudgmentMetrics
+from oumi.analyze.results.quality import DataQualityMetrics
 from oumi.analyze.results.turn_stats import TurnStatsMetrics
 
 # Import testing
@@ -102,9 +122,26 @@ __all__ = [
     # Analyzers
     "LengthAnalyzer",
     "TurnStatsAnalyzer",
+    "DataQualityAnalyzer",
+    "DeduplicationAnalyzer",
+    "LLMAnalyzer",
+    "UsefulnessAnalyzer",
+    "SafetyAnalyzer",
+    "FactualityAnalyzer",
+    "CoherenceAnalyzer",
+    "InstructionFollowingAnalyzer",
+    # Enums
+    "TargetScope",
+    "JudgmentType",
+    # LLM criteria utilities
+    "get_available_criteria",
+    "get_criteria_info",
     # Result models
     "LengthMetrics",
     "TurnStatsMetrics",
+    "DataQualityMetrics",
+    "DeduplicationMetrics",
+    "LLMJudgmentMetrics",
     # Utilities
     "to_analysis_dataframe",
     "load_conversations_from_path",

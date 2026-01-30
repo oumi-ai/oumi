@@ -56,6 +56,7 @@ def get_analyzer_class(name: str) -> type | None:
 
 def _register_builtin_analyzers():
     """Register built-in analyzers in the registry."""
+    # Non-LLM analyzers (fast, cheap)
     try:
         from oumi.analyze.analyzers.length import LengthAnalyzer
 
@@ -69,6 +70,49 @@ def _register_builtin_analyzers():
 
         ANALYZER_REGISTRY["turn_stats"] = TurnStatsAnalyzer
         ANALYZER_REGISTRY["TurnStatsAnalyzer"] = TurnStatsAnalyzer
+    except ImportError:
+        pass
+
+    try:
+        from oumi.analyze.analyzers.quality import DataQualityAnalyzer
+
+        ANALYZER_REGISTRY["quality"] = DataQualityAnalyzer
+        ANALYZER_REGISTRY["DataQualityAnalyzer"] = DataQualityAnalyzer
+    except ImportError:
+        pass
+
+    # Dataset-level analyzers
+    try:
+        from oumi.analyze.analyzers.deduplication import DeduplicationAnalyzer
+
+        ANALYZER_REGISTRY["deduplication"] = DeduplicationAnalyzer
+        ANALYZER_REGISTRY["DeduplicationAnalyzer"] = DeduplicationAnalyzer
+    except ImportError:
+        pass
+
+    # LLM-based analyzers
+    try:
+        from oumi.analyze.analyzers.llm_analyzer import (
+            CoherenceAnalyzer,
+            FactualityAnalyzer,
+            InstructionFollowingAnalyzer,
+            LLMAnalyzer,
+            SafetyAnalyzer,
+            UsefulnessAnalyzer,
+        )
+
+        ANALYZER_REGISTRY["llm"] = LLMAnalyzer
+        ANALYZER_REGISTRY["LLMAnalyzer"] = LLMAnalyzer
+        ANALYZER_REGISTRY["usefulness"] = UsefulnessAnalyzer
+        ANALYZER_REGISTRY["UsefulnessAnalyzer"] = UsefulnessAnalyzer
+        ANALYZER_REGISTRY["safety"] = SafetyAnalyzer
+        ANALYZER_REGISTRY["SafetyAnalyzer"] = SafetyAnalyzer
+        ANALYZER_REGISTRY["factuality"] = FactualityAnalyzer
+        ANALYZER_REGISTRY["FactualityAnalyzer"] = FactualityAnalyzer
+        ANALYZER_REGISTRY["coherence"] = CoherenceAnalyzer
+        ANALYZER_REGISTRY["CoherenceAnalyzer"] = CoherenceAnalyzer
+        ANALYZER_REGISTRY["instruction_following"] = InstructionFollowingAnalyzer
+        ANALYZER_REGISTRY["InstructionFollowingAnalyzer"] = InstructionFollowingAnalyzer
     except ImportError:
         pass
 

@@ -17,10 +17,28 @@
 This module contains concrete analyzer implementations.
 """
 
+from oumi.analyze.analyzers.deduplication import DeduplicationAnalyzer
 from oumi.analyze.analyzers.length import LengthAnalyzer
+from oumi.analyze.analyzers.llm_analyzer import (
+    CoherenceAnalyzer,
+    FactualityAnalyzer,
+    InstructionFollowingAnalyzer,
+    LLMAnalyzer,
+    SafetyAnalyzer,
+    UsefulnessAnalyzer,
+)
+from oumi.analyze.analyzers.quality import DataQualityAnalyzer
 from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer
 
 __all__ = [
     "LengthAnalyzer",
     "TurnStatsAnalyzer",
+    "DataQualityAnalyzer",
+    "DeduplicationAnalyzer",
+    "LLMAnalyzer",
+    "UsefulnessAnalyzer",
+    "SafetyAnalyzer",
+    "FactualityAnalyzer",
+    "CoherenceAnalyzer",
+    "InstructionFollowingAnalyzer",
 ]
