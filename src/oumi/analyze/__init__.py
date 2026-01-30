@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Typed analyzer framework for dataset analysis.
+"""Analyzer framework for dataset analysis.
 
 This module provides a typed, Pydantic-based approach to analyzing datasets,
-replacing the DataFrame-centric approach with typed Conversation objects
-and strongly-typed result models.
+with typed Conversation objects and strongly-typed result models.
 
 Example usage:
 
