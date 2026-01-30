@@ -318,11 +318,19 @@ class TestEngine:
     ) -> TestResult:
         """Run a threshold test.
 
-        Checks that values meet the threshold condition. Samples that DON'T
-        meet the condition are considered failures.
+        The semantics depend on max_percentage vs min_percentage:
 
-        For example, if test says "response_ratio > 0.5", samples with
-        response_ratio <= 0.5 are failures (they don't meet the threshold).
+        - max_percentage: "At most X% can match the condition"
+          Samples MATCHING the condition are problematic.
+          Example: "At most 10% can have total_tokens > 4096"
+          → Samples with > 4096 tokens are the issues.
+
+        - min_percentage: "At least X% must match the condition"
+          Samples NOT matching the condition are problematic.
+          Example: "At least 80% must have quality_score > 0.5"
+          → Samples with <= 0.5 score are the issues.
+
+        - Neither set: ALL samples must match the condition.
 
         Args:
             test: Test configuration.
@@ -352,44 +360,74 @@ class TestEngine:
                 error=f"Unknown operator: {test.operator}",
             )
 
-        # Find values that FAIL to meet the threshold (don't satisfy the condition)
-        affected_indices = []
-        failure_reasons: dict[int, str] = {}
-        passing_count = 0
+        # Evaluate the condition for each value
+        matching_indices = []  # Samples that MATCH the condition
+        non_matching_indices = []  # Samples that DON'T match the condition
+        matching_reasons: dict[int, str] = {}
+        non_matching_reasons: dict[int, str] = {}
+
         for i, value in enumerate(values):
             try:
                 if op_func(value, test.value):
-                    # Value meets the threshold - this is a PASS
-                    passing_count += 1
+                    # Value matches the condition (e.g., total_tokens > 4096)
+                    matching_indices.append(i)
+                    matching_reasons[i] = (
+                        f"{value} {test.operator} {test.value}"
+                    )
                 else:
-                    # Value does NOT meet threshold - this is a FAILURE
-                    affected_indices.append(i)
-                    failure_reasons[i] = (
+                    # Value does NOT match the condition
+                    non_matching_indices.append(i)
+                    non_matching_reasons[i] = (
                         f"{value} does not satisfy {test.operator} {test.value}"
                     )
             except (TypeError, ValueError):
-                # Can't evaluate - treat as failure
-                affected_indices.append(i)
-                failure_reasons[i] = f"Cannot evaluate: {value}"
+                # Can't evaluate - treat as non-matching
+                non_matching_indices.append(i)
+                non_matching_reasons[i] = f"Cannot evaluate: {value}"
 
-        affected_count = len(affected_indices)
         total_count = len(values)
-        affected_pct = 100.0 * affected_count / total_count if total_count > 0 else 0.0
-        passing_pct = 100.0 * passing_count / total_count if total_count > 0 else 0.0
+        matching_count = len(matching_indices)
+        non_matching_count = len(non_matching_indices)
+        matching_pct = 100.0 * matching_count / total_count if total_count > 0 else 0.0
+        non_matching_pct = 100.0 * non_matching_count / total_count if total_count > 0 else 0.0
 
-        # Determine if test passes based on thresholds
+        # Determine pass/fail and which samples are "affected" (problematic)
+        # The semantics depend on whether max_percentage or min_percentage is used:
+        #
+        # max_percentage: "At most X% can match the condition"
+        #   - Matching samples are problematic (they exceed the threshold)
+        #   - Example: "At most 10% can have tokens > 4096"
+        #
+        # min_percentage: "At least X% must match the condition"
+        #   - Non-matching samples are problematic (they don't meet the requirement)
+        #   - Example: "At least 80% must have quality_score > 0.5"
+        #
+        # Neither set: ALL samples must match (any non-matching are problematic)
+
         passed = True
         if test.max_percentage is not None:
-            # max_percentage means: at most this % can FAIL
-            if affected_pct > test.max_percentage:
+            # max_percentage: matching samples are the problematic ones
+            if matching_pct > test.max_percentage:
                 passed = False
-        if test.min_percentage is not None:
-            # min_percentage means: at least this % must PASS
-            if passing_pct < test.min_percentage:
+            affected_indices = matching_indices
+            affected_count = matching_count
+            affected_pct = matching_pct
+            failure_reasons = matching_reasons
+        elif test.min_percentage is not None:
+            # min_percentage: non-matching samples are the problematic ones
+            if matching_pct < test.min_percentage:
                 passed = False
-        # If neither is set, ALL samples must pass (no failures allowed)
-        if test.max_percentage is None and test.min_percentage is None:
-            passed = affected_count == 0
+            affected_indices = non_matching_indices
+            affected_count = non_matching_count
+            affected_pct = non_matching_pct
+            failure_reasons = non_matching_reasons
+        else:
+            # Neither set: ALL must match, non-matching are problematic
+            passed = non_matching_count == 0
+            affected_indices = non_matching_indices
+            affected_count = non_matching_count
+            affected_pct = non_matching_pct
+            failure_reasons = non_matching_reasons
 
         return TestResult(
             test_id=test.id,
@@ -408,8 +446,8 @@ class TestEngine:
                 "value": test.value,
                 "max_percentage": test.max_percentage,
                 "min_percentage": test.min_percentage,
-                "passing_count": passing_count,
-                "passing_percentage": round(passing_pct, 2),
+                "matching_count": matching_count,
+                "matching_percentage": round(matching_pct, 2),
                 "failure_reasons": {k: v for k, v in list(failure_reasons.items())[:50]},
             },
         )
