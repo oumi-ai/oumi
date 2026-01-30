@@ -39,10 +39,11 @@ training:
   learning_rate: 2.0e-05
   warmup_ratio: 0.02
 
-  compile: True
+  compile: False # disable torch.compile to avoid Dynamo pin_memory issue
 
-  dataloader_num_workers: "auto"
-  dataloader_prefetch_factor: 16
+  # Reduce memory usage by disabling multi-worker data loading
+  dataloader_num_workers: 0
+  dataloader_prefetch_factor: 2
 
   logging_steps: 100
   log_model_summary: False
@@ -55,7 +56,8 @@ training:
 
 fsdp:
   enable_fsdp: True
-  cpu_offload: True
+  # keep all data on GPU to avoid OOM errors on the host
+  cpu_offload: False
   forward_prefetch: True
 
   sharding_strategy: "FULL_SHARD"
