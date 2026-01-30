@@ -46,20 +46,17 @@ class DataQualityMetrics(BaseModel):
     )
     num_consecutive_same_role: int = Field(
         default=0,
-        description="Number of consecutive messages from the same role (excluding system)"
+        description="Number of consecutive messages from the same role (excluding system)",
     )
 
     # Empty content checks
-    has_empty_turns: bool = Field(
-        description="Whether any message has empty content"
-    )
+    has_empty_turns: bool = Field(description="Whether any message has empty content")
     empty_turn_count: int = Field(
         default=0,
-        description="Number of messages with empty or whitespace-only content"
+        description="Number of messages with empty or whitespace-only content",
     )
     empty_turn_indices: list[int] = Field(
-        default_factory=list,
-        description="Indices of empty messages"
+        default_factory=list, description="Indices of empty messages"
     )
 
     # Invalid value checks
@@ -67,8 +64,7 @@ class DataQualityMetrics(BaseModel):
         description="Whether content contains invalid serialized values like 'NaN', 'null', 'None'"
     )
     invalid_value_patterns: list[str] = Field(
-        default_factory=list,
-        description="List of invalid patterns found"
+        default_factory=list, description="List of invalid patterns found"
     )
 
     # Context length checks
@@ -88,11 +84,10 @@ class DataQualityMetrics(BaseModel):
     )
     ends_mid_sentence: bool = Field(
         default=False,
-        description="Whether the conversation ends without proper punctuation"
+        description="Whether the conversation ends without proper punctuation",
     )
     truncation_reason: str | None = Field(
-        default=None,
-        description="Reason for truncation detection (if applicable)"
+        default=None, description="Reason for truncation detection (if applicable)"
     )
 
     # Policy refusal checks
@@ -100,12 +95,10 @@ class DataQualityMetrics(BaseModel):
         description="Whether any assistant message appears to be a policy refusal"
     )
     refusal_count: int = Field(
-        default=0,
-        description="Number of messages containing refusal patterns"
+        default=0, description="Number of messages containing refusal patterns"
     )
     refusal_phrases: list[str] = Field(
-        default_factory=list,
-        description="List of refusal phrases detected"
+        default_factory=list, description="List of refusal phrases detected"
     )
 
     # Think token / tag checks
@@ -116,8 +109,7 @@ class DataQualityMetrics(BaseModel):
         description="Whether there are unmatched opening/closing tags"
     )
     unmatched_tags: list[str] = Field(
-        default_factory=list,
-        description="List of unmatched tags found"
+        default_factory=list, description="List of unmatched tags found"
     )
 
     # Overall quality flag
@@ -125,6 +117,5 @@ class DataQualityMetrics(BaseModel):
         description="Whether the conversation passes all basic quality checks"
     )
     quality_issues: list[str] = Field(
-        default_factory=list,
-        description="List of quality issues found"
+        default_factory=list, description="List of quality issues found"
     )

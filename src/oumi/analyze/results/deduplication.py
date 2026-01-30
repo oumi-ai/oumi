@@ -31,8 +31,7 @@ class DuplicateGroup(BaseModel):
         description="Average similarity score within the group (1.0 = exact match)"
     )
     sample_text: str | None = Field(
-        default=None,
-        description="Sample text from the first conversation in the group"
+        default=None, description="Sample text from the first conversation in the group"
     )
 
 
@@ -70,24 +69,22 @@ class DeduplicationResult(BaseModel):
 
     # Group information
     num_duplicate_groups: int = Field(
-        default=0,
-        description="Number of groups containing duplicates"
+        default=0, description="Number of groups containing duplicates"
     )
     largest_group_size: int = Field(
-        default=0,
-        description="Size of the largest duplicate group"
+        default=0, description="Size of the largest duplicate group"
     )
     duplicate_groups: list[DuplicateGroup] = Field(
         default_factory=list,
-        description="Detailed information about each duplicate group"
+        description="Detailed information about each duplicate group",
     )
 
     # Indices for filtering
     duplicate_indices: list[int] = Field(
         default_factory=list,
-        description="Flat list of all duplicate indices (recommended to remove)"
+        description="Flat list of all duplicate indices (recommended to remove)",
     )
     keep_indices: list[int] = Field(
         default_factory=list,
-        description="Indices of conversations to keep (one per group)"
+        description="Indices of conversations to keep (one per group)",
     )

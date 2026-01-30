@@ -254,7 +254,7 @@ class TypedAnalyzeConfig:
 
     # Eval name (optional, for web viewer)
     eval_name: str | None = None
-    
+
     # Parent eval ID (for linking derived analyses)
     parent_eval_id: str | None = None
 

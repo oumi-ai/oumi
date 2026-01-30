@@ -22,7 +22,6 @@ from typing import Any
 import streamlit as st
 import yaml
 
-
 # Available analyzers with their descriptions and metrics
 # These match the actual implementations in oumi.analyze.analyzers
 AVAILABLE_ANALYZERS = {
@@ -48,15 +47,35 @@ AVAILABLE_ANALYZERS = {
             },
         },
         "metrics": [
-            {"name": "total_chars", "type": "number", "description": "Total characters"},
+            {
+                "name": "total_chars",
+                "type": "number",
+                "description": "Total characters",
+            },
             {"name": "total_words", "type": "number", "description": "Total words"},
-            {"name": "total_tokens", "type": "number", "description": "Total tokens (if enabled)"},
+            {
+                "name": "total_tokens",
+                "type": "number",
+                "description": "Total tokens (if enabled)",
+            },
             {"name": "avg_chars_per_message", "type": "number"},
             {"name": "avg_words_per_message", "type": "number"},
             {"name": "avg_tokens_per_message", "type": "number"},
-            {"name": "num_messages", "type": "number", "description": "Number of messages"},
-            {"name": "user_total_words", "type": "number", "description": "User word count"},
-            {"name": "assistant_total_words", "type": "number", "description": "Assistant word count"},
+            {
+                "name": "num_messages",
+                "type": "number",
+                "description": "Number of messages",
+            },
+            {
+                "name": "user_total_words",
+                "type": "number",
+                "description": "User word count",
+            },
+            {
+                "name": "assistant_total_words",
+                "type": "number",
+                "description": "Assistant word count",
+            },
         ],
     },
     "quality": {
@@ -97,22 +116,82 @@ AVAILABLE_ANALYZERS = {
         },
         "metrics": [
             # Boolean indicators
-            {"name": "has_alternating_turns", "type": "boolean", "description": "Proper turn order"},
-            {"name": "has_empty_turns", "type": "boolean", "description": "Contains empty messages"},
-            {"name": "has_invalid_values", "type": "boolean", "description": "Contains NaN/null"},
-            {"name": "fits_4k_context", "type": "boolean", "description": "Fits 4K context window"},
-            {"name": "fits_8k_context", "type": "boolean", "description": "Fits 8K context window"},
-            {"name": "appears_truncated", "type": "boolean", "description": "Response appears cut off"},
-            {"name": "ends_mid_sentence", "type": "boolean", "description": "Ends without punctuation"},
-            {"name": "has_policy_refusal", "type": "boolean", "description": "Contains refusal"},
-            {"name": "has_think_tags", "type": "boolean", "description": "Contains thinking tags"},
-            {"name": "has_unbalanced_tags", "type": "boolean", "description": "Unmatched tag pairs"},
-            {"name": "passes_basic_quality", "type": "boolean", "description": "Passes all checks"},
+            {
+                "name": "has_alternating_turns",
+                "type": "boolean",
+                "description": "Proper turn order",
+            },
+            {
+                "name": "has_empty_turns",
+                "type": "boolean",
+                "description": "Contains empty messages",
+            },
+            {
+                "name": "has_invalid_values",
+                "type": "boolean",
+                "description": "Contains NaN/null",
+            },
+            {
+                "name": "fits_4k_context",
+                "type": "boolean",
+                "description": "Fits 4K context window",
+            },
+            {
+                "name": "fits_8k_context",
+                "type": "boolean",
+                "description": "Fits 8K context window",
+            },
+            {
+                "name": "appears_truncated",
+                "type": "boolean",
+                "description": "Response appears cut off",
+            },
+            {
+                "name": "ends_mid_sentence",
+                "type": "boolean",
+                "description": "Ends without punctuation",
+            },
+            {
+                "name": "has_policy_refusal",
+                "type": "boolean",
+                "description": "Contains refusal",
+            },
+            {
+                "name": "has_think_tags",
+                "type": "boolean",
+                "description": "Contains thinking tags",
+            },
+            {
+                "name": "has_unbalanced_tags",
+                "type": "boolean",
+                "description": "Unmatched tag pairs",
+            },
+            {
+                "name": "passes_basic_quality",
+                "type": "boolean",
+                "description": "Passes all checks",
+            },
             # Numeric counts
-            {"name": "num_consecutive_same_role", "type": "number", "description": "Consecutive same-role count"},
-            {"name": "empty_turn_count", "type": "number", "description": "Number of empty turns"},
-            {"name": "estimated_tokens", "type": "number", "description": "Estimated token count"},
-            {"name": "refusal_count", "type": "number", "description": "Number of refusal messages"},
+            {
+                "name": "num_consecutive_same_role",
+                "type": "number",
+                "description": "Consecutive same-role count",
+            },
+            {
+                "name": "empty_turn_count",
+                "type": "number",
+                "description": "Number of empty turns",
+            },
+            {
+                "name": "estimated_tokens",
+                "type": "number",
+                "description": "Estimated token count",
+            },
+            {
+                "name": "refusal_count",
+                "type": "number",
+                "description": "Number of refusal messages",
+            },
         ],
     },
     "llm": {
@@ -150,7 +229,11 @@ AVAILABLE_ANALYZERS = {
         "metrics": [
             {"name": "score", "type": "number", "range": "0-100"},
             {"name": "passed", "type": "boolean", "description": "True if score >= 50"},
-            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {
+                "name": "label",
+                "type": "enum",
+                "values": ["excellent", "good", "fair", "poor"],
+            },
             {"name": "reasoning", "type": "text", "description": "LLM's explanation"},
         ],
     },
@@ -179,7 +262,11 @@ AVAILABLE_ANALYZERS = {
         "metrics": [
             {"name": "score", "type": "number", "range": "0-100"},
             {"name": "passed", "type": "boolean"},
-            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {
+                "name": "label",
+                "type": "enum",
+                "values": ["excellent", "good", "fair", "poor"],
+            },
             {"name": "reasoning", "type": "text"},
         ],
     },
@@ -206,9 +293,18 @@ AVAILABLE_ANALYZERS = {
             },
         },
         "metrics": [
-            {"name": "score", "type": "number", "range": "0-100", "description": "Higher = safer"},
+            {
+                "name": "score",
+                "type": "number",
+                "range": "0-100",
+                "description": "Higher = safer",
+            },
             {"name": "passed", "type": "boolean"},
-            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {
+                "name": "label",
+                "type": "enum",
+                "values": ["excellent", "good", "fair", "poor"],
+            },
             {"name": "reasoning", "type": "text"},
         ],
     },
@@ -237,7 +333,11 @@ AVAILABLE_ANALYZERS = {
         "metrics": [
             {"name": "score", "type": "number", "range": "0-100"},
             {"name": "passed", "type": "boolean"},
-            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {
+                "name": "label",
+                "type": "enum",
+                "values": ["excellent", "good", "fair", "poor"],
+            },
             {"name": "reasoning", "type": "text"},
         ],
     },
@@ -266,7 +366,11 @@ AVAILABLE_ANALYZERS = {
         "metrics": [
             {"name": "score", "type": "number", "range": "0-100"},
             {"name": "passed", "type": "boolean"},
-            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {
+                "name": "label",
+                "type": "enum",
+                "values": ["excellent", "good", "fair", "poor"],
+            },
             {"name": "reasoning", "type": "text"},
         ],
     },
@@ -295,7 +399,11 @@ AVAILABLE_ANALYZERS = {
         "metrics": [
             {"name": "score", "type": "number", "range": "0-100"},
             {"name": "passed", "type": "boolean"},
-            {"name": "label", "type": "enum", "values": ["excellent", "good", "fair", "poor"]},
+            {
+                "name": "label",
+                "type": "enum",
+                "values": ["excellent", "good", "fair", "poor"],
+            },
             {"name": "reasoning", "type": "text"},
         ],
     },
@@ -325,12 +433,15 @@ def render_setup_wizard() -> None:
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         dataset_name = (
-            config.get("dataset_name") or
-            (config.get("dataset_path", "") or "").split("/")[-1] or
-            "Not set"
+            config.get("dataset_name")
+            or (config.get("dataset_path", "") or "").split("/")[-1]
+            or "Not set"
         )
         status = "✅" if has_dataset else "⚪"
-        st.metric(f"{status} Dataset", dataset_name[:20] + "..." if len(dataset_name) > 20 else dataset_name)
+        st.metric(
+            f"{status} Dataset",
+            dataset_name[:20] + "..." if len(dataset_name) > 20 else dataset_name,
+        )
     with col2:
         status = "✅" if has_analyzers else "⚪"
         st.metric(f"{status} Analyzers", len(config.get("analyzers", [])))
@@ -353,7 +464,9 @@ def render_setup_wizard() -> None:
     with st.expander("✅ **3. Tests**", expanded=has_analyzers and not has_tests):
         _render_tests_section()
 
-    with st.expander("🚀 **4. Generate & Run**", expanded=has_dataset and has_analyzers):
+    with st.expander(
+        "🚀 **4. Generate & Run**", expanded=has_dataset and has_analyzers
+    ):
         _render_generate_section()
 
 
@@ -483,7 +596,9 @@ def _render_analyzers_section() -> None:
                 checkbox_key = f"analyzer_{analyzer_id}"
                 is_checked = st.checkbox(
                     f"**{analyzer['name']}**",
-                    value=st.session_state.get(checkbox_key, analyzer_id in selected_ids),
+                    value=st.session_state.get(
+                        checkbox_key, analyzer_id in selected_ids
+                    ),
                     key=checkbox_key,
                     help=analyzer["description"],
                 )
@@ -517,7 +632,9 @@ def _render_analyzers_section() -> None:
             analyzer_id = analyzer_config["id"]
             analyzer_info = AVAILABLE_ANALYZERS.get(analyzer_id, {})
 
-            with st.expander(f"⚙️ {analyzer_info.get('name', analyzer_id)}", expanded=False):
+            with st.expander(
+                f"⚙️ {analyzer_info.get('name', analyzer_id)}", expanded=False
+            ):
                 # Instance ID (for multiple instances of same analyzer)
                 instance_id = st.text_input(
                     "Instance ID",
@@ -536,7 +653,9 @@ def _render_analyzers_section() -> None:
                         if "conditional" in param_config:
                             cond_field = list(param_config["conditional"].keys())[0]
                             cond_value = param_config["conditional"][cond_field]
-                            current_value = selected[i].get("params", {}).get(cond_field)
+                            current_value = (
+                                selected[i].get("params", {}).get(cond_field)
+                            )
                             if current_value != cond_value:
                                 continue
 
@@ -592,7 +711,9 @@ def _render_analyzers_section() -> None:
                 if metrics:
                     st.markdown("**Available Metrics:**")
                     for metric in metrics:
-                        metric_desc = f"`{instance_id}.{metric['name']}` ({metric['type']})"
+                        metric_desc = (
+                            f"`{instance_id}.{metric['name']}` ({metric['type']})"
+                        )
                         if "range" in metric:
                             metric_desc += f" - Range: {metric['range']}"
                         if "values" in metric:
@@ -607,7 +728,7 @@ def _render_analyzers_section() -> None:
     with st.expander("💡 Custom Metrics", expanded=False):
         st.markdown("""
         You can also create **custom metrics** that combine or transform analyzer outputs.
-        
+
         Example custom metric in YAML:
         ```yaml
         custom_metrics:
@@ -620,7 +741,7 @@ def _render_analyzers_section() -> None:
               - llm_quality
               - length
         ```
-        
+
         Custom metrics can be added manually to the generated YAML config.
         """)
 
@@ -663,9 +784,13 @@ def _render_tests_section() -> None:
 
     # Show description based on test type
     if test_type == "percentage":
-        st.caption("📊 *Check what % of samples meet a condition (best for boolean metrics like has_empty_turns)*")
+        st.caption(
+            "📊 *Check what % of samples meet a condition (best for boolean metrics like has_empty_turns)*"
+        )
     elif test_type == "threshold":
-        st.caption("📏 *Check samples against a value (works with numbers OR booleans)*")
+        st.caption(
+            "📏 *Check samples against a value (works with numbers OR booleans)*"
+        )
     elif test_type == "range":
         st.caption("📐 *Check if numeric values fall within a range*")
 
@@ -845,7 +970,9 @@ def _render_tests_section() -> None:
             col1, col2, col3 = st.columns([3, 1, 1])
             with col1:
                 st.markdown(f"**{test.get('title', test['id'])}**")
-                st.caption(f"`{test['metric']}` | Type: {test['type']} | Severity: {test['severity']}")
+                st.caption(
+                    f"`{test['metric']}` | Type: {test['type']} | Severity: {test['severity']}"
+                )
             with col2:
                 if test["type"] == "percentage":
                     st.caption(f"Min: {test.get('min_percentage', 0)}%")
@@ -865,21 +992,21 @@ def _render_tests_section() -> None:
         - Best for: Boolean metrics (has_empty_turns, passes_basic_quality)
         - Example: "At least 95% should NOT have empty turns"
         - Config: `metric: quality.has_empty_turns`, `condition: == False`, `min_percentage: 95`
-        
+
         **Threshold Test**: Check samples against a value (number OR boolean)
         - Works with: Numeric metrics (total_tokens, score) OR boolean metrics
         - Example 1 (numeric): "No more than 5% should exceed 8000 tokens"
         - Config: `metric: length.total_tokens`, `operator: >`, `value: 8000`, `max_percentage: 5`
-        
+
         - Example 2 (boolean): "No more than 5% should have refusals"
         - Config: `metric: quality.has_policy_refusal`, `operator: ==`, `value: True`, `max_percentage: 5`
-        
+
         **Range Test**: Check if numeric values fall within a range
         - Example: "Response length should be between 50-500 words"
         - Config: `metric: length.total_words`, `min_value: 50`, `max_value: 500`
-        
+
         ---
-        
+
         **Percentage Options:**
         - `min_percentage`: At least X% must match (fail if fewer match)
         - `max_percentage`: At most X% can match (fail if more match)
@@ -888,7 +1015,6 @@ def _render_tests_section() -> None:
 
 def _render_generate_section() -> None:
     """Render the config generation and run section."""
-
     # Check if any analyzers are configured
     wizard_config = st.session_state.wizard_config
     if not wizard_config.get("analyzers"):
@@ -921,6 +1047,7 @@ def _render_generate_section() -> None:
     # Use ace editor if available for syntax highlighting
     try:
         from streamlit_ace import st_ace
+
         edited_yaml = st_ace(
             value=yaml_str,
             language="yaml",
@@ -1035,7 +1162,9 @@ def _generate_yaml_config() -> dict[str, Any]:
             analyzer_config["instance_id"] = analyzer["instance_id"]
         if analyzer.get("params"):
             # Filter out None and empty string params (but keep False and 0)
-            params = {k: v for k, v in analyzer["params"].items() if v is not None and v != ""}
+            params = {
+                k: v for k, v in analyzer["params"].items() if v is not None and v != ""
+            }
             if params:
                 analyzer_config["params"] = params
         yaml_config["analyzers"].append(analyzer_config)
@@ -1061,9 +1190,7 @@ def _run_analysis(yaml_str: str) -> None:
         config = yaml.safe_load(yaml_str)
 
         # Save to temp file
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(config, f)
             config_path = f.name
 

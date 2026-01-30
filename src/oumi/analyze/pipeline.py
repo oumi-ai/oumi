@@ -141,6 +141,7 @@ class AnalysisPipeline:
         # Run primary conversation-level analyzers first
         try:
             from tqdm import tqdm
+
             primary_iter = tqdm(
                 primary_analyzers,
                 desc="Running analyzers",
@@ -151,7 +152,7 @@ class AnalysisPipeline:
 
         for analyzer in primary_iter:
             name = self._get_analyzer_name(analyzer)
-            if hasattr(primary_iter, 'set_postfix'):
+            if hasattr(primary_iter, "set_postfix"):
                 primary_iter.set_postfix(current=name)
             logger.debug(f"Running conversation analyzer: {name}")
             try:

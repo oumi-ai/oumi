@@ -273,7 +273,13 @@ def _item_to_conversation(item: Any, index: int) -> Conversation | None:
         context = None
 
         # Try different field names for prompt/instruction
-        for key in ["prompt", "instruction", "original-instruction", "question", "input"]:
+        for key in [
+            "prompt",
+            "instruction",
+            "original-instruction",
+            "question",
+            "input",
+        ]:
             if key in item and item[key]:
                 prompt = item[key]
                 break
@@ -606,7 +612,9 @@ def print_summary(results: dict[str, Any]) -> None:
                     )
                 else:
                     try:
-                        console.print(f"  {col}: {values.value_counts().head(3).to_dict()}")
+                        console.print(
+                            f"  {col}: {values.value_counts().head(3).to_dict()}"
+                        )
                     except TypeError:
                         # Skip unhashable types
                         continue

@@ -514,9 +514,7 @@ class CustomDatasetMetric(DatasetAnalyzer[CustomMetricResult]):
                 )
             return CustomMetricResult(values=result)
         except Exception as e:
-            logger.warning(
-                f"Custom dataset metric '{self.metric_id}' failed: {e}"
-            )
+            logger.warning(f"Custom dataset metric '{self.metric_id}' failed: {e}")
             return CustomMetricResult(values={"error": str(e)})
 
     @classmethod

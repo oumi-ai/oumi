@@ -33,7 +33,7 @@ dataset_name: HuggingFaceH4/ultrachat_200k
 # Option 2: Use a local file (uncomment and set path)
 # dataset_path: "/path/to/your/dataset.jsonl"
 split: train_sft
-sample_count: 5  # Small sample since we have many LLM calls (keep low to save API costs)
+sample_count: 5 # Small sample since we have many LLM calls (keep low to save API costs)
 
 # Output configuration
 output_path: ./analysis_output/llm_analyzer_demo
@@ -56,7 +56,7 @@ analyzers:
   - id: safety
     params:
       model_name: gpt-4o-mini
-      target_scope: last_turn  # Only evaluate last user-assistant exchange
+      target_scope: last_turn # Only evaluate last user-assistant exchange
 
   # ==========================================================================
   # 3. Target scope: first_user (evaluate prompt difficulty)
@@ -93,7 +93,7 @@ analyzers:
     params:
       criteria_name: "response_completeness"
       criteria: completeness
-      target_scope: last_assistant  # Only the response, not the question
+      target_scope: last_assistant # Only the response, not the question
       model_name: gpt-4o-mini
 
   # ==========================================================================
@@ -105,7 +105,7 @@ analyzers:
       criteria_name: "conversation_coherence"
       criteria: coherence
       target_scope: conversation
-      turn_indexing: true  # Add turn numbers: <user-0>, <assistant-0>, etc.
+      turn_indexing: true # Add turn numbers: <user-0>, <assistant-0>, etc.
       user_turn_tag: "human"
       assistant_turn_tag: "ai"
       model_name: gpt-4o-mini

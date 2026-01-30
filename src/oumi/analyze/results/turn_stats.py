@@ -43,9 +43,7 @@ class TurnStatsMetrics(BaseModel):
     num_turns: int = Field(
         description="Total number of turns (messages) in the conversation"
     )
-    num_user_turns: int = Field(
-        description="Number of user turns in the conversation"
-    )
+    num_user_turns: int = Field(description="Number of user turns in the conversation")
     num_assistant_turns: int = Field(
         description="Number of assistant turns in the conversation"
     )
@@ -61,12 +59,10 @@ class TurnStatsMetrics(BaseModel):
         description="Average character length of assistant messages"
     )
     total_user_chars: int = Field(
-        default=0,
-        description="Total character length of all user messages"
+        default=0, description="Total character length of all user messages"
     )
     total_assistant_chars: int = Field(
-        default=0,
-        description="Total character length of all assistant messages"
+        default=0, description="Total character length of all assistant messages"
     )
 
     # Ratios
@@ -74,8 +70,7 @@ class TurnStatsMetrics(BaseModel):
         description="Ratio of average assistant to user message length (assistant/user)"
     )
     assistant_turn_ratio: float = Field(
-        default=0.0,
-        description="Ratio of assistant turns to total non-system turns"
+        default=0.0, description="Ratio of assistant turns to total non-system turns"
     )
 
     # Turn order

@@ -69,7 +69,9 @@ class DeduplicationAnalyzer(DatasetAnalyzer[DeduplicationResult]):
             sample_text_length: Max length of sample text in results.
         """
         if hash_method not in ("exact", "normalized"):
-            raise ValueError(f"hash_method must be 'exact' or 'normalized', got '{hash_method}'")
+            raise ValueError(
+                f"hash_method must be 'exact' or 'normalized', got '{hash_method}'"
+            )
 
         self.hash_method = hash_method
         self.include_system = include_system

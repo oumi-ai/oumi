@@ -34,14 +34,10 @@ class LengthMetrics(BaseModel):
     """
 
     # Conversation-level totals
-    total_tokens: int = Field(
-        description="Total number of tokens across all messages"
-    )
+    total_tokens: int = Field(description="Total number of tokens across all messages")
 
     # Averages
-    avg_tokens_per_message: float = Field(
-        description="Average tokens per message"
-    )
+    avg_tokens_per_message: float = Field(description="Average tokens per message")
 
     # Per-message breakdowns
     message_token_counts: list[int] = Field(
@@ -49,20 +45,15 @@ class LengthMetrics(BaseModel):
     )
 
     # Message count
-    num_messages: int = Field(
-        description="Number of messages in the conversation"
-    )
+    num_messages: int = Field(description="Number of messages in the conversation")
 
     # Role-specific stats (optional)
     user_total_tokens: int | None = Field(
-        default=None,
-        description="Total tokens in user messages"
+        default=None, description="Total tokens in user messages"
     )
     assistant_total_tokens: int | None = Field(
-        default=None,
-        description="Total tokens in assistant messages"
+        default=None, description="Total tokens in assistant messages"
     )
     system_total_tokens: int | None = Field(
-        default=None,
-        description="Total tokens in system messages"
+        default=None, description="Total tokens in system messages"
     )

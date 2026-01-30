@@ -71,7 +71,11 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
 
         for i, message in enumerate(conversation.messages):
             text = self.get_text_content(message)
-            role_value = message.role.value if hasattr(message.role, "value") else str(message.role)
+            role_value = (
+                message.role.value
+                if hasattr(message.role, "value")
+                else str(message.role)
+            )
 
             # Track first and last roles
             if i == 0:
@@ -89,7 +93,9 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
         total_user_chars = sum(user_lengths)
         total_assistant_chars = sum(assistant_lengths)
         avg_user = total_user_chars / len(user_lengths) if user_lengths else 0.0
-        avg_assistant = total_assistant_chars / len(assistant_lengths) if assistant_lengths else 0.0
+        avg_assistant = (
+            total_assistant_chars / len(assistant_lengths) if assistant_lengths else 0.0
+        )
 
         # Calculate response ratio (how much more verbose is the assistant)
         response_ratio = avg_assistant / avg_user if avg_user > 0 else 0.0
@@ -98,7 +104,9 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
         num_user = len(user_lengths)
         num_assistant = len(assistant_lengths)
         non_system_turns = num_user + num_assistant
-        assistant_turn_ratio = num_assistant / non_system_turns if non_system_turns > 0 else 0.0
+        assistant_turn_ratio = (
+            num_assistant / non_system_turns if non_system_turns > 0 else 0.0
+        )
 
         # Total turns depends on configuration
         if self.include_system_in_counts:
