@@ -31,6 +31,7 @@ Example usage:
     results = pipeline.run(conversations)
 """
 
+from oumi.analyze.analyzers import LengthAnalyzer, TurnStatsAnalyzer
 from oumi.analyze.base import (
     ConversationAnalyzer,
     DatasetAnalyzer,
@@ -61,6 +62,10 @@ from oumi.analyze.registry import (
     register_analyzer,
 )
 
+# Import result models
+from oumi.analyze.results.length import LengthMetrics
+from oumi.analyze.results.turn_stats import TurnStatsMetrics
+
 # Import utilities
 from oumi.analyze.utils.dataframe import to_analysis_dataframe
 
@@ -72,6 +77,12 @@ __all__ = [
     "PreferenceAnalyzer",
     # Pipeline
     "AnalysisPipeline",
+    # Analyzers
+    "LengthAnalyzer",
+    "TurnStatsAnalyzer",
+    # Result models
+    "LengthMetrics",
+    "TurnStatsMetrics",
     # Utilities
     "to_analysis_dataframe",
     # Config

@@ -54,6 +54,29 @@ def get_analyzer_class(name: str) -> type | None:
     return ANALYZER_REGISTRY.get(name)
 
 
+def _register_builtin_analyzers():
+    """Register built-in analyzers in the registry."""
+    try:
+        from oumi.analyze.analyzers.length import LengthAnalyzer
+
+        ANALYZER_REGISTRY["length"] = LengthAnalyzer
+        ANALYZER_REGISTRY["LengthAnalyzer"] = LengthAnalyzer
+    except ImportError:
+        pass
+
+    try:
+        from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer
+
+        ANALYZER_REGISTRY["turn_stats"] = TurnStatsAnalyzer
+        ANALYZER_REGISTRY["TurnStatsAnalyzer"] = TurnStatsAnalyzer
+    except ImportError:
+        pass
+
+
+# Register on module import
+_register_builtin_analyzers()
+
+
 def create_analyzer_from_config(
     analyzer_id: str,
     params: dict[str, Any],
