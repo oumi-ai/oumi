@@ -13,6 +13,7 @@ import {
   AlertCircle,
   X,
   Lightbulb,
+  Pencil,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type {
@@ -56,8 +57,8 @@ interface SuggestionPanelProps {
   onApplyTest?: (suggestion: TestSuggestion) => void
   /** Callback to apply all suggestions */
   onApplyAll?: () => void
-  /** Callback to try again with a new query */
-  onTryAgain?: () => void
+  /** Callback to edit the prompt */
+  onEdit?: () => void
 }
 
 /**
@@ -85,7 +86,7 @@ export function SuggestionPanel({
   onApplyCustomMetric,
   onApplyTest,
   onApplyAll,
-  onTryAgain,
+  onEdit,
 }: SuggestionPanelProps) {
   const [isOpen, setIsOpen] = useState(true)
 
@@ -183,20 +184,23 @@ export function SuggestionPanel({
           {/* Show user's prompt even when all applied */}
           {userPrompt && (
             <div className="mt-3 pt-3 border-t border-green-500/20">
-              <div className="flex items-start gap-2">
-                <span className="text-xs text-muted-foreground whitespace-nowrap mt-0.5">Your prompt:</span>
-                <p className="text-sm text-foreground/80 italic flex-1">"{userPrompt}"</p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2 flex-1">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap mt-0.5">Your prompt:</span>
+                  <p className="text-sm text-foreground/80 italic flex-1">"{userPrompt}"</p>
+                </div>
+                {onEdit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-500/10"
+                    onClick={onEdit}
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                )}
               </div>
-              {onTryAgain && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 mt-1 text-xs text-green-600"
-                  onClick={onTryAgain}
-                >
-                  Edit prompt & regenerate
-                </Button>
-              )}
             </div>
           )}
         </CardContent>
@@ -254,20 +258,23 @@ export function SuggestionPanel({
             {/* Show user's prompt if provided */}
             {userPrompt && (
               <div className="mb-3 p-3 rounded-lg bg-muted/50 border border-border/50">
-                <div className="flex items-start gap-2">
-                  <span className="text-xs text-muted-foreground whitespace-nowrap mt-0.5">Your prompt:</span>
-                  <p className="text-sm text-foreground/80 italic flex-1">"{userPrompt}"</p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 flex-1">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap mt-0.5">Your prompt:</span>
+                    <p className="text-sm text-foreground/80 italic flex-1">"{userPrompt}"</p>
+                  </div>
+                  {onEdit && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10"
+                      onClick={onEdit}
+                    >
+                      <Pencil className="h-3 w-3 mr-1" />
+                      Edit
+                    </Button>
+                  )}
                 </div>
-                {onTryAgain && (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 mt-1 text-xs text-primary"
-                    onClick={onTryAgain}
-                  >
-                    Edit prompt & regenerate
-                  </Button>
-                )}
               </div>
             )}
             <div className="max-h-[400px] overflow-y-auto pr-1">
@@ -329,28 +336,19 @@ export function SuggestionPanel({
             </div>
 
             {/* Action buttons */}
-            <div className="mt-3 pt-3 border-t flex gap-2">
-              {unappliedCount > 1 && (
+            {unappliedCount > 1 && (
+              <div className="mt-3 pt-3 border-t">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
+                  className="w-full"
                   onClick={onApplyAll}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Apply All {unappliedCount}
                 </Button>
-              )}
-              {onTryAgain && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onTryAgain}
-                >
-                  Try Again
-                </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </CollapsibleContent>
       </Card>

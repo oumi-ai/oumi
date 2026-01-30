@@ -564,7 +564,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     markAllTestsApplied,
     dismiss: dismissSuggestions,
     undismiss: undismissSuggestions,
-    resetForEdit: resetSuggestionsForEdit,
+    editPrompt: editSuggestionsPrompt,
   } = useSuggestions()
 
   // Handle job completion
@@ -848,11 +848,6 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
     })
   }, [config.datasetPath, config.datasetName, config.split, config.subset, suggestionQuery, triggerSuggestions])
 
-  // Handle "Edit prompt & regenerate" - reset but keep the prompt in the input
-  const handleEditSuggestions = useCallback(() => {
-    const currentPrompt = resetSuggestionsForEdit()
-    setSuggestionQuery(currentPrompt)
-  }, [resetSuggestionsForEdit])
 
   // Apply an analyzer suggestion
   const applyAnalyzerSuggestion = useCallback((suggestion: AnalyzerSuggestion) => {
@@ -1393,7 +1388,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
           onApplyAnalyzer={applyAnalyzerSuggestion}
           onApplyCustomMetric={applyCustomMetricSuggestion}
           onApplyAll={applyAllAnalyzerSuggestions}
-          onTryAgain={handleEditSuggestions}
+          onEdit={editSuggestionsPrompt}
         />
       )}
 
@@ -1743,7 +1738,7 @@ export function SetupWizard({ onComplete, onRunComplete, onCancel, initialConfig
               appliedTests={appliedTests}
               onApplyTest={applyTestSuggestion}
               onApplyAll={applyAllTestSuggestions}
-              onTryAgain={handleEditSuggestions}
+              onEdit={editSuggestionsPrompt}
             />
           )
         })()}

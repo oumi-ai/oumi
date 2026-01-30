@@ -213,7 +213,8 @@ export function useSuggestions() {
       return
     }
     
-    if (suggestions) {
+    // Save if we have suggestions OR a user prompt to preserve
+    if (suggestions || userPrompt) {
       savePersistedState({
         suggestions,
         userPrompt,
@@ -327,6 +328,19 @@ export function useSuggestions() {
   }, [])
 
   /**
+   * Go back to edit mode - shows the input form while preserving the prompt
+   */
+  const editPrompt = useCallback(() => {
+    setStatus('idle')
+    setSuggestions(null)
+    setAppliedAnalyzers(new Set())
+    setAppliedCustomMetrics(new Set())
+    setAppliedTests(new Set())
+    setIsDismissed(false)
+    // Keep prompt in localStorage for the input field to load
+  }, [])
+
+  /**
    * Reset all state and clear localStorage
    */
   const reset = useCallback(() => {
@@ -341,22 +355,6 @@ export function useSuggestions() {
     clearPersistedState()
   }, [])
 
-  /**
-   * Reset suggestions for editing - clears suggestions but preserves the prompt
-   * Returns the current prompt so the caller can use it
-   */
-  const resetForEdit = useCallback(() => {
-    const currentPrompt = userPrompt
-    setStatus('idle')
-    setSuggestions(null)
-    setError(null)
-    setAppliedAnalyzers(new Set())
-    setAppliedCustomMetrics(new Set())
-    setAppliedTests(new Set())
-    setIsDismissed(false)
-    clearPersistedState()
-    return currentPrompt
-  }, [userPrompt])
 
   /**
    * Get unapplied analyzer suggestions
@@ -417,6 +415,6 @@ export function useSuggestions() {
     dismiss,
     undismiss,
     reset,
-    resetForEdit,
+    editPrompt,
   }
 }
