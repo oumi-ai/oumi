@@ -1,0 +1,111 @@
+# Multi-GPU FSDP LoRA fine-tuning config for GPT OSS 120B
+# Optimized for distributed training across multiple GPUs (recommended: 4-8x H100 80GB)
+# GPT-OSS 120B is a MoE model with 117B total / 5.1B active parameters
+#
+# This config uses FSDP for efficient distributed training with:
+#   - Full sharding strategy to distribute model across GPUs
+#   - Gradient checkpointing for memory efficiency
+#   - Mixed precision training (bfloat16)
+#   - LoRA for parameter-efficient fine-tuning
+#   - MXFP4 dequantization for training with pre-quantized model
+#
+# Usage (single node, multiple GPUs):
+#   oumi distributed torchrun -m oumi train -c oumi://configs/recipes/gpt_oss/sft/120b_lora_single_gpu_train.yaml
+#
+# Usage (multi-node):
+#   oumi distributed torchrun --nnodes 2 --nproc_per_node 8 -m oumi train -c oumi://configs/recipes/gpt_oss/sft/120b_lora_single_gpu_train.yaml
+#
+# Hardware Requirements:
+#   - Minimum: 4x H100 80GB GPUs (single node)
+#   - Recommended: 8x H100 80GB GPUs (single node) or multi-node setup
+#   - Hopper-family GPUs recommended for best performance
+#
+# See Also:
+#   - HuggingFace GPT-OSS blog: https://huggingface.co/blog/welcome-openai-gpt-oss
+#   - OpenAI GPT-OSS cookbook: https://cookbook.openai.com/articles/gpt-oss/fine-tune-transfomers
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+
+model:
+  model_name: "openai/gpt-oss-120b"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: true
+  chat_template: "auto" # Use model's built-in chat template
+  attn_implementation: "eager"
+
+  # Enable MXFP4 dequantization for training with pre-quantized models
+  model_kwargs:
+    quantization_config:
+      quant_method: "mxfp4"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceH4/Multilingual-Thinking"
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      # GPT-OSS Harmony format templates
+      instruction_template: "<|start|>user<|message|>"
+      response_template: "<|start|>assistant<|channel|>final<|message|>"
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: true
+  ddp_find_unused_parameters: false
+  save_steps: 200
+  num_train_epochs: 1
+  # Batch size per GPU - adjust based on available memory
+  per_device_train_batch_size: 1
+  # Higher gradient accumulation for larger effective batch size across GPUs
+  gradient_accumulation_steps: 8
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-04 # HF recipe LoRA learning rate
+  warmup_ratio: 0.03
+  lr_scheduler_type: "cosine"
+  lr_scheduler_kwargs:
+    num_cycles: 0.5
+  max_grad_norm: 1.0
+  weight_decay: 0.01
+  logging_steps: 10
+  output_dir: "./outputs/gpt_oss_120b_lora_fsdp"
+  seed: 42
+  compile: false
+
+  # Dataloader settings for distributed training
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  # Performance optimizations
+  include_performance_metrics: true
+  empty_device_cache_steps: 50
+  enable_wandb: true
+
+peft:
+  q_lora: false # Regular LoRA for best compatibility
+  lora_r: 16 # Slightly higher rank for larger model
+  lora_alpha: 32 # 2x lora_r scaling
+  lora_dropout: 0 # No dropout for stability
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+  # Target specific expert layers for MoE fine-tuning (optional, uncomment to enable)
+  # lora_target_parameters:
+  #   - "7.mlp.experts.gate_up_proj"
+  #   - "7.mlp.experts.down_proj"
+  #   - "15.mlp.experts.gate_up_proj"
+  #   - "15.mlp.experts.down_proj"
+  #   - "23.mlp.experts.gate_up_proj"
+  #   - "23.mlp.experts.down_proj"
+
+fsdp:
+  enable_fsdp: true
+  forward_prefetch: true
+  # FULL_SHARD distributes model, gradients, and optimizer states across all GPUs
+  sharding_strategy: "FULL_SHARD"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  # GPT-OSS uses GptOssDecoderLayer as the transformer layer class
+  transformer_layer_cls: "GptOssDecoderLayer"
