@@ -124,12 +124,28 @@ class DerivedConversationAnalyzer(ConversationAnalyzer[SimpleMetrics]):
         self._dependency_results = results
 
     def analyze(self, conversation: Conversation) -> SimpleMetrics:
+        # Note: This method is called via analyze_batch, which handles indexing.
+        # When called directly, we can't determine the index, so use 0 as fallback.
         base_results = self._dependency_results.get("SimpleConversationAnalyzer", [])
         base_value = base_results[0].value if base_results else 0
         return SimpleMetrics(
             value=base_value * 2,
             name=f"derived_{conversation.conversation_id or 'unknown'}",
         )
+
+    def analyze_batch(self, conversations: list[Conversation]) -> list[SimpleMetrics]:
+        """Override to properly match dependency results by index."""
+        base_results = self._dependency_results.get("SimpleConversationAnalyzer", [])
+        results = []
+        for i, conv in enumerate(conversations):
+            base_value = base_results[i].value if i < len(base_results) else 0
+            results.append(
+                SimpleMetrics(
+                    value=base_value * 2,
+                    name=f"derived_{conv.conversation_id or 'unknown'}",
+                )
+            )
+        return results
 
 
 class ChainedAnalyzer(ConversationAnalyzer[SimpleMetrics]):
@@ -144,12 +160,28 @@ class ChainedAnalyzer(ConversationAnalyzer[SimpleMetrics]):
         self._dependency_results = results
 
     def analyze(self, conversation: Conversation) -> SimpleMetrics:
+        # Note: This method is called via analyze_batch, which handles indexing.
+        # When called directly, we can't determine the index, so use 0 as fallback.
         base_results = self._dependency_results.get("DerivedConversationAnalyzer", [])
         base_value = base_results[0].value if base_results else 0
         return SimpleMetrics(
             value=base_value + 100,
             name=f"chained_{conversation.conversation_id or 'unknown'}",
         )
+
+    def analyze_batch(self, conversations: list[Conversation]) -> list[SimpleMetrics]:
+        """Override to properly match dependency results by index."""
+        base_results = self._dependency_results.get("DerivedConversationAnalyzer", [])
+        results = []
+        for i, conv in enumerate(conversations):
+            base_value = base_results[i].value if i < len(base_results) else 0
+            results.append(
+                SimpleMetrics(
+                    value=base_value + 100,
+                    name=f"chained_{conv.conversation_id or 'unknown'}",
+                )
+            )
+        return results
 
 
 # -----------------------------------------------------------------------------
@@ -341,6 +373,33 @@ def test_derived_analyzer_receives_dependencies(
     assert "DerivedConversationAnalyzer" in results
     derived_results = results["DerivedConversationAnalyzer"]
     assert len(derived_results) == 2
+
+
+def test_derived_analyzer_uses_correct_dependency_index(
+    sample_conversations: list[Conversation],
+):
+    """Test that derived analyzers use the correct dependency result per conversation.
+
+    This verifies that when processing multiple conversations, each derived result
+    uses the corresponding base result (by index), not always the first one.
+    """
+    base_analyzer = SimpleConversationAnalyzer()
+    derived_analyzer = DerivedConversationAnalyzer()
+
+    pipeline = AnalysisPipeline(analyzers=[base_analyzer, derived_analyzer])
+    results = pipeline.run(sample_conversations)
+
+    base_results = results["SimpleConversationAnalyzer"]
+    derived_results = results["DerivedConversationAnalyzer"]
+
+    # conv1 has 2 messages -> base_value = 2 -> derived_value = 4
+    # conv2 has 3 messages -> base_value = 3 -> derived_value = 6
+    assert base_results[0].value == 2
+    assert base_results[1].value == 3
+
+    # Derived should use the CORRESPONDING base result, not always base_results[0]
+    assert derived_results[0].value == 4  # 2 * 2
+    assert derived_results[1].value == 6  # 3 * 2 (NOT 2 * 2)
 
 
 def test_chained_dependencies(sample_conversations: list[Conversation]):
