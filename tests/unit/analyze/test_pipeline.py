@@ -15,7 +15,7 @@
 """Tests for AnalysisPipeline."""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from pydantic import BaseModel
@@ -276,8 +276,7 @@ def test_run_conversation_analyzer(sample_conversations: list[Conversation]):
     results = pipeline.run(sample_conversations)
 
     assert "SimpleConversationAnalyzer" in results
-    conv_results = results["SimpleConversationAnalyzer"]
-    assert isinstance(conv_results, list)
+    conv_results = cast(list[SimpleMetrics], results["SimpleConversationAnalyzer"])
     assert len(conv_results) == 2
     assert conv_results[0].value == 2  # 2 messages in conv1
     assert conv_results[1].value == 3  # 3 messages in conv2
@@ -371,7 +370,9 @@ def test_derived_analyzer_receives_dependencies(
     results = pipeline.run(sample_conversations)
 
     assert "DerivedConversationAnalyzer" in results
-    derived_results = results["DerivedConversationAnalyzer"]
+    derived_results = cast(
+        list[SimpleMetrics], results["DerivedConversationAnalyzer"]
+    )
     assert len(derived_results) == 2
 
 
@@ -389,8 +390,10 @@ def test_derived_analyzer_uses_correct_dependency_index(
     pipeline = AnalysisPipeline(analyzers=[base_analyzer, derived_analyzer])
     results = pipeline.run(sample_conversations)
 
-    base_results = results["SimpleConversationAnalyzer"]
-    derived_results = results["DerivedConversationAnalyzer"]
+    base_results = cast(list[SimpleMetrics], results["SimpleConversationAnalyzer"])
+    derived_results = cast(
+        list[SimpleMetrics], results["DerivedConversationAnalyzer"]
+    )
 
     # conv1 has 2 messages -> base_value = 2 -> derived_value = 4
     # conv2 has 3 messages -> base_value = 3 -> derived_value = 6
@@ -453,7 +456,9 @@ def test_run_preference(
     results = pipeline.run_preference(sample_preference_pairs)
 
     assert "SimplePreferenceAnalyzer" in results
-    pref_results = results["SimplePreferenceAnalyzer"]
+    pref_results = cast(
+        list[PreferenceMetrics], results["SimplePreferenceAnalyzer"]
+    )
     assert len(pref_results) == 1
     assert pref_results[0].chosen_longer is True  # conv2 (3 msgs) > conv1 (2 msgs)
 
@@ -609,5 +614,7 @@ def test_multiple_analyzers_same_type(sample_conversations: list[Conversation]):
     assert "conv_analyzer_1" in results
     assert "conv_analyzer_2" in results
     # First conversation has 2 messages
-    assert results["conv_analyzer_1"][0].value == 2  # 2 * 1
-    assert results["conv_analyzer_2"][0].value == 4  # 2 * 2
+    conv1_results = cast(list[SimpleMetrics], results["conv_analyzer_1"])
+    conv2_results = cast(list[SimpleMetrics], results["conv_analyzer_2"])
+    assert conv1_results[0].value == 2  # 2 * 1
+    assert conv2_results[0].value == 4  # 2 * 2

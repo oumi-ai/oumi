@@ -211,38 +211,38 @@ def test_to_analysis_dataframe_basic(sample_conversations: list[Conversation]):
         ]
     }
 
-    df = to_analysis_dataframe(sample_conversations, results)
+    result_df = to_analysis_dataframe(sample_conversations, results)
 
-    assert len(df) == 2
-    assert "conversation_id" in df.columns
-    assert "conversation_index" in df.columns
-    assert "num_messages" in df.columns
-    assert "simple__score" in df.columns
-    assert "simple__name" in df.columns
+    assert len(result_df) == 2
+    assert "conversation_id" in result_df.columns
+    assert "conversation_index" in result_df.columns
+    assert "num_messages" in result_df.columns
+    assert "simple__score" in result_df.columns
+    assert "simple__name" in result_df.columns
 
 
 def test_to_analysis_dataframe_conversation_metadata(
     sample_conversations: list[Conversation],
 ):
     """Test that conversation metadata is correct."""
-    df = to_analysis_dataframe(sample_conversations, {})
+    result_df = to_analysis_dataframe(sample_conversations, {})
 
-    assert df.iloc[0]["conversation_id"] == "conv1"
-    assert df.iloc[0]["conversation_index"] == 0
-    assert df.iloc[0]["num_messages"] == 2
+    assert result_df.iloc[0]["conversation_id"] == "conv1"
+    assert result_df.iloc[0]["conversation_index"] == 0
+    assert result_df.iloc[0]["num_messages"] == 2
 
-    assert df.iloc[1]["conversation_id"] == "conv2"
-    assert df.iloc[1]["conversation_index"] == 1
-    assert df.iloc[1]["num_messages"] == 3
+    assert result_df.iloc[1]["conversation_id"] == "conv2"
+    assert result_df.iloc[1]["conversation_index"] == 1
+    assert result_df.iloc[1]["num_messages"] == 3
 
 
 def test_to_analysis_dataframe_fallback_conversation_id(
     conversation_without_id: list[Conversation],
 ):
     """Test fallback ID when conversation has no ID."""
-    df = to_analysis_dataframe(conversation_without_id, {})
+    result_df = to_analysis_dataframe(conversation_without_id, {})
 
-    assert df.iloc[0]["conversation_id"] == "conv_0"
+    assert result_df.iloc[0]["conversation_id"] == "conv_0"
 
 
 def test_to_analysis_dataframe_dataset_level_result(
@@ -253,13 +253,13 @@ def test_to_analysis_dataframe_dataset_level_result(
         "DatasetAnalyzer": DatasetMetrics(total_count=100, avg_score=75.5),
     }
 
-    df = to_analysis_dataframe(sample_conversations, results)
+    result_df = to_analysis_dataframe(sample_conversations, results)
 
     # Dataset-level result should appear in both rows
-    assert df.iloc[0]["dataset__total_count"] == 100
-    assert df.iloc[0]["dataset__avg_score"] == 75.5
-    assert df.iloc[1]["dataset__total_count"] == 100
-    assert df.iloc[1]["dataset__avg_score"] == 75.5
+    assert result_df.iloc[0]["dataset__total_count"] == 100
+    assert result_df.iloc[0]["dataset__avg_score"] == 75.5
+    assert result_df.iloc[1]["dataset__total_count"] == 100
+    assert result_df.iloc[1]["dataset__avg_score"] == 75.5
 
 
 def test_to_analysis_dataframe_multiple_analyzers(
@@ -277,29 +277,29 @@ def test_to_analysis_dataframe_multiple_analyzers(
         ],
     }
 
-    df = to_analysis_dataframe(sample_conversations, results)
+    result_df = to_analysis_dataframe(sample_conversations, results)
 
-    assert "simple__score" in df.columns
-    assert "list__values" in df.columns
+    assert "simple__score" in result_df.columns
+    assert "list__values" in result_df.columns
 
 
 def test_to_analysis_dataframe_empty_conversations():
     """Test with empty conversation list."""
-    df = to_analysis_dataframe([], {})
+    result_df = to_analysis_dataframe([], {})
 
-    assert len(df) == 0
+    assert len(result_df) == 0
 
 
 def test_to_analysis_dataframe_empty_results(
     sample_conversations: list[Conversation],
 ):
     """Test with empty results dictionary."""
-    df = to_analysis_dataframe(sample_conversations, {})
+    result_df = to_analysis_dataframe(sample_conversations, {})
 
-    assert len(df) == 2
-    assert "conversation_id" in df.columns
+    assert len(result_df) == 2
+    assert "conversation_id" in result_df.columns
     # Only metadata columns, no analyzer columns
-    assert len(df.columns) == 3
+    assert len(result_df.columns) == 3
 
 
 # -----------------------------------------------------------------------------
@@ -320,44 +320,44 @@ def test_to_message_dataframe_basic(sample_conversations: list[Conversation]):
         ],
     }
 
-    df = to_message_dataframe(sample_conversations, results)
+    result_df = to_message_dataframe(sample_conversations, results)
 
-    assert len(df) == 5
-    assert "conversation_id" in df.columns
-    assert "message_index" in df.columns
-    assert "role" in df.columns
-    assert "text_content" in df.columns
-    assert "message__char_count" in df.columns
+    assert len(result_df) == 5
+    assert "conversation_id" in result_df.columns
+    assert "message_index" in result_df.columns
+    assert "role" in result_df.columns
+    assert "text_content" in result_df.columns
+    assert "message__char_count" in result_df.columns
 
 
 def test_to_message_dataframe_message_metadata(
     sample_conversations: list[Conversation],
 ):
     """Test that message metadata is correct."""
-    df = to_message_dataframe(sample_conversations, {})
+    result_df = to_message_dataframe(sample_conversations, {})
 
     # First message of first conversation
-    assert df.iloc[0]["conversation_id"] == "conv1"
-    assert df.iloc[0]["conversation_index"] == 0
-    assert df.iloc[0]["message_index"] == 0
-    assert df.iloc[0]["role"] == "user"
-    assert df.iloc[0]["text_content"] == "Hello"
+    assert result_df.iloc[0]["conversation_id"] == "conv1"
+    assert result_df.iloc[0]["conversation_index"] == 0
+    assert result_df.iloc[0]["message_index"] == 0
+    assert result_df.iloc[0]["role"] == "user"
+    assert result_df.iloc[0]["text_content"] == "Hello"
 
     # Second message of first conversation
-    assert df.iloc[1]["message_index"] == 1
-    assert df.iloc[1]["role"] == "assistant"
+    assert result_df.iloc[1]["message_index"] == 1
+    assert result_df.iloc[1]["role"] == "assistant"
 
     # First message of second conversation
-    assert df.iloc[2]["conversation_id"] == "conv2"
-    assert df.iloc[2]["conversation_index"] == 1
-    assert df.iloc[2]["message_index"] == 0
+    assert result_df.iloc[2]["conversation_id"] == "conv2"
+    assert result_df.iloc[2]["conversation_index"] == 1
+    assert result_df.iloc[2]["message_index"] == 0
 
 
 def test_to_message_dataframe_empty_conversations():
     """Test with empty conversation list."""
-    df = to_message_dataframe([], {})
+    result_df = to_message_dataframe([], {})
 
-    assert len(df) == 0
+    assert len(result_df) == 0
 
 
 # -----------------------------------------------------------------------------

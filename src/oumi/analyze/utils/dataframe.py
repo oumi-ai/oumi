@@ -15,6 +15,7 @@
 """DataFrame conversion utilities for typed analysis results."""
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 import pandas as pd
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def to_analysis_dataframe(
     conversations: list[Conversation],
-    results: dict[str, list[BaseModel] | BaseModel],
+    results: Mapping[str, list[BaseModel] | BaseModel],
     message_to_conversation_idx: list[int] | None = None,
 ) -> pd.DataFrame:
     """Convert typed analysis results to a pandas DataFrame.
@@ -104,18 +105,21 @@ def to_analysis_dataframe(
                     # Warn on first conversation only to avoid spam
                     if i == 0:
                         logger.warning(
-                            f"Analyzer '{analyzer_name}' returned {result_count} results "
-                            f"for {num_conversations} conversations (expected equal counts "
-                            f"or {total_messages} for message-level). Some conversations "
-                            "may have missing metric values."
+                            f"Analyzer '{analyzer_name}' returned {result_count} "
+                            f"results for {num_conversations} conversations "
+                            f"(expected equal "
+                            f"counts or {total_messages} for message-level). Some "
+                            "conversations may have missing metric values.",
                         )
                 else:
                     # Results list is shorter than conversation index - warn once
                     if i == result_count:  # Only warn when we first exceed
                         logger.warning(
-                            f"Analyzer '{analyzer_name}' returned {result_count} results "
-                            f"for {num_conversations} conversations. Conversations "
-                            f"{result_count}-{num_conversations - 1} will have missing values."
+                            f"Analyzer '{analyzer_name}' returned {result_count} "
+                            f"results for {num_conversations} conversations. "
+                            f"Conversations "
+                            f"{result_count}-{num_conversations - 1} will have "
+                            "missing values.",
                         )
 
             elif isinstance(analyzer_results, BaseModel):
@@ -129,7 +133,7 @@ def to_analysis_dataframe(
 
 def to_message_dataframe(
     conversations: list[Conversation],
-    results: dict[str, list[BaseModel]],
+    results: Mapping[str, list[BaseModel]],
 ) -> pd.DataFrame:
     """Convert message-level analysis results to a pandas DataFrame.
 
@@ -243,7 +247,7 @@ def _add_result_to_row(
 
 
 def results_to_dict(
-    results: dict[str, list[BaseModel] | BaseModel],
+    results: Mapping[str, list[BaseModel] | BaseModel],
 ) -> dict[str, list[dict[str, Any]] | dict[str, Any]]:
     """Convert typed results to a serializable dictionary.
 

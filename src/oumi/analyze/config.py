@@ -23,8 +23,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from oumi.analyze.testing.engine import TestConfig, TestType
-from oumi.analyze.testing.results import TestSeverity
+from oumi.core.configs.params.test_params import (
+    TestConfig,
+    TestSeverity,
+    TestType,
+)
 
 
 class AnalyzerType(str, Enum):
@@ -354,7 +357,7 @@ class TypedAnalyzeConfig:
         if duplicates:
             raise ValueError(
                 f"Duplicate analyzer instance_id values: {duplicates}. "
-                "Each analyzer must have a unique instance_id to avoid result collisions."
+                "Each analyzer must have a unique instance_id to avoid collisions."
             )
 
         # Parse custom metrics
