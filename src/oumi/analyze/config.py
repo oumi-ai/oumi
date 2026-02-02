@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from oumi.core.configs.params.test_params import TestConfig
+    from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 
 class AnalyzerType(str, Enum):
@@ -179,7 +180,7 @@ class TestConfigYAML:
     min_value: float | None = None
     max_value: float | None = None
 
-    def to_test_config(self) -> "TestConfig":
+    def to_test_config(self) -> TestConfig:
         """Convert to TestConfig for the test engine.
 
         Returns:
@@ -283,9 +284,10 @@ class TypedAnalyzeConfig:
     # Tests
     tests: list[TestConfigYAML] = field(default_factory=list)
 
-    # Tokenizer
+    # Tokenizer (for token counting and chat template formatting)
     tokenizer_name: str | None = None
     tokenizer_kwargs: dict[str, Any] = field(default_factory=dict)
+    chat_template: str | None = None  # Custom chat template (overrides tokenizer's)
 
     # Report
     generate_report: bool = False
@@ -357,6 +359,7 @@ class TypedAnalyzeConfig:
             tests=tests,
             tokenizer_name=data.get("tokenizer_name"),
             tokenizer_kwargs=data.get("tokenizer_kwargs", {}),
+            chat_template=data.get("chat_template"),
             generate_report=data.get("generate_report", False),
             report_title=data.get("report_title"),
         )
@@ -407,14 +410,72 @@ class TypedAnalyzeConfig:
             ],
             "tokenizer_name": self.tokenizer_name,
             "tokenizer_kwargs": self.tokenizer_kwargs,
+            "chat_template": self.chat_template,
             "generate_report": self.generate_report,
             "report_title": self.report_title,
         }
 
-    def get_test_configs(self) -> list["TestConfig"]:
+    def get_test_configs(self) -> list[TestConfig]:
         """Get test configurations for the test engine.
 
         Returns:
             List of TestConfig instances.
         """
         return [t.to_test_config() for t in self.tests]
+
+    def load_tokenizer(self) -> "BaseTokenizer | None":  # pyright: ignore[reportInvalidTypeForm]
+        """Load tokenizer from config if specified.
+
+        If a chat_template is provided, it will be applied to the tokenizer.
+        The chat_template can be either:
+        - A named template (e.g., "llama3-instruct", "qwen2-vl-instruct")
+        - A full Jinja template string
+
+        Available named templates:
+        - llama3-instruct, llava, phi3-instruct, qwen2-vl-instruct,
+          qwen3-vl-instruct, internvl3, molmo, chat_ml, default, gpt2, zephyr
+
+        Returns:
+            Loaded tokenizer or None if tokenizer_name is not set.
+        """
+        if self.tokenizer_name is None:
+            return None
+
+        from oumi.builders import build_tokenizer
+        from oumi.core.configs.params.model_params import ModelParams
+
+        model_params = ModelParams(
+            model_name=self.tokenizer_name,
+            tokenizer_kwargs=self.tokenizer_kwargs,
+        )
+        tokenizer = build_tokenizer(model_params)
+
+        # Apply chat template if provided
+        if self.chat_template is not None:
+            tokenizer.chat_template = self._resolve_chat_template(self.chat_template)
+
+        return tokenizer
+
+    @staticmethod
+    def _resolve_chat_template(template: str) -> str:
+        """Resolve a chat template - either load named template or return as-is.
+
+        Args:
+            template: Either a named template (e.g., "llama3-instruct") or
+                a full Jinja template string.
+
+        Returns:
+            The resolved Jinja template string.
+        """
+        # If it looks like a Jinja template (contains {% or {{), use as-is
+        if "{%" in template or "{{" in template:
+            return template
+
+        # Otherwise, try to load as a named template
+        try:
+            from oumi.builders.models import build_chat_template
+
+            return build_chat_template(template)
+        except FileNotFoundError:
+            # Not a known template name - might be a simple string, return as-is
+            return template

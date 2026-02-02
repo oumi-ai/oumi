@@ -24,11 +24,14 @@ Each analyzer returns strongly-typed Pydantic models as results.
 """
 
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, get_args
+from typing import TYPE_CHECKING, Generic, Optional, TypeVar, get_args
 
 from pydantic import BaseModel
 
 from oumi.core.types.conversation import Conversation, Message
+
+if TYPE_CHECKING:
+    from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 # Type variable for analyzer results - must be a Pydantic BaseModel
 TResult = TypeVar("TResult", bound=BaseModel)
@@ -257,17 +260,39 @@ class ConversationAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         return MessageAnalyzer.get_text_content(message)
 
     @staticmethod
-    def get_conversation_text(conversation: Conversation) -> str:
+    def get_conversation_text(
+        conversation: Conversation,
+        tokenizer: Optional["BaseTokenizer"] = None,  # pyright: ignore[reportInvalidTypeForm]
+    ) -> str:
         """Get the full text content of a conversation.
 
-        Concatenates all message contents with role prefixes.
+        If a tokenizer with a chat template is provided, uses the template
+        to format the conversation. Otherwise, concatenates messages with
+        role prefixes.
 
         Args:
             conversation: The conversation to extract text from.
+            tokenizer: Optional tokenizer with a chat template. If provided,
+                uses the tokenizer's chat template for formatting.
 
         Returns:
             Full conversation text as a single string.
         """
+        # Use chat template if tokenizer is provided
+        if tokenizer is not None and hasattr(tokenizer, "chat_template"):
+            if tokenizer.chat_template is not None:
+                try:
+                    result = tokenizer.apply_chat_template(
+                        conversation=conversation,  # type: ignore
+                        tokenize=False,
+                        return_dict=False,
+                    )
+                    if isinstance(result, str):
+                        return result
+                except Exception:
+                    pass  # Fall back to simple format
+
+        # Default: simple role: text format
         parts = []
         for message in conversation.messages:
             text = ConversationAnalyzer.get_text_content(message)
