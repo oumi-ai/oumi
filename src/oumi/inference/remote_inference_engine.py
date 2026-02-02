@@ -58,7 +58,7 @@ from oumi.utils.http import (
 )
 
 _AUTHORIZATION_KEY: str = "Authorization"
-_BATCH_PURPOSE = "batch"
+_DEFAULT_BATCH_PURPOSE = "batch"
 _BATCH_ENDPOINT = "/v1/chat/completions"
 _MAX_CONNECTION_LIMIT = 200
 
@@ -68,6 +68,7 @@ class BatchStatus(Enum):
 
     VALIDATING = "validating"
     IN_PROGRESS = "in_progress"
+    FINALIZING = "finalizing"
     COMPLETED = "completed"
     FAILED = "failed"
     EXPIRED = "expired"
@@ -101,16 +102,27 @@ class BatchInfo:
     metadata: dict[str, Any] | None = None
 
     @staticmethod
-    def _convert_timestamp(timestamp: int | None) -> datetime | None:
-        """Convert Unix timestamp to datetime.
+    def _convert_timestamp(timestamp: int | str | None) -> datetime | None:
+        """Convert timestamp to datetime.
 
         Args:
-            timestamp: Unix timestamp in seconds
+            timestamp: Unix timestamp in seconds (int/float) or ISO 8601 string
 
         Returns:
             datetime: Converted datetime or None if timestamp is None
         """
-        return datetime.fromtimestamp(timestamp) if timestamp is not None else None
+        if timestamp is None:
+            return None
+        # Handle ISO 8601 format strings (e.g., "2026-01-22T16:02:20.250781Z")
+        if isinstance(timestamp, str):
+            # Try ISO 8601 format first
+            if "T" in timestamp:
+                # Remove trailing Z if present and parse
+                ts = timestamp.rstrip("Z")
+                return datetime.fromisoformat(ts)
+            # Try as Unix timestamp string
+            return datetime.fromtimestamp(int(timestamp))
+        return datetime.fromtimestamp(timestamp)
 
     @classmethod
     def from_api_response(cls, response: dict[str, Any]) -> "BatchInfo":
@@ -208,6 +220,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     api_key_env_varname: str | None = None
     """The environment variable name for the API key."""
+
+    @property
+    def _batch_purpose(self) -> str:
+        """Return the purpose value for batch file uploads.
+
+        Override this in subclasses for providers with different purpose values.
+        For example, Together AI uses "batch-api" instead of "batch".
+        """
+        return _DEFAULT_BATCH_PURPOSE
 
     _remote_params: RemoteParams
     """Parameters for running inference against a remote API."""
@@ -438,7 +459,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def _get_request_headers(
         self, remote_params: RemoteParams | None
     ) -> dict[str, str]:
-        headers = {}
+        # Exclude brotli from Accept-Encoding due to aiohttp compatibility issues
+        # with certain versions of the brotli library
+        headers = {"Accept-Encoding": "gzip, deflate"}
 
         if not remote_params:
             return headers
@@ -871,7 +894,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 async with aiofiles.open(tmp_path, "rb") as f:
                     file_data = await f.read()
                     form.add_field("file", file_data, filename="batch_requests.jsonl")
-                form.add_field("purpose", _BATCH_PURPOSE)
+                form.add_field("purpose", self._batch_purpose)
 
                 async with session.post(
                     self.get_file_api_url(),
@@ -1064,6 +1087,43 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             )
             processed_conversations.append(processed_conv)
         return processed_conversations
+
+    def cancel_batch(self, batch_id: str) -> BatchInfo:
+        """Cancels a batch inference job.
+
+        Batches may be canceled any time before processing ends. Once cancellation
+        is initiated, the batch enters a canceling state.
+
+        Args:
+            batch_id: The batch job ID to cancel
+
+        Returns:
+            BatchInfo: Updated status of the batch job
+        """
+        return safe_asyncio_run(self._cancel_batch(batch_id))
+
+    async def _cancel_batch(self, batch_id: str) -> BatchInfo:
+        """Cancels a batch job.
+
+        Args:
+            batch_id: ID of the batch job to cancel
+
+        Returns:
+            BatchInfo: Updated status of the batch job
+        """
+        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        async with aiohttp.ClientSession(connector=connector) as session:
+            headers = self._get_request_headers(self._remote_params)
+
+            async with session.post(
+                f"{self.get_batch_api_url()}/{batch_id}/cancel",
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise RuntimeError(f"Failed to cancel batch: {error_text}")
+                data = await response.json()
+                return BatchInfo.from_api_response(data)
 
     #
     # File operations
