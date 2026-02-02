@@ -14,12 +14,15 @@
 
 """DataFrame conversion utilities for typed analysis results."""
 
+import logging
 from typing import Any
 
 import pandas as pd
 from pydantic import BaseModel
 
 from oumi.core.types.conversation import Conversation
+
+logger = logging.getLogger(__name__)
 
 
 def to_analysis_dataframe(
@@ -95,9 +98,25 @@ def to_analysis_dataframe(
                         row[f"{prefix}__message_count"] = len(conv_messages)
 
                 elif i < result_count:
-                    # Fallback: assume per-conversation if count matches
+                    # Fallback: try to use result at index i
                     result = analyzer_results[i]
                     _add_result_to_row(row, result, prefix)
+                    # Warn on first conversation only to avoid spam
+                    if i == 0:
+                        logger.warning(
+                            f"Analyzer '{analyzer_name}' returned {result_count} results "
+                            f"for {num_conversations} conversations (expected equal counts "
+                            f"or {total_messages} for message-level). Some conversations "
+                            "may have missing metric values."
+                        )
+                else:
+                    # Results list is shorter than conversation index - warn once
+                    if i == result_count:  # Only warn when we first exceed
+                        logger.warning(
+                            f"Analyzer '{analyzer_name}' returned {result_count} results "
+                            f"for {num_conversations} conversations. Conversations "
+                            f"{result_count}-{num_conversations - 1} will have missing values."
+                        )
 
             elif isinstance(analyzer_results, BaseModel):
                 # Dataset-level result - same for all conversations
