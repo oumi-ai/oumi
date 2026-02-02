@@ -370,9 +370,7 @@ def test_derived_analyzer_receives_dependencies(
     results = pipeline.run(sample_conversations)
 
     assert "DerivedConversationAnalyzer" in results
-    derived_results = cast(
-        list[SimpleMetrics], results["DerivedConversationAnalyzer"]
-    )
+    derived_results = cast(list[SimpleMetrics], results["DerivedConversationAnalyzer"])
     assert len(derived_results) == 2
 
 
@@ -391,9 +389,7 @@ def test_derived_analyzer_uses_correct_dependency_index(
     results = pipeline.run(sample_conversations)
 
     base_results = cast(list[SimpleMetrics], results["SimpleConversationAnalyzer"])
-    derived_results = cast(
-        list[SimpleMetrics], results["DerivedConversationAnalyzer"]
-    )
+    derived_results = cast(list[SimpleMetrics], results["DerivedConversationAnalyzer"])
 
     # conv1 has 2 messages -> base_value = 2 -> derived_value = 4
     # conv2 has 3 messages -> base_value = 3 -> derived_value = 6
@@ -456,9 +452,7 @@ def test_run_preference(
     results = pipeline.run_preference(sample_preference_pairs)
 
     assert "SimplePreferenceAnalyzer" in results
-    pref_results = cast(
-        list[PreferenceMetrics], results["SimplePreferenceAnalyzer"]
-    )
+    pref_results = cast(list[PreferenceMetrics], results["SimplePreferenceAnalyzer"])
     assert len(pref_results) == 1
     assert pref_results[0].chosen_longer is True  # conv2 (3 msgs) > conv1 (2 msgs)
 
