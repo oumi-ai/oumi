@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Typed analyzers for dataset analysis.
+"""Analyzer implementations and result models.
 
-This module contains concrete analyzer implementations.
+This module contains concrete analyzer implementations that inherit from
+the base analyzer classes and return typed result models. Each analyzer
+file contains both the analyzer class and its result model for better cohesion.
 """
 
 __all__: list[str] = []
