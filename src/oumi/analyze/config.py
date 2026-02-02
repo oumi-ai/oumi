@@ -81,6 +81,12 @@ class CustomMetricConfig:
     additional metrics. These are executed during the analysis phase
     and their results are cached.
 
+    .. warning::
+        **Security Warning**: The ``function`` field contains arbitrary Python
+        code that is executed via ``exec()``. Only load configurations from
+        trusted sources. Never load YAML configs from untrusted users or
+        external sources without review, as they could execute malicious code.
+
     Example YAML:
         ```yaml
         custom_metrics:
@@ -286,31 +292,53 @@ class TypedAnalyzeConfig:
     report_title: str | None = None
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "TypedAnalyzeConfig":
+    def from_yaml(
+        cls, path: str | Path, allow_custom_code: bool = False
+    ) -> "TypedAnalyzeConfig":
         """Load configuration from a YAML file.
+
+        .. warning::
+            **Security Warning**: If the YAML file contains ``custom_metrics``
+            with ``function`` fields, arbitrary Python code will be loaded.
+            Only load configurations from trusted sources. Set
+            ``allow_custom_code=True`` to explicitly acknowledge this risk.
 
         Args:
             path: Path to YAML configuration file.
+            allow_custom_code: If True, allow loading custom_metrics with
+                function code. If False (default) and the config contains
+                custom metrics with code, raises ValueError.
 
         Returns:
             TypedAnalyzeConfig instance.
+
+        Raises:
+            ValueError: If config contains custom code but allow_custom_code=False.
         """
         import yaml
 
         with open(path) as f:
             data = yaml.safe_load(f)
 
-        return cls.from_dict(data)
+        return cls.from_dict(data, allow_custom_code=allow_custom_code)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TypedAnalyzeConfig":
+    def from_dict(
+        cls, data: dict[str, Any], allow_custom_code: bool = False
+    ) -> "TypedAnalyzeConfig":
         """Create configuration from a dictionary.
 
         Args:
             data: Configuration dictionary.
+            allow_custom_code: If True, allow custom_metrics with function code.
+                If False (default) and the config contains custom metrics with
+                code, raises ValueError.
 
         Returns:
             TypedAnalyzeConfig instance.
+
+        Raises:
+            ValueError: If config contains custom code but allow_custom_code=False.
         """
         # Parse analyzers
         analyzers = []
@@ -340,6 +368,17 @@ class TypedAnalyzeConfig:
             custom_metrics.append(
                 CustomMetricConfig(**metric_data, output_schema=output_schema)
             )
+
+        # Security check: reject custom code unless explicitly allowed
+        if not allow_custom_code:
+            metrics_with_code = [m.id for m in custom_metrics if m.function.strip()]
+            if metrics_with_code:
+                raise ValueError(
+                    f"Configuration contains custom metrics with executable code: "
+                    f"{metrics_with_code}. This is a security risk if loading from "
+                    f"untrusted sources. Set allow_custom_code=True to explicitly "
+                    f"allow code execution, or remove the 'function' fields."
+                )
 
         # Parse tests
         tests = []

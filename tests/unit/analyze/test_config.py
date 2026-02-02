@@ -109,3 +109,57 @@ def test_from_dict_empty_analyzers():
     config = TypedAnalyzeConfig.from_dict(data)
 
     assert config.analyzers == []
+
+
+# -----------------------------------------------------------------------------
+# Tests: Custom Code Security
+# -----------------------------------------------------------------------------
+
+
+def test_from_dict_rejects_custom_code_by_default():
+    """Test that custom metrics with code are rejected by default."""
+    data = {
+        "custom_metrics": [
+            {
+                "id": "my_metric",
+                "function": "def compute(x): return {'value': 1}",
+            }
+        ]
+    }
+
+    with pytest.raises(ValueError, match="executable code"):
+        TypedAnalyzeConfig.from_dict(data)
+
+
+def test_from_dict_allows_custom_code_when_opted_in():
+    """Test that custom metrics with code work when allow_custom_code=True."""
+    data = {
+        "custom_metrics": [
+            {
+                "id": "my_metric",
+                "function": "def compute(x): return {'value': 1}",
+            }
+        ]
+    }
+
+    config = TypedAnalyzeConfig.from_dict(data, allow_custom_code=True)
+
+    assert len(config.custom_metrics) == 1
+    assert config.custom_metrics[0].id == "my_metric"
+
+
+def test_from_dict_allows_empty_function():
+    """Test that custom metrics without function code are allowed."""
+    data = {
+        "custom_metrics": [
+            {
+                "id": "my_metric",
+                "function": "",  # Empty function - no code execution
+            }
+        ]
+    }
+
+    # Should not raise - no executable code
+    config = TypedAnalyzeConfig.from_dict(data)
+
+    assert len(config.custom_metrics) == 1
