@@ -1076,10 +1076,25 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         results_content = await self._download_file(batch_info.output_file_id)
 
-        # Parse results
-        processed_conversations = []
-        for line, conv in zip(results_content.splitlines(), conversations):
+        # Parse results and map by custom_id
+        results_by_id: dict[str, dict] = {}
+        for line in results_content.splitlines():
             result = json.loads(line)
+            custom_id = result.get("custom_id")
+            if not custom_id:
+                raise RuntimeError(f"Batch result missing custom_id: {result}")
+            results_by_id[custom_id] = result
+
+        # Map results back to conversations in original order
+        processed_conversations = []
+        for i, conv in enumerate(conversations):
+            custom_id = f"request-{i}"
+            result = results_by_id.get(custom_id)
+            if not result:
+                raise RuntimeError(
+                    f"Missing result for {custom_id}. "
+                    f"Available IDs: {list(results_by_id.keys())}"
+                )
             if result.get("error"):
                 raise RuntimeError(f"Batch request failed: {result['error']}")
             processed_conv = self._convert_api_output_to_conversation(
