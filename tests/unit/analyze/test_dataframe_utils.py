@@ -26,7 +26,6 @@ from oumi.analyze.utils.dataframe import (
 )
 from oumi.core.types.conversation import Conversation, Message, Role
 
-
 # -----------------------------------------------------------------------------
 # Test Result Models
 # -----------------------------------------------------------------------------
