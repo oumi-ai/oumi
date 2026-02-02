@@ -12,36 +12,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Analyzer implementations.
+"""Analyzer implementations and result models.
 
 This module contains concrete analyzer implementations that inherit from
-the base analyzer classes and return typed result models.
+the base analyzer classes and return typed result models. Each analyzer
+file contains both the analyzer class and its result model for better cohesion.
 """
 
-from oumi.analyze.analyzers.deduplication import DeduplicationAnalyzer
-from oumi.analyze.analyzers.length import LengthAnalyzer
+from oumi.analyze.analyzers.deduplication import (
+    DeduplicationAnalyzer,
+    DeduplicationResult,
+    DuplicateGroup,
+)
+from oumi.analyze.analyzers.length import LengthAnalyzer, LengthMetrics
 from oumi.analyze.analyzers.llm_analyzer import (
     CoherenceAnalyzer,
     FactualityAnalyzer,
     InstructionFollowingAnalyzer,
     JudgmentType,
     LLMAnalyzer,
+    LLMJudgmentMetrics,
     SafetyAnalyzer,
     TargetScope,
     UsefulnessAnalyzer,
     get_available_criteria,
     get_criteria_info,
 )
-from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer
+from oumi.analyze.analyzers.quality import DataQualityAnalyzer, DataQualityMetrics
+from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer, TurnStatsMetrics
 
 __all__ = [
     # Non-LLM analyzers
     "LengthAnalyzer",
+    "LengthMetrics",
     "TurnStatsAnalyzer",
+    "TurnStatsMetrics",
+    "DataQualityAnalyzer",
+    "DataQualityMetrics",
     # Dataset-level analyzers
     "DeduplicationAnalyzer",
+    "DeduplicationResult",
+    "DuplicateGroup",
     # LLM-based analyzers
     "LLMAnalyzer",
+    "LLMJudgmentMetrics",
     "UsefulnessAnalyzer",
     "SafetyAnalyzer",
     "FactualityAnalyzer",

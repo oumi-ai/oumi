@@ -35,20 +35,28 @@ Example usage:
     df = pipeline.to_dataframe()
 """
 
-# Import analyzers
-from oumi.analyze.analyzers.length import LengthAnalyzer
+# Import analyzers and result models (co-located in analyzer files)
+from oumi.analyze.analyzers.deduplication import (
+    DeduplicationAnalyzer,
+    DeduplicationResult,
+    DuplicateGroup,
+)
+from oumi.analyze.analyzers.length import LengthAnalyzer, LengthMetrics
 from oumi.analyze.analyzers.llm_analyzer import (
     CoherenceAnalyzer,
     FactualityAnalyzer,
     InstructionFollowingAnalyzer,
     JudgmentType,
     LLMAnalyzer,
+    LLMJudgmentMetrics,
     SafetyAnalyzer,
     TargetScope,
     UsefulnessAnalyzer,
     get_available_criteria,
     get_criteria_info,
 )
+from oumi.analyze.analyzers.quality import DataQualityAnalyzer, DataQualityMetrics
+from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer, TurnStatsMetrics
 from oumi.analyze.base import (
     ConversationAnalyzer,
     DatasetAnalyzer,
@@ -91,10 +99,6 @@ from oumi.analyze.discovery import (
 )
 from oumi.analyze.pipeline import AnalysisPipeline
 
-# Import result models
-from oumi.analyze.results.length import LengthMetrics
-from oumi.analyze.results.llm_judgment import LLMJudgmentMetrics
-
 # Import testing
 from oumi.analyze.testing import TestEngine, TestResult, TestSummary
 from oumi.analyze.utils.dataframe import to_analysis_dataframe
@@ -111,6 +115,9 @@ __all__ = [
     "to_analysis_dataframe",
     # Analyzers
     "LengthAnalyzer",
+    "TurnStatsAnalyzer",
+    "DataQualityAnalyzer",
+    "DeduplicationAnalyzer",
     "LLMAnalyzer",
     "UsefulnessAnalyzer",
     "SafetyAnalyzer",
@@ -125,6 +132,10 @@ __all__ = [
     "get_criteria_info",
     # Result models
     "LengthMetrics",
+    "TurnStatsMetrics",
+    "DataQualityMetrics",
+    "DeduplicationResult",
+    "DuplicateGroup",
     "LLMJudgmentMetrics",
     # Config
     "TypedAnalyzeConfig",

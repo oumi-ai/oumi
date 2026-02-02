@@ -12,13 +12,58 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Length analyzer implementation."""
+"""Length analyzer implementation and result model."""
 
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from oumi.analyze.base import ConversationAnalyzer
-from oumi.analyze.results.length import LengthMetrics
 from oumi.core.types.conversation import Conversation, Role
+
+__all__ = ["LengthMetrics", "LengthAnalyzer"]
+
+
+class LengthMetrics(BaseModel):
+    """Result model for length analysis of conversations.
+
+    Contains token counts at both the conversation level and per-message breakdown.
+
+    Example:
+        >>> result = LengthMetrics(
+        ...     total_tokens=25,
+        ...     avg_tokens_per_message=12.5,
+        ...     message_token_counts=[10, 15],
+        ...     num_messages=2,
+        ... )
+        >>> print(result.total_tokens)
+        25
+    """
+
+    # Conversation-level totals
+    total_tokens: int = Field(description="Total number of tokens across all messages")
+
+    # Averages
+    avg_tokens_per_message: float = Field(description="Average tokens per message")
+
+    # Per-message breakdowns
+    message_token_counts: list[int] = Field(
+        description="Token count for each message in order"
+    )
+
+    # Message count
+    num_messages: int = Field(description="Number of messages in the conversation")
+
+    # Role-specific stats (optional)
+    user_total_tokens: int | None = Field(
+        default=None, description="Total tokens in user messages"
+    )
+    assistant_total_tokens: int | None = Field(
+        default=None, description="Total tokens in assistant messages"
+    )
+    system_total_tokens: int | None = Field(
+        default=None, description="Total tokens in system messages"
+    )
 
 
 class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
