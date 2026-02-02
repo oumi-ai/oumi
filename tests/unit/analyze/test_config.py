@@ -18,7 +18,6 @@ import pytest
 
 from oumi.analyze.config import AnalyzerConfig, TypedAnalyzeConfig
 
-
 # -----------------------------------------------------------------------------
 # Tests: AnalyzerConfig
 # -----------------------------------------------------------------------------
