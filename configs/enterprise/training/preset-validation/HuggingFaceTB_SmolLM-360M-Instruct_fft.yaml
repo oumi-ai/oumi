@@ -1,0 +1,69 @@
+# Preset training configuration for SmolLM-360M-Instruct (FFT).
+# Adapted for L1 validation.
+
+model:
+  model_name: "HuggingFaceTB/SmolLM-360M-Instruct"
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: False
+  model_max_length: 2048
+
+data:
+  train:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|im_start|>assistant\n"
+      instruction_template: "<|im_start|>user\n"
+    seed: 666
+    datasets:
+      - dataset_name: "text_sft"
+        dataset_path: "OVERRIDE_ME"
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: "dict"
+
+  validation:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|im_start|>assistant\n"
+      instruction_template: "<|im_start|>user\n"
+    seed: 666
+    datasets:
+      - dataset_name: "text_sft"
+        dataset_path: "OVERRIDE_ME"
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: "dict"
+
+training:
+  trainer_type: "TRL_SFT"
+  output_dir: "OVERRIDE_ME"
+  run_name: "OVERRIDE_ME"
+  save_final_model: true
+  save_steps: 0
+  save_epoch: false
+  max_steps: -1
+  num_train_epochs: 2
+  # Effective batch size on 8-gpu node: 2 * 2 * 8 = 32
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 2
+  max_grad_norm: 1.0
+
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 8.0e-05
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  compile: false
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 8
+
+  logging_steps: 5
+  eval_strategy: "steps"
+  eval_steps: 10
+  log_model_summary: false
+  empty_device_cache_steps: 50
+  include_performance_metrics: true
+  enable_wandb: true

@@ -1354,7 +1354,7 @@ Results added here: https://docs.google.com/spreadsheets/d/1LmFGfJRtNp3hpP9dwD7F
 - [x] Qwen3-32B (Current default LoRA config for Qwen3-32b --> OOM on 8xH100 </3)
 - [ ] Phi-3.5-MoE-instruct (failed L1 validation tests)
 - [ ] Llama-4-Scout-17B-16E-Instruct (MoE, may need more compute)
-- [ ] SmolLM v1: 135M, 360M, 1.7B (superseded by SmolLM2 but worth having, lower priority)
+- [x] SmolLM v1: 135M, 360M, 1.7B (superseded by SmolLM2 but worth having, lower priority)
 
 ##### `Qwen_Qwen3-32B_lora`
 
@@ -1390,3 +1390,77 @@ Here are the minimal config changes from the original preset config needed to ge
 
 
 The final model (`run-17`) achieves substantial gains on pubmedqa compared to Qwen3-32b base (accuracy 12% --> 79%, macro F1 11.94% --> 55.59%) after a single epoch of training.
+
+
+
+##### SmolLM 1
+Validate SmolLM 1 configs (135M, 360M, 1.7B) with FFT and LoRA on pubmedqa and banking77. Execute a few runs to find LRs that work for both tasks. Note that these configs are unlikely to be widely used given availability of SmolLM2, but we keep them around since they are widely used as running examples in docs/sample workflows.
+
+NB:
+- tatqa and nl2sql skipped due to SmolLM 1's hard 2048 token limit (some prompts exceed this)
+- 135M and 360M models use single-GPU eval (to bypass TP/attention head count incompatibility with default setup)
+
+Validation workflows (cleaned up from raw notes by Opus -- only final runs shown):
+
+```sh
+export CKPT_DIR="/data/tim/checkpoints"
+export EVAL_DIR="/data/tim/evals/ent"
+export DATASET_DIR="/data/tim/code/oumi/data/enterprise"
+
+# Baseline evals
+# NB: disable tatqa and nl2sql in eval runner script!
+for MODEL in "HuggingFaceTB/SmolLM-135M-Instruct" "HuggingFaceTB/SmolLM-360M-Instruct" "HuggingFaceTB/SmolLM-1.7B-Instruct"; do
+  ./scripts/enterprise/run_all_evals.sh --model-name "$MODEL" --data-dir "$DATASET_DIR" --output-dir "$EVAL_DIR/baselines"
+done
+
+# SFT experiments (12 total: 3 bases x 2 configs x 2 tasks)
+for SIZE in 135M 360M 1.7B; do
+  for METHOD in fft lora; do
+    for TASK in pubmedqa banking77; do
+      ./scripts/enterprise/run_experiment_v2.sh \
+        --config "configs/enterprise/training/preset-validation/HuggingFaceTB_SmolLM-${SIZE}-Instruct_${METHOD}.yaml" \
+        --task "$TASK" --data-dir "$DATASET_DIR" --checkpoint-dir "$CKPT_DIR" --eval-dir "$EVAL_DIR"
+    done
+  done
+done
+
+# Collate results per model size
+for SIZE in 135M 360M 1.7B; do
+  SIZE_SAFE=$(echo "$SIZE" | tr '.' '_')
+  python scripts/enterprise/process_results_v2.py \
+    --eval-dirs $EVAL_DIR/*SmolLM-${SIZE_SAFE}* \
+    --checkpoint-dir "$CKPT_DIR" --output "$EVAL_DIR/collated-SmolLM-${SIZE}"
+done
+
+# Create csv rows for tracking spreadsheet
+python scripts/enterprise/build_master_results.py \
+  --evals-dir $EVAL_DIR/baselines/*SmolLM-* $EVAL_DIR/SmolLM-*-Instruct-ft/* \
+  --checkpoints-dir "$CKPT_DIR" --filter smollm --output "$EVAL_DIR/smollm1.csv"
+```
+
+**Results:**
+
+| Model | Training | PubMedQA | Banking77 | IFEval | Safety |
+|-------|----------|----------|-----------|--------|--------|
+| **SmolLM-135M** | baseline | 0.43 | 0.03 | 0.22 | 0.18 |
+| | fft-pubmedqa | 0.47 | 0.01 | 0.23 | 0.16 |
+| | fft-banking77 | 0.28 | 0.16 | 0.23 | 0.20 |
+| | lora-pubmedqa | **0.51** | 0.00 | 0.22 | 0.06 |
+| | lora-banking77 | 0.00 | **0.86** | 0.22 | 0.00 |
+| **SmolLM-360M** | baseline | 0.46 | 0.04 | 0.24 | 0.29 |
+| | fft-pubmedqa | 0.49 | 0.01 | 0.26 | 0.29 |
+| | fft-banking77 | 0.14 | 0.48 | 0.26 | 0.34 |
+| | lora-pubmedqa | **0.59** | 0.00 | 0.24 | 0.09 |
+| | lora-banking77 | 0.02 | **0.89** | 0.24 | 0.01 |
+| **SmolLM-1.7B** | baseline | 0.53 | 0.04 | 0.28 | 0.40 |
+| | fft-pubmedqa | **0.71** | 0.03 | 0.28 | 0.42 |
+| | fft-banking77 | 0.51 | 0.81 | 0.31 | 0.45 |
+| | lora-pubmedqa | 0.64 | 0.03 | 0.28 | 0.47 |
+| | lora-banking77 | 0.00 | **0.93** | 0.27 | 0.38 |
+
+**Highlights for SmolLM1 after several iterations:**
+- LoRA LR is sensitive: Big swings in LoRA performance depending on small LR changes (for 360M specifically)
+- LoRA for banking77 does great on task accuracy but control metrics tank across all settings (worthy tradeoff IMO)
+- 1.7B is most robust: LoRA + FFT maintains reasonable Safety (38% vs 0-1% for smaller models)
+- FFT more stable than LoRA: Less prone to catastrophic forgetting across tasks
+

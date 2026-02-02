@@ -486,7 +486,11 @@ def find_all_runs(evals_dir: Path) -> list[Path]:
     runs = []
     evals_dir = Path(evals_dir)
 
-    # First check if evals_dir itself contains runs directly (flat structure)
+    # First check if evals_dir itself IS an eval run (when glob-expanded paths are passed)
+    if is_eval_run(evals_dir):
+        return [evals_dir]
+
+    # Check if evals_dir contains runs directly (flat structure)
     for item in evals_dir.iterdir():
         if item.is_dir() and item.name != "collated":
             if is_eval_run(item):

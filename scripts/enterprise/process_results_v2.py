@@ -202,10 +202,12 @@ def plot_comparison(df: pd.DataFrame, output_path: Path):
         ax.set_ylim(0, 1.15)
         
         # Bold the baseline and task-matched model labels for visual comparison
-        # TODO fix this -- won't be robust for ad hoc model names
         for tick_label, model_name in zip(ax.get_xticklabels(), models):
-            is_baseline = "train" not in model_name.lower() and "ft" not in model_name.lower()
-            is_task_match = bench in model_name.lower()
+            if not isinstance(model_name, str):
+                continue
+            name_lower = model_name.lower()
+            is_baseline = "train" not in name_lower and "ft" not in name_lower
+            is_task_match = bench in name_lower
             if is_baseline or is_task_match:
                 tick_label.set_fontweight("bold")
         ax.legend(loc="upper right", fontsize=8)
