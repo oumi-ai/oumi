@@ -185,6 +185,18 @@ def test_add_result_to_row_preserves_existing():
     assert row["new__score"] == 50
 
 
+def test_add_result_to_row_handles_dict():
+    """Test that raw dicts (from cache) are handled correctly."""
+    row: dict = {}
+    # Simulate cached result loaded from JSON (raw dict, not Pydantic model)
+    cached_result = {"score": 75, "name": "from_cache"}
+
+    _add_result_to_row(row, cached_result, "cached")
+
+    assert row["cached__score"] == 75
+    assert row["cached__name"] == "from_cache"
+
+
 # -----------------------------------------------------------------------------
 # Tests: to_analysis_dataframe
 # -----------------------------------------------------------------------------

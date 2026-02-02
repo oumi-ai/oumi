@@ -187,7 +187,7 @@ def _get_column_prefix(analyzer_name: str) -> str:
 
 def _add_result_to_row(
     row: dict[str, Any],
-    result: BaseModel,
+    result: BaseModel | dict[str, Any],
     prefix: str,
 ) -> None:
     """Add fields from a result model to a row dictionary.
@@ -199,10 +199,16 @@ def _add_result_to_row(
 
     Args:
         row: Row dictionary to add fields to.
-        result: Pydantic model with fields to add.
+        result: Pydantic model or dict with fields to add.
         prefix: Prefix for column names.
     """
-    for field_name, value in result.model_dump().items():
+    # Handle both Pydantic models and raw dicts (from cache)
+    if isinstance(result, dict):
+        result_dict = result
+    else:
+        result_dict = result.model_dump()
+
+    for field_name, value in result_dict.items():
         column_name = f"{prefix}__{field_name}"
 
         if isinstance(value, dict):
