@@ -320,6 +320,15 @@ class TypedAnalyzeConfig:
             elif isinstance(analyzer_data, str):
                 analyzers.append(AnalyzerConfig(id=analyzer_data))
 
+        # Validate unique instance_ids
+        instance_ids = [a.instance_id for a in analyzers]
+        duplicates = [id for id in set(instance_ids) if instance_ids.count(id) > 1]
+        if duplicates:
+            raise ValueError(
+                f"Duplicate analyzer instance_id values: {duplicates}. "
+                "Each analyzer must have a unique instance_id to avoid result collisions."
+            )
+
         # Parse custom metrics
         custom_metrics = []
         for metric_data in data.get("custom_metrics", []):
