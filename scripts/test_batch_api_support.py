@@ -196,7 +196,7 @@ def get_engine_class(engine_name: str):
 
 
 def check_explicitly_disabled(engine_name: str) -> bool:
-    """Check if the engine explicitly overrides infer_batch to raise NotImplementedError.
+    """Check if engine explicitly overrides infer_batch to raise NotImplementedError.
 
     This checks if the method actually raises NotImplementedError when called,
     not just whether it's overridden (since an override could be an implementation).
@@ -211,6 +211,7 @@ def check_explicitly_disabled(engine_name: str) -> bool:
         # Check if the override raises NotImplementedError
         # by inspecting the source code or trying to call it
         import inspect
+
         source = inspect.getsource(engine_class.infer_batch)
         if "NotImplementedError" in source and "raise" in source:
             return True
@@ -236,7 +237,7 @@ def test_engine_batch_support(
         return EngineTestResult(
             engine_name=engine_name,
             status=BatchSupport.EXPLICITLY_DISABLED,
-            message=f"{config['class']} explicitly overrides infer_batch() to raise NotImplementedError",
+            message=f"{config['class']} explicitly overrides infer_batch()",
         )
 
     # Check for required environment variable
@@ -430,11 +431,15 @@ def test_engine_batch_full(
         # Create test conversations with different prompts
         conversations = [
             Conversation(
-                messages=[Message(content="Say 'hello' and nothing else.", role=Role.USER)],
+                messages=[
+                    Message(content="Say 'hello' and nothing else.", role=Role.USER)
+                ],
                 conversation_id="batch-test-1",
             ),
             Conversation(
-                messages=[Message(content="Say 'world' and nothing else.", role=Role.USER)],
+                messages=[
+                    Message(content="Say 'world' and nothing else.", role=Role.USER)
+                ],
                 conversation_id="batch-test-2",
             ),
         ]
@@ -447,7 +452,8 @@ def test_engine_batch_full(
 
         # Step 1: Create batch
         if verbose:
-            print(f"  [{engine_name}] Step 1: Creating batch with {len(conversations)} conversations...")
+            n_convs = len(conversations)
+            print(f"  [{engine_name}] Step 1: Creating batch with {n_convs} convs...")
 
         batch_id = engine.infer_batch(conversations, inference_config)
         test_details["batch_id"] = batch_id
@@ -458,7 +464,7 @@ def test_engine_batch_full(
 
         # Step 2: Poll for completion
         if verbose:
-            print(f"  [{engine_name}] Step 2: Polling for completion (timeout: {timeout_seconds}s)...")
+            print(f"  [{engine_name}] Step 2: Polling (timeout: {timeout_seconds}s)...")
 
         start_time = time.time()
         final_status = None
@@ -471,12 +477,17 @@ def test_engine_batch_full(
 
             if verbose:
                 elapsed = int(time.time() - start_time)
-                print(f"  [{engine_name}] Poll {poll_count}: status={final_status.value}, elapsed={elapsed}s")
+                status_val = final_status.value
+                print(f"  [{engine_name}] Poll {poll_count}: {status_val}, {elapsed}s")
 
             if final_status == BatchStatus.COMPLETED:
                 test_details["steps_completed"].append("poll_completion")
                 break
-            elif final_status in [BatchStatus.FAILED, BatchStatus.EXPIRED, BatchStatus.CANCELLED]:
+            elif final_status in [
+                BatchStatus.FAILED,
+                BatchStatus.EXPIRED,
+                BatchStatus.CANCELLED,
+            ]:
                 test_details["final_status"] = final_status.value
                 return EngineTestResult(
                     engine_name=engine_name,
@@ -489,11 +500,13 @@ def test_engine_batch_full(
             time.sleep(poll_interval_seconds)
 
         if final_status != BatchStatus.COMPLETED:
-            test_details["final_status"] = final_status.value if final_status else "timeout"
+            test_details["final_status"] = (
+                final_status.value if final_status else "timeout"
+            )
             return EngineTestResult(
                 engine_name=engine_name,
                 status=BatchSupport.ERROR,
-                message=f"Batch did not complete within {timeout_seconds}s (status: {final_status})",
+                message=f"Batch timed out after {timeout_seconds}s: {final_status}",
                 batch_id=batch_id,
                 full_test_details=test_details,
             )
@@ -516,10 +529,11 @@ def test_engine_batch_full(
             print(f"  [{engine_name}] Step 4: Validating results...")
 
         if len(results) != len(conversations):
+            exp, got = len(conversations), len(results)
             return EngineTestResult(
                 engine_name=engine_name,
                 status=BatchSupport.ERROR,
-                message=f"Result count mismatch: expected {len(conversations)}, got {len(results)}",
+                message=f"Result count mismatch: expected {exp}, got {got}",
                 batch_id=batch_id,
                 full_test_details=test_details,
             )
@@ -536,7 +550,9 @@ def test_engine_batch_full(
                 )
 
             # Find the assistant message (should be the last one)
-            assistant_messages = [m for m in result.messages if m.role == Role.ASSISTANT]
+            assistant_messages = [
+                m for m in result.messages if m.role == Role.ASSISTANT
+            ]
             if not assistant_messages:
                 return EngineTestResult(
                     engine_name=engine_name,
@@ -553,7 +569,9 @@ def test_engine_batch_full(
 
         if verbose:
             print(f"  [{engine_name}] ✅ Full test passed!")
-            print(f"  [{engine_name}] Sample response: {test_details['sample_response']}")
+            print(
+                f"  [{engine_name}] Sample response: {test_details['sample_response']}"
+            )
 
         return EngineTestResult(
             engine_name=engine_name,
@@ -599,7 +617,7 @@ def test_engine_batch_full(
             return EngineTestResult(
                 engine_name=engine_name,
                 status=BatchSupport.ERROR,
-                message=f"Error at step: {test_details['steps_completed'][-1] if test_details['steps_completed'] else 'init'}",
+                message=f"Error at step: {test_details['steps_completed'][-1] if test_details['steps_completed'] else 'init'}",  # noqa: E501
                 error=str(e)[:300],
                 full_test_details=test_details,
             )
@@ -615,7 +633,9 @@ def print_results_table(results: list[EngineTestResult]) -> None:
 
     for result in results:
         status_str = result.status.value
-        message = result.message[:47] + "..." if len(result.message) > 50 else result.message
+        message = (
+            result.message[:47] + "..." if len(result.message) > 50 else result.message
+        )
         print(f"{result.engine_name:<20} {status_str:<25} {message:<50}")
 
     print("=" * 100)
@@ -633,7 +653,7 @@ def print_results_table(results: list[EngineTestResult]) -> None:
         if r.status in [BatchSupport.UNKNOWN, BatchSupport.SKIPPED, BatchSupport.ERROR]
     )
 
-    print(f"\nSummary: {supported} supported, {not_supported} not supported, {unknown} unknown/skipped")
+    print(f"\nSummary: {supported} supported, {not_supported} not, {unknown} unknown")
 
 
 def print_markdown_table(results: list[EngineTestResult]) -> None:
@@ -653,9 +673,8 @@ def print_markdown_table(results: list[EngineTestResult]) -> None:
             BatchSupport.ERROR: "⚠️",
         }[result.status]
 
-        print(
-            f"| {result.engine_name} | `{config['class']}` | {status_emoji} | {result.message} |"
-        )
+        cls = config["class"]
+        print(f"| {result.engine_name} | `{cls}` | {status_emoji} | {result.message} |")
 
 
 def print_full_test_details(results: list[EngineTestResult]) -> None:
@@ -691,6 +710,7 @@ def print_full_test_details(results: list[EngineTestResult]) -> None:
 
 
 def main():
+    """Run batch API support tests for remote inference engines."""
     parser = argparse.ArgumentParser(
         description="Test batch API support across remote inference engines"
     )
