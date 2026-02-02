@@ -180,7 +180,7 @@ class TestConfigYAML:
     min_value: float | None = None
     max_value: float | None = None
 
-    def to_test_config(self) -> TestConfig:
+    def to_test_config(self) -> "TestConfig":
         """Convert to TestConfig for the test engine.
 
         Returns:
@@ -415,7 +415,7 @@ class TypedAnalyzeConfig:
             "report_title": self.report_title,
         }
 
-    def get_test_configs(self) -> list[TestConfig]:
+    def get_test_configs(self) -> list["TestConfig"]:
         """Get test configurations for the test engine.
 
         Returns:
