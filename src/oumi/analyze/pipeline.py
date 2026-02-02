@@ -14,12 +14,15 @@
 
 """Analysis pipeline for orchestrating multiple analyzers."""
 
-import json
 import logging
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from oumi.analyze.base import (
     ConversationAnalyzer,
@@ -31,13 +34,19 @@ from oumi.core.types.conversation import Conversation
 
 logger = logging.getLogger(__name__)
 
-# Type alias for any analyzer
-AnyAnalyzer = Union[
-    MessageAnalyzer[Any],
-    ConversationAnalyzer[Any],
-    DatasetAnalyzer[Any],
-    PreferenceAnalyzer[Any],
-]
+# Constants
+_CACHE_FILENAME = "analysis_results.json"
+
+# Type aliases for consistency
+AnyAnalyzer = (
+    MessageAnalyzer[Any]
+    | ConversationAnalyzer[Any]
+    | DatasetAnalyzer[Any]
+    | PreferenceAnalyzer[Any]
+)
+AnalysisResults = dict[str, list[BaseModel] | BaseModel]
+
+T = TypeVar("T")
 
 
 class AnalysisPipeline:
@@ -46,6 +55,10 @@ class AnalysisPipeline:
     The AnalysisPipeline manages running multiple analyzers on conversations,
     handling different analyzer scopes appropriately, and providing unified
     access to results.
+
+    Note:
+        PreferenceAnalyzers are not run by `run()`. Use `run_preference()`
+        separately to analyze preference pairs (chosen/rejected conversations).
 
     Example:
         >>> from oumi.analyze import AnalysisPipeline, LengthAnalyzer
@@ -84,8 +97,10 @@ class AnalysisPipeline:
         self.cache_dir = Path(cache_dir) if cache_dir else None
 
         # Results storage
-        self._results: dict[str, list[BaseModel] | BaseModel] = {}
+        self._results: AnalysisResults = {}
         self._conversations: list[Conversation] = []
+        # Track which conversation each message belongs to (for message analyzers)
+        self._message_to_conversation_idx: list[int] = []
 
         # Categorize analyzers by type for appropriate handling
         self._message_analyzers: list[MessageAnalyzer[Any]] = []
@@ -106,8 +121,12 @@ class AnalysisPipeline:
     def run(
         self,
         conversations: list[Conversation],
-    ) -> dict[str, list[BaseModel] | BaseModel]:
+    ) -> AnalysisResults:
         """Run all analyzers on the provided conversations.
+
+        Note:
+            PreferenceAnalyzers are not run by this method. Use `run_preference()`
+            separately to analyze preference pairs.
 
         Args:
             conversations: List of conversations to analyze.
@@ -121,122 +140,25 @@ class AnalysisPipeline:
         self._conversations = conversations
         self._results = {}
 
+        # Build message-to-conversation index for later correlation
+        self._message_to_conversation_idx = []
+        for conv_idx, conv in enumerate(conversations):
+            for _ in conv.messages:
+                self._message_to_conversation_idx.append(conv_idx)
+
         logger.info(
             f"Running analysis pipeline with {len(self.analyzers)} analyzers "
             f"on {len(conversations)} conversations"
         )
 
-        # Separate primary and derived analyzers
-        from oumi.analyze.custom_metrics import CustomConversationMetric
-
-        primary_analyzers = []
-        derived_analyzers = []
-
-        for analyzer in self._conversation_analyzers:
-            if isinstance(analyzer, CustomConversationMetric) and analyzer.depends_on:
-                derived_analyzers.append(analyzer)
-            else:
-                primary_analyzers.append(analyzer)
-
-        # Run primary conversation-level analyzers first
-        try:
-            from tqdm import tqdm
-
-            primary_iter = tqdm(
-                primary_analyzers,
-                desc="Running analyzers",
-                unit="analyzer",
-            )
-        except ImportError:
-            primary_iter = primary_analyzers
-
-        for analyzer in primary_iter:
-            name = self._get_analyzer_name(analyzer)
-            if hasattr(primary_iter, "set_postfix"):
-                primary_iter.set_postfix(current=name)
-            logger.debug(f"Running conversation analyzer: {name}")
-            try:
-                results = analyzer.analyze_batch(conversations)
-                self._results[name] = results
-                logger.debug(f"  Completed {name}: {len(results)} results")
-            except Exception as e:
-                logger.error(f"  Failed {name}: {e}")
-                raise
-
-        # Run derived analyzers (with access to primary results)
-        if derived_analyzers:
-            logger.debug("Running derived conversation analyzers...")
-            CustomConversationMetric.set_pipeline_results(self._results)
-            try:
-                for analyzer in derived_analyzers:
-                    name = self._get_analyzer_name(analyzer)
-                    logger.debug(f"Running derived analyzer: {name}")
-                    try:
-                        results = analyzer.analyze_batch(conversations)
-                        self._results[name] = results
-                        logger.debug(f"  Completed {name}: {len(results)} results")
-                    except Exception as e:
-                        logger.error(f"  Failed {name}: {e}")
-                        raise
-            finally:
-                CustomConversationMetric.clear_pipeline_results()
+        # Run conversation-level analyzers
+        self._run_conversation_analyzers(conversations)
 
         # Run message-level analyzers
-        for analyzer in self._message_analyzers:
-            name = self._get_analyzer_name(analyzer)
-            logger.debug(f"Running message analyzer: {name}")
-            try:
-                # Flatten all messages from all conversations
-                all_messages = [msg for conv in conversations for msg in conv.messages]
-                results = analyzer.analyze_batch(all_messages)
-                self._results[name] = results
-                logger.debug(f"  Completed {name}: {len(results)} results")
-            except Exception as e:
-                logger.error(f"  Failed {name}: {e}")
-                raise
+        self._run_message_analyzers(conversations)
 
         # Run dataset-level analyzers
-        # Separate primary and derived dataset analyzers
-        from oumi.analyze.custom_metrics import CustomDatasetMetric
-
-        primary_dataset_analyzers = []
-        derived_dataset_analyzers = []
-
-        for analyzer in self._dataset_analyzers:
-            if isinstance(analyzer, CustomDatasetMetric) and analyzer.depends_on:
-                derived_dataset_analyzers.append(analyzer)
-            else:
-                primary_dataset_analyzers.append(analyzer)
-
-        # Run primary dataset analyzers first
-        for analyzer in primary_dataset_analyzers:
-            name = self._get_analyzer_name(analyzer)
-            logger.debug(f"Running dataset analyzer: {name}")
-            try:
-                result = analyzer.analyze(conversations)
-                self._results[name] = result  # Single result, not list
-                logger.debug(f"  Completed {name}")
-            except Exception as e:
-                logger.error(f"  Failed {name}: {e}")
-                raise
-
-        # Run derived dataset analyzers (with access to all results)
-        if derived_dataset_analyzers:
-            logger.debug("Running derived dataset analyzers...")
-            CustomDatasetMetric.set_pipeline_results(self._results)
-            try:
-                for analyzer in derived_dataset_analyzers:
-                    name = self._get_analyzer_name(analyzer)
-                    logger.debug(f"Running derived dataset analyzer: {name}")
-                    try:
-                        result = analyzer.analyze(conversations)
-                        self._results[name] = result  # Single result, not list
-                        logger.debug(f"  Completed {name}")
-                    except Exception as e:
-                        logger.error(f"  Failed {name}: {e}")
-                        raise
-            finally:
-                CustomDatasetMetric.clear_pipeline_results()
+        self._run_dataset_analyzers(conversations)
 
         logger.info(f"Analysis complete: {len(self._results)} analyzer results")
 
@@ -249,7 +171,7 @@ class AnalysisPipeline:
     def run_preference(
         self,
         pairs: list[tuple[Conversation, Conversation]],
-    ) -> dict[str, list[BaseModel]]:
+    ) -> AnalysisResults:
         """Run preference analyzers on conversation pairs.
 
         Args:
@@ -258,9 +180,12 @@ class AnalysisPipeline:
         Returns:
             Dictionary mapping analyzer names to their results.
         """
-        results: dict[str, list[BaseModel]] = {}
+        results: AnalysisResults = {}
 
-        for analyzer in self._preference_analyzers:
+        sorted_analyzers = self._topological_sort(self._preference_analyzers)
+
+        for analyzer in sorted_analyzers:
+            self._inject_dependencies(analyzer)
             name = self._get_analyzer_name(analyzer)
             logger.debug(f"Running preference analyzer: {name}")
             try:
@@ -273,7 +198,7 @@ class AnalysisPipeline:
 
         return results
 
-    def to_dataframe(self):
+    def to_dataframe(self) -> "pd.DataFrame":
         """Convert cached results to a pandas DataFrame.
 
         Returns:
@@ -289,10 +214,44 @@ class AnalysisPipeline:
                 "No results available. Call run() first to analyze conversations."
             )
 
-        return to_analysis_dataframe(self._conversations, self._results)
+        return to_analysis_dataframe(
+            self._conversations,
+            self._results,
+            message_to_conversation_idx=self._message_to_conversation_idx,
+        )
+
+    def load_cache(self) -> bool:
+        """Load results from cache directory.
+
+        Note:
+            Loaded results are raw dictionaries, not Pydantic model instances.
+            Use `get_cached_result()` to reconstruct typed results if needed,
+            or access raw data directly via `self.results`.
+
+        Returns:
+            True if cache was loaded successfully, False otherwise.
+        """
+        import json
+
+        if not self.cache_dir:
+            return False
+
+        results_path = self.cache_dir / _CACHE_FILENAME
+        if not results_path.exists():
+            logger.debug(f"No cache found at {results_path}")
+            return False
+
+        try:
+            with open(results_path) as f:
+                self._results = json.load(f)
+            logger.debug(f"Loaded cached results from {results_path}")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to load cache: {e}")
+            return False
 
     @property
-    def results(self) -> dict[str, list[BaseModel] | BaseModel]:
+    def results(self) -> AnalysisResults:
         """Get the cached analysis results.
 
         Returns:
@@ -309,42 +268,17 @@ class AnalysisPipeline:
         """
         return self._conversations
 
-    def _get_analyzer_name(self, analyzer: AnyAnalyzer) -> str:
-        """Get the name for an analyzer.
+    @property
+    def message_to_conversation_idx(self) -> list[int]:
+        """Get the mapping from message index to conversation index.
 
-        Uses the class name by default, but can be overridden by
-        setting an 'analyzer_id' attribute on the analyzer.
-
-        Args:
-            analyzer: The analyzer instance.
+        This is useful for correlating message-level results back to
+        their parent conversations.
 
         Returns:
-            Name string for the analyzer.
+            List where index i contains the conversation index for message i.
         """
-        if hasattr(analyzer, "analyzer_id"):
-            return analyzer.analyzer_id
-        return analyzer.__class__.__name__
-
-    def _save_cache(self) -> None:
-        """Save results to cache directory."""
-        if not self.cache_dir:
-            return
-
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-
-        # Save results as JSON
-        results_path = self.cache_dir / "analysis_results.json"
-        serialized = {}
-        for name, result in self._results.items():
-            if isinstance(result, list):
-                serialized[name] = [r.model_dump() for r in result]
-            else:
-                serialized[name] = result.model_dump()
-
-        with open(results_path, "w") as f:
-            json.dump(serialized, f, indent=2, default=str)
-
-        logger.debug(f"Cached results to {results_path}")
+        return self._message_to_conversation_idx
 
     def get_analyzer(self, name: str) -> AnyAnalyzer | None:
         """Get an analyzer by name.
@@ -359,3 +293,233 @@ class AnalysisPipeline:
             if self._get_analyzer_name(analyzer) == name:
                 return analyzer
         return None
+
+    # -------------------------------------------------------------------------
+    # Private helper methods
+    # -------------------------------------------------------------------------
+
+    def _run_conversation_analyzers(self, conversations: list[Conversation]) -> None:
+        """Run all conversation-level analyzers in dependency order."""
+        sorted_analyzers = self._topological_sort(self._conversation_analyzers)
+
+        for analyzer in self._iter_with_progress(
+            sorted_analyzers, "Running conversation analyzers"
+        ):
+            self._inject_dependencies(analyzer)
+            self._run_single_analyzer(
+                analyzer, lambda a: a.analyze_batch(conversations), is_batch=True
+            )
+
+    def _run_message_analyzers(self, conversations: list[Conversation]) -> None:
+        """Run all message-level analyzers in dependency order."""
+        if not self._message_analyzers:
+            return
+
+        # Flatten all messages from all conversations
+        all_messages = [msg for conv in conversations for msg in conv.messages]
+
+        sorted_analyzers = self._topological_sort(self._message_analyzers)
+
+        for analyzer in self._iter_with_progress(
+            sorted_analyzers, "Running message analyzers"
+        ):
+            self._inject_dependencies(analyzer)
+            self._run_single_analyzer(
+                analyzer, lambda a: a.analyze_batch(all_messages), is_batch=True
+            )
+
+    def _run_dataset_analyzers(self, conversations: list[Conversation]) -> None:
+        """Run all dataset-level analyzers in dependency order."""
+        sorted_analyzers = self._topological_sort(self._dataset_analyzers)
+
+        for analyzer in self._iter_with_progress(
+            sorted_analyzers, "Running dataset analyzers"
+        ):
+            self._inject_dependencies(analyzer)
+            self._run_single_analyzer(
+                analyzer, lambda a: a.analyze(conversations), is_batch=False
+            )
+
+    def _run_single_analyzer(
+        self,
+        analyzer: AnyAnalyzer,
+        run_func: Any,
+        is_batch: bool,
+    ) -> None:
+        """Run a single analyzer and store results.
+
+        Args:
+            analyzer: The analyzer to run.
+            run_func: Function that takes the analyzer and returns results.
+            is_batch: Whether the result is a list (batch) or single value.
+        """
+        name = self._get_analyzer_name(analyzer)
+        scope = self._get_analyzer_scope(analyzer)
+        logger.debug(f"Running {scope} analyzer: {name}")
+
+        try:
+            result = run_func(analyzer)
+            self._results[name] = result
+            if is_batch and isinstance(result, list):
+                logger.debug(f"  Completed {name}: {len(result)} results")
+            else:
+                logger.debug(f"  Completed {name}")
+        except Exception as e:
+            logger.error(f"  Failed {name}: {e}")
+            raise
+
+    def _topological_sort(self, analyzers: list[T]) -> list[T]:
+        """Sort analyzers by dependencies using topological sort.
+
+        Uses Python's built-in graphlib.TopologicalSorter for proper
+        dependency ordering. Handles chained dependencies like A → B → C.
+
+        Args:
+            analyzers: List of analyzers to sort.
+
+        Returns:
+            List of analyzers in dependency order.
+
+        Raises:
+            ValueError: If there's a circular dependency.
+        """
+        from graphlib import CycleError, TopologicalSorter
+
+        if not analyzers:
+            return []
+
+        # Build name -> analyzer mapping
+        name_to_analyzer: dict[str, T] = {}
+        for analyzer in analyzers:
+            name = self._get_analyzer_name(analyzer)  # type: ignore[arg-type]
+            name_to_analyzer[name] = analyzer
+
+        all_names = set(name_to_analyzer.keys())
+
+        # Build dependency graph: {node: [dependencies]}
+        graph: dict[str, set[str]] = {}
+        for analyzer in analyzers:
+            name = self._get_analyzer_name(analyzer)  # type: ignore[arg-type]
+            depends_on = getattr(analyzer, "depends_on", None) or []
+            # Only include dependencies within this analyzer group
+            graph[name] = {dep for dep in depends_on if dep in all_names}
+
+        try:
+            sorter = TopologicalSorter(graph)
+            sorted_names = list(sorter.static_order())
+        except CycleError as e:
+            raise ValueError(f"Circular dependency detected: {e}") from e
+
+        return [name_to_analyzer[name] for name in sorted_names]
+
+    def _inject_dependencies(self, analyzer: AnyAnalyzer) -> None:
+        """Inject dependency results into a derived analyzer.
+
+        If the analyzer has a `depends_on` attribute listing dependency names,
+        and a `set_dependencies` method, this will pass the results from
+        those dependencies to the analyzer.
+
+        Args:
+            analyzer: The derived analyzer to inject dependencies into.
+        """
+        depends_on = getattr(analyzer, "depends_on", None)
+        if not depends_on:
+            return
+
+        # Check if analyzer can receive dependencies
+        if not hasattr(analyzer, "set_dependencies"):
+            logger.warning(
+                f"Analyzer {self._get_analyzer_name(analyzer)} has depends_on "
+                f"but no set_dependencies method"
+            )
+            return
+
+        # Gather dependency results
+        dependency_results: dict[str, list[BaseModel] | BaseModel] = {}
+        for dep_name in depends_on:
+            if dep_name in self._results:
+                dependency_results[dep_name] = self._results[dep_name]
+            else:
+                logger.warning(
+                    f"Dependency '{dep_name}' not found for analyzer "
+                    f"'{self._get_analyzer_name(analyzer)}'"
+                )
+
+        # Inject dependencies
+        analyzer.set_dependencies(dependency_results)  # type: ignore[union-attr]
+
+    def _iter_with_progress(self, items: list[T], desc: str) -> Iterable[T]:
+        """Iterate with optional progress bar.
+
+        Args:
+            items: Items to iterate over.
+            desc: Description for the progress bar.
+
+        Returns:
+            Iterator (with tqdm wrapper if available).
+        """
+        try:
+            from tqdm import tqdm
+
+            return tqdm(items, desc=desc, unit="analyzer")
+        except ImportError:
+            return items
+
+    def _get_analyzer_name(self, analyzer: AnyAnalyzer) -> str:
+        """Get the name for an analyzer.
+
+        Uses the class name by default, but can be overridden by
+        setting an 'analyzer_id' attribute on the analyzer.
+
+        Args:
+            analyzer: The analyzer instance.
+
+        Returns:
+            Name string for the analyzer.
+        """
+        analyzer_id = getattr(analyzer, "analyzer_id", None)
+        if analyzer_id is not None:
+            return str(analyzer_id)
+        return analyzer.__class__.__name__
+
+    def _get_analyzer_scope(self, analyzer: AnyAnalyzer) -> str:
+        """Get the scope name for an analyzer.
+
+        Args:
+            analyzer: The analyzer instance.
+
+        Returns:
+            Scope string ('message', 'conversation', 'dataset', or 'preference').
+        """
+        if isinstance(analyzer, MessageAnalyzer):
+            return "message"
+        elif isinstance(analyzer, ConversationAnalyzer):
+            return "conversation"
+        elif isinstance(analyzer, DatasetAnalyzer):
+            return "dataset"
+        elif isinstance(analyzer, PreferenceAnalyzer):
+            return "preference"
+        return "unknown"
+
+    def _save_cache(self) -> None:
+        """Save results to cache directory."""
+        import json
+
+        if not self.cache_dir:
+            return
+
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save results as JSON
+        results_path = self.cache_dir / _CACHE_FILENAME
+        serialized = {}
+        for name, result in self._results.items():
+            if isinstance(result, list):
+                serialized[name] = [r.model_dump() for r in result]
+            else:
+                serialized[name] = result.model_dump()
+
+        with open(results_path, "w") as f:
+            json.dump(serialized, f, indent=2, default=str)
+
+        logger.debug(f"Cached results to {results_path}")

@@ -25,6 +25,7 @@ from oumi.core.types.conversation import Conversation
 def to_analysis_dataframe(
     conversations: list[Conversation],
     results: dict[str, list[BaseModel] | BaseModel],
+    message_to_conversation_idx: list[int] | None = None,
 ) -> pd.DataFrame:
     """Convert typed analysis results to a pandas DataFrame.
 
@@ -42,13 +43,22 @@ def to_analysis_dataframe(
     Args:
         conversations: List of conversations that were analyzed.
         results: Dictionary mapping analyzer names to results.
-            - For per-conversation results: list of BaseModel
+            - For per-conversation results: list of BaseModel (len = num conversations)
+            - For message-level results: list of BaseModel (len = num messages)
             - For dataset-level results: single BaseModel (will be repeated)
+        message_to_conversation_idx: Optional mapping from message index to
+            conversation index. Required for proper aggregation of message-level
+            results. If provided, message-level results will be aggregated per
+            conversation.
 
     Returns:
         DataFrame with conversation metadata and all metrics as columns.
     """
     rows: list[dict[str, Any]] = []
+
+    # Determine expected counts
+    num_conversations = len(conversations)
+    total_messages = sum(len(conv.messages) for conv in conversations)
 
     for i, conv in enumerate(conversations):
         row: dict[str, Any] = {
@@ -63,10 +73,32 @@ def to_analysis_dataframe(
             prefix = _get_column_prefix(analyzer_name)
 
             if isinstance(analyzer_results, list):
-                # Per-conversation results
-                if i < len(analyzer_results):
+                result_count = len(analyzer_results)
+
+                if result_count == num_conversations:
+                    # Per-conversation results - direct mapping
+                    if i < result_count:
+                        result = analyzer_results[i]
+                        _add_result_to_row(row, result, prefix)
+
+                elif result_count == total_messages and message_to_conversation_idx:
+                    # Message-level results - aggregate for this conversation
+                    conv_messages = [
+                        analyzer_results[msg_idx]
+                        for msg_idx, conv_idx in enumerate(message_to_conversation_idx)
+                        if conv_idx == i
+                    ]
+                    if conv_messages:
+                        # Use first message result (or could aggregate)
+                        # TODO: Consider aggregation strategy (first, mean, etc.)
+                        _add_result_to_row(row, conv_messages[0], prefix)
+                        row[f"{prefix}__message_count"] = len(conv_messages)
+
+                elif i < result_count:
+                    # Fallback: assume per-conversation if count matches
                     result = analyzer_results[i]
                     _add_result_to_row(row, result, prefix)
+
             elif isinstance(analyzer_results, BaseModel):
                 # Dataset-level result - same for all conversations
                 _add_result_to_row(row, analyzer_results, prefix)
