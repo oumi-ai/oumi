@@ -14,7 +14,7 @@
 
 """Length analyzer implementation and result model."""
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 import tiktoken
 from pydantic import BaseModel, Field

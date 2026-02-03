@@ -361,7 +361,7 @@ def test_pipeline_custom_tokenizer_for_all(simple_conversation, mock_tokenizer):
 
     analyzer = LengthAnalyzer()  # No tokenizer
 
-    pipeline = AnalysisPipeline(
+    _ = AnalysisPipeline(
         analyzers=[analyzer],
         tokenizer=mock_tokenizer,
     )

@@ -153,9 +153,7 @@ class AnalysisPipeline:
             current = getattr(analyzer, _TOKENIZER_ATTR)
             if current is None:
                 setattr(analyzer, _TOKENIZER_ATTR, self._tokenizer)
-                logger.debug(
-                    f"Injected tokenizer into {analyzer.__class__.__name__}"
-                )
+                logger.debug(f"Injected tokenizer into {analyzer.__class__.__name__}")
 
     def run(
         self,
