@@ -105,14 +105,17 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         """Initialize the length analyzer.
 
         Args:
-            tokenizer: Optional tokenizer for token counting.
-            tiktoken_encoding: Tiktoken encoding name if using tiktoken.
+            tokenizer: Optional custom tokenizer (e.g., HuggingFace) for model-specific
+                token counting. Must have an `encode(text) -> list` method.
+            tiktoken_encoding: Tiktoken encoding name to use as fallback when no
+                custom tokenizer is provided.
         """
+        # User-provided tokenizer takes priority (for model-specific token counts)
         self.tokenizer = tokenizer
         self.tiktoken_encoding = tiktoken_encoding
-        self._tiktoken_encoder = None
 
-        # Initialize tiktoken if no tokenizer provided
+        # Fallback: use tiktoken (fast, widely available) when no custom tokenizer
+        self._tiktoken_encoder = None
         if tokenizer is None:
             self._tiktoken_encoder = self._load_tiktoken_encoder()
 
@@ -134,28 +137,33 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     def _count_tokens(self, text: str) -> int:
         """Count tokens in text.
 
+        Priority:
+        1. Custom tokenizer (if provided) - for model-specific token counts
+        2. Tiktoken (fallback) - fast default using OpenAI's tokenizer
+
         Args:
             text: Text to tokenize.
 
         Returns:
-            Token count (0 if tokenizer not available).
+            Token count. Returns 0 if no tokenizer is available or encoding fails.
         """
+        # Priority 1: Custom tokenizer (e.g., HuggingFace model tokenizer)
         if self.tokenizer is not None:
-            # Use provided tokenizer (HuggingFace style)
             try:
                 tokens = self.tokenizer.encode(text)
                 return len(tokens)
             except Exception:
                 return 0
 
+        # Priority 2: Tiktoken fallback (fast, widely available)
         if self._tiktoken_encoder is not None:
-            # Use tiktoken
             try:
                 tokens = self._tiktoken_encoder.encode(text)
                 return len(tokens)
             except Exception:
                 return 0
 
+        # No tokenizer available
         return 0
 
     def analyze(self, conversation: Conversation) -> LengthMetrics:
