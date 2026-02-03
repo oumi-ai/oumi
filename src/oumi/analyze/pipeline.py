@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel
+from tqdm import tqdm
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -449,21 +450,16 @@ class AnalysisPipeline:
         analyzer.set_dependencies(dependency_results)  # type: ignore[union-attr]
 
     def _iter_with_progress(self, items: list[T], desc: str) -> Iterable[T]:
-        """Iterate with optional progress bar.
+        """Iterate with progress bar.
 
         Args:
             items: Items to iterate over.
             desc: Description for the progress bar.
 
         Returns:
-            Iterator (with tqdm wrapper if available).
+            Iterator with tqdm progress bar wrapper.
         """
-        try:
-            from tqdm import tqdm
-
-            return tqdm(items, desc=desc, unit="analyzer")
-        except ImportError:
-            return items
+        return tqdm(items, desc=desc, unit="analyzer")
 
     def _get_analyzer_name(self, analyzer: AnyAnalyzer) -> str:
         """Get the name for an analyzer.
