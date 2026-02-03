@@ -26,8 +26,8 @@ __all__ = ["TurnStatsMetrics", "TurnStatsAnalyzer"]
 class TurnStatsMetrics(BaseModel):
     """Result model for turn statistics analysis of conversations.
 
-    Contains metrics about conversation structure including turn counts,
-    per-role statistics, and length ratios.
+    Contains metrics about conversation structure including turn counts
+    and per-role statistics.
 
     Example:
         >>> result = TurnStatsMetrics(
@@ -35,14 +35,11 @@ class TurnStatsMetrics(BaseModel):
         ...     num_user_turns=2,
         ...     num_assistant_turns=2,
         ...     has_system_message=False,
-        ...     avg_user_chars=50.0,
-        ...     avg_assistant_chars=150.0,
-        ...     response_ratio=3.0,
         ...     first_turn_role="user",
         ...     last_turn_role="assistant",
         ... )
-        >>> print(result.response_ratio)
-        3.0
+        >>> print(result.num_turns)
+        4
     """
 
     # Turn counts
@@ -53,30 +50,11 @@ class TurnStatsMetrics(BaseModel):
     num_assistant_turns: int = Field(
         description="Number of assistant turns in the conversation"
     )
+    num_tool_turns: int = Field(
+        default=0, description="Number of tool turns in the conversation"
+    )
     has_system_message: bool = Field(
         description="Whether the conversation has a system message"
-    )
-
-    # Length statistics
-    avg_user_chars: float = Field(
-        description="Average character length of user messages"
-    )
-    avg_assistant_chars: float = Field(
-        description="Average character length of assistant messages"
-    )
-    total_user_chars: int = Field(
-        default=0, description="Total character length of all user messages"
-    )
-    total_assistant_chars: int = Field(
-        default=0, description="Total character length of all assistant messages"
-    )
-
-    # Ratios
-    response_ratio: float = Field(
-        description="Ratio of average assistant to user message length (assistant/user)"
-    )
-    assistant_turn_ratio: float = Field(
-        default=0.0, description="Ratio of assistant turns to total non-system turns"
     )
 
     # Turn order
@@ -94,8 +72,8 @@ class TurnStatsMetrics(BaseModel):
 class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
     """Analyzer for computing turn statistics of conversations.
 
-    Computes turn counts, per-role statistics, and length ratios to help
-    understand conversation structure and balance.
+    Computes turn counts and per-role statistics to help understand
+    conversation structure and balance.
 
     Example:
         >>> from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer
@@ -110,24 +88,9 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
         ...     ),
         ... ])
         >>> result = analyzer.analyze(conversation)
-        >>> print(f"Response ratio: {result.response_ratio:.2f}")
-        Response ratio: 2.13
-
-    Args:
-        include_system_in_counts: Whether to include system messages in turn counts.
+        >>> print(f"Turns: {result.num_turns}")
+        Turns: 2
     """
-
-    def __init__(
-        self,
-        include_system_in_counts: bool = False,
-    ):
-        """Initialize the turn statistics analyzer.
-
-        Args:
-            include_system_in_counts: Whether to include system messages in total
-                turn counts. Default False (only count user/assistant turns).
-        """
-        self.include_system_in_counts = include_system_in_counts
 
     def analyze(self, conversation: Conversation) -> TurnStatsMetrics:
         """Analyze turn statistics for a conversation.
@@ -138,14 +101,14 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
         Returns:
             TurnStatsMetrics containing turn counts and statistics.
         """
-        user_lengths: list[int] = []
-        assistant_lengths: list[int] = []
+        num_user = 0
+        num_assistant = 0
+        num_tool = 0
         has_system = False
         first_role: str | None = None
         last_role: str | None = None
 
         for i, message in enumerate(conversation.messages):
-            text = self.get_text_content(message)
             role_value = message.role.value
 
             # Track first and last roles
@@ -154,48 +117,20 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
             last_role = role_value
 
             if message.role == Role.USER:
-                user_lengths.append(len(text))
+                num_user += 1
             elif message.role == Role.ASSISTANT:
-                assistant_lengths.append(len(text))
+                num_assistant += 1
+            elif message.role == Role.TOOL:
+                num_tool += 1
             elif message.role == Role.SYSTEM:
                 has_system = True
 
-        # Calculate averages
-        total_user_chars = sum(user_lengths)
-        total_assistant_chars = sum(assistant_lengths)
-        avg_user = total_user_chars / len(user_lengths) if user_lengths else 0.0
-        avg_assistant = (
-            total_assistant_chars / len(assistant_lengths) if assistant_lengths else 0.0
-        )
-
-        # Calculate response ratio (how much more verbose is the assistant)
-        response_ratio = avg_assistant / avg_user if avg_user > 0 else 0.0
-
-        # Calculate turn counts
-        num_user = len(user_lengths)
-        num_assistant = len(assistant_lengths)
-        non_system_turns = num_user + num_assistant
-        assistant_turn_ratio = (
-            num_assistant / non_system_turns if non_system_turns > 0 else 0.0
-        )
-
-        # Total turns depends on configuration
-        if self.include_system_in_counts:
-            num_turns = len(conversation.messages)
-        else:
-            num_turns = non_system_turns
-
         return TurnStatsMetrics(
-            num_turns=num_turns,
+            num_turns=len(conversation.messages),
             num_user_turns=num_user,
             num_assistant_turns=num_assistant,
+            num_tool_turns=num_tool,
             has_system_message=has_system,
-            avg_user_chars=avg_user,
-            avg_assistant_chars=avg_assistant,
-            total_user_chars=total_user_chars,
-            total_assistant_chars=total_assistant_chars,
-            response_ratio=response_ratio,
-            assistant_turn_ratio=assistant_turn_ratio,
             first_turn_role=first_role,
             last_turn_role=last_role,
         )

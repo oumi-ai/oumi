@@ -85,6 +85,19 @@ def user_only_conversation() -> Conversation:
     )
 
 
+@pytest.fixture
+def conversation_with_tool() -> Conversation:
+    """Create a conversation with tool messages."""
+    return Conversation(
+        messages=[
+            Message(role=Role.USER, content="What's the weather?"),
+            Message(role=Role.ASSISTANT, content="Let me check."),
+            Message(role=Role.TOOL, content='{"temperature": 72}'),
+            Message(role=Role.ASSISTANT, content="It's 72 degrees."),
+        ]
+    )
+
+
 # -----------------------------------------------------------------------------
 # TurnStatsMetrics Tests
 # -----------------------------------------------------------------------------
@@ -97,19 +110,14 @@ def test_turn_stats_metrics_creation():
         num_user_turns=2,
         num_assistant_turns=2,
         has_system_message=False,
-        avg_user_chars=10.0,
-        avg_assistant_chars=20.0,
-        response_ratio=2.0,
         first_turn_role="user",
         last_turn_role="assistant",
     )
     assert metrics.num_turns == 4
     assert metrics.num_user_turns == 2
     assert metrics.num_assistant_turns == 2
+    assert metrics.num_tool_turns == 0
     assert metrics.has_system_message is False
-    assert metrics.avg_user_chars == 10.0
-    assert metrics.avg_assistant_chars == 20.0
-    assert metrics.response_ratio == 2.0
     assert metrics.first_turn_role == "user"
     assert metrics.last_turn_role == "assistant"
 
@@ -121,32 +129,10 @@ def test_turn_stats_metrics_defaults():
         num_user_turns=1,
         num_assistant_turns=1,
         has_system_message=False,
-        avg_user_chars=5.0,
-        avg_assistant_chars=10.0,
-        response_ratio=2.0,
-        first_turn_role="user",
-        last_turn_role="assistant",
     )
-    assert metrics.total_user_chars == 0
-    assert metrics.total_assistant_chars == 0
-    assert metrics.assistant_turn_ratio == 0.0
-
-
-# -----------------------------------------------------------------------------
-# TurnStatsAnalyzer Initialization Tests
-# -----------------------------------------------------------------------------
-
-
-def test_analyzer_default_initialization():
-    """Test TurnStatsAnalyzer initializes with default settings."""
-    analyzer = TurnStatsAnalyzer()
-    assert analyzer.include_system_in_counts is False
-
-
-def test_analyzer_include_system():
-    """Test TurnStatsAnalyzer with system messages included in counts."""
-    analyzer = TurnStatsAnalyzer(include_system_in_counts=True)
-    assert analyzer.include_system_in_counts is True
+    assert metrics.num_tool_turns == 0
+    assert metrics.first_turn_role is None
+    assert metrics.last_turn_role is None
 
 
 # -----------------------------------------------------------------------------
@@ -163,19 +149,10 @@ def test_analyze_simple_conversation(simple_conversation):
     assert result.num_turns == 2
     assert result.num_user_turns == 1
     assert result.num_assistant_turns == 1
+    assert result.num_tool_turns == 0
     assert result.has_system_message is False
     assert result.first_turn_role == "user"
     assert result.last_turn_role == "assistant"
-
-
-def test_analyze_response_ratio(simple_conversation):
-    """Test that response ratio is computed correctly."""
-    analyzer = TurnStatsAnalyzer()
-    result = analyzer.analyze(simple_conversation)
-
-    # "Hello" = 5 chars, "Hi there, how can I help?" = 25 chars
-    expected_ratio = 25.0 / 5.0
-    assert result.response_ratio == expected_ratio
 
 
 def test_analyze_conversation_with_system(conversation_with_system):
@@ -183,19 +160,12 @@ def test_analyze_conversation_with_system(conversation_with_system):
     analyzer = TurnStatsAnalyzer()
     result = analyzer.analyze(conversation_with_system)
 
-    # System messages excluded from turn count by default
-    assert result.num_turns == 2
+    assert result.num_turns == 3
+    assert result.num_user_turns == 1
+    assert result.num_assistant_turns == 1
     assert result.has_system_message is True
     assert result.first_turn_role == "system"
-
-
-def test_analyze_conversation_with_system_included(conversation_with_system):
-    """Test analyzing with system messages included in count."""
-    analyzer = TurnStatsAnalyzer(include_system_in_counts=True)
-    result = analyzer.analyze(conversation_with_system)
-
-    # System messages included in turn count
-    assert result.num_turns == 3
+    assert result.last_turn_role == "assistant"
 
 
 def test_analyze_multi_turn_conversation(multi_turn_conversation):
@@ -210,15 +180,6 @@ def test_analyze_multi_turn_conversation(multi_turn_conversation):
     assert result.last_turn_role == "assistant"
 
 
-def test_analyze_assistant_turn_ratio(multi_turn_conversation):
-    """Test that assistant turn ratio is computed correctly."""
-    analyzer = TurnStatsAnalyzer()
-    result = analyzer.analyze(multi_turn_conversation)
-
-    # 3 assistant turns / 6 total turns = 0.5
-    assert result.assistant_turn_ratio == 0.5
-
-
 def test_analyze_empty_conversation(empty_conversation):
     """Test analyzing an empty conversation."""
     analyzer = TurnStatsAnalyzer()
@@ -227,10 +188,8 @@ def test_analyze_empty_conversation(empty_conversation):
     assert result.num_turns == 0
     assert result.num_user_turns == 0
     assert result.num_assistant_turns == 0
+    assert result.num_tool_turns == 0
     assert result.has_system_message is False
-    assert result.avg_user_chars == 0.0
-    assert result.avg_assistant_chars == 0.0
-    assert result.response_ratio == 0.0
     assert result.first_turn_role is None
     assert result.last_turn_role is None
 
@@ -243,31 +202,21 @@ def test_analyze_user_only_conversation(user_only_conversation):
     assert result.num_turns == 2
     assert result.num_user_turns == 2
     assert result.num_assistant_turns == 0
-    assert result.avg_assistant_chars == 0.0
-    assert result.response_ratio == 0.0  # No assistant, so ratio is 0
-    assert result.assistant_turn_ratio == 0.0
+    assert result.first_turn_role == "user"
+    assert result.last_turn_role == "user"
 
 
-def test_analyze_character_totals(simple_conversation):
-    """Test that character totals are computed correctly."""
+def test_analyze_conversation_with_tool(conversation_with_tool):
+    """Test analyzing a conversation with tool messages."""
     analyzer = TurnStatsAnalyzer()
-    result = analyzer.analyze(simple_conversation)
+    result = analyzer.analyze(conversation_with_tool)
 
-    # "Hello" = 5 chars
-    assert result.total_user_chars == 5
-    # "Hi there, how can I help?" = 25 chars
-    assert result.total_assistant_chars == 25
-
-
-def test_analyze_character_averages(multi_turn_conversation):
-    """Test that character averages are computed correctly."""
-    analyzer = TurnStatsAnalyzer()
-    result = analyzer.analyze(multi_turn_conversation)
-
-    # User messages: "Hi" (2), "What's the weather like?" (24),
-    # "That's okay, thanks anyway!" (27)
-    expected_user_avg = (2 + 24 + 27) / 3
-    assert result.avg_user_chars == expected_user_avg
+    assert result.num_turns == 4
+    assert result.num_user_turns == 1
+    assert result.num_assistant_turns == 2
+    assert result.num_tool_turns == 1
+    assert result.first_turn_role == "user"
+    assert result.last_turn_role == "assistant"
 
 
 # -----------------------------------------------------------------------------
@@ -295,7 +244,7 @@ def test_get_result_schema():
     schema = TurnStatsAnalyzer.get_result_schema()
     assert "properties" in schema
     assert "num_turns" in schema["properties"]
-    assert "response_ratio" in schema["properties"]
+    assert "num_tool_turns" in schema["properties"]
 
 
 def test_get_metric_names():
@@ -304,7 +253,7 @@ def test_get_metric_names():
     assert "num_turns" in names
     assert "num_user_turns" in names
     assert "num_assistant_turns" in names
-    assert "response_ratio" in names
+    assert "num_tool_turns" in names
     assert "first_turn_role" in names
 
 
@@ -345,18 +294,28 @@ def test_system_only_conversation():
     analyzer = TurnStatsAnalyzer()
     result = analyzer.analyze(conversation)
 
-    assert result.num_turns == 0  # System excluded by default
+    assert result.num_turns == 1
+    assert result.num_user_turns == 0
+    assert result.num_assistant_turns == 0
     assert result.has_system_message is True
     assert result.first_turn_role == "system"
     assert result.last_turn_role == "system"
 
 
-def test_system_only_conversation_included():
-    """Test system-only conversation with system included in count."""
+def test_tool_only_conversation():
+    """Test analyzing a conversation with only tool messages."""
     conversation = Conversation(
-        messages=[Message(role=Role.SYSTEM, content="System prompt")]
+        messages=[
+            Message(role=Role.TOOL, content='{"result": 1}'),
+            Message(role=Role.TOOL, content='{"result": 2}'),
+        ]
     )
-    analyzer = TurnStatsAnalyzer(include_system_in_counts=True)
+    analyzer = TurnStatsAnalyzer()
     result = analyzer.analyze(conversation)
 
-    assert result.num_turns == 1
+    assert result.num_turns == 2
+    assert result.num_tool_turns == 2
+    assert result.num_user_turns == 0
+    assert result.num_assistant_turns == 0
+    assert result.first_turn_role == "tool"
+    assert result.last_turn_role == "tool"
