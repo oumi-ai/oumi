@@ -80,11 +80,13 @@ class TurnStatsMetrics(BaseModel):
     )
 
     # Turn order
-    first_turn_role: str = Field(
-        description="Role of the first message in the conversation"
+    first_turn_role: str | None = Field(
+        default=None,
+        description="Role of the first message in the conversation, or None if empty",
     )
-    last_turn_role: str = Field(
-        description="Role of the last message in the conversation"
+    last_turn_role: str | None = Field(
+        default=None,
+        description="Role of the last message in the conversation, or None if empty",
     )
 
 
@@ -139,8 +141,8 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
         user_lengths: list[int] = []
         assistant_lengths: list[int] = []
         has_system = False
-        first_role = ""
-        last_role = ""
+        first_role: str | None = None
+        last_role: str | None = None
 
         for i, message in enumerate(conversation.messages):
             text = self.get_text_content(message)

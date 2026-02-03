@@ -231,8 +231,8 @@ def test_analyze_empty_conversation(empty_conversation):
     assert result.avg_user_chars == 0.0
     assert result.avg_assistant_chars == 0.0
     assert result.response_ratio == 0.0
-    assert result.first_turn_role == ""
-    assert result.last_turn_role == ""
+    assert result.first_turn_role is None
+    assert result.last_turn_role is None
 
 
 def test_analyze_user_only_conversation(user_only_conversation):
