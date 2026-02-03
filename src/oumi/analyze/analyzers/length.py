@@ -50,8 +50,6 @@ def default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
 class LengthMetrics(BaseModel):
     """Result model for length analysis of conversations.
 
-    Contains token counts at both the conversation level and per-message breakdown.
-
     Example:
         >>> result = LengthMetrics(
         ...     total_tokens=25,
@@ -63,21 +61,12 @@ class LengthMetrics(BaseModel):
         25
     """
 
-    # Conversation-level totals
     total_tokens: int = Field(description="Total number of tokens across all messages")
-
-    # Averages
     avg_tokens_per_message: float = Field(description="Average tokens per message")
-
-    # Per-message breakdowns
     message_token_counts: list[int] = Field(
         description="Token count for each message in order"
     )
-
-    # Message count
     num_messages: int = Field(description="Number of messages in the conversation")
-
-    # Role-specific stats
     user_total_tokens: int = Field(
         default=0, description="Total tokens in user messages"
     )
@@ -129,19 +118,6 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         self.tokenizer = tokenizer
 
     def _count_tokens(self, text: str) -> int:
-        """Count tokens in text.
-
-        Args:
-            text: Text to tokenize.
-
-        Returns:
-            Token count.
-
-        Raises:
-            RuntimeError: If no tokenizer is configured.
-            Exception: Any exception from the tokenizer's encode method
-                (e.g., ValueError for disallowed special tokens).
-        """
         if self.tokenizer is None:
             raise RuntimeError(
                 "No tokenizer configured. Either pass a tokenizer to __init__ "
@@ -161,26 +137,18 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             LengthMetrics containing token counts.
         """
         message_token_counts: list[int] = []
-
-        # Role-specific accumulators
         role_token_counts: dict[Role, int] = {role: 0 for role in Role}
 
         for message in conversation.messages:
             text = self.get_text_content(message)
-
-            # Token count
             token_count = self._count_tokens(text)
             message_token_counts.append(token_count)
 
-            # Role-specific counts
             if message.role in role_token_counts:
                 role_token_counts[message.role] += token_count
 
-        # Compute totals
         total_tokens = sum(message_token_counts)
         num_messages = len(conversation.messages)
-
-        # Compute average
         avg_tokens = total_tokens / num_messages if num_messages > 0 else 0.0
 
         return LengthMetrics(

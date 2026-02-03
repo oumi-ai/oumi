@@ -36,10 +36,7 @@ from oumi.core.types.conversation import Conversation
 
 logger = logging.getLogger(__name__)
 
-# Protocol for tokenizer-aware analyzers
 _TOKENIZER_ATTR = "tokenizer"
-
-# Constants
 _CACHE_FILENAME = "analysis_results.json"
 
 # Type aliases for consistency
@@ -71,18 +68,11 @@ class AnalysisPipeline:
     Example:
         >>> from oumi.analyze import AnalysisPipeline, LengthAnalyzer
         >>>
-        >>> # Pipeline provides default tokenizer to analyzers that need it
         >>> pipeline = AnalysisPipeline(
         ...     analyzers=[LengthAnalyzer()],
         ...     cache_dir="./analysis_cache",
         ... )
         >>> results = pipeline.run(conversations)
-        >>>
-        >>> # Or provide a custom tokenizer for all analyzers
-        >>> pipeline = AnalysisPipeline(
-        ...     analyzers=[LengthAnalyzer()],
-        ...     tokenizer=my_huggingface_tokenizer,
-        ... )
 
     Args:
         analyzers: List of analyzer instances to run.
@@ -113,7 +103,6 @@ class AnalysisPipeline:
         self.analyzers = analyzers
         self.cache_dir = Path(cache_dir) if cache_dir else None
 
-        # Set up shared tokenizer
         if tokenizer is not None:
             self._tokenizer = tokenizer
         else:
@@ -129,7 +118,6 @@ class AnalysisPipeline:
         self._preference_analyzers: list[PreferenceAnalyzer[Any]] = []
 
         for analyzer in analyzers:
-            # Inject tokenizer into analyzers that need one but don't have one
             self._inject_tokenizer(analyzer)
 
             if isinstance(analyzer, MessageAnalyzer):
@@ -142,13 +130,6 @@ class AnalysisPipeline:
                 self._preference_analyzers.append(analyzer)
 
     def _inject_tokenizer(self, analyzer: AnyAnalyzer) -> None:
-        """Inject the pipeline's tokenizer into an analyzer if it needs one.
-
-        Only injects if the analyzer has a `tokenizer` attribute that is None.
-
-        Args:
-            analyzer: The analyzer to potentially inject a tokenizer into.
-        """
         if hasattr(analyzer, _TOKENIZER_ATTR):
             current = getattr(analyzer, _TOKENIZER_ATTR)
             if current is None:

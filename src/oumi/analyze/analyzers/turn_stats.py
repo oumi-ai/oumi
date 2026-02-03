@@ -26,9 +26,6 @@ __all__ = ["TurnStatsMetrics", "TurnStatsAnalyzer"]
 class TurnStatsMetrics(BaseModel):
     """Result model for turn statistics analysis of conversations.
 
-    Contains metrics about conversation structure including turn counts
-    and per-role statistics.
-
     Example:
         >>> result = TurnStatsMetrics(
         ...     num_turns=4,
@@ -42,7 +39,6 @@ class TurnStatsMetrics(BaseModel):
         4
     """
 
-    # Turn counts
     num_turns: int = Field(
         description="Total number of turns (messages) in the conversation"
     )
@@ -56,8 +52,6 @@ class TurnStatsMetrics(BaseModel):
     has_system_message: bool = Field(
         description="Whether the conversation has a system message"
     )
-
-    # Turn order
     first_turn_role: str | None = Field(
         default=None,
         description="Role of the first message in the conversation, or None if empty",
@@ -101,18 +95,15 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
         Returns:
             TurnStatsMetrics containing turn counts and statistics.
         """
-        # Role-specific accumulators
         role_counts: dict[Role, int] = {role: 0 for role in Role}
         first_role: str | None = None
         last_role: str | None = None
 
         for i, message in enumerate(conversation.messages):
-            # Track first and last roles
             if i == 0:
                 first_role = message.role.value
             last_role = message.role.value
 
-            # Count by role
             if message.role in role_counts:
                 role_counts[message.role] += 1
 
