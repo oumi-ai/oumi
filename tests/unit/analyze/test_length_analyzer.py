@@ -19,7 +19,6 @@ import pytest
 from oumi.analyze.analyzers.length import LengthAnalyzer, LengthMetrics
 from oumi.core.types.conversation import Conversation, Message, Role
 
-
 # -----------------------------------------------------------------------------
 # Fixtures
 # -----------------------------------------------------------------------------
@@ -90,6 +89,7 @@ def test_length_metrics_creation():
     assert metrics.user_total_tokens == 0
     assert metrics.assistant_total_tokens == 0
     assert metrics.system_total_tokens == 0
+    assert metrics.tool_total_tokens == 0
 
 
 def test_length_metrics_with_role_stats():
@@ -157,8 +157,9 @@ def test_analyze_role_stats(simple_conversation):
 
     assert result.user_total_tokens > 0
     assert result.assistant_total_tokens > 0
-    # System should be 0 since there's no system message
+    # System and tool should be 0 since there are no such messages
     assert result.system_total_tokens == 0
+    assert result.tool_total_tokens == 0
 
 
 def test_analyze_conversation_with_system(conversation_with_system):
@@ -235,6 +236,7 @@ def test_analyze_text_role_stats_are_zero():
     assert result.user_total_tokens == 0
     assert result.assistant_total_tokens == 0
     assert result.system_total_tokens == 0
+    assert result.tool_total_tokens == 0
 
 
 # -----------------------------------------------------------------------------
@@ -274,7 +276,9 @@ def test_analyzer_registered_in_registry():
     """Test that LengthAnalyzer is registered in the core registry."""
     from oumi.core.registry import REGISTRY, RegistryType
 
-    analyzer_class = REGISTRY.get(name="typed_length", type=RegistryType.SAMPLE_ANALYZER)
+    analyzer_class = REGISTRY.get(
+        name="typed_length", type=RegistryType.SAMPLE_ANALYZER
+    )
     assert analyzer_class is LengthAnalyzer
 
 

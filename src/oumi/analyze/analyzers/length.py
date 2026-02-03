@@ -56,12 +56,17 @@ class LengthMetrics(BaseModel):
     num_messages: int = Field(description="Number of messages in the conversation")
 
     # Role-specific stats
-    user_total_tokens: int = Field(default=0, description="Total tokens in user messages")
+    user_total_tokens: int = Field(
+        default=0, description="Total tokens in user messages"
+    )
     assistant_total_tokens: int = Field(
         default=0, description="Total tokens in assistant messages"
     )
     system_total_tokens: int = Field(
         default=0, description="Total tokens in system messages"
+    )
+    tool_total_tokens: int = Field(
+        default=0, description="Total tokens in tool messages"
     )
 
 
@@ -169,6 +174,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             Role.USER: 0,
             Role.ASSISTANT: 0,
             Role.SYSTEM: 0,
+            Role.TOOL: 0,
         }
 
         for message in conversation.messages:
@@ -197,6 +203,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             user_total_tokens=role_token_counts[Role.USER],
             assistant_total_tokens=role_token_counts[Role.ASSISTANT],
             system_total_tokens=role_token_counts[Role.SYSTEM],
+            tool_total_tokens=role_token_counts[Role.TOOL],
         )
 
     def analyze_text(self, text: str) -> LengthMetrics:

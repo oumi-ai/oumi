@@ -19,7 +19,6 @@ import pytest
 from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer, TurnStatsMetrics
 from oumi.core.types.conversation import Conversation, Message, Role
 
-
 # -----------------------------------------------------------------------------
 # Fixtures
 # -----------------------------------------------------------------------------
@@ -327,9 +326,7 @@ def test_get_scope():
 
 def test_single_message_conversation():
     """Test analyzing a conversation with a single message."""
-    conversation = Conversation(
-        messages=[Message(role=Role.USER, content="Hello")]
-    )
+    conversation = Conversation(messages=[Message(role=Role.USER, content="Hello")])
     analyzer = TurnStatsAnalyzer()
     result = analyzer.analyze(conversation)
 
