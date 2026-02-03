@@ -58,7 +58,7 @@ dependencies = [
     "omegaconf==2.4.0.dev4",
     "packaging",
     "pandas>=2.3,<3",
-    "peft>=0.17,<0.19",
+    "peft>=0.17,<0.19",        # 0.17 for transformers v4.x, 0.18+ for v5.x
     "pexpect>=4.9,<4.10",      # Used by Polaris client
     "posthog>=7.0,<8.0",
     "pillow>=11.3,<12.2",      # Used by image datasets
@@ -73,10 +73,8 @@ dependencies = [
     "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.25", # Used by some VLM-s (multimodal)
     "tqdm",
-    # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
-    # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
-    "transformers>=4.57,<4.58",
-    "trl>=0.24,<0.27",
+    "transformers>=4.57,<6.0",
+    "trl>=0.24,<0.28",
     "typer<0.21.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
     "uvicorn<0.41.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
@@ -124,7 +122,9 @@ gpu = [
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
-    "vllm>=0.10,<0.11",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    # Note: TRL 0.27 has a bug where version check uses <= 0.10.2 for GuidedDecodingParams,
+    # but StructuredOutputsParams was only introduced in vLLM 0.12.0. Pin to 0.10.2 exactly.
+    "vllm==0.10.2",                              # For VLLMInferenceEngine, and vLLM-powered GRPO training.
 ]
 
 deepspeed = [
@@ -189,7 +189,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp,synthesis,tune,torchdata]",
-    "vllm>=0.10,<0.11",                            # For VLLMInferenceEngine
+    "vllm==0.10.2",                                # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3,<0.4", # For LlamaCppInferenceEngine
