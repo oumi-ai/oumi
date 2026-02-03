@@ -86,23 +86,19 @@ def to_analysis_dataframe(
                         _add_result_to_row(row, result, prefix)
 
                 elif result_count == total_messages and message_to_conversation_idx:
-                    # Message-level results - aggregate for this conversation
                     conv_messages = [
                         analyzer_results[msg_idx]
                         for msg_idx, conv_idx in enumerate(message_to_conversation_idx)
                         if conv_idx == i
                     ]
                     if conv_messages:
-                        # Use first message result (or could aggregate)
                         # TODO: Consider aggregation strategy (first, mean, etc.)
                         _add_result_to_row(row, conv_messages[0], prefix)
                         row[f"{prefix}__message_count"] = len(conv_messages)
 
                 elif i < result_count:
-                    # Fallback: try to use result at index i
                     result = analyzer_results[i]
                     _add_result_to_row(row, result, prefix)
-                    # Warn on first conversation only to avoid spam
                     if i == 0:
                         logger.warning(
                             f"Analyzer '{analyzer_name}' returned {result_count} "
@@ -112,8 +108,7 @@ def to_analysis_dataframe(
                             "conversations may have missing metric values.",
                         )
                 else:
-                    # Results list is shorter than conversation index - warn once
-                    if i == result_count:  # Only warn when we first exceed
+                    if i == result_count:
                         logger.warning(
                             f"Analyzer '{analyzer_name}' returned {result_count} "
                             f"results for {num_conversations} conversations. "
@@ -123,7 +118,6 @@ def to_analysis_dataframe(
                         )
 
             elif isinstance(analyzer_results, BaseModel):
-                # Dataset-level result - same for all conversations
                 _add_result_to_row(row, analyzer_results, prefix)
 
         rows.append(row)
@@ -161,11 +155,9 @@ def to_message_dataframe(
                 "role": message.role.value,
             }
 
-            # Add text content (handle multimodal)
             if isinstance(message.content, str):
                 row["text_content"] = message.content
             else:
-                # Concatenate text from content items
                 text_parts = []
                 for item in message.content:
                     if isinstance(item, ContentItem) and isinstance(item.content, str):
@@ -186,20 +178,7 @@ def to_message_dataframe(
 
 
 def _get_column_prefix(analyzer_name: str) -> str:
-    """Get the column name prefix for an analyzer.
-
-    Converts analyzer names to lowercase prefixes:
-    - "LengthAnalyzer" -> "length"
-    - "QualityAnalyzer" -> "quality"
-    - "CustomName" -> "customname"
-
-    Args:
-        analyzer_name: Name of the analyzer.
-
-    Returns:
-        Lowercase prefix for column names.
-    """
-    # Remove common suffixes
+    """Convert analyzer name to lowercase column prefix."""
     name = analyzer_name
     for suffix in ["Analyzer", "Metrics"]:
         if name.endswith(suffix):
@@ -213,19 +192,7 @@ def _add_result_to_row(
     result: BaseModel | dict[str, Any],
     prefix: str,
 ) -> None:
-    """Add fields from a result model to a row dictionary.
-
-    Handles nested structures and lists appropriately:
-    - Scalar values: prefix__field_name
-    - Lists: prefix__field_name (stored as-is for DataFrame)
-    - Nested models: prefix__nested_field_name (flattened)
-
-    Args:
-        row: Row dictionary to add fields to.
-        result: Pydantic model or dict with fields to add.
-        prefix: Prefix for column names.
-    """
-    # Handle both Pydantic models and raw dicts (from cache)
+    """Add fields from result model to row with prefixed column names."""
     if isinstance(result, dict):
         result_dict = result
     else:
@@ -235,14 +202,11 @@ def _add_result_to_row(
         column_name = f"{prefix}__{field_name}"
 
         if isinstance(value, dict):
-            # Nested structure - flatten with additional prefix
             for nested_key, nested_value in value.items():
                 row[f"{column_name}__{nested_key}"] = nested_value
         elif isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
-            # List of dicts - skip for now (complex structure)
             logger.debug(f"Skipping complex field {column_name}: list of dicts")
         else:
-            # Scalar or simple list - add directly
             row[column_name] = value
 
 

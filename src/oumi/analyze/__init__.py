@@ -12,24 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Analyzer framework for dataset analysis.
-
-This module provides a typed, Pydantic-based approach to analyzing datasets,
-with typed Conversation objects and strongly-typed result models.
-
-Example usage:
-
-    from oumi.analyze import AnalysisPipeline
-    from oumi.analyze.base import ConversationAnalyzer
-
-    # Create custom analyzer
-    class MyAnalyzer(ConversationAnalyzer):
-        ...
-
-    # Batch processing with pipeline
-    pipeline = AnalysisPipeline(analyzers=[MyAnalyzer()])
-    results = pipeline.run(conversations)
-"""
+"""Analyzer framework for dataset analysis."""
 
 from oumi.analyze.base import (
     BaseAnalyzer,
@@ -38,14 +21,10 @@ from oumi.analyze.base import (
     MessageAnalyzer,
     PreferenceAnalyzer,
 )
-
-# Import config
 from oumi.analyze.config import (
     AnalyzerConfig,
     TypedAnalyzeConfig,
 )
-
-# Import discovery utilities
 from oumi.analyze.discovery import (
     describe_analyzer,
     get_analyzer_info,
@@ -53,11 +32,7 @@ from oumi.analyze.discovery import (
     print_analyzer_metrics,
 )
 from oumi.analyze.pipeline import AnalysisPipeline
-
-# Import utilities
 from oumi.analyze.utils.dataframe import to_analysis_dataframe
-
-# Import registry from core (reuse existing infrastructure)
 from oumi.core.registry import (
     REGISTRY,
 )
@@ -111,20 +86,15 @@ def create_analyzer_from_config(
 
 
 __all__ = [
-    # Base classes
     "BaseAnalyzer",
     "MessageAnalyzer",
     "ConversationAnalyzer",
     "DatasetAnalyzer",
     "PreferenceAnalyzer",
-    # Pipeline
     "AnalysisPipeline",
-    # Utilities
     "to_analysis_dataframe",
-    # Config
     "TypedAnalyzeConfig",
     "AnalyzerConfig",
-    # Discovery utilities
     "list_available_metrics",
     "print_analyzer_metrics",
     "get_analyzer_info",

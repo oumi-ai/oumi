@@ -12,17 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Base analyzer classes for the typed analyzer framework.
-
-This module defines the base classes for different analyzer scopes:
-- BaseAnalyzer: Common base for all analyzers (metadata methods)
-- MessageAnalyzer: Analyzes individual messages
-- ConversationAnalyzer: Analyzes complete conversations
-- DatasetAnalyzer: Analyzes entire datasets (cross-sample operations)
-- PreferenceAnalyzer: Analyzes preference pairs (for DPO data)
-
-Each analyzer returns strongly-typed Pydantic models as results.
-"""
+"""Base analyzer classes for the typed analyzer framework."""
 
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar, get_args, get_origin
@@ -32,7 +22,6 @@ from transformers import PreTrainedTokenizerBase
 
 from oumi.core.types.conversation import ContentItem, Conversation, Message
 
-# Type variable for analyzer results - must be a Pydantic BaseModel
 TResult = TypeVar("TResult", bound=BaseModel)
 
 
@@ -128,15 +117,9 @@ class BaseAnalyzer(ABC, Generic[TResult]):
     def _get_result_type(cls) -> type[BaseModel] | None:
         """Get the result type from the generic parameter.
 
-        Walks through the class's base classes to find the generic type
-        argument (TResult) from the analyzer base class.
-
         Returns:
             The result type class (a BaseModel subclass), or None if not found.
         """
-        # Walk through original bases to find generic type parameter
-        # __orig_bases__ exists on classes inheriting from Generic (PEP 560)
-        # Use getattr since it's a runtime attribute not in the static type system
         for base in getattr(cls, "__orig_bases__", ()):
             if get_origin(base) is not None:
                 args = get_args(base)
@@ -162,7 +145,6 @@ class BaseAnalyzer(ABC, Generic[TResult]):
         """
         if isinstance(message.content, str):
             return message.content
-        # For multimodal content, concatenate text items
         text_parts = []
         for item in message.content:
             if isinstance(item, ContentItem) and isinstance(item.content, str):
@@ -171,21 +153,7 @@ class BaseAnalyzer(ABC, Generic[TResult]):
 
 
 class MessageAnalyzer(BaseAnalyzer[TResult]):
-    """Base class for analyzers that operate on individual messages.
-
-    MessageAnalyzers process single messages and return typed results.
-    Use this for metrics that are meaningful at the message level,
-    such as length, format detection, or content analysis.
-
-    Example:
-        class FormatAnalyzer(MessageAnalyzer[FormatMetrics]):
-            def analyze(self, message: Message) -> FormatMetrics:
-                text = self.get_text_content(message)
-                return FormatMetrics(
-                    has_markdown=self._detect_markdown(text),
-                    has_code_blocks=self._detect_code_blocks(text),
-                )
-    """
+    """Base class for analyzers that operate on individual messages."""
 
     @classmethod
     def get_scope(cls) -> str:
@@ -235,22 +203,7 @@ class MessageAnalyzer(BaseAnalyzer[TResult]):
 
 
 class ConversationAnalyzer(BaseAnalyzer[TResult]):
-    """Base class for analyzers that operate on complete conversations.
-
-    ConversationAnalyzers process entire conversations and return typed results.
-    Use this for metrics that require context across messages, such as
-    turn patterns, coherence analysis, or conversation-level quality scores.
-
-    Example:
-        class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
-            def analyze(self, conversation: Conversation) -> LengthMetrics:
-                total_words = sum(
-                    len(m.content.split())
-                    for m in conversation.messages
-                    if isinstance(m.content, str)
-                )
-                return LengthMetrics(total_words=total_words, ...)
-    """
+    """Base class for analyzers that operate on complete conversations."""
 
     @classmethod
     def get_scope(cls) -> str:
@@ -337,22 +290,7 @@ class ConversationAnalyzer(BaseAnalyzer[TResult]):
 
 
 class DatasetAnalyzer(BaseAnalyzer[TResult]):
-    """Base class for analyzers that operate on entire datasets.
-
-    DatasetAnalyzers have access to all conversations at once, enabling
-    cross-sample operations like deduplication, clustering, or computing
-    dataset-wide statistics.
-
-    Example:
-        class DeduplicationAnalyzer(DatasetAnalyzer[DeduplicationResult]):
-            def analyze(self, conversations: list[Conversation]) -> DeduplicationResult:
-                embeddings = self._compute_embeddings(conversations)
-                duplicates = self._find_duplicates(embeddings)
-                return DeduplicationResult(
-                    duplicate_groups=duplicates,
-                    total_duplicates=len(duplicates),
-                )
-    """
+    """Base class for analyzers that operate on entire datasets."""
 
     @classmethod
     def get_scope(cls) -> str:
@@ -391,25 +329,7 @@ class DatasetAnalyzer(BaseAnalyzer[TResult]):
 
 
 class PreferenceAnalyzer(BaseAnalyzer[TResult]):
-    """Base class for analyzers that operate on preference pairs.
-
-    PreferenceAnalyzers process chosen/rejected conversation pairs,
-    which is the format used for DPO (Direct Preference Optimization)
-    and similar preference-based training methods.
-
-    Example:
-        class PreferenceMarginAnalyzer(PreferenceAnalyzer[PreferenceMetrics]):
-            def analyze(
-                self, chosen: Conversation, rejected: Conversation
-            ) -> PreferenceMetrics:
-                chosen_score = self._compute_quality(chosen)
-                rejected_score = self._compute_quality(rejected)
-                return PreferenceMetrics(
-                    margin=chosen_score - rejected_score,
-                    chosen_score=chosen_score,
-                    rejected_score=rejected_score,
-                )
-    """
+    """Base class for analyzers that operate on preference pairs."""
 
     @classmethod
     def get_scope(cls) -> str:

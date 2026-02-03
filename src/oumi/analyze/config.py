@@ -12,11 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Configuration for the typed analyzer framework.
-
-This module provides configuration classes for the new typed analyzer
-architecture, supporting both programmatic and YAML-based configuration.
-"""
+"""Configuration for the typed analyzer framework."""
 
 from dataclasses import dataclass, field
 from enum import Enum
