@@ -113,13 +113,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     """
 
     def __init__(self, tokenizer: Tokenizer | None = None):
-        """Initialize the length analyzer.
-
-        Args:
-            tokenizer: Tokenizer for counting tokens. Must have an
-                `encode(text) -> list[int]` method. If None, can be set later
-                via the `tokenizer` attribute (e.g., by AnalysisPipeline).
-        """
+        """Initialize the analyzer."""
         self.tokenizer = tokenizer
 
     def _count_tokens(self, text: str) -> int:
