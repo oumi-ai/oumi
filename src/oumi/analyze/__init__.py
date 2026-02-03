@@ -14,6 +14,12 @@
 
 """Analyzer framework for dataset analysis."""
 
+from oumi.analyze.analyzers import (
+    LengthAnalyzer,
+    LengthMetrics,
+    TurnStatsAnalyzer,
+    TurnStatsMetrics,
+)
 from oumi.analyze.base import (
     BaseAnalyzer,
     ConversationAnalyzer,
@@ -86,19 +92,30 @@ def create_analyzer_from_config(
 
 
 __all__ = [
+    # Base classes
     "BaseAnalyzer",
     "MessageAnalyzer",
     "ConversationAnalyzer",
     "DatasetAnalyzer",
     "PreferenceAnalyzer",
+    # Analyzers
+    "LengthAnalyzer",
+    "LengthMetrics",
+    "TurnStatsAnalyzer",
+    "TurnStatsMetrics",
+    # Pipeline
     "AnalysisPipeline",
+    # Utilities
     "to_analysis_dataframe",
+    # Config
     "TypedAnalyzeConfig",
     "AnalyzerConfig",
+    # Discovery
     "list_available_metrics",
     "print_analyzer_metrics",
     "get_analyzer_info",
     "describe_analyzer",
+    # Registry
     "register_analyzer",
     "get_analyzer_class",
     "create_analyzer_from_config",
