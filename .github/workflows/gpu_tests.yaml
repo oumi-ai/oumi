@@ -20,6 +20,16 @@ jobs:
     permissions:
       contents: "read"
     runs-on: linux-gpu-runner
+    strategy:
+      fail-fast: false
+      matrix:
+        transformers-version: ["v4", "v5"]
+        include:
+          - transformers-version: "v4"
+            transformers-spec: "transformers>=4.57,<5.0"
+          - transformers-version: "v5"
+            transformers-spec: "transformers>=5.0,<5.1"
+    name: gpu-tests (transformers ${{ matrix.transformers-version }})
 
     steps:
       - name: Checkout
@@ -64,6 +74,14 @@ jobs:
           # Install in system python as we're in a sandbox env
           # Install in verbose mode to see what's going on
           uv pip install --system -e '.[ci_gpu]' hf_transfer
+
+      - name: Install specific transformers version
+        env:
+          TRANSFORMERS_SPEC: ${{ matrix.transformers-spec }}
+        run: |
+          # Install the specific transformers version for this matrix job
+          uv pip install --system "$TRANSFORMERS_SPEC"
+          python -c "import transformers; print(f'Transformers version: {transformers.__version__}')"
 
       - name: Cache HuggingFace Models
         uses: actions/cache@v5
