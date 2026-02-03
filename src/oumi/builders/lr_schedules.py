@@ -102,7 +102,7 @@ def build_lr_scheduler(
     if warmup_steps is None:
         warmup_steps = 0
         logger.debug("No warmup steps provided. Setting warmup_steps=0.")
-    elif warmup_steps > 1:
+    elif warmup_steps >= 0:
         warmup_steps = int(warmup_steps)
     else:
         raise ValueError(f"Invalid warmup_steps: {warmup_steps}")

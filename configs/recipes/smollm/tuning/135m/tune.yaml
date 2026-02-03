@@ -64,6 +64,6 @@ tuning:
     q_lora: false
 
   evaluation_metrics: ["eval_loss"]
-  evaluation_direction: ["minimize", "maximize"]
+  evaluation_direction: ["minimize"]
   tuner_type: OPTUNA
   tuner_sampler: "RandomSampler"
