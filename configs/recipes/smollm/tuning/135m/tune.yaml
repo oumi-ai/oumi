@@ -63,7 +63,7 @@ tuning:
   fixed_peft_params:
     q_lora: false
 
-  evaluation_metrics: ["eval_loss", "eval_mean_token_accuracy"]
+  evaluation_metrics: ["eval_loss"]
   evaluation_direction: ["minimize", "maximize"]
   tuner_type: OPTUNA
   tuner_sampler: "RandomSampler"
