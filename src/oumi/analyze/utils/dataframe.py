@@ -15,7 +15,7 @@
 """DataFrame conversion utilities for typed analysis results."""
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import pandas as pd
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def to_analysis_dataframe(
     conversations: list[Conversation],
-    results: Mapping[str, list[BaseModel] | BaseModel],
+    results: Mapping[str, Sequence[BaseModel] | BaseModel],
     message_to_conversation_idx: list[int] | None = None,
 ) -> pd.DataFrame:
     """Convert typed analysis results to a pandas DataFrame.
@@ -133,7 +133,7 @@ def to_analysis_dataframe(
 
 def to_message_dataframe(
     conversations: list[Conversation],
-    results: Mapping[str, list[BaseModel]],
+    results: Mapping[str, Sequence[BaseModel]],
 ) -> pd.DataFrame:
     """Convert message-level analysis results to a pandas DataFrame.
 
@@ -247,7 +247,7 @@ def _add_result_to_row(
 
 
 def results_to_dict(
-    results: Mapping[str, list[BaseModel] | BaseModel],
+    results: Mapping[str, Sequence[BaseModel] | BaseModel],
 ) -> dict[str, list[dict[str, Any]] | dict[str, Any]]:
     """Convert typed results to a serializable dictionary.
 
