@@ -127,12 +127,12 @@ def list_available_metrics(
         - schema: Full JSON schema for the result model
         - scope: Analyzer scope (message, conversation, dataset, preference)
     """
-    from oumi.analyze.registry import ANALYZER_REGISTRY
+    from oumi.core.registry import REGISTRY, RegistryType
 
     results = {}
     seen_classes = set()
 
-    for name, analyzer_class in ANALYZER_REGISTRY.items():
+    for name, analyzer_class in REGISTRY.get_all(RegistryType.SAMPLE_ANALYZER).items():
         class_name = analyzer_class.__name__
         if not include_duplicates and class_name in seen_classes:
             continue

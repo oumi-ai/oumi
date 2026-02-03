@@ -54,13 +54,56 @@ from oumi.analyze.discovery import (
 )
 from oumi.analyze.pipeline import AnalysisPipeline
 
-# Import registry
-from oumi.analyze.registry import (
-    ANALYZER_REGISTRY,
-    create_analyzer_from_config,
-    get_analyzer_class,
-    register_analyzer,
+# Import registry from core (reuse existing infrastructure)
+from oumi.core.registry import (
+    REGISTRY,
+    RegistryType,
+    register_sample_analyzer as register_analyzer,
 )
+
+
+def get_analyzer_class(name: str) -> type | None:
+    """Get an analyzer class by name.
+
+    Args:
+        name: Name of the analyzer.
+
+    Returns:
+        The analyzer class or None if not found.
+    """
+    from typing import cast
+
+    result = REGISTRY.get_sample_analyzer(name)
+    return cast(type | None, result)
+
+
+def create_analyzer_from_config(
+    analyzer_id: str,
+    params: dict,
+) -> "MessageAnalyzer | ConversationAnalyzer | DatasetAnalyzer | None":
+    """Create an analyzer instance from configuration.
+
+    Args:
+        analyzer_id: Analyzer type identifier.
+        params: Analyzer-specific parameters.
+
+    Returns:
+        Analyzer instance or None if not found.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    analyzer_class = REGISTRY.get_sample_analyzer(analyzer_id)
+    if analyzer_class is None:
+        logger.warning(f"Unknown analyzer: {analyzer_id}")
+        return None
+
+    try:
+        return analyzer_class(**params)
+    except Exception as e:
+        logger.error(f"Failed to create analyzer {analyzer_id}: {e}")
+        return None
 
 # Import utilities
 from oumi.analyze.utils.dataframe import to_analysis_dataframe
@@ -84,8 +127,7 @@ __all__ = [
     "print_analyzer_metrics",
     "get_analyzer_info",
     "describe_analyzer",
-    # Registry
-    "ANALYZER_REGISTRY",
+    # Registry (using core oumi.core.registry infrastructure)
     "register_analyzer",
     "get_analyzer_class",
     "create_analyzer_from_config",
