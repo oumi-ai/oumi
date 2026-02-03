@@ -6,7 +6,6 @@ from transformers import (
     AutoConfig,
     AutoModel,
     AutoModelForCausalLM,
-    AutoModelForVision2Seq,
 )
 from transformers.models.mllama.modeling_mllama import (
     MllamaCrossAttentionDecoderLayer,
@@ -22,7 +21,13 @@ from oumi.utils.torch_naming_heuristics import (
     resolve_transformer_layer_cls_string_as_module_set,
     simplify_transformer_layer_cls_string,
 )
+from oumi.utils.version_utils import is_transformers_v5
 from tests.markers import requires_hf_token
+
+if is_transformers_v5():
+    AutoModelForVLM: type = transformers.AutoModelForImageTextToText  # type: ignore[attr-defined]
+else:
+    AutoModelForVLM: type = transformers.AutoModelForVision2Seq  # type: ignore[attr-defined]
 
 
 def test_disable_dropout():
@@ -117,10 +122,9 @@ MODEL_CONFIGS = [
     ("meta-llama/Meta-Llama-3-8B-Instruct", "LlamaDecoderLayer", AutoModelForCausalLM),
     ("meta-llama/Meta-Llama-3-70B-Instruct", "LlamaDecoderLayer", AutoModelForCausalLM),
     ("microsoft/Phi-3-mini-4k-instruct", "Phi3DecoderLayer", AutoModelForCausalLM),
-    # Only available on nightly build
-    # ("Qwen/Qwen2-VL-2B-Instruct", "QwenDecoderLayer", AutoModelForVision2Seq),
-    ("llava-hf/llava-1.5-7b-hf", "CLIPEncoderLayer", AutoModelForVision2Seq),
-    ("Salesforce/blip2-opt-2.7b", "Blip2EncoderLayer", AutoModelForVision2Seq),
+    ("Qwen/Qwen2-VL-2B-Instruct", "QwenDecoderLayer", AutoModelForVLM),
+    ("llava-hf/llava-1.5-7b-hf", "CLIPEncoderLayer", AutoModelForVLM),
+    ("Salesforce/blip2-opt-2.7b", "Blip2EncoderLayer", AutoModelForVLM),
     ("mistralai/Mistral-7B-v0.1", "MistralDecoderLayer", AutoModelForCausalLM),
     ("google/gemma-2-2b-it", "GemmaDecoderLayer", AutoModelForCausalLM),
     ("google/gemma-2-2b", "GemmaDecoderLayer", AutoModelForCausalLM),

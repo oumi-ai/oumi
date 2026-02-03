@@ -77,6 +77,7 @@ from oumi.core.configs.internal.internal_model_config import (
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.utils.cache_utils import dict_cache
 from oumi.utils.logging import logger
+from oumi.utils.version_utils import is_transformers_v5
 
 
 @dict_cache
@@ -117,8 +118,7 @@ class _ModelTypeInfo(NamedTuple):
         model_class: The HuggingFace transformers class used to load this model type.
             Common classes include:
             - transformers.AutoModelForCausalLM: For standard language models
-            - transformers.AutoModelForVision2Seq: For vision-to-text models
-            - transformers.AutoModelForImageTextToText: For image+text to text models
+            - transformers.AutoModelForImageTextToText: For vision-language models
 
         config: The InternalModelConfig instance that defines how this model should
             be configured. This includes settings like:
@@ -489,7 +489,11 @@ def get_all_models_map() -> Mapping[
     default_vlm_config: InternalModelConfig = _create_default_vlm_config()
 
     default_llm_class = transformers.AutoModelForCausalLM
-    default_vlm_class = transformers.AutoModelForVision2Seq
+
+    if is_transformers_v5():
+        default_vlm_class = transformers.AutoModelForImageTextToText  # type: ignore[attr-defined]
+    else:
+        default_vlm_class = transformers.AutoModelForVision2Seq  # type: ignore[attr-defined]
 
     all_models_list: list[_ModelTypeInfo] = [
         _ModelTypeInfo(

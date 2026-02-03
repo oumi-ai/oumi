@@ -51,14 +51,15 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import transformers
 from accelerate import init_empty_weights
 from safetensors.torch import load_file
 from torch.distributed._tensor import Placement, Shard
+from tqdm import tqdm
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
     AutoModelForTokenClassification,
-    AutoModelForVision2Seq,
     GenerationConfig,
     PretrainedConfig,
 )
@@ -69,9 +70,9 @@ try:
 except ImportError:
     from torch.distributed._tensor import DTensor
 
-from tqdm import tqdm
-
 from oumi.utils.logging import logger
+from oumi.utils.version_utils import is_transformers_v5
+
 
 try:
     import verl  # pyright: ignore[reportMissingImports]
@@ -124,7 +125,10 @@ class BaseModelMerger(ABC):
         elif "ForCausalLM" in self.model_config.architectures[0]:
             return AutoModelForCausalLM
         elif "ForConditionalGeneration" in self.model_config.architectures[0]:
-            return AutoModelForVision2Seq
+            if is_transformers_v5():
+                return transformers.AutoModelForImageTextToText  # type: ignore[attr-defined]
+            else:
+                return transformers.AutoModelForVision2Seq  # type: ignore[attr-defined]
 
         raise NotImplementedError(
             f"Unknown architecture {self.model_config.architectures}"
