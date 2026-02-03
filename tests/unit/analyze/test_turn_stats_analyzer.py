@@ -264,7 +264,8 @@ def test_analyze_character_averages(multi_turn_conversation):
     analyzer = TurnStatsAnalyzer()
     result = analyzer.analyze(multi_turn_conversation)
 
-    # User messages: "Hi" (2), "What's the weather like?" (24), "That's okay, thanks anyway!" (27)
+    # User messages: "Hi" (2), "What's the weather like?" (24),
+    # "That's okay, thanks anyway!" (27)
     expected_user_avg = (2 + 24 + 27) / 3
     assert result.avg_user_chars == expected_user_avg
 

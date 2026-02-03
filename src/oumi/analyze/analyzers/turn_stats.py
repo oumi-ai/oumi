@@ -102,7 +102,10 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
         >>> analyzer = TurnStatsAnalyzer()
         >>> conversation = Conversation(messages=[
         ...     Message(role=Role.USER, content="What is Python?"),
-        ...     Message(role=Role.ASSISTANT, content="Python is a programming language."),
+        ...     Message(
+        ...         role=Role.ASSISTANT,
+        ...         content="Python is a programming language.",
+        ...     ),
         ... ])
         >>> result = analyzer.analyze(conversation)
         >>> print(f"Response ratio: {result.response_ratio:.2f}")
