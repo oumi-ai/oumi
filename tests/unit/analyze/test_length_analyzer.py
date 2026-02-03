@@ -318,6 +318,75 @@ def test_count_tokens_raises_when_no_tokenizer():
 
 
 # -----------------------------------------------------------------------------
+# Rendered Tokens Tests
+# -----------------------------------------------------------------------------
+
+
+def test_rendered_tokens_none_for_tiktoken(simple_conversation, tiktoken_tokenizer):
+    """Test that rendered_tokens is None when using tiktoken (no chat template)."""
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
+    result = analyzer.analyze(simple_conversation)
+
+    # tiktoken doesn't have apply_chat_template
+    assert result.rendered_tokens is None
+
+
+def test_rendered_tokens_none_for_mock_tokenizer(simple_conversation, mock_tokenizer):
+    """Test that rendered_tokens is None for tokenizers without apply_chat_template."""
+    analyzer = LengthAnalyzer(tokenizer=mock_tokenizer)
+    result = analyzer.analyze(simple_conversation)
+
+    assert result.rendered_tokens is None
+
+
+def test_rendered_tokens_with_chat_template(simple_conversation):
+    """Test rendered_tokens with a tokenizer that has apply_chat_template."""
+
+    class MockChatTokenizer:
+        """Mock tokenizer with apply_chat_template support."""
+
+        # Must have chat_template attribute set
+        chat_template = "{{ messages }}"
+
+        def encode(self, text: str) -> list[int]:
+            # Count characters instead of words for predictable results
+            return list(range(len(text)))
+
+        def apply_chat_template(
+            self, conversation, tokenize=False, return_dict=False
+        ):
+            # Simulate chat template adding special tokens/formatting
+            messages = conversation.messages
+            parts = []
+            for msg in messages:
+                content = msg.content if isinstance(msg.content, str) else str(msg.content)
+                parts.append(f"<|{msg.role.value}|>{content}<|end|>")
+            return "\n".join(parts)
+
+    tokenizer = MockChatTokenizer()
+    analyzer = LengthAnalyzer(tokenizer=tokenizer)
+    result = analyzer.analyze(simple_conversation)
+
+    # rendered_tokens should be computed
+    assert result.rendered_tokens is not None
+    # Rendered should be larger due to chat template formatting
+    # "Hello" (5) + "Hi there!" (9) = 14 chars for messages
+    # Rendered adds "<|user|>...<|end|>\n<|assistant|>...<|end|>" = much more
+    assert result.rendered_tokens > result.total_tokens
+
+
+def test_rendered_tokens_empty_conversation(tiktoken_tokenizer):
+    """Test rendered_tokens for empty conversation."""
+    from oumi.core.types.conversation import Conversation
+
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
+    result = analyzer.analyze(Conversation(messages=[]))
+
+    # tiktoken doesn't have chat template, so None
+    assert result.rendered_tokens is None
+
+
+# -----------------------------------------------------------------------------
 # Pipeline Tokenizer Injection Tests
 # -----------------------------------------------------------------------------
 

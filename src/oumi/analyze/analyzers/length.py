@@ -61,7 +61,17 @@ class LengthMetrics(BaseModel):
         25
     """
 
+    # Sum of individual message token counts
     total_tokens: int = Field(description="Total number of tokens across all messages")
+
+    # Token count of rendered conversation with chat template (if available)
+    # This is what the model actually sees during training/inference
+    rendered_tokens: int | None = Field(
+        default=None,
+        description="Token count of the full conversation rendered with chat template. "
+        "None if tokenizer doesn't support apply_chat_template.",
+    )
+
     avg_tokens_per_message: float = Field(description="Average tokens per message")
     message_token_counts: list[int] = Field(
         description="Token count for each message in order"
@@ -127,6 +137,36 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         tokens = self.tokenizer.encode(text)
         return len(tokens)
 
+    def _count_rendered_tokens(self, conversation: Conversation) -> int | None:
+        """Count tokens in the chat-template-rendered conversation.
+
+        This gives the actual token count the model sees during training/inference,
+        including special tokens added by the chat template.
+
+        Uses the base class's get_conversation_text() to render the conversation
+        with the tokenizer's chat template, then counts tokens.
+
+        Args:
+            conversation: The conversation to render and tokenize.
+
+        Returns:
+            Token count of rendered conversation, or None if tokenizer doesn't
+            support chat templates.
+        """
+        if self.tokenizer is None:
+            return None
+
+        if not conversation.messages:
+            return 0
+
+        try:
+            # Use base class method to render conversation with chat template
+            rendered_text = self.get_conversation_text(conversation, self.tokenizer)
+            return self._count_tokens(rendered_text)
+        except (ValueError, AttributeError):
+            # Tokenizer doesn't have a chat template
+            return None
+
     def analyze(self, conversation: Conversation) -> LengthMetrics:
         """Analyze token length metrics for a conversation.
 
@@ -151,8 +191,12 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         num_messages = len(conversation.messages)
         avg_tokens = total_tokens / num_messages if num_messages > 0 else 0.0
 
+        # Get rendered token count (if tokenizer supports chat templates)
+        rendered_tokens = self._count_rendered_tokens(conversation)
+
         return LengthMetrics(
             total_tokens=total_tokens,
+            rendered_tokens=rendered_tokens,
             avg_tokens_per_message=avg_tokens,
             message_token_counts=message_token_counts,
             num_messages=num_messages,
