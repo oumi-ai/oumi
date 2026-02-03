@@ -48,54 +48,23 @@ def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
         - schema: Full JSON schema for the result model
         - scope: Analyzer scope (message, conversation, dataset)
     """
-    from oumi.analyze.base import (
-        ConversationAnalyzer,
-        DatasetAnalyzer,
-        MessageAnalyzer,
-        PreferenceAnalyzer,
-    )
-
     info: dict[str, Any] = {
         "name": analyzer_class.__name__,
         "metric_names": [],
         "metric_descriptions": {},
         "schema": {},
-        "scope": "unknown",
+        "scope": analyzer_class.get_scope(),
     }
 
-    # Determine scope
-    for base in analyzer_class.__mro__:
-        if base is MessageAnalyzer:
-            info["scope"] = "message"
-            break
-        elif base is ConversationAnalyzer:
-            info["scope"] = "conversation"
-            break
-        elif base is DatasetAnalyzer:
-            info["scope"] = "dataset"
-            break
-        elif base is PreferenceAnalyzer:
-            info["scope"] = "preference"
-            break
-
-    # Get metric information if the analyzer has these methods
-    if hasattr(analyzer_class, "get_metric_names"):
-        try:
-            info["metric_names"] = analyzer_class.get_metric_names()
-        except Exception:
-            pass
-
-    if hasattr(analyzer_class, "get_metric_descriptions"):
-        try:
-            info["metric_descriptions"] = analyzer_class.get_metric_descriptions()
-        except Exception:
-            pass
-
-    if hasattr(analyzer_class, "get_result_schema"):
-        try:
-            info["schema"] = analyzer_class.get_result_schema()
-        except Exception:
-            pass
+    # Get metric information from the analyzer
+    # These methods raise TypeError if the analyzer doesn't have a valid result type
+    try:
+        info["metric_names"] = analyzer_class.get_metric_names()
+        info["metric_descriptions"] = analyzer_class.get_metric_descriptions()
+        info["schema"] = analyzer_class.get_result_schema()
+    except TypeError:
+        # Analyzer doesn't have a valid result type (e.g., abstract base class)
+        pass
 
     return info
 
