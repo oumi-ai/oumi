@@ -46,7 +46,6 @@ repos:
         language: node
         types: [python]
         pass_filenames: false
-        args: [--warnings]
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.19.1
     hooks:
