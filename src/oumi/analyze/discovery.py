@@ -168,14 +168,11 @@ def get_metric_path(analyzer_name: str, metric_name: str) -> str:
     return f"{analyzer_name}.{metric_name}"
 
 
-def print_analyzer_metrics(
-    analyzer_name: str | None = None, use_rich: bool = True
-) -> None:
+def print_analyzer_metrics(analyzer_name: str | None = None) -> None:
     """Pretty print available metrics for analyzers.
 
     Args:
         analyzer_name: Optional specific analyzer to show. If None, shows all.
-        use_rich: If True, use rich formatting. If False, use plain text.
     """
     metrics = list_available_metrics()
 
@@ -188,62 +185,7 @@ def print_analyzer_metrics(
             seen_classes.add(class_name)
             unique_metrics[class_name] = info
 
-    if use_rich and _is_rich_available():
-        _print_metrics_rich(unique_metrics, analyzer_name)
-    else:
-        _print_metrics_plain(unique_metrics, analyzer_name)
-
-
-def _is_rich_available() -> bool:
-    """Check if the rich library is available."""
-    try:
-        import rich  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
-
-
-def _print_metrics_plain(
-    metrics: dict[str, dict[str, Any]], analyzer_name: str | None
-) -> None:
-    """Print metrics using plain text (no rich dependency)."""
-    if analyzer_name:
-        if analyzer_name not in metrics:
-            print(f"Unknown analyzer: {analyzer_name}")
-            print(f"Available: {', '.join(metrics.keys())}")
-            return
-        metrics = {analyzer_name: metrics[analyzer_name]}
-
-    print("\n=== Available Analyzers and Metrics ===\n")
-    print("Use these metric paths in your test configurations.")
-    print("Format: AnalyzerName.metric_name\n")
-
-    for name, info in metrics.items():
-        scope = info.get("scope", "unknown")
-        print(f"{name} ({scope} scope)")
-        print("-" * (len(name) + len(scope) + 9))
-
-        metric_names = info.get("metric_names", [])
-        metric_descriptions = info.get("metric_descriptions", {})
-        schema = info.get("schema", {})
-        properties = schema.get("properties", {})
-
-        if not metric_names:
-            print("  No metrics defined\n")
-            continue
-
-        for metric_name in metric_names:
-            path = f"{name}.{metric_name}"
-            description = metric_descriptions.get(metric_name, "")
-            prop_info = properties.get(metric_name, {})
-            metric_type = _get_type_str(prop_info)
-
-            print(f"  {path}")
-            print(f"    Type: {metric_type}")
-            if description:
-                print(f"    Description: {description}")
-        print()
+    _print_metrics_rich(unique_metrics, analyzer_name)
 
 
 def _print_metrics_rich(
