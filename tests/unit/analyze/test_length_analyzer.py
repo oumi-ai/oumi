@@ -267,6 +267,17 @@ def test_count_tokens_empty_string():
     assert count == 0
 
 
+def test_count_tokens_raises_when_no_tokenizer():
+    """Test that RuntimeError is raised when no tokenizer is available."""
+    analyzer = LengthAnalyzer()
+    # Simulate no tokenizer available
+    analyzer.tokenizer = None
+    analyzer._tiktoken_encoder = None
+
+    with pytest.raises(RuntimeError, match="No tokenizer available"):
+        analyzer._count_tokens("test text")
+
+
 # -----------------------------------------------------------------------------
 # Registry Tests
 # -----------------------------------------------------------------------------

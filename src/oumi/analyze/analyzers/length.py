@@ -145,7 +145,10 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             text: Text to tokenize.
 
         Returns:
-            Token count. Returns 0 if no tokenizer is available or encoding fails.
+            Token count. Returns 0 if encoding fails.
+
+        Raises:
+            RuntimeError: If no tokenizer is available (neither custom nor tiktoken).
         """
         # Priority 1: Custom tokenizer (e.g., HuggingFace model tokenizer)
         if self.tokenizer is not None:
@@ -163,8 +166,11 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             except Exception:
                 return 0
 
-        # No tokenizer available
-        return 0
+        # No tokenizer available - fail explicitly rather than silently returning 0
+        raise RuntimeError(
+            "No tokenizer available. Either provide a custom tokenizer or "
+            "install tiktoken: pip install tiktoken"
+        )
 
     def analyze(self, conversation: Conversation) -> LengthMetrics:
         """Analyze token length metrics for a conversation.
