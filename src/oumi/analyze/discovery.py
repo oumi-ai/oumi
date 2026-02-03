@@ -188,15 +188,20 @@ def print_analyzer_metrics(
             seen_classes.add(class_name)
             unique_metrics[class_name] = info
 
-    if use_rich:
-        try:
-            _print_metrics_rich(unique_metrics, analyzer_name)
-            return
-        except ImportError:
-            pass  # Fall back to plain text
+    if use_rich and _is_rich_available():
+        _print_metrics_rich(unique_metrics, analyzer_name)
+    else:
+        _print_metrics_plain(unique_metrics, analyzer_name)
 
-    # Plain text fallback
-    _print_metrics_plain(unique_metrics, analyzer_name)
+
+def _is_rich_available() -> bool:
+    """Check if the rich library is available."""
+    try:
+        import rich  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
 
 
 def _print_metrics_plain(
