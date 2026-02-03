@@ -135,10 +135,12 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             text: Text to tokenize.
 
         Returns:
-            Token count. Returns 0 if encoding fails.
+            Token count.
 
         Raises:
             RuntimeError: If no tokenizer is configured.
+            Exception: Any exception from the tokenizer's encode method
+                (e.g., ValueError for disallowed special tokens).
         """
         if self.tokenizer is None:
             raise RuntimeError(
@@ -146,11 +148,8 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
                 "or use default_tokenizer()."
             )
 
-        try:
-            tokens = self.tokenizer.encode(text)
-            return len(tokens)
-        except Exception:
-            return 0
+        tokens = self.tokenizer.encode(text)
+        return len(tokens)
 
     def analyze(self, conversation: Conversation) -> LengthMetrics:
         """Analyze token length metrics for a conversation.

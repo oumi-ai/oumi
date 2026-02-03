@@ -352,7 +352,10 @@ def test_pipeline_respects_custom_tokenizer(simple_conversation, mock_tokenizer)
 
     results = pipeline.run([simple_conversation])
     # Mock tokenizer: "Hello" -> 1, "Hi there!" -> 2
-    assert results["LengthAnalyzer"][0].total_tokens == 3
+    length_results = results["LengthAnalyzer"]
+    assert isinstance(length_results, list)
+    assert isinstance(length_results[0], LengthMetrics)
+    assert length_results[0].total_tokens == 3
 
 
 def test_pipeline_custom_tokenizer_for_all(simple_conversation, mock_tokenizer):
