@@ -31,7 +31,10 @@ Example:
     >>> print_analyzer_metrics("LengthAnalyzer")
 """
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
@@ -64,7 +67,9 @@ def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
         info["schema"] = analyzer_class.get_result_schema()
     except TypeError:
         # Analyzer doesn't have a valid result type (e.g., abstract base class)
-        pass
+        logger.debug(
+            f"Skipping metrics for {analyzer_class.__name__}: no valid result type"
+        )
 
     return info
 
