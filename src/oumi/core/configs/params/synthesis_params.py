@@ -518,7 +518,8 @@ class MultiTurnAttribute:
             raise ValueError("MultiTurnAttribute.min_turns must be at least 1.")
         if self.max_turns is not None and self.max_turns < self.min_turns:
             raise ValueError(
-                "MultiTurnAttribute.max_turns must be greater than min_turns."
+                "MultiTurnAttribute.max_turns must be greater than or equal to "
+                "min_turns."
             )
         if not self.role_instruction_messages:
             raise ValueError(

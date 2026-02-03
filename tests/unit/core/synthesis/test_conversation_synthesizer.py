@@ -282,7 +282,6 @@ def test_default_turn_order_is_user_then_assistant(
     assert isinstance(conversation, dict)
     messages = conversation["messages"]
 
-    # Default order: USER first, then ASSISTANT
     assert messages[0]["role"] == "user"
     assert messages[1]["role"] == "assistant"
 
@@ -320,8 +319,6 @@ def test_custom_turn_order_assistant_first(
     conversation = result[0][multiturn_attr.id]
     assert isinstance(conversation, dict)
     messages = conversation["messages"]
-
-    # Custom order: ASSISTANT first, then USER
     assert messages[0]["role"] == "assistant"
     assert messages[1]["role"] == "user"
 
@@ -408,11 +405,237 @@ def test_planner_prompt_includes_role_context(
         },
     )
 
-    sample = {"customer_type": "frustrated", "target_turns": 4}
+    sample = {
+        "customer_type": "frustrated",
+        "target_turns": 4,
+        "turn_order": [Role.USER, Role.ASSISTANT],
+    }
 
     planner = synthesizer._create_planner_prompt(multiturn_attr, sample)
 
-    user_message = planner.messages[1].content
+    assert len(planner.messages) == 4
+    assert planner.messages[0].role == Role.SYSTEM
+    assert planner.messages[1].role == Role.USER
+    assert planner.messages[2].role == Role.ASSISTANT
+    assert planner.messages[3].role == Role.USER
+
+    user_message = planner.messages[3].content
     assert "Role context:" in user_message
     assert "You are a frustrated customer." in user_message
     assert "You are a helpful agent." in user_message
+
+    example_response = planner.messages[2].content
+    assert "```json" in example_response
+    assert '"turn": 1' in example_response
+    assert '"instruction"' in example_response
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_extracts_turn_instructions(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _parse_plan correctly extracts turn-by-turn instructions."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    plan = """```json
+[
+  {"turn": 1, "instruction": "Greet support and explain the issue."},
+  {"turn": 2, "instruction": "Acknowledge and ask for details."},
+  {"turn": 3, "instruction": "Provide order number."},
+  {"turn": 4, "instruction": "Offer a resolution."}
+]
+```"""
+
+    result = synthesizer._parse_plan(plan, target_turns=4)
+
+    assert result is not None
+    assert len(result) == 4
+    assert result[0] == "Greet support and explain the issue."
+    assert result[1] == "Acknowledge and ask for details."
+    assert result[2] == "Provide order number."
+    assert result[3] == "Offer a resolution."
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_handles_empty_plan(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _parse_plan returns None for empty plan."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    result = synthesizer._parse_plan("", target_turns=3)
+
+    assert result is None
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_handles_missing_turns(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _parse_plan handles plans with missing turn numbers."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    plan = """```json
+[
+  {"turn": 1, "instruction": "First message."},
+  {"turn": 3, "instruction": "Third message."}
+]
+```"""
+
+    result = synthesizer._parse_plan(plan, target_turns=3)
+
+    assert result is not None
+    assert len(result) == 3
+    assert result[0] == "First message."
+    assert result[1] == ""
+    assert result[2] == "Third message."
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_handles_raw_json(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _parse_plan handles raw JSON without code fences."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    plan = """[
+  {"turn": 1, "instruction": "First instruction"},
+  {"turn": 2, "instruction": "Second instruction"}
+]"""
+
+    result = synthesizer._parse_plan(plan, target_turns=2)
+
+    assert result is not None
+    assert len(result) == 2
+    assert result[0] == "First instruction"
+    assert result[1] == "Second instruction"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_handles_invalid_json(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _parse_plan returns None for invalid JSON."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    plan = "This is not valid JSON at all"
+
+    result = synthesizer._parse_plan(plan, target_turns=2)
+
+    assert result is None
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_handles_string_turn_numbers(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _parse_plan handles turn numbers as strings (common LLM output)."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+    plan = """```json
+[
+  {"turn": "1", "instruction": "First instruction"},
+  {"turn": "2", "instruction": "Second instruction"}
+]
+```"""
+
+    result = synthesizer._parse_plan(plan, target_turns=2)
+
+    assert result is not None
+    assert len(result) == 2
+    assert result[0] == "First instruction"
+    assert result[1] == "Second instruction"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_validate_turn_order_raises_on_missing_role(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _validate_turn_order raises ValueError for missing roles."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        turn_order=[Role.USER, Role.ASSISTANT],
+        role_instruction_messages={
+            Role.USER: "You are a user",
+            Role.ASSISTANT: "You are an assistant",
+        },
+    )
+    multiturn_attr.turn_order = [Role.USER, Role.SYSTEM]
+
+    with pytest.raises(ValueError) as exc_info:
+        synthesizer._validate_turn_order(multiturn_attr)
+
+    assert "system" in str(exc_info.value).lower()
+    assert "missing" in str(exc_info.value).lower()
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_validate_turn_order_passes_for_valid_config(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _validate_turn_order passes for valid configuration."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        turn_order=[Role.USER, Role.ASSISTANT],
+        role_instruction_messages={
+            Role.USER: "You are a user",
+            Role.ASSISTANT: "You are an assistant",
+        },
+    )
+
+    synthesizer._validate_turn_order(multiturn_attr)

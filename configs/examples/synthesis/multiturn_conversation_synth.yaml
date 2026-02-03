@@ -20,7 +20,7 @@
 #   - Other synthesis configs: configs/**/*synth.yaml
 
 strategy: GENERAL
-num_samples: 1
+num_samples: 5
 output_path: multiturn_conversation_dataset.jsonl
 
 strategy_params:
