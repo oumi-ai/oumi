@@ -21,7 +21,7 @@ from typing import Any
 import pandas as pd
 from pydantic import BaseModel
 
-from oumi.core.types.conversation import Conversation
+from oumi.core.types.conversation import ContentItem, Conversation
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +168,7 @@ def to_message_dataframe(
                 # Concatenate text from content items
                 text_parts = []
                 for item in message.content:
-                    if hasattr(item, "content") and isinstance(item.content, str):
+                    if isinstance(item, ContentItem) and isinstance(item.content, str):
                         text_parts.append(item.content)
                 row["text_content"] = " ".join(text_parts)
 
@@ -240,7 +240,7 @@ def _add_result_to_row(
                 row[f"{column_name}__{nested_key}"] = nested_value
         elif isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
             # List of dicts - skip for now (complex structure)
-            pass
+            logger.debug(f"Skipping complex field {column_name}: list of dicts")
         else:
             # Scalar or simple list - add directly
             row[column_name] = value
