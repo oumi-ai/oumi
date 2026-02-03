@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import copy
+import os
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -31,6 +33,7 @@ from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.utils.str_utils import sanitize_run_name
+from oumi.utils.version_utils import is_transformers_v5
 
 
 class TrainerType(Enum):
@@ -511,9 +514,11 @@ class TrainingParams(BaseParams):
     learning rate.
 
     If set along with `warmup_steps`, this value will be ignored.
+
+    Deprecated in transformers v5. Use `warmup_steps` instead.
     """
 
-    warmup_steps: int | None = None
+    warmup_steps: float | None = None
     """The number of steps for the warmup phase of the learning rate scheduler.
 
     If set, will override the value of `warmup_ratio`.
@@ -865,10 +870,47 @@ class TrainingParams(BaseParams):
                 )
             trainer_kwargs.update(gold_kwargs)
 
+        if is_transformers_v5():
+            trainer_kwargs["include_num_input_tokens_seen"] = (
+                self.include_performance_metrics
+            )
+            if self.enable_tensorboard and not os.environ.get(
+                "TENSORBOARD_LOGGING_DIR"
+            ):
+                os.environ["TENSORBOARD_LOGGING_DIR"] = self.logging_dir or str(
+                    Path(self.output_dir) / "tensorboard"
+                )
+            if self.warmup_ratio is not None:
+                warnings.warn(
+                    "warmup_ratio is deprecated in transformers v5. "
+                    "Use warmup_steps instead.",
+                    category=DeprecationWarning,
+                    stacklevel=2,
+                )
+                if self.warmup_steps is not None and self.warmup_ratio is not None:
+                    raise ValueError(
+                        "warmup_ratio and warmup_steps cannot be set at the same time. "
+                        "In transformers v5, warmup_steps accepts floats for ratio."
+                        "Use warmup_steps instead."
+                    )
+                trainer_kwargs["warmup_steps"] = self.warmup_ratio * self.max_steps
+        else:
+            # Backward compat: include_tokens_per_second was renamed in transformers v5
+            trainer_kwargs["include_tokens_per_second"] = (
+                self.include_performance_metrics
+            )
+            # Backward compat: logging_dir was removed in transformers v5
+            # Sibce this is only used for tensorboard, we set the env var instead.
+            trainer_kwargs["logging_dir"] = self.logging_dir
+            # Backward compat: warmup_ratio was removed in transformers v5
+            # Use warmup_steps instead
+            trainer_kwargs["warmup_ratio"] = (
+                self.warmup_ratio or 0.0
+            )  # same default as transformers v4
+
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
-            logging_dir=self.logging_dir,
             logging_nan_inf_filter=True,
             logging_steps=self.logging_steps,
             logging_strategy=self.logging_strategy,
@@ -884,7 +926,6 @@ class TrainingParams(BaseParams):
             learning_rate=self.learning_rate,
             lr_scheduler_type=self.lr_scheduler_type,
             lr_scheduler_kwargs=self.lr_scheduler_kwargs,
-            warmup_ratio=self.warmup_ratio or 0.0,  # same default as transformers
             warmup_steps=self.warmup_steps or 0,  # same default as transformers
             weight_decay=self.weight_decay,
             adam_beta1=self.adam_beta1,
@@ -892,7 +933,6 @@ class TrainingParams(BaseParams):
             adam_epsilon=self.adam_epsilon,
             gradient_checkpointing=self.enable_gradient_checkpointing,
             gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
-            include_tokens_per_second=self.include_performance_metrics,
             include_num_input_tokens_seen=self.include_performance_metrics,
             fp16=self.mixed_precision_dtype == MixedPrecisionDtype.FP16,
             bf16=self.mixed_precision_dtype == MixedPrecisionDtype.BF16,
