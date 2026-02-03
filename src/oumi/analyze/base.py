@@ -15,6 +15,7 @@
 """Base analyzer classes for the typed analyzer framework.
 
 This module defines the base classes for different analyzer scopes:
+- BaseAnalyzer: Common base for all analyzers (metadata methods)
 - MessageAnalyzer: Analyzes individual messages
 - ConversationAnalyzer: Analyzes complete conversations
 - DatasetAnalyzer: Analyzes entire datasets (cross-sample operations)
@@ -37,11 +38,14 @@ if TYPE_CHECKING:
 TResult = TypeVar("TResult", bound=BaseModel)
 
 
-class _AnalyzerMetaMixin:
-    """Mixin providing common metadata methods for all analyzer types.
+class BaseAnalyzer(ABC, Generic[TResult]):
+    """Base class for all analyzer types.
 
-    This mixin provides methods to inspect the result type and schema
+    Provides common metadata methods for inspecting the result type and schema
     of an analyzer, enabling introspection of available metrics.
+
+    All concrete analyzer types (MessageAnalyzer, ConversationAnalyzer, etc.)
+    inherit from this class.
     """
 
     @classmethod
@@ -99,21 +103,34 @@ class _AnalyzerMetaMixin:
         # Walk through all original bases to find generic parameters
         for base in getattr(cls, "__orig_bases__", []):
             if hasattr(base, "__origin__"):
-                # Check if this base is one of our analyzer types
-                origin = base.__origin__
-                if origin in (
-                    MessageAnalyzer,
-                    ConversationAnalyzer,
-                    DatasetAnalyzer,
-                    PreferenceAnalyzer,
-                ):
-                    args = get_args(base)
-                    if args:
-                        return args[0]
+                args = get_args(base)
+                if args:
+                    return args[0]
         return None
 
+    @staticmethod
+    def get_text_content(message: Message) -> str:
+        """Extract text content from a message.
 
-class MessageAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
+        Handles both simple string content and multimodal content lists.
+
+        Args:
+            message: The message to extract text from.
+
+        Returns:
+            The text content as a string.
+        """
+        if isinstance(message.content, str):
+            return message.content
+        # For multimodal content, concatenate text items
+        text_parts = []
+        for item in message.content:
+            if hasattr(item, "content") and isinstance(item.content, str):
+                text_parts.append(item.content)
+        return " ".join(text_parts)
+
+
+class MessageAnalyzer(BaseAnalyzer[TResult]):
     """Base class for analyzers that operate on individual messages.
 
     MessageAnalyzers process single messages and return typed results.
@@ -123,7 +140,7 @@ class MessageAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
     Example:
         class FormatAnalyzer(MessageAnalyzer[FormatMetrics]):
             def analyze(self, message: Message) -> FormatMetrics:
-                text = self._get_text_content(message)
+                text = self.get_text_content(message)
                 return FormatMetrics(
                     has_markdown=self._detect_markdown(text),
                     has_code_blocks=self._detect_code_blocks(text),
@@ -167,29 +184,8 @@ class MessageAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         """
         return self.analyze(message)
 
-    @staticmethod
-    def get_text_content(message: Message) -> str:
-        """Extract text content from a message.
 
-        Handles both simple string content and multimodal content lists.
-
-        Args:
-            message: The message to extract text from.
-
-        Returns:
-            The text content as a string.
-        """
-        if isinstance(message.content, str):
-            return message.content
-        # For multimodal content, concatenate text items
-        text_parts = []
-        for item in message.content:
-            if hasattr(item, "content") and isinstance(item.content, str):
-                text_parts.append(item.content)
-        return " ".join(text_parts)
-
-
-class ConversationAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
+class ConversationAnalyzer(BaseAnalyzer[TResult]):
     """Base class for analyzers that operate on complete conversations.
 
     ConversationAnalyzers process entire conversations and return typed results.
@@ -246,20 +242,6 @@ class ConversationAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         return self.analyze(conversation)
 
     @staticmethod
-    def get_text_content(message: Message) -> str:
-        """Extract text content from a message.
-
-        Handles both simple string content and multimodal content lists.
-
-        Args:
-            message: The message to extract text from.
-
-        Returns:
-            The text content as a string.
-        """
-        return MessageAnalyzer.get_text_content(message)
-
-    @staticmethod
     def get_conversation_text(
         conversation: Conversation,
         tokenizer: Optional["BaseTokenizer"] = None,  # pyright: ignore[reportInvalidTypeForm]
@@ -295,12 +277,12 @@ class ConversationAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         # Default: simple role: text format
         parts = []
         for message in conversation.messages:
-            text = ConversationAnalyzer.get_text_content(message)
+            text = BaseAnalyzer.get_text_content(message)
             parts.append(f"{message.role.value}: {text}")
         return "\n".join(parts)
 
 
-class DatasetAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
+class DatasetAnalyzer(BaseAnalyzer[TResult]):
     """Base class for analyzers that operate on entire datasets.
 
     DatasetAnalyzers have access to all conversations at once, enabling
@@ -345,7 +327,7 @@ class DatasetAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         return self.analyze(conversations)
 
 
-class PreferenceAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
+class PreferenceAnalyzer(BaseAnalyzer[TResult]):
     """Base class for analyzers that operate on preference pairs.
 
     PreferenceAnalyzers process chosen/rejected conversation pairs,

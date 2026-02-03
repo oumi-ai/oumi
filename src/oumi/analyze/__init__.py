@@ -32,6 +32,7 @@ Example usage:
 """
 
 from oumi.analyze.base import (
+    BaseAnalyzer,
     ConversationAnalyzer,
     DatasetAnalyzer,
     MessageAnalyzer,
@@ -66,6 +67,7 @@ from oumi.analyze.utils.dataframe import to_analysis_dataframe
 
 __all__ = [
     # Base classes
+    "BaseAnalyzer",
     "MessageAnalyzer",
     "ConversationAnalyzer",
     "DatasetAnalyzer",
