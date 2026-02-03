@@ -54,10 +54,14 @@ from oumi.analyze.discovery import (
 )
 from oumi.analyze.pipeline import AnalysisPipeline
 
+# Import utilities
+from oumi.analyze.utils.dataframe import to_analysis_dataframe
+
 # Import registry from core (reuse existing infrastructure)
 from oumi.core.registry import (
     REGISTRY,
-    RegistryType,
+)
+from oumi.core.registry import (
     register_sample_analyzer as register_analyzer,
 )
 
@@ -105,8 +109,6 @@ def create_analyzer_from_config(
         logger.error(f"Failed to create analyzer {analyzer_id}: {e}")
         return None
 
-# Import utilities
-from oumi.analyze.utils.dataframe import to_analysis_dataframe
 
 __all__ = [
     # Base classes
@@ -127,7 +129,6 @@ __all__ = [
     "print_analyzer_metrics",
     "get_analyzer_info",
     "describe_analyzer",
-    # Registry (using core oumi.core.registry infrastructure)
     "register_analyzer",
     "get_analyzer_class",
     "create_analyzer_from_config",

@@ -120,8 +120,9 @@ class BaseAnalyzer(ABC, Generic[TResult]):
             The result type class (a BaseModel subclass), or None if not found.
         """
         # Walk through original bases to find generic type parameter
-        # __orig_bases__ is guaranteed on classes inheriting from Generic (PEP 560)
-        for base in cls.__orig_bases__:
+        # __orig_bases__ exists on classes inheriting from Generic (PEP 560)
+        # Use getattr since it's a runtime attribute not in the static type system
+        for base in getattr(cls, "__orig_bases__", ()):
             if get_origin(base) is not None:
                 args = get_args(base)
                 if (
