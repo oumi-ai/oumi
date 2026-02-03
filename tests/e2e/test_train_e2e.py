@@ -14,6 +14,7 @@ from oumi.core.configs import TrainingConfig
 from oumi.core.configs.params.training_params import TrainerType
 from oumi.utils.io_utils import load_json
 from oumi.utils.torch_utils import device_cleanup
+from oumi.utils.version_utils import is_transformers_v5
 from tests import get_configs_dir
 from tests.e2e import get_e2e_test_output_dir, is_file_not_empty
 from tests.markers import requires_gpus
@@ -43,13 +44,22 @@ def _check_checkpoint_dir(
 ):
     """Helper to verify model directory structure."""
     # Check essential model files
-    essential_files = [
-        "special_tokens_map.json",
-        "tokenizer_config.json",
-        "tokenizer.json",
-        "trainer_state.json",
-        "training_args.bin",
-    ]
+
+    if is_transformers_v5():
+        essential_files = [
+            "tokenizer_config.json",
+            "tokenizer.json",
+            "trainer_state.json",
+            "training_args.bin",
+        ]
+    else:
+        essential_files = [
+            "special_tokens_map.json",
+            "tokenizer_config.json",
+            "tokenizer.json",
+            "trainer_state.json",
+            "training_args.bin",
+        ]
     if is_lora:
         essential_files = ["adapter_config.json"] + essential_files  # OPE-938
     else:

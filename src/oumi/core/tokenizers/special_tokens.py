@@ -12,36 +12,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-from transformers import SpecialTokensMixin
+from dataclasses import dataclass
 
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.utils.logging import logger
 
+
+@dataclass
+class SpecialTokensConfig:
+    """Configuration for special tokens.
+
+    This is a simple dataclass to hold special tokens configuration.
+    Previously used transformers.SpecialTokensMixin but it was removed in v5.
+    """
+
+    pad_token: str | None = None
+    bos_token: str | None = None
+    eos_token: str | None = None
+    unk_token: str | None = None
+    additional_special_tokens: list[str] | None = None
+
+
 # Llama 3.1/3.2 models already have `<|finetune_right_pad_id|>` token in their vocab.
-LLAMA_SPECIAL_TOKENS_MIXIN = SpecialTokensMixin(pad_token="<|finetune_right_pad_id|>")
+LLAMA_SPECIAL_TOKENS = SpecialTokensConfig(pad_token="<|finetune_right_pad_id|>")
 
 special_tokens = {
-    "meta-llama/Llama-3.1-8B": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Llama-3.1-8B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Llama-3.1-70B": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Llama-3.1-70B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Llama-3.1-405B": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Llama-3.1-405B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Llama-3.1-405B-FP8": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Llama-3.1-405B-Instruct-FP8": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Meta-Llama-3.1-8B": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Meta-Llama-3.1-8B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Meta-Llama-3.1-70B": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Meta-Llama-3.1-70B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Meta-Llama-3.1-405B": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Meta-Llama-3.1-405B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Meta-Llama-3.1-405B-FP8": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Meta-Llama-3.1-405B-Instruct-FP8": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Llama-3.2-1B": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Llama-3.2-1B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Llama-3.2-3B": LLAMA_SPECIAL_TOKENS_MIXIN,
-    "meta-llama/Llama-3.2-3B-Instruct": LLAMA_SPECIAL_TOKENS_MIXIN,
+    "meta-llama/Llama-3.1-8B": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Llama-3.1-8B-Instruct": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Llama-3.1-70B": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Llama-3.1-70B-Instruct": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Llama-3.1-405B": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Llama-3.1-405B-Instruct": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Llama-3.1-405B-FP8": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Llama-3.1-405B-Instruct-FP8": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Meta-Llama-3.1-8B": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Meta-Llama-3.1-8B-Instruct": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Meta-Llama-3.1-70B": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Meta-Llama-3.1-70B-Instruct": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Meta-Llama-3.1-405B": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Meta-Llama-3.1-405B-Instruct": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Meta-Llama-3.1-405B-FP8": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Meta-Llama-3.1-405B-Instruct-FP8": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Llama-3.2-1B": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Llama-3.2-1B-Instruct": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Llama-3.2-3B": LLAMA_SPECIAL_TOKENS,
+    "meta-llama/Llama-3.2-3B-Instruct": LLAMA_SPECIAL_TOKENS,
 }
 
 # Lowercase all keys for case-insensitive lookup.
@@ -50,19 +65,20 @@ special_tokens = {k.lower(): v for k, v in special_tokens.items()}
 
 def get_default_special_tokens(
     tokenizer: BaseTokenizer | None,
-) -> SpecialTokensMixin:
+) -> SpecialTokensConfig:
     """Returns the default special tokens for the tokenizer that was provided.
 
     Args:
         tokenizer: The tokenizer to get special tokens for.
 
     Returns:
-        The special tokens mixin for the tokenizer.
+        The special tokens config for the tokenizer.
 
     Description:
         This function looks up the special tokens for the provided tokenizer, for a list
         of known models. If the tokenizer is not recognized, it returns an empty special
-        tokens mixin. This function is used as a fallback mechanism when a special token
+        tokens config. This function is used as a fallback mechanism when a special
+        token
         is required, but is not provided in the tokenizer's configuration. The primary
         use case for this is to retrieve the padding special token (`pad_token`), which
         is oftentimes not included in the tokenizer's configuration, even if it exists
@@ -75,4 +91,4 @@ def get_default_special_tokens(
             logger.warning(
                 f"Special tokens lookup for tokenizer {tokenizer.name_or_path} failed."
             )
-    return SpecialTokensMixin()
+    return SpecialTokensConfig()
