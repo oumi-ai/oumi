@@ -16,6 +16,7 @@
 
 from typing import Any
 
+import tiktoken
 from pydantic import BaseModel, Field
 
 from oumi.analyze.base import ConversationAnalyzer
@@ -115,24 +116,17 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         self.tiktoken_encoding = tiktoken_encoding
 
         # Fallback: use tiktoken (fast, widely available) when no custom tokenizer
-        self._tiktoken_encoder = None
+        self._tiktoken_encoder: tiktoken.Encoding | None = None
         if tokenizer is None:
             self._tiktoken_encoder = self._load_tiktoken_encoder()
 
-    def _load_tiktoken_encoder(self) -> Any | None:
-        """Load tiktoken encoder lazily.
+    def _load_tiktoken_encoder(self) -> tiktoken.Encoding:
+        """Load tiktoken encoder.
 
         Returns:
-            Tiktoken encoder or None if not available.
+            Tiktoken encoder for the configured encoding.
         """
-        try:
-            import tiktoken
-
-            return tiktoken.get_encoding(self.tiktoken_encoding)
-        except ImportError:
-            return None
-        except Exception:
-            return None
+        return tiktoken.get_encoding(self.tiktoken_encoding)
 
     def _count_tokens(self, text: str) -> int:
         """Count tokens in text.
@@ -148,7 +142,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             Token count. Returns 0 if encoding fails.
 
         Raises:
-            RuntimeError: If no tokenizer is available (neither custom nor tiktoken).
+            RuntimeError: If no tokenizer is available (should not happen normally).
         """
         # Priority 1: Custom tokenizer (e.g., HuggingFace model tokenizer)
         if self.tokenizer is not None:
@@ -166,11 +160,8 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             except Exception:
                 return 0
 
-        # No tokenizer available - fail explicitly rather than silently returning 0
-        raise RuntimeError(
-            "No tokenizer available. Either provide a custom tokenizer or "
-            "install tiktoken: pip install tiktoken"
-        )
+        # This should not happen - tiktoken is initialized by default
+        raise RuntimeError("No tokenizer available. This is unexpected.")
 
     def analyze(self, conversation: Conversation) -> LengthMetrics:
         """Analyze token length metrics for a conversation.

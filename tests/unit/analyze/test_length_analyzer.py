@@ -270,7 +270,7 @@ def test_count_tokens_empty_string():
 def test_count_tokens_raises_when_no_tokenizer():
     """Test that RuntimeError is raised when no tokenizer is available."""
     analyzer = LengthAnalyzer()
-    # Simulate no tokenizer available
+    # Simulate no tokenizer available (should not happen in normal use)
     analyzer.tokenizer = None
     analyzer._tiktoken_encoder = None
 
