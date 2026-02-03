@@ -30,7 +30,7 @@ class SpecialTokensConfig:
     bos_token: str | None = None
     eos_token: str | None = None
     unk_token: str | None = None
-    additional_special_tokens: list[str] | None = None
+    extra_special_tokens: list[str] | None = None
 
 
 # Llama 3.1/3.2 models already have `<|finetune_right_pad_id|>` token in their vocab.
