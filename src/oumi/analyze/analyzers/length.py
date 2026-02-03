@@ -163,12 +163,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         message_token_counts: list[int] = []
 
         # Role-specific accumulators
-        role_token_counts: dict[Role, int] = {
-            Role.USER: 0,
-            Role.ASSISTANT: 0,
-            Role.SYSTEM: 0,
-            Role.TOOL: 0,
-        }
+        role_token_counts: dict[Role, int] = {role: 0 for role in Role}
 
         for message in conversation.messages:
             text = self.get_text_content(message)

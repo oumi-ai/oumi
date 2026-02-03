@@ -101,36 +101,27 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
         Returns:
             TurnStatsMetrics containing turn counts and statistics.
         """
-        num_user = 0
-        num_assistant = 0
-        num_tool = 0
-        has_system = False
+        # Role-specific accumulators
+        role_counts: dict[Role, int] = {role: 0 for role in Role}
         first_role: str | None = None
         last_role: str | None = None
 
         for i, message in enumerate(conversation.messages):
-            role_value = message.role.value
-
             # Track first and last roles
             if i == 0:
-                first_role = role_value
-            last_role = role_value
+                first_role = message.role.value
+            last_role = message.role.value
 
-            if message.role == Role.USER:
-                num_user += 1
-            elif message.role == Role.ASSISTANT:
-                num_assistant += 1
-            elif message.role == Role.TOOL:
-                num_tool += 1
-            elif message.role == Role.SYSTEM:
-                has_system = True
+            # Count by role
+            if message.role in role_counts:
+                role_counts[message.role] += 1
 
         return TurnStatsMetrics(
             num_turns=len(conversation.messages),
-            num_user_turns=num_user,
-            num_assistant_turns=num_assistant,
-            num_tool_turns=num_tool,
-            has_system_message=has_system,
+            num_user_turns=role_counts[Role.USER],
+            num_assistant_turns=role_counts[Role.ASSISTANT],
+            num_tool_turns=role_counts[Role.TOOL],
+            has_system_message=role_counts[Role.SYSTEM] > 0,
             first_turn_role=first_role,
             last_turn_role=last_role,
         )
