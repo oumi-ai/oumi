@@ -357,13 +357,23 @@ class ConversationSynthesizer:
             "You are a conversation planner. Create conversation outlines "
             "that flow logically from start to finish.\n\n"
             "IMPORTANT: Output your plan as a JSON array wrapped in ```json code "
-            "fences. Each element must have: turn (number) and instruction (string)."
+            "fences. Each element must have: turn (number) and instruction (string).\n"
+            "Your instructions MUST be specific to the role context provided. "
+            "Each turn's instruction should reflect what that specific role "
+            "would do at that point in the conversation."
         )
 
         example_request = (
             "Plan a 4-turn conversation.\n"
             "Turn order: Turn 1: USER, Turn 2: ASSISTANT, Turn 3: USER, "
-            "Turn 4: ASSISTANT"
+            "Turn 4: ASSISTANT\n\n"
+            "Role context:\n"
+            "[USER]\n"
+            "You are a customer who has an issue with a recent order.\n\n"
+            "[ASSISTANT]\n"
+            "You are a helpful support agent who resolves customer issues.\n\n"
+            "Additional instructions: Focus on resolving the order issue "
+            "efficiently while maintaining a polite and helpful tone."
         )
         example_response = """```json
 [
@@ -381,6 +391,7 @@ class ConversationSynthesizer:
             "- Each turn should build on the previous turn.\n"
             f"- Pace the conversation naturally for {target_turns} turns.\n"
             "- Focus on what happens, not exact wording.\n"
+            "- Instructions MUST be specific to the roles and context provided below.\n"
         )
 
         if role_context:
