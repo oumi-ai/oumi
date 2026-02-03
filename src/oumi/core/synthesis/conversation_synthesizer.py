@@ -398,10 +398,12 @@ class ConversationSynthesizer:
             base_prompt += f"\nRole context:\n{role_context}\n"
 
         if multiturn_attribute.conversation_planner:
-            base_prompt += (
-                f"\nAdditional instructions: "
-                f"{multiturn_attribute.conversation_planner}\n"
+            formatted_planner = self._formatter.format(
+                sample,
+                multiturn_attribute.conversation_planner,
+                missing_values_allowed=False,
             )
+            base_prompt += f"\nAdditional instructions: {formatted_planner}\n"
 
         base_prompt += (
             "\nOutput ONLY the JSON array wrapped in ```json code fences. "
