@@ -25,14 +25,12 @@ Each analyzer returns strongly-typed Pydantic models as results.
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, Optional, TypeVar, get_args
+from typing import Generic, TypeVar, get_args, get_origin
 
 from pydantic import BaseModel
+from transformers import PreTrainedTokenizerBase
 
-from oumi.core.types.conversation import Conversation, Message
-
-if TYPE_CHECKING:
-    from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.core.types.conversation import ContentItem, Conversation, Message
 
 # Type variable for analyzer results - must be a Pydantic BaseModel
 TResult = TypeVar("TResult", bound=BaseModel)
@@ -49,19 +47,40 @@ class BaseAnalyzer(ABC, Generic[TResult]):
     """
 
     @classmethod
+    def _require_result_type(cls) -> type[BaseModel]:
+        """Get the result type, raising if not available.
+
+        Returns:
+            The result type class (a BaseModel subclass).
+
+        Raises:
+            TypeError: If the analyzer doesn't have a valid result type.
+        """
+        result_type = cls._get_result_type()
+        if result_type is None:
+            raise TypeError(
+                f"{cls.__name__} does not have a valid result type. "
+                f"Ensure the class specifies a Pydantic BaseModel as the "
+                f"generic type parameter, e.g., "
+                f"`class {cls.__name__}(ConversationAnalyzer[YourResultModel])`"
+            )
+        return result_type
+
+    @classmethod
     def get_result_schema(cls) -> dict:
         """Get the JSON schema for this analyzer's result model.
 
         This allows users to discover what metrics the analyzer produces
-        before running analysis.
+        before running analysis. Useful for documentation, UI generation,
+        and config validation.
 
         Returns:
             JSON schema dictionary for the result model.
+
+        Raises:
+            TypeError: If the analyzer doesn't have a valid result type.
         """
-        result_type = cls._get_result_type()
-        if result_type and hasattr(result_type, "model_json_schema"):
-            return result_type.model_json_schema()
-        return {}
+        return cls._require_result_type().model_json_schema()
 
     @classmethod
     def get_metric_names(cls) -> list[str]:
@@ -69,11 +88,11 @@ class BaseAnalyzer(ABC, Generic[TResult]):
 
         Returns:
             List of metric field names.
+
+        Raises:
+            TypeError: If the analyzer doesn't have a valid result type.
         """
-        result_type = cls._get_result_type()
-        if result_type and hasattr(result_type, "model_fields"):
-            return list(result_type.model_fields.keys())
-        return []
+        return list(cls._require_result_type().model_fields.keys())
 
     @classmethod
     def get_metric_descriptions(cls) -> dict[str, str]:
@@ -81,30 +100,35 @@ class BaseAnalyzer(ABC, Generic[TResult]):
 
         Returns:
             Dictionary mapping field names to descriptions.
+
+        Raises:
+            TypeError: If the analyzer doesn't have a valid result type.
         """
-        result_type = cls._get_result_type()
-        if result_type and hasattr(result_type, "model_fields"):
-            return {
-                name: field_info.description or ""
-                for name, field_info in result_type.model_fields.items()
-            }
-        return {}
+        return {
+            name: field_info.description or ""
+            for name, field_info in cls._require_result_type().model_fields.items()
+        }
 
     @classmethod
-    def _get_result_type(cls) -> type | None:
+    def _get_result_type(cls) -> type[BaseModel] | None:
         """Get the result type from the generic parameter.
 
         Walks through the class's base classes to find the generic type
         argument (TResult) from the analyzer base class.
 
         Returns:
-            The result type class, or None if not found.
+            The result type class (a BaseModel subclass), or None if not found.
         """
-        # Walk through all original bases to find generic parameters
-        for base in getattr(cls, "__orig_bases__", []):
-            if hasattr(base, "__origin__"):
+        # Walk through original bases to find generic type parameter
+        # __orig_bases__ is guaranteed on classes inheriting from Generic (PEP 560)
+        for base in cls.__orig_bases__:
+            if get_origin(base) is not None:
                 args = get_args(base)
-                if args:
+                if (
+                    args
+                    and isinstance(args[0], type)
+                    and issubclass(args[0], BaseModel)
+                ):
                     return args[0]
         return None
 
@@ -125,7 +149,7 @@ class BaseAnalyzer(ABC, Generic[TResult]):
         # For multimodal content, concatenate text items
         text_parts = []
         for item in message.content:
-            if hasattr(item, "content") and isinstance(item.content, str):
+            if isinstance(item, ContentItem) and isinstance(item.content, str):
                 text_parts.append(item.content)
         return " ".join(text_parts)
 
@@ -244,42 +268,38 @@ class ConversationAnalyzer(BaseAnalyzer[TResult]):
     @staticmethod
     def get_conversation_text(
         conversation: Conversation,
-        tokenizer: Optional["BaseTokenizer"] = None,  # pyright: ignore[reportInvalidTypeForm]
+        tokenizer: PreTrainedTokenizerBase,
     ) -> str:
-        """Get the full text content of a conversation.
-
-        If a tokenizer with a chat template is provided, uses the template
-        to format the conversation. Otherwise, concatenates messages with
-        role prefixes.
+        """Get the full text of a conversation using a tokenizer's chat template.
 
         Args:
             conversation: The conversation to extract text from.
-            tokenizer: Optional tokenizer with a chat template. If provided,
-                uses the tokenizer's chat template for formatting.
+            tokenizer: Tokenizer with a chat template for formatting.
 
         Returns:
             Full conversation text as a single string.
-        """
-        # Use chat template if tokenizer is provided
-        if tokenizer is not None and hasattr(tokenizer, "chat_template"):
-            if tokenizer.chat_template is not None:
-                try:
-                    result = tokenizer.apply_chat_template(
-                        conversation=conversation,  # type: ignore
-                        tokenize=False,
-                        return_dict=False,
-                    )
-                    if isinstance(result, str):
-                        return result
-                except Exception:
-                    pass  # Fall back to simple format
 
-        # Default: simple role: text format
-        parts = []
-        for message in conversation.messages:
-            text = BaseAnalyzer.get_text_content(message)
-            parts.append(f"{message.role.value}: {text}")
-        return "\n".join(parts)
+        Raises:
+            ValueError: If the tokenizer doesn't have a chat template.
+        """
+        if tokenizer.chat_template is None:
+            raise ValueError(
+                f"Tokenizer {type(tokenizer).__name__} does not have a chat template. "
+                "A chat template is required to format conversation text."
+            )
+
+        result = tokenizer.apply_chat_template(
+            conversation=conversation,  # type: ignore
+            tokenize=False,
+            return_dict=False,
+        )
+
+        if not isinstance(result, str):
+            raise TypeError(
+                f"apply_chat_template returned {type(result).__name__}, expected str"
+            )
+
+        return result
 
 
 class DatasetAnalyzer(BaseAnalyzer[TResult]):
