@@ -1353,7 +1353,7 @@ Results added here: https://docs.google.com/spreadsheets/d/1LmFGfJRtNp3hpP9dwD7F
 
 - [x] Qwen3-32B (Current default LoRA config for Qwen3-32b --> OOM on 8xH100 </3)
 - [ ] Phi-3.5-MoE-instruct (failed L1 validation tests)
-- [ ] Llama-4-Scout-17B-16E-Instruct (MoE, may need more compute)
+- [x] Llama-4-Scout-17B-16E-Instruct (MoE --> LoRA works, FFT OOMs even with very small context)
 - [x] SmolLM v1: 135M, 360M, 1.7B (superseded by SmolLM2 but worth having, lower priority)
 
 ##### `Qwen_Qwen3-32B_lora`
@@ -1391,6 +1391,7 @@ Here are the minimal config changes from the original preset config needed to ge
 
 The final model (`run-17`) achieves substantial gains on pubmedqa compared to Qwen3-32b base (accuracy 12% --> 79%, macro F1 11.94% --> 55.59%) after a single epoch of training.
 
+> TODO to get qwen3-32b to fit on 8 without saving hacks, try with 0 dataloader_num_workers workers without ad hoc patch, everything else the same as run 17... then bump to 1 or 2
 
 
 ##### SmolLM 1
@@ -1463,4 +1464,51 @@ python scripts/enterprise/build_master_results.py \
 - LoRA for banking77 does great on task accuracy but control metrics tank across all settings (worthy tradeoff IMO)
 - 1.7B is most robust: LoRA + FFT maintains reasonable Safety (38% vs 0-1% for smaller models)
 - FFT more stable than LoRA: Less prone to catastrophic forgetting across tasks
+
+
+
+##### Llama-4-Scout-17B-16E-Instruct
+Large MoE model (~107B total params: 17B active, 16 experts). Tested on 8xH100 (640GB total GPU memory).
+
+- LoRA:
+  - training completes successfully with 8k context with current config
+  - eval fails: vLLM does not support Llama 4 LoRA (`ValueError: Llama4ForConditionalGeneration does not support LoRA yet`) -- see https://github.com/vllm-project/vllm/issues/20650
+
+- FFT:
+  - training cannot fit on 8xH100: OOMs on training startup even with max_length=256, CPU offload, and aggressive memory optimizations
+  - will remove Scout FFT config from presets in API repo
+
+
+**LoRA Validation:**
+
+```sh
+export HF_HOME="/data/tim/hf_cache"
+export CKPT_DIR="/data/tim/checkpoints"
+export EVAL_DIR="/data/tim/evals/ent"
+export DATASET_DIR="/data/tim/code/oumi/data/enterprise"
+
+# training runs, eval fails due to lack of vLLM support for Scout LoRA
+./scripts/enterprise/run_experiment_v2.sh \
+  --config configs/enterprise/training/preset-validation/meta-llama_Llama-4-Scout-17B-16E-Instruct_lora.yaml \
+  --task pubmedqa --data-dir $DATASET_DIR --checkpoint-dir $CKPT_DIR --eval-dir $EVAL_DIR
+```
+
+**FFT Validation (Failed):**
+
+Attempted FFT with progressively smaller context lengths (`configs/enterprise/training/preset-validation/meta-llama_Llama-4-Scout-17B-16E-Instruct_fft.yaml`):
+
+| Run | max_length | cpu_offload | Result |
+|-----|------------|-------------|--------|
+| 1 | 8192 | False | OOM on first backward pass |
+| 2 | 8192 | True | OOM during training startup |
+| 3 | 1024 | True | OOM during training startup |
+| 4 | 512 | True | OOM during training startup |
+| 5 | 256 | True | OOM during training startup |
+
+Additional optimizations tried (all still OOM):
+- `dataloader_prefetch_factor: 2` (reduced from 8)
+- `empty_device_cache_steps: 10` (reduced from 50)
+- `dataloader_num_workers: 0`
+
+Conclusion: FFT for Llama-4-Scout requires more than 8xH100. The ~107B total parameters (with optimizer states and gradients) exceed available memory even with FSDP FULL_SHARD and CPU offload. FFT config will not be included in default presets, LoRA is the only viable training method for this model on 8xH100.
 

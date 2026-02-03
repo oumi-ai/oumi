@@ -1,0 +1,82 @@
+# **NB: this config does not run on 8xH100. Will remove from enterprise presets. Keeping this here for reference.**
+
+# Preset FFT training configuration for Llama-4-Scout-17B-16E-Instruct.
+# Based on oumi llama4/sft/scout_instruct_full recipe.
+# Note: This is a large MoE model requiring significant GPU memory.
+
+model:
+  model_name: "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+  model_max_length: 256  # testing if FFT can run at this length (no, OOMs on startup)
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: False
+
+data:
+  train:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|header_start|>assistant<|header_end|>\n\n"
+      instruction_template: "<|header_start|>user<|header_end|>\n\n"
+    seed: 42
+    datasets:
+      - dataset_name: "text_sft"
+        dataset_path: "OVERRIDE_ME"
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: "dict"
+  validation:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|header_start|>assistant<|header_end|>\n\n"
+      instruction_template: "<|header_start|>user<|header_end|>\n\n"
+    seed: 42
+    datasets:
+      - dataset_name: "text_sft"
+        dataset_path: "OVERRIDE_ME"
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: "dict"
+
+training:
+  trainer_type: TRL_SFT
+  output_dir: "output"
+  run_name: "placeholder_run_name"
+  save_final_model: True
+  save_steps: 0
+  max_steps: -1
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8  # EBS = 1 * 8 * 8 = 64
+  max_grad_norm: 1.0
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"  # NB original in api repo is "sgd"
+  learning_rate: 1.0e-05
+  warmup_ratio: 0.02
+  compile: False
+
+  dataloader_num_workers: 0  # reduce memory
+  dataloader_prefetch_factor: 2  # reduced from 8
+
+  seed: 42
+  use_deterministic: True
+
+  logging_steps: 5
+  eval_strategy: "steps"
+  eval_steps: 10
+  save_epoch: False
+  empty_device_cache_steps: 10  # reduced from 50 for more frequent cleanup
+  include_performance_metrics: True
+  enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  cpu_offload: True  # fails with True or False
+  forward_prefetch: True
+  sharding_strategy: "FULL_SHARD"
+  state_dict_type: "SHARDED_STATE_DICT"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Llama4TextDecoderLayer"
