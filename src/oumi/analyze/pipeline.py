@@ -19,6 +19,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
+import tiktoken
 from pydantic import BaseModel
 from tqdm import tqdm
 
@@ -34,6 +35,9 @@ from oumi.analyze.base import (
 from oumi.core.types.conversation import Conversation
 
 logger = logging.getLogger(__name__)
+
+# Protocol for tokenizer-aware analyzers
+_TOKENIZER_ATTR = "tokenizer"
 
 # Constants
 _CACHE_FILENAME = "analysis_results.json"
@@ -57,6 +61,9 @@ class AnalysisPipeline:
     handling different analyzer scopes appropriately, and providing unified
     access to results.
 
+    The pipeline can inject shared resources (like tokenizers) into analyzers
+    that need them, ensuring consistent configuration across the analysis.
+
     Note:
         PreferenceAnalyzers are not run by `run()`. Use `run_preference()`
         separately to analyze preference pairs (chosen/rejected conversations).
@@ -64,38 +71,53 @@ class AnalysisPipeline:
     Example:
         >>> from oumi.analyze import AnalysisPipeline, LengthAnalyzer
         >>>
+        >>> # Pipeline provides default tokenizer to analyzers that need it
         >>> pipeline = AnalysisPipeline(
-        ...     analyzers=[LengthAnalyzer(count_tokens=True)],
+        ...     analyzers=[LengthAnalyzer()],
         ...     cache_dir="./analysis_cache",
         ... )
         >>> results = pipeline.run(conversations)
         >>>
-        >>> # Access results by analyzer name
-        >>> length_results = results["LengthAnalyzer"]
-        >>> for r in length_results:
-        ...     print(f"Words: {r.total_words}")
-        >>>
-        >>> # Convert to DataFrame for analysis
-        >>> df = pipeline.to_dataframe()
+        >>> # Or provide a custom tokenizer for all analyzers
+        >>> pipeline = AnalysisPipeline(
+        ...     analyzers=[LengthAnalyzer()],
+        ...     tokenizer=my_huggingface_tokenizer,
+        ... )
 
     Args:
         analyzers: List of analyzer instances to run.
         cache_dir: Optional directory for caching results.
+        tokenizer: Optional tokenizer to inject into analyzers that need one.
+            If None, uses tiktoken with the specified encoding as default.
+        tiktoken_encoding: Tiktoken encoding to use when no tokenizer is provided.
+            Defaults to "cl100k_base" (GPT-4 encoding).
     """
 
     def __init__(
         self,
         analyzers: list[AnyAnalyzer],
         cache_dir: str | Path | None = None,
+        tokenizer: Any | None = None,
+        tiktoken_encoding: str = "cl100k_base",
     ):
         """Initialize the analysis pipeline.
 
         Args:
             analyzers: List of analyzer instances to run.
             cache_dir: Optional directory for caching results.
+            tokenizer: Optional tokenizer to inject into analyzers that need one.
+                Must have an `encode(text) -> list` method. If None, tiktoken
+                is used as the default.
+            tiktoken_encoding: Tiktoken encoding to use when no tokenizer provided.
         """
         self.analyzers = analyzers
         self.cache_dir = Path(cache_dir) if cache_dir else None
+
+        # Set up shared tokenizer
+        if tokenizer is not None:
+            self._tokenizer = tokenizer
+        else:
+            self._tokenizer = tiktoken.get_encoding(tiktoken_encoding)
 
         self._results: AnalysisResults = {}
         self._conversations: list[Conversation] = []
@@ -107,6 +129,9 @@ class AnalysisPipeline:
         self._preference_analyzers: list[PreferenceAnalyzer[Any]] = []
 
         for analyzer in analyzers:
+            # Inject tokenizer into analyzers that need one but don't have one
+            self._inject_tokenizer(analyzer)
+
             if isinstance(analyzer, MessageAnalyzer):
                 self._message_analyzers.append(analyzer)
             elif isinstance(analyzer, ConversationAnalyzer):
@@ -115,6 +140,22 @@ class AnalysisPipeline:
                 self._dataset_analyzers.append(analyzer)
             elif isinstance(analyzer, PreferenceAnalyzer):
                 self._preference_analyzers.append(analyzer)
+
+    def _inject_tokenizer(self, analyzer: AnyAnalyzer) -> None:
+        """Inject the pipeline's tokenizer into an analyzer if it needs one.
+
+        Only injects if the analyzer has a `tokenizer` attribute that is None.
+
+        Args:
+            analyzer: The analyzer to potentially inject a tokenizer into.
+        """
+        if hasattr(analyzer, _TOKENIZER_ATTR):
+            current = getattr(analyzer, _TOKENIZER_ATTR)
+            if current is None:
+                setattr(analyzer, _TOKENIZER_ATTR, self._tokenizer)
+                logger.debug(
+                    f"Injected tokenizer into {analyzer.__class__.__name__}"
+                )
 
     def run(
         self,

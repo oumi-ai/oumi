@@ -14,7 +14,7 @@
 
 """Length analyzer implementation and result model."""
 
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 import tiktoken
 from pydantic import BaseModel, Field
@@ -23,7 +23,28 @@ from oumi.analyze.base import ConversationAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.core.types.conversation import Conversation, Role
 
-__all__ = ["LengthMetrics", "LengthAnalyzer"]
+__all__ = ["LengthMetrics", "LengthAnalyzer", "Tokenizer", "default_tokenizer"]
+
+
+@runtime_checkable
+class Tokenizer(Protocol):
+    """Protocol for tokenizers used by LengthAnalyzer."""
+
+    def encode(self, text: str) -> list[int]:
+        """Encode text to token IDs."""
+        ...
+
+
+def default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
+    """Get the default tiktoken tokenizer.
+
+    Args:
+        encoding: Tiktoken encoding name. Defaults to "cl100k_base" (GPT-4).
+
+    Returns:
+        Tiktoken encoder instance.
+    """
+    return tiktoken.get_encoding(encoding)
 
 
 class LengthMetrics(BaseModel):
@@ -75,14 +96,14 @@ class LengthMetrics(BaseModel):
 class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     """Analyzer for computing token length metrics of conversations.
 
-    Computes token counts for conversations using either a provided tokenizer
-    or tiktoken. Provides both conversation-level totals and per-message breakdowns.
+    Computes token counts for conversations using a provided tokenizer.
+    Provides both conversation-level totals and per-message breakdowns.
 
     Example:
-        >>> from oumi.analyze import LengthAnalyzer
+        >>> from oumi.analyze.analyzers.length import LengthAnalyzer, default_tokenizer
         >>> from oumi.core.types.conversation import Conversation, Message, Role
         >>>
-        >>> analyzer = LengthAnalyzer()
+        >>> analyzer = LengthAnalyzer(tokenizer=default_tokenizer())
         >>> conversation = Conversation(messages=[
         ...     Message(role=Role.USER, content="Hello, how are you?"),
         ...     Message(role=Role.ASSISTANT, content="I'm doing well, thanks!"),
@@ -92,48 +113,23 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         Total tokens: 12
 
     Args:
-        tokenizer: Tokenizer instance for token counting. If None,
-            will use tiktoken with the specified encoding.
-        tiktoken_encoding: Tiktoken encoding name to use if no tokenizer
-            is provided. Defaults to "cl100k_base" (GPT-4 encoding).
+        tokenizer: Tokenizer instance for token counting. Must have an
+            `encode(text) -> list` method. Use `default_tokenizer()` for
+            tiktoken, or pass a HuggingFace tokenizer for model-specific counts.
     """
 
-    def __init__(
-        self,
-        tokenizer: Any | None = None,
-        tiktoken_encoding: str = "cl100k_base",
-    ):
+    def __init__(self, tokenizer: Tokenizer | None = None):
         """Initialize the length analyzer.
 
         Args:
-            tokenizer: Optional custom tokenizer (e.g., HuggingFace) for model-specific
-                token counting. Must have an `encode(text) -> list` method.
-            tiktoken_encoding: Tiktoken encoding name to use as fallback when no
-                custom tokenizer is provided.
+            tokenizer: Tokenizer for counting tokens. Must have an
+                `encode(text) -> list[int]` method. If None, can be set later
+                via the `tokenizer` attribute (e.g., by AnalysisPipeline).
         """
-        # User-provided tokenizer takes priority (for model-specific token counts)
         self.tokenizer = tokenizer
-        self.tiktoken_encoding = tiktoken_encoding
-
-        # Fallback: use tiktoken (fast, widely available) when no custom tokenizer
-        self._tiktoken_encoder: tiktoken.Encoding | None = None
-        if tokenizer is None:
-            self._tiktoken_encoder = self._load_tiktoken_encoder()
-
-    def _load_tiktoken_encoder(self) -> tiktoken.Encoding:
-        """Load tiktoken encoder.
-
-        Returns:
-            Tiktoken encoder for the configured encoding.
-        """
-        return tiktoken.get_encoding(self.tiktoken_encoding)
 
     def _count_tokens(self, text: str) -> int:
         """Count tokens in text.
-
-        Priority:
-        1. Custom tokenizer (if provided) - for model-specific token counts
-        2. Tiktoken (fallback) - fast default using OpenAI's tokenizer
 
         Args:
             text: Text to tokenize.
@@ -142,26 +138,19 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             Token count. Returns 0 if encoding fails.
 
         Raises:
-            RuntimeError: If no tokenizer is available (should not happen normally).
+            RuntimeError: If no tokenizer is configured.
         """
-        # Priority 1: Custom tokenizer (e.g., HuggingFace model tokenizer)
-        if self.tokenizer is not None:
-            try:
-                tokens = self.tokenizer.encode(text)
-                return len(tokens)
-            except Exception:
-                return 0
+        if self.tokenizer is None:
+            raise RuntimeError(
+                "No tokenizer configured. Either pass a tokenizer to __init__ "
+                "or use default_tokenizer()."
+            )
 
-        # Priority 2: Tiktoken fallback (fast, widely available)
-        if self._tiktoken_encoder is not None:
-            try:
-                tokens = self._tiktoken_encoder.encode(text)
-                return len(tokens)
-            except Exception:
-                return 0
-
-        # This should not happen - tiktoken is initialized by default
-        raise RuntimeError("No tokenizer available. This is unexpected.")
+        try:
+            tokens = self.tokenizer.encode(text)
+            return len(tokens)
+        except Exception:
+            return 0
 
     def analyze(self, conversation: Conversation) -> LengthMetrics:
         """Analyze token length metrics for a conversation.

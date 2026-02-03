@@ -16,7 +16,12 @@
 
 import pytest
 
-from oumi.analyze.analyzers.length import LengthAnalyzer, LengthMetrics
+from oumi.analyze.analyzers.length import (
+    LengthAnalyzer,
+    LengthMetrics,
+    Tokenizer,
+    default_tokenizer,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 
 # -----------------------------------------------------------------------------
@@ -68,6 +73,38 @@ def mock_tokenizer():
     return MockTokenizer()
 
 
+@pytest.fixture
+def tiktoken_tokenizer():
+    """Get the default tiktoken tokenizer."""
+    return default_tokenizer()
+
+
+# -----------------------------------------------------------------------------
+# Tokenizer Protocol Tests
+# -----------------------------------------------------------------------------
+
+
+def test_tokenizer_protocol(mock_tokenizer):
+    """Test that mock tokenizer satisfies the Tokenizer protocol."""
+    assert isinstance(mock_tokenizer, Tokenizer)
+
+
+def test_default_tokenizer():
+    """Test that default_tokenizer returns a valid tokenizer."""
+    tokenizer = default_tokenizer()
+    assert hasattr(tokenizer, "encode")
+    tokens = tokenizer.encode("Hello, world!")
+    assert isinstance(tokens, list)
+    assert len(tokens) > 0
+
+
+def test_default_tokenizer_custom_encoding():
+    """Test default_tokenizer with custom encoding."""
+    tokenizer = default_tokenizer("p50k_base")
+    tokens = tokenizer.encode("Hello")
+    assert len(tokens) > 0
+
+
 # -----------------------------------------------------------------------------
 # LengthMetrics Tests
 # -----------------------------------------------------------------------------
@@ -114,23 +151,21 @@ def test_length_metrics_with_role_stats():
 
 
 def test_analyzer_default_initialization():
-    """Test LengthAnalyzer initializes with default settings."""
+    """Test LengthAnalyzer initializes with no tokenizer by default."""
     analyzer = LengthAnalyzer()
     assert analyzer.tokenizer is None
-    assert analyzer.tiktoken_encoding == "cl100k_base"
 
 
-def test_analyzer_custom_encoding():
-    """Test LengthAnalyzer with custom tiktoken encoding."""
-    analyzer = LengthAnalyzer(tiktoken_encoding="p50k_base")
-    assert analyzer.tiktoken_encoding == "p50k_base"
+def test_analyzer_with_tokenizer(tiktoken_tokenizer):
+    """Test LengthAnalyzer with a tokenizer."""
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
+    assert analyzer.tokenizer is tiktoken_tokenizer
 
 
 def test_analyzer_with_custom_tokenizer(mock_tokenizer):
     """Test LengthAnalyzer with a custom tokenizer."""
     analyzer = LengthAnalyzer(tokenizer=mock_tokenizer)
     assert analyzer.tokenizer is mock_tokenizer
-    assert analyzer._tiktoken_encoder is None
 
 
 # -----------------------------------------------------------------------------
@@ -138,9 +173,9 @@ def test_analyzer_with_custom_tokenizer(mock_tokenizer):
 # -----------------------------------------------------------------------------
 
 
-def test_analyze_simple_conversation(simple_conversation):
+def test_analyze_simple_conversation(simple_conversation, tiktoken_tokenizer):
     """Test analyzing a simple conversation."""
-    analyzer = LengthAnalyzer()
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
     result = analyzer.analyze(simple_conversation)
 
     assert isinstance(result, LengthMetrics)
@@ -150,9 +185,9 @@ def test_analyze_simple_conversation(simple_conversation):
     assert result.avg_tokens_per_message == result.total_tokens / 2
 
 
-def test_analyze_role_stats(simple_conversation):
+def test_analyze_role_stats(simple_conversation, tiktoken_tokenizer):
     """Test that role stats are always computed."""
-    analyzer = LengthAnalyzer()
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
     result = analyzer.analyze(simple_conversation)
 
     assert result.user_total_tokens > 0
@@ -162,18 +197,18 @@ def test_analyze_role_stats(simple_conversation):
     assert result.tool_total_tokens == 0
 
 
-def test_analyze_conversation_with_system(conversation_with_system):
+def test_analyze_conversation_with_system(conversation_with_system, tiktoken_tokenizer):
     """Test analyzing a conversation with a system message."""
-    analyzer = LengthAnalyzer()
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
     result = analyzer.analyze(conversation_with_system)
 
     assert result.num_messages == 3
     assert result.system_total_tokens > 0
 
 
-def test_analyze_empty_conversation(empty_conversation):
+def test_analyze_empty_conversation(empty_conversation, tiktoken_tokenizer):
     """Test analyzing an empty conversation."""
-    analyzer = LengthAnalyzer()
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
     result = analyzer.analyze(empty_conversation)
 
     assert result.num_messages == 0
@@ -193,14 +228,22 @@ def test_analyze_with_custom_tokenizer(simple_conversation, mock_tokenizer):
     assert result.total_tokens == 3
 
 
+def test_analyze_raises_without_tokenizer(simple_conversation):
+    """Test that analyze raises RuntimeError without a tokenizer."""
+    analyzer = LengthAnalyzer()  # No tokenizer
+
+    with pytest.raises(RuntimeError, match="No tokenizer configured"):
+        analyzer.analyze(simple_conversation)
+
+
 # -----------------------------------------------------------------------------
 # LengthAnalyzer.analyze_text() Tests
 # -----------------------------------------------------------------------------
 
 
-def test_analyze_text_simple():
+def test_analyze_text_simple(tiktoken_tokenizer):
     """Test analyzing a simple text string."""
-    analyzer = LengthAnalyzer()
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
     result = analyzer.analyze_text("Hello, world!")
 
     assert result.num_messages == 1
@@ -218,18 +261,18 @@ def test_analyze_text_with_custom_tokenizer(mock_tokenizer):
     assert result.total_tokens == 4
 
 
-def test_analyze_text_empty():
+def test_analyze_text_empty(tiktoken_tokenizer):
     """Test analyzing empty text."""
-    analyzer = LengthAnalyzer()
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
     result = analyzer.analyze_text("")
 
     assert result.total_tokens == 0
     assert result.num_messages == 1
 
 
-def test_analyze_text_role_stats_are_zero():
+def test_analyze_text_role_stats_are_zero(tiktoken_tokenizer):
     """Test that analyze_text returns zero for role stats (no conversation context)."""
-    analyzer = LengthAnalyzer()
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
     result = analyzer.analyze_text("Some text")
 
     # No conversation context, so role stats default to 0
@@ -244,13 +287,12 @@ def test_analyze_text_role_stats_are_zero():
 # -----------------------------------------------------------------------------
 
 
-def test_count_tokens_with_tiktoken():
+def test_count_tokens_with_tiktoken(tiktoken_tokenizer):
     """Test token counting with tiktoken encoder."""
-    analyzer = LengthAnalyzer()
-    if analyzer._tiktoken_encoder is not None:
-        count = analyzer._count_tokens("Hello, world!")
-        assert count > 0
-        assert isinstance(count, int)
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
+    count = analyzer._count_tokens("Hello, world!")
+    assert count > 0
+    assert isinstance(count, int)
 
 
 def test_count_tokens_with_custom_tokenizer(mock_tokenizer):
@@ -260,22 +302,72 @@ def test_count_tokens_with_custom_tokenizer(mock_tokenizer):
     assert count == 3
 
 
-def test_count_tokens_empty_string():
+def test_count_tokens_empty_string(tiktoken_tokenizer):
     """Test token counting with empty string."""
-    analyzer = LengthAnalyzer()
+    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
     count = analyzer._count_tokens("")
     assert count == 0
 
 
 def test_count_tokens_raises_when_no_tokenizer():
-    """Test that RuntimeError is raised when no tokenizer is available."""
+    """Test that RuntimeError is raised when no tokenizer is configured."""
     analyzer = LengthAnalyzer()
-    # Simulate no tokenizer available (should not happen in normal use)
-    analyzer.tokenizer = None
-    analyzer._tiktoken_encoder = None
 
-    with pytest.raises(RuntimeError, match="No tokenizer available"):
+    with pytest.raises(RuntimeError, match="No tokenizer configured"):
         analyzer._count_tokens("test text")
+
+
+# -----------------------------------------------------------------------------
+# Pipeline Tokenizer Injection Tests
+# -----------------------------------------------------------------------------
+
+
+def test_pipeline_injects_tokenizer(simple_conversation):
+    """Test that AnalysisPipeline injects tokenizer into analyzers."""
+    from oumi.analyze.pipeline import AnalysisPipeline
+
+    analyzer = LengthAnalyzer()  # No tokenizer
+    assert analyzer.tokenizer is None
+
+    pipeline = AnalysisPipeline(analyzers=[analyzer])
+
+    # Pipeline should have injected the tokenizer
+    assert analyzer.tokenizer is not None
+
+    # Should now work
+    results = pipeline.run([simple_conversation])
+    assert "LengthAnalyzer" in results
+
+
+def test_pipeline_respects_custom_tokenizer(simple_conversation, mock_tokenizer):
+    """Test that AnalysisPipeline doesn't override existing tokenizers."""
+    from oumi.analyze.pipeline import AnalysisPipeline
+
+    analyzer = LengthAnalyzer(tokenizer=mock_tokenizer)
+
+    pipeline = AnalysisPipeline(analyzers=[analyzer])
+
+    # Should keep the custom tokenizer
+    assert analyzer.tokenizer is mock_tokenizer
+
+    results = pipeline.run([simple_conversation])
+    # Mock tokenizer: "Hello" -> 1, "Hi there!" -> 2
+    assert results["LengthAnalyzer"][0].total_tokens == 3
+
+
+def test_pipeline_custom_tokenizer_for_all(simple_conversation, mock_tokenizer):
+    """Test that pipeline can provide a custom tokenizer for all analyzers."""
+    from oumi.analyze.pipeline import AnalysisPipeline
+
+    analyzer = LengthAnalyzer()  # No tokenizer
+
+    pipeline = AnalysisPipeline(
+        analyzers=[analyzer],
+        tokenizer=mock_tokenizer,
+    )
+
+    # Should use the pipeline's tokenizer
+    assert analyzer.tokenizer is mock_tokenizer
 
 
 # -----------------------------------------------------------------------------
