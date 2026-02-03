@@ -68,7 +68,8 @@ def test_convert_conversation_to_api_input(bedrock_engine):
 
     assert result["inferenceConfig"]["maxTokens"] == 100
     assert result["inferenceConfig"]["temperature"] == 0.0
-    assert result["inferenceConfig"]["topP"] == 1.0
+    # topP is only included when explicitly set in generation_params
+    assert "topP" not in result["inferenceConfig"]
     assert result["messages"][0]["content"][0]["text"] == "User message"
     assert result["messages"][0]["role"] == "user"
     assert result["messages"][1]["content"][0]["text"] == "Assistant message"
