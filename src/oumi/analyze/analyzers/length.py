@@ -127,13 +127,35 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         return len(tokens)
 
     def _count_rendered_tokens(self, conversation: Conversation) -> int | None:
+        """Count tokens in the chat-template-rendered conversation.
+
+        This gives the actual token count the model sees during training/inference,
+        including special tokens added by the chat template.
+
+        Args:
+            conversation: The conversation to render and tokenize.
+
+        Returns:
+            Token count of rendered conversation, or None if tokenizer doesn't
+            support chat templates.
+        """
         if self.tokenizer is None:
             return None
 
+        # Check if tokenizer has a chat template before proceeding
+        if getattr(self.tokenizer, "chat_template", None) is None:
+            return None
+
+        if not conversation.messages:
+            return 0
+
         try:
-            rendered_text = self.get_conversation_text(conversation, self.tokenizer)
+            # Use base class method to render conversation with chat template
+            # Type ignore: we've verified tokenizer has chat_template attribute above
+            rendered_text = self.get_conversation_text(conversation, self.tokenizer)  # type: ignore[arg-type]
             return self._count_tokens(rendered_text)
         except (ValueError, AttributeError):
+            # Unexpected error during rendering
             return None
 
     def analyze(self, conversation: Conversation) -> LengthMetrics:
