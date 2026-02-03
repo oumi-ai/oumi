@@ -86,9 +86,10 @@ def test_length_metrics_creation():
     assert metrics.avg_tokens_per_message == 5.0
     assert metrics.message_token_counts == [4, 6]
     assert metrics.num_messages == 2
-    assert metrics.user_total_tokens is None
-    assert metrics.assistant_total_tokens is None
-    assert metrics.system_total_tokens is None
+    # Role stats default to 0
+    assert metrics.user_total_tokens == 0
+    assert metrics.assistant_total_tokens == 0
+    assert metrics.system_total_tokens == 0
 
 
 def test_length_metrics_with_role_stats():
@@ -117,7 +118,6 @@ def test_analyzer_default_initialization():
     analyzer = LengthAnalyzer()
     assert analyzer.tokenizer is None
     assert analyzer.tiktoken_encoding == "cl100k_base"
-    assert analyzer.compute_role_stats is True
 
 
 def test_analyzer_custom_encoding():
@@ -131,12 +131,6 @@ def test_analyzer_with_custom_tokenizer(mock_tokenizer):
     analyzer = LengthAnalyzer(tokenizer=mock_tokenizer)
     assert analyzer.tokenizer is mock_tokenizer
     assert analyzer._tiktoken_encoder is None
-
-
-def test_analyzer_disable_role_stats():
-    """Test LengthAnalyzer with role stats disabled."""
-    analyzer = LengthAnalyzer(compute_role_stats=False)
-    assert analyzer.compute_role_stats is False
 
 
 # -----------------------------------------------------------------------------
@@ -156,35 +150,23 @@ def test_analyze_simple_conversation(simple_conversation):
     assert result.avg_tokens_per_message == result.total_tokens / 2
 
 
-def test_analyze_with_role_stats(simple_conversation):
-    """Test that role stats are computed when enabled."""
-    analyzer = LengthAnalyzer(compute_role_stats=True)
+def test_analyze_role_stats(simple_conversation):
+    """Test that role stats are always computed."""
+    analyzer = LengthAnalyzer()
     result = analyzer.analyze(simple_conversation)
 
-    assert result.user_total_tokens is not None
-    assert result.assistant_total_tokens is not None
-    assert result.system_total_tokens is not None
+    assert result.user_total_tokens > 0
+    assert result.assistant_total_tokens > 0
     # System should be 0 since there's no system message
     assert result.system_total_tokens == 0
 
 
-def test_analyze_without_role_stats(simple_conversation):
-    """Test that role stats are None when disabled."""
-    analyzer = LengthAnalyzer(compute_role_stats=False)
-    result = analyzer.analyze(simple_conversation)
-
-    assert result.user_total_tokens is None
-    assert result.assistant_total_tokens is None
-    assert result.system_total_tokens is None
-
-
 def test_analyze_conversation_with_system(conversation_with_system):
     """Test analyzing a conversation with a system message."""
-    analyzer = LengthAnalyzer(compute_role_stats=True)
+    analyzer = LengthAnalyzer()
     result = analyzer.analyze(conversation_with_system)
 
     assert result.num_messages == 3
-    assert result.system_total_tokens is not None
     assert result.system_total_tokens > 0
 
 
@@ -244,14 +226,15 @@ def test_analyze_text_empty():
     assert result.num_messages == 1
 
 
-def test_analyze_text_role_stats_are_none():
-    """Test that analyze_text always returns None for role stats."""
-    analyzer = LengthAnalyzer(compute_role_stats=True)
+def test_analyze_text_role_stats_are_zero():
+    """Test that analyze_text returns zero for role stats (no conversation context)."""
+    analyzer = LengthAnalyzer()
     result = analyzer.analyze_text("Some text")
 
-    assert result.user_total_tokens is None
-    assert result.assistant_total_tokens is None
-    assert result.system_total_tokens is None
+    # No conversation context, so role stats default to 0
+    assert result.user_total_tokens == 0
+    assert result.assistant_total_tokens == 0
+    assert result.system_total_tokens == 0
 
 
 # -----------------------------------------------------------------------------

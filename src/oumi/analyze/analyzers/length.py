@@ -55,15 +55,13 @@ class LengthMetrics(BaseModel):
     # Message count
     num_messages: int = Field(description="Number of messages in the conversation")
 
-    # Role-specific stats (optional)
-    user_total_tokens: int | None = Field(
-        default=None, description="Total tokens in user messages"
+    # Role-specific stats
+    user_total_tokens: int = Field(default=0, description="Total tokens in user messages")
+    assistant_total_tokens: int = Field(
+        default=0, description="Total tokens in assistant messages"
     )
-    assistant_total_tokens: int | None = Field(
-        default=None, description="Total tokens in assistant messages"
-    )
-    system_total_tokens: int | None = Field(
-        default=None, description="Total tokens in system messages"
+    system_total_tokens: int = Field(
+        default=0, description="Total tokens in system messages"
     )
 
 
@@ -92,25 +90,21 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             will use tiktoken with the specified encoding.
         tiktoken_encoding: Tiktoken encoding name to use if no tokenizer
             is provided. Defaults to "cl100k_base" (GPT-4 encoding).
-        compute_role_stats: Whether to compute per-role token counts.
     """
 
     def __init__(
         self,
         tokenizer: Any | None = None,
         tiktoken_encoding: str = "cl100k_base",
-        compute_role_stats: bool = True,
     ):
         """Initialize the length analyzer.
 
         Args:
             tokenizer: Optional tokenizer for token counting.
             tiktoken_encoding: Tiktoken encoding name if using tiktoken.
-            compute_role_stats: Whether to compute per-role statistics.
         """
         self.tokenizer = tokenizer
         self.tiktoken_encoding = tiktoken_encoding
-        self.compute_role_stats = compute_role_stats
         self._tiktoken_encoder = None
 
         # Initialize tiktoken if no tokenizer provided
@@ -185,7 +179,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             message_token_counts.append(token_count)
 
             # Role-specific counts
-            if self.compute_role_stats and message.role in role_token_counts:
+            if message.role in role_token_counts:
                 role_token_counts[message.role] += token_count
 
         # Compute totals
@@ -200,15 +194,9 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             avg_tokens_per_message=avg_tokens,
             message_token_counts=message_token_counts,
             num_messages=num_messages,
-            user_total_tokens=role_token_counts[Role.USER]
-            if self.compute_role_stats
-            else None,
-            assistant_total_tokens=role_token_counts[Role.ASSISTANT]
-            if self.compute_role_stats
-            else None,
-            system_total_tokens=role_token_counts[Role.SYSTEM]
-            if self.compute_role_stats
-            else None,
+            user_total_tokens=role_token_counts[Role.USER],
+            assistant_total_tokens=role_token_counts[Role.ASSISTANT],
+            system_total_tokens=role_token_counts[Role.SYSTEM],
         )
 
     def analyze_text(self, text: str) -> LengthMetrics:
@@ -229,7 +217,4 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             avg_tokens_per_message=float(token_count),
             message_token_counts=[token_count],
             num_messages=1,
-            user_total_tokens=None,
-            assistant_total_tokens=None,
-            system_total_tokens=None,
         )
