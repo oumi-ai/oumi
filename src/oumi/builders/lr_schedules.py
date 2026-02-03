@@ -59,6 +59,14 @@ def build_lr_scheduler(
     if warmup_steps is not None and warmup_ratio is not None:
         raise ValueError("Only one of warmup_steps and warmup_ratio should be provided")
 
+    if warmup_steps is not None and warmup_steps < 1:
+        logger.debug(
+            f"warmup_steps {warmup_steps} is less than 1, "
+            f"converting to warmup_ratio {warmup_ratio}"
+        )
+        warmup_ratio = warmup_steps
+        warmup_steps = None
+
     # Make sure num_training_steps is provided for schedulers that need it
     if (
         scheduler_type
@@ -93,7 +101,11 @@ def build_lr_scheduler(
     # Otherwise set warmup_steps to 0 if not provided
     if warmup_steps is None:
         warmup_steps = 0
-        logger.info("No warmup steps provided. Setting warmup_steps=0.")
+        logger.debug("No warmup steps provided. Setting warmup_steps=0.")
+    elif warmup_steps > 1:
+        warmup_steps = int(warmup_steps)
+    else:
+        raise ValueError(f"Invalid warmup_steps: {warmup_steps}")
 
     if scheduler_type == SchedulerType.LINEAR:
         if scheduler_specific_kwargs:
