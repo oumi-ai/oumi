@@ -18,6 +18,7 @@ from typing import Protocol, runtime_checkable
 
 import tiktoken
 from pydantic import BaseModel, Field
+from transformers import PreTrainedTokenizerBase
 
 from oumi.analyze.base import ConversationAnalyzer
 from oumi.core.registry import register_sample_analyzer
@@ -158,6 +159,9 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
 
         if not conversation.messages:
             return 0
+
+        if not isinstance(self.tokenizer, PreTrainedTokenizerBase):
+            return None
 
         try:
             # Use base class method to render conversation with chat template

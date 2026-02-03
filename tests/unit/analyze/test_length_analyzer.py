@@ -352,14 +352,14 @@ def test_rendered_tokens_with_chat_template(simple_conversation):
             # Count characters instead of words for predictable results
             return list(range(len(text)))
 
-        def apply_chat_template(
-            self, conversation, tokenize=False, return_dict=False
-        ):
+        def apply_chat_template(self, conversation, tokenize=False, return_dict=False):
             # Simulate chat template adding special tokens/formatting
             messages = conversation.messages
             parts = []
             for msg in messages:
-                content = msg.content if isinstance(msg.content, str) else str(msg.content)
+                content = (
+                    msg.content if isinstance(msg.content, str) else str(msg.content)
+                )
                 parts.append(f"<|{msg.role.value}|>{content}<|end|>")
             return "\n".join(parts)
 
