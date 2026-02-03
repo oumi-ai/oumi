@@ -44,7 +44,22 @@ class BaseAnalyzer(ABC, Generic[TResult]):
 
     All concrete analyzer types (MessageAnalyzer, ConversationAnalyzer, etc.)
     inherit from this class.
+
+    Attributes:
+        analyzer_id: Optional custom identifier for this analyzer instance.
+            If not set, the class name is used as the identifier.
     """
+
+    analyzer_id: str | None = None
+
+    @classmethod
+    def get_scope(cls) -> str:
+        """Get the scope of this analyzer.
+
+        Returns:
+            Scope string ('message', 'conversation', 'dataset', or 'preference').
+        """
+        return "unknown"
 
     @classmethod
     def _require_result_type(cls) -> type[BaseModel]:
@@ -172,6 +187,15 @@ class MessageAnalyzer(BaseAnalyzer[TResult]):
                 )
     """
 
+    @classmethod
+    def get_scope(cls) -> str:
+        """Get the scope of this analyzer.
+
+        Returns:
+            Scope string ('message').
+        """
+        return "message"
+
     @abstractmethod
     def analyze(self, message: Message) -> TResult:
         """Analyze a single message and return typed results.
@@ -227,6 +251,15 @@ class ConversationAnalyzer(BaseAnalyzer[TResult]):
                 )
                 return LengthMetrics(total_words=total_words, ...)
     """
+
+    @classmethod
+    def get_scope(cls) -> str:
+        """Get the scope of this analyzer.
+
+        Returns:
+            Scope string ('conversation').
+        """
+        return "conversation"
 
     @abstractmethod
     def analyze(self, conversation: Conversation) -> TResult:
@@ -321,6 +354,15 @@ class DatasetAnalyzer(BaseAnalyzer[TResult]):
                 )
     """
 
+    @classmethod
+    def get_scope(cls) -> str:
+        """Get the scope of this analyzer.
+
+        Returns:
+            Scope string ('dataset').
+        """
+        return "dataset"
+
     @abstractmethod
     def analyze(self, conversations: list[Conversation]) -> TResult:
         """Analyze an entire dataset and return typed results.
@@ -368,6 +410,15 @@ class PreferenceAnalyzer(BaseAnalyzer[TResult]):
                     rejected_score=rejected_score,
                 )
     """
+
+    @classmethod
+    def get_scope(cls) -> str:
+        """Get the scope of this analyzer.
+
+        Returns:
+            Scope string ('preference').
+        """
+        return "preference"
 
     @abstractmethod
     def analyze(self, chosen: Conversation, rejected: Conversation) -> TResult:

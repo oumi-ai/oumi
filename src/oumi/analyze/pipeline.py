@@ -473,9 +473,8 @@ class AnalysisPipeline:
         Returns:
             Name string for the analyzer.
         """
-        analyzer_id = getattr(analyzer, "analyzer_id", None)
-        if analyzer_id is not None:
-            return str(analyzer_id)
+        if analyzer.analyzer_id is not None:
+            return analyzer.analyzer_id
         return analyzer.__class__.__name__
 
     def _get_analyzer_scope(self, analyzer: AnyAnalyzer) -> str:
@@ -487,15 +486,7 @@ class AnalysisPipeline:
         Returns:
             Scope string ('message', 'conversation', 'dataset', or 'preference').
         """
-        if isinstance(analyzer, MessageAnalyzer):
-            return "message"
-        elif isinstance(analyzer, ConversationAnalyzer):
-            return "conversation"
-        elif isinstance(analyzer, DatasetAnalyzer):
-            return "dataset"
-        elif isinstance(analyzer, PreferenceAnalyzer):
-            return "preference"
-        return "unknown"
+        return analyzer.get_scope()
 
     def _save_cache(self) -> None:
         """Save results to cache directory."""
