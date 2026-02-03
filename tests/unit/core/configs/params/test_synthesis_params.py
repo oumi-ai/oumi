@@ -458,7 +458,9 @@ def test_multiturn_attribute_invalid_min_turns():
 def test_multiturn_attribute_invalid_max_turns():
     with pytest.raises(
         ValueError,
-        match="MultiTurnAttribute.max_turns must be greater than min_turns.",
+        match=(
+            "MultiTurnAttribute.max_turns must be greater than or equal to min_turns."
+        ),
     ):
         MultiTurnAttribute(
             id="conversation",
