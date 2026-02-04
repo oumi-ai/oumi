@@ -67,11 +67,12 @@ dependencies = [
     "pydantic>=2.11,<2.13",
     "responses>=0.25,<0.26",
     "safetensors>=0.6,<0.8",
-    "skypilot>=0.10.2,<0.11",  # 0.11rc has a breaking change that
+    "skypilot>=0.11.1,<0.12", # 0.11.1 includes db locking fix
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
-    "torch>=2.6,<2.10.0",      # vllm only supports up to torch==2.7
+    "tiktoken>=0.7,<1.0",
+    "torch>=2.6,<2.11.0",      # vllm only supports up to torch==2.7
     "torchao>=0.12,<0.16",     # Used by transformers
-    "torchvision>=0.21,<0.25", # Used by some VLM-s (multimodal)
+    "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.

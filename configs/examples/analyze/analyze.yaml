@@ -26,10 +26,10 @@ dataset_path: data/dataset_examples/oumi_format.jsonl
 
 output_path: ./analysis_output
 
-# Built-in: "length" (char, word, sentence, token counts)
+# Built-in: "dataframe_length" (char, word, sentence, token counts)
 # See docs for creating custom analyzers.
 analyzers:
-  - id: length
+  - id: dataframe_length
     params:
       char_count: true # Character count per text field
       word_count: true # Word count (whitespace-separated)
