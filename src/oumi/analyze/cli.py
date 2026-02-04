@@ -32,13 +32,34 @@ from oumi.core.types.conversation import Conversation
 logger = logging.getLogger(__name__)
 
 
-# Import registry from shared module
-from oumi.analyze.registry import (
-    ANALYZER_REGISTRY,
-    create_analyzer_from_config,
-    get_analyzer_class,
-    register_analyzer,
-)
+# Import registry from core module
+from oumi.core.registry import REGISTRY, RegistryType
+from oumi.core.registry import register_sample_analyzer as register_analyzer
+
+
+def create_analyzer_from_config(
+    analyzer_id: str,
+    params: dict,
+) -> MessageAnalyzer | ConversationAnalyzer | DatasetAnalyzer | None:
+    """Create an analyzer instance from configuration.
+
+    Args:
+        analyzer_id: Analyzer type identifier.
+        params: Analyzer-specific parameters.
+
+    Returns:
+        Analyzer instance or None if not found.
+    """
+    analyzer_class = REGISTRY.get_sample_analyzer(analyzer_id)
+    if analyzer_class is None:
+        logger.warning(f"Unknown analyzer: {analyzer_id}")
+        return None
+
+    try:
+        return analyzer_class(**params)
+    except Exception as e:
+        logger.error(f"Failed to create analyzer {analyzer_id}: {e}")
+        return None
 
 
 def load_conversations_from_path(

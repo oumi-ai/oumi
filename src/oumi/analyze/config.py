@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from oumi.core.configs.params.test_params import (
-    TestConfig,
+    TestParams,
     TestSeverity,
     TestType,
 )
@@ -149,10 +149,10 @@ class CustomMetricConfig:
 
 
 @dataclass
-class TestConfigYAML:
+class TestParamsYAML:
     """YAML-friendly test configuration.
 
-    This class mirrors TestConfig but uses simpler types for YAML parsing.
+    This class mirrors TestParams but uses simpler types for YAML parsing.
 
     Attributes:
         id: Unique identifier for the test.
@@ -184,13 +184,13 @@ class TestConfigYAML:
     min_value: float | None = None
     max_value: float | None = None
 
-    def to_test_config(self) -> TestConfig:
-        """Convert to TestConfig for the test engine.
+    def to_test_config(self) -> TestParams:
+        """Convert to TestParams for the test engine.
 
         Returns:
-            TestConfig instance.
+            TestParams instance.
         """
-        return TestConfig(
+        return TestParams(
             id=self.id,
             type=TestType(self.type),
             metric=self.metric,
@@ -280,7 +280,7 @@ class TypedAnalyzeConfig:
     custom_metrics: list[CustomMetricConfig] = field(default_factory=list)
 
     # Tests
-    tests: list[TestConfigYAML] = field(default_factory=list)
+    tests: list[TestParamsYAML] = field(default_factory=list)
 
     # Tokenizer
     tokenizer_name: str | None = None
@@ -382,7 +382,7 @@ class TypedAnalyzeConfig:
         # Parse tests
         tests = []
         for test_data in data.get("tests", []):
-            tests.append(TestConfigYAML(**test_data))
+            tests.append(TestParamsYAML(**test_data))
 
         return cls(
             eval_name=data.get("eval_name"),
@@ -452,10 +452,10 @@ class TypedAnalyzeConfig:
             "report_title": self.report_title,
         }
 
-    def get_test_configs(self) -> list[TestConfig]:
+    def get_test_configs(self) -> list[TestParams]:
         """Get test configurations for the test engine.
 
         Returns:
-            List of TestConfig instances.
+            List of TestParams instances.
         """
         return [t.to_test_config() for t in self.tests]
