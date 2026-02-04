@@ -37,13 +37,8 @@ class TestType(str, Enum):
     """Types of tests that can be run."""
 
     THRESHOLD = "threshold"
-    """Check if metric exceeds a threshold."""
-
     PERCENTAGE = "percentage"
-    """Check percentage of samples matching a condition."""
-
     RANGE = "range"
-    """Check if metric is within a range."""
 
 
 @dataclass
@@ -72,22 +67,15 @@ class TestConfig:
     severity: TestSeverity = TestSeverity.MEDIUM
     title: str = ""
     description: str = ""
-
-    # Threshold test parameters
-    operator: str | None = None  # "<", ">", "<=", ">=", "==", "!="
+    operator: str | None = None
     value: float | int | str | None = None
-
-    # Percentage test parameters
-    condition: str | None = None  # e.g., "== True", "> 0.5"
+    condition: str | None = None
     max_percentage: float | None = None
     min_percentage: float | None = None
-
-    # Range test parameters
     min_value: float | None = None
     max_value: float | None = None
 
 
-# Operator mapping
 OPERATORS: dict[str, Callable[[Any, Any], bool]] = {
     "<": operator.lt,
     ">": operator.gt,
@@ -128,11 +116,7 @@ class TestEngine:
     """
 
     def __init__(self, tests: list[TestConfig]):
-        """Initialize the test engine.
-
-        Args:
-            tests: List of test configurations.
-        """
+        """Initialize the test engine with test configurations."""
         self.tests = tests
 
     def run(
@@ -199,7 +183,6 @@ class TestEngine:
         Returns:
             TestResult for this test.
         """
-        # Extract values for the metric
         values = self._extract_metric_values(test.metric, results)
 
         if not values:
@@ -213,7 +196,6 @@ class TestEngine:
                 error=f"Metric '{test.metric}' not found in results",
             )
 
-        # Run appropriate test type
         if test.type == TestType.THRESHOLD:
             return self._run_threshold_test(test, values)
         elif test.type == TestType.PERCENTAGE:
@@ -258,12 +240,10 @@ class TestEngine:
 
         analyzer_results = results[analyzer_name]
 
-        # Handle single result (dataset-level) vs list (per-conversation)
         if isinstance(analyzer_results, BaseModel):
             value = self._get_nested_value(analyzer_results, field_path)
             return [value] if value is not None else []
 
-        # List of results
         values = []
         for result in analyzer_results:
             value = self._get_nested_value(result, field_path)
@@ -279,10 +259,6 @@ class TestEngine:
     ) -> Any | None:
         """Get a nested field value from a Pydantic model or CustomMetricResult.
 
-        Handles both:
-        - Regular analyzer results: result.field_name
-        - Custom metric results: result.values["field_name"]
-
         Args:
             obj: Pydantic model instance or dict-wrapped object.
             field_path: List of field names to traverse.
@@ -294,11 +270,9 @@ class TestEngine:
         for i, field in enumerate(field_path):
             if hasattr(current, field):
                 current = getattr(current, field)
-            # Check if this is a CustomMetricResult with values dict
             elif hasattr(current, "values"):
                 values_attr = getattr(current, "values", None)
                 if isinstance(values_attr, dict):
-                    # Try to get the remaining path from values dict
                     remaining_path = field_path[i:]
                     temp: Any = values_attr
                     for f in remaining_path:
@@ -317,20 +291,6 @@ class TestEngine:
         values: list[Any],
     ) -> TestResult:
         """Run a threshold test.
-
-        The semantics depend on max_percentage vs min_percentage:
-
-        - max_percentage: "At most X% can match the condition"
-          Samples MATCHING the condition are problematic.
-          Example: "At most 10% can have total_tokens > 4096"
-          → Samples with > 4096 tokens are the issues.
-
-        - min_percentage: "At least X% must match the condition"
-          Samples NOT matching the condition are problematic.
-          Example: "At least 80% must have quality_score > 0.5"
-          → Samples with <= 0.5 score are the issues.
-
-        - Neither set: ALL samples must match the condition.
 
         Args:
             test: Test configuration.
@@ -360,28 +320,22 @@ class TestEngine:
                 error=f"Unknown operator: {test.operator}",
             )
 
-        # Evaluate the condition for each value
-        matching_indices = []  # Samples that MATCH the condition
-        non_matching_indices = []  # Samples that DON'T match the condition
+        matching_indices = []
+        non_matching_indices = []
         matching_reasons: dict[int, str] = {}
         non_matching_reasons: dict[int, str] = {}
 
         for i, value in enumerate(values):
             try:
                 if op_func(value, test.value):
-                    # Value matches the condition (e.g., total_tokens > 4096)
                     matching_indices.append(i)
-                    matching_reasons[i] = (
-                        f"{value} {test.operator} {test.value}"
-                    )
+                    matching_reasons[i] = f"{value} {test.operator} {test.value}"
                 else:
-                    # Value does NOT match the condition
                     non_matching_indices.append(i)
                     non_matching_reasons[i] = (
                         f"{value} does not satisfy {test.operator} {test.value}"
                     )
             except (TypeError, ValueError):
-                # Can't evaluate - treat as non-matching
                 non_matching_indices.append(i)
                 non_matching_reasons[i] = f"Cannot evaluate: {value}"
 
@@ -389,24 +343,12 @@ class TestEngine:
         matching_count = len(matching_indices)
         non_matching_count = len(non_matching_indices)
         matching_pct = 100.0 * matching_count / total_count if total_count > 0 else 0.0
-        non_matching_pct = 100.0 * non_matching_count / total_count if total_count > 0 else 0.0
-
-        # Determine pass/fail and which samples are "affected" (problematic)
-        # The semantics depend on whether max_percentage or min_percentage is used:
-        #
-        # max_percentage: "At most X% can match the condition"
-        #   - Matching samples are problematic (they exceed the threshold)
-        #   - Example: "At most 10% can have tokens > 4096"
-        #
-        # min_percentage: "At least X% must match the condition"
-        #   - Non-matching samples are problematic (they don't meet the requirement)
-        #   - Example: "At least 80% must have quality_score > 0.5"
-        #
-        # Neither set: ALL samples must match (any non-matching are problematic)
+        non_matching_pct = (
+            100.0 * non_matching_count / total_count if total_count > 0 else 0.0
+        )
 
         passed = True
         if test.max_percentage is not None:
-            # max_percentage: matching samples are the problematic ones
             if matching_pct > test.max_percentage:
                 passed = False
             affected_indices = matching_indices
@@ -414,7 +356,6 @@ class TestEngine:
             affected_pct = matching_pct
             failure_reasons = matching_reasons
         elif test.min_percentage is not None:
-            # min_percentage: non-matching samples are the problematic ones
             if matching_pct < test.min_percentage:
                 passed = False
             affected_indices = non_matching_indices
@@ -422,18 +363,16 @@ class TestEngine:
             affected_pct = non_matching_pct
             failure_reasons = non_matching_reasons
         else:
-            # Neither set: ALL must match, non-matching are problematic
             passed = non_matching_count == 0
             affected_indices = non_matching_indices
             affected_count = non_matching_count
             affected_pct = non_matching_pct
             failure_reasons = non_matching_reasons
 
-        # For single-value (dataset-level) metrics, include the actual value
         actual_value = None
         if total_count == 1 and len(values) == 1:
             val = values[0]
-            if isinstance(val, (int, float)):
+            if isinstance(val, int | float):
                 actual_value = float(val)
 
         return TestResult(
@@ -448,7 +387,7 @@ class TestEngine:
             affected_percentage=round(affected_pct, 2),
             threshold=test.max_percentage or test.min_percentage,
             actual_value=actual_value,
-            sample_indices=affected_indices[:50],  # Limit to first 50
+            sample_indices=affected_indices[:50],
             details={
                 "operator": test.operator,
                 "value": test.value,
@@ -456,7 +395,9 @@ class TestEngine:
                 "min_percentage": test.min_percentage,
                 "matching_count": matching_count,
                 "matching_percentage": round(matching_pct, 2),
-                "failure_reasons": {k: v for k, v in list(failure_reasons.items())[:50]},
+                "failure_reasons": {
+                    k: v for k, v in list(failure_reasons.items())[:50]
+                },
             },
         )
 
@@ -466,8 +407,6 @@ class TestEngine:
         values: list[Any],
     ) -> TestResult:
         """Run a percentage test.
-
-        Checks what percentage of values match a condition.
 
         Args:
             test: Test configuration.
@@ -486,7 +425,6 @@ class TestEngine:
                 error="Percentage test requires 'condition'",
             )
 
-        # Parse condition (e.g., "== True", "> 0.5")
         match = re.match(r"([<>=!]+)\s*(.+)", test.condition.strip())
         if not match:
             return TestResult(
@@ -510,7 +448,6 @@ class TestEngine:
                 error=f"Unknown operator in condition: {op_str}",
             )
 
-        # Parse value
         try:
             if value_str.lower() == "true":
                 compare_value: Any = True
@@ -523,7 +460,6 @@ class TestEngine:
         except ValueError:
             compare_value = value_str
 
-        # Count matches and non-matches
         matching_indices = []
         non_matching_indices = []
         failure_reasons: dict[int, str] = {}
@@ -542,30 +478,32 @@ class TestEngine:
         total_count = len(values)
         matching_pct = 100.0 * matching_count / total_count if total_count > 0 else 0.0
 
-        # Check against thresholds
         passed = True
         if test.max_percentage is not None and matching_pct > test.max_percentage:
             passed = False
         if test.min_percentage is not None and matching_pct < test.min_percentage:
             passed = False
 
-        # For min_percentage tests, affected samples are those that don't match
-        # For max_percentage tests, affected samples are those that do match
         if test.min_percentage is not None and not passed:
             affected_indices = non_matching_indices
             affected_count = len(non_matching_indices)
-            affected_pct = 100.0 * affected_count / total_count if total_count > 0 else 0.0
+            affected_pct = (
+                100.0 * affected_count / total_count if total_count > 0 else 0.0
+            )
         else:
             affected_indices = matching_indices
             affected_count = matching_count
             affected_pct = matching_pct
 
-        # For single-value (dataset-level) metrics, include the actual value
         actual_value = None
         if total_count == 1 and len(values) == 1:
             val = values[0]
-            if isinstance(val, (int, float, bool)):
-                actual_value = float(val) if isinstance(val, (int, float)) else (1.0 if val else 0.0)
+            if isinstance(val, int | float | bool):
+                actual_value = (
+                    float(val)
+                    if isinstance(val, int | float)
+                    else (1.0 if val else 0.0)
+                )
 
         return TestResult(
             test_id=test.id,
@@ -584,7 +522,9 @@ class TestEngine:
                 "condition": test.condition,
                 "matching_count": matching_count,
                 "matching_percentage": round(matching_pct, 2),
-                "failure_reasons": {k: v for k, v in list(failure_reasons.items())[:50]},
+                "failure_reasons": {
+                    k: v for k, v in list(failure_reasons.items())[:50]
+                },
             },
         )
 
@@ -594,8 +534,6 @@ class TestEngine:
         values: list[Any],
     ) -> TestResult:
         """Run a range test.
-
-        Checks what percentage of values fall outside a range.
 
         Args:
             test: Test configuration.
@@ -614,7 +552,6 @@ class TestEngine:
                 error="Range test requires 'min_value' and/or 'max_value'",
             )
 
-        # Find values outside range
         affected_indices = []
         for i, value in enumerate(values):
             try:
@@ -632,7 +569,6 @@ class TestEngine:
         total_count = len(values)
         affected_pct = 100.0 * affected_count / total_count if total_count > 0 else 0.0
 
-        # Default: no values should be outside range
         max_pct = test.max_percentage if test.max_percentage is not None else 0.0
         passed = affected_pct <= max_pct
 
