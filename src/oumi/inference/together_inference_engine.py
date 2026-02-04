@@ -15,6 +15,7 @@
 """Together AI inference engine implementation."""
 
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -54,7 +55,6 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
         return "TOGETHER_API_KEY"
 
     @property
-    @override
     def _batch_purpose(self) -> str:
         """Return the purpose value for batch file uploads.
 
@@ -162,11 +162,35 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
     def _normalize_together_response(self, data: dict[str, Any]) -> dict[str, Any]:
         """Normalize Together's response format to match OpenAI's format.
 
-        Together uses uppercase status values
-        (e.g., "COMPLETED" instead of "completed").
+        Together uses:
+        - Uppercase status values (e.g., "COMPLETED" instead of "completed")
+        - ISO 8601 timestamps instead of Unix timestamps
         """
         if "status" in data:
             data["status"] = data["status"].lower()
+
+        # Convert ISO 8601 timestamps to Unix timestamps for base class compatibility
+        timestamp_fields = [
+            "created_at",
+            "completed_at",
+            "in_progress_at",
+            "expires_at",
+            "finalizing_at",
+            "failed_at",
+            "expired_at",
+            "cancelling_at",
+            "cancelled_at",
+        ]
+        for field in timestamp_fields:
+            if field in data and isinstance(data[field], str):
+                try:
+                    # Parse ISO 8601 format (e.g., "2026-01-22T16:02:20.250781Z")
+                    ts = data[field].replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(ts)
+                    data[field] = int(dt.timestamp())
+                except (ValueError, AttributeError):
+                    pass  # Leave as-is if parsing fails
+
         return data
 
     def _parse_batch_create_response(

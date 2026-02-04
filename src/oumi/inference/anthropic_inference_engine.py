@@ -559,7 +559,6 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
         return processed_conversations
 
-    @override
     def cancel_batch(self, batch_id: str) -> BatchInfo:
         """Cancels a batch inference job.
 

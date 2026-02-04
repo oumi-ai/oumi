@@ -169,12 +169,13 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         )
 
     async def _create_fireworks_dataset(
-        self, dataset_id: str, session: aiohttp.ClientSession
+        self, dataset_id: str, example_count: int, session: aiohttp.ClientSession
     ) -> None:
         """Create a dataset entry in Fireworks.
 
         Args:
             dataset_id: Unique identifier for the dataset
+            example_count: Number of examples in the dataset
             session: aiohttp session to use
         """
         base_url = self._get_batch_api_base_url()
@@ -184,7 +185,10 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
             f"{base_url}/datasets",
             json={
                 "datasetId": dataset_id,
-                "dataset": {"userUploaded": {}},
+                "dataset": {
+                    "userUploaded": {},
+                    "example_count": example_count,
+                },
             },
             headers=headers,
         ) as response:
@@ -367,7 +371,9 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
         async with aiohttp.ClientSession(connector=connector) as session:
             # Create input dataset (output dataset is created by the batch job)
-            await self._create_fireworks_dataset(input_dataset_id, session)
+            await self._create_fireworks_dataset(
+                input_dataset_id, len(conversations), session
+            )
 
             # Upload input data
             await self._upload_to_fireworks_dataset(input_dataset_id, content, session)
@@ -617,7 +623,6 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
 
         return processed_conversations
 
-    @override
     def cancel_batch(self, batch_id: str) -> BatchInfo:
         """Cancels a batch inference job.
 

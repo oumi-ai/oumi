@@ -1908,7 +1908,7 @@ def test_get_request_headers_no_remote_params():
         _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
     )
     headers = engine._get_request_headers(None)
-    assert headers == {}
+    assert headers == {"Accept-Encoding": "gzip, deflate"}
 
 
 def test_get_request_headers_with_api_key():
@@ -1917,7 +1917,10 @@ def test_get_request_headers_with_api_key():
         _get_default_model_params(), remote_params=remote_params
     )
     headers = engine._get_request_headers(remote_params)
-    assert headers == {"Authorization": "Bearer test-key"}
+    assert headers == {
+        "Accept-Encoding": "gzip, deflate",
+        "Authorization": "Bearer test-key",
+    }
 
 
 def test_get_request_headers_without_api_key():
@@ -1926,7 +1929,7 @@ def test_get_request_headers_without_api_key():
         _get_default_model_params(), remote_params=remote_params
     )
     headers = engine._get_request_headers(remote_params)
-    assert headers == {}
+    assert headers == {"Accept-Encoding": "gzip, deflate"}
 
 
 def test_get_request_headers_with_env_var():
@@ -1939,7 +1942,10 @@ def test_get_request_headers_with_env_var():
             remote_params=remote_params,
         )
         headers = engine._get_request_headers(remote_params)
-        assert headers == {"Authorization": "Bearer env-test-key"}
+        assert headers == {
+            "Accept-Encoding": "gzip, deflate",
+            "Authorization": "Bearer env-test-key",
+        }
 
 
 def test_get_request_headers_missing_env_var():
@@ -1952,7 +1958,7 @@ def test_get_request_headers_missing_env_var():
             remote_params=remote_params,
         )
         headers = engine._get_request_headers(remote_params)
-        assert headers == {}
+        assert headers == {"Accept-Encoding": "gzip, deflate"}
 
 
 @pytest.mark.asyncio
