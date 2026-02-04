@@ -71,7 +71,7 @@ except ImportError:
     from torch.distributed._tensor import DTensor
 
 from oumi.utils.logging import logger
-from oumi.utils.version_utils import is_transformers_v5
+from oumi.utils.packaging import is_transformers_v5
 
 try:
     import verl  # pyright: ignore[reportMissingImports]

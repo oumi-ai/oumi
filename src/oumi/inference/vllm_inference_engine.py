@@ -29,9 +29,13 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
+from oumi.utils.packaging import (
+    is_vllm_available,
+    is_vllm_v12_or_later,
+)
 from oumi.utils.peft_utils import get_lora_rank
 
-try:
+if is_vllm_available():
     import vllm  # pyright: ignore[reportMissingImports]
 
     try:
@@ -47,13 +51,24 @@ try:
         QuantizationMethods,
     )
     from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
-        GuidedDecodingParams as VLLMGuidedDecodingParams,
-    )
-    from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
         SamplingParams,
     )
-except ModuleNotFoundError:
-    vllm = None
+
+    if is_vllm_v12_or_later():
+        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+            StructuredOutputsParams,
+        )
+
+        VLLMGuidedDecodingParams = StructuredOutputsParams
+    else:
+        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+            GuidedDecodingParams,
+        )
+
+        VLLMGuidedDecodingParams = GuidedDecodingParams
+
+else:
+    vllm = None  # type: ignore[assignment]
 
 
 class VLLMInferenceEngine(BaseInferenceEngine):
@@ -273,6 +288,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         )
 
         if generation_params.guided_decoding is not None:
+            assert VLLMGuidedDecodingParams is not None  # Checked in __init__
             guided_decoding = VLLMGuidedDecodingParams.from_optional(
                 json=generation_params.guided_decoding.json,
                 regex=generation_params.guided_decoding.regex,

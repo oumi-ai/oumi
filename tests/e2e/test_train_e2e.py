@@ -13,8 +13,8 @@ import yaml
 from oumi.core.configs import TrainingConfig
 from oumi.core.configs.params.training_params import TrainerType
 from oumi.utils.io_utils import load_json
+from oumi.utils.packaging import is_transformers_v5
 from oumi.utils.torch_utils import device_cleanup
-from oumi.utils.version_utils import is_transformers_v5
 from tests import get_configs_dir
 from tests.e2e import get_e2e_test_output_dir, is_file_not_empty
 from tests.markers import requires_gpus

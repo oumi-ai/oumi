@@ -13,6 +13,7 @@ from transformers.models.mllama.modeling_mllama import (
     MllamaVisionEncoderLayer,
 )
 
+from oumi.utils.packaging import is_transformers_v5
 from oumi.utils.torch_naming_heuristics import (
     _get_module_class_from_name,
     disable_dropout,
@@ -21,7 +22,6 @@ from oumi.utils.torch_naming_heuristics import (
     resolve_transformer_layer_cls_string_as_module_set,
     simplify_transformer_layer_cls_string,
 )
-from oumi.utils.version_utils import is_transformers_v5
 from tests.markers import requires_hf_token
 
 if is_transformers_v5():

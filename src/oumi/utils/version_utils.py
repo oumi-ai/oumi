@@ -16,8 +16,6 @@ from functools import lru_cache
 from importlib import metadata
 from importlib.metadata import version
 
-from packaging.version import Version
-
 
 @lru_cache(maxsize=1)
 def get_oumi_version() -> str | None:
@@ -46,10 +44,3 @@ def get_python_package_versions() -> dict[str, str]:
         package_version = distribution.version
         packages[package_name] = package_version
     return packages
-
-
-@lru_cache(maxsize=1)
-def is_transformers_v5() -> bool:
-    """Check if the installed transformers version is v5.x or later."""
-    transformers_version = version("transformers")
-    return Version(transformers_version) >= Version("5.0.0")

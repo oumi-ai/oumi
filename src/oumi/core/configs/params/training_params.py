@@ -32,8 +32,8 @@ from oumi.core.configs.params.gold_params import GoldParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
+from oumi.utils.packaging import is_transformers_v5
 from oumi.utils.str_utils import sanitize_run_name
-from oumi.utils.version_utils import is_transformers_v5
 
 
 class TrainerType(Enum):

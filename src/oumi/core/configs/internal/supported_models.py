@@ -77,7 +77,7 @@ from oumi.core.configs.internal.internal_model_config import (
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.utils.cache_utils import dict_cache
 from oumi.utils.logging import logger
-from oumi.utils.version_utils import is_transformers_v5
+from oumi.utils.packaging import is_transformers_v5
 
 
 @dict_cache
