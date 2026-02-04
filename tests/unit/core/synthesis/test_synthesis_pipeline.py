@@ -120,7 +120,6 @@ def synthesis_config_with_multiturn_attributes():
         id="multiturn_conversation",
         min_turns=2,
         max_turns=16,
-        turn_order=[Role.USER, Role.ASSISTANT],
         role_instruction_messages={
             Role.USER: "You are a {customer_type} customer with issue: {issue}.",
             Role.ASSISTANT: "You are a helpful support agent.",

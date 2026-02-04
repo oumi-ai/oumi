@@ -774,8 +774,7 @@ def test_general_synthesis_params_invalid():
             ]
         )
 
-    # Test all reserved attribute IDs
-    reserved_ids = ["target_turns", "turn_order", "current_turn"]
+    reserved_ids = ["target_turns", "current_turn"]
     for reserved_id in reserved_ids:
         with pytest.raises(
             ValueError,

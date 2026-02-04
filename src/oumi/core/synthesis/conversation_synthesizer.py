@@ -53,23 +53,21 @@ class ConversationSynthesizer:
         self._inference_config = inference_config
         self._default_turn_order = [Role.USER, Role.ASSISTANT]
 
-    def _validate_turn_order(self, multiturn_attribute: MultiTurnAttribute) -> None:
-        """Validate that all roles in turn_order have corresponding personas.
+    def _validate_roles(self, multiturn_attribute: MultiTurnAttribute) -> None:
+        """Validate that required roles have corresponding personas.
 
         Args:
             multiturn_attribute: The multi-turn attribute to validate.
 
         Raises:
-            ValueError: If a role in turn_order is missing from
-            role_instruction_messages.
+            ValueError: If a required role is missing from role_instruction_messages.
         """
-        turn_order = multiturn_attribute.turn_order or self._default_turn_order
         available_roles = set(multiturn_attribute.role_instruction_messages.keys())
 
-        for role in turn_order:
+        for role in self._default_turn_order:
             if role not in available_roles:
                 raise ValueError(
-                    f"Role '{role.value}' in turn_order is missing from "
+                    f"Role '{role.value}' is missing from "
                     f"role_instruction_messages. Available roles: "
                     f"{[r.value for r in available_roles]}"
                 )
@@ -93,7 +91,7 @@ class ConversationSynthesizer:
         if not samples:
             return []
 
-        self._validate_turn_order(multiturn_attributes)
+        self._validate_roles(multiturn_attributes)
 
         logger.info(
             f"Synthesizing {len(samples)} conversations for "
@@ -129,9 +127,9 @@ class ConversationSynthesizer:
 
         Returns:
             A list of sample dicts augmented with runtime fields
-            (target_turns, turn_order, conversation_plan, parsed_turn_plans).
+            (target_turns, conversation_plan, parsed_turn_plans).
         """
-        turn_order = multiturn_attributes.turn_order or self._default_turn_order
+        turn_order = self._default_turn_order
 
         augmented_samples: list[dict] = []
         for sample in samples:
@@ -139,7 +137,6 @@ class ConversationSynthesizer:
             augmented_sample = {
                 **sample,
                 "target_turns": target_turns,
-                "turn_order": turn_order,
                 "conversation_plan": "",
                 "parsed_turn_plans": [""] * target_turns,
             }
@@ -349,7 +346,7 @@ class ConversationSynthesizer:
         The prompt instructs the model to output JSON wrapped in code fences.
         """
         role_context = self._build_role_context(sample, multiturn_attribute)
-        turn_order = sample["turn_order"]
+        turn_order = self._default_turn_order
         target_turns = sample["target_turns"]
         turn_order_str = self._build_turn_order_str(turn_order, target_turns)
 
@@ -443,7 +440,7 @@ class ConversationSynthesizer:
         """Synthesize multi-turn conversations for all samples with batched inference.
 
         Args:
-            samples: List of sample dicts with runtime fields (target_turns, turn_order,
+            samples: List of sample dicts with runtime fields (target_turns,
                 conversation_plan).
             multiturn_attribute: The multi-turn attribute defining conversation rules.
 
@@ -467,7 +464,7 @@ class ConversationSynthesizer:
                 if turn_idx >= sample["target_turns"]:
                     continue
 
-                turn_order = sample["turn_order"]
+                turn_order = self._default_turn_order
                 role = turn_order[turn_idx % len(turn_order)]
                 roles_for_turn.append(role)
 

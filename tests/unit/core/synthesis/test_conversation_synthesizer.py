@@ -78,7 +78,6 @@ def mock_multiturn_attribute():
         id="multiturn_conversation",
         min_turns=2,
         max_turns=16,
-        turn_order=[Role.USER, Role.ASSISTANT],
         role_instruction_messages={
             Role.USER: "You are a {customer_type} customer with issue: {issue}.",
             Role.ASSISTANT: "You are a helpful support agent.",
@@ -249,11 +248,11 @@ def test_synthesize_without_conversation_planner(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_default_turn_order_is_user_then_assistant(
+def test_turn_order_is_user_then_assistant(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """Test that default turn_order is [USER, ASSISTANT] when not specified."""
+    """Test that turn order is [USER, ASSISTANT]."""
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
     mock_inference_engine.infer.return_value = [
@@ -264,7 +263,6 @@ def test_default_turn_order_is_user_then_assistant(
         id="test_conversation",
         min_turns=2,
         max_turns=2,
-        # turn_order not specified - should default to [USER, ASSISTANT]
         role_instruction_messages={
             Role.USER: "You are a user",
             Role.ASSISTANT: "You are an assistant",
@@ -284,43 +282,6 @@ def test_default_turn_order_is_user_then_assistant(
 
     assert messages[0]["role"] == "user"
     assert messages[1]["role"] == "assistant"
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_custom_turn_order_assistant_first(
-    mock_build_inference_engine,
-    mock_inference_config,
-):
-    """Test that custom turn_order [ASSISTANT, USER] is respected."""
-    mock_inference_engine = Mock()
-    mock_build_inference_engine.return_value = mock_inference_engine
-    mock_inference_engine.infer.return_value = [
-        Conversation(messages=[Message(role=Role.ASSISTANT, content="Response")])
-    ]
-
-    multiturn_attr = MultiTurnAttribute(
-        id="test_conversation",
-        min_turns=2,
-        max_turns=2,
-        turn_order=[Role.ASSISTANT, Role.USER],
-        role_instruction_messages={
-            Role.USER: "You are a user",
-            Role.ASSISTANT: "You are an assistant",
-        },
-    )
-
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(),
-        mock_inference_config,
-    )
-
-    result = synthesizer.synthesize([{}], multiturn_attr)
-
-    conversation = result[0][multiturn_attr.id]
-    assert isinstance(conversation, dict)
-    messages = conversation["messages"]
-    assert messages[0]["role"] == "assistant"
-    assert messages[1]["role"] == "user"
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -408,7 +369,6 @@ def test_planner_prompt_includes_role_context(
     sample = {
         "customer_type": "frustrated",
         "target_turns": 4,
-        "turn_order": [Role.USER, Role.ASSISTANT],
     }
 
     planner = synthesizer._create_planner_prompt(multiturn_attr, sample)
@@ -583,11 +543,11 @@ def test_parse_plan_handles_string_turn_numbers(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_validate_turn_order_raises_on_missing_role(
+def test_validate_roles_raises_on_missing_role(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """Test that _validate_turn_order raises ValueError for missing roles."""
+    """Test that _validate_roles raises ValueError for missing roles."""
     mock_build_inference_engine.return_value = Mock()
 
     synthesizer = ConversationSynthesizer(
@@ -599,27 +559,26 @@ def test_validate_turn_order_raises_on_missing_role(
         id="test_conversation",
         min_turns=2,
         max_turns=2,
-        turn_order=[Role.USER, Role.ASSISTANT],
         role_instruction_messages={
             Role.USER: "You are a user",
             Role.ASSISTANT: "You are an assistant",
         },
     )
-    multiturn_attr.turn_order = [Role.USER, Role.SYSTEM]
+    multiturn_attr.role_instruction_messages = {Role.USER: "You are a user"}
 
     with pytest.raises(ValueError) as exc_info:
-        synthesizer._validate_turn_order(multiturn_attr)
+        synthesizer._validate_roles(multiturn_attr)
 
-    assert "system" in str(exc_info.value).lower()
+    assert "assistant" in str(exc_info.value).lower()
     assert "missing" in str(exc_info.value).lower()
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_validate_turn_order_passes_for_valid_config(
+def test_validate_roles_passes_for_valid_config(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """Test that _validate_turn_order passes for valid configuration."""
+    """Test that _validate_roles passes for valid configuration."""
     mock_build_inference_engine.return_value = Mock()
 
     synthesizer = ConversationSynthesizer(
@@ -631,11 +590,10 @@ def test_validate_turn_order_passes_for_valid_config(
         id="test_conversation",
         min_turns=2,
         max_turns=2,
-        turn_order=[Role.USER, Role.ASSISTANT],
         role_instruction_messages={
             Role.USER: "You are a user",
             Role.ASSISTANT: "You are an assistant",
         },
     )
 
-    synthesizer._validate_turn_order(multiturn_attr)
+    synthesizer._validate_roles(multiturn_attr)

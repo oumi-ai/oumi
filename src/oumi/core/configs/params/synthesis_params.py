@@ -465,11 +465,6 @@ class MultiTurnAttribute:
     role_instruction_messages: dict[Role, str]
     """Per-role instruction template for generating a turn."""
 
-    turn_order: list[Role] | None = None
-    """The order in which turns should be taken (repeats as a cycle).
-
-    Defaults to [Role.USER, Role.ASSISTANT] if not specified."""
-
     output_system_prompt: str | None = None
     """System prompt prepended to the final output conversation."""
 
@@ -526,8 +521,8 @@ class MultiTurnAttribute:
                 "MultiTurnAttribute.role_instruction_messages cannot be empty."
             )
 
-        turn_order = self.turn_order or [Role.USER, Role.ASSISTANT]
-        for role in turn_order:
+        required_roles = [Role.USER, Role.ASSISTANT]
+        for role in required_roles:
             if role not in self.role_instruction_messages:
                 raise ValueError(
                     "MultiTurnAttribute.role_instruction_messages must define "
@@ -799,7 +794,7 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_attribute_ids(self, attribute_ids: set[str], id: str):
         """Check if the attribute ID is already in the set."""
-        if id in ("target_turns", "turn_order", "current_turn"):
+        if id in ("target_turns", "current_turn"):
             raise ValueError(
                 f"GeneralSynthesisParams does not allow '{id}' "
                 "as an attribute ID because it is reserved for multiturn synthesis."
