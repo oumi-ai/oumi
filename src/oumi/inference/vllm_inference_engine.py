@@ -69,6 +69,7 @@ if is_vllm_available():
 
 else:
     vllm = None  # type: ignore[assignment]
+    VLLMGuidedDecodingParams = None  # type: ignore[assignment,misc]
 
 
 class VLLMInferenceEngine(BaseInferenceEngine):
@@ -230,8 +231,6 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             final_vllm_kwargs["quantization"] = quantization
 
         self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType]
-        # Ensure the tokenizer is set properly
-        self._llm.set_tokenizer(self._tokenizer)
 
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation

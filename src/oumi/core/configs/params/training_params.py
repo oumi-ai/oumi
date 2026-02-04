@@ -880,6 +880,9 @@ class TrainingParams(BaseParams):
                 os.environ["TENSORBOARD_LOGGING_DIR"] = self.logging_dir or str(
                     Path(self.output_dir) / "tensorboard"
                 )
+
+            trainer_kwargs["warmup_steps"] = int(self.warmup_steps or 0)
+
             if self.warmup_ratio is not None:
                 warnings.warn(
                     "warmup_ratio is deprecated in transformers v5. "
@@ -908,6 +911,8 @@ class TrainingParams(BaseParams):
                 self.warmup_ratio or 0.0
             )  # same default as transformers v4
 
+            trainer_kwargs["warmup_steps"] = int(self.warmup_steps or 0)
+
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
@@ -926,14 +931,12 @@ class TrainingParams(BaseParams):
             learning_rate=self.learning_rate,
             lr_scheduler_type=self.lr_scheduler_type,
             lr_scheduler_kwargs=self.lr_scheduler_kwargs,
-            warmup_steps=self.warmup_steps or 0,  # same default as transformers
             weight_decay=self.weight_decay,
             adam_beta1=self.adam_beta1,
             adam_beta2=self.adam_beta2,
             adam_epsilon=self.adam_epsilon,
             gradient_checkpointing=self.enable_gradient_checkpointing,
             gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
-            include_num_input_tokens_seen=self.include_performance_metrics,
             fp16=self.mixed_precision_dtype == MixedPrecisionDtype.FP16,
             bf16=self.mixed_precision_dtype == MixedPrecisionDtype.BF16,
             torch_compile=self.compile,
