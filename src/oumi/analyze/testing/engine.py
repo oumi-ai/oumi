@@ -23,22 +23,14 @@ import operator
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel
 
 from oumi.analyze.testing.results import TestResult, TestSeverity, TestSummary
+from oumi.core.configs.params.test_params import TestType
 
 logger = logging.getLogger(__name__)
-
-
-class TestType(str, Enum):
-    """Types of tests that can be run."""
-
-    THRESHOLD = "threshold"
-    PERCENTAGE = "percentage"
-    RANGE = "range"
 
 
 @dataclass

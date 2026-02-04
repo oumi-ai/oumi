@@ -20,7 +20,6 @@ from pydantic import BaseModel
 from oumi.analyze.testing.engine import TestConfig, TestEngine, TestType
 from oumi.analyze.testing.results import TestResult, TestSeverity, TestSummary
 
-
 # -----------------------------------------------------------------------------
 # Test Fixtures
 # -----------------------------------------------------------------------------
@@ -229,7 +228,9 @@ def test_threshold_test_missing_operator():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run({"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]})
+    summary = engine.run(
+        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
+    )
 
     assert summary.error_tests == 1
     assert summary.results[0].error is not None
@@ -247,7 +248,9 @@ def test_threshold_test_unknown_operator():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run({"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]})
+    summary = engine.run(
+        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
+    )
 
     assert summary.error_tests == 1
     assert "Unknown operator" in summary.results[0].error
@@ -306,7 +309,9 @@ def test_percentage_test_parse_boolean_true():
         )
     ]
     engine = TestEngine(tests)
-    results = {"QualityAnalyzer": [SampleMetrics(total_tokens=1, total_chars=1, is_valid=True)]}
+    results = {
+        "QualityAnalyzer": [SampleMetrics(total_tokens=1, total_chars=1, is_valid=True)]
+    }
     summary = engine.run(results)
 
     assert summary.passed_tests == 1
@@ -324,12 +329,14 @@ def test_percentage_test_parse_numeric():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run({
-        "LengthAnalyzer": [
-            SampleMetrics(total_tokens=150, total_chars=100),
-            SampleMetrics(total_tokens=50, total_chars=100),
-        ]
-    })
+    summary = engine.run(
+        {
+            "LengthAnalyzer": [
+                SampleMetrics(total_tokens=150, total_chars=100),
+                SampleMetrics(total_tokens=50, total_chars=100),
+            ]
+        }
+    )
 
     # 50% meet condition (1 of 2), meets minimum
     assert summary.passed_tests == 1
@@ -347,7 +354,9 @@ def test_percentage_test_invalid_condition():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run({"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]})
+    summary = engine.run(
+        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
+    )
 
     assert summary.error_tests == 1
     assert "Invalid condition" in summary.results[0].error
@@ -364,7 +373,9 @@ def test_percentage_test_missing_condition():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run({"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]})
+    summary = engine.run(
+        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
+    )
 
     assert summary.error_tests == 1
     assert "requires 'condition'" in summary.results[0].error
@@ -421,7 +432,9 @@ def test_range_test_missing_bounds():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run({"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]})
+    summary = engine.run(
+        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
+    )
 
     assert summary.error_tests == 1
     assert "min_value" in summary.results[0].error
@@ -444,7 +457,9 @@ def test_extract_metric_not_found():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run({"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]})
+    summary = engine.run(
+        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
+    )
 
     assert summary.error_tests == 1
     assert "not found" in summary.results[0].error
@@ -462,7 +477,9 @@ def test_extract_metric_invalid_format():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run({"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]})
+    summary = engine.run(
+        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
+    )
 
     assert summary.error_tests == 1
 
@@ -480,7 +497,9 @@ def test_extract_metric_single_result():
     ]
     engine = TestEngine(tests)
     # Single result, not a list
-    summary = engine.run({"LengthAnalyzer": SampleMetrics(total_tokens=100, total_chars=500)})
+    summary = engine.run(
+        {"LengthAnalyzer": SampleMetrics(total_tokens=100, total_chars=500)}
+    )
 
     assert summary.passed_tests == 1
 

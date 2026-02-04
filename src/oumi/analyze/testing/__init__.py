@@ -14,11 +14,15 @@
 
 """Test engine for validating analysis results."""
 
-from oumi.analyze.testing.engine import TestEngine
-from oumi.analyze.testing.results import TestResult, TestSummary
+from oumi.analyze.testing.engine import TestConfig, TestEngine
+from oumi.analyze.testing.results import TestResult, TestSeverity, TestSummary
+from oumi.core.configs.params.test_params import TestType
 
 __all__ = [
+    "TestConfig",
     "TestEngine",
     "TestResult",
+    "TestSeverity",
     "TestSummary",
+    "TestType",
 ]

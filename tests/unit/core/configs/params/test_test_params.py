@@ -25,7 +25,6 @@ from oumi.core.configs.params.test_params import (
     TestType,
 )
 
-
 # -----------------------------------------------------------------------------
 # Tests: Enums
 # -----------------------------------------------------------------------------
@@ -427,7 +426,13 @@ def test_validation_composite_valid():
         id="composite_test",
         type="composite",
         tests=[
-            {"id": "sub1", "type": "threshold", "metric": "m", "operator": ">", "value": 0},
+            {
+                "id": "sub1",
+                "type": "threshold",
+                "metric": "m",
+                "operator": ">",
+                "value": 0,
+            },
         ],
         composite_operator="all",
     )
@@ -457,7 +462,15 @@ def test_validation_composite_numeric_operator():
     params = TestParams(
         id="composite_test",
         type="composite",
-        tests=[{"id": "s1", "type": "threshold", "metric": "m", "operator": ">", "value": 0}],
+        tests=[
+            {
+                "id": "s1",
+                "type": "threshold",
+                "metric": "m",
+                "operator": ">",
+                "value": 0,
+            }
+        ],
         composite_operator="2",  # At least 2 must pass
     )
     params.finalize_and_validate()

@@ -42,6 +42,7 @@ class TestType(str, Enum):
 
     THRESHOLD = "threshold"
     PERCENTAGE = "percentage"
+    RANGE = "range"
     DISTRIBUTION = "distribution"
     REGEX = "regex"
     CONTAINS = "contains"
