@@ -39,7 +39,9 @@ if is_vllm_available():
     import vllm  # pyright: ignore[reportMissingImports]
 
     try:
-        from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]
+        from vllm.config import (
+            ModelDType,  # pyright: ignore[reportMissingImports,reportAttributeAccessIssue]
+        )
     except ImportError:
         # For compatibility with newer vLLM versions
         ModelDType = str  # type: ignore
@@ -61,7 +63,7 @@ if is_vllm_available():
 
         VLLMGuidedDecodingParams = StructuredOutputsParams
     else:
-        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports,reportAttributeAccessIssue]
             GuidedDecodingParams,
         )
 
