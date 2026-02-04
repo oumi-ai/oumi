@@ -19,11 +19,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from oumi.core.configs.params.test_params import (
-    TestParams,
-    TestSeverity,
-    TestType,
-)
+from oumi.analyze.testing.engine import TestConfig
+from oumi.core.configs.params.test_params import TestSeverity
+from oumi.core.configs.params.test_params import TestType as TestTypeEnum
 
 
 class AnalyzerType(str, Enum):
@@ -184,19 +182,19 @@ class TestParamsYAML:
     min_value: float | None = None
     max_value: float | None = None
 
-    def to_test_config(self) -> TestParams:
-        """Convert to TestParams for the test engine.
+    def to_test_config(self) -> TestConfig:
+        """Convert to TestConfig for the test engine.
 
         Returns:
-            TestParams instance.
+            TestConfig instance.
         """
-        return TestParams(
+        return TestConfig(
             id=self.id,
-            type=TestType(self.type),
+            type=TestTypeEnum(self.type),
             metric=self.metric,
             severity=TestSeverity(self.severity),
-            title=self.title,
-            description=self.description,
+            title=self.title or "",
+            description=self.description or "",
             operator=self.operator,
             value=self.value,
             condition=self.condition,
@@ -452,10 +450,10 @@ class TypedAnalyzeConfig:
             "report_title": self.report_title,
         }
 
-    def get_test_configs(self) -> list[TestParams]:
+    def get_test_configs(self) -> list[TestConfig]:
         """Get test configurations for the test engine.
 
         Returns:
-            List of TestParams instances.
+            List of TestConfig instances.
         """
         return [t.to_test_config() for t in self.tests]

@@ -14,18 +14,11 @@
 
 """Test result models for the test engine."""
 
-from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-
-class TestSeverity(str, Enum):
-    """Severity levels for test failures."""
-
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
+from oumi.core.configs.params.test_params import TestSeverity
 
 
 class TestResult(BaseModel):
