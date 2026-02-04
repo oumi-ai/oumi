@@ -31,7 +31,7 @@ from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.packaging import (
     is_vllm_available,
-    is_vllm_v12_or_later,
+    is_vllm_post_v0102,
 )
 from oumi.utils.peft_utils import get_lora_rank
 
@@ -54,7 +54,7 @@ if is_vllm_available():
         SamplingParams,
     )
 
-    if is_vllm_v12_or_later():
+    if is_vllm_post_v0102():
         from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
             StructuredOutputsParams,
         )
@@ -287,15 +287,20 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             else self._model_params
         )
 
+        structured_outputs_kwargs: dict = {}
         if generation_params.guided_decoding is not None:
             assert VLLMGuidedDecodingParams is not None  # Checked in __init__
-            guided_decoding = VLLMGuidedDecodingParams.from_optional(
+            structured_outputs_value = VLLMGuidedDecodingParams(
                 json=generation_params.guided_decoding.json,
                 regex=generation_params.guided_decoding.regex,
                 choice=generation_params.guided_decoding.choice,
             )
-        else:
-            guided_decoding = None
+            if is_vllm_post_v0102():
+                structured_outputs_kwargs["structured_outputs"] = (
+                    structured_outputs_value
+                )
+            else:
+                structured_outputs_kwargs["guided_decoding"] = structured_outputs_value
 
         sampling_params = SamplingParams(
             n=1,
@@ -309,8 +314,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop=generation_params.stop_strings,
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
-            guided_decoding=guided_decoding,
             skip_special_tokens=generation_params.skip_special_tokens,
+            **structured_outputs_kwargs,
         )
 
         output_conversations = []

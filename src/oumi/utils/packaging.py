@@ -223,18 +223,12 @@ def get_vllm_version() -> str | None:
 
 
 @lru_cache(maxsize=1)
-def is_vllm_v12_or_later() -> bool:
-    """Checks if vLLM version is 0.12.0 or later.
-
-    vLLM 0.12.0 renamed GuidedDecodingParams to StructuredOutputsParams.
-
-    Returns:
-        True if vLLM >= 0.12.0 is installed, False otherwise.
-    """
+def is_vllm_post_v0102() -> bool:
+    """Checks if vLLM version is newer than 0.10.2."""
     vllm_version = get_vllm_version()
     if vllm_version is None:
         return False
-    return version.parse(vllm_version) >= version.parse("0.12.0")
+    return version.parse(vllm_version) > version.parse("0.10.2")
 
 
 @lru_cache(maxsize=1)
