@@ -61,10 +61,10 @@ if is_vllm_available():
             StructuredOutputsParams,
         )
 
-        VLLMGuidedDecodingParams = StructuredOutputsParams
+        VLLMGuidedDecodingParams = StructuredOutputsParams  # pyright: ignore[reportMissingImports,reportAttributeAccessIssue]
     else:
-        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports,reportAttributeAccessIssue]
-            GuidedDecodingParams,
+        from vllm.sampling_params import (
+            GuidedDecodingParams,  # pyright: ignore[reportMissingImports,reportAttributeAccessIssue]
         )
 
         VLLMGuidedDecodingParams = GuidedDecodingParams
