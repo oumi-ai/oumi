@@ -27,9 +27,24 @@ from oumi.analyze.base import (
     MessageAnalyzer,
     PreferenceAnalyzer,
 )
+from oumi.analyze.cli import (
+    generate_tests,
+    list_metrics,
+    load_conversations_from_path,
+    print_summary,
+    run_from_config_file,
+    run_typed_analysis,
+    save_results,
+)
 from oumi.analyze.config import (
     AnalyzerConfig,
     TypedAnalyzeConfig,
+)
+from oumi.analyze.custom_metrics import (
+    CustomConversationMetric,
+    CustomMessageMetric,
+    CustomMetricResult,
+    create_custom_metric,
 )
 from oumi.analyze.discovery import (
     describe_analyzer,
@@ -107,6 +122,7 @@ __all__ = [
     # Pipeline
     "AnalysisPipeline",
     "to_analysis_dataframe",
+    "load_conversations_from_path",
     # Config
     "TypedAnalyzeConfig",
     "AnalyzerConfig",
@@ -119,8 +135,20 @@ __all__ = [
     "register_analyzer",
     "get_analyzer_class",
     "create_analyzer_from_config",
+    # CLI utilities
+    "run_typed_analysis",
+    "run_from_config_file",
+    "save_results",
+    "print_summary",
+    "list_metrics",
+    "generate_tests",
     # Testing
     "TestEngine",
     "TestResult",
     "TestSummary",
+    # Custom metrics
+    "CustomConversationMetric",
+    "CustomMessageMetric",
+    "CustomMetricResult",
+    "create_custom_metric",
 ]
