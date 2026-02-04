@@ -62,7 +62,7 @@ class TurnStatsMetrics(BaseModel):
     )
 
 
-@register_sample_analyzer("typed_turn_stats")
+@register_sample_analyzer("turn_stats")
 class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
     """Analyzer for computing turn statistics of conversations.
 

@@ -86,7 +86,7 @@ class LengthMetrics(BaseModel):
     )
 
 
-@register_sample_analyzer("typed_length")
+@register_sample_analyzer("length")
 class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     """Analyzer for computing token length metrics of conversations.
 

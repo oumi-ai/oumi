@@ -452,7 +452,7 @@ def test_analyzer_registered_in_registry():
     from oumi.core.registry import REGISTRY, RegistryType
 
     analyzer_class = REGISTRY.get(
-        name="typed_length", type=RegistryType.SAMPLE_ANALYZER
+        name="length", type=RegistryType.SAMPLE_ANALYZER
     )
     assert analyzer_class is LengthAnalyzer
 
