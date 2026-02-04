@@ -327,10 +327,10 @@ class TestEngine:
         obj: Any,
         field_path: list[str],
     ) -> Any | None:
-        """Get a nested field value from a Pydantic model or CustomMetricResult.
+        """Get a nested field value from a Pydantic model or dict.
 
         Args:
-            obj: Pydantic model instance or dict-wrapped object.
+            obj: Pydantic model instance or dict.
             field_path: List of field names to traverse.
 
         Returns:
@@ -338,19 +338,34 @@ class TestEngine:
         """
         current: Any = obj
         for i, field in enumerate(field_path):
-            if hasattr(current, field):
-                current = getattr(current, field)
-            elif hasattr(current, "values"):
-                values_attr = getattr(current, "values", None)
-                if isinstance(values_attr, dict):
-                    remaining_path = field_path[i:]
-                    temp: Any = values_attr
-                    for f in remaining_path:
-                        if isinstance(temp, dict) and f in temp:
-                            temp = temp[f]
-                        else:
-                            return None
-                    return temp
+            if isinstance(current, BaseModel):
+                # Pydantic model - check if field exists in model_fields
+                if field in type(current).model_fields:
+                    current = getattr(current, field)
+                else:
+                    # Check for CustomMetricResult with values dict
+                    values = getattr(current, "values", None)
+                    if isinstance(values, dict):
+                        return self._traverse_dict(values, field_path[i:])
+                    return None
+            elif isinstance(current, dict):
+                if field in current:
+                    current = current[field]
+                else:
+                    return None
+            else:
+                raise TypeError(
+                    f"Cannot traverse type {type(current).__name__}. "
+                    f"Expected BaseModel or dict, got {current!r}"
+                )
+        return current
+
+    def _traverse_dict(self, d: dict, path: list[str]) -> Any | None:
+        """Traverse a dict using a field path."""
+        current: Any = d
+        for field in path:
+            if isinstance(current, dict) and field in current:
+                current = current[field]
             else:
                 return None
         return current
@@ -403,18 +418,28 @@ class TestEngine:
         matching_pct = self._calculate_percentage(matching_count, total_count)
         non_matching_pct = self._calculate_percentage(non_matching_count, total_count)
 
-        # Determine pass/fail and affected samples based on percentage thresholds
-        if test.max_percentage is not None:
-            passed = matching_pct <= test.max_percentage
+        # Determine pass/fail based on percentage thresholds
+        passed = True
+        affected_indices = []
+        affected_pct = 0.0
+        failure_reasons: dict[int, str] = {}
+
+        if test.max_percentage is not None and matching_pct > test.max_percentage:
+            passed = False
             affected_indices = matching_indices
             affected_pct = matching_pct
             failure_reasons = matching_reasons
-        elif test.min_percentage is not None:
-            passed = matching_pct >= test.min_percentage
-            affected_indices = non_matching_indices
-            affected_pct = non_matching_pct
-            failure_reasons = non_matching_reasons
-        else:
+
+        if test.min_percentage is not None and matching_pct < test.min_percentage:
+            passed = False
+            # If max also failed, combine; otherwise use non-matching
+            if not affected_indices:
+                affected_indices = non_matching_indices
+                affected_pct = non_matching_pct
+                failure_reasons = non_matching_reasons
+
+        # Default case: no percentage thresholds, all must match
+        if test.max_percentage is None and test.min_percentage is None:
             passed = non_matching_count == 0
             affected_indices = non_matching_indices
             affected_pct = non_matching_pct
@@ -459,6 +484,8 @@ class TestEngine:
                 test, "Percentage test requires 'condition'"
             )
 
+        # Parse condition like ">= 10" or "== True" into operator and value
+        # Group 1: operator chars (<>=!), Group 2: the comparison value
         match = re.match(r"([<>=!]+)\s*(.+)", test.condition.strip())
         if not match:
             return self._create_error_result(
