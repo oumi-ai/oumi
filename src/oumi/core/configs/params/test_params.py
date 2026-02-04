@@ -38,18 +38,24 @@ from oumi.core.configs.params.base_params import BaseParams
 
 
 class TestType(str, Enum):
-    """Types of tests that can be run on analysis results."""
+    """Types of tests that can be run on analysis results.
+
+    Currently implemented:
+        - THRESHOLD: Numeric comparisons with optional percentage tolerance
+
+    Not yet implemented (planned for future):
+        - REGEX: Pattern matching on text fields
+        - CONTAINS: Text containment checks (supports match_mode: any/all/exact)
+        - OUTLIERS: Anomaly detection using standard deviation
+        - COMPOSITE: Combine multiple tests with AND/OR logic
+    """
 
     THRESHOLD = "threshold"
-    DISTRIBUTION = "distribution"
+    # Not yet implemented - planned for future
     REGEX = "regex"
     CONTAINS = "contains"
-    CONTAINS_ANY = "contains-any"
-    CONTAINS_ALL = "contains-all"
-    QUERY = "query"
     OUTLIERS = "outliers"
     COMPOSITE = "composite"
-    PYTHON = "python"
 
 
 class TestSeverity(str, Enum):
@@ -67,16 +73,6 @@ class TestScope(str, Enum):
     CONVERSATION = "conversation"
 
 
-class DistributionCheck(str, Enum):
-    """Types of distribution checks."""
-
-    MAX_FRACTION = "max_fraction"
-    DOMINANT_FRACTION = "dominant_fraction"
-    ENTROPY = "entropy"
-    UNIQUE_COUNT = "unique_count"
-    UNIQUE_RATIO = "unique_ratio"
-
-
 class CompositeOperator(str, Enum):
     """Operators for combining tests in composite tests."""
 
@@ -85,15 +81,13 @@ class CompositeOperator(str, Enum):
 
 
 # Declarative validation configuration
+# Note: Only "threshold" is currently implemented. Others are planned for future.
 TEST_VALIDATIONS = {
     "threshold": {
         "required": ["metric", "operator", "value"],
         "valid_values": {"operator": ["<", ">", "<=", ">=", "==", "!="]},
     },
-    "distribution": {
-        "required": ["metric", "check", "threshold"],
-        "valid_enums": {"check": "DistributionCheck"},
-    },
+    # Not yet implemented - planned for future
     "regex": {
         "required": ["text_field", "pattern"],
     },
@@ -101,15 +95,6 @@ TEST_VALIDATIONS = {
         "required": ["text_field"],
         "custom": lambda self: (self.value is not None or self.values)
         or "requires 'value' or 'values'",
-    },
-    "contains-any": {
-        "required": ["text_field", "values"],
-    },
-    "contains-all": {
-        "required": ["text_field", "values"],
-    },
-    "query": {
-        "required": ["expression"],
     },
     "outliers": {
         "required": ["metric"],
@@ -123,9 +108,6 @@ TEST_VALIDATIONS = {
             or _try_parse_int(self.composite_operator)
         )
         or f"Invalid composite_operator '{self.composite_operator}'",
-    },
-    "python": {
-        "required": ["function"],
     },
 }
 

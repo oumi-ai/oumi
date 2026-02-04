@@ -18,7 +18,6 @@ import pytest
 
 from oumi.core.configs.params.test_params import (
     CompositeOperator,
-    DistributionCheck,
     TestParams,
     TestScope,
     TestSeverity,
@@ -33,8 +32,10 @@ from oumi.core.configs.params.test_params import (
 def test_test_type_enum_values():
     """Test TestType enum has expected values."""
     assert TestType.THRESHOLD == "threshold"
-    assert TestType.DISTRIBUTION == "distribution"
+    # Not yet implemented - planned for future
     assert TestType.REGEX == "regex"
+    assert TestType.CONTAINS == "contains"
+    assert TestType.OUTLIERS == "outliers"
     assert TestType.COMPOSITE == "composite"
 
 
@@ -49,13 +50,6 @@ def test_test_scope_enum_values():
     """Test TestScope enum has expected values."""
     assert TestScope.MESSAGE == "message"
     assert TestScope.CONVERSATION == "conversation"
-
-
-def test_distribution_check_enum_values():
-    """Test DistributionCheck enum has expected values."""
-    assert DistributionCheck.MAX_FRACTION == "max_fraction"
-    assert DistributionCheck.ENTROPY == "entropy"
-    assert DistributionCheck.UNIQUE_COUNT == "unique_count"
 
 
 def test_composite_operator_enum_values():
@@ -251,50 +245,7 @@ def test_validation_threshold_all_operators():
 
 
 # -----------------------------------------------------------------------------
-# Tests: Validation - Distribution Tests
-# -----------------------------------------------------------------------------
-
-
-def test_validation_distribution_valid():
-    """Test valid distribution test."""
-    params = TestParams(
-        id="dist_test",
-        type="distribution",
-        metric="role",
-        check="max_fraction",
-        threshold=0.5,
-    )
-    params.finalize_and_validate()
-    assert params.check == "max_fraction"
-
-
-def test_validation_distribution_missing_check():
-    """Test distribution test requires check."""
-    params = TestParams(
-        id="test_1",
-        type="distribution",
-        metric="role",
-        threshold=0.5,
-    )
-    with pytest.raises(ValueError, match="'check' is required"):
-        params.finalize_and_validate()
-
-
-def test_validation_distribution_invalid_check():
-    """Test distribution test rejects invalid check type."""
-    params = TestParams(
-        id="test_1",
-        type="distribution",
-        metric="role",
-        check="invalid_check",
-        threshold=0.5,
-    )
-    with pytest.raises(ValueError, match="Invalid check"):
-        params.finalize_and_validate()
-
-
-# -----------------------------------------------------------------------------
-# Tests: Validation - Regex Tests
+# Tests: Validation - Regex Tests (not yet implemented)
 # -----------------------------------------------------------------------------
 
 
@@ -334,33 +285,7 @@ def test_validation_regex_missing_text_field():
 
 
 # -----------------------------------------------------------------------------
-# Tests: Validation - Query Tests
-# -----------------------------------------------------------------------------
-
-
-def test_validation_query_valid():
-    """Test valid query test."""
-    params = TestParams(
-        id="query_test",
-        type="query",
-        expression="length__chars > 100 and quality__valid == True",
-    )
-    params.finalize_and_validate()
-    assert "length__chars" in params.expression
-
-
-def test_validation_query_missing_expression():
-    """Test query test requires expression."""
-    params = TestParams(
-        id="test_1",
-        type="query",
-    )
-    with pytest.raises(ValueError, match="'expression' is required"):
-        params.finalize_and_validate()
-
-
-# -----------------------------------------------------------------------------
-# Tests: Validation - Composite Tests
+# Tests: Validation - Composite Tests (not yet implemented)
 # -----------------------------------------------------------------------------
 
 
@@ -419,32 +344,6 @@ def test_validation_composite_numeric_operator():
     )
     params.finalize_and_validate()
     assert params.composite_operator == "2"
-
-
-# -----------------------------------------------------------------------------
-# Tests: Validation - Python Tests
-# -----------------------------------------------------------------------------
-
-
-def test_validation_python_valid():
-    """Test valid python test."""
-    params = TestParams(
-        id="python_test",
-        type="python",
-        function="def check(row): return row['value'] > 0",
-    )
-    params.finalize_and_validate()
-    assert "def check" in params.function
-
-
-def test_validation_python_missing_function():
-    """Test python test requires function."""
-    params = TestParams(
-        id="test_1",
-        type="python",
-    )
-    with pytest.raises(ValueError, match="'function' is required"):
-        params.finalize_and_validate()
 
 
 # -----------------------------------------------------------------------------
