@@ -33,7 +33,7 @@ from oumi.core.configs.params.test_params import (
 def test_test_type_enum_values():
     """Test TestType enum has expected values."""
     assert TestType.THRESHOLD == "threshold"
-    assert TestType.PERCENTAGE == "percentage"
+    assert TestType.RANGE == "range"
     assert TestType.DISTRIBUTION == "distribution"
     assert TestType.REGEX == "regex"
     assert TestType.COMPOSITE == "composite"
@@ -249,61 +249,6 @@ def test_validation_threshold_all_operators():
         )
         params.finalize_and_validate()
         assert params.operator == op
-
-
-# -----------------------------------------------------------------------------
-# Tests: Validation - Percentage Tests
-# -----------------------------------------------------------------------------
-
-
-def test_validation_percentage_valid_max():
-    """Test valid percentage test with max_percentage."""
-    params = TestParams(
-        id="pct_test",
-        type="percentage",
-        metric="quality__has_pii",
-        condition="== True",
-        max_percentage=1.0,
-    )
-    params.finalize_and_validate()
-    assert params.max_percentage == 1.0
-
-
-def test_validation_percentage_valid_min():
-    """Test valid percentage test with min_percentage."""
-    params = TestParams(
-        id="pct_test",
-        type="percentage",
-        metric="quality__is_valid",
-        condition="== True",
-        min_percentage=95.0,
-    )
-    params.finalize_and_validate()
-    assert params.min_percentage == 95.0
-
-
-def test_validation_percentage_missing_condition():
-    """Test percentage test requires condition."""
-    params = TestParams(
-        id="test_1",
-        type="percentage",
-        metric="quality__valid",
-        max_percentage=5.0,
-    )
-    with pytest.raises(ValueError, match="'condition' is required"):
-        params.finalize_and_validate()
-
-
-def test_validation_percentage_missing_percentage():
-    """Test percentage test requires min or max percentage."""
-    params = TestParams(
-        id="test_1",
-        type="percentage",
-        metric="quality__valid",
-        condition="== True",
-    )
-    with pytest.raises(ValueError, match="max_percentage.+min_percentage"):
-        params.finalize_and_validate()
 
 
 # -----------------------------------------------------------------------------

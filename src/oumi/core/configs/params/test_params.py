@@ -41,7 +41,6 @@ class TestType(str, Enum):
     """Types of tests that can be run on analysis results."""
 
     THRESHOLD = "threshold"
-    PERCENTAGE = "percentage"
     RANGE = "range"
     DISTRIBUTION = "distribution"
     REGEX = "regex"
@@ -92,9 +91,9 @@ TEST_VALIDATIONS = {
         "required": ["metric", "operator", "value"],
         "valid_values": {"operator": ["<", ">", "<=", ">=", "==", "!="]},
     },
-    "percentage": {
-        "required": ["metric", "condition"],
-        "either_required": [["max_percentage", "min_percentage"]],
+    "range": {
+        "required": ["metric"],
+        "either_required": [["min_value", "max_value"]],
     },
     "distribution": {
         "required": ["metric", "check", "threshold"],

@@ -106,7 +106,7 @@ def test_engine_initialization():
     """Test TestEngine initialization."""
     tests = [
         TestConfig(id="t1", type=TestType.THRESHOLD, metric="m"),
-        TestConfig(id="t2", type=TestType.PERCENTAGE, metric="m"),
+        TestConfig(id="t2", type=TestType.RANGE, metric="m"),
     ]
     engine = TestEngine(tests)
     assert len(engine.tests) == 2
@@ -254,131 +254,6 @@ def test_threshold_test_unknown_operator():
 
     assert summary.error_tests == 1
     assert "Unknown operator" in summary.results[0].error
-
-
-# -----------------------------------------------------------------------------
-# Tests: Percentage Tests
-# -----------------------------------------------------------------------------
-
-
-def test_percentage_test_max_percentage(mixed_results):
-    """Test percentage test with max_percentage."""
-    tests = [
-        TestConfig(
-            id="invalid_limit",
-            type=TestType.PERCENTAGE,
-            metric="QualityAnalyzer.is_valid",
-            condition="== False",
-            max_percentage=50.0,  # Max 50% can be invalid
-        )
-    ]
-    engine = TestEngine(tests)
-    summary = engine.run(mixed_results)
-
-    # 2 out of 4 (50%) are invalid, equals max
-    assert summary.passed_tests == 1
-
-
-def test_percentage_test_min_percentage(mixed_results):
-    """Test percentage test with min_percentage."""
-    tests = [
-        TestConfig(
-            id="valid_minimum",
-            type=TestType.PERCENTAGE,
-            metric="QualityAnalyzer.is_valid",
-            condition="== True",
-            min_percentage=50.0,  # At least 50% must be valid
-        )
-    ]
-    engine = TestEngine(tests)
-    summary = engine.run(mixed_results)
-
-    # 2 out of 4 (50%) are valid, meets minimum
-    assert summary.passed_tests == 1
-
-
-def test_percentage_test_parse_boolean_true():
-    """Test percentage test parses 'True' in condition."""
-    tests = [
-        TestConfig(
-            id="bool_test",
-            type=TestType.PERCENTAGE,
-            metric="QualityAnalyzer.is_valid",
-            condition="== True",
-            min_percentage=1.0,
-        )
-    ]
-    engine = TestEngine(tests)
-    results = {
-        "QualityAnalyzer": [SampleMetrics(total_tokens=1, total_chars=1, is_valid=True)]
-    }
-    summary = engine.run(results)
-
-    assert summary.passed_tests == 1
-
-
-def test_percentage_test_parse_numeric():
-    """Test percentage test parses numeric values."""
-    tests = [
-        TestConfig(
-            id="numeric_test",
-            type=TestType.PERCENTAGE,
-            metric="LengthAnalyzer.total_tokens",
-            condition=">= 100",
-            min_percentage=50.0,
-        )
-    ]
-    engine = TestEngine(tests)
-    summary = engine.run(
-        {
-            "LengthAnalyzer": [
-                SampleMetrics(total_tokens=150, total_chars=100),
-                SampleMetrics(total_tokens=50, total_chars=100),
-            ]
-        }
-    )
-
-    # 50% meet condition (1 of 2), meets minimum
-    assert summary.passed_tests == 1
-
-
-def test_percentage_test_invalid_condition():
-    """Test percentage test returns error with invalid condition format."""
-    tests = [
-        TestConfig(
-            id="bad_condition",
-            type=TestType.PERCENTAGE,
-            metric="LengthAnalyzer.total_tokens",
-            condition="invalid",
-            max_percentage=50.0,
-        )
-    ]
-    engine = TestEngine(tests)
-    summary = engine.run(
-        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
-    )
-
-    assert summary.error_tests == 1
-    assert "Invalid condition" in summary.results[0].error
-
-
-def test_percentage_test_missing_condition():
-    """Test percentage test returns error without condition."""
-    tests = [
-        TestConfig(
-            id="no_condition",
-            type=TestType.PERCENTAGE,
-            metric="LengthAnalyzer.total_tokens",
-            max_percentage=50.0,
-        )
-    ]
-    engine = TestEngine(tests)
-    summary = engine.run(
-        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
-    )
-
-    assert summary.error_tests == 1
-    assert "requires 'condition'" in summary.results[0].error
 
 
 # -----------------------------------------------------------------------------

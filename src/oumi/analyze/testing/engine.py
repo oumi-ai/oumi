@@ -20,7 +20,6 @@ instead of DataFrames. Tests are pure validation - no computation allowed.
 
 import logging
 import operator
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -267,8 +266,6 @@ class TestEngine:
 
         if test.type == TestType.THRESHOLD:
             return self._run_threshold_test(test, values)
-        elif test.type == TestType.PERCENTAGE:
-            return self._run_percentage_test(test, values)
         elif test.type == TestType.RANGE:
             return self._run_range_test(test, values)
         else:
@@ -449,103 +446,6 @@ class TestEngine:
                 "value": test.value,
                 "max_percentage": test.max_percentage,
                 "min_percentage": test.min_percentage,
-                "matching_count": matching_count,
-                "matching_percentage": round(matching_pct, 2),
-                "failure_reasons": {
-                    k: v for k, v in list(failure_reasons.items())[:50]
-                },
-            },
-        )
-
-    def _run_percentage_test(
-        self,
-        test: TestConfig,
-        values: list[Any],
-    ) -> TestResult:
-        """Run a percentage test.
-
-        Args:
-            test: Test configuration.
-            values: Metric values to test.
-
-        Returns:
-            TestResult.
-        """
-        if test.condition is None:
-            return self._create_error_result(
-                test, "Percentage test requires 'condition'"
-            )
-
-        # Parse condition like ">= 10" or "== True" into operator and value
-        # Group 1: operator chars (<>=!), Group 2: the comparison value
-        match = re.match(r"([<>=!]+)\s*(.+)", test.condition.strip())
-        if not match:
-            return self._create_error_result(
-                test, f"Invalid condition format: {test.condition}"
-            )
-
-        op_str, value_str = match.groups()
-        op_func = OPERATORS.get(op_str)
-        if op_func is None:
-            return self._create_error_result(
-                test, f"Unknown operator in condition: {op_str}"
-            )
-
-        try:
-            if value_str.lower() == "true":
-                compare_value: Any = True
-            elif value_str.lower() == "false":
-                compare_value = False
-            elif value_str.lower() == "none":
-                compare_value = None
-            else:
-                compare_value = float(value_str)
-        except ValueError:
-            compare_value = value_str
-
-        matching_indices = []
-        non_matching_indices = []
-        failure_reasons: dict[int, str] = {}
-        for i, value in enumerate(values):
-            try:
-                if op_func(value, compare_value):
-                    matching_indices.append(i)
-                else:
-                    non_matching_indices.append(i)
-                    failure_reasons[i] = f"{value} does not match {test.condition}"
-            except (TypeError, ValueError):
-                non_matching_indices.append(i)
-                failure_reasons[i] = f"Cannot evaluate: {value}"
-
-        matching_count = len(matching_indices)
-        total_count = len(values)
-        matching_pct = self._calculate_percentage(matching_count, total_count)
-
-        passed = True
-        if test.max_percentage is not None and matching_pct > test.max_percentage:
-            passed = False
-        if test.min_percentage is not None and matching_pct < test.min_percentage:
-            passed = False
-
-        # Determine affected samples based on test semantics
-        if test.min_percentage is not None and not passed:
-            affected_indices = non_matching_indices
-            affected_pct = self._calculate_percentage(
-                len(non_matching_indices), total_count
-            )
-        else:
-            affected_indices = matching_indices
-            affected_pct = matching_pct
-
-        return self._build_test_result(
-            test=test,
-            passed=passed,
-            total_count=total_count,
-            affected_indices=affected_indices,
-            affected_pct=affected_pct,
-            actual_value=self._get_actual_value(values),
-            details={
-                "condition": test.condition,
                 "matching_count": matching_count,
                 "matching_percentage": round(matching_pct, 2),
                 "failure_reasons": {
