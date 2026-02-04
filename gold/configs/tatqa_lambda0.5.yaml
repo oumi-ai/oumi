@@ -38,18 +38,25 @@ training:
   output_dir: "output/tatqa_qwen25_15b_qwen34b_lambda0.5"
   run_name: "tatqa_qwen25_15b_qwen34b_lambda0.5"
 
+  # Training duration
   num_train_epochs: 2
   per_device_train_batch_size: 1 # EBS: 32
   per_device_eval_batch_size: 4
   gradient_accumulation_steps: 16
   max_grad_norm: 1
+  
+  # Mixed precision and performance
   mixed_precision_dtype: BF16
+  enable_gradient_checkpointing: True
 
   # Optimization
   optimizer: "adamw_torch"
-  learning_rate: 1.0e-06
+  learning_rate: 1.0e-05
+
+  # Learning rate schedule
   lr_scheduler_type: "cosine"
-  warmup_ratio: 0.01
+  warmup_ratio: 0.1
+  weight_decay: 0.01
 
   # Evaluation
   logging_first_step: True
@@ -63,7 +70,6 @@ training:
   logging_steps: 1
   log_level: "info"
 
-  enable_gradient_checkpointing: True
   enable_wandb: True
   enable_tensorboard: False
   log_model_summary: False

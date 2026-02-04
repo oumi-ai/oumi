@@ -10,8 +10,30 @@
 # oumi train -c configs/tatqa_lambda0.5.yaml | 2>&1 tee logs/train_tatqa_lambda0.5.log
 # wait
 
-oumi train -c configs/sft_disable_completions_only.yaml | 2>&1 tee logs/train_sft_disable_completions_only.log
+# oumi train -c configs/nl2sql_lambda0.5.yaml | 2>&1 tee logs/train_nl2sql_lambda0.5.log
+# wait
+
+# oumi train -c configs/nl2sql_lambda0.0.yaml | 2>&1 tee logs/train_nl2sql_lambda0.0.log
+# wait
+
+# oumi train -c configs/tatqa_qwen34b.yaml | 2>&1 tee logs/train_tatqa_qwen34b.log
+# wait
+
+# oumi train -c configs/countdown_sft.yaml | 2>&1 tee logs/train_countdown_sft.log
+# wait
+
+oumi train -c configs/tatqa_llama_lambda0.0.yaml | 2>&1 tee logs/train_tatqa_llama_lambda0.0.log
 wait
+oumi train -c configs/tatqa_llama_lambda0.5.yaml | 2>&1 tee logs/train_tatqa_llama_lambda0.5.log
+wait
+oumi train -c configs/tatqa_llama_lambda1.0.yaml | 2>&1 tee logs/train_tatqa_llama_lambda1.0.log
+wait
+
+# oumi train -c configs/nl2sql_sft_disable_completions_only.yaml | 2>&1 tee logs/train_nl2sql_sft_disable_completions_only.log
+# wait
+
+# oumi train -c configs/sft_disable_completions_only.yaml | 2>&1 tee logs/train_sft_disable_completions_only.log
+# wait
 
 # oumi train -c configs/countdown_cross.yaml | 2>&1 tee logs/train_countdown_cross_v3.log
 # wait

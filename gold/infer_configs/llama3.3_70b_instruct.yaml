@@ -1,0 +1,10 @@
+model:
+  model_name: "meta-llama/Llama-3.3-70B-Instruct"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 4096
+  n: 1
+  temperature: 0.95
+  skip_special_tokens: False

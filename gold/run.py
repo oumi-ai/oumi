@@ -24,7 +24,8 @@ def main(args):
                     content=m["content"],
                 )
                 for m in d["messages"]
-            ]
+            ],
+            metadata=d.get("metadata", {}),
         )
         processed_data.append(output)
 

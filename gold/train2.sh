@@ -7,7 +7,10 @@
 # oumi train -c configs/countdown_tatqa_lambda0.0.yaml | 2>&1 tee logs/train_countdown_tatqa_lambda0.0.log
 # wait
 
-oumi train -c configs/tatqa_lambda1.0.yaml | 2>&1 tee logs/train_tatqa_lambda1.0.log
+# oumi train -c configs/tatqa_lambda1.0.yaml | 2>&1 tee logs/train_tatqa_lambda1.0.log
+# wait
+
+oumi train -c configs/nl2sql_lambda1.0.yaml | 2>&1 tee logs/train_nl2sql_lambda1.0.log
 wait
 
 # oumi train -c configs/sft_disable_completions_only.yaml | 2>&1 tee logs/train_sft_disable_completions_only.log

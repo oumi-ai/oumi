@@ -1,0 +1,10 @@
+model:
+  model_name: "/data/shanghong/oumi/gold/output/tinker_qwen3_4b_ckpt700"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 2048
+  n: 1
+  temperature: 0.95
+  skip_special_tokens: False

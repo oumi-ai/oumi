@@ -103,10 +103,138 @@
 #   --out_jsonl tatqa_results/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt1100.jsonl \
 #   --score_file tatqa_results/tatqa_qwen25_15b_qwen34b_lambda1.0_ckpt1100_score.json
 
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa/test_modified.jsonl \
+#   --results_file output/qwen2.5_1.5b.sft_disable_completions_only_ckpt200.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/qwen2.5_1.5b.sft_disable_completions_only_ckpt200.jsonl \
+#   --score_file tatqa_results/qwen2.5_1.5b.sft_disable_completions_only_ckpt200_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file output/qwen3_8b_baseline_tatqa.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/qwen3_8b_baseline_tatqa.jsonl \
+#   --score_file tatqa_results/qwen3_8b_baseline_tatqa_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file output/qwen3_32b_baseline_tatqa.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/qwen3_32b_baseline_tatqa.jsonl \
+#   --score_file tatqa_results/qwen3_32b_baseline_tatqa_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file output/qwen3_30b_instruct_baseline_tatqa.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/qwen3_30b_instruct_baseline_tatqa.jsonl \
+#   --score_file tatqa_results/qwen3_30b_instruct_baseline_tatqa_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file tatqa_results/qwen3_235b_instruct_baseline.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/qwen3_235b_instruct_baseline.jsonl \
+#   --score_file tatqa_results/qwen3_235b_instruct_baseline_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file tatqa_results/tatqa_qwen3_4b_lambda0_ckpt200.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/tatqa_qwen3_4b_lambda0_ckpt200.jsonl \
+#   --score_file tatqa_results/tatqa_qwen3_4b_lambda0_ckpt200_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file tatqa_results/tatqa_qwen3_4b_lambda0_ckpt400.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/tatqa_qwen3_4b_lambda0_ckpt400.jsonl \
+#   --score_file tatqa_results/tatqa_qwen3_4b_lambda0_ckpt400_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file tatqa_results/tatqa_qwen3_4b_lambda0_ckpt800.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/tatqa_qwen3_4b_lambda0_ckpt800.jsonl \
+#   --score_file tatqa_results/tatqa_qwen3_4b_lambda0_ckpt800_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file tatqa_results/tatqa_qwen3_4b_lambda0_ckpt1598.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/tatqa_qwen3_4b_lambda0_ckpt1598.jsonl \
+#   --score_file tatqa_results/tatqa_qwen3_4b_lambda0_ckpt1598_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file tatqa_results/llama3.1_8b_instruct_baseline.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/llama3.1_8b_instruct_baseline.jsonl \
+#   --score_file tatqa_results/llama3.1_8b_instruct_baseline_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file tatqa_results/llama3.3_70b_instruct_baseline.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/llama3.3_70b_instruct_baseline.jsonl \
+#   --score_file tatqa_results/llama3.3_70b_instruct_baseline_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file tatqa_results/tinker_llama3.1_8b_instruct_tatqa.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/tinker_llama3.1_8b_instruct_tatqa.jsonl \
+#   --score_file tatqa_results/tinker_llama3.1_8b_instruct_tatqa_score.json
+
+# python equivalence_judge.py \
+#   --ground_truth_file tatqa_data/test_modified.jsonl \
+#   --results_file tatqa_results/tinker_qwen3_4b_instruct_tatqa.jsonl \
+#   --use_judge \
+#   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+#   --out_jsonl tatqa_results/tinker_qwen3_4b_instruct_tatqa.jsonl \
+#   --score_file tatqa_results/tinker_qwen3_4b_instruct_tatqa_score.json
+
 python equivalence_judge.py \
-  --ground_truth_file tatqa/test_modified.jsonl \
-  --results_file output/qwen2.5_1.5b.sft_disable_completions_only_ckpt200.jsonl \
+  --ground_truth_file tatqa_data/test_modified.jsonl \
+  --results_file tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt200.jsonl \
   --use_judge \
   --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
-  --out_jsonl tatqa_results/qwen2.5_1.5b.sft_disable_completions_only_ckpt200.jsonl \
-  --score_file tatqa_results/qwen2.5_1.5b.sft_disable_completions_only_ckpt200_score.json
+  --out_jsonl tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt200.jsonl \
+  --score_file tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt200_score.json
+
+python equivalence_judge.py \
+  --ground_truth_file tatqa_data/test_modified.jsonl \
+  --results_file tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt400.jsonl \
+  --use_judge \
+  --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+  --out_jsonl tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt400.jsonl \
+  --score_file tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt400_score.json
+
+python equivalence_judge.py \
+  --ground_truth_file tatqa_data/test_modified.jsonl \
+  --results_file tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt800.jsonl \
+  --use_judge \
+  --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+  --out_jsonl tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt800.jsonl \
+  --score_file tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt800_score.json
+
+python equivalence_judge.py \
+  --ground_truth_file tatqa_data/test_modified.jsonl \
+  --results_file tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt1598.jsonl \
+  --use_judge \
+  --judge_config_file /data/shanghong/oumi/gold/judge_configs/equivalence_judge.yaml \
+  --out_jsonl tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt1598.jsonl \
+  --score_file tatqa_results/gold_llama3.1_8b_lambda0.0_ckpt1598_score.json
