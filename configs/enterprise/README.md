@@ -1512,3 +1512,198 @@ Additional optimizations tried (all still OOM):
 
 Conclusion: FFT for Llama-4-Scout requires more than 8xH100. The ~107B total parameters (with optimizer states and gradients) exceed available memory even with FSDP FULL_SHARD and CPU offload. FFT config will not be included in default presets, LoRA is the only viable training method for this model on 8xH100.
 
+
+
+##### gpt-oss-20b 
+gpt-oss-20b is released with MXFP4 quantization of the MoE weights. Our configs include `quantization_config: quant_method: "mxfp4"` to properly load the model. Without Triton 3.4+, HuggingFace dequantizes to bf16 on load -- you'll see a warning but training works fine. The MXFP4 format is meant to benefit smaller GPU setups.
+
+Note from [the 20b HF page](https://huggingface.co/openai/gpt-oss-20b):
+
+> MXFP4 quantization: The models were post-trained with MXFP4 quantization of the MoE weights, making gpt-oss-120b run on a single 80GB GPU (like NVIDIA H100 or AMD MI300X) and the gpt-oss-20b model run within 16GB of memory. All evals were performed with the same MXFP4 quantization.
+
+Details/worklog for initial validation experiments below. Highlights:
+
+- FFT and LoRA both run on 8xH100 (tested pubmedqa and nl2sql)
+- Clear target task improvement: FFT PubMedQA acc 37% --> 76%, NL2SQL edit sim 34% --> 48%
+- Catastrophic forgetting on non-target tasks and control benchmarks more severe than most other models tested
+- LoRA eval blocked by vLLM (`GptOssForCausalLM does not support LoRA yet`)
+
+
+###### LoRA
+Testing LoRA fine-tuning with the new GPT-OSS 20B model using MXFP4 quantization. Config `configs/enterprise/training/preset-validation/openai_gpt-oss-20b_lora.yaml` adapted from Ioannis's initial version in https://github.com/oumi-ai/oumi/pull/2186.
+
+```sh
+export HF_HOME="/data/tim/hf_cache"
+export CKPT_DIR="/data/tim/checkpoints"
+export EVAL_DIR="/data/tim/evals/ent"
+export DATASET_DIR="/data/tim/code/oumi/data/enterprise"
+
+# LoRA with MXFP4 quantization
+./scripts/enterprise/run_experiment_v2.sh \
+  --config configs/enterprise/training/preset-validation/openai_gpt-oss-20b_lora.yaml \
+  --task pubmedqa --data-dir $DATASET_DIR --checkpoint-dir $CKPT_DIR --eval-dir $EVAL_DIR
+
+# run baseline evals for comparison
+./scripts/enterprise/run_experiment_v2.sh \
+  --config "openai/gpt-oss-20b" \
+  --task pubmedqa --data-dir $DATASET_DIR --checkpoint-dir $CKPT_DIR --eval-dir $EVAL_DIR
+```
+
+Initial LoRA run completes, but eval fails:
+
+```
+(VllmWorker TP6 pid=6514) ERROR 02-03 22:21:52 [multiproc_executor.py:559] ValueError: GptOssForCausalLM does not support LoRA yet.
+```
+
+But looking at discussion here: http://github.com/vllm-project/vllm/issues/23610, it seems people have found a workaround. Going to see if I can get this working...  Also try setting `peft_save_mode: merged` (merges LoRA weights into base model on save)... For the latter, we would need to point to the merged checkpoint as the model (not adapter_model).
+
+Try merging approach first -- same config just with merging save mode:
+
+```yaml
+# In training config (peft section):
+peft:
+  peft_save_mode: MERGED  # Merge LoRA into base model for vLLM eval
+```
+
+Try it:
+
+```sh
+# LoRA with MXFP4 quantization
+./scripts/enterprise/run_experiment_v2.sh \
+  --config configs/enterprise/training/preset-validation/openai_gpt-oss-20b_lora.yaml \
+  --task pubmedqa --data-dir $DATASET_DIR --checkpoint-dir $CKPT_DIR --eval-dir $EVAL_DIR
+```
+
+Same issue:
+
+```
+(VllmWorker TP2 pid=16329) ERROR 02-03 22:44:45 [multiproc_executor.py:559] ValueError: GptOssForCausalLM does not support LoRA yet.
+```
+
+Tried a couple hacks to no avail, revisit this after final validations.
+
+
+###### FFT
+Adapted Ioannis's LoRA config to FFT. Too slow with CPU offloading, disabled that. Also dropped LR by an order of magnitude. Try a small test run with pubmedqa:
+
+```sh
+# FFT (still with MXFP4 quantization)
+# small test run, only 13 steps with ebs 64...
+./scripts/enterprise/run_experiment_v2.sh \
+  --config configs/enterprise/training/preset-validation/openai_gpt-oss-20b_fft.yaml \
+  --task pubmedqa --data-dir $DATASET_DIR --checkpoint-dir $CKPT_DIR --eval-dir $EVAL_DIR
+
+# run baseline evals for comparison
+./scripts/enterprise/run_all_evals.sh \
+  --model-name "openai/gpt-oss-20b" \
+  --data-dir $DATASET_DIR \
+  --output-dir $EVAL_DIR/baselines
+
+# collate results:
+python scripts/enterprise/process_results_v2.py \
+    --eval-dirs $EVAL_DIR/baselines/*gpt*oss* $EVAL_DIR/gpt-oss-20b-ft/*fft* \
+    --checkpoint-dir $CKPT_DIR --output $EVAL_DIR/collated-gpt-oss-20b-fft-test
+```
+
+Results from initial test run:
+
+| Model | PubMedQA | Banking77 | TAT-QA | NL2SQL | IFEval | Safety |
+|-------|------------|-----------|--------|--------|--------|--------|
+| gpt-oss-20b (baseline) | 0.37 | 0.73 | 0.20 | 0.34 | 0.44 | 0.90 |
+| gpt-oss-20b FFT (pubmedqa) | **0.76** | 0.10 | 0.00 | 0.21 | 0.42 | 0.71 |
+
+FFT runs fine with these settings (only 1 epoch, with quantization):
+
+- Nice performance boost on target task (37% --> 76%)
+- But major regression on other tasks, including safety. tatqa boxed rate tanks from 86% to 5%
+- Not unexpected, but more severe than forgetting with most dense models we have investigated
+
+Okay evals from FFT test run look okay but tatqa tanks much more than expected... Boxed rate way down from baseline, tbh surprising boxed rate at baseline isn't 100%... Do we have worse forgetting with MoE? Or is the issue quantization? Need baseline evals for comparison...
+
+Now let's try nl2sql, no model so far has done well on that:
+
+```sh
+./scripts/enterprise/run_experiment_v2.sh \
+  --config configs/enterprise/training/preset-validation/openai_gpt-oss-20b_fft.yaml \
+  --task nl2sql --data-dir $DATASET_DIR --checkpoint-dir $CKPT_DIR --eval-dir $EVAL_DIR
+
+python scripts/enterprise/process_results_v2.py \
+    --eval-dirs $EVAL_DIR/baselines/*gpt*oss* $EVAL_DIR/gpt-oss-20b-ft/*fft* \
+    --checkpoint-dir $CKPT_DIR --output $EVAL_DIR/collated-gpt-oss-20b-fft-test
+```
+
+Results again show improvement on target task over baseline (similar impact on forgetting):
+
+| Model | PubMedQA | Banking77 | TAT-QA | NL2SQL | IFEval | Safety |
+|-------|----------|-----------|--------|--------|--------|--------|
+| gpt-oss-20b (baseline) | 0.37 | 0.73 | 0.20 | 0.34 | 0.44 | 0.90 |
+| FFT on PubMedQA | **0.76** | 0.10 | 0.00 | 0.21 | 0.42 | 0.71 |
+| FFT on NL2SQL | 0.16 | 0.33 | 0.02 | **0.48** | 0.35 | 0.69 |
+
+Exact match still zero post-FT though.
+
+See if this runs without quantization:
+
+```sh
+./scripts/enterprise/run_experiment_v2.sh \
+  --config configs/enterprise/training/preset-validation/openai_gpt-oss-20b_fft.yaml \
+  --task nl2sql --data-dir $DATASET_DIR --checkpoint-dir $CKPT_DIR --eval-dir $EVAL_DIR
+```
+
+NB removing the quantization block produces:
+
+> MXFP4 quantization requires Triton and kernels installed: CUDA requires Triton >= 3.4.0, XPU requires Triton >= 3.5.0, we will default to dequantizing the model to bf16 `torch_dtype` is deprecated! Use `dtype` instead!
+
+
+Results without quantization:
+
+| Model | PubMedQA | Banking77 | TAT-QA | NL2SQL | IFEval | Safety |
+|-------|----------|-----------|--------|--------|--------|--------|
+| gpt-oss-20b (baseline) | 0.37 | 0.73 | 0.20 | 0.34 | 0.44 | 0.90 |
+| FFT on NL2SQL (w/ MXFP4) | 0.16 | 0.33 | 0.02 | **0.48** | 0.35 | 0.69 |
+| FFT on NL2SQL (no quant) | 0.14 | 0.35 | 0.02 | **0.49** | 0.33 | 0.73 |
+
+Results nearly identical -- so MXFP4 is being dequantized to bf16 anyway. We'll keep the quantization block.
+
+
+Train for another epoch, and with `dataloader_num_workers: 4`:
+
+```sh
+./scripts/enterprise/run_experiment_v2.sh \
+  --config configs/enterprise/training/preset-validation/openai_gpt-oss-20b_fft.yaml \
+  --task nl2sql --data-dir $DATASET_DIR --checkpoint-dir $CKPT_DIR --eval-dir $EVAL_DIR
+```
+
+With dataloader_num_workers: 4 we hit OOM on step 10/16:
+
+```
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 4.79 GiB. GPU 6 has a total capacity of 79.19 GiB of which 1.26 GiB is free. Process 85336 has 520.00 MiB memory in use. Including non-PyTorch memory, this process has 77.41 GiB memory in use. Of the allocated memory 65.78 GiB is allocated by PyTorch, and 9.48 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+```
+
+Even with dataloader_num_workers: 0 we hit OOM once we hit validation (step 10/16):
+```
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 4.79 GiB. GPU 6 has a total capacity of 79.19 GiB of which 1.14 GiB is free. Process 87182 has 520.00 MiB memory  in use. Including non-PyTorch memory, this process has 77.53 GiB memory in use. Of the allocated memory 65.78 GiB is allocated by PyTorch, and 9.60 GiB is reserved by PyTorch  but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory  Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+```
+
+Re-enabling cpu offload gets past this. So the current configuration fits on 8xH100, but even small memory-hungry changes will cause it to OOM.
+
+Results on nl2sql with 2 training epochs compared to previous runs:
+
+| Model | PubMedQA | Banking77 | TAT-QA | NL2SQL | IFEval | Safety |
+|-------|----------|-----------|--------|--------|--------|--------|
+| gpt-oss-20b (baseline) | 0.37 | 0.73 | 0.20 | 0.34 | 0.44 | 0.90 |
+| FFT nl2sql (1 epoch, MXFP4) | 0.16 | 0.33 | 0.02 | 0.48 | 0.35 | 0.69 |
+| FFT nl2sql (1 epoch, no quant) | 0.14 | 0.35 | 0.02 | 0.49 | 0.33 | 0.73 |
+| FFT nl2sql (2 epochs) | 0.35 | 0.41 | 0.00 | **0.51** | 0.33 | 0.85 |
+| FFT pubmedqa (1 epoch) | **0.76** | 0.10 | 0.00 | 0.21 | 0.42 | 0.71 |
+
+
+Gains are marginal compared to single-epoch training.
+
+
+Notes:
+- training (FFT and LoRA): `The tokenizer has new PAD/BOS/EOS tokens that differ from the model config and generation config. The model config and generation config were aligned accordingly, being updated with the tokenizer's values. Updated tokens: {'bos_token_id': 199998}.`
+- training (FFT): Without the quantization config block, we get `MXFP4 quantization requires Triton and kernels installed: CUDA requires Triton >= 3.4.0, XPU requires Triton >= 3.5.0, we will default to dequantizing the model to bf16 torch_dtype is deprecated! Use dtype instead!`. No quality difference with or without the quantization block.
+- eval (LoRA): vLLM eval fails with `ValueError: GptOssForCausalLM does not support LoRA yet`. See discussion and workarounds here https://github.com/vllm-project/vllm/issues/23610 (not prioritizing this for now)
+- eval (FFT): `The tokenizer you are loading from '/data/tim/checkpoints/openai_gpt-oss-20b_fft-pubmedqa' with an incorrect regex pattern: https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503/discussions/84#69121093e8b480e709447d5e. This will lead to incorrect tokenization. You should set the fix_mistral_regex=True flag when loading this tokenizer to fix this issue.` This occurs with other families too and does not damage quality.
+

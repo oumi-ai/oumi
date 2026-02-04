@@ -1,0 +1,111 @@
+# Multi-GPU LoRA fine-tuning config for GPT OSS 20B
+# Optimized for training on 2 GPUs using FSDP
+#
+# Usage:
+#   oumi train -c oumi://configs/recipes/gpt_oss/sft/20b_lora_multi_gpu_train.yaml
+#
+# Hardware Requirements:
+#   - 2 GPUs with 80GB+ VRAM (H100, A100 80GB)
+#   - FSDP is required to fit the model in memory (single GPU OOMs due to MXFP4 dequantization overhead)
+#
+# See Also:
+#   - HF GPT-OSS recipes for single GPU training: https://cookbook.openai.com/articles/gpt-oss/fine-tune-transfomers
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+
+model:
+  model_name: "openai/gpt-oss-20b"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: true
+  chat_template: "auto"
+  attn_implementation: "eager"  # see https://huggingface.co/openai/gpt-oss-20b/discussions/89
+
+  # MXFP4 dequantization for training with pre-quantized models
+  model_kwargs:
+    quantization_config:
+      quant_method: "mxfp4"
+
+data:
+  train:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      # GPT-OSS Harmony format templates
+      instruction_template: "<|start|>user<|message|>"
+      response_template: "<|start|>assistant<|channel|>final<|message|>"
+    seed: 42
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+  validation:
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      instruction_template: "<|start|>user<|message|>"
+      response_template: "<|start|>assistant<|channel|>final<|message|>"
+    seed: 42
+    datasets:
+      - dataset_name: text_sft
+        dataset_path: OVERRIDE_ME
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: dict
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: true
+  output_dir: "output"
+  run_name: "placeholder_run_name"
+  save_final_model: true
+  save_steps: 0
+  save_epoch: false
+  num_train_epochs: 1
+
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
+
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  ddp_find_unused_parameters: false
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.03
+  compile: false
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 8
+  seed: 42
+
+  logging_steps: 5
+  log_model_summary: true
+  eval_strategy: "steps"
+  eval_steps: 10
+  empty_device_cache_steps: 50
+  include_performance_metrics: true
+  enable_wandb: true
+
+fsdp:
+  enable_fsdp: true
+  forward_prefetch: true
+  use_orig_params: true
+  sharding_strategy: "FULL_SHARD"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "GptOssDecoderLayer"
+
+peft:
+  # peft_save_mode: MERGED  # doesn't work with vLLM eval with or without this
+  q_lora: false
+  lora_r: 8 # HF recipe efficient rank
+  lora_alpha: 16 # HF recipe alpha
+  lora_dropout: 0 # No dropout for stability
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+  lora_target_parameters: []
