@@ -69,6 +69,7 @@ dependencies = [
     "safetensors>=0.6,<0.8",
     "skypilot>=0.11.1,<0.12", # 0.11.1 includes db locking fix
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
+    "tiktoken>=0.7,<1.0",
     "torch>=2.6,<2.11.0",      # vllm only supports up to torch==2.7
     "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
