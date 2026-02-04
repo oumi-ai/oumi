@@ -17,8 +17,9 @@
 import pytest
 from pydantic import BaseModel
 
-from oumi.analyze.testing.engine import TestConfig, TestEngine, TestType
+from oumi.analyze.testing.engine import TestEngine
 from oumi.analyze.testing.results import TestResult, TestSeverity, TestSummary
+from oumi.core.configs.params.test_params import TestParams, TestType
 
 # -----------------------------------------------------------------------------
 # Test Fixtures
@@ -66,13 +67,13 @@ def mixed_results() -> dict[str, list[BaseModel]]:
 
 
 # -----------------------------------------------------------------------------
-# Tests: TestConfig
+# Tests: TestParams
 # -----------------------------------------------------------------------------
 
 
 def test_test_config_creation():
-    """Test creating a TestConfig."""
-    config = TestConfig(
+    """Test creating a TestParams."""
+    config = TestParams(
         id="test_1",
         type=TestType.THRESHOLD,
         metric="LengthAnalyzer.total_tokens",
@@ -85,14 +86,14 @@ def test_test_config_creation():
 
 
 def test_test_config_defaults():
-    """Test TestConfig default values."""
-    config = TestConfig(
+    """Test TestParams default values."""
+    config = TestParams(
         id="test_1",
         type=TestType.THRESHOLD,
         metric="test",
     )
-    assert config.severity == TestSeverity.MEDIUM
-    assert config.title == ""
+    assert config.severity == "medium"
+    assert config.title is None
     assert config.operator is None
     assert config.value is None
 
@@ -105,8 +106,8 @@ def test_test_config_defaults():
 def test_engine_initialization():
     """Test TestEngine initialization."""
     tests = [
-        TestConfig(id="t1", type=TestType.THRESHOLD, metric="m"),
-        TestConfig(
+        TestParams(id="t1", type=TestType.THRESHOLD, metric="m"),
+        TestParams(
             id="t2", type=TestType.THRESHOLD, metric="n", operator="<=", value=100
         ),
     ]
@@ -128,7 +129,7 @@ def test_engine_empty_tests():
 def test_threshold_test_all_pass(sample_results):
     """Test threshold where all values pass."""
     tests = [
-        TestConfig(
+        TestParams(
             id="min_tokens",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
@@ -146,7 +147,7 @@ def test_threshold_test_all_pass(sample_results):
 def test_threshold_test_some_fail(sample_results):
     """Test threshold where some values fail."""
     tests = [
-        TestConfig(
+        TestParams(
             id="max_tokens",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
@@ -164,7 +165,7 @@ def test_threshold_test_some_fail(sample_results):
 def test_threshold_test_with_max_percentage(sample_results):
     """Test threshold with max_percentage tolerance."""
     tests = [
-        TestConfig(
+        TestParams(
             id="high_tokens",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
@@ -183,7 +184,7 @@ def test_threshold_test_with_max_percentage(sample_results):
 def test_threshold_test_with_min_percentage(sample_results):
     """Test threshold with min_percentage requirement."""
     tests = [
-        TestConfig(
+        TestParams(
             id="most_valid",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
@@ -202,7 +203,7 @@ def test_threshold_test_with_min_percentage(sample_results):
 def test_threshold_test_both_min_and_max_percentage(sample_results):
     """Test threshold with both min and max percentage."""
     tests = [
-        TestConfig(
+        TestParams(
             id="bounded_tokens",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
@@ -222,7 +223,7 @@ def test_threshold_test_both_min_and_max_percentage(sample_results):
 def test_threshold_test_missing_operator():
     """Test threshold test returns error with missing operator."""
     tests = [
-        TestConfig(
+        TestParams(
             id="missing_op",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
@@ -241,7 +242,7 @@ def test_threshold_test_missing_operator():
 def test_threshold_test_unknown_operator():
     """Test threshold test returns error with unknown operator."""
     tests = [
-        TestConfig(
+        TestParams(
             id="bad_op",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
@@ -266,7 +267,7 @@ def test_threshold_test_unknown_operator():
 def test_extract_metric_not_found():
     """Test that missing metric returns error."""
     tests = [
-        TestConfig(
+        TestParams(
             id="missing_metric",
             type=TestType.THRESHOLD,
             metric="NonExistent.field",
@@ -286,7 +287,7 @@ def test_extract_metric_not_found():
 def test_extract_metric_invalid_format():
     """Test that invalid metric format returns error."""
     tests = [
-        TestConfig(
+        TestParams(
             id="bad_format",
             type=TestType.THRESHOLD,
             metric="no_dot_separator",
@@ -305,7 +306,7 @@ def test_extract_metric_invalid_format():
 def test_extract_metric_single_result():
     """Test extracting metric from single result (not list)."""
     tests = [
-        TestConfig(
+        TestParams(
             id="single_result",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
@@ -429,14 +430,14 @@ def test_test_result_to_dict():
 def test_engine_run_multiple_tests(sample_results):
     """Test running multiple tests."""
     tests = [
-        TestConfig(
+        TestParams(
             id="test_1",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
             operator=">=",
             value=50,
         ),
-        TestConfig(
+        TestParams(
             id="test_2",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_chars",
@@ -454,7 +455,7 @@ def test_engine_run_multiple_tests(sample_results):
 def test_engine_handles_test_exception():
     """Test that engine handles exceptions gracefully."""
     tests = [
-        TestConfig(
+        TestParams(
             id="error_test",
             type=TestType.THRESHOLD,
             metric="Bad.metric",

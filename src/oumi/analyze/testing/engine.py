@@ -21,50 +21,14 @@ instead of DataFrames. Tests are pure validation - no computation allowed.
 import logging
 import operator
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel
 
 from oumi.analyze.testing.results import TestResult, TestSeverity, TestSummary
-from oumi.core.configs.params.test_params import TestType
+from oumi.core.configs.params.test_params import TestParams, TestType
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class TestConfig:
-    """Configuration for a single test.
-
-    Attributes:
-        id: Unique identifier for the test.
-        type: Type of test to run.
-        metric: Path to the metric field (e.g., "LengthAnalyzer.total_words").
-        severity: Severity level if test fails.
-        title: Human-readable title.
-        description: Description of what the test checks.
-        operator: Comparison operator for threshold tests.
-        value: Value to compare against.
-        condition: Condition string for percentage tests.
-        max_percentage: Maximum allowed percentage for percentage tests.
-        min_percentage: Minimum required percentage for percentage tests.
-        min_value: Minimum value for range tests.
-        max_value: Maximum value for range tests.
-    """
-
-    id: str
-    type: TestType
-    metric: str
-    severity: TestSeverity = TestSeverity.MEDIUM
-    title: str = ""
-    description: str = ""
-    operator: str | None = None
-    value: float | int | str | None = None
-    condition: str | None = None
-    max_percentage: float | None = None
-    min_percentage: float | None = None
-    min_value: float | None = None
-    max_value: float | None = None
 
 
 OPERATORS: dict[str, Callable[[Any, Any], bool]] = {
@@ -85,10 +49,10 @@ class TestEngine:
     pre-computed by analyzers.
 
     Example:
-        >>> from oumi.analyze.testing import TestEngine, TestConfig, TestType
+        >>> from oumi.analyze.testing import TestEngine, TestParams, TestType
         >>>
         >>> tests = [
-        ...     TestConfig(
+        ...     TestParams(
         ...         id="max_words",
         ...         type=TestType.THRESHOLD,
         ...         metric="LengthAnalyzer.total_words",
@@ -106,11 +70,11 @@ class TestEngine:
         tests: List of test configurations.
     """
 
-    def __init__(self, tests: list[TestConfig]):
+    def __init__(self, tests: list[TestParams]):
         """Initialize the test engine with test configurations."""
         self.tests = tests
 
-    def _create_error_result(self, test: TestConfig, error: str) -> TestResult:
+    def _create_error_result(self, test: TestParams, error: str) -> TestResult:
         """Create a TestResult for an error condition.
 
         Args:
@@ -123,9 +87,9 @@ class TestEngine:
         return TestResult(
             test_id=test.id,
             passed=False,
-            severity=test.severity,
+            severity=TestSeverity(test.severity),
             title=test.title or test.id,
-            description=test.description,
+            description=test.description or "",
             metric=test.metric or "",
             error=error,
         )
@@ -144,7 +108,7 @@ class TestEngine:
 
     def _build_test_result(
         self,
-        test: TestConfig,
+        test: TestParams,
         passed: bool,
         total_count: int,
         affected_indices: list[int],
@@ -169,9 +133,9 @@ class TestEngine:
         return TestResult(
             test_id=test.id,
             passed=passed,
-            severity=test.severity,
+            severity=TestSeverity(test.severity),
             title=test.title or test.id,
-            description=test.description,
+            description=test.description or "",
             metric=test.metric or "",
             affected_count=len(affected_indices),
             total_count=total_count,
@@ -245,7 +209,7 @@ class TestEngine:
 
     def _run_single_test(
         self,
-        test: TestConfig,
+        test: TestParams,
         results: dict[str, list[BaseModel] | BaseModel],
     ) -> TestResult:
         """Run a single test.
@@ -257,6 +221,9 @@ class TestEngine:
         Returns:
             TestResult for this test.
         """
+        if not test.metric:
+            return self._create_error_result(test, "Test requires 'metric' field")
+
         values = self._extract_metric_values(test.metric, results)
 
         if not values:
@@ -359,7 +326,7 @@ class TestEngine:
 
     def _run_threshold_test(
         self,
-        test: TestConfig,
+        test: TestParams,
         values: list[Any],
     ) -> TestResult:
         """Run a threshold test.
