@@ -310,20 +310,18 @@ def test_validation_composite_valid():
 
 
 def test_validation_composite_empty_tests():
-    """Test composite test with empty tests list.
+    """Test composite test with empty tests list should fail.
 
-    Note: Empty list passes validation since the check is for None/empty string.
-    This behavior allows lazy initialization of tests list.
+    Composite tests must have at least one sub-test to be valid.
     """
     params = TestParams(
         id="test_1",
         type="composite",
         composite_operator="any",
-        tests=[],  # Empty list is allowed
+        tests=[],  # Empty list should be rejected
     )
-    # Should not raise - empty list is not considered "missing"
-    params.finalize_and_validate()
-    assert params.tests == []
+    with pytest.raises(ValueError, match="requires at least one sub-test"):
+        params.finalize_and_validate()
 
 
 def test_validation_composite_numeric_operator():

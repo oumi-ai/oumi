@@ -93,21 +93,29 @@ TEST_VALIDATIONS = {
     },
     "contains": {
         "required": ["text_field"],
-        "custom": lambda self: (self.value is not None or self.values)
-        or "requires 'value' or 'values'",
+        "custom": lambda self: None
+        if (self.value is not None or self.values)
+        else "requires 'value' or 'values'",
     },
     "outliers": {
         "required": ["metric"],
-        "custom": lambda self: (self.std_threshold > 0)
-        or "'std_threshold' must be positive",
+        "custom": lambda self: None
+        if self.std_threshold > 0
+        else "'std_threshold' must be positive",
     },
     "composite": {
         "required": ["tests"],
         "custom": lambda self: (
-            self.composite_operator in ["any", "all"]
-            or _try_parse_int(self.composite_operator)
-        )
-        or f"Invalid composite_operator '{self.composite_operator}'",
+            None
+            if self.tests
+            and (
+                self.composite_operator in ["any", "all"]
+                or _try_parse_int(self.composite_operator)
+            )
+            else "requires at least one sub-test"
+            if not self.tests
+            else f"Invalid composite_operator '{self.composite_operator}'"
+        ),
     },
 }
 
