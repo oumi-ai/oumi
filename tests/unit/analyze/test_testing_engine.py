@@ -256,6 +256,7 @@ def test_threshold_test_unknown_operator():
     )
 
     assert summary.error_tests == 1
+    assert summary.results[0].error is not None
     assert "Unknown operator" in summary.results[0].error
 
 
@@ -281,6 +282,7 @@ def test_extract_metric_not_found():
     )
 
     assert summary.error_tests == 1
+    assert summary.results[0].error is not None
     assert "not found" in summary.results[0].error
 
 

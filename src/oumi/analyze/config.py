@@ -319,7 +319,9 @@ class TypedAnalyzeConfig:
         # Parse tests
         tests = []
         for test_data in data.get("tests", []):
-            tests.append(TestParams(**test_data))
+            test_params = TestParams(**test_data)
+            test_params.finalize_and_validate()
+            tests.append(test_params)
 
         return cls(
             eval_name=data.get("eval_name"),
