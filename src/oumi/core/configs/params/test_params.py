@@ -41,7 +41,6 @@ class TestType(str, Enum):
     """Types of tests that can be run on analysis results."""
 
     THRESHOLD = "threshold"
-    RANGE = "range"
     DISTRIBUTION = "distribution"
     REGEX = "regex"
     CONTAINS = "contains"
@@ -90,10 +89,6 @@ TEST_VALIDATIONS = {
     "threshold": {
         "required": ["metric", "operator", "value"],
         "valid_values": {"operator": ["<", ">", "<=", ">=", "==", "!="]},
-    },
-    "range": {
-        "required": ["metric"],
-        "either_required": [["min_value", "max_value"]],
     },
     "distribution": {
         "required": ["metric", "check", "threshold"],

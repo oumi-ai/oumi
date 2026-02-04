@@ -266,8 +266,6 @@ class TestEngine:
 
         if test.type == TestType.THRESHOLD:
             return self._run_threshold_test(test, values)
-        elif test.type == TestType.RANGE:
-            return self._run_range_test(test, values)
         else:
             return self._create_error_result(test, f"Unknown test type: {test.type}")
 
@@ -451,55 +449,5 @@ class TestEngine:
                 "failure_reasons": {
                     k: v for k, v in list(failure_reasons.items())[:50]
                 },
-            },
-        )
-
-    def _run_range_test(
-        self,
-        test: TestConfig,
-        values: list[Any],
-    ) -> TestResult:
-        """Run a range test.
-
-        Args:
-            test: Test configuration.
-            values: Metric values to test.
-
-        Returns:
-            TestResult.
-        """
-        if test.min_value is None and test.max_value is None:
-            return self._create_error_result(
-                test, "Range test requires 'min_value' and/or 'max_value'"
-            )
-
-        affected_indices = []
-        for i, value in enumerate(values):
-            try:
-                outside_range = False
-                if test.min_value is not None and value < test.min_value:
-                    outside_range = True
-                if test.max_value is not None and value > test.max_value:
-                    outside_range = True
-                if outside_range:
-                    affected_indices.append(i)
-            except (TypeError, ValueError):
-                pass
-
-        total_count = len(values)
-        affected_pct = self._calculate_percentage(len(affected_indices), total_count)
-        max_pct = test.max_percentage if test.max_percentage is not None else 0.0
-        passed = affected_pct <= max_pct
-
-        return self._build_test_result(
-            test=test,
-            passed=passed,
-            total_count=total_count,
-            affected_indices=affected_indices,
-            affected_pct=affected_pct,
-            actual_value=None,
-            details={
-                "min_value": test.min_value,
-                "max_value": test.max_value,
             },
         )

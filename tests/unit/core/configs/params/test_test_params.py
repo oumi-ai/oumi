@@ -33,7 +33,6 @@ from oumi.core.configs.params.test_params import (
 def test_test_type_enum_values():
     """Test TestType enum has expected values."""
     assert TestType.THRESHOLD == "threshold"
-    assert TestType.RANGE == "range"
     assert TestType.DISTRIBUTION == "distribution"
     assert TestType.REGEX == "regex"
     assert TestType.COMPOSITE == "composite"

@@ -106,7 +106,9 @@ def test_engine_initialization():
     """Test TestEngine initialization."""
     tests = [
         TestConfig(id="t1", type=TestType.THRESHOLD, metric="m"),
-        TestConfig(id="t2", type=TestType.RANGE, metric="m"),
+        TestConfig(
+            id="t2", type=TestType.THRESHOLD, metric="n", operator="<=", value=100
+        ),
     ]
     engine = TestEngine(tests)
     assert len(engine.tests) == 2
@@ -254,65 +256,6 @@ def test_threshold_test_unknown_operator():
 
     assert summary.error_tests == 1
     assert "Unknown operator" in summary.results[0].error
-
-
-# -----------------------------------------------------------------------------
-# Tests: Range Tests
-# -----------------------------------------------------------------------------
-
-
-def test_range_test_within_range(sample_results):
-    """Test range test where all values are within range."""
-    tests = [
-        TestConfig(
-            id="token_range",
-            type=TestType.RANGE,
-            metric="LengthAnalyzer.total_tokens",
-            min_value=0,
-            max_value=500,
-        )
-    ]
-    engine = TestEngine(tests)
-    summary = engine.run(sample_results)
-
-    assert summary.passed_tests == 1
-
-
-def test_range_test_some_outside(sample_results):
-    """Test range test where some values are outside range."""
-    tests = [
-        TestConfig(
-            id="narrow_range",
-            type=TestType.RANGE,
-            metric="LengthAnalyzer.total_tokens",
-            min_value=75,
-            max_value=175,
-            max_percentage=50.0,  # Allow up to 50% outside
-        )
-    ]
-    engine = TestEngine(tests)
-    summary = engine.run(sample_results)
-
-    # 50 is below 75, 200 is above 175 (2 out of 4 = 50%)
-    assert summary.passed_tests == 1
-
-
-def test_range_test_missing_bounds():
-    """Test range test returns error without min or max value."""
-    tests = [
-        TestConfig(
-            id="no_bounds",
-            type=TestType.RANGE,
-            metric="LengthAnalyzer.total_tokens",
-        )
-    ]
-    engine = TestEngine(tests)
-    summary = engine.run(
-        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
-    )
-
-    assert summary.error_tests == 1
-    assert "min_value" in summary.results[0].error
 
 
 # -----------------------------------------------------------------------------
@@ -495,10 +438,10 @@ def test_engine_run_multiple_tests(sample_results):
         ),
         TestConfig(
             id="test_2",
-            type=TestType.RANGE,
+            type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_chars",
-            min_value=0,
-            max_value=2000,
+            operator="<=",
+            value=2000,
         ),
     ]
     engine = TestEngine(tests)
