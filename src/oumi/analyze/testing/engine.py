@@ -119,6 +119,95 @@ class TestEngine:
         """Initialize the test engine with test configurations."""
         self.tests = tests
 
+    def _create_error_result(self, test: TestConfig, error: str) -> TestResult:
+        """Create a TestResult for an error condition.
+
+        Args:
+            test: Test configuration.
+            error: Error message.
+
+        Returns:
+            TestResult with passed=False and error set.
+        """
+        return TestResult(
+            test_id=test.id,
+            passed=False,
+            severity=test.severity,
+            title=test.title or test.id,
+            description=test.description,
+            metric=test.metric or "",
+            error=error,
+        )
+
+    def _calculate_percentage(self, count: int, total: int) -> float:
+        """Calculate percentage, handling division by zero.
+
+        Args:
+            count: Numerator.
+            total: Denominator.
+
+        Returns:
+            Percentage (0.0 to 100.0).
+        """
+        return 100.0 * count / total if total > 0 else 0.0
+
+    def _build_test_result(
+        self,
+        test: TestConfig,
+        passed: bool,
+        total_count: int,
+        affected_indices: list[int],
+        affected_pct: float,
+        details: dict[str, Any],
+        actual_value: float | None = None,
+    ) -> TestResult:
+        """Build a TestResult from common fields.
+
+        Args:
+            test: Test configuration.
+            passed: Whether the test passed.
+            total_count: Total number of values tested.
+            affected_indices: Indices of affected samples.
+            affected_pct: Percentage of affected samples.
+            details: Test-specific details.
+            actual_value: Actual metric value for single-value tests.
+
+        Returns:
+            TestResult instance.
+        """
+        return TestResult(
+            test_id=test.id,
+            passed=passed,
+            severity=test.severity,
+            title=test.title or test.id,
+            description=test.description,
+            metric=test.metric or "",
+            affected_count=len(affected_indices),
+            total_count=total_count,
+            affected_percentage=round(affected_pct, 2),
+            threshold=test.max_percentage or test.min_percentage,
+            actual_value=actual_value,
+            sample_indices=affected_indices[:50],
+            details=details,
+        )
+
+    def _get_actual_value(self, values: list[Any]) -> float | None:
+        """Extract actual value for single-value metrics.
+
+        Args:
+            values: List of metric values.
+
+        Returns:
+            Float value if this is a single numeric value, None otherwise.
+        """
+        if len(values) == 1:
+            val = values[0]
+            if isinstance(val, int | float):
+                return float(val)
+            if isinstance(val, bool):
+                return 1.0 if val else 0.0
+        return None
+
     def run(
         self,
         results: dict[str, list[BaseModel] | BaseModel],
@@ -146,14 +235,8 @@ class TestEngine:
                     f"({result.affected_count}/{result.total_count} affected)"
                 )
             except Exception as e:
-                # Create error result
-                error_result = TestResult(
-                    test_id=test.id,
-                    passed=False,
-                    severity=test.severity,
-                    title=test.title or test.id,
-                    description=test.description,
-                    error=f"Test execution failed: {e}",
+                error_result = self._create_error_result(
+                    test, f"Test execution failed: {e}"
                 )
                 test_results.append(error_result)
                 logger.warning(f"  Test '{test.id}': ERROR - {e}")
@@ -186,14 +269,8 @@ class TestEngine:
         values = self._extract_metric_values(test.metric, results)
 
         if not values:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                description=test.description,
-                metric=test.metric or "",
-                error=f"Metric '{test.metric}' not found in results",
+            return self._create_error_result(
+                test, f"Metric '{test.metric}' not found in results"
             )
 
         if test.type == TestType.THRESHOLD:
@@ -203,14 +280,7 @@ class TestEngine:
         elif test.type == TestType.RANGE:
             return self._run_range_test(test, values)
         else:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error=f"Unknown test type: {test.type}",
-            )
+            return self._create_error_result(test, f"Unknown test type: {test.type}")
 
     def _extract_metric_values(
         self,
@@ -300,25 +370,13 @@ class TestEngine:
             TestResult.
         """
         if test.operator is None or test.value is None:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error="Threshold test requires 'operator' and 'value'",
+            return self._create_error_result(
+                test, "Threshold test requires 'operator' and 'value'"
             )
 
         op_func = OPERATORS.get(test.operator)
         if op_func is None:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error=f"Unknown operator: {test.operator}",
-            )
+            return self._create_error_result(test, f"Unknown operator: {test.operator}")
 
         matching_indices = []
         non_matching_indices = []
@@ -342,52 +400,33 @@ class TestEngine:
         total_count = len(values)
         matching_count = len(matching_indices)
         non_matching_count = len(non_matching_indices)
-        matching_pct = 100.0 * matching_count / total_count if total_count > 0 else 0.0
-        non_matching_pct = (
-            100.0 * non_matching_count / total_count if total_count > 0 else 0.0
-        )
+        matching_pct = self._calculate_percentage(matching_count, total_count)
+        non_matching_pct = self._calculate_percentage(non_matching_count, total_count)
 
-        passed = True
+        # Determine pass/fail and affected samples based on percentage thresholds
         if test.max_percentage is not None:
-            if matching_pct > test.max_percentage:
-                passed = False
+            passed = matching_pct <= test.max_percentage
             affected_indices = matching_indices
-            affected_count = matching_count
             affected_pct = matching_pct
             failure_reasons = matching_reasons
         elif test.min_percentage is not None:
-            if matching_pct < test.min_percentage:
-                passed = False
+            passed = matching_pct >= test.min_percentage
             affected_indices = non_matching_indices
-            affected_count = non_matching_count
             affected_pct = non_matching_pct
             failure_reasons = non_matching_reasons
         else:
             passed = non_matching_count == 0
             affected_indices = non_matching_indices
-            affected_count = non_matching_count
             affected_pct = non_matching_pct
             failure_reasons = non_matching_reasons
 
-        actual_value = None
-        if total_count == 1 and len(values) == 1:
-            val = values[0]
-            if isinstance(val, int | float):
-                actual_value = float(val)
-
-        return TestResult(
-            test_id=test.id,
+        return self._build_test_result(
+            test=test,
             passed=passed,
-            severity=test.severity,
-            title=test.title or test.id,
-            description=test.description,
-            metric=test.metric or "",
-            affected_count=affected_count,
             total_count=total_count,
-            affected_percentage=round(affected_pct, 2),
-            threshold=test.max_percentage or test.min_percentage,
-            actual_value=actual_value,
-            sample_indices=affected_indices[:50],
+            affected_indices=affected_indices,
+            affected_pct=affected_pct,
+            actual_value=self._get_actual_value(values),
             details={
                 "operator": test.operator,
                 "value": test.value,
@@ -416,36 +455,21 @@ class TestEngine:
             TestResult.
         """
         if test.condition is None:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error="Percentage test requires 'condition'",
+            return self._create_error_result(
+                test, "Percentage test requires 'condition'"
             )
 
         match = re.match(r"([<>=!]+)\s*(.+)", test.condition.strip())
         if not match:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error=f"Invalid condition format: {test.condition}",
+            return self._create_error_result(
+                test, f"Invalid condition format: {test.condition}"
             )
 
         op_str, value_str = match.groups()
         op_func = OPERATORS.get(op_str)
         if op_func is None:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error=f"Unknown operator in condition: {op_str}",
+            return self._create_error_result(
+                test, f"Unknown operator in condition: {op_str}"
             )
 
         try:
@@ -476,7 +500,7 @@ class TestEngine:
 
         matching_count = len(matching_indices)
         total_count = len(values)
-        matching_pct = 100.0 * matching_count / total_count if total_count > 0 else 0.0
+        matching_pct = self._calculate_percentage(matching_count, total_count)
 
         passed = True
         if test.max_percentage is not None and matching_pct > test.max_percentage:
@@ -484,40 +508,23 @@ class TestEngine:
         if test.min_percentage is not None and matching_pct < test.min_percentage:
             passed = False
 
+        # Determine affected samples based on test semantics
         if test.min_percentage is not None and not passed:
             affected_indices = non_matching_indices
-            affected_count = len(non_matching_indices)
-            affected_pct = (
-                100.0 * affected_count / total_count if total_count > 0 else 0.0
+            affected_pct = self._calculate_percentage(
+                len(non_matching_indices), total_count
             )
         else:
             affected_indices = matching_indices
-            affected_count = matching_count
             affected_pct = matching_pct
 
-        actual_value = None
-        if total_count == 1 and len(values) == 1:
-            val = values[0]
-            if isinstance(val, int | float | bool):
-                actual_value = (
-                    float(val)
-                    if isinstance(val, int | float)
-                    else (1.0 if val else 0.0)
-                )
-
-        return TestResult(
-            test_id=test.id,
+        return self._build_test_result(
+            test=test,
             passed=passed,
-            severity=test.severity,
-            title=test.title or test.id,
-            description=test.description,
-            metric=test.metric or "",
-            affected_count=affected_count,
             total_count=total_count,
-            affected_percentage=round(affected_pct, 2),
-            threshold=test.max_percentage or test.min_percentage,
-            actual_value=actual_value,
-            sample_indices=affected_indices[:50],
+            affected_indices=affected_indices,
+            affected_pct=affected_pct,
+            actual_value=self._get_actual_value(values),
             details={
                 "condition": test.condition,
                 "matching_count": matching_count,
@@ -543,13 +550,8 @@ class TestEngine:
             TestResult.
         """
         if test.min_value is None and test.max_value is None:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error="Range test requires 'min_value' and/or 'max_value'",
+            return self._create_error_result(
+                test, "Range test requires 'min_value' and/or 'max_value'"
             )
 
         affected_indices = []
@@ -565,25 +567,18 @@ class TestEngine:
             except (TypeError, ValueError):
                 pass
 
-        affected_count = len(affected_indices)
         total_count = len(values)
-        affected_pct = 100.0 * affected_count / total_count if total_count > 0 else 0.0
-
+        affected_pct = self._calculate_percentage(len(affected_indices), total_count)
         max_pct = test.max_percentage if test.max_percentage is not None else 0.0
         passed = affected_pct <= max_pct
 
-        return TestResult(
-            test_id=test.id,
+        return self._build_test_result(
+            test=test,
             passed=passed,
-            severity=test.severity,
-            title=test.title or test.id,
-            description=test.description,
-            metric=test.metric or "",
-            affected_count=affected_count,
             total_count=total_count,
-            affected_percentage=round(affected_pct, 2),
-            threshold=max_pct,
-            sample_indices=affected_indices[:50],
+            affected_indices=affected_indices,
+            affected_pct=affected_pct,
+            actual_value=None,
             details={
                 "min_value": test.min_value,
                 "max_value": test.max_value,

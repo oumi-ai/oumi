@@ -85,6 +85,65 @@ class CompositeOperator(str, Enum):
     ALL = "all"
 
 
+# Declarative validation configuration
+TEST_VALIDATIONS = {
+    "threshold": {
+        "required": ["metric", "operator", "value"],
+        "valid_values": {"operator": ["<", ">", "<=", ">=", "==", "!="]},
+    },
+    "percentage": {
+        "required": ["metric", "condition"],
+        "either_required": [["max_percentage", "min_percentage"]],
+    },
+    "distribution": {
+        "required": ["metric", "check", "threshold"],
+        "valid_enums": {"check": "DistributionCheck"},
+    },
+    "regex": {
+        "required": ["text_field", "pattern"],
+    },
+    "contains": {
+        "required": ["text_field"],
+        "custom": lambda self: (self.value is not None or self.values)
+        or "requires 'value' or 'values'",
+    },
+    "contains-any": {
+        "required": ["text_field", "values"],
+    },
+    "contains-all": {
+        "required": ["text_field", "values"],
+    },
+    "query": {
+        "required": ["expression"],
+    },
+    "outliers": {
+        "required": ["metric"],
+        "custom": lambda self: (self.std_threshold > 0)
+        or "'std_threshold' must be positive",
+    },
+    "composite": {
+        "required": ["tests"],
+        "custom": lambda self: (
+            self.composite_operator in ["any", "all"]
+            or _try_parse_int(self.composite_operator)
+        )
+        or f"Invalid composite_operator '{self.composite_operator}'",
+    },
+    "python": {
+        "required": ["function"],
+    },
+}
+
+
+def _try_parse_int(value: str) -> bool:
+    """Try to parse a string as an integer."""
+    try:
+        int(value)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
 @dataclass
 class TestParams(BaseParams):
     """Configuration for a single test on analysis results.
@@ -165,190 +224,83 @@ class TestParams(BaseParams):
         if not self.type:
             raise ValueError(f"Test 'type' is required for test '{self.id}'.")
 
-        # Validate test type
-        valid_types = [t.value for t in TestType]
-        if self.type not in valid_types:
-            raise ValueError(
-                f"Invalid test type '{self.type}' for test '{self.id}'. "
-                f"Valid types: {valid_types}"
-            )
+        self._validate_enum_field("type", TestType, "test type")
+        self._validate_enum_field("severity", TestSeverity, "severity")
+        self._validate_enum_field("scope", TestScope, "scope")
 
-        # Validate severity
-        valid_severities = [s.value for s in TestSeverity]
-        if self.severity not in valid_severities:
-            raise ValueError(
-                f"Invalid severity '{self.severity}' for test '{self.id}'. "
-                f"Valid severities: {valid_severities}"
-            )
-
-        # Validate scope
-        valid_scopes = [s.value for s in TestScope]
-        if self.scope not in valid_scopes:
-            raise ValueError(
-                f"Invalid scope '{self.scope}' for test '{self.id}'. "
-                f"Valid scopes: {valid_scopes}"
-            )
-
-        # Type-specific validation
         self._validate_by_type()
 
+    def _validate_enum_field(
+        self, field_name: str, enum_class: Any, label: str
+    ) -> None:
+        """Validate that a field matches an enum value.
+
+        Args:
+            field_name: Name of the field to validate.
+            enum_class: Enum class to validate against.
+            label: Human-readable label for error messages.
+        """
+        value = getattr(self, field_name)
+        valid_values = [e.value for e in enum_class]
+        if value not in valid_values:
+            raise ValueError(
+                f"Invalid {label} '{value}' for test '{self.id}'. "
+                f"Valid values: {valid_values}"
+            )
+
     def _validate_by_type(self) -> None:
-        """Validate fields based on test type."""
-        if self.type == TestType.THRESHOLD.value:
-            self._validate_threshold_test()
-        elif self.type == TestType.PERCENTAGE.value:
-            self._validate_percentage_test()
-        elif self.type == TestType.DISTRIBUTION.value:
-            self._validate_distribution_test()
-        elif self.type in (TestType.REGEX.value,):
-            self._validate_regex_test()
-        elif self.type in (
-            TestType.CONTAINS.value,
-            TestType.CONTAINS_ANY.value,
-            TestType.CONTAINS_ALL.value,
-        ):
-            self._validate_contains_test()
-        elif self.type == TestType.QUERY.value:
-            self._validate_query_test()
-        elif self.type == TestType.OUTLIERS.value:
-            self._validate_outliers_test()
-        elif self.type == TestType.COMPOSITE.value:
-            self._validate_composite_test()
-        elif self.type == TestType.PYTHON.value:
-            self._validate_python_test()
+        """Validate fields based on test type using declarative rules."""
+        validation_rules = TEST_VALIDATIONS.get(self.type)
+        if not validation_rules:
+            return
 
-    def _validate_threshold_test(self) -> None:
-        """Validate threshold test configuration."""
-        if not self.metric:
-            raise ValueError(
-                f"Test '{self.id}': 'metric' is required for threshold tests."
-            )
-        if not self.operator:
-            raise ValueError(
-                f"Test '{self.id}': 'operator' is required for threshold tests."
-            )
-        if self.value is None:
-            raise ValueError(
-                f"Test '{self.id}': 'value' is required for threshold tests."
-            )
-
-        valid_operators = ["<", ">", "<=", ">=", "==", "!="]
-        if self.operator not in valid_operators:
-            raise ValueError(
-                f"Test '{self.id}': Invalid operator '{self.operator}'. "
-                f"Valid operators: {valid_operators}"
-            )
-
-    def _validate_percentage_test(self) -> None:
-        """Validate percentage test configuration."""
-        if not self.metric:
-            raise ValueError(
-                f"Test '{self.id}': 'metric' is required for percentage tests."
-            )
-        if not self.condition:
-            raise ValueError(
-                f"Test '{self.id}': 'condition' is required for percentage tests."
-            )
-        if self.max_percentage is None and self.min_percentage is None:
-            raise ValueError(
-                f"Test '{self.id}': Either 'max_percentage' or 'min_percentage' "
-                "is required for percentage tests."
-            )
-
-    def _validate_distribution_test(self) -> None:
-        """Validate distribution test configuration."""
-        if not self.metric:
-            raise ValueError(
-                f"Test '{self.id}': 'metric' is required for distribution tests."
-            )
-        if not self.check:
-            raise ValueError(
-                f"Test '{self.id}': 'check' is required for distribution tests."
-            )
-        if self.threshold is None:
-            raise ValueError(
-                f"Test '{self.id}': 'threshold' is required for distribution tests."
-            )
-
-        valid_checks = [c.value for c in DistributionCheck]
-        if self.check not in valid_checks:
-            raise ValueError(
-                f"Test '{self.id}': Invalid distribution check '{self.check}'. "
-                f"Valid checks: {valid_checks}"
-            )
-
-    def _validate_regex_test(self) -> None:
-        """Validate regex test configuration."""
-        if not self.text_field:
-            raise ValueError(
-                f"Test '{self.id}': 'field' (text_field) is required for regex tests."
-            )
-        if not self.pattern:
-            raise ValueError(
-                f"Test '{self.id}': 'pattern' is required for regex tests."
-            )
-
-    def _validate_contains_test(self) -> None:
-        """Validate contains test configuration."""
-        if not self.text_field:
-            raise ValueError(
-                f"Test '{self.id}': 'field' (text_field) is required for "
-                "contains tests."
-            )
-
-        if self.type == TestType.CONTAINS.value:
-            if self.value is None and not self.values:
+        # Check required fields
+        for field_name in validation_rules.get("required", []):
+            value = getattr(self, field_name)
+            if value is None or (isinstance(value, str) and not value):
                 raise ValueError(
-                    f"Test '{self.id}': 'value' or 'values' is required for "
-                    "contains tests."
-                )
-        else:  # contains-any or contains-all
-            if not self.values:
-                raise ValueError(
-                    f"Test '{self.id}': 'values' is required for {self.type} tests."
+                    f"Test '{self.id}': '{field_name}' is required for "
+                    f"{self.type} tests."
                 )
 
-    def _validate_query_test(self) -> None:
-        """Validate query test configuration."""
-        if not self.expression:
-            raise ValueError(
-                f"Test '{self.id}': 'expression' is required for query tests."
-            )
-
-    def _validate_outliers_test(self) -> None:
-        """Validate outliers test configuration."""
-        if not self.metric:
-            raise ValueError(
-                f"Test '{self.id}': 'metric' is required for outliers tests."
-            )
-        if self.std_threshold <= 0:
-            raise ValueError(f"Test '{self.id}': 'std_threshold' must be positive.")
-
-    def _validate_composite_test(self) -> None:
-        """Validate composite test configuration."""
-        if not self.tests:
-            raise ValueError(
-                f"Test '{self.id}': 'tests' is required for composite tests."
-            )
-
-        valid_operators = [o.value for o in CompositeOperator]
-        # Also allow integer values for "at least N must pass"
-        if self.composite_operator not in valid_operators:
-            try:
-                int(self.composite_operator)
-            except (ValueError, TypeError):
+        # Check either_required (at least one must be set)
+        for field_group in validation_rules.get("either_required", []):
+            if not any(getattr(self, f) is not None for f in field_group):
+                fields_str = "' or '".join(field_group)
                 raise ValueError(
-                    f"Test '{self.id}': Invalid composite_operator "
-                    f"'{self.composite_operator}'. "
-                    f"Valid operators: {valid_operators} or an integer."
+                    f"Test '{self.id}': Either '{fields_str}' "
+                    f"is required for {self.type} tests."
                 )
 
-    def _validate_python_test(self) -> None:
-        """Validate python test configuration."""
-        if not self.function:
-            raise ValueError(
-                f"Test '{self.id}': 'function' is required for python tests."
-            )
+        # Check valid_values (field must be in allowed list)
+        for field_name, valid_values in validation_rules.get(
+            "valid_values", {}
+        ).items():
+            value = getattr(self, field_name)
+            if value and value not in valid_values:
+                raise ValueError(
+                    f"Test '{self.id}': Invalid {field_name} '{value}'. "
+                    f"Valid values: {valid_values}"
+                )
+
+        # Check valid_enums (field must be in enum)
+        for field_name, enum_name in validation_rules.get("valid_enums", {}).items():
+            value = getattr(self, field_name)
+            if value:
+                enum_class = globals()[enum_name]
+                valid_values = [e.value for e in enum_class]
+                if value not in valid_values:
+                    raise ValueError(
+                        f"Test '{self.id}': Invalid {field_name} '{value}'. "
+                        f"Valid values: {valid_values}"
+                    )
+
+        # Run custom validation if provided
+        custom_validator = validation_rules.get("custom")
+        if custom_validator:
+            result = custom_validator(self)
+            if isinstance(result, str):
+                raise ValueError(f"Test '{self.id}': {result}")
 
     def get_title(self) -> str:
         """Get the display title for this test."""
