@@ -15,14 +15,18 @@
 import json
 import os
 import uuid
-from datetime import datetime
 from typing import Any
 
 import aiohttp
 from typing_extensions import override
 
 from oumi.core.async_utils import safe_asyncio_run
-from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
+from oumi.core.configs import (
+    GenerationParams,
+    InferenceConfig,
+    ModelParams,
+    RemoteParams,
+)
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import (
     BatchInfo,
@@ -42,6 +46,20 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
 
     account_id_env_varname: str = "FIREWORKS_ACCOUNT_ID"
     """Environment variable name for the Fireworks account ID."""
+
+    _FIREWORKS_STATE_MAPPING: dict[str, BatchStatus] = {
+        "UNSPECIFIED": BatchStatus.IN_PROGRESS,
+        "CREATING": BatchStatus.VALIDATING,
+        "QUEUED": BatchStatus.IN_PROGRESS,
+        "PENDING": BatchStatus.IN_PROGRESS,
+        "RUNNING": BatchStatus.IN_PROGRESS,
+        "COMPLETED": BatchStatus.COMPLETED,
+        "FAILED": BatchStatus.FAILED,
+        "CANCELLING": BatchStatus.CANCELLED,
+        "CANCELLED": BatchStatus.CANCELLED,
+        "DELETING": BatchStatus.CANCELLED,
+    }
+    """Mapping from Fireworks job states to BatchStatus."""
 
     @property
     @override
@@ -77,29 +95,26 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         account_id = self._get_account_id()
         return f"https://api.fireworks.ai/v1/accounts/{account_id}"
 
-    def _get_fireworks_request_headers(self) -> dict[str, str]:
+    @override
+    def _get_request_headers(self, remote_params: RemoteParams | None) -> dict[str, str]:
         """Get request headers for Fireworks API calls."""
-        api_key = self._get_api_key(self._remote_params)
+        api_key = self._get_api_key(remote_params or self._remote_params)
         return {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
 
     @staticmethod
-    def _parse_fireworks_timestamp(timestamp: str | None) -> datetime | None:
-        """Parse Fireworks timestamp string to datetime.
+    def _extract_resource_id(resource_path: str) -> str:
+        """Extract the ID from a Fireworks resource path.
 
         Args:
-            timestamp: ISO 8601 formatted timestamp string
+            resource_path: Full path like 'accounts/x/datasets/y' or just 'y'
 
         Returns:
-            datetime or None if timestamp is None or empty
+            str: The extracted resource ID (last segment of the path)
         """
-        if not timestamp:
-            return None
-        # Handle "Z" suffix
-        timestamp = timestamp.replace("Z", "+00:00")
-        return datetime.fromisoformat(timestamp)
+        return resource_path.split("/")[-1] if "/" in resource_path else resource_path
 
     def _convert_fireworks_job_to_batch_info(
         self, response: dict[str, Any]
@@ -120,22 +135,9 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         # Map Fireworks state to BatchStatus
         # Fireworks uses JOB_STATE_* prefix (e.g., JOB_STATE_COMPLETED)
         state = response.get("state", "").upper()
-        # Remove JOB_STATE_ prefix if present
         if state.startswith("JOB_STATE_"):
             state = state[len("JOB_STATE_") :]
-        state_mapping = {
-            "UNSPECIFIED": BatchStatus.IN_PROGRESS,
-            "CREATING": BatchStatus.VALIDATING,
-            "QUEUED": BatchStatus.IN_PROGRESS,
-            "PENDING": BatchStatus.IN_PROGRESS,
-            "RUNNING": BatchStatus.IN_PROGRESS,
-            "COMPLETED": BatchStatus.COMPLETED,
-            "FAILED": BatchStatus.FAILED,
-            "CANCELLING": BatchStatus.CANCELLED,
-            "CANCELLED": BatchStatus.CANCELLED,
-            "DELETING": BatchStatus.CANCELLED,
-        }
-        status = state_mapping.get(state, BatchStatus.IN_PROGRESS)
+        status = self._FIREWORKS_STATE_MAPPING.get(state, BatchStatus.IN_PROGRESS)
 
         # Extract progress information (jobProgress can be None)
         job_progress = response.get("jobProgress") or {}
@@ -143,11 +145,8 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         processed_requests = job_progress.get("processedRequests", 0)
         failed_requests = job_progress.get("failedRequests", 0)
 
-        # Extract job name/id - Fireworks uses "name" field with full path
-        job_name = response.get("name", "")
-        # Extract just the job ID from the full resource name
-        # Format: accounts/{account_id}/batchInferenceJobs/{job_id}
-        job_id = job_name.split("/")[-1] if "/" in job_name else job_name
+        # Extract job ID from full resource name (accounts/{id}/batchInferenceJobs/{id})
+        job_id = self._extract_resource_id(response.get("name", ""))
 
         return BatchInfo(
             id=job_id,
@@ -156,9 +155,9 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
             completed_requests=processed_requests - failed_requests,
             failed_requests=failed_requests,
             endpoint="/v1/chat/completions",
-            created_at=self._parse_fireworks_timestamp(response.get("createTime")),
-            in_progress_at=self._parse_fireworks_timestamp(response.get("startTime")),
-            completed_at=self._parse_fireworks_timestamp(response.get("endTime")),
+            created_at=self._parse_iso_timestamp(response.get("createTime")),
+            in_progress_at=self._parse_iso_timestamp(response.get("startTime")),
+            completed_at=self._parse_iso_timestamp(response.get("endTime")),
             metadata={
                 "fireworks_state": state,
                 "input_dataset_id": response.get("inputDatasetId"),
@@ -180,7 +179,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
             session: aiohttp session to use
         """
         base_url = self._get_batch_api_base_url()
-        headers = self._get_fireworks_request_headers()
+        headers = self._get_request_headers(self._remote_params)
 
         async with session.post(
             f"{base_url}/datasets",
@@ -211,7 +210,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
             session: aiohttp session to use
         """
         base_url = self._get_batch_api_base_url()
-        headers = self._get_fireworks_request_headers()
+        headers = self._get_request_headers(self._remote_params)
         # Remove Content-Type for multipart upload
         upload_headers = {"Authorization": headers["Authorization"]}
 
@@ -243,7 +242,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
             session: aiohttp session to use
         """
         base_url = self._get_batch_api_base_url()
-        headers = self._get_fireworks_request_headers()
+        headers = self._get_request_headers(self._remote_params)
 
         async with session.delete(
             f"{base_url}/datasets/{dataset_id}",
@@ -268,7 +267,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
             str: The dataset content
         """
         base_url = self._get_batch_api_base_url()
-        headers = self._get_fireworks_request_headers()
+        headers = self._get_request_headers(self._remote_params)
 
         # First get the download endpoint (uses GET, not POST)
         async with session.get(
@@ -387,7 +386,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
 
                 # Create batch inference job
                 base_url = self._get_batch_api_base_url()
-                headers = self._get_fireworks_request_headers()
+                headers = self._get_request_headers(self._remote_params)
                 account_id = self._get_account_id()
 
                 # Fireworks expects full resource paths for dataset IDs
@@ -414,10 +413,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
                         error_text = await response.text()
                         raise RuntimeError(f"Failed to create batch job: {error_text}")
                     data = await response.json()
-                    # Extract job ID from the full resource name
-                    job_name = data.get("name", "")
-                    job_id = job_name.split("/")[-1] if "/" in job_name else job_name
-                    return job_id
+                    return self._extract_resource_id(data.get("name", ""))
             except Exception:
                 # Clean up the input dataset if batch creation fails
                 await self._delete_fireworks_dataset(input_dataset_id, session)
@@ -444,11 +440,8 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchInfo: Current status of the batch job
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
-            base_url = self._get_batch_api_base_url()
-            headers = self._get_fireworks_request_headers()
-
+        base_url = self._get_batch_api_base_url()
+        async with self._create_session() as (session, headers):
             async with session.get(
                 f"{base_url}/batchInferenceJobs/{batch_id}",
                 headers=headers,
@@ -490,11 +483,8 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchListResponse: List of batch jobs
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
-            base_url = self._get_batch_api_base_url()
-            headers = self._get_fireworks_request_headers()
-
+        base_url = self._get_batch_api_base_url()
+        async with self._create_session() as (session, headers):
             params: dict[str, str] = {}
             if after:
                 params["pageToken"] = after
@@ -585,12 +575,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         if not output_dataset_path:
             raise RuntimeError("No output dataset ID available")
 
-        # Extract just the dataset ID if it's a full path
-        # Path format: accounts/{account_id}/datasets/{dataset_id}
-        if "/" in output_dataset_path:
-            output_dataset_id = output_dataset_path.split("/")[-1]
-        else:
-            output_dataset_id = output_dataset_path
+        output_dataset_id = self._extract_resource_id(output_dataset_path)
 
         # Download results from output dataset
         connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
@@ -656,11 +641,8 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchInfo: Updated status of the batch job
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
-            base_url = self._get_batch_api_base_url()
-            headers = self._get_fireworks_request_headers()
-
+        base_url = self._get_batch_api_base_url()
+        async with self._create_session() as (session, headers):
             async with session.post(
                 f"{base_url}/batchInferenceJobs/{batch_id}:cancel",
                 json={},
@@ -670,5 +652,5 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
                     error_text = await response.text()
                     raise RuntimeError(f"Failed to cancel batch: {error_text}")
 
-            # Get updated status
-            return await self._get_fireworks_batch_status(batch_id)
+        # Get updated status
+        return await self._get_fireworks_batch_status(batch_id)

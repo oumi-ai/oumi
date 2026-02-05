@@ -13,10 +13,8 @@
 # limitations under the License.
 
 import json
-from datetime import datetime
 from typing import Any
 
-import aiohttp
 from typing_extensions import override
 
 from oumi.core.async_utils import safe_asyncio_run
@@ -182,23 +180,6 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         """Returns the URL for the Anthropic batch API."""
         return "https://api.anthropic.com/v1/messages/batches"
 
-    @staticmethod
-    def _parse_rfc3339_timestamp(timestamp: str | None) -> datetime | None:
-        """Parse RFC 3339 timestamp string to datetime.
-
-        Args:
-            timestamp: RFC 3339 formatted timestamp string
-                (e.g., "2024-01-01T00:00:00Z")
-
-        Returns:
-            datetime or None if timestamp is None or empty
-        """
-        if not timestamp:
-            return None
-        # Handle both "Z" suffix and "+00:00" format
-        timestamp = timestamp.replace("Z", "+00:00")
-        return datetime.fromisoformat(timestamp)
-
     def _convert_anthropic_batch_to_batch_info(
         self, response: dict[str, Any]
     ) -> BatchInfo:
@@ -254,10 +235,10 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             completed_requests=request_counts.get("succeeded", 0),
             failed_requests=request_counts.get("errored", 0),
             endpoint="/v1/messages",
-            created_at=self._parse_rfc3339_timestamp(response.get("created_at")),
-            expires_at=self._parse_rfc3339_timestamp(response.get("expires_at")),
-            completed_at=self._parse_rfc3339_timestamp(response.get("ended_at")),
-            canceling_at=self._parse_rfc3339_timestamp(
+            created_at=self._parse_iso_timestamp(response.get("created_at")),
+            expires_at=self._parse_iso_timestamp(response.get("expires_at")),
+            completed_at=self._parse_iso_timestamp(response.get("ended_at")),
+            canceling_at=self._parse_iso_timestamp(
                 response.get("cancel_initiated_at")
             ),
             # Store results_url in metadata for later retrieval
@@ -328,10 +309,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             )
 
         # Create batch
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(self._remote_params)
-
+        async with self._create_session() as (session, headers):
             async with session.post(
                 self._get_batch_api_url(),
                 json={"requests": requests},
@@ -364,10 +342,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchInfo: Current status of the batch job
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(self._remote_params)
-
+        async with self._create_session() as (session, headers):
             async with session.get(
                 f"{self._get_batch_api_url()}/{batch_id}",
                 headers=headers,
@@ -409,10 +384,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchListResponse: List of batch jobs
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(self._remote_params)
-
+        async with self._create_session() as (session, headers):
             params: dict[str, str] = {}
             if after:
                 params["after_id"] = after
@@ -505,10 +477,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             raise RuntimeError("No results URL available")
 
         # Download results from the URL
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(self._remote_params)
-
+        async with self._create_session() as (session, headers):
             async with session.get(results_url, headers=headers) as response:
                 if response.status != 200:
                     error_text = await response.text()
@@ -582,10 +551,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchInfo: Updated status of the batch job
         """
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(self._remote_params)
-
+        async with self._create_session() as (session, headers):
             async with session.post(
                 f"{self._get_batch_api_url()}/{batch_id}/cancel",
                 headers=headers,

@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import tempfile
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -90,10 +89,7 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
             tmp_path = Path(tmp.name)
 
         try:
-            connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-            async with aiohttp.ClientSession(connector=connector) as session:
-                headers = self._get_request_headers(self._remote_params)
-
+            async with self._create_session() as (session, headers):
                 # Step 1: Request signed upload URL
                 # Together expects form-encoded data (not JSON or multipart)
                 request_data = {
@@ -187,13 +183,9 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
         ]
         for field in timestamp_fields:
             if field in data and isinstance(data[field], str):
-                try:
-                    # Parse ISO 8601 format (e.g., "2026-01-22T16:02:20.250781Z")
-                    ts = data[field].replace("Z", "+00:00")
-                    dt = datetime.fromisoformat(ts)
+                dt = self._parse_iso_timestamp(data[field])
+                if dt is not None:
                     data[field] = int(dt.timestamp())
-                except (ValueError, AttributeError):
-                    pass  # Leave as-is if parsing fails
 
         return data
 
@@ -238,9 +230,7 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
         file_id = await self._upload_batch_file(batch_requests)
 
         # Create batch
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(self._remote_params)
+        async with self._create_session() as (session, headers):
             async with session.post(
                 self.get_batch_api_url(),
                 json={
@@ -260,9 +250,7 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
     @override
     async def _get_batch_status(self, batch_id: str) -> BatchInfo:
         """Gets the status of a batch job, normalizing Together's response format."""
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
-            headers = self._get_request_headers(self._remote_params)
+        async with self._create_session() as (session, headers):
             async with session.get(
                 f"{self.get_batch_api_url()}/{batch_id}",
                 headers=headers,
