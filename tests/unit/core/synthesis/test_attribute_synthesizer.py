@@ -325,3 +325,196 @@ def test_postprocess_sample_with_no_regex_match(mock_build_inference_engine):
     result = synthesizer._postprocess_sample(response, postprocessing_params)
 
     assert result == "Number: No numbers here!"
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_batch_returns_batch_id(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that synthesize_batch returns a batch ID."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer_batch.return_value = "batch_123"
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    result = synthesizer.synthesize_batch(samples, mock_generated_attribute)
+
+    assert result == "batch_123"
+    mock_inference_engine.infer_batch.assert_called_once()
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_batch_raises_when_not_supported(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that synthesize_batch raises NotImplementedError for unsupported engines."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    del mock_inference_engine.infer_batch
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    with pytest.raises(NotImplementedError) as exc_info:
+        synthesizer.synthesize_batch(samples, mock_generated_attribute)
+
+    assert "does not support batch inference" in str(exc_info.value)
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_status_raises_when_not_supported(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test that get_batch_status raises NotImplementedError for unsupported engines."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    del mock_inference_engine.get_batch_status
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    with pytest.raises(NotImplementedError) as exc_info:
+        synthesizer.get_batch_status("batch_123")
+
+    assert "does not support batch inference" in str(exc_info.value)
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_results_returns_processed_results(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that get_batch_results returns processed results with postprocessing."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.get_batch_results.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 1"),
+            ]
+        ),
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 2"),
+            ]
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    result = synthesizer.get_batch_results(
+        "batch_123", samples, mock_generated_attribute
+    )
+
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert result[0] == {"generated_content": "Test response 1"}
+    assert result[1] == {"generated_content": "Test response 2"}
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_results_raises_when_not_supported(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that get_batch_results raises for unsupported engines."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    del mock_inference_engine.get_batch_results
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    with pytest.raises(NotImplementedError) as exc_info:
+        synthesizer.get_batch_results("batch_123", samples, mock_generated_attribute)
+
+    assert "does not support batch inference" in str(exc_info.value)
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_results_with_postprocessing(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test that get_batch_results applies postprocessing correctly."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.get_batch_results.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Response: Hello World [END]"),
+            ]
+        ),
+    ]
+
+    generated_attribute_with_postprocessing = GeneratedAttribute(
+        id="original_content",
+        instruction_messages=[
+            TextMessage(role=Role.USER, content="Generate something for {style}"),
+        ],
+        postprocessing_params=GeneratedAttributePostprocessingParams(
+            id="processed_content",
+            cut_prefix="Response: ",
+            cut_suffix=" [END]",
+            strip_whitespace=True,
+        ),
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal"}]
+
+    result = synthesizer.get_batch_results(
+        "batch_123", samples, generated_attribute_with_postprocessing
+    )
+
+    assert len(result) == 1
+    assert "processed_content" in result[0]
+    assert result[0]["processed_content"] == "Hello World"

@@ -40,12 +40,14 @@ def _get_torchdata_imports():
         ImportError: If torchdata is not installed.
     """
     require_torchdata("Torchdata datapipes")
-    from torchdata.datapipes.iter import (
+    from torchdata.datapipes.iter import (  # pyright: ignore[reportMissingImports]
         HuggingFaceHubReader,
         MultiplexerLongest,
         SampleMultiplexer,
     )
-    from torchdata.datapipes.map.util.converter import MapToIterConverterIterDataPipe
+    from torchdata.datapipes.map.util.converter import (
+        MapToIterConverterIterDataPipe,  # pyright: ignore[reportMissingImports]
+    )
 
     return (
         HuggingFaceHubReader,

@@ -25,6 +25,7 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message
+from oumi.inference.remote_inference_engine import BatchInfo
 from oumi.utils.logging import logger
 
 
@@ -83,42 +84,105 @@ class AttributeSynthesizer:
             inference_config=self._inference_config,
         )
 
-        original_responses = self._extract_response(inference_results)
-        if not generated_attribute.postprocessing_params:
-            records = [
-                {generated_attribute.id: unpostprocessed_response}
-                for unpostprocessed_response in original_responses
-            ]
-            return records
+        return self._process_inference_results(inference_results, generated_attribute)
 
-        keep_original = (
-            generated_attribute.postprocessing_params.keep_original_text_attribute
+    def synthesize_batch(
+        self,
+        samples: list[dict],
+        generated_attribute: GeneratedAttribute,
+    ) -> str:
+        """Submit a batch inference job for attribute synthesis.
+
+        Args:
+            samples: The samples to synthesize values for.
+            generated_attribute: The generated attribute to synthesize a value for.
+
+        Returns:
+            The batch ID that can be used with get_batch_status and get_batch_results.
+
+        Raises:
+            NotImplementedError: If the inference engine does not support batch.
+        """
+        if not hasattr(self._inference_engine, "infer_batch"):
+            raise NotImplementedError(
+                f"Inference engine {type(self._inference_engine).__name__} does not "
+                "support batch inference. Use synthesize() instead."
+            )
+
+        inference_conversations: list[Conversation] = []
+        for sample in samples:
+            inference_conversations.append(
+                self._format_instructions(
+                    sample,
+                    generated_attribute.instruction_messages,
+                )
+            )
+
+        batch_id = self._inference_engine.infer_batch(  # type: ignore[attr-defined]
+            inference_conversations,
+            inference_config=self._inference_config,
         )
-        if keep_original:
-            records = [
-                {generated_attribute.id: unpostprocessed_response}
-                for unpostprocessed_response in original_responses
-            ]
-        else:
-            records = [{} for _ in original_responses]
+        return batch_id
 
-        for i in range(len(original_responses)):
-            new_id = generated_attribute.postprocessing_params.id
-            original_response = original_responses[i]
-            new_response = original_response
-            try:
-                new_response = self._postprocess_sample(
-                    original_response, generated_attribute.postprocessing_params
-                )
-            except ValueError as e:
-                logger.warning(
-                    f"Error postprocessing inference result: {e}. Leaving as-is and "
-                    "skipping."
-                )
-            finally:
-                records[i][new_id] = new_response
+    def get_batch_status(self, batch_id: str) -> BatchInfo:
+        """Get the status of a batch inference job.
 
-        return records
+        Args:
+            batch_id: The batch ID returned from synthesize_batch().
+
+        Returns:
+            BatchInfo containing the job status and progress information.
+
+        Raises:
+            NotImplementedError: If the inference engine does not support batch.
+        """
+        if not hasattr(self._inference_engine, "get_batch_status"):
+            raise NotImplementedError(
+                f"Inference engine {type(self._inference_engine).__name__} does not "
+                "support batch inference."
+            )
+        return self._inference_engine.get_batch_status(batch_id)  # type: ignore[attr-defined]
+
+    def get_batch_results(
+        self,
+        batch_id: str,
+        samples: list[dict],
+        generated_attribute: GeneratedAttribute,
+    ) -> list[dict[str, str]]:
+        """Get results from a completed batch inference job.
+
+        Args:
+            batch_id: The batch ID returned from synthesize_batch().
+            samples: The original samples that were submitted for synthesis.
+            generated_attribute: The generated attribute configuration.
+
+        Returns:
+            A list of dictionaries, one for each sample, with the generated attribute
+            value added to the dictionary (same format as synthesize()).
+
+        Raises:
+            NotImplementedError: If the inference engine does not support batch.
+        """
+        if not hasattr(self._inference_engine, "get_batch_results"):
+            raise NotImplementedError(
+                f"Inference engine {type(self._inference_engine).__name__} does not "
+                "support batch inference."
+            )
+
+        inference_conversations: list[Conversation] = []
+        for sample in samples:
+            inference_conversations.append(
+                self._format_instructions(
+                    sample,
+                    generated_attribute.instruction_messages,
+                )
+            )
+
+        inference_results = self._inference_engine.get_batch_results(  # type: ignore[attr-defined]
+            batch_id, inference_conversations
+        )
+
+        return self._process_inference_results(inference_results, generated_attribute)
 
     def _extract_response(
         self,
@@ -159,6 +223,54 @@ class AttributeSynthesizer:
             new_messages.append(new_message)
 
         return Conversation(messages=new_messages)
+
+    def _process_inference_results(
+        self,
+        inference_results: list[Conversation],
+        generated_attribute: GeneratedAttribute,
+    ) -> list[dict[str, str]]:
+        """Extract and postprocess inference results.
+
+        Args:
+            inference_results: The inference results from the inference engine.
+            generated_attribute: The generated attribute configuration.
+
+        Returns:
+            A list of dictionaries with the processed attribute values.
+        """
+        original_responses = self._extract_response(inference_results)
+
+        if not generated_attribute.postprocessing_params:
+            return [
+                {generated_attribute.id: response} for response in original_responses
+            ]
+
+        keep_original = (
+            generated_attribute.postprocessing_params.keep_original_text_attribute
+        )
+        if keep_original:
+            records = [
+                {generated_attribute.id: response} for response in original_responses
+            ]
+        else:
+            records = [{} for _ in original_responses]
+
+        for i, original_response in enumerate(original_responses):
+            new_id = generated_attribute.postprocessing_params.id
+            new_response = original_response
+            try:
+                new_response = self._postprocess_sample(
+                    original_response, generated_attribute.postprocessing_params
+                )
+            except ValueError as e:
+                logger.warning(
+                    f"Error postprocessing inference result: {e}. Leaving as-is and "
+                    "skipping."
+                )
+            finally:
+                records[i][new_id] = new_response
+
+        return records
 
     def _postprocess_sample(
         self,

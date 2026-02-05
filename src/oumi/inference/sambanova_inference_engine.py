@@ -149,3 +149,15 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
             "temperature",
             "top_p",
         }
+
+    @override
+    def infer_batch(
+        self,
+        _conversations: list[Conversation],
+        _inference_config: Any | None = None,
+    ) -> str:
+        """Batch inference is not implemented for SambaNova."""
+        raise NotImplementedError(
+            "Batch inference is not implemented for SambaNova. "
+            "Please open an issue on GitHub if you'd like this feature."
+        )

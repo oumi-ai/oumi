@@ -1,0 +1,43 @@
+# Rule-based judge example: regex pattern matching.
+#
+# EXPERIMENTAL: Rule-based judges are experimental and subject to change.
+#
+# This judge checks if the response contains a phone number pattern (XXX-XXXX).
+# No LLM inference is required - the judgment is based purely on regex matching.
+#
+# Usage:
+#   oumi judge dataset -c regex-match-phone --input data/dataset_examples/judge_input.jsonl
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/judge/judge.html
+#   - Config class: oumi.core.configs.JudgeConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/judge_config.py
+#   - Other judge configs: configs/projects/judges/**/*.yaml
+
+judge_params:
+  prompt_template: "{response}"
+
+rule_judge_params:
+  # The type of rule to use (registered in the rule registry)
+  rule_type: "regex"
+
+  # Input fields that must be present in the data
+  input_fields:
+    - "response"
+
+  # Configuration specific to the regex rule
+  rule_config:
+    # The regex pattern to match
+    pattern: "\\d{3}-\\d{4}"
+    # Which input field to check
+    input_field: "response"
+    # Match mode: "search" (anywhere), "match" (start), or "fullmatch" (entire string)
+    match_mode: "search"
+    # If true, passes when pattern does NOT match
+    inverse: false
+
+  # Output format for the judgment
+  response_format: XML
+
+  # Type of judgment output
+  judgment_type: BOOL

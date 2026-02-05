@@ -16,7 +16,12 @@ from typing import Any
 
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
+from oumi.core.configs import (
+    GenerationParams,
+    InferenceConfig,
+    ModelParams,
+    RemoteParams,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
@@ -160,3 +165,15 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     def _default_remote_params(self) -> RemoteParams:
         """Returns the default remote parameters."""
         return RemoteParams(num_workers=5, politeness_policy=60.0)
+
+    @override
+    def infer_batch(
+        self,
+        _conversations: list[Conversation],
+        _inference_config: InferenceConfig | None = None,
+    ) -> str:
+        """Batch inference is not implemented for Anthropic."""
+        raise NotImplementedError(
+            "Batch inference is not implemented for Anthropic. "
+            "Open an issue on GitHub if you'd like this feature."
+        )

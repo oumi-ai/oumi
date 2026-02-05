@@ -12,7 +12,7 @@ from oumi.utils.io_utils import (
 )
 
 try:
-    import openpyxl  # noqa: F401
+    import openpyxl  # noqa: F401  # pyright: ignore[reportMissingModuleSource]
 
     OPENPYXL_AVAILABLE = True
 except ImportError:

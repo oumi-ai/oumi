@@ -16,12 +16,9 @@ from typing import Any
 
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams, ModelParams
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
-
-_CONTENT_KEY: str = "content"
-_ROLE_KEY: str = "role"
 
 
 class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
@@ -114,3 +111,15 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             api_input["stop_token_ids"] = generation_params.stop_token_ids
 
         return api_input
+
+    @override
+    def infer_batch(
+        self,
+        _conversations: list[Conversation],
+        _inference_config: InferenceConfig | None = None,
+    ) -> str:
+        """Batch inference is not implemented for Remote vLLM."""
+        raise NotImplementedError(
+            "Batch inference is not implemented for Remote vLLM. "
+            "Please open an issue on GitHub if you'd like this feature."
+        )

@@ -232,7 +232,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if quantization is not None and "quantization" not in vllm_kwargs:
             final_vllm_kwargs["quantization"] = quantization
 
-        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType]
+        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType,reportAttributeAccessIssue]
 
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation

@@ -472,6 +472,16 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     "o3-mini": {
         AliasType.INFER: "oumi://configs/apis/openai/infer_o3_mini.yaml",
     },
+    # Hosted models - OpenRouter.
+    "claude-4-5-sonnet-openrouter": {
+        AliasType.INFER: "oumi://configs/apis/openrouter/infer_claude_4_5_sonnet.yaml",
+    },
+    "llama4-maverick-openrouter": {
+        AliasType.INFER: "oumi://configs/apis/openrouter/infer_llama4_maverick.yaml",
+    },
+    "gpt-5-2-openrouter": {
+        AliasType.INFER: "oumi://configs/apis/openrouter/infer_gpt_5_2.yaml",
+    },
     # Hosted models - Vertex AI.
     "llama-3-3-70b": {
         AliasType.INFER: "oumi://configs/apis/vertex/infer_llama_3_3_70b.yaml",
@@ -505,6 +515,12 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     },
     "safety": {
         AliasType.JUDGE: "oumi://configs/projects/judges/generic/safety.yaml",
+    },
+    "regex-match-phone": {
+        AliasType.JUDGE: "oumi://configs/projects/judges/rule_based/regex_match_phone.yaml",
+    },
+    "regex-no-error-keywords": {
+        AliasType.JUDGE: "oumi://configs/projects/judges/rule_based/regex_no_error_keywords.yaml",
     },
 }
 

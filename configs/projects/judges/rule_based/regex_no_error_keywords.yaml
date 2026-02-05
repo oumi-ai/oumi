@@ -1,0 +1,37 @@
+# Rule-based judge example: absence of error patterns.
+#
+# EXPERIMENTAL: Rule-based judges are experimental and subject to change.
+#
+# This judge passes when the response does NOT contain error/failure keywords.
+# No LLM inference is required - the judgment is based purely on regex matching.
+#
+# Usage:
+#   oumi judge dataset -c regex-no-error-keywords --input data/dataset_examples/judge_input.jsonl
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/judge/judge.html
+#   - Config class: oumi.core.configs.JudgeConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/judge_config.py
+#   - Other judge configs: configs/projects/judges/**/*.yaml
+
+judge_params:
+  prompt_template: "{response}"
+
+rule_judge_params:
+  rule_type: "regex"
+
+  input_fields:
+    - "response"
+
+  rule_config:
+    # Pattern matching error/failure keywords (case-insensitive)
+    pattern: "error|fail|exception|traceback"
+    input_field: "response"
+    match_mode: "search"
+    # Inverse=true means: PASS when pattern is NOT found
+    inverse: true
+    # Case-insensitive matching (re.IGNORECASE = 2)
+    flags: 2
+
+  response_format: XML
+  judgment_type: BOOL
