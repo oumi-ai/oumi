@@ -45,8 +45,8 @@ def _get_torchdata_imports():
         MultiplexerLongest,
         SampleMultiplexer,
     )
-    from torchdata.datapipes.map.util.converter import (
-        MapToIterConverterIterDataPipe,  # pyright: ignore[reportMissingImports]
+    from torchdata.datapipes.map.util.converter import (  # pyright: ignore[reportMissingImports]
+        MapToIterConverterIterDataPipe,
     )
 
     return (
