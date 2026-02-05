@@ -158,7 +158,10 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
 
         finally:
             # Clean up temporary file
-            await aiofiles.os.remove(tmp_path)
+            try:
+                await aiofiles.os.remove(tmp_path)
+            except OSError:
+                pass  # Ignore cleanup errors to avoid masking original exceptions
 
     def _normalize_together_response(self, data: dict[str, Any]) -> dict[str, Any]:
         """Normalize Together's response format to match OpenAI's format.

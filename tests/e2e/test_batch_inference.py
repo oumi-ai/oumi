@@ -253,9 +253,8 @@ def test_fireworks_batch_inference():
     if "FIREWORKS_API_KEY" not in os.environ:
         pytest.skip("FIREWORKS_API_KEY is not set")
 
-    # Set default account ID if not provided
     if "FIREWORKS_ACCOUNT_ID" not in os.environ:
-        os.environ["FIREWORKS_ACCOUNT_ID"] = "oumi"
+        pytest.skip("FIREWORKS_ACCOUNT_ID is not set")
 
     from oumi.inference import FireworksInferenceEngine
 

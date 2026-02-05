@@ -30,6 +30,7 @@ from oumi.inference.remote_inference_engine import (
     BatchStatus,
     RemoteInferenceEngine,
 )
+from oumi.utils.logging import logger
 
 
 class FireworksInferenceEngine(RemoteInferenceEngine):
@@ -247,9 +248,12 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         async with session.delete(
             f"{base_url}/datasets/{dataset_id}",
             headers=headers,
-        ):
-            # Ignore errors on cleanup
-            pass
+        ) as response:
+            if response.status not in (200, 204):
+                error_text = await response.text()
+                logger.warning(
+                    f"Failed to delete Fireworks dataset {dataset_id}: {error_text}"
+                )
 
     async def _download_fireworks_dataset(
         self, dataset_id: str, session: aiohttp.ClientSession
@@ -375,42 +379,49 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
                 input_dataset_id, len(conversations), session
             )
 
-            # Upload input data
-            await self._upload_to_fireworks_dataset(input_dataset_id, content, session)
+            try:
+                # Upload input data
+                await self._upload_to_fireworks_dataset(
+                    input_dataset_id, content, session
+                )
 
-            # Create batch inference job
-            base_url = self._get_batch_api_base_url()
-            headers = self._get_fireworks_request_headers()
-            account_id = self._get_account_id()
+                # Create batch inference job
+                base_url = self._get_batch_api_base_url()
+                headers = self._get_fireworks_request_headers()
+                account_id = self._get_account_id()
 
-            # Fireworks expects full resource paths for dataset IDs
-            input_dataset_path = f"accounts/{account_id}/datasets/{input_dataset_id}"
-            output_dataset_path = f"accounts/{account_id}/datasets/{output_dataset_id}"
+                # Fireworks expects full resource paths for dataset IDs
+                input_dataset_path = (
+                    f"accounts/{account_id}/datasets/{input_dataset_id}"
+                )
+                output_dataset_path = (
+                    f"accounts/{account_id}/datasets/{output_dataset_id}"
+                )
 
-            # Note: Don't add inferenceParameters here - they're already in each
-            # request body from _convert_conversation_to_api_input. Adding them
-            # at job level would cause "cannot specify both max_tokens and
-            # max_completion_tokens" errors.
-            job_request: dict[str, Any] = {
-                "model": model_params.model_name,
-                "inputDatasetId": input_dataset_path,
-                "outputDatasetId": output_dataset_path,
-                "displayName": f"oumi-batch-{batch_uuid}",
-            }
+                job_request: dict[str, Any] = {
+                    "model": model_params.model_name,
+                    "inputDatasetId": input_dataset_path,
+                    "outputDatasetId": output_dataset_path,
+                    "displayName": f"oumi-batch-{batch_uuid}",
+                }
 
-            async with session.post(
-                f"{base_url}/batchInferenceJobs",
-                json=job_request,
-                headers=headers,
-            ) as response:
-                if response.status not in (200, 201):
-                    error_text = await response.text()
-                    raise RuntimeError(f"Failed to create batch job: {error_text}")
-                data = await response.json()
-                # Extract job ID from the full resource name
-                job_name = data.get("name", "")
-                job_id = job_name.split("/")[-1] if "/" in job_name else job_name
-                return job_id
+                async with session.post(
+                    f"{base_url}/batchInferenceJobs",
+                    json=job_request,
+                    headers=headers,
+                ) as response:
+                    if response.status not in (200, 201):
+                        error_text = await response.text()
+                        raise RuntimeError(f"Failed to create batch job: {error_text}")
+                    data = await response.json()
+                    # Extract job ID from the full resource name
+                    job_name = data.get("name", "")
+                    job_id = job_name.split("/")[-1] if "/" in job_name else job_name
+                    return job_id
+            except Exception:
+                # Clean up the input dataset if batch creation fails
+                await self._delete_fireworks_dataset(input_dataset_id, session)
+                raise
 
     @override
     def get_batch_status(self, batch_id: str) -> BatchInfo:
