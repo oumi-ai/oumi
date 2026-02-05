@@ -70,11 +70,11 @@ dependencies = [
     "skypilot>=0.11.1,<0.12", # 0.11.1 includes db locking fix
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "tiktoken>=0.7,<1.0",
-    "torch>=2.6,<2.11.0",      # vllm only supports up to torch==2.7
+    "torch>=2.6,<2.11.0", 
     "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
-    "transformers>=4.57,<6.0",
+    "transformers>=4.57,<5.1",
     "trl>=0.24,<0.28",
     "typer<0.21.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
@@ -123,7 +123,7 @@ gpu = [
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
-    "vllm>=0.10.2,<0.16",
+    "vllm>=0.10.2,<0.13",
 ]
 
 deepspeed = [
