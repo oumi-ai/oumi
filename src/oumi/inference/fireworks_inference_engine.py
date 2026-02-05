@@ -96,7 +96,9 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         return f"https://api.fireworks.ai/v1/accounts/{account_id}"
 
     @override
-    def _get_request_headers(self, remote_params: RemoteParams | None) -> dict[str, str]:
+    def _get_request_headers(
+        self, remote_params: RemoteParams | None
+    ) -> dict[str, str]:
         """Get request headers for Fireworks API calls."""
         api_key = self._get_api_key(remote_params or self._remote_params)
         return {

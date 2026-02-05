@@ -238,9 +238,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             created_at=self._parse_iso_timestamp(response.get("created_at")),
             expires_at=self._parse_iso_timestamp(response.get("expires_at")),
             completed_at=self._parse_iso_timestamp(response.get("ended_at")),
-            canceling_at=self._parse_iso_timestamp(
-                response.get("cancel_initiated_at")
-            ),
+            canceling_at=self._parse_iso_timestamp(response.get("cancel_initiated_at")),
             # Store results_url in metadata for later retrieval
             metadata={
                 "results_url": response.get("results_url"),
