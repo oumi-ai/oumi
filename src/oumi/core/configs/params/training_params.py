@@ -903,7 +903,7 @@ class TrainingParams(BaseParams):
                 self.include_performance_metrics
             )
             # Backward compat: logging_dir was removed in transformers v5
-            # Sibce this is only used for tensorboard, we set the env var instead.
+            # Since this is only used for tensorboard, we set the env var instead.
             trainer_kwargs["logging_dir"] = self.logging_dir
             # Backward compat: warmup_ratio was removed in transformers v5
             # Use warmup_steps instead

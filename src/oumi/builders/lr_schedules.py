@@ -62,7 +62,7 @@ def build_lr_scheduler(
     if warmup_steps is not None and warmup_steps < 1:
         logger.debug(
             f"warmup_steps {warmup_steps} is less than 1, "
-            f"converting to warmup_ratio {warmup_ratio}"
+            f"converting to warmup_ratio"
         )
         warmup_ratio = warmup_steps
         warmup_steps = None
