@@ -68,7 +68,6 @@ class BatchStatus(Enum):
 
     VALIDATING = "validating"
     IN_PROGRESS = "in_progress"
-    # OpenAI returns "finalizing" when the batch is being finalized
     FINALIZING = "finalizing"
     COMPLETED = "completed"
     FAILED = "failed"

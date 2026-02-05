@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Together AI inference engine implementation."""
-
 import tempfile
 from datetime import datetime
 from pathlib import Path
