@@ -881,8 +881,6 @@ class TrainingParams(BaseParams):
                     Path(self.output_dir) / "tensorboard"
                 )
 
-            trainer_kwargs["warmup_steps"] = int(self.warmup_steps or 0)
-
             if self.warmup_ratio is not None:
                 warnings.warn(
                     "warmup_ratio is deprecated in transformers v5. "
@@ -890,13 +888,16 @@ class TrainingParams(BaseParams):
                     category=DeprecationWarning,
                     stacklevel=2,
                 )
-                if self.warmup_steps is not None and self.warmup_ratio is not None:
+                if self.warmup_steps is not None:
                     raise ValueError(
                         "warmup_ratio and warmup_steps cannot be set at the same time. "
-                        "In transformers v5, warmup_steps accepts floats for ratio."
+                        "In transformers v5, warmup_steps accepts floats for ratio. "
                         "Use warmup_steps instead."
                     )
-                trainer_kwargs["warmup_steps"] = self.warmup_ratio * self.max_steps
+                # In transformers v5, warmup_steps accepts floats in [0, 1) as ratios
+                trainer_kwargs["warmup_steps"] = self.warmup_ratio
+            else:
+                trainer_kwargs["warmup_steps"] = self.warmup_steps or 0
         else:
             # Backward compat: include_tokens_per_second was renamed in transformers v5
             trainer_kwargs["include_tokens_per_second"] = (
