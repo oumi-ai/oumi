@@ -17,6 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import aiofiles
+import aiofiles.os
 import aiohttp
 import jsonlines
 from typing_extensions import override
@@ -127,7 +129,8 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
                         )
 
                 # Step 2: Upload file content to signed URL
-                file_content = tmp_path.read_bytes()
+                async with aiofiles.open(tmp_path, "rb") as f:
+                    file_content = await f.read()
 
                 async with session.put(
                     redirect_url,
@@ -155,7 +158,7 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
 
         finally:
             # Clean up temporary file
-            tmp_path.unlink()
+            await aiofiles.os.remove(tmp_path)
 
     def _normalize_together_response(self, data: dict[str, Any]) -> dict[str, Any]:
         """Normalize Together's response format to match OpenAI's format.
