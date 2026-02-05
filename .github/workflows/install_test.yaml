@@ -19,11 +19,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Note: Python 3.14 excluded until peft officially supports it
-        # peft 0.18.x only supports Python 3.10-3.13
-        # See: https://pypi.org/project/peft/
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         torch-version: ["2.6.0", "2.7.1", "2.8.0", "2.9.1"]
+        exclude:
+          # Python 3.14 requires PyTorch 2.9+
+          - python-version: "3.14"
+            torch-version: "2.6.0"
+          - python-version: "3.14"
+            torch-version: "2.7.1"
+          - python-version: "3.14"
+            torch-version: "2.8.0"
 
     steps:
       - name: Free Disk Space
@@ -75,6 +80,32 @@ jobs:
         run: |
           uv pip install --system pytest-asyncio>=1.1.0 pytest-cov pytest-timeout pytest responses
           uv pip install --system pdftext  # temporary fix to unblock the tests
+
+      - name: Debug transformers imports
+        if: matrix.python-version == '3.14'
+        run: |
+          echo "=== Python version ==="
+          python --version
+          echo ""
+          echo "=== Installed packages ==="
+          pip list | grep -E "transformers|peft|torch|accelerate"
+          echo ""
+          echo "=== Test direct import of PreTrainedModel (bypasses lazy loading) ==="
+          python -c "from transformers.modeling_utils import PreTrainedModel; print('SUCCESS: PreTrainedModel imported')" || true
+          echo ""
+          echo "=== Test peft import chain ==="
+          python -c "from peft import LoraConfig; print('SUCCESS: LoraConfig imported')" || true
+          echo ""
+          echo "=== Test full import with traceback ==="
+          python -c "
+          import traceback
+          try:
+              from transformers import PreTrainedModel
+              print('SUCCESS: PreTrainedModel imported via lazy loading')
+          except Exception as e:
+              print(f'FAILED: {type(e).__name__}: {e}')
+              traceback.print_exc()
+          " || true
 
       - name: Run tests
         run: |
