@@ -19,6 +19,8 @@ import os
 import tempfile
 import urllib.parse
 import warnings
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -68,6 +70,7 @@ class BatchStatus(Enum):
 
     VALIDATING = "validating"
     IN_PROGRESS = "in_progress"
+    FINALIZING = "finalizing"
     COMPLETED = "completed"
     FAILED = "failed"
     EXPIRED = "expired"
@@ -438,7 +441,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def _get_request_headers(
         self, remote_params: RemoteParams | None
     ) -> dict[str, str]:
-        headers = {}
+        # Exclude brotli (br) from Accept-Encoding since this will fail on systems
+        # without brotli installed
+        headers = {"Accept-Encoding": "gzip, deflate"}
 
         if not remote_params:
             return headers
@@ -448,6 +453,46 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             headers[_AUTHORIZATION_KEY] = f"Bearer {api_key}"
 
         return headers
+
+    @staticmethod
+    def _parse_iso_timestamp(timestamp: str | None) -> datetime | None:
+        """Parse an ISO 8601 timestamp string to datetime.
+
+        Handles common formats including "Z" suffix and timezone offsets.
+
+        Args:
+            timestamp: ISO 8601 formatted timestamp string
+                (e.g., "2024-01-01T00:00:00Z" or "2024-01-01T00:00:00+00:00")
+
+        Returns:
+            datetime or None if timestamp is None or empty
+        """
+        if not timestamp:
+            return None
+        # Handle "Z" suffix (convert to +00:00 for fromisoformat)
+        timestamp = timestamp.replace("Z", "+00:00")
+        return datetime.fromisoformat(timestamp)
+
+    @asynccontextmanager
+    async def _create_session(
+        self,
+    ) -> AsyncIterator[tuple[aiohttp.ClientSession, dict[str, str]]]:
+        """Create an aiohttp session with default configuration.
+
+        Creates a session with appropriate connection pooling and returns
+        the session along with standard request headers.
+
+        Yields:
+            Tuple of (session, headers) for making API calls.
+
+        Example:
+            async with self._create_session() as (session, headers):
+                async with session.get(url, headers=headers) as response:
+                    data = await response.json()
+        """
+        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        async with aiohttp.ClientSession(connector=connector) as session:
+            yield session, self._get_request_headers(self._remote_params)
 
     def _set_required_fields_for_inference(self, remote_params: RemoteParams):
         """Set required fields for inference."""
