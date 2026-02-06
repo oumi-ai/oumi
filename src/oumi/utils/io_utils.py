@@ -20,7 +20,7 @@ import jsonlines
 import pandas as pd
 
 try:
-    import openpyxl  # noqa: F401
+    import openpyxl  # noqa: F401  # pyright: ignore[reportMissingModuleSource]
 except ImportError:
     openpyxl = None  # type: ignore[assignment]
 

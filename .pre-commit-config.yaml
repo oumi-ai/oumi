@@ -5,7 +5,7 @@ default_language_version:
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-added-large-files
         args: ["--maxkb=500"]
@@ -31,7 +31,7 @@ repos:
         args: [--branch, deploy, --branch, main]
       - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.6
+    rev: v0.15.0
     hooks:
       - id: ruff
         types_or: [python, pyi, jupyter]
@@ -46,13 +46,12 @@ repos:
         language: node
         types: [python]
         pass_filenames: false
-        args: [--warnings]
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.19.1
+    rev: v3.21.2
     hooks:
       - id: pyupgrade
         args: [--py310-plus]
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.24.3
+    rev: v8.30.0
     hooks:
       - id: gitleaks

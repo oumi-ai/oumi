@@ -24,10 +24,10 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
 from typing import Any
 
 import aiofiles
+import aiofiles.os
 import aiohttp
 import jsonlines
 import pydantic
@@ -931,7 +931,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     return data["id"]
         finally:
             # Clean up temporary file
-            Path(tmp_path).unlink()
+            await aiofiles.os.unlink(tmp_path)
 
     async def _create_batch(
         self,
