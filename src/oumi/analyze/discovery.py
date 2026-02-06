@@ -28,6 +28,7 @@ def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
         "metric_descriptions": {},
         "schema": {},
         "scope": analyzer_class.get_scope(),
+        "config_schema": {},
     }
 
     try:
@@ -38,6 +39,13 @@ def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
         # Analyzer doesn't have a valid result type (e.g., abstract base class)
         logger.debug(
             f"Skipping metrics for {analyzer_class.__name__}: no valid result type"
+        )
+
+    try:
+        info["config_schema"] = analyzer_class.get_config_schema()
+    except Exception:
+        logger.debug(
+            f"Could not get config schema for {analyzer_class.__name__}"
         )
 
     return info
@@ -57,9 +65,10 @@ def list_available_metrics(
         if not include_duplicates and class_name in seen_classes:
             continue
         seen_classes.add(class_name)
-        results[class_name if not include_duplicates else name] = get_analyzer_info(
-            analyzer_class
-        )
+        info = get_analyzer_info(analyzer_class)
+        # Include the registry key so callers can use it for lookups
+        info["registry_id"] = name
+        results[class_name if not include_duplicates else name] = info
 
     return results
 

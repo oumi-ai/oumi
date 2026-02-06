@@ -14,7 +14,7 @@
 
 """Length analyzer implementation and result model."""
 
-from typing import Protocol, runtime_checkable
+from typing import Any, ClassVar, Protocol, runtime_checkable
 
 import tiktoken
 from pydantic import BaseModel, Field
@@ -23,7 +23,13 @@ from oumi.analyze.base import ConversationAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.core.types.conversation import Conversation, Role
 
-__all__ = ["LengthMetrics", "LengthAnalyzer", "Tokenizer", "default_tokenizer"]
+__all__ = [
+    "LengthMetrics",
+    "LengthAnalyzer",
+    "Tokenizer",
+    "default_tokenizer",
+    "huggingface_tokenizer",
+]
 
 
 @runtime_checkable
@@ -45,6 +51,38 @@ def default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
         Tiktoken encoder instance.
     """
     return tiktoken.get_encoding(encoding)
+
+
+def huggingface_tokenizer(model_name: str, trust_remote_code: bool = False) -> Any:
+    """Get a HuggingFace tokenizer with chat template support.
+
+    This enables the `rendered_tokens` field which counts tokens after
+    applying the model's chat template (e.g., ChatML, Llama format).
+
+    Args:
+        model_name: HuggingFace model name (e.g., "meta-llama/Llama-3.1-8B-Instruct").
+        trust_remote_code: Whether to trust remote code for custom tokenizers.
+
+    Returns:
+        HuggingFace tokenizer instance with chat_template support.
+
+    Raises:
+        ImportError: If transformers is not installed.
+        OSError: If the model/tokenizer cannot be loaded.
+    """
+    try:
+        from transformers import AutoTokenizer
+    except ImportError as e:
+        raise ImportError(
+            "HuggingFace transformers is required for HuggingFace tokenizers. "
+            "Install with: pip install transformers"
+        ) from e
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_name,
+        trust_remote_code=trust_remote_code,
+    )
+    return tokenizer
 
 
 class LengthMetrics(BaseModel):
@@ -112,6 +150,43 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             tiktoken, or pass a HuggingFace tokenizer for model-specific counts.
     """
 
+    # Custom config schema: the actual __init__ takes a Tokenizer object,
+    # but the user-facing config is tokenizer selection params that the
+    # worker uses to construct the tokenizer.
+    _CONFIG_SCHEMA: ClassVar[dict[str, Any]] = {
+        "properties": {
+            "tokenizer_type": {
+                "type": "string",
+                "enum": ["tiktoken", "huggingface"],
+                "default": "tiktoken",
+                "description": "Tokenizer backend to use",
+            },
+            "encoding": {
+                "type": "string",
+                "default": "cl100k_base",
+                "description": "Tiktoken encoding name (only for tiktoken)",
+                "enum": ["cl100k_base", "o200k_base", "p50k_base", "r50k_base"],
+            },
+            "model_name": {
+                "type": "string",
+                "description": (
+                    "HuggingFace model ID (only for huggingface), "
+                    "e.g. meta-llama/Llama-3.1-8B-Instruct"
+                ),
+            },
+            "trust_remote_code": {
+                "type": "boolean",
+                "default": False,
+                "description": "Trust remote code for HuggingFace tokenizers",
+            },
+        },
+    }
+
+    @classmethod
+    def get_config_schema(cls) -> dict[str, Any]:
+        """Return user-facing config schema for tokenizer selection."""
+        return cls._CONFIG_SCHEMA
+
     def __init__(self, tokenizer: Tokenizer | None = None):
         """Initialize the analyzer."""
         self.tokenizer = tokenizer
@@ -123,7 +198,12 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
                 "or use default_tokenizer()."
             )
 
-        tokens = self.tokenizer.encode(text)
+        try:
+            # tiktoken: encode literal special tokens (e.g. <|endoftext|>) as normal text
+            tokens = self.tokenizer.encode(text, disallowed_special=())
+        except TypeError:
+            # tokenizer doesn't accept disallowed_special (e.g. HuggingFace)
+            tokens = self.tokenizer.encode(text)
         return len(tokens)
 
     def _count_rendered_tokens(self, conversation: Conversation) -> int | None:
