@@ -14,8 +14,9 @@
 
 """Base analyzer classes for the typed analyzer framework."""
 
+import inspect
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, get_args, get_origin
+from typing import Any, Generic, TypeVar, get_args, get_origin
 
 from pydantic import BaseModel
 from transformers import PreTrainedTokenizerBase
@@ -49,6 +50,67 @@ class BaseAnalyzer(ABC, Generic[TResult]):
             Scope string ('message', 'conversation', 'dataset', or 'preference').
         """
         return "unknown"
+
+    @classmethod
+    def get_config_schema(cls) -> dict[str, Any]:
+        """Get JSON schema for this analyzer's constructor parameters.
+
+        Introspects ``__init__`` to discover what configuration the analyzer
+        accepts.  Analyzers with no parameters return an empty schema.
+
+        Subclasses can override this to provide a custom schema (e.g. when
+        the constructor takes a non-serialisable object like a tokenizer but
+        the *user-facing* config is a simpler set of options).
+
+        Returns:
+            JSON-schema-like dict with ``properties``, ``required``, etc.
+        """
+        sig = inspect.signature(cls.__init__)
+        properties: dict[str, Any] = {}
+        required: list[str] = []
+
+        _TYPE_MAP = {
+            str: "string",
+            int: "integer",
+            float: "number",
+            bool: "boolean",
+        }
+
+        for name, param in sig.parameters.items():
+            if name == "self":
+                continue
+            # Skip *args and **kwargs
+            if param.kind in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            ):
+                continue
+
+            prop: dict[str, Any] = {}
+
+            # Resolve type annotation
+            annotation = param.annotation
+            if annotation is not inspect.Parameter.empty:
+                prop["type"] = _TYPE_MAP.get(annotation, "string")
+            else:
+                prop["type"] = "string"
+
+            # Default value
+            if param.default is not inspect.Parameter.empty:
+                # Skip non-serialisable defaults (None is fine)
+                if param.default is None or isinstance(
+                    param.default, (str, int, float, bool)
+                ):
+                    prop["default"] = param.default
+            else:
+                required.append(name)
+
+            properties[name] = prop
+
+        schema: dict[str, Any] = {"properties": properties}
+        if required:
+            schema["required"] = required
+        return schema
 
     @classmethod
     def _require_result_type(cls) -> type[BaseModel]:

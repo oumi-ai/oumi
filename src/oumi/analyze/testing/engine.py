@@ -236,6 +236,57 @@ class TestEngine:
         else:
             return self._create_error_result(test, f"Unknown test type: {test.type}")
 
+    def _normalize_analyzer_name(
+        self,
+        analyzer_name: str,
+        available_names: set[str],
+    ) -> str | None:
+        """Try to find a matching analyzer name from available results.
+
+        Handles common variations like:
+        - LengthAnalyzer -> length
+        - DifficultyJudgeAnalyzer -> difficulty_judge
+        - length -> LengthAnalyzer
+
+        Args:
+            analyzer_name: The analyzer name from the metric path.
+            available_names: Set of available analyzer names in results.
+
+        Returns:
+            Matching analyzer name or None if not found.
+        """
+        # Direct match
+        if analyzer_name in available_names:
+            return analyzer_name
+
+        # Try lowercase
+        lower_name = analyzer_name.lower()
+        for name in available_names:
+            if name.lower() == lower_name:
+                return name
+
+        # Try removing "Analyzer" suffix and converting to snake_case
+        if analyzer_name.endswith("Analyzer"):
+            base_name = analyzer_name[:-8]  # Remove "Analyzer"
+            # Convert CamelCase to snake_case
+            snake_name = ""
+            for i, char in enumerate(base_name):
+                if char.isupper() and i > 0:
+                    snake_name += "_"
+                snake_name += char.lower()
+
+            for name in available_names:
+                if name.lower() == snake_name or name.lower() == base_name.lower():
+                    return name
+
+        # Try adding "Analyzer" suffix
+        class_name = analyzer_name.title().replace("_", "") + "Analyzer"
+        for name in available_names:
+            if name == class_name:
+                return name
+
+        return None
+
     def _extract_metric_values(
         self,
         metric: str,
@@ -259,10 +310,12 @@ class TestEngine:
         analyzer_name = parts[0]
         field_path = parts[1:]
 
-        if analyzer_name not in results:
+        # Try to find a matching analyzer name (handles variations)
+        matched_name = self._normalize_analyzer_name(analyzer_name, set(results.keys()))
+        if matched_name is None:
             return []
 
-        analyzer_results = results[analyzer_name]
+        analyzer_results = results[matched_name]
 
         if isinstance(analyzer_results, BaseModel):
             value = self._get_nested_value(analyzer_results, field_path)
