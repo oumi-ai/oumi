@@ -23,6 +23,8 @@
 
 ## 🔥 News
 
+- [2026/02] [Preview of using the Oumi Platform and Lambda to fine-tune and deploy a 4B model for user intent classification](https://youtu.be/0XpfYRpd_FA)
+- [2026/02] [Lambda and Oumi partner for end-to-end custom model development](https://blog.oumi.ai/p/lambda-and-oumi-partner-for-end-to)
 - [2025/12] [Oumi v0.6.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.6.0) with Python 3.13 support, `oumi analyze` CLI command, TRL 0.26+ support, and more
 - [2025/12] [WeMakeDevs AI Agents Assemble Hackathon: Oumi webinar on Finetuning for Text-to-SQL](https://www.youtube.com/watch?v=6wPikqRZ7bQ&t=3203s)
 - [2025/12] [Oumi co-sponsors WeMakeDevs AI Agents Assemble Hackathon with over 2000 project submissions](https://www.wemakedevs.org/hackathons/assemblehack25)
