@@ -30,7 +30,6 @@ from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.packaging import (
-    is_transformers_v5,
     is_vllm_available,
     is_vllm_post_v0102,
 )
