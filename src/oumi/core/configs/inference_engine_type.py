@@ -71,3 +71,6 @@ class InferenceEngineType(str, Enum):
 
     BEDROCK = "BEDROCK"
     """The inference engine for AWS Bedrock API."""
+
+    LITELLM = "LITELLM"
+    """The inference engine for LiteLLM's unified SDK."""

@@ -155,6 +155,11 @@ synthesis = [
     "openpyxl>=3.1.0",  # Excel engine for pandas
 ]
 
+litellm = [
+    "litellm>=1.56,<1.57",  # Unified SDK for 100+ LLM providers
+    "tenacity",       # Required by litellm for retry logic
+]
+
 # Flash Attention - separate group due to special installation requirements
 flash_attn = [
     # Note: May require manual installation with: pip install flash-attn --no-build-isolation
