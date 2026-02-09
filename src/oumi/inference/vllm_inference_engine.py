@@ -30,6 +30,7 @@ from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.packaging import (
+    is_transformers_v5,
     is_vllm_available,
     is_vllm_post_v0102,
 )
@@ -233,7 +234,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             final_vllm_kwargs["quantization"] = quantization
 
         self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType,reportAttributeAccessIssue]
-        self._llm.set_tokenizer(self._tokenizer)
+
+        # Only set tokenizer for older vLLM versions with transformers v4
+        if not is_vllm_post_v0102():
+            self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportArgumentType]
 
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation
