@@ -393,6 +393,33 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         return api_input
 
+    @staticmethod
+    def _extract_usage_from_response(
+        response: dict[str, Any],
+    ) -> dict[str, int] | None:
+        """Extract normalized token usage from an API response.
+
+        Handles the OpenAI-compatible format by default. Subclasses should
+        override for APIs that use different field names.
+
+        Returns:
+            A dict with prompt_tokens, completion_tokens, total_tokens,
+            or None if no usage data is present.
+        """
+        usage = response.get("usage")
+        if not usage:
+            return None
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("completion_tokens", 0)
+        total_tokens = usage.get("total_tokens")
+        if total_tokens is None:
+            total_tokens = prompt_tokens + completion_tokens
+        return {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+        }
+
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
@@ -414,6 +441,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         message = response["choices"][0].get("message")
         if not message:
             raise RuntimeError(f"No message found in API response: {response}")
+        metadata = dict(original_conversation.metadata)
+        usage = self._extract_usage_from_response(response)
+        if usage is not None:
+            metadata["usage"] = usage
         return Conversation(
             messages=[
                 *original_conversation.messages,
@@ -422,7 +453,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     role=Role(message["role"]),
                 ),
             ],
-            metadata=original_conversation.metadata,
+            metadata=metadata,
             conversation_id=original_conversation.conversation_id,
         )
 

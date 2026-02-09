@@ -1961,6 +1961,61 @@ def test_get_request_headers_missing_env_var():
         assert headers == {"Accept-Encoding": "gzip, deflate"}
 
 
+def test_convert_api_output_captures_usage():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+        metadata={"key": "value"},
+    )
+    response = {
+        "choices": [{"message": {"role": "assistant", "content": "Hi"}}],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.metadata["usage"] == {
+        "prompt_tokens": 10,
+        "completion_tokens": 5,
+        "total_tokens": 15,
+    }
+    assert result.metadata["key"] == "value"
+
+
+def test_convert_api_output_no_usage():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+        metadata={"key": "value"},
+    )
+    response = {
+        "choices": [{"message": {"role": "assistant", "content": "Hi"}}],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert "usage" not in result.metadata
+    assert result.metadata["key"] == "value"
+
+
+def test_convert_api_output_usage_computes_total():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    response = {
+        "choices": [{"message": {"role": "assistant", "content": "Hi"}}],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.metadata["usage"]["total_tokens"] == 15
+
+
 @pytest.mark.asyncio
 async def test_upload_batch_file():
     """Test uploading a batch file."""

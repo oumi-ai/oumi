@@ -104,6 +104,11 @@ def test_openrouter_convert_api_output_to_conversation(openrouter_engine):
     assert result.messages[0].content == "Hello!"
     assert result.messages[1].role == Role.ASSISTANT
     assert result.messages[1].content == "Hi there! How can I help you today?"
+    assert result.metadata["usage"] == {
+        "prompt_tokens": 10,
+        "completion_tokens": 15,
+        "total_tokens": 25,
+    }
 
 
 def test_openrouter_supported_params(openrouter_engine):
