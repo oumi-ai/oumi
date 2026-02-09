@@ -74,7 +74,7 @@ dependencies = [
     "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
-    "transformers>=4.57,<5.1",
+    "transformers>=4.57,<5.2",
     "trl>=0.24,<0.28",
     "typer<0.21.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates

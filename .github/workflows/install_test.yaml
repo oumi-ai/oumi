@@ -19,7 +19,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        # Note: Python 3.14 excluded due to PyTorch bug with typing.Union.__module__
+        # torch/ao/quantization/quantizer/quantizer.py:85 tries to set __module__ on
+        # a Union type, which Python 3.14 no longer allows (intentional CPython change).
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
         torch-version: ["2.6.0", "2.7.1", "2.8.0", "2.9.1"]
         exclude:
           # Python 3.14 requires PyTorch 2.9+
@@ -80,32 +83,6 @@ jobs:
         run: |
           uv pip install --system pytest-asyncio>=1.1.0 pytest-cov pytest-timeout pytest responses
           uv pip install --system pdftext  # temporary fix to unblock the tests
-
-      - name: Debug transformers imports
-        if: matrix.python-version == '3.14'
-        run: |
-          echo "=== Python version ==="
-          python --version
-          echo ""
-          echo "=== Installed packages ==="
-          pip list | grep -E "transformers|peft|torch|accelerate"
-          echo ""
-          echo "=== Test direct import of PreTrainedModel (bypasses lazy loading) ==="
-          python -c "from transformers.modeling_utils import PreTrainedModel; print('SUCCESS: PreTrainedModel imported')" || true
-          echo ""
-          echo "=== Test peft import chain ==="
-          python -c "from peft import LoraConfig; print('SUCCESS: LoraConfig imported')" || true
-          echo ""
-          echo "=== Test full import with traceback ==="
-          python -c "
-          import traceback
-          try:
-              from transformers import PreTrainedModel
-              print('SUCCESS: PreTrainedModel imported via lazy loading')
-          except Exception as e:
-              print(f'FAILED: {type(e).__name__}: {e}')
-              traceback.print_exc()
-          " || true
 
       - name: Run tests
         run: |
