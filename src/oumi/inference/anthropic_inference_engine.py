@@ -134,6 +134,23 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
         return body
 
+    @staticmethod
+    @override
+    def _extract_usage_from_response(
+        response: dict[str, Any],
+    ) -> dict[str, int] | None:
+        """Extract normalized token usage from an Anthropic API response."""
+        usage = response.get("usage")
+        if not usage:
+            return None
+        prompt_tokens = usage.get("input_tokens", 0)
+        completion_tokens = usage.get("output_tokens", 0)
+        return {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+        }
+
     @override
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
@@ -143,9 +160,13 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             content=response[_CONTENT_KEY][0]["text"],
             role=Role.ASSISTANT,
         )
+        metadata = dict(original_conversation.metadata)
+        usage = self._extract_usage_from_response(response)
+        if usage is not None:
+            metadata["usage"] = usage
         return Conversation(
             messages=[*original_conversation.messages, new_message],
-            metadata=original_conversation.metadata,
+            metadata=metadata,
             conversation_id=original_conversation.conversation_id,
         )
 
