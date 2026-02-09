@@ -70,7 +70,7 @@ dependencies = [
     "skypilot>=0.11.1,<0.12", # 0.11.1 includes db locking fix
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "tiktoken>=0.7,<1.0",
-    "torch>=2.6,<2.11.0", 
+    "torch>=2.6,<2.11.0",
     "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
@@ -189,7 +189,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp,synthesis,tune,torchdata]",
-    "vllm>=0.12,<0.16",                            # For VLLMInferenceEngine
+    "vllm>=0.10.2,<0.13",                         # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3,<0.4", # For LlamaCppInferenceEngine
