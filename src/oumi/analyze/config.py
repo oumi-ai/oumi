@@ -82,12 +82,12 @@ class CustomMetricConfig:
 
     .. warning::
         **Security Warning**: The ``function`` field contains arbitrary Python
-        code that is executed via ``exec()``. Only load configurations from
+        code that is executed dynamically. Only load configurations from
         trusted sources. Never load YAML configs from untrusted users or
         external sources without review, as they could execute malicious code.
 
-    Example YAML:
-        ```yaml
+    Example YAML::
+
         custom_metrics:
           - id: word_to_char_ratio
             scope: conversation
@@ -101,7 +101,6 @@ class CustomMetricConfig:
                   chars = sum(len(m.content) for m in conversation.messages)
                   words = sum(len(m.content.split()) for m in conversation.messages)
                   return {"ratio": words / chars if chars > 0 else 0.0}
-        ```
 
     Attributes:
         id: Unique identifier for the metric.
@@ -215,8 +214,8 @@ class TypedAnalyzeConfig:
     architecture. It supports both programmatic construction and
     loading from YAML files.
 
-    Example YAML:
-        ```yaml
+    Example YAML::
+
         dataset_path: /path/to/data.jsonl
         sample_count: 1000
         output_path: ./analysis_output
@@ -241,7 +240,6 @@ class TypedAnalyzeConfig:
             operator: ">"
             value: 10000
             max_percentage: 5.0
-        ```
 
     Attributes:
         dataset_name: Name of the dataset (HuggingFace identifier).
