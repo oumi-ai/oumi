@@ -236,7 +236,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         # Only set tokenizer for older vLLM versions with transformers v4
         if not is_vllm_post_v0102():
-            self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportArgumentType]
+            self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportArgumentType,reportAttributeAccessIssue]
 
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation

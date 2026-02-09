@@ -50,7 +50,7 @@ dependencies = [
     "jsonlines",
     "lm_eval[wandb]>=0.4,<0.5.0",
     "mlflow>=3.1",                # >=3.1.4 requires Python3.10>=
-    "numpy>=1.26,<2.4",           # verl==0.5.0 depends on numpy<2.0.0
+    "numpy>=1.26,<2.4",
     # The latest stable version, 2.3.0, is two years old and is causing dependency
     # conflicts. We'll use the dev version until a new stable version is released.
     # See https://github.com/oumi-ai/oumi/issues/1377
@@ -122,8 +122,8 @@ gpu = [
     "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
-    "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
-    "vllm>=0.15,<0.16",
+    "verl>=0.6,<0.7; python_version >= '3.10'", # Used for the VERL_GRPO trainer
+    "vllm>=0.10,<0.16",
 ]
 
 deepspeed = [
@@ -189,7 +189,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp,synthesis,tune,torchdata]",
-    "vllm>=0.15,<0.16",                         # For VLLMInferenceEngine
+    "vllm>=0.10,<0.16",                         # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3,<0.4", # For LlamaCppInferenceEngine
