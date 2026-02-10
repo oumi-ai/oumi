@@ -52,6 +52,8 @@ class AttributeSynthesizer:
             remote_params=inference_config.remote_params,
         )
         self._inference_config = inference_config
+        self._total_input_tokens: int = 0
+        self._total_output_tokens: int = 0
 
     def synthesize(
         self,
@@ -83,6 +85,7 @@ class AttributeSynthesizer:
             inference_conversations,
             inference_config=self._inference_config,
         )
+        self._accumulate_token_usage(inference_results)
 
         return self._process_inference_results(inference_results, generated_attribute)
 
@@ -181,8 +184,26 @@ class AttributeSynthesizer:
         inference_results = self._inference_engine.get_batch_results(  # type: ignore[attr-defined]
             batch_id, inference_conversations
         )
+        self._accumulate_token_usage(inference_results)
 
         return self._process_inference_results(inference_results, generated_attribute)
+
+    @property
+    def total_input_tokens(self) -> int:
+        """Total input/prompt tokens accumulated across all synthesize() calls."""
+        return self._total_input_tokens
+
+    @property
+    def total_output_tokens(self) -> int:
+        """Total output/completion tokens accumulated across all synthesize() calls."""
+        return self._total_output_tokens
+
+    def _accumulate_token_usage(self, inference_results: list[Conversation]) -> None:
+        """Accumulate token usage from inference response metadata."""
+        for result in inference_results:
+            usage = result.metadata.get("usage", {})
+            self._total_input_tokens += usage.get("prompt_tokens", 0)
+            self._total_output_tokens += usage.get("completion_tokens", 0)
 
     def _extract_response(
         self,
