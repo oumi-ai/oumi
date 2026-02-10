@@ -156,7 +156,7 @@ synthesis = [
 ]
 
 litellm = [
-    "litellm>=1.56,<1.57",  # Unified SDK for 100+ LLM providers
+    "litellm>=1.56,<1.57",
     "tenacity",       # Required by litellm for retry logic
 ]
 
