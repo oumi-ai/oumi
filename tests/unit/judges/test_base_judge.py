@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
@@ -751,3 +751,275 @@ class TestBaseJudge:
         ]
         with pytest.raises(ValueError, match=r"Input 1 is missing keys: \['answer'\]"):
             base_judge.validate_dataset(inputs)
+
+    def test_build_conversations(self, base_judge):
+        """Test that build_conversations returns proper Conversation objects."""
+        inputs = [
+            {"question": "What is 1+1?", "answer": "2"},
+            {"question": "What is 2+2?", "answer": "4"},
+        ]
+        conversations = base_judge.build_conversations(inputs)
+
+        assert len(conversations) == 2
+        # Each conversation should have 1 user message (no system, no examples)
+        for conv in conversations:
+            assert len(conv.messages) == 1
+            assert conv.messages[0].role == Role.USER
+
+        # Verify prompts are correctly built
+        assert (
+            conversations[0].messages[0].content
+            == "Is this helpful? Question: What is 1+1?, Answer: 2"
+        )
+        assert (
+            conversations[1].messages[0].content
+            == "Is this helpful? Question: What is 2+2?, Answer: 4"
+        )
+
+    def test_build_conversations_with_system_and_examples(
+        self, mock_inference_engine, sample_output_fields
+    ):
+        """Test build_conversations with system instruction and few-shot examples."""
+        judge = BaseJudge(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders={"question", "answer"},
+            system_instruction="You are a helpful judge",
+            # example_field_values must include prompt placeholders + output fields
+            example_field_values=[
+                {"question": "Is 2+2=4?", "answer": "yes", "judgment": "True"}
+            ],
+            response_format=JudgeResponseFormat.XML,
+            output_fields=sample_output_fields,
+            inference_engine=mock_inference_engine,
+        )
+
+        inputs = [{"question": "What is 1+1?", "answer": "2"}]
+        conversations = judge.build_conversations(inputs)
+
+        assert len(conversations) == 1
+        conv = conversations[0]
+        # system + example user + example assistant + judgment user = 4 messages
+        assert len(conv.messages) == 4
+        assert conv.messages[0].role == Role.SYSTEM
+        assert conv.messages[1].role == Role.USER
+        assert conv.messages[2].role == Role.ASSISTANT
+        assert conv.messages[3].role == Role.USER
+
+    def test_build_conversations_matches_judge(
+        self, base_judge, mock_inference_engine
+    ):
+        """Test that build_conversations output matches what judge() uses internally."""
+        inputs = [
+            {"question": "What is 1+1?", "answer": "2"},
+            {"question": "What is 2+2?", "answer": "4"},
+        ]
+
+        # Get conversations from build_conversations
+        conversations = base_judge.build_conversations(inputs)
+
+        # Setup mock to capture the conversations passed to _infer
+        response_convs = [
+            Conversation(
+                messages=[
+                    Message(
+                        content="Is this helpful? Question: What is 1+1?, Answer: 2",
+                        role=Role.USER,
+                    ),
+                    Message(content="<judgment>True</judgment>", role=Role.ASSISTANT),
+                ]
+            ),
+            Conversation(
+                messages=[
+                    Message(
+                        content="Is this helpful? Question: What is 2+2?, Answer: 4",
+                        role=Role.USER,
+                    ),
+                    Message(content="<judgment>False</judgment>", role=Role.ASSISTANT),
+                ]
+            ),
+        ]
+        mock_inference_engine.infer.return_value = response_convs
+
+        # Run judge() to capture conversations passed to infer
+        base_judge.judge(inputs)
+        infer_call_conversations = mock_inference_engine.infer.call_args[1]["input"]
+
+        # Verify they match
+        assert len(conversations) == len(infer_call_conversations)
+        for built, used in zip(conversations, infer_call_conversations):
+            assert len(built.messages) == len(used.messages)
+            for b_msg, u_msg in zip(built.messages, used.messages):
+                assert b_msg.content == u_msg.content
+                assert b_msg.role == u_msg.role
+
+    def test_parse_judge_outputs_valid(self, base_judge):
+        """Test that parse_judge_outputs correctly parses assistant responses."""
+        completed_conversations = [
+            Conversation(
+                messages=[
+                    Message(content="Test prompt", role=Role.USER),
+                    Message(
+                        content="<judgment>True</judgment>", role=Role.ASSISTANT
+                    ),
+                ]
+            ),
+            Conversation(
+                messages=[
+                    Message(content="Test prompt 2", role=Role.USER),
+                    Message(
+                        content="<judgment>False</judgment>", role=Role.ASSISTANT
+                    ),
+                ]
+            ),
+        ]
+
+        outputs = base_judge.parse_judge_outputs(completed_conversations)
+
+        assert len(outputs) == 2
+        assert outputs[0].raw_output == "<judgment>True</judgment>"
+        assert outputs[0].field_values == {"judgment": True}
+        assert outputs[0].field_scores == {"judgment": 1.0}
+        assert outputs[1].raw_output == "<judgment>False</judgment>"
+        assert outputs[1].field_values == {"judgment": False}
+        assert outputs[1].field_scores == {"judgment": 0.0}
+
+    def test_parse_judge_outputs_invalid_structure(self, base_judge):
+        """Test that parse_judge_outputs raises on wrong message count."""
+        # Only 1 message but expecting 2 (user + assistant)
+        bad_conversations = [
+            Conversation(
+                messages=[Message(content="only user", role=Role.USER)]
+            )
+        ]
+
+        with pytest.raises(ValueError, match="Expected 2 messages, got 1"):
+            base_judge.parse_judge_outputs(bad_conversations)
+
+    def test_judge_refactored_produces_same_results(
+        self, base_judge, mock_inference_engine
+    ):
+        """Regression test: judge() output is identical after refactor."""
+        inputs = [
+            {"question": "What is 1+1?", "answer": "2"},
+            {"question": "What is 2+2?", "answer": "3"},
+        ]
+
+        response_convs = [
+            Conversation(
+                messages=[
+                    Message(
+                        content="Is this helpful? Question: What is 1+1?, Answer: 2",
+                        role=Role.USER,
+                    ),
+                    Message(content="<judgment>True</judgment>", role=Role.ASSISTANT),
+                ]
+            ),
+            Conversation(
+                messages=[
+                    Message(
+                        content="Is this helpful? Question: What is 2+2?, Answer: 3",
+                        role=Role.USER,
+                    ),
+                    Message(content="<judgment>False</judgment>", role=Role.ASSISTANT),
+                ]
+            ),
+        ]
+        mock_inference_engine.infer.return_value = response_convs
+
+        results = base_judge.judge(inputs)
+
+        assert len(results) == 2
+        assert results[0].raw_output == "<judgment>True</judgment>"
+        assert results[0].field_values == {"judgment": True}
+        assert results[0].field_scores == {"judgment": 1.0}
+        assert results[1].raw_output == "<judgment>False</judgment>"
+        assert results[1].field_values == {"judgment": False}
+        assert results[1].field_scores == {"judgment": 0.0}
+
+    def test_judge_batch_submit(self, sample_output_fields):
+        """Test judge_batch_submit calls build_conversations + engine.infer_batch."""
+        mock_engine = MagicMock()
+        mock_engine.infer_batch.return_value = "batch_123"
+
+        judge = BaseJudge(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders={"question", "answer"},
+            system_instruction=None,
+            example_field_values=[],
+            response_format=JudgeResponseFormat.XML,
+            output_fields=sample_output_fields,
+            inference_engine=mock_engine,
+        )
+
+        # Patch isinstance check to treat our MagicMock as RemoteInferenceEngine
+        with patch(
+            "oumi.judges.base_judge.isinstance", side_effect=lambda obj, cls: True
+        ):
+            inputs = [{"question": "What is 1+1?", "answer": "2"}]
+            batch_id, conversations = judge.judge_batch_submit(inputs)
+
+        assert batch_id == "batch_123"
+        assert len(conversations) == 1
+        mock_engine.infer_batch.assert_called_once_with(conversations)
+
+    def test_judge_batch_submit_no_engine(self, sample_output_fields):
+        """Test judge_batch_submit raises ValueError without RemoteInferenceEngine."""
+        mock_engine = Mock()  # Not a RemoteInferenceEngine
+
+        judge = BaseJudge(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders={"question", "answer"},
+            system_instruction=None,
+            example_field_values=[],
+            response_format=JudgeResponseFormat.XML,
+            output_fields=sample_output_fields,
+            inference_engine=mock_engine,
+        )
+
+        inputs = [{"question": "What is 1+1?", "answer": "2"}]
+        with pytest.raises(
+            ValueError, match="Batch judging requires a RemoteInferenceEngine"
+        ):
+            judge.judge_batch_submit(inputs)
+
+    def test_judge_batch_result(self, sample_output_fields):
+        """Test judge_batch_result calls get_batch_results + parse_judge_outputs."""
+        completed_convs = [
+            Conversation(
+                messages=[
+                    Message(content="Test prompt", role=Role.USER),
+                    Message(
+                        content="<judgment>True</judgment>", role=Role.ASSISTANT
+                    ),
+                ]
+            ),
+        ]
+
+        mock_engine = MagicMock()
+        mock_engine.get_batch_results.return_value = completed_convs
+
+        judge = BaseJudge(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders={"question", "answer"},
+            system_instruction=None,
+            example_field_values=[],
+            response_format=JudgeResponseFormat.XML,
+            output_fields=sample_output_fields,
+            inference_engine=mock_engine,
+        )
+
+        input_convs = [
+            Conversation(messages=[Message(content="Test prompt", role=Role.USER)])
+        ]
+
+        with patch(
+            "oumi.judges.base_judge.isinstance", side_effect=lambda obj, cls: True
+        ):
+            results = judge.judge_batch_result("batch_123", input_convs)
+
+        assert len(results) == 1
+        assert results[0].raw_output == "<judgment>True</judgment>"
+        assert results[0].field_values == {"judgment": True}
+        mock_engine.get_batch_results.assert_called_once_with(
+            "batch_123", input_convs
+        )
