@@ -1,5 +1,4 @@
 import datasets
-import transformers
 
 from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
@@ -12,11 +11,11 @@ _SEQ_LEN = 10
 _MOCK_TOKENS = list(range(1, _NUM_TOKENS_PER_SAMPLE + 1))
 
 
-class MockTokenizer(transformers.PreTrainedTokenizer):
+class MockTokenizer:
+    """Simple mock tokenizer that doesn't inherit from PreTrainedTokenizer."""
+
     def __init__(self):
         self.eos_token_id = None
-        # Required by transformers v5+
-        self._special_tokens_map = {}
 
     def __call__(self, x, **kwargs):
         input_ids = []
@@ -32,7 +31,7 @@ def test_iter():
     )
     tokenizer = MockTokenizer()
     dataset = PretrainingAsyncTextDataset(
-        tokenizer=tokenizer,
+        tokenizer=tokenizer,  # type: ignore[arg-type]
         dataset=test_dataset,
         formatting_func=lambda x: x,
         seq_length=_SEQ_LEN,
