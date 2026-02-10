@@ -518,3 +518,163 @@ def test_get_batch_results_with_postprocessing(
     assert len(result) == 1
     assert "processed_content" in result[0]
     assert result[0]["processed_content"] == "Hello World"
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_token_usage_starts_at_zero(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test that token usage counters start at zero."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    assert synthesizer.total_input_tokens == 0
+    assert synthesizer.total_output_tokens == 0
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_token_usage_accumulated_from_synthesize(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that token usage is accumulated after synthesize() calls."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 1"),
+            ],
+            metadata={"usage": {"prompt_tokens": 10, "completion_tokens": 20}},
+        ),
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 2"),
+            ],
+            metadata={"usage": {"prompt_tokens": 15, "completion_tokens": 25}},
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    synthesizer.synthesize(samples, mock_generated_attribute)
+
+    assert synthesizer.total_input_tokens == 25
+    assert synthesizer.total_output_tokens == 45
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_token_usage_accumulates_across_multiple_synthesize_calls(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that token usage accumulates across multiple synthesize() calls."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response"),
+            ],
+            metadata={"usage": {"prompt_tokens": 10, "completion_tokens": 20}},
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    synthesizer.synthesize(samples, mock_generated_attribute)
+    synthesizer.synthesize(samples, mock_generated_attribute)
+
+    assert synthesizer.total_input_tokens == 20
+    assert synthesizer.total_output_tokens == 40
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_token_usage_accumulated_from_get_batch_results(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that token usage is accumulated after get_batch_results() calls."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.get_batch_results.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 1"),
+            ],
+            metadata={"usage": {"prompt_tokens": 30, "completion_tokens": 40}},
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    synthesizer.get_batch_results("batch_123", samples, mock_generated_attribute)
+
+    assert synthesizer.total_input_tokens == 30
+    assert synthesizer.total_output_tokens == 40
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_token_usage_handles_missing_metadata(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that token usage handles conversations without usage metadata."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response"),
+            ],
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    synthesizer.synthesize(samples, mock_generated_attribute)
+
+    assert synthesizer.total_input_tokens == 0
+    assert synthesizer.total_output_tokens == 0
