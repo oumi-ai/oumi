@@ -14,14 +14,18 @@
 
 """LiteLLM inference engine for unified access to 100+ LLM providers."""
 
+from collections.abc import AsyncIterator
 from typing import Any
 
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 from typing_extensions import override
 
+from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
+from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 
 
@@ -50,6 +54,10 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
 
         conversations = [Conversation(messages=[Message(role=Role.USER, content="Hi")])]
         results = engine.infer(conversations)
+
+        # Async streaming inference
+        async for chunk in engine.infer_stream_async(conversations[0]):
+            print(chunk, end="", flush=True)
         ```
 
     Note:
@@ -65,6 +73,8 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
         api_base: str | None = None,
         num_retries: int = 3,
         timeout: float | None = None,
+        num_workers: int = 10,
+        politeness_policy: float = 0.0,
     ):
         """Initializes the LiteLLM inference engine.
 
@@ -77,6 +87,9 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
             api_base: Optional custom API base URL.
             num_retries: Number of retries for failed requests. Defaults to 3.
             timeout: Request timeout in seconds. Defaults to None (no timeout).
+            num_workers: Maximum number of concurrent requests. Defaults to 10.
+            politeness_policy: Minimum delay in seconds between consecutive requests
+                to avoid rate limiting. Defaults to 0.0 (no delay).
         """
         super().__init__(model_params, generation_params=generation_params)
 
@@ -93,8 +106,9 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
         self._api_base = api_base
         self._num_retries = num_retries
         self._timeout = timeout
+        self._num_workers = num_workers
+        self._politeness_policy = politeness_policy
 
-        # Disable LiteLLM's verbose logging by default
         litellm.suppress_debug_info = True
 
     @override
@@ -117,15 +131,15 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
         input: list[Conversation],
         inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
-        """Runs model inference using LiteLLM.
+        """Runs model inference using LiteLLM with concurrent requests."""
+        return safe_asyncio_run(self._infer_async(input, inference_config))
 
-        Args:
-            input: A list of conversations to run inference on.
-            inference_config: Parameters for inference.
-
-        Returns:
-            List[Conversation]: Inference output with assistant responses.
-        """
+    async def _infer_async(
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
+    ) -> list[Conversation]:
+        """Runs model inference asynchronously with concurrency control."""
         output_path = inference_config.output_path if inference_config else None
         generation_params = (
             inference_config.generation
@@ -133,131 +147,87 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
             else self._generation_params
         )
 
-        results: list[Conversation] = []
+        semaphore = PoliteAdaptiveSemaphore(
+            capacity=self._num_workers,
+            politeness_policy=self._politeness_policy,
+        )
 
-        for conversation in tqdm(input, desc="Running LiteLLM inference"):
-            try:
-                messages = self._convert_conversation_to_messages(conversation)
-                completion_kwargs = self._build_completion_kwargs(
-                    messages, generation_params
+        async def process_conversation(conversation: Conversation) -> Conversation:
+            async with semaphore:
+                return await self._query_api_async(
+                    conversation, generation_params, output_path
                 )
 
-                response = self._litellm.completion(**completion_kwargs)
-                output_conversation = self._convert_response_to_conversation(
-                    response, conversation
-                )
+        tasks = [process_conversation(conv) for conv in input]
+        disable_tqdm = len(tasks) < 2
+        results = await tqdm.gather(
+            *tasks, desc="Running LiteLLM inference", disable=disable_tqdm
+        )
+        return list(results)
 
-                results.append(output_conversation)
-                self._save_conversation_to_scratch(output_conversation, output_path)
+    async def _query_api_async(
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        output_path: str | None,
+    ) -> Conversation:
+        """Queries the LiteLLM API asynchronously for a single conversation."""
+        try:
+            messages = self._convert_conversation_to_messages(conversation)
+            completion_kwargs = self._build_completion_kwargs(
+                messages, generation_params
+            )
 
-            except Exception as e:
-                logger.error(
-                    f"Error during LiteLLM inference for conversation "
-                    f"{conversation.conversation_id}: {e}"
-                )
-                raise
+            response = await self._litellm.acompletion(**completion_kwargs)
+            output_conversation = self._convert_response_to_conversation(
+                response, conversation
+            )
 
-        return results
+            self._save_conversation_to_scratch(output_conversation, output_path)
+            return output_conversation
+
+        except Exception as e:
+            logger.error(
+                f"Error during LiteLLM inference for conversation "
+                f"{conversation.conversation_id}: {e}"
+            )
+            raise
+
+    async def infer_stream_async(
+        self,
+        conversation: Conversation,
+        inference_config: InferenceConfig | None = None,
+    ) -> AsyncIterator[str]:
+        """Runs async streaming inference, yielding tokens as they are generated."""
+        generation_params = (
+            inference_config.generation
+            if inference_config and inference_config.generation
+            else self._generation_params
+        )
+
+        messages = self._convert_conversation_to_messages(conversation)
+        completion_kwargs = self._build_completion_kwargs(messages, generation_params)
+        completion_kwargs["stream"] = True
+
+        response = await self._litellm.acompletion(**completion_kwargs)
+
+        async for chunk in response:  # type: ignore[union-attr]
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
 
     def _convert_conversation_to_messages(
         self, conversation: Conversation
     ) -> list[dict[str, Any]]:
-        """Converts an Oumi Conversation to LiteLLM message format.
-
-        Args:
-            conversation: The Oumi Conversation object to convert.
-
-        Returns:
-            List of message dictionaries in LiteLLM/OpenAI format.
-        """
-        messages = []
-
-        for message in conversation.messages:
-            role = self._convert_role(message.role)
-            content = message.content if isinstance(message.content, str) else ""
-
-            # Handle multimodal content if present
-            if not isinstance(message.content, str) and message.content:
-                content_parts = []
-                for item in message.content:
-                    if item.type == Type.TEXT and item.content:
-                        content_parts.append({"type": "text", "text": item.content})
-                    elif item.type == Type.IMAGE_URL and item.content:
-                        content_parts.append(
-                            {"type": "image_url", "image_url": {"url": item.content}}
-                        )
-                    elif item.type == Type.IMAGE_BINARY and item.binary:
-                        # Handle base64 encoded images
-                        import base64
-
-                        b64_data = base64.b64encode(item.binary).decode("utf-8")
-                        data_url = f"data:image/png;base64,{b64_data}"
-                        content_parts.append(
-                            {"type": "image_url", "image_url": {"url": data_url}}
-                        )
-                    elif item.type == Type.IMAGE_PATH and item.content:
-                        # For image paths, read and encode the file
-                        import base64
-                        from pathlib import Path
-
-                        image_path = Path(item.content)
-                        if image_path.exists():
-                            with open(image_path, "rb") as f:
-                                b64_data = base64.b64encode(f.read()).decode("utf-8")
-                            # Detect image type from extension
-                            suffix = image_path.suffix.lower()
-                            mime_type = {
-                                ".png": "image/png",
-                                ".jpg": "image/jpeg",
-                                ".jpeg": "image/jpeg",
-                                ".gif": "image/gif",
-                                ".webp": "image/webp",
-                            }.get(suffix, "image/png")
-                            content_parts.append(
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:{mime_type};base64,{b64_data}"
-                                    },
-                                }
-                            )
-                if content_parts:
-                    messages.append({"role": role, "content": content_parts})
-                    continue
-
-            messages.append({"role": role, "content": content})
-
-        return messages
-
-    def _convert_role(self, role: Role) -> str:
-        """Converts an Oumi Role to LiteLLM role string.
-
-        Args:
-            role: The Oumi Role enum value.
-
-        Returns:
-            The corresponding LiteLLM role string.
-        """
-        role_mapping = {
-            Role.USER: "user",
-            Role.ASSISTANT: "assistant",
-            Role.SYSTEM: "system",
-            Role.TOOL: "tool",
-        }
-        return role_mapping.get(role, "user")
+        """Converts an Oumi Conversation to LiteLLM message format."""
+        return create_list_of_message_json_dicts(
+            conversation.messages,
+            group_adjacent_same_role_turns=False,
+        )
 
     def _build_completion_kwargs(
         self, messages: list[dict[str, Any]], generation_params: GenerationParams
     ) -> dict[str, Any]:
-        """Builds the keyword arguments for LiteLLM completion call.
-
-        Args:
-            messages: The conversation messages in LiteLLM format.
-            generation_params: Generation parameters.
-
-        Returns:
-            Dictionary of keyword arguments for litellm.completion().
-        """
+        """Builds the keyword arguments for LiteLLM completion call."""
         kwargs: dict[str, Any] = {
             "model": self._model_params.model_name,
             "messages": messages,
@@ -266,7 +236,6 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
             "num_retries": self._num_retries,
         }
 
-        # Add optional parameters only if set
         if self._api_key is not None:
             kwargs["api_key"] = self._api_key
 
@@ -299,17 +268,17 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
     def _convert_response_to_conversation(
         self, response: Any, original_conversation: Conversation
     ) -> Conversation:
-        """Converts a LiteLLM response to an Oumi Conversation.
-
-        Args:
-            response: The LiteLLM ModelResponse object.
-            original_conversation: The original conversation that was sent.
-
-        Returns:
-            A new Conversation with the assistant's response appended.
-        """
-        # Extract the assistant's response from the LiteLLM response
+        """Converts a LiteLLM response to an Oumi Conversation."""
         assistant_content = response.choices[0].message.content or ""
+
+        metadata: dict[str, Any] = dict(original_conversation.metadata or {})
+        if response.usage:
+            metadata["usage"] = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+                "cached_tokens": response.usage.cached_tokens,
+            }
 
         new_message = Message(
             content=assistant_content,
@@ -318,6 +287,6 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
 
         return Conversation(
             messages=[*original_conversation.messages, new_message],
-            metadata=original_conversation.metadata,
+            metadata=metadata,
             conversation_id=original_conversation.conversation_id,
         )

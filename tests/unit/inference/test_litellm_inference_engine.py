@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -52,6 +52,7 @@ def test_litellm_init_with_default_params(mock_litellm):
     assert engine._api_base is None
     assert engine._num_retries == 3
     assert engine._timeout is None
+    assert engine._num_workers == 10  # Default value
 
 
 def test_litellm_init_with_custom_params(mock_litellm):
@@ -66,6 +67,8 @@ def test_litellm_init_with_custom_params(mock_litellm):
         api_base="https://custom.api.com",
         num_retries=5,
         timeout=60.0,
+        num_workers=20,
+        politeness_policy=0.5,
     )
     assert engine._model_params.model_name == "openai/gpt-4"
     assert engine._generation_params.max_new_tokens == 256
@@ -74,6 +77,8 @@ def test_litellm_init_with_custom_params(mock_litellm):
     assert engine._api_base == "https://custom.api.com"
     assert engine._num_retries == 5
     assert engine._timeout == 60.0
+    assert engine._num_workers == 20
+    assert engine._politeness_policy == 0.5
 
 
 def test_litellm_supported_params(litellm_engine):
@@ -90,14 +95,6 @@ def test_litellm_supported_params(litellm_engine):
         "top_p",
     }
     assert supported == expected
-
-
-def test_litellm_convert_role(litellm_engine):
-    """Test converting Oumi roles to LiteLLM role strings."""
-    assert litellm_engine._convert_role(Role.USER) == "user"
-    assert litellm_engine._convert_role(Role.ASSISTANT) == "assistant"
-    assert litellm_engine._convert_role(Role.SYSTEM) == "system"
-    assert litellm_engine._convert_role(Role.TOOL) == "tool"
 
 
 def test_litellm_convert_conversation_to_messages(litellm_engine):
@@ -201,6 +198,7 @@ def test_litellm_convert_response_to_conversation(litellm_engine):
     mock_response = MagicMock()
     mock_response.choices = [MagicMock()]
     mock_response.choices[0].message.content = "This is the response."
+    mock_response.usage = None
 
     original_conversation = Conversation(
         messages=[Message(role=Role.USER, content="Hello!")],
@@ -218,7 +216,32 @@ def test_litellm_convert_response_to_conversation(litellm_engine):
     assert result.messages[1].role == Role.ASSISTANT
     assert result.messages[1].content == "This is the response."
     assert result.conversation_id == "test-id-123"
-    assert result.metadata == {"key": "value"}
+    assert result.metadata["key"] == "value"
+
+
+def test_litellm_convert_response_with_usage_metadata(litellm_engine):
+    """Test converting response extracts usage metadata."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "Response"
+    mock_response.usage = MagicMock()
+    mock_response.usage.prompt_tokens = 10
+    mock_response.usage.completion_tokens = 20
+    mock_response.usage.total_tokens = 30
+    mock_response.usage.cached_tokens = 5
+
+    original_conversation = Conversation(
+        messages=[Message(role=Role.USER, content="Hello!")]
+    )
+
+    result = litellm_engine._convert_response_to_conversation(
+        mock_response, original_conversation
+    )
+
+    assert result.metadata["usage"]["prompt_tokens"] == 10
+    assert result.metadata["usage"]["completion_tokens"] == 20
+    assert result.metadata["usage"]["total_tokens"] == 30
+    assert result.metadata["usage"]["cached_tokens"] == 5
 
 
 def test_litellm_convert_response_with_none_content(litellm_engine):
@@ -226,6 +249,7 @@ def test_litellm_convert_response_with_none_content(litellm_engine):
     mock_response = MagicMock()
     mock_response.choices = [MagicMock()]
     mock_response.choices[0].message.content = None
+    mock_response.usage = None
 
     original_conversation = Conversation(
         messages=[Message(role=Role.USER, content="Hello!")]
@@ -238,8 +262,8 @@ def test_litellm_convert_response_with_none_content(litellm_engine):
     assert result.messages[-1].content == ""
 
 
-def test_litellm_infer_single_conversation(mock_litellm):
-    """Test inference with a single conversation."""
+def test_litellm_infer_uses_async_completion(mock_litellm):
+    """Test that infer uses acompletion for async execution."""
     _ = mock_litellm
     from oumi.inference.litellm_inference_engine import LiteLLMInferenceEngine
 
@@ -248,10 +272,12 @@ def test_litellm_infer_single_conversation(mock_litellm):
         generation_params=GenerationParams(max_new_tokens=50),
     )
 
+    # Mock acompletion as an async function
     mock_response = MagicMock()
     mock_response.choices = [MagicMock()]
     mock_response.choices[0].message.content = "Hello! How can I help?"
-    engine._litellm.completion.return_value = mock_response
+    mock_response.usage = None
+    engine._litellm.acompletion = AsyncMock(return_value=mock_response)
 
     conversations = [
         Conversation(
@@ -266,11 +292,49 @@ def test_litellm_infer_single_conversation(mock_litellm):
     assert len(results[0].messages) == 2
     assert results[0].messages[-1].role == Role.ASSISTANT
     assert results[0].messages[-1].content == "Hello! How can I help?"
-    engine._litellm.completion.assert_called_once()
+    engine._litellm.acompletion.assert_called_once()
 
 
-def test_litellm_infer_multiple_conversations(mock_litellm):
-    """Test inference with multiple conversations."""
+def test_litellm_infer_multiple_conversations_concurrent(mock_litellm):
+    """Test inference with multiple conversations uses concurrent execution."""
+    _ = mock_litellm
+    from oumi.inference.litellm_inference_engine import LiteLLMInferenceEngine
+
+    engine = LiteLLMInferenceEngine(
+        model_params=ModelParams(model_name="openai/gpt-4"),
+        num_workers=5,
+    )
+
+    # Mock acompletion to return different responses
+    async def mock_acompletion(**kwargs):
+        response = MagicMock()
+        response.choices = [MagicMock()]
+        # Extract message content to create unique responses
+        msg = kwargs["messages"][0]["content"]
+        response.choices[0].message.content = f"Response to: {msg}"
+        response.usage = None
+        return response
+
+    engine._litellm.acompletion = mock_acompletion
+
+    conversations = [
+        Conversation(
+            messages=[Message(role=Role.USER, content=f"Question {i}")],
+            conversation_id=f"conv-{i}",
+        )
+        for i in range(5)
+    ]
+
+    results = engine.infer(conversations)
+
+    assert len(results) == 5
+    for i, result in enumerate(results):
+        assert f"Question {i}" in result.messages[-1].content
+
+
+@pytest.mark.asyncio
+async def test_litellm_streaming_async_inference(mock_litellm):
+    """Test async streaming inference yields chunks."""
     _ = mock_litellm
     from oumi.inference.litellm_inference_engine import LiteLLMInferenceEngine
 
@@ -278,26 +342,31 @@ def test_litellm_infer_multiple_conversations(mock_litellm):
         model_params=ModelParams(model_name="openai/gpt-4"),
     )
 
-    responses = [
-        MagicMock(choices=[MagicMock(message=MagicMock(content="Response 1"))]),
-        MagicMock(choices=[MagicMock(message=MagicMock(content="Response 2"))]),
-    ]
-    engine._litellm.completion.side_effect = responses
+    # Create mock streaming chunks
+    chunks = []
+    for text in ["Hello", " ", "world", "!"]:
+        chunk = MagicMock()
+        chunk.choices = [MagicMock()]
+        chunk.choices[0].delta.content = text
+        chunks.append(chunk)
 
-    conversations = [
-        Conversation(
-            messages=[Message(role=Role.USER, content="Question 1")],
-            conversation_id="conv-1",
-        ),
-        Conversation(
-            messages=[Message(role=Role.USER, content="Question 2")],
-            conversation_id="conv-2",
-        ),
-    ]
+    # Add a final chunk with no content
+    final_chunk = MagicMock()
+    final_chunk.choices = [MagicMock()]
+    final_chunk.choices[0].delta.content = None
+    chunks.append(final_chunk)
 
-    results = engine.infer(conversations)
+    # Create async iterator mock
+    async def async_chunk_iter():
+        for chunk in chunks:
+            yield chunk
 
-    assert len(results) == 2
-    assert results[0].messages[-1].content == "Response 1"
-    assert results[1].messages[-1].content == "Response 2"
-    assert engine._litellm.completion.call_count == 2
+    engine._litellm.acompletion = AsyncMock(return_value=async_chunk_iter())
+
+    conversation = Conversation(messages=[Message(role=Role.USER, content="Hi!")])
+
+    result_chunks = []
+    async for chunk in engine.infer_stream_async(conversation):
+        result_chunks.append(chunk)
+
+    assert result_chunks == ["Hello", " ", "world", "!"]
