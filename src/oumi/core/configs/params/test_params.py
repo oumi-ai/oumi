@@ -93,15 +93,17 @@ TEST_VALIDATIONS = {
     },
     "contains": {
         "required": ["text_field"],
-        "custom": lambda self: None
-        if (self.value is not None or self.values)
-        else "requires 'value' or 'values'",
+        "custom": lambda self: (
+            None
+            if (self.value is not None or self.values)
+            else "requires 'value' or 'values'"
+        ),
     },
     "outliers": {
         "required": ["metric"],
-        "custom": lambda self: None
-        if self.std_threshold > 0
-        else "'std_threshold' must be positive",
+        "custom": lambda self: (
+            None if self.std_threshold > 0 else "'std_threshold' must be positive"
+        ),
     },
     "composite": {
         "required": ["tests"],
