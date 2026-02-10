@@ -409,7 +409,9 @@ class TestEngine:
             try:
                 if op_func(value, test.value):
                     matching_indices.append(i)
-                    matching_reasons[i] = f"{value} {test.operator} {test.value}"
+                    matching_reasons[i] = (
+                        f"{value} satisfies {test.operator} {test.value}"
+                    )
                 else:
                     non_matching_indices.append(i)
                     non_matching_reasons[i] = (
@@ -425,7 +427,8 @@ class TestEngine:
         matching_pct = self._calculate_percentage(matching_count, total_count)
         non_matching_pct = self._calculate_percentage(non_matching_count, total_count)
 
-        # Determine pass/fail based on percentage thresholds
+        # Determine pass/fail based on percentage thresholds.
+        # For threshold tests, matching samples are considered "affected" (flagged).
         passed = True
         affected_indices = []
         affected_pct = 0.0
@@ -439,18 +442,20 @@ class TestEngine:
 
         if test.min_percentage is not None and matching_pct < test.min_percentage:
             passed = False
-            # If max also failed, combine; otherwise use non-matching
+            # If max also failed, keep matching; otherwise use non-matching as
+            # the affected set because they prevent meeting the minimum.
             if not affected_indices:
                 affected_indices = non_matching_indices
                 affected_pct = non_matching_pct
                 failure_reasons = non_matching_reasons
 
-        # Default case: no percentage thresholds, all must match
+        # Default case: no percentage thresholds.
+        # Matching samples are flagged, and the test passes when no samples match.
         if test.max_percentage is None and test.min_percentage is None:
-            passed = non_matching_count == 0
-            affected_indices = non_matching_indices
-            affected_pct = non_matching_pct
-            failure_reasons = non_matching_reasons
+            passed = matching_count == 0
+            affected_indices = matching_indices
+            affected_pct = matching_pct
+            failure_reasons = matching_reasons
 
         return self._build_test_result(
             test=test,

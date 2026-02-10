@@ -127,14 +127,14 @@ def test_engine_empty_tests():
 
 
 def test_threshold_test_all_pass(sample_results):
-    """Test threshold where all values pass."""
+    """Test threshold where no values are flagged."""
     tests = [
         TestParams(
             id="min_tokens",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
-            operator=">=",
-            value=50,
+            operator=">",
+            value=1000,
         )
     ]
     engine = TestEngine(tests)
@@ -145,7 +145,7 @@ def test_threshold_test_all_pass(sample_results):
 
 
 def test_threshold_test_some_fail(sample_results):
-    """Test threshold where some values fail."""
+    """Test threshold where some values are flagged."""
     tests = [
         TestParams(
             id="max_tokens",
@@ -158,7 +158,7 @@ def test_threshold_test_some_fail(sample_results):
     engine = TestEngine(tests)
     summary = engine.run(sample_results)
 
-    # 3 out of 4 are >= 100, so only 1 passes (50 < 100)
+    # 1 out of 4 values is < 100, so one conversation is flagged.
     assert summary.failed_tests == 1
 
 
@@ -312,8 +312,8 @@ def test_extract_metric_single_result():
             id="single_result",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
-            operator="==",
-            value=100,
+            operator=">",
+            value=1000,
         )
     ]
     engine = TestEngine(tests)
@@ -436,14 +436,14 @@ def test_engine_run_multiple_tests(sample_results):
             id="test_1",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_tokens",
-            operator=">=",
-            value=50,
+            operator=">",
+            value=1000,
         ),
         TestParams(
             id="test_2",
             type=TestType.THRESHOLD,
             metric="LengthAnalyzer.total_chars",
-            operator="<=",
+            operator=">",
             value=2000,
         ),
     ]
