@@ -321,6 +321,10 @@ class BaseJudge:
         self.output_fields = output_fields
         self.inference_engine = inference_engine
 
+        # Token usage tracking
+        self._total_input_tokens: int = 0
+        self._total_output_tokens: int = 0
+
         # Validate the configuration
         if prompt_template is None or not prompt_template.strip():
             raise ValueError("Prompt template cannot be empty or None")
@@ -556,7 +560,23 @@ class BaseJudge:
         for response_conv, metadata in zip(response_conversations, original_metadata):
             response_conv.metadata.update(metadata)
 
+        # Accumulate token usage from inference responses
+        for response_conv in response_conversations:
+            usage = response_conv.metadata.get("usage", {})
+            self._total_input_tokens += usage.get("prompt_tokens", 0)
+            self._total_output_tokens += usage.get("completion_tokens", 0)
+
         return response_conversations
+
+    @property
+    def total_input_tokens(self) -> int:
+        """Total input/prompt tokens accumulated across all judge() calls."""
+        return self._total_input_tokens
+
+    @property
+    def total_output_tokens(self) -> int:
+        """Total output/completion tokens accumulated across all judge() calls."""
+        return self._total_output_tokens
 
     def _transform_judge_output(self, raw_output: str) -> JudgeOutput:
         """Parse raw model output into structured judge output.

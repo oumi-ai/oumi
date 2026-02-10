@@ -214,7 +214,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if quantization is not None and "quantization" not in vllm_kwargs:
             final_vllm_kwargs["quantization"] = quantization
 
-        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType]
+        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
 
