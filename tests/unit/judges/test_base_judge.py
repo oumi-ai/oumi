@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -805,9 +805,7 @@ class TestBaseJudge:
         assert conv.messages[2].role == Role.ASSISTANT
         assert conv.messages[3].role == Role.USER
 
-    def test_build_conversations_matches_judge(
-        self, base_judge, mock_inference_engine
-    ):
+    def test_build_conversations_matches_judge(self, base_judge, mock_inference_engine):
         """Test that build_conversations output matches what judge() uses internally."""
         inputs = [
             {"question": "What is 1+1?", "answer": "2"},
@@ -858,17 +856,13 @@ class TestBaseJudge:
             Conversation(
                 messages=[
                     Message(content="Test prompt", role=Role.USER),
-                    Message(
-                        content="<judgment>True</judgment>", role=Role.ASSISTANT
-                    ),
+                    Message(content="<judgment>True</judgment>", role=Role.ASSISTANT),
                 ]
             ),
             Conversation(
                 messages=[
                     Message(content="Test prompt 2", role=Role.USER),
-                    Message(
-                        content="<judgment>False</judgment>", role=Role.ASSISTANT
-                    ),
+                    Message(content="<judgment>False</judgment>", role=Role.ASSISTANT),
                 ]
             ),
         ]
@@ -887,9 +881,7 @@ class TestBaseJudge:
         """Test that parse_judge_outputs raises on wrong message count."""
         # Only 1 message but expecting 2 (user + assistant)
         bad_conversations = [
-            Conversation(
-                messages=[Message(content="only user", role=Role.USER)]
-            )
+            Conversation(messages=[Message(content="only user", role=Role.USER)])
         ]
 
         with pytest.raises(ValueError, match="Expected 2 messages, got 1"):
@@ -988,9 +980,7 @@ class TestBaseJudge:
             Conversation(
                 messages=[
                     Message(content="Test prompt", role=Role.USER),
-                    Message(
-                        content="<judgment>True</judgment>", role=Role.ASSISTANT
-                    ),
+                    Message(content="<judgment>True</judgment>", role=Role.ASSISTANT),
                 ]
             ),
         ]
@@ -1020,6 +1010,4 @@ class TestBaseJudge:
         assert len(results) == 1
         assert results[0].raw_output == "<judgment>True</judgment>"
         assert results[0].field_values == {"judgment": True}
-        mock_engine.get_batch_results.assert_called_once_with(
-            "batch_123", input_convs
-        )
+        mock_engine.get_batch_results.assert_called_once_with("batch_123", input_convs)
