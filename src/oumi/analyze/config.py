@@ -19,11 +19,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from oumi.core.configs.params.test_params import (
-    TestConfig,
-    TestSeverity,
-    TestType,
-)
+from oumi.core.configs.params.test_params import TestParams
 
 
 class AnalyzerType(str, Enum):
@@ -149,65 +145,6 @@ class CustomMetricConfig:
 
 
 @dataclass
-class TestConfigYAML:
-    """YAML-friendly test configuration.
-
-    This class mirrors TestConfig but uses simpler types for YAML parsing.
-
-    Attributes:
-        id: Unique identifier for the test.
-        type: Test type ("threshold", "percentage", "range").
-        metric: Path to the metric (e.g., "LengthAnalyzer.total_words").
-        severity: Severity level ("high", "medium", "low").
-        title: Human-readable title.
-        description: Description of the test.
-        operator: Comparison operator for threshold tests.
-        value: Value to compare against.
-        condition: Condition for percentage tests.
-        max_percentage: Maximum allowed percentage.
-        min_percentage: Minimum required percentage.
-        min_value: Minimum value for range tests.
-        max_value: Maximum value for range tests.
-    """
-
-    id: str
-    type: str
-    metric: str
-    severity: str = "medium"
-    title: str = ""
-    description: str = ""
-    operator: str | None = None
-    value: float | int | str | None = None
-    condition: str | None = None
-    max_percentage: float | None = None
-    min_percentage: float | None = None
-    min_value: float | None = None
-    max_value: float | None = None
-
-    def to_test_config(self) -> TestConfig:
-        """Convert to TestConfig for the test engine.
-
-        Returns:
-            TestConfig instance.
-        """
-        return TestConfig(
-            id=self.id,
-            type=TestType(self.type),
-            metric=self.metric,
-            severity=TestSeverity(self.severity),
-            title=self.title,
-            description=self.description,
-            operator=self.operator,
-            value=self.value,
-            condition=self.condition,
-            max_percentage=self.max_percentage,
-            min_percentage=self.min_percentage,
-            min_value=self.min_value,
-            max_value=self.max_value,
-        )
-
-
-@dataclass
 class TypedAnalyzeConfig:
     """Configuration for the typed analyzer pipeline.
 
@@ -280,7 +217,7 @@ class TypedAnalyzeConfig:
     custom_metrics: list[CustomMetricConfig] = field(default_factory=list)
 
     # Tests
-    tests: list[TestConfigYAML] = field(default_factory=list)
+    tests: list[TestParams] = field(default_factory=list)
 
     # Tokenizer
     tokenizer_name: str | None = None
@@ -382,7 +319,9 @@ class TypedAnalyzeConfig:
         # Parse tests
         tests = []
         for test_data in data.get("tests", []):
-            tests.append(TestConfigYAML(**test_data))
+            test_params = TestParams(**test_data)
+            test_params.finalize_and_validate()
+            tests.append(test_params)
 
         return cls(
             eval_name=data.get("eval_name"),
@@ -441,8 +380,6 @@ class TypedAnalyzeConfig:
                     "condition": t.condition,
                     "max_percentage": t.max_percentage,
                     "min_percentage": t.min_percentage,
-                    "min_value": t.min_value,
-                    "max_value": t.max_value,
                 }
                 for t in self.tests
             ],
@@ -452,10 +389,10 @@ class TypedAnalyzeConfig:
             "report_title": self.report_title,
         }
 
-    def get_test_configs(self) -> list[TestConfig]:
+    def get_test_configs(self) -> list[TestParams]:
         """Get test configurations for the test engine.
 
         Returns:
-            List of TestConfig instances.
+            List of TestParams instances.
         """
-        return [t.to_test_config() for t in self.tests]
+        return self.tests
