@@ -15,6 +15,8 @@ _MOCK_TOKENS = list(range(1, _NUM_TOKENS_PER_SAMPLE + 1))
 class MockTokenizer(transformers.PreTrainedTokenizer):
     def __init__(self):
         self.eos_token_id = None
+        # Required by transformers v5+
+        self._special_tokens_map = {}
 
     def __call__(self, x, **kwargs):
         input_ids = []

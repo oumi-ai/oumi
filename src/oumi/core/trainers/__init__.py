@@ -32,7 +32,14 @@ from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.core.trainers.hf_trainer import HuggingFaceTrainer
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.core.trainers.trl_dpo_trainer import TrlDpoTrainer
-from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
+
+# VerlGrpoTrainer depends on verl which may not be compatible with all
+# transformers versions (e.g., verl uses AutoModelForVision2Seq which was
+# renamed in transformers v5)
+try:
+    from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
+except ImportError:
+    VerlGrpoTrainer = None  # type: ignore[misc,assignment]
 
 __all__ = [
     "BaseTrainer",
