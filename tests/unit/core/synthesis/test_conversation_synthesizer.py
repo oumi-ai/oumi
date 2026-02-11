@@ -677,3 +677,177 @@ def test_parse_plan_returns_none_for_malformed_text(
         "I'm sorry, I can't create a plan right now.", target_turns=2
     )
     assert result is None
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_has_empty_messages_detects_empty_content(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _has_empty_messages returns True when a message has empty content."""
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
+
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content=""),
+        ]
+    )
+    assert synthesizer._has_empty_messages(conversation) is True
+
+    conversation_ws = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="   "),
+        ]
+    )
+    assert synthesizer._has_empty_messages(conversation_ws) is True
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_has_empty_messages_passes_valid_conversation(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _has_empty_messages returns False when all messages have content."""
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
+
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="System prompt"),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="Hi there!"),
+        ]
+    )
+    assert synthesizer._has_empty_messages(conversation) is False
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_has_empty_messages_ignores_system_messages(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _has_empty_messages ignores system messages."""
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
+
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content=""),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+        ]
+    )
+    assert synthesizer._has_empty_messages(conversation) is False
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_filters_conversations_with_empty_messages(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that synthesize filters out conversations containing empty messages."""
+    mock_build_inference_engine.return_value = Mock()
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+    )
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
+
+    with (
+        patch.object(synthesizer, "_synthesize_all_samples") as mock_synth,
+        patch.object(synthesizer, "_plan_samples") as mock_plan,
+    ):
+        mock_plan.return_value = [
+            {"conversation_plan": "plan1"},
+            {"conversation_plan": "plan2"},
+        ]
+        mock_synth.return_value = [
+            Conversation(
+                messages=[
+                    Message(role=Role.USER, content="Hello"),
+                    Message(role=Role.ASSISTANT, content="Hi!"),
+                ]
+            ),
+            Conversation(
+                messages=[
+                    Message(role=Role.USER, content="Hello"),
+                    Message(role=Role.ASSISTANT, content=""),
+                ]
+            ),
+        ]
+
+        samples = [{"key": "val1"}, {"key": "val2"}]
+        result = synthesizer.synthesize(samples, multiturn_attr)
+
+    assert len(result) == 1
+    assert result[0]["test_conversation"]["messages"][0]["content"] == "Hello"
+    assert result[0]["test_conversation"]["messages"][1]["content"] == "Hi!"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_filters_all_conversations_returns_empty(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that synthesize returns empty list when all conversations have empty messages."""
+    mock_build_inference_engine.return_value = Mock()
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+    )
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
+
+    with (
+        patch.object(synthesizer, "_synthesize_all_samples") as mock_synth,
+        patch.object(synthesizer, "_plan_samples") as mock_plan,
+    ):
+        mock_plan.return_value = [
+            {"conversation_plan": "plan1"},
+            {"conversation_plan": "plan2"},
+        ]
+        mock_synth.return_value = [
+            Conversation(
+                messages=[
+                    Message(role=Role.USER, content=""),
+                    Message(role=Role.ASSISTANT, content="Response"),
+                ]
+            ),
+            Conversation(
+                messages=[
+                    Message(role=Role.USER, content="Hello"),
+                    Message(role=Role.ASSISTANT, content=""),
+                ]
+            ),
+        ]
+
+        samples = [{"key": "val1"}, {"key": "val2"}]
+        result = synthesizer.synthesize(samples, multiturn_attr)
+
+    assert result == []
