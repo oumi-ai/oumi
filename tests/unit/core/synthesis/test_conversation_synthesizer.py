@@ -169,7 +169,9 @@ def test_output_system_prompt_prepended_to_conversation(
     result = synthesizer.synthesize(samples, mock_multiturn_attribute)
 
     assert len(result) == 1
-    conversation = result[0][mock_multiturn_attribute.id]
+    record = result[0]
+    assert record is not None
+    conversation = record[mock_multiturn_attribute.id]
     assert isinstance(conversation, dict)
     messages = conversation["messages"]
 
@@ -209,7 +211,9 @@ def test_conversation_plan_uses_namespaced_key(
     assert len(result) == 1
     # Plan should be returned under a namespaced key: {attribute_id}_plan
     plan_key = f"{mock_multiturn_attribute.id}_plan"
-    assert plan_key in result[0]
+    record = result[0]
+    assert record is not None
+    assert plan_key in record
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -243,8 +247,10 @@ def test_synthesize_without_conversation_planner(
 
     assert len(result) == 1
     plan_key = f"{multiturn_attr.id}_plan"
-    assert plan_key in result[0]
-    assert multiturn_attr.id in result[0]
+    record = result[0]
+    assert record is not None
+    assert plan_key in record
+    assert multiturn_attr.id in record
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -276,7 +282,9 @@ def test_turn_order_is_user_then_assistant(
 
     result = synthesizer.synthesize([{}], multiturn_attr)
 
-    conversation = result[0][multiturn_attr.id]
+    record = result[0]
+    assert record is not None
+    conversation = record[multiturn_attr.id]
     assert isinstance(conversation, dict)
     messages = conversation["messages"]
 
@@ -754,7 +762,7 @@ def test_synthesize_filters_conversations_with_empty_messages(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """Test that synthesize filters out conversations containing empty messages."""
+    """Test that filtered conversations keep input/output index alignment."""
     mock_build_inference_engine.return_value = Mock()
 
     multiturn_attr = MultiTurnAttribute(
@@ -797,8 +805,11 @@ def test_synthesize_filters_conversations_with_empty_messages(
         samples = [{"key": "val1"}, {"key": "val2"}]
         result = synthesizer.synthesize(samples, multiturn_attr)
 
-    assert len(result) == 1
-    conversation = result[0]["test_conversation"]
+    assert len(result) == 2
+    assert result[1] is None
+    record = result[0]
+    assert record is not None
+    conversation = record["test_conversation"]
     assert isinstance(conversation, dict)
     assert conversation["messages"][0]["content"] == "Hello"
     assert conversation["messages"][1]["content"] == "Hi!"
@@ -809,8 +820,7 @@ def test_synthesize_filters_all_conversations_returns_empty(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """Test synthesize returns empty list when all conversations
-    have empty messages."""
+    """Test synthesize returns all-None list when all conversations are filtered."""
     mock_build_inference_engine.return_value = Mock()
 
     multiturn_attr = MultiTurnAttribute(
@@ -853,4 +863,4 @@ def test_synthesize_filters_all_conversations_returns_empty(
         samples = [{"key": "val1"}, {"key": "val2"}]
         result = synthesizer.synthesize(samples, multiturn_attr)
 
-    assert result == []
+    assert result == [None, None]

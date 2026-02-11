@@ -320,6 +320,55 @@ def test_synthesize_with_multiturn_attributes(
     assert all("conversation_plan" in item for item in result)
 
 
+@patch("oumi.core.synthesis.synthesis_pipeline.ConversationSynthesizer")
+@patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")
+def test_synthesize_with_multiturn_filtered_result_keeps_samples(
+    mock_attr_synth,
+    mock_attr_transformer_class,
+    mock_dataset_planner_class,
+    mock_conv_synth_class,
+    synthesis_config_with_multiturn_attributes,
+    mock_dataset_planner,
+    mock_attribute_transformer,
+):
+    """Test that filtered conversation results do not crash or drop samples."""
+    sample_dataset = [
+        {"id": "s1", "base": "v1"},
+        {"id": "s2", "base": "v2"},
+    ]
+    mock_attr_transformer_class.return_value = mock_attribute_transformer
+    mock_dataset_planner_class.return_value = mock_dataset_planner
+    mock_dataset_planner.plan.return_value = sample_dataset
+
+    multiturn_attr = (
+        synthesis_config_with_multiturn_attributes.strategy_params.multiturn_attributes[
+            0
+        ]
+    )
+    plan_key = f"{multiturn_attr.id}_plan"
+    mock_conv_synth = mock_conv_synth_class.return_value
+    mock_conv_synth.synthesize.return_value = [
+        {
+            multiturn_attr.id: {"messages": [{"role": "user", "content": "Hello"}]},
+            plan_key: "Plan",
+        },
+        None,
+    ]
+
+    pipeline = SynthesisPipeline(synthesis_config_with_multiturn_attributes)
+    result = pipeline.synthesize()
+
+    assert len(result) == 2
+    assert multiturn_attr.id in result[0]
+    assert plan_key in result[0]
+    assert multiturn_attr.id not in result[1]
+    assert plan_key not in result[1]
+    assert result[1]["id"] == "s2"
+    assert result[1]["base"] == "v2"
+
+
 @patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
 @patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
 @patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")

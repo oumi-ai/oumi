@@ -75,7 +75,7 @@ class ConversationSynthesizer:
         self,
         samples: list[dict],
         multiturn_attributes: MultiTurnAttribute,
-    ) -> list[dict[str, dict | str]]:
+    ) -> list[dict[str, dict | str] | None]:
         """Synthesize a multi-turn conversation.
 
         Order will be identical to the order of the samples.
@@ -85,7 +85,9 @@ class ConversationSynthesizer:
             multiturn_attributes: The multi-turn attribute defining conversation rules.
 
         Returns:
-            A list of dictionaries containing the conversation and the plan.
+            A list aligned to the input samples. Each entry is either:
+            - a dictionary containing the conversation and plan, or
+            - None when the synthesized conversation is filtered out.
         """
         if not samples:
             return []
@@ -100,12 +102,13 @@ class ConversationSynthesizer:
         samples = self._plan_samples(samples, multiturn_attributes)
         conversations = self._synthesize_all_samples(samples, multiturn_attributes)
 
-        records: list[dict[str, dict | str]] = []
+        records: list[dict[str, dict | str] | None] = []
         plan_key = f"{multiturn_attributes.id}_plan"
         filtered_count = 0
         for sample, conversation in zip(samples, conversations):
             if self._has_empty_messages(conversation):
                 filtered_count += 1
+                records.append(None)
                 continue
             record: dict[str, dict | str] = {
                 multiturn_attributes.id: conversation.to_dict(),

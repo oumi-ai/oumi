@@ -78,8 +78,16 @@ class SynthesisPipeline:
                 results = self._conversation_synthesizer.synthesize(
                     dataset, multiturn_attr
                 )
-                for i, sample in enumerate(dataset):
-                    sample.update(results[i])
+                if len(results) != len(dataset):
+                    logger.warning(
+                        f"Conversation synthesis returned {len(results)} records for "
+                        f"{len(dataset)} samples on attribute "
+                        f"'{multiturn_attr.id}'. Updating only aligned entries."
+                    )
+                for sample, result in zip(dataset, results):
+                    if result is None:
+                        continue
+                    sample.update(result)
 
         # Add the transformed attributes to the dataset
         logger.info("Adding transformed attributes")
