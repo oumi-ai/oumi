@@ -61,6 +61,49 @@ def test_convert_api_output_to_conversation(anthropic_engine):
     assert result.conversation_id == "test_id"
 
 
+def test_convert_api_output_to_conversation_with_usage(anthropic_engine):
+    original_conversation = Conversation(
+        messages=[
+            Message(content="User message", role=Role.USER),
+        ],
+        metadata={"key": "value"},
+        conversation_id="test_id",
+    )
+    api_response = {
+        "content": [{"text": "Assistant response"}],
+        "usage": {"input_tokens": 12, "output_tokens": 8},
+    }
+
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original_conversation
+    )
+
+    assert result.metadata["usage"] == {
+        "prompt_tokens": 12,
+        "completion_tokens": 8,
+        "total_tokens": 20,
+    }
+    assert result.metadata["key"] == "value"
+    assert result.conversation_id == "test_id"
+
+
+def test_convert_api_output_to_conversation_no_usage(anthropic_engine):
+    original_conversation = Conversation(
+        messages=[
+            Message(content="User message", role=Role.USER),
+        ],
+        metadata={"key": "value"},
+    )
+    api_response = {"content": [{"text": "Assistant response"}]}
+
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original_conversation
+    )
+
+    assert "usage" not in result.metadata
+    assert result.metadata["key"] == "value"
+
+
 def test_get_request_headers(anthropic_engine):
     remote_params = RemoteParams(api_key="test_api_key", api_url="<placeholder>")
 

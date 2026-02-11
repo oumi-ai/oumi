@@ -24,6 +24,7 @@ from oumi.core.configs.params.judge_params import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.placeholders import resolve_placeholders
 
 
@@ -321,6 +322,10 @@ class BaseJudge:
         self.output_fields = output_fields
         self.inference_engine = inference_engine
 
+        # Token usage tracking
+        self._total_input_tokens: int = 0
+        self._total_output_tokens: int = 0
+
         # Validate the configuration
         if prompt_template is None or not prompt_template.strip():
             raise ValueError("Prompt template cannot be empty or None")
@@ -342,6 +347,70 @@ class BaseJudge:
         Raises:
             ValueError: If inference returns unexpected number of conversations
         """
+        conversations = self.build_conversations(inputs)
+        completed_conversations = self._infer(conversations)
+        return self.parse_judge_outputs(completed_conversations)
+
+    def judge_batch_submit(
+        self, inputs: list[dict[str, str]]
+    ) -> tuple[str, list[Conversation]]:
+        """Submit a batch judging job.
+
+        Builds conversations from inputs and submits them as a batch job
+        via the inference engine's batch API.
+
+        Args:
+            inputs: List of dictionaries containing input data for evaluation.
+
+        Returns:
+            Tuple of (batch_id, conversations) — the batch_id for polling,
+            and the conversations needed to retrieve results later.
+
+        Raises:
+            ValueError: If inference_engine is None or not a RemoteInferenceEngine.
+        """
+        conversations = self.build_conversations(inputs)
+        if not isinstance(self.inference_engine, RemoteInferenceEngine):
+            raise ValueError("Batch judging requires a RemoteInferenceEngine")
+        batch_id = self.inference_engine.infer_batch(conversations)
+        return batch_id, conversations
+
+    def judge_batch_result(
+        self, batch_id: str, conversations: list[Conversation]
+    ) -> list[JudgeOutput]:
+        """Retrieve and parse results from a completed batch judging job.
+
+        Args:
+            batch_id: The batch job ID from judge_batch_submit.
+            conversations: The conversations returned by judge_batch_submit.
+
+        Returns:
+            List of structured judge outputs with parsed results.
+
+        Raises:
+            ValueError: If inference_engine is None or not a RemoteInferenceEngine.
+        """
+        if not isinstance(self.inference_engine, RemoteInferenceEngine):
+            raise ValueError("Batch judging requires a RemoteInferenceEngine")
+        completed = self.inference_engine.get_batch_results(batch_id, conversations)
+        return self.parse_judge_outputs(completed)
+
+    def build_conversations(
+        self,
+        inputs: list[dict[str, str]],
+    ) -> list[Conversation]:
+        """Build judge conversations from inputs without running inference.
+
+        Validates inputs, builds few-shot examples, creates judgment prompts,
+        and assembles full conversations ready for inference.
+
+        Args:
+            inputs: List of dictionaries containing input data for evaluation.
+                    Each dict must contain values for all prompt_template placeholders.
+
+        Returns:
+            List of Conversation objects ready for inference.
+        """
         # Fast fail if the dataset is invalid
         self.validate_dataset(inputs)
 
@@ -361,7 +430,7 @@ class BaseJudge:
         ]
 
         # Create a conversation for each judgment prompt
-        judge_conversations = [
+        return [
             self._build_judge_conversation(
                 system_instruction=self.system_instruction,
                 example_user_prompts=example_user_prompts,
@@ -371,10 +440,24 @@ class BaseJudge:
             for judgment_prompt in judgment_prompts
         ]
 
-        # Run inference for all conversations in batch
-        completed_conversations = self._infer(judge_conversations)
+    def parse_judge_outputs(
+        self,
+        completed_conversations: list[Conversation],
+    ) -> list[JudgeOutput]:
+        """Parse completed conversations into structured judge outputs.
 
-        # Extract and parse the judgment outputs
+        Validates each conversation has the expected structure (correct message
+        count, ends with assistant message) and parses the raw output.
+
+        Args:
+            completed_conversations: List of conversations with model responses.
+
+        Returns:
+            List of structured judge outputs with parsed results.
+
+        Raises:
+            ValueError: If any conversation has unexpected structure.
+        """
         judge_outputs = []
         for conversation in completed_conversations:
             self._validate_completed_conversation(conversation)
@@ -556,7 +639,23 @@ class BaseJudge:
         for response_conv, metadata in zip(response_conversations, original_metadata):
             response_conv.metadata.update(metadata)
 
+        # Accumulate token usage from inference responses
+        for response_conv in response_conversations:
+            usage = response_conv.metadata.get("usage", {})
+            self._total_input_tokens += usage.get("prompt_tokens", 0)
+            self._total_output_tokens += usage.get("completion_tokens", 0)
+
         return response_conversations
+
+    @property
+    def total_input_tokens(self) -> int:
+        """Total input/prompt tokens accumulated across all judge() calls."""
+        return self._total_input_tokens
+
+    @property
+    def total_output_tokens(self) -> int:
+        """Total output/completion tokens accumulated across all judge() calls."""
+        return self._total_output_tokens
 
     def _transform_judge_output(self, raw_output: str) -> JudgeOutput:
         """Parse raw model output into structured judge output.

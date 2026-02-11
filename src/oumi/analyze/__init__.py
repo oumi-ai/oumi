@@ -38,6 +38,7 @@ from oumi.analyze.discovery import (
     print_analyzer_metrics,
 )
 from oumi.analyze.pipeline import AnalysisPipeline
+from oumi.analyze.testing import TestEngine, TestResult, TestSummary
 from oumi.analyze.utils.dataframe import to_analysis_dataframe
 from oumi.core.registry import (
     REGISTRY,
@@ -112,4 +113,7 @@ __all__ = [
     "register_analyzer",
     "get_analyzer_class",
     "create_analyzer_from_config",
+    "TestEngine",
+    "TestResult",
+    "TestSummary",
 ]
