@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import random
-import re
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.inference_config import InferenceConfig
@@ -26,6 +24,7 @@ from oumi.core.configs.params.synthesis_params import (
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import extract_json
 
 
 class ConversationSynthesizer:
@@ -202,9 +201,13 @@ class ConversationSynthesizer:
         if not plan:
             return None
 
-        turns = self._extract_json_from_plan(plan)
+        turns = extract_json(plan, expected_type=list)
         if turns is None:
-            return None
+            single = extract_json(plan, expected_type=dict)
+            if single is not None:
+                turns = [single]
+            else:
+                return None
 
         result = [""] * target_turns
         for turn in turns:
@@ -222,42 +225,6 @@ class ConversationSynthesizer:
                 result[turn_num - 1] = str(instruction).strip()
 
         return result
-
-    def _extract_json_from_plan(self, plan: str) -> list | None:
-        """Extract and parse JSON array from plan text.
-
-        Tries code-fenced JSON first, then raw JSON array
-
-        Args:
-            plan: The full plan text.
-
-        Returns:
-            Parsed JSON list, or None if extraction/parsing failed.
-        """
-        json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", plan)
-        if json_match:
-            try:
-                result = json.loads(json_match.group(1))
-                if isinstance(result, list):
-                    return result
-            except json.JSONDecodeError:
-                pass
-        bracket_start = plan.find("[")
-
-        if bracket_start != -1:
-            substring = plan[bracket_start:]
-            for end_pos in range(len(substring), 0, -1):
-                candidate = substring[:end_pos]
-                if not candidate.rstrip().endswith("]"):
-                    continue
-                try:
-                    result = json.loads(candidate)
-                    if isinstance(result, list):
-                        return result
-                except json.JSONDecodeError:
-                    continue
-
-        return None
 
     def _extract_response(
         self,

@@ -597,3 +597,83 @@ def test_validate_roles_passes_for_valid_config(
     )
 
     synthesizer._validate_roles(multiturn_attr)
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_extracts_json_with_surrounding_prose(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _parse_plan extracts JSON when LLM wraps it in prose."""
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
+    plan = (
+        "Sure! Here is a conversation plan:\n"
+        "```json\n"
+        "[\n"
+        '  {"turn": 1, "instruction": "Ask about the product"},\n'
+        '  {"turn": 2, "instruction": "Provide product details"}\n'
+        "]\n"
+        "```\n"
+        "Let me know if you need any changes."
+    )
+    result = synthesizer._parse_plan(plan, target_turns=2)
+    assert result is not None
+    assert result[0] == "Ask about the product"
+    assert result[1] == "Provide product details"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_extracts_raw_json_without_fences(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _parse_plan extracts raw JSON without code fences."""
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
+    plan = (
+        "Here is the plan:\n"
+        '[{"turn": 1, "instruction": "Greet"}, '
+        '{"turn": 2, "instruction": "Respond"}]\n'
+        "That should work."
+    )
+    result = synthesizer._parse_plan(plan, target_turns=2)
+    assert result is not None
+    assert result[0] == "Greet"
+    assert result[1] == "Respond"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_handles_single_dict_json(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _parse_plan handles LLM returning a single dict instead of a list."""
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
+    plan = '```json\n{"turn": 1, "instruction": "Only turn"}\n```'
+    result = synthesizer._parse_plan(plan, target_turns=1)
+    assert result is not None
+    assert result[0] == "Only turn"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_returns_none_for_malformed_text(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that _parse_plan returns None for non-JSON text."""
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
+    result = synthesizer._parse_plan(
+        "I'm sorry, I can't create a plan right now.", target_turns=2
+    )
+    assert result is None
