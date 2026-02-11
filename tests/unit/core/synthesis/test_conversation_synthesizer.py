@@ -798,8 +798,10 @@ def test_synthesize_filters_conversations_with_empty_messages(
         result = synthesizer.synthesize(samples, multiturn_attr)
 
     assert len(result) == 1
-    assert result[0]["test_conversation"]["messages"][0]["content"] == "Hello"
-    assert result[0]["test_conversation"]["messages"][1]["content"] == "Hi!"
+    conversation = result[0]["test_conversation"]
+    assert isinstance(conversation, dict)
+    assert conversation["messages"][0]["content"] == "Hello"
+    assert conversation["messages"][1]["content"] == "Hi!"
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -807,7 +809,8 @@ def test_synthesize_filters_all_conversations_returns_empty(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """Test that synthesize returns empty list when all conversations have empty messages."""
+    """Test synthesize returns empty list when all conversations
+    have empty messages."""
     mock_build_inference_engine.return_value = Mock()
 
     multiturn_attr = MultiTurnAttribute(
