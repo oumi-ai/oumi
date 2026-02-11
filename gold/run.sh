@@ -126,6 +126,9 @@ export MLFLOW_RUN_NAME="oumi_enterprise_experiments"
 # CUDA_VISIBLE_DEVICES=3 python run.py --input_file tatqa_data/test_modified.jsonl --output_file output/tatqa_qwen3_4b_lambda0_ckpt1598.jsonl --inference_config infer_configs/tatqa_qwen3_4b_lambda0_ckpt1598.yaml | 2>&1 tee infer_logs/tatqa_qwen3_4b_lambda0_ckpt1598.log &
 # wait
 
-CUDA_VISIBLE_DEVICES=0 python run.py --input_file tatqa_data/test_modified.jsonl --output_file output/tinker_llama3.1_8b_instruct_tatqa.jsonl --inference_config infer_configs/tinker_llama3.1_8b_instruct.yaml | 2>&1 tee infer_logs/tinker_llama3.1_8b_instruct_tatqa.log &
-CUDA_VISIBLE_DEVICES=1 python run.py --input_file tatqa_data/test_modified.jsonl --output_file output/tinker_qwen3_4b_instruct_tatqa.jsonl --inference_config infer_configs/tinker_qwen3_4b_instruct.yaml | 2>&1 tee infer_logs/tinker_qwen3_4b_instruct_tatqa.log &
+# CUDA_VISIBLE_DEVICES=0 python run.py --input_file tatqa_data/test_modified.jsonl --output_file output/tinker_llama3.1_8b_instruct_tatqa.jsonl --inference_config infer_configs/tinker_llama3.1_8b_instruct.yaml | 2>&1 tee infer_logs/tinker_llama3.1_8b_instruct_tatqa.log &
+# CUDA_VISIBLE_DEVICES=1 python run.py --input_file tatqa_data/test_modified.jsonl --output_file output/tinker_qwen3_4b_instruct_tatqa.jsonl --inference_config infer_configs/tinker_qwen3_4b_instruct.yaml | 2>&1 tee infer_logs/tinker_qwen3_4b_instruct_tatqa.log &
+# wait
+
+CUDA_VISIBLE_DEVICES=0,1,2,3 python run.py --input_file nl2sql_data/train_skyrl_modified.jsonl --output_file output/train_skyrl_llama3.3_70b.jsonl --inference_config infer_configs/llama3.3_70b_instruct.yaml | 2>&1 tee infer_logs/train_skyrl_llama3.3_70b.log &
 wait

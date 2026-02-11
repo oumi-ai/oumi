@@ -1,0 +1,71 @@
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  attn_implementation: "flash_attention_2"
+
+data:
+  train:
+    datasets:
+      - dataset_name: text_sft_jsonl
+        dataset_path: /home/ubuntu/oumi/gold/nl2sql_data/train_skyrl_llama3.3_70b.jsonl
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|start_header_id|>assistant<|end_header_id|>\n\n"
+      instruction_template: "<|start_header_id|>user<|end_header_id|>\n\n"
+    target_col: "messages"
+    seed: 42
+
+training:
+  # Basic settings
+  trainer_type: "TRL_SFT"
+  output_dir: "output/nl2sql_llama3.1_8b_sft"
+  run_name: "nl2sql_llama3.1_8b_sft"
+
+  # Training duration
+  num_train_epochs: 3
+
+  # Batch size settings
+  per_device_train_batch_size: 2 # EBS: 32
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 2
+  max_grad_norm: 1
+
+  # Mixed precision and performance
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  compile: False
+
+  # Optimization
+  optimizer: "adamw_torch_fused"
+  learning_rate: 1.0e-05
+
+  # Learning rate schedule
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+
+  # Evaluation
+  logging_first_step: True
+  eval_strategy: "no" # When to evaluate ("no", "steps", "epoch")
+  eval_steps: 100 # Evaluate every N steps
+
+  # Checkpointing
+  save_steps: 100
+
+  # Logging
+  logging_steps: 1
+  enable_wandb: True
+
+  # Performance monitoring
+  empty_device_cache_steps: 50
+  include_performance_metrics: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "HYBRID_SHARD"
+  forward_prefetch: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

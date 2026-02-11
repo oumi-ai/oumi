@@ -1,41 +1,64 @@
-# oumi train -c configs/countdown_tatqa_lambda0.5.yaml | 2>&1 tee logs/train_countdown_tatqa_lambda0.5.log
+# oumi train -c configs/countdown_tatqa_lambda0.5.yaml 2>&1 | tee logs/train_countdown_tatqa_lambda0.5.log
 # wait
 
-# oumi train -c configs/countdown_cross.yaml | 2>&1 tee logs/train_countdown_cross.log
+# oumi train -c configs/countdown_cross.yaml 2>&1 | tee logs/train_countdown_cross.log
 # wait
 
-# oumi train -c configs/countdown_tatqa_lambda0.0.yaml | 2>&1 tee logs/train_countdown_tatqa_lambda0.0.log
+# oumi train -c configs/countdown_tatqa_lambda0.0.yaml 2>&1 | tee logs/train_countdown_tatqa_lambda0.0.log
 # wait
 
-# oumi train -c configs/tatqa_lambda0.5.yaml | 2>&1 tee logs/train_tatqa_lambda0.5.log
+# oumi train -c configs/tatqa_lambda0.5.yaml 2>&1 | tee logs/train_tatqa_lambda0.5.log
 # wait
 
-# oumi train -c configs/nl2sql_lambda0.5.yaml | 2>&1 tee logs/train_nl2sql_lambda0.5.log
+# oumi train -c configs/nl2sql_lambda0.5.yaml 2>&1 | tee logs/train_nl2sql_lambda0.5.log
 # wait
 
-# oumi train -c configs/nl2sql_lambda0.0.yaml | 2>&1 tee logs/train_nl2sql_lambda0.0.log
+# oumi train -c configs/nl2sql_lambda0.0.yaml 2>&1 | tee logs/train_nl2sql_lambda0.0.log
 # wait
 
-# oumi train -c configs/tatqa_qwen34b.yaml | 2>&1 tee logs/train_tatqa_qwen34b.log
+# oumi train -c configs/tatqa_qwen34b.yaml 2>&1 | tee logs/train_tatqa_qwen34b.log
 # wait
 
-# oumi train -c configs/countdown_sft.yaml | 2>&1 tee logs/train_countdown_sft.log
+# oumi train -c configs/countdown_sft.yaml 2>&1 | tee logs/train_countdown_sft.log
 # wait
 
-oumi train -c configs/tatqa_llama_lambda0.0.yaml | 2>&1 tee logs/train_tatqa_llama_lambda0.0.log
+# oumi train -c configs/tatqa_llama_sft.yaml 2>&1 | tee logs/train_tatqa_llama_sft.log
+# wait
+# oumi train -c configs/tatqa_llama_lambda0.5_inversekl_jsd.yaml 2>&1 | tee logs/train_tatqa_llama_lambda0.5_inversekl_jsd.log
+# wait
+# oumi train -c configs/tatqa_llama_lambda0.5_inversekl_uld.yaml 2>&1 | tee logs/train_tatqa_llama_lambda0.5_inversekl_uld.log
+# wait
+# oumi train -c configs/tatqa_llama_lambda0.5_inversekl_lora.yaml 2>&1 | tee logs/train_tatqa_llama_lambda0.5_inversekl_lora.log
+# wait
+# oumi train -c configs/tatqa_llama_lambda0.5_inversekl.yaml 2>&1 | tee logs/train_tatqa_llama_lambda0.5_inversekl.log
+# wait
+
+# oumi distributed torchrun \
+#     -m oumi train \
+#     -c configs/tatqa_llama_sft.yaml 2>&1 | tee logs/train_tatqa_llama_sft.log
+# oumi distributed torchrun \
+#     -m oumi train \
+#     -c configs/nl2sql_llama_sft.yaml 2>&1 | tee logs/train_nl2sql_llama_sft.log
+# oumi train -c configs/nl2sql_llama_lambda0.5_inversekl_lora.yaml 2>&1 | tee logs/train_nl2sql_llama_lambda0.5_inversekl_lora.log
+# oumi train -c configs/nl2sql_llama_lambda0.5_inversekl.yaml 2>&1 | tee logs/train_nl2sql_llama_lambda0.5_inversekl.log
+# oumi train -c configs/nl2sql_llama_lambda0.5_forwardkl.yaml 2>&1 | tee logs/train_nl2sql_llama_lambda0.5_forwardkl.log
+oumi train -c configs/nl2sql_llama_lambda0.5_forwardkl_lora.yaml 2>&1 | tee logs/train_nl2sql_llama_lambda0.5_forwardkl_lora.log
 wait
-oumi train -c configs/tatqa_llama_lambda0.5.yaml | 2>&1 tee logs/train_tatqa_llama_lambda0.5.log
-wait
-oumi train -c configs/tatqa_llama_lambda1.0.yaml | 2>&1 tee logs/train_tatqa_llama_lambda1.0.log
-wait
 
-# oumi train -c configs/nl2sql_sft_disable_completions_only.yaml | 2>&1 tee logs/train_nl2sql_sft_disable_completions_only.log
+# oumi train -c configs/tatqa_llama_lambda0.0.yaml 2>&1 | tee logs/train_tatqa_llama_lambda0.0.log
+# wait
+# oumi train -c configs/tatqa_llama_lambda0.5.yaml 2>&1 | tee logs/train_tatqa_llama_lambda0.5.log
+# wait
+# oumi train -c configs/tatqa_llama_lambda1.0.yaml 2>&1 | tee logs/train_tatqa_llama_lambda1.0.log
 # wait
 
-# oumi train -c configs/sft_disable_completions_only.yaml | 2>&1 tee logs/train_sft_disable_completions_only.log
+# oumi train -c configs/nl2sql_sft_disable_completions_only.yaml 2>&1 | tee logs/train_nl2sql_sft_disable_completions_only.log
 # wait
 
-# oumi train -c configs/countdown_cross.yaml | 2>&1 tee logs/train_countdown_cross_v3.log
+# oumi train -c configs/sft_disable_completions_only.yaml 2>&1 | tee logs/train_sft_disable_completions_only.log
+# wait
+
+# oumi train -c configs/countdown_cross.yaml 2>&1 | tee logs/train_countdown_cross_v3.log
 # wait
 
 
@@ -44,7 +67,7 @@ wait
 #   --training.warmup_ratio 0.01 \
 #   --training.output_dir "output/tatqa_qwen25_15b_qwen34b_lr1e-5_warmup0.01" \
 #   --training.run_name "lr1e-5_warmup0.01_tatqa_qwen25_15b_qwen34b" \
-#   | 2>&1 tee logs/lr1e-5_warmup0.01_tatqa_qwen25_15b_qwen34b.log
+#   2>&1 | tee logs/lr1e-5_warmup0.01_tatqa_qwen25_15b_qwen34b.log
 # wait
 
 # oumi train -c configs/countdown_tatqa_lambda0.5.yaml \
@@ -52,7 +75,7 @@ wait
 #   --training.warmup_ratio 0.01 \
 #   --training.output_dir "output/tatqa_qwen25_15b_qwen34b_lr1e-6_warmup0.01" \
 #   --training.run_name "lr1e-6_warmup0.01_tatqa_qwen25_15b_qwen34b" \
-#   | 2>&1 tee logs/lr1e-6_warmup0.01_tatqa_qwen25_15b_qwen34b.log
+#   2>&1 | tee logs/lr1e-6_warmup0.01_tatqa_qwen25_15b_qwen34b.log
 # wait
 
 # oumi train -c configs/countdown_tatqa_lambda0.5.yaml \
@@ -60,7 +83,7 @@ wait
 #   --training.warmup_ratio 0.01 \
 #   --training.output_dir "output/tatqa_qwen25_15b_qwen34b_lr1e-7_warmup0.01" \
 #   --training.run_name "lr1e-7_warmup0.01_tatqa_qwen25_15b_qwen34b" \
-#   | 2>&1 tee logs/lr1e-7_warmup0.01_tatqa_qwen25_15b_qwen34b.log
+#   2>&1 | tee logs/lr1e-7_warmup0.01_tatqa_qwen25_15b_qwen34b.log
 # wait
 
 # oumi train -c configs/countdown_tatqa_lambda0.5.yaml \
@@ -68,7 +91,7 @@ wait
 #   --training.warmup_ratio 0.05 \
 #   --training.output_dir "output/tatqa_qwen25_15b_qwen34b_lr1e-5_warmup0.05" \
 #   --training.run_name "lr1e-5_warmup0.05_tatqa_qwen25_15b_qwen34b" \
-#   | 2>&1 tee logs/lr1e-5_warmup0.05_tatqa_qwen25_15b_qwen34b.log
+#   2>&1 | tee logs/lr1e-5_warmup0.05_tatqa_qwen25_15b_qwen34b.log
 # wait
 
 # oumi train -c configs/countdown_tatqa_lambda0.5.yaml \
@@ -76,7 +99,7 @@ wait
 #   --training.warmup_ratio 0.05 \
 #   --training.output_dir "output/tatqa_qwen25_15b_qwen34b_lr1e-6_warmup0.05" \
 #   --training.run_name "lr1e-6_warmup0.05_tatqa_qwen25_15b_qwen34b" \
-#   | 2>&1 tee logs/lr1e-6_warmup0.05_tatqa_qwen25_15b_qwen34b.log
+#   2>&1 | tee logs/lr1e-6_warmup0.05_tatqa_qwen25_15b_qwen34b.log
 # wait
 
 # oumi train -c configs/countdown_tatqa_lambda0.5.yaml \
@@ -84,22 +107,22 @@ wait
 #   --training.warmup_ratio 0.05 \
 #   --training.output_dir "output/tatqa_qwen25_15b_qwen34b_lr1e-7_warmup0.05" \
 #   --training.run_name "lr1e-7_warmup0.05_tatqa_qwen25_15b_qwen34b" \
-#   | 2>&1 tee logs/lr1e-7_warmup0.05_tatqa_qwen25_15b_qwen34b.log
+#   2>&1 | tee logs/lr1e-7_warmup0.05_tatqa_qwen25_15b_qwen34b.log
 # wait
 
-# oumi train -c configs/sft.yaml | 2>&1 tee logs/train_sft.log
+# oumi train -c configs/sft.yaml 2>&1 | tee logs/train_sft.log
 # wait
 
-# oumi train -c configs/countdown_v2.yaml | 2>&1 tee logs/train_countdown_v2.log
+# oumi train -c configs/countdown_v2.yaml 2>&1 | tee logs/train_countdown_v2.log
 # wait
 
-# oumi train -c countdown.yaml | 2>&1 tee train_countdown.log
+# oumi train -c countdown.yaml 2>&1 | tee train_countdown.log
 # wait
 
-# python countdown_trl.py | 2>&1 tee train_countdown_hf.log
+# python countdown_trl.py 2>&1 | tee train_countdown_hf.log
 # wait
 
-# python countdown_trl.py | 2>&1 tee train_tatqa_hf.log
+# python countdown_trl.py 2>&1 | tee train_tatqa_hf.log
 # wait
 
 # oumi train -c debug_2.yaml | tee train_debug_2.log

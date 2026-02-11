@@ -1,0 +1,62 @@
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: False
+  enable_liger_kernel: False # liger disabled due to TRL token_accuracy compatibility issue
+
+data:
+  train:
+    datasets:
+      - dataset_name: text_sft_jsonl
+        dataset_path: /home/ubuntu/oumi/gold/tatqa_data/train_final_llama3.3_70b_instruct_max2048.jsonl
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      response_template: "<|start_header_id|>assistant<|end_header_id|>\n\n"
+      instruction_template: "<|start_header_id|>user<|end_header_id|>\n\n"
+    seed: 42
+
+training:
+  trainer_type: "TRL_SFT"
+  save_final_model: True
+  save_steps: 250
+  max_steps: -1
+  save_epoch: False
+  num_train_epochs: 2
+  # Effective batch size on 8-gpu node: 2 * 4 * 8 = 64
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 5.0e-06 # lower LR for 8b (more conservative than torchtune default)
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.05
+  compile: False
+
+  use_deterministic: True
+  seed: 42
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 8
+
+  logging_steps: 5
+  eval_strategy: "steps"
+  eval_steps: 250
+  empty_device_cache_steps: 50
+  output_dir: "output"
+  run_name: "placeholder_run_name"
+  include_performance_metrics: True
+  enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "HYBRID_SHARD"
+  forward_prefetch: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"
