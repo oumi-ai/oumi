@@ -792,7 +792,33 @@ def test_general_synthesis_params_invalid():
                 ]
             )
 
-    # Test combination sampling rates sum > 1.0
+    with pytest.raises(
+        ValueError,
+        match="GeneralSynthesisParams does not allow 'conversation_plan' "
+        "as an attribute ID because it is reserved for multiturn synthesis.",
+    ):
+        GeneralSynthesisParams(
+            generated_attributes=[
+                GeneratedAttribute(
+                    id="conversation_plan",
+                    instruction_messages=[
+                        TextMessage(role=Role.SYSTEM, content="System message"),
+                    ],
+                )
+            ],
+            multiturn_attributes=[
+                MultiTurnAttribute(
+                    id="conversation",
+                    min_turns=1,
+                    max_turns=2,
+                    role_instruction_messages={
+                        Role.USER: "You are a user.",
+                        Role.ASSISTANT: "You are an assistant.",
+                    },
+                )
+            ],
+        )
+
     with pytest.raises(
         ValueError,
         match="GeneralSynthesisParams.combination_sampling sample rates must be "

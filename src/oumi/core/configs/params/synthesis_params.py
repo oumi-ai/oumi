@@ -792,9 +792,17 @@ class GeneralSynthesisParams(BaseParams):
     If left unspecified, all attributes are saved. If an attribute is specified in
     passthrough_attributes but doesn't exist, it will be ignored."""
 
+    def _get_reserved_attribute_ids(self) -> set[str]:
+        """Get the set of attribute IDs reserved for multiturn synthesis."""
+        reserved = {"target_turns", "current_turn"}
+        if self.multiturn_attributes:
+            for multiturn_attribute in self.multiturn_attributes:
+                reserved.add(f"{multiturn_attribute.id}_plan")
+        return reserved
+
     def _check_attribute_ids(self, attribute_ids: set[str], id: str):
         """Check if the attribute ID is already in the set."""
-        if id in ("target_turns", "current_turn"):
+        if id in self._reserved_attribute_ids:
             raise ValueError(
                 f"GeneralSynthesisParams does not allow '{id}' "
                 "as an attribute ID because it is reserved for multiturn synthesis."
@@ -936,6 +944,7 @@ class GeneralSynthesisParams(BaseParams):
 
     def __post_init__(self):
         """Verifies/populates params."""
+        self._reserved_attribute_ids = self._get_reserved_attribute_ids()
         all_attribute_ids = set()
         self._check_dataset_source_attribute_ids(all_attribute_ids)
         self._check_document_source_attribute_ids(all_attribute_ids)
