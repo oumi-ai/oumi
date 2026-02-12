@@ -35,22 +35,22 @@ class AnalyzerType(str, Enum):
 
 @dataclass
 class AnalyzerConfig:
-    """Configuration for a single analyzer.
+    """Configuration for a single analyzer instance.
+
+    Each analyzer has a type (`id`) and a unique instance name (`instance_id`).
+    Multiple instances of the same type are supported (e.g. two length analyzers
+    with different tokenizers).
 
     Attributes:
-        id: Analyzer type identifier (e.g., "length", "quality").
-        instance_id: Optional unique instance ID for multiple analyzers of same type.
+        id: Analyzer type (registry id, e.g. "length", "difficulty_judge").
+        instance_id: Unique instance name (always required). Used as the results
+            key and in test metric paths.
         params: Analyzer-specific parameters.
     """
 
     id: str
-    instance_id: str | None = None
+    instance_id: str
     params: dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self):
-        """Auto-populate instance_id if not provided."""
-        if self.instance_id is None:
-            self.instance_id = self.id
 
 
 @dataclass
@@ -278,9 +278,17 @@ class TypedAnalyzeConfig:
         analyzers = []
         for analyzer_data in data.get("analyzers", []):
             if isinstance(analyzer_data, dict):
+                # instance_id defaults to id if not provided in YAML
+                if "instance_id" not in analyzer_data:
+                    analyzer_data = {
+                        **analyzer_data,
+                        "instance_id": analyzer_data["id"],
+                    }
                 analyzers.append(AnalyzerConfig(**analyzer_data))
             elif isinstance(analyzer_data, str):
-                analyzers.append(AnalyzerConfig(id=analyzer_data))
+                analyzers.append(
+                    AnalyzerConfig(id=analyzer_data, instance_id=analyzer_data)
+                )
 
         # Validate unique instance_ids
         instance_ids = [a.instance_id for a in analyzers]

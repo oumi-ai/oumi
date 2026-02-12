@@ -396,6 +396,7 @@ def test_pipeline_injects_tokenizer(simple_conversation):
     from oumi.analyze.pipeline import AnalysisPipeline
 
     analyzer = LengthAnalyzer()  # No tokenizer
+    analyzer.analyzer_id = "length"
     assert analyzer.tokenizer is None
 
     pipeline = AnalysisPipeline(analyzers=[analyzer])
@@ -405,7 +406,7 @@ def test_pipeline_injects_tokenizer(simple_conversation):
 
     # Should now work
     results = pipeline.run([simple_conversation])
-    assert "LengthAnalyzer" in results
+    assert "length" in results
 
 
 def test_pipeline_respects_custom_tokenizer(simple_conversation, mock_tokenizer):
@@ -413,6 +414,7 @@ def test_pipeline_respects_custom_tokenizer(simple_conversation, mock_tokenizer)
     from oumi.analyze.pipeline import AnalysisPipeline
 
     analyzer = LengthAnalyzer(tokenizer=mock_tokenizer)
+    analyzer.analyzer_id = "length"
 
     pipeline = AnalysisPipeline(analyzers=[analyzer])
 
@@ -421,7 +423,7 @@ def test_pipeline_respects_custom_tokenizer(simple_conversation, mock_tokenizer)
 
     results = pipeline.run([simple_conversation])
     # Mock tokenizer: "Hello" -> 1, "Hi there!" -> 2
-    length_results = results["LengthAnalyzer"]
+    length_results = results["length"]
     assert isinstance(length_results, list)
     assert isinstance(length_results[0], LengthMetrics)
     assert length_results[0].total_tokens == 3
@@ -432,6 +434,7 @@ def test_pipeline_custom_tokenizer_for_all(simple_conversation, mock_tokenizer):
     from oumi.analyze.pipeline import AnalysisPipeline
 
     analyzer = LengthAnalyzer()  # No tokenizer
+    analyzer.analyzer_id = "length"
 
     _ = AnalysisPipeline(
         analyzers=[analyzer],

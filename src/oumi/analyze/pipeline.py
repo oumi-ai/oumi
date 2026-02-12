@@ -441,10 +441,24 @@ class AnalysisPipeline:
         return tqdm(items, desc=desc, unit="analyzer")
 
     def _get_analyzer_name(self, analyzer: AnyAnalyzer) -> str:
-        """Get the name for an analyzer (analyzer_id or class name)."""
+        """Get the name for an analyzer.
+
+        If ``analyzer_id`` is already set, returns it directly.  Otherwise
+        auto-generates a name from the class name, appending a numeric suffix
+        to avoid collisions with existing results.
+        """
         if analyzer.analyzer_id is not None:
             return analyzer.analyzer_id
-        return analyzer.__class__.__name__
+
+        # Auto-generate from class name, deduplicating if needed
+        base = analyzer.__class__.__name__
+        name = base
+        counter = 2
+        while name in self._results:
+            name = f"{base}_{counter}"
+            counter += 1
+        analyzer.analyzer_id = name
+        return name
 
     def _get_analyzer_scope(self, analyzer: AnyAnalyzer) -> str:
         """Get the scope name for an analyzer."""
