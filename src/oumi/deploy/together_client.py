@@ -245,10 +245,15 @@ class TogetherDeploymentClient(BaseDeploymentClient):
                                 if not username:
                                     for model in models_data:
                                         org = model.get("organization", "")
-                                        if org and org not in (
+                                        # Exclude known public model providers
+                                        # (case-insensitive)
+                                        if org and org.lower() not in (
                                             "together",
                                             "meta",
                                             "mistral",
+                                            "google",
+                                            "qwen",
+                                            "deepseek",
                                         ):
                                             username = org
                                             break
@@ -276,6 +281,9 @@ class TogetherDeploymentClient(BaseDeploymentClient):
         response.raise_for_status()
         data = response.json()
 
+        # Log the full upload response for debugging
+        logger.info(f"Together.ai upload response: {data}")
+
         # Together.ai may wrap the response in a 'data' field
         # Check if response has a 'data' key and use that
         if "data" in data and isinstance(data["data"], dict):
@@ -283,14 +291,19 @@ class TogetherDeploymentClient(BaseDeploymentClient):
         else:
             response_data = data
 
+        logger.info(f"Response data fields: {list(response_data.keys())}")
+        logger.info(
+            f"ID fields - model_id: {response_data.get('model_id')}, "
+            f"model: {response_data.get('model')}, "
+            f"id: {response_data.get('id')}, "
+            f"name: {response_data.get('name')}"
+        )
+
         # Together.ai may return the model ID in different fields
-        # Try: model_id, model, id
+        # Try: model_id, model - but NOT 'id' as it may contain a unique suffix
         # Note: Don't use 'name' field as Together.ai adds a unique suffix to it
         provider_model_id = (
-            response_data.get("model_id")
-            or response_data.get("model")
-            or response_data.get("id")
-            or ""
+            response_data.get("model_id") or response_data.get("model") or ""
         )
 
         # Together.ai stores models with username prefix (e.g., "username/model-name")
@@ -318,7 +331,15 @@ class TogetherDeploymentClient(BaseDeploymentClient):
                     if not username:
                         for model in models_data:
                             org = model.get("organization", "")
-                            if org and org not in ("together", "meta", "mistral"):
+                            # Exclude known public model providers (case-insensitive)
+                            if org and org.lower() not in (
+                                "together",
+                                "meta",
+                                "mistral",
+                                "google",
+                                "qwen",
+                                "deepseek",
+                            ):
                                 username = org
                                 logger.info(
                                     f"Using username from organization field: {username}"
@@ -487,10 +508,15 @@ class TogetherDeploymentClient(BaseDeploymentClient):
         if display_name:
             payload["display_name"] = display_name
 
+        import json
         import logging
 
         logger = logging.getLogger(__name__)
         logger.info(f"Creating endpoint with payload: {payload}")
+
+        # Log the exact JSON that will be sent
+        json_payload = json.dumps(payload)
+        logger.info(f"JSON payload (raw): {json_payload}")
 
         response = await self._client.post("/endpoints", json=payload)
 
@@ -501,6 +527,9 @@ class TogetherDeploymentClient(BaseDeploymentClient):
             f"Status: {response.status_code}"
         )
         logger.info(f"Request headers: {dict(response.request.headers)}")
+        # Log the request body that was actually sent
+        if response.request.content:
+            logger.info(f"Request body: {response.request.content.decode()}")
 
         if response.status_code >= 400:
             logger.error(
@@ -710,6 +739,13 @@ class TogetherDeploymentClient(BaseDeploymentClient):
                 model_type = ModelType.FULL
                 base_model = None
 
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.info(
+                    f"[jobs] Found model: id={job_id}, name={model_name}, "
+                    f"status={status}"
+                )
                 models.append(
                     Model(
                         model_id=job_id,
@@ -838,6 +874,19 @@ class TogetherDeploymentClient(BaseDeploymentClient):
                     # Get organization from API response
                     model_organization = item.get("organization")
 
+                    # Only log custom models (not public platform models)
+                    if model_organization and model_organization not in (
+                        "together",
+                        "meta",
+                        "mistral",
+                    ):
+                        import logging
+
+                        logger = logging.getLogger(__name__)
+                        logger.info(
+                            f"[models] Found model: id={model_id}, "
+                            f"name={model_name}, org={model_organization}"
+                        )
                     models.append(
                         Model(
                             model_id=model_id,

@@ -87,6 +87,7 @@ class Endpoint:
     created_at: datetime | None = None
     display_name: str | None = None
     inference_model_name: str | None = None  # Model name to use for inference calls
+    api_key: str | None = None  # API key for endpoint authentication (e.g., vLLM)
 
 
 class BaseDeploymentClient(ABC):

@@ -104,7 +104,9 @@ class ModalDeploymentClient(BaseDeploymentClient):
             config_creds = self._read_modal_config()
             if config_creds:
                 self.token_id = self.token_id or config_creds.get("token_id")
-                self.token_secret = self.token_secret or config_creds.get("token_secret")
+                self.token_secret = self.token_secret or config_creds.get(
+                    "token_secret"
+                )
                 self.workspace = self.workspace or config_creds.get("workspace")
 
         # Default workspace to "default" if still not set
@@ -189,7 +191,9 @@ class ModalDeploymentClient(BaseDeploymentClient):
                             }
 
                 except Exception as e:
-                    logger.warning(f"Failed to read Modal config from {config_path}: {e}")
+                    logger.warning(
+                        f"Failed to read Modal config from {config_path}: {e}"
+                    )
 
         return None
 
@@ -299,6 +303,8 @@ class ModalDeploymentClient(BaseDeploymentClient):
         autoscaling: AutoscalingConfig,
         display_name: str | None = None,
         huggingface_model_id: str | None = None,
+        project_id: str | int | None = None,
+        deployment_id: str | int | None = None,
     ) -> Endpoint:
         """Create Modal App with vLLM inference server.
 
@@ -313,8 +319,10 @@ class ModalDeploymentClient(BaseDeploymentClient):
             model_id: S3 path to model (from upload_model), or unused if huggingface_model_id is provided
             hardware: GPU type and count
             autoscaling: Min/max replicas (Modal handles auto-scaling)
-            display_name: Optional name for the deployment
+            display_name: Optional name for the deployment (deprecated, use project_id/deployment_id)
             huggingface_model_id: Optional HuggingFace model ID (e.g., "meta-llama/Llama-3.1-8B-Instruct")
+            project_id: Project public ID for deterministic app naming
+            deployment_id: Deployment public ID for deterministic app naming
 
         Returns:
             Endpoint with URL like https://{workspace}--{app}-serve.modal.run
@@ -329,23 +337,36 @@ class ModalDeploymentClient(BaseDeploymentClient):
         # Determine if using HuggingFace or S3 model
         use_huggingface = huggingface_model_id is not None
 
+        # Parse S3 bucket info if using S3 model
+        s3_bucket = None
+        s3_prefix = None
+
         if use_huggingface:
             logger.info(
                 f"Creating Modal endpoint for HuggingFace model: {huggingface_model_id}"
             )
             vllm_model_path = huggingface_model_id
         else:
-            # S3 model - parse path
+            # S3 model - parse path for CloudBucketMount
             s3_match = re.match(r"s3://([^/]+)/(.+)", model_id)
             if not s3_match:
                 raise ValueError(f"Invalid S3 path: {model_id}")
-            vllm_model_path = f"/models/{s3_match.group(2)}"
+            s3_bucket = s3_match.group(1)
+            s3_prefix = s3_match.group(2)
+            # Mount bucket at /s3 and construct full path
+            # This avoids path doubling when prefix contains "models/"
+            vllm_model_path = f"/s3/{s3_prefix}"
 
         # Convert hardware config to Modal GPU type
         gpu_type = self._to_modal_gpu(hardware)
 
-        # Generate unique app name
-        app_name = self._generate_app_name(display_name or "oumi-inference")
+        # Generate deterministic app name using project_id and deployment_id
+        # This ensures the same deployment always gets the same app name
+        if project_id is not None and deployment_id is not None:
+            app_name = f"oumi-p{project_id}-d{deployment_id}"
+        else:
+            # Fallback to legacy behavior with timestamp for uniqueness
+            app_name = self._generate_app_name(display_name or "oumi-inference")
 
         log_model = huggingface_model_id if use_huggingface else model_id
         logger.info(
@@ -356,19 +377,34 @@ class ModalDeploymentClient(BaseDeploymentClient):
         vllm_port = 8000
         scaledown = autoscaling.min_replicas if autoscaling.min_replicas > 0 else 300
 
+        # Generate API key for vLLM authentication
+        import secrets
+
+        vllm_api_key = secrets.token_urlsafe(32)
+
         # Determine secrets string
         secrets_str = ""
         if use_huggingface:
             secrets_str = 'secrets=[modal.Secret.from_name("huggingface-token")],'
+        else:
+            # S3 model - need AWS credentials for CloudBucketMount
+            secrets_str = 'secrets=[modal.Secret.from_name("aws-credentials")],'
 
         # Determine volumes string
         if use_huggingface:
-            volumes_str = '''volumes={
+            volumes_str = """volumes={
         "/root/.cache/huggingface": modal.Volume.from_name("huggingface-cache", create_if_missing=True),
-    },'''
+    },"""
         else:
-            # S3 model - would need CloudBucketMount
-            volumes_str = ""
+            # S3 model - use CloudBucketMount to mount the bucket at /s3
+            # The model path will be /s3/{s3_prefix}
+            volumes_str = f"""volumes={{
+        "/s3": modal.CloudBucketMount(
+            bucket_name="{s3_bucket}",
+            secret=modal.Secret.from_name("aws-credentials"),
+            read_only=True,
+        ),
+    }},"""
 
         app_code = f'''
 import modal
@@ -381,7 +417,7 @@ vllm_image = (
     .entrypoint([])
     .apt_install("libxcb1", "libx11-6", "libgl1-mesa-glx", "libglib2.0-0")
     .pip_install("vllm>=0.6.0", "huggingface-hub>=0.36.0", "hf_transfer")
-    .env({{"HF_HUB_ENABLE_HF_TRANSFER": "1"}})
+    .env({{"HF_HUB_ENABLE_HF_TRANSFER": "1", "VLLM_API_KEY": "{vllm_api_key}"}})
 )
 
 @app.function(
@@ -395,22 +431,79 @@ vllm_image = (
 @modal.concurrent(max_inputs=100)
 @modal.web_server(port={vllm_port}, startup_timeout=300)
 def serve():
+    import os
+    import zipfile
+    from pathlib import Path
+
+    model_path = "{vllm_model_path}"
+    print(f"[DEBUG] Starting vLLM server for model: {{model_path}}")
+
+    # Log mounted directory contents for debugging
+    model_dir = Path(model_path)
+    if model_dir.exists():
+        print(f"[DEBUG] Model directory exists: {{model_dir}}")
+        print(f"[DEBUG] Contents of {{model_dir}}:")
+        for item in sorted(model_dir.iterdir()):
+            if item.is_file():
+                size_kb = item.stat().st_size / 1024
+                print(f"[DEBUG]   FILE: {{item.name}} ({{size_kb:.1f}} KB)")
+            else:
+                print(f"[DEBUG]   DIR:  {{item.name}}/")
+    else:
+        print(f"[DEBUG] Model directory does NOT exist: {{model_dir}}")
+        # Try to list parent directories to debug mount issues
+        parent = model_dir.parent
+        while parent != parent.parent:
+            if parent.exists():
+                print(f"[DEBUG] Parent {{parent}} exists, contents:")
+                for item in sorted(parent.iterdir())[:20]:  # Limit to 20 items
+                    print(f"[DEBUG]   {{item.name}}")
+                break
+            parent = parent.parent
+        else:
+            print("[DEBUG] No parent directories exist - mount may have failed")
+
+    # Check if we need to unzip deploy.zip (custom trained models)
+    deploy_zip = model_dir / "deploy.zip"
+    actual_model_path = model_path
+    if deploy_zip.exists():
+        print(f"[DEBUG] Found deploy.zip, extracting to /tmp/model...")
+        extract_dir = Path("/tmp/model")
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(deploy_zip, "r") as zf:
+            zf.extractall(extract_dir)
+        print(f"[DEBUG] Extracted deploy.zip contents:")
+        for item in sorted(extract_dir.iterdir()):
+            if item.is_file():
+                size_kb = item.stat().st_size / 1024
+                print(f"[DEBUG]   FILE: {{item.name}} ({{size_kb:.1f}} KB)")
+            else:
+                print(f"[DEBUG]   DIR:  {{item.name}}/")
+        actual_model_path = str(extract_dir)
+        print(f"[DEBUG] Using extracted model path: {{actual_model_path}}")
+
+    api_key = os.environ.get("VLLM_API_KEY", "")
+    # Use actual_model_path for loading, but keep original model_path as served name
+    # so the API model name matches what clients expect (e.g., /s3/models/...)
     cmd = [
-        "vllm", "serve", "{vllm_model_path}",
+        "vllm", "serve", actual_model_path,
         "--host", "0.0.0.0",
         "--port", "{vllm_port}",
+        "--served-model-name", model_path,
         "--enforce-eager",
         "--gpu-memory-utilization", "0.90",
+        "--max-model-len", "16384",
         "--trust-remote-code",
     ]
+    if api_key:
+        cmd.extend(["--api-key", api_key])
+    print(f"[DEBUG] Running command: {{' '.join(cmd)}}")
     subprocess.Popen(cmd)
 '''
 
         # Write app to temp file and deploy using modal CLI
         try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".py", delete=False
-            ) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
                 f.write(app_code)
                 temp_file = f.name
 
@@ -432,9 +525,7 @@ def serve():
             logger.info(f"Modal deploy output: {result.stdout}")
 
             # Generate endpoint URL (Modal URL pattern for web_server)
-            endpoint_url = (
-                f"https://{self.workspace}--{app_name}-serve.modal.run/v1/chat/completions"
-            )
+            endpoint_url = f"https://{self.workspace}--{app_name}-serve.modal.run/v1/chat/completions"
 
             logger.info(f"Modal app deployed successfully: {endpoint_url}")
 
@@ -450,6 +541,7 @@ def serve():
                 autoscaling=autoscaling,
                 display_name=display_name,
                 created_at=datetime.now(tz=timezone.utc),
+                api_key=vllm_api_key,
             )
 
         except subprocess.TimeoutExpired:
