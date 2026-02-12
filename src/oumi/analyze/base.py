@@ -160,6 +160,15 @@ class BaseAnalyzer(ABC, Generic[TResult]):
         """
         return list(cls._require_result_type().model_fields.keys())
 
+    def get_available_metric_names(self) -> list[str]:
+        """Get metric names this instance will actually produce.
+
+        Subclasses can override to exclude metrics that depend on config
+        (e.g., ``rendered_tokens`` requires a HuggingFace tokenizer).
+        Default: returns all metric names from the result schema.
+        """
+        return self.get_metric_names()
+
     @classmethod
     def get_metric_descriptions(cls) -> dict[str, str]:
         """Get descriptions for each metric field.

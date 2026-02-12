@@ -44,7 +44,7 @@ class NestedMetrics(BaseModel):
 def sample_results() -> dict[str, list[BaseModel]]:
     """Create sample analysis results for testing."""
     return {
-        "LengthAnalyzer": [
+        "length": [
             SampleMetrics(total_tokens=100, total_chars=500),
             SampleMetrics(total_tokens=200, total_chars=1000),
             SampleMetrics(total_tokens=50, total_chars=250),
@@ -57,7 +57,7 @@ def sample_results() -> dict[str, list[BaseModel]]:
 def mixed_results() -> dict[str, list[BaseModel]]:
     """Create results with mixed valid/invalid flags."""
     return {
-        "QualityAnalyzer": [
+        "quality": [
             SampleMetrics(total_tokens=100, total_chars=500, is_valid=True),
             SampleMetrics(total_tokens=200, total_chars=1000, is_valid=False),
             SampleMetrics(total_tokens=50, total_chars=250, is_valid=True),
@@ -76,13 +76,13 @@ def test_test_config_creation():
     config = TestParams(
         id="test_1",
         type=TestType.THRESHOLD,
-        metric="LengthAnalyzer.total_tokens",
+        metric="length.total_tokens",
         operator=">",
         value=100,
     )
     assert config.id == "test_1"
     assert config.type == TestType.THRESHOLD
-    assert config.metric == "LengthAnalyzer.total_tokens"
+    assert config.metric == "length.total_tokens"
 
 
 def test_test_config_defaults():
@@ -132,7 +132,7 @@ def test_threshold_test_all_pass(sample_results):
         TestParams(
             id="min_tokens",
             type=TestType.THRESHOLD,
-            metric="LengthAnalyzer.total_tokens",
+            metric="length.total_tokens",
             operator=">",
             value=1000,
         )
@@ -150,7 +150,7 @@ def test_threshold_test_some_fail(sample_results):
         TestParams(
             id="max_tokens",
             type=TestType.THRESHOLD,
-            metric="LengthAnalyzer.total_tokens",
+            metric="length.total_tokens",
             operator="<",
             value=100,
         )
@@ -168,7 +168,7 @@ def test_threshold_test_with_max_percentage(sample_results):
         TestParams(
             id="high_tokens",
             type=TestType.THRESHOLD,
-            metric="LengthAnalyzer.total_tokens",
+            metric="length.total_tokens",
             operator=">",
             value=100,
             max_percentage=50.0,  # Allow up to 50% to exceed 100
@@ -187,7 +187,7 @@ def test_threshold_test_with_min_percentage(sample_results):
         TestParams(
             id="most_valid",
             type=TestType.THRESHOLD,
-            metric="LengthAnalyzer.total_tokens",
+            metric="length.total_tokens",
             operator=">=",
             value=50,
             min_percentage=100.0,  # Require all to pass
@@ -206,7 +206,7 @@ def test_threshold_test_both_min_and_max_percentage(sample_results):
         TestParams(
             id="bounded_tokens",
             type=TestType.THRESHOLD,
-            metric="LengthAnalyzer.total_tokens",
+            metric="length.total_tokens",
             operator=">",
             value=75,
             min_percentage=25.0,  # At least 25% must exceed
@@ -226,13 +226,13 @@ def test_threshold_test_missing_operator():
         TestParams(
             id="missing_op",
             type=TestType.THRESHOLD,
-            metric="LengthAnalyzer.total_tokens",
+            metric="length.total_tokens",
             value=100,
         )
     ]
     engine = TestEngine(tests)
     summary = engine.run(
-        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
+        {"length": [SampleMetrics(total_tokens=50, total_chars=100)]}
     )
 
     assert summary.error_tests == 1
@@ -245,14 +245,14 @@ def test_threshold_test_unknown_operator():
         TestParams(
             id="bad_op",
             type=TestType.THRESHOLD,
-            metric="LengthAnalyzer.total_tokens",
+            metric="length.total_tokens",
             operator="~=",
             value=100,
         )
     ]
     engine = TestEngine(tests)
     summary = engine.run(
-        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
+        {"length": [SampleMetrics(total_tokens=50, total_chars=100)]}
     )
 
     assert summary.error_tests == 1
@@ -278,7 +278,7 @@ def test_extract_metric_not_found():
     ]
     engine = TestEngine(tests)
     summary = engine.run(
-        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
+        {"length": [SampleMetrics(total_tokens=50, total_chars=100)]}
     )
 
     assert summary.error_tests == 1
@@ -299,7 +299,7 @@ def test_extract_metric_invalid_format():
     ]
     engine = TestEngine(tests)
     summary = engine.run(
-        {"LengthAnalyzer": [SampleMetrics(total_tokens=50, total_chars=100)]}
+        {"length": [SampleMetrics(total_tokens=50, total_chars=100)]}
     )
 
     assert summary.error_tests == 1
@@ -311,7 +311,7 @@ def test_extract_metric_single_result():
         TestParams(
             id="single_result",
             type=TestType.THRESHOLD,
-            metric="LengthAnalyzer.total_tokens",
+            metric="length.total_tokens",
             operator=">",
             value=1000,
         )
@@ -319,7 +319,7 @@ def test_extract_metric_single_result():
     engine = TestEngine(tests)
     # Single result, not a list
     summary = engine.run(
-        {"LengthAnalyzer": SampleMetrics(total_tokens=100, total_chars=500)}
+        {"length": SampleMetrics(total_tokens=100, total_chars=500)}
     )
 
     assert summary.passed_tests == 1
@@ -435,14 +435,14 @@ def test_engine_run_multiple_tests(sample_results):
         TestParams(
             id="test_1",
             type=TestType.THRESHOLD,
-            metric="LengthAnalyzer.total_tokens",
+            metric="length.total_tokens",
             operator=">",
             value=1000,
         ),
         TestParams(
             id="test_2",
             type=TestType.THRESHOLD,
-            metric="LengthAnalyzer.total_chars",
+            metric="length.total_chars",
             operator=">",
             value=2000,
         ),
@@ -472,3 +472,40 @@ def test_engine_handles_test_exception():
 
     assert summary.total_tests == 1
     assert summary.results[0].error is not None
+
+
+def test_multi_instance_metrics_resolve_correctly():
+    """Test that metrics resolve correctly with multiple analyzer instances."""
+    # Two length analyzers with different instance_ids
+    results = {
+        "length_tiktoken": [
+            SampleMetrics(total_tokens=100, total_chars=400),
+            SampleMetrics(total_tokens=200, total_chars=800),
+        ],
+        "length_hf": [
+            SampleMetrics(total_tokens=95, total_chars=380),
+            SampleMetrics(total_tokens=210, total_chars=840),
+        ],
+    }
+    # Tests that each instance's metrics are resolved independently
+    tests = [
+        TestParams(
+            id="tiktoken_tokens",
+            type=TestType.THRESHOLD,
+            metric="length_tiktoken.total_tokens",
+            operator=">",
+            value=1000,  # No samples exceed -> test passes
+        ),
+        TestParams(
+            id="hf_tokens",
+            type=TestType.THRESHOLD,
+            metric="length_hf.total_tokens",
+            operator=">",
+            value=1000,  # No samples exceed -> test passes
+        ),
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(results)
+
+    assert summary.total_tests == 2
+    assert summary.passed_tests == 2

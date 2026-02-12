@@ -191,6 +191,17 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         """Initialize the analyzer."""
         self.tokenizer = tokenizer
 
+    def get_available_metric_names(self) -> list[str]:
+        """Return metrics this instance will produce.
+
+        Excludes ``rendered_tokens`` when the tokenizer doesn't support
+        ``apply_chat_template`` (i.e. tiktoken or no tokenizer).
+        """
+        names = self.get_metric_names()
+        if not hasattr(self.tokenizer, "apply_chat_template"):
+            names = [n for n in names if n != "rendered_tokens"]
+        return names
+
     def _count_tokens(self, text: str) -> int:
         if self.tokenizer is None:
             raise RuntimeError(

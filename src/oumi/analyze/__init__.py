@@ -31,12 +31,6 @@ from oumi.analyze.config import (
     AnalyzerConfig,
     TypedAnalyzeConfig,
 )
-from oumi.analyze.discovery import (
-    describe_analyzer,
-    get_analyzer_info,
-    list_available_metrics,
-    print_analyzer_metrics,
-)
 from oumi.analyze.pipeline import AnalysisPipeline
 from oumi.analyze.testing import TestEngine, TestResult, TestSummary
 from oumi.analyze.utils.dataframe import to_analysis_dataframe
@@ -106,10 +100,6 @@ __all__ = [
     "to_analysis_dataframe",
     "TypedAnalyzeConfig",
     "AnalyzerConfig",
-    "list_available_metrics",
-    "print_analyzer_metrics",
-    "get_analyzer_info",
-    "describe_analyzer",
     "register_analyzer",
     "get_analyzer_class",
     "create_analyzer_from_config",
