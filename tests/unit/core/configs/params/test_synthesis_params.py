@@ -24,6 +24,7 @@ from oumi.core.configs.params.synthesis_params import (
     ExampleSource,
     GeneralSynthesisParams,
     GeneratedAttribute,
+    MultiTurnAttribute,
     SampledAttribute,
     SampledAttributeValue,
     SegmentationStrategy,
@@ -439,6 +440,90 @@ def test_generated_attribute_invalid():
         )
 
 
+def test_multiturn_attribute_invalid_min_turns():
+    with pytest.raises(
+        ValueError, match="MultiTurnAttribute.min_turns must be at least 1."
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=0,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+        )
+
+
+def test_multiturn_attribute_invalid_max_turns():
+    with pytest.raises(
+        ValueError,
+        match=(
+            "MultiTurnAttribute.max_turns must be greater than or equal to min_turns."
+        ),
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=2,
+            max_turns=1,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+        )
+
+
+def test_multiturn_attribute_invalid_output_system_prompt():
+    with pytest.raises(
+        ValueError,
+        match="MultiTurnAttribute.output_system_prompt must be a non-empty string.",
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+            output_system_prompt="",
+        )
+
+
+def test_multiturn_attribute_missing_role_instructions():
+    with pytest.raises(
+        ValueError,
+        match="MultiTurnAttribute.role_instruction_messages must define instructions",
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+            },
+        )
+
+
+def test_multiturn_attribute_empty_role_instructions():
+    with pytest.raises(
+        ValueError,
+        match=(
+            "MultiTurnAttribute.role_instruction_messages must include a "
+            "non-empty persona"
+        ),
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+        )
+
+
 def test_list_transform_valid():
     # Test valid case
     transform = TransformationStrategy(
@@ -591,6 +676,18 @@ def test_general_synthesis_params_valid():
                 ],
             )
         ],
+        multiturn_attributes=[
+            MultiTurnAttribute(
+                id="conversation",
+                min_turns=1,
+                max_turns=2,
+                role_instruction_messages={
+                    Role.USER: "You are a user. Turn {current_turn}",
+                    Role.ASSISTANT: "You are an assistant. Turn {current_turn}",
+                },
+                conversation_planner="Plan a {target_turns}-turn conversation.",
+            )
+        ],
         transformed_attributes=[
             TransformedAttribute(
                 id="trans1",
@@ -677,7 +774,51 @@ def test_general_synthesis_params_invalid():
             ]
         )
 
-    # Test combination sampling rates sum > 1.0
+    reserved_ids = ["target_turns", "current_turn"]
+    for reserved_id in reserved_ids:
+        with pytest.raises(
+            ValueError,
+            match=f"GeneralSynthesisParams does not allow '{reserved_id}' as an "
+            "attribute ID",
+        ):
+            GeneralSynthesisParams(
+                generated_attributes=[
+                    GeneratedAttribute(
+                        id=reserved_id,
+                        instruction_messages=[
+                            TextMessage(role=Role.SYSTEM, content="System message"),
+                        ],
+                    )
+                ]
+            )
+
+    with pytest.raises(
+        ValueError,
+        match="GeneralSynthesisParams does not allow 'conversation_plan' "
+        "as an attribute ID because it is reserved for multiturn synthesis.",
+    ):
+        GeneralSynthesisParams(
+            generated_attributes=[
+                GeneratedAttribute(
+                    id="conversation_plan",
+                    instruction_messages=[
+                        TextMessage(role=Role.SYSTEM, content="System message"),
+                    ],
+                )
+            ],
+            multiturn_attributes=[
+                MultiTurnAttribute(
+                    id="conversation",
+                    min_turns=1,
+                    max_turns=2,
+                    role_instruction_messages={
+                        Role.USER: "You are a user.",
+                        Role.ASSISTANT: "You are an assistant.",
+                    },
+                )
+            ],
+        )
+
     with pytest.raises(
         ValueError,
         match="GeneralSynthesisParams.combination_sampling sample rates must be "
