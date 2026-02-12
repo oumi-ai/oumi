@@ -35,7 +35,11 @@ help:
 	@echo "  ty                - Run ty type checker"
 	@echo "  format            - Run code formatter"
 	@echo "  test              - Run tests"
+	@echo "  test-flaky        - Run tests with flaky test retry (2 retries)"
 	@echo "  coverage          - Run tests with coverage"
+	@echo "  security-audit    - Run pip-audit security vulnerability scan"
+	@echo "  audit-tests       - Run test suite audit (coverage gaps, quality issues)"
+	@echo "  audit-tests-quick - Run quick test audit (skip coverage analysis)"
 	@echo "  gcpssh            - Launch a GCP VM and ssh into it"
 	@echo "  gcpcode           - Launch a VS Code remote session on a GCP VM"
 	@echo "  docs              - Build Sphinx documentation"
@@ -138,6 +142,23 @@ format:
 test:
 	$(CONDA_RUN) pytest $(TEST_DIR)
 
+test-flaky:
+	$(CONDA_RUN) pytest $(TEST_DIR) --reruns=2 --reruns-delay=1
+
+security-audit:
+	$(CONDA_RUN) pip-audit --strict --desc on
+
+audit-tests:
+	@echo "Running test coverage analysis..."
+	$(CONDA_RUN) pytest tests/unit/ --cov=src/oumi --cov-report=json:coverage.json -q
+	@echo "Generating test audit report..."
+	$(CONDA_RUN) python scripts/audit_tests.py --output test_audit_report.md
+	@echo "Report saved to test_audit_report.md"
+
+audit-tests-quick:
+	@echo "Running quick test audit (no coverage)..."
+	$(CONDA_RUN) python scripts/audit_tests.py --quick
+
 coverage:
 	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
@@ -188,4 +209,4 @@ doctest-file:
 	fi
 	$(CONDA_RUN) $(SPHINXBUILD) -b doctest "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(FILE)
 
-.PHONY: help setup upgrade clean check torchfix ty format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file
+.PHONY: help setup upgrade clean check torchfix ty format test test-flaky security-audit audit-tests audit-tests-quick coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file

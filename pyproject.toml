@@ -94,11 +94,13 @@ dev = [
     "jupyterlab",
     "nbconvert",      # For notebook execution in tests
     "nbformat",       # For notebook execution in tests
+    "pip-audit>=2.7,<3",       # Security vulnerability scanning for dependencies
     "pre-commit",
     "pyright",
-    "pytest-asyncio", # Asyncio plugin for pytest
-    "pytest-cov",     # Test coverage plugin for pytest
-    "pytest-timeout", # Timeout plugin for pytest
+    "pytest-asyncio",          # Asyncio plugin for pytest
+    "pytest-cov",              # Test coverage plugin for pytest
+    "pytest-rerunfailures>=14,<16",  # Retry flaky tests automatically
+    "pytest-timeout",          # Timeout plugin for pytest
     "pytest",
     "responses",
     "ruff",
