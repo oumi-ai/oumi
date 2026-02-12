@@ -1,0 +1,79 @@
+# LoRA config for GLM-4.7 (4.7B parameters).
+#
+# Model Details:
+#   - Model: zai-org/GLM-4.7
+#   - Parameters: ~4.7B total
+#   - Architecture: Dense transformer
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c oumi://configs/recipes/glm4/sft/4p7_lora_train.yaml
+#
+# Multi-GPU Usage:
+#   oumi distributed torchrun -m oumi train -c oumi://configs/recipes/glm4/sft/4p7_lora_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "THUDM/glm-4-9b-chat"  # GLM-4 9B as proxy for GLM-4.7
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"  # 51,760 examples
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: True
+  save_steps: 200
+  num_train_epochs: 1
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  max_grad_norm: 1.0
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_steps: 100
+  weight_decay: 0.01
+  compile: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 100
+  empty_device_cache_steps: 50
+  output_dir: "output/glm4_9b/lora"
+  include_performance_metrics: True
+  enable_wandb: True
+
+peft:
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0
+  # GLM-4 uses query_key_value (combined Q/K/V) and dense (output), not q_proj/k_proj/v_proj
+  lora_target_modules:
+    - "query_key_value"
+    - "dense"
+
+fsdp:
+  enable_fsdp: True
+  forward_prefetch: True
+  sharding_strategy: "FULL_SHARD"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  # THUDM/glm-4-9b-chat uses GLMBlock for encoder layers (not GLMTransformerLayer)
+  transformer_layer_cls: "GLMBlock"
