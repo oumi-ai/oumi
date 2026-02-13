@@ -79,17 +79,11 @@ def get_instance_metrics(
     except (TypeError, AttributeError):
         return []
 
-    # If the analyzer has get_available_metric_names() instance method,
-    # we need to construct an instance to get filtered metrics
-    if config is not None and hasattr(analyzer_class, "__init__"):
+    if config is not None:
         try:
-            # Try to create an instance with the config
-            # This allows the analyzer to filter metrics based on its state
             instance = analyzer_class(**config)
-            if hasattr(instance, "get_available_metric_names"):
-                return instance.get_available_metric_names()
+            return instance.get_available_metric_names()
         except Exception:
-            # If instantiation fails, fall back to class-level metrics
             pass
 
     return all_metrics
