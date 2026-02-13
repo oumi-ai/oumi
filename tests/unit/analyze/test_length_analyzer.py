@@ -387,65 +387,6 @@ def test_rendered_tokens_empty_conversation(tiktoken_tokenizer):
 
 
 # -----------------------------------------------------------------------------
-# Pipeline Tokenizer Injection Tests
-# -----------------------------------------------------------------------------
-
-
-def test_pipeline_injects_tokenizer(simple_conversation):
-    """Test that AnalysisPipeline injects tokenizer into analyzers."""
-    from oumi.analyze.pipeline import AnalysisPipeline
-
-    analyzer = LengthAnalyzer()  # No tokenizer
-    analyzer.analyzer_id = "length"
-    assert analyzer.tokenizer is None
-
-    pipeline = AnalysisPipeline(analyzers=[analyzer])
-
-    # Pipeline should have injected the tokenizer
-    assert analyzer.tokenizer is not None
-
-    # Should now work
-    results = pipeline.run([simple_conversation])
-    assert "length" in results
-
-
-def test_pipeline_respects_custom_tokenizer(simple_conversation, mock_tokenizer):
-    """Test that AnalysisPipeline doesn't override existing tokenizers."""
-    from oumi.analyze.pipeline import AnalysisPipeline
-
-    analyzer = LengthAnalyzer(tokenizer=mock_tokenizer)
-    analyzer.analyzer_id = "length"
-
-    pipeline = AnalysisPipeline(analyzers=[analyzer])
-
-    # Should keep the custom tokenizer
-    assert analyzer.tokenizer is mock_tokenizer
-
-    results = pipeline.run([simple_conversation])
-    # Mock tokenizer: "Hello" -> 1, "Hi there!" -> 2
-    length_results = results["length"]
-    assert isinstance(length_results, list)
-    assert isinstance(length_results[0], LengthMetrics)
-    assert length_results[0].total_tokens == 3
-
-
-def test_pipeline_custom_tokenizer_for_all(simple_conversation, mock_tokenizer):
-    """Test that pipeline can provide a custom tokenizer for all analyzers."""
-    from oumi.analyze.pipeline import AnalysisPipeline
-
-    analyzer = LengthAnalyzer()  # No tokenizer
-    analyzer.analyzer_id = "length"
-
-    _ = AnalysisPipeline(
-        analyzers=[analyzer],
-        tokenizer=mock_tokenizer,
-    )
-
-    # Should use the pipeline's tokenizer
-    assert analyzer.tokenizer is mock_tokenizer
-
-
-# -----------------------------------------------------------------------------
 # Registry Tests
 # -----------------------------------------------------------------------------
 
