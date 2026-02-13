@@ -83,6 +83,7 @@ from oumi.core.configs.analyze_config import (
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
+from oumi.core.types.exceptions import ConfigNotFoundError
 from oumi.core.configs.evaluation_config import EvaluationConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
@@ -164,6 +165,7 @@ __all__ = [
     "AutoWrapPolicy",
     "BackwardPrefetch",
     "BaseConfig",
+    "ConfigNotFoundError",
     "DataParams",
     "DatasetParams",
     "DatasetSplit",

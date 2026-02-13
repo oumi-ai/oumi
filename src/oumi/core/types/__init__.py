@@ -41,9 +41,10 @@ from oumi.core.types.conversation import (
     TemplatedMessage,
     Type,
 )
-from oumi.core.types.exceptions import HardwareException
+from oumi.core.types.exceptions import ConfigNotFoundError, HardwareException
 
 __all__ = [
+    "ConfigNotFoundError",
     "HardwareException",
     "ContentItem",
     "ContentItemCounts",

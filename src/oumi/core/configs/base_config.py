@@ -25,6 +25,7 @@ from typing import Any, TypeVar, cast
 from omegaconf import OmegaConf
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.types.exceptions import ConfigNotFoundError
 
 T = TypeVar("T", bound="BaseConfig")
 
@@ -127,7 +128,14 @@ def _read_config_without_interpolation(config_path: str) -> str:
 
     Returns:
         str: The stringified configuration.
+
+    Raises:
+        ConfigNotFoundError: If the config file doesn't exist.
     """
+    path = Path(config_path)
+    if not path.exists():
+        raise ConfigNotFoundError(config_path)
+
     with open(config_path) as f:
         stringified_config = f.read()
         pattern = r"(?<!\\)\$\{"  # Matches "${" but not "\${"

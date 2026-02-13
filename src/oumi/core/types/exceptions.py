@@ -15,3 +15,23 @@
 
 class HardwareException(Exception):
     """An exception thrown for invalid hardware configurations."""
+
+
+class ConfigNotFoundError(FileNotFoundError):
+    """Raised when a config file is not found, with a helpful error message."""
+
+    def __init__(self, config_path: str):
+        """Initialize the error with the missing config path.
+
+        Args:
+            config_path: The path to the config file that was not found.
+        """
+        self.config_path = config_path
+
+        message = (
+            f"Config file not found: '{config_path}'\n\n"
+            "Tip: Use 'oumi train --list' to see available configs, "
+            "or check that the file path is correct."
+        )
+
+        super().__init__(message)
