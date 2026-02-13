@@ -466,16 +466,26 @@ def test_engine_handles_test_exception():
 
 def test_multi_instance_metrics_resolve_correctly():
     """Test that metrics resolve correctly with multiple analyzer instances."""
+    from typing import cast
+
+    from pydantic import BaseModel
+
     # Two length analyzers with different instance_ids
-    results = {
-        "length_tiktoken": [
-            SampleMetrics(total_tokens=100, total_chars=400),
-            SampleMetrics(total_tokens=200, total_chars=800),
-        ],
-        "length_hf": [
-            SampleMetrics(total_tokens=95, total_chars=380),
-            SampleMetrics(total_tokens=210, total_chars=840),
-        ],
+    results: dict[str, list[BaseModel] | BaseModel] = {
+        "length_tiktoken": cast(
+            list[BaseModel],
+            [
+                SampleMetrics(total_tokens=100, total_chars=400),
+                SampleMetrics(total_tokens=200, total_chars=800),
+            ],
+        ),
+        "length_hf": cast(
+            list[BaseModel],
+            [
+                SampleMetrics(total_tokens=95, total_chars=380),
+                SampleMetrics(total_tokens=210, total_chars=840),
+            ],
+        ),
     }
     # Tests that each instance's metrics are resolved independently
     tests = [

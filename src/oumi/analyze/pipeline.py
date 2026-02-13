@@ -17,7 +17,7 @@
 import logging
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import tiktoken
 from pydantic import BaseModel
@@ -310,8 +310,12 @@ class AnalysisPipeline:
             sorted_analyzers, "Running conversation analyzers"
         ):
             self._inject_dependencies(analyzer)
+            # Cast to ConversationAnalyzer for type safety
+            conv_analyzer = cast(ConversationAnalyzer, analyzer)
             self._run_single_analyzer(
-                analyzer, lambda a: a.analyze_batch(conversations), is_batch=True
+                analyzer,
+                lambda a: conv_analyzer.analyze_batch(conversations),
+                is_batch=True,
             )
 
     def _run_message_analyzers(self, conversations: list[Conversation]) -> None:
@@ -327,8 +331,12 @@ class AnalysisPipeline:
             sorted_analyzers, "Running message analyzers"
         ):
             self._inject_dependencies(analyzer)
+            # Cast to MessageAnalyzer for type safety
+            msg_analyzer = cast(MessageAnalyzer, analyzer)
             self._run_single_analyzer(
-                analyzer, lambda a: a.analyze_batch(all_messages), is_batch=True
+                analyzer,
+                lambda a: msg_analyzer.analyze_batch(all_messages),
+                is_batch=True,
             )
 
     def _run_dataset_analyzers(self, conversations: list[Conversation]) -> None:
@@ -339,8 +347,12 @@ class AnalysisPipeline:
             sorted_analyzers, "Running dataset analyzers"
         ):
             self._inject_dependencies(analyzer)
+            # Cast to DatasetAnalyzer for type safety
+            dataset_analyzer = cast(DatasetAnalyzer, analyzer)
             self._run_single_analyzer(
-                analyzer, lambda a: a.analyze(conversations), is_batch=False
+                analyzer,
+                lambda a: dataset_analyzer.analyze(conversations),
+                is_batch=False,
             )
 
     def _run_single_analyzer(
