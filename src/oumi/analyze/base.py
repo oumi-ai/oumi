@@ -14,18 +14,13 @@
 
 """Base analyzer classes for the typed analyzer framework."""
 
-import inspect
-import logging
-import types
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar, Union, get_args, get_origin
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 from transformers import PreTrainedTokenizerBase
 
 from oumi.core.types.conversation import ContentItem, Conversation, Message
-
-logger = logging.getLogger(__name__)
 
 TResult = TypeVar("TResult", bound=BaseModel)
 
@@ -56,92 +51,14 @@ class BaseAnalyzer(ABC, Generic[TResult]):
         return "unknown"
 
     @classmethod
+    @abstractmethod
     def get_config_schema(cls) -> dict[str, Any]:
-        """Get JSON schema for this analyzer's constructor parameters.
-
-        Introspects ``__init__`` to discover what configuration the analyzer
-        accepts.  Analyzers with no parameters return an empty schema.
-
-        Subclasses can override this to provide a custom schema (e.g. when
-        the constructor takes a non-serialisable object like a tokenizer but
-        the *user-facing* config is a simpler set of options).
+        """Get JSON schema for this analyzer's configuration.
 
         Returns:
             JSON-schema-like dict with ``properties``, ``required``, etc.
         """
-        sig = inspect.signature(cls.__init__)
-        properties: dict[str, Any] = {}
-        required: list[str] = []
-
-        _TYPE_MAP = {
-            str: "string",
-            int: "integer",
-            float: "number",
-            bool: "boolean",
-            list: "array",
-            dict: "object",
-        }
-
-        for name, param in sig.parameters.items():
-            if name == "self":
-                continue
-            # Skip *args and **kwargs
-            if param.kind in (
-                inspect.Parameter.VAR_POSITIONAL,
-                inspect.Parameter.VAR_KEYWORD,
-            ):
-                continue
-
-            prop: dict[str, Any] = {}
-
-            # Resolve type annotation
-            annotation = param.annotation
-            if annotation is not inspect.Parameter.empty:
-                # Handle Optional/Union types by unwrapping
-                # Note: Python 3.10+ uses types.UnionType for X | Y syntax
-                origin = get_origin(annotation)
-                if origin is Union or origin is types.UnionType:
-                    # Extract non-None types from Optional[X] or Union[X, Y, ...]
-                    args = [a for a in get_args(annotation) if a is not type(None)]
-                    if args:
-                        annotation = args[0]
-                        origin = get_origin(annotation)
-
-                # Handle generic types (list, dict)
-                if origin is not None:
-                    annotation = origin
-
-                # Map to JSON schema type
-                json_type = _TYPE_MAP.get(annotation)
-                if json_type is not None:
-                    prop["type"] = json_type
-                else:
-                    # Fallback with debug warning
-                    logger.debug(
-                        f"Unknown type annotation '{annotation}' for parameter "
-                        f"'{name}' in {cls.__name__}.get_config_schema(), "
-                        f"falling back to 'string'"
-                    )
-                    prop["type"] = "string"
-            else:
-                prop["type"] = "string"
-
-            # Default value
-            if param.default is not inspect.Parameter.empty:
-                # Skip non-serialisable defaults (None is fine)
-                if param.default is None or isinstance(
-                    param.default, (str, int, float, bool)
-                ):
-                    prop["default"] = param.default
-            else:
-                required.append(name)
-
-            properties[name] = prop
-
-        schema: dict[str, Any] = {"properties": properties}
-        if required:
-            schema["required"] = required
-        return schema
+        ...
 
     @classmethod
     @abstractmethod

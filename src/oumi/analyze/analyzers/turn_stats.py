@@ -87,6 +87,11 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
     """
 
     @classmethod
+    def get_config_schema(cls) -> dict:
+        """Get JSON schema for TurnStatsAnalyzer configuration."""
+        return {"properties": {}}
+
+    @classmethod
     def get_result_schema(cls) -> dict:
         """Get the JSON schema for TurnStatsMetrics."""
         return TurnStatsMetrics.model_json_schema()
