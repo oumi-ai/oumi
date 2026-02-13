@@ -35,8 +35,9 @@ def _get_all_config_paths(exclude_yaml_suffixes: set[str] | None) -> list[str]:
     if exclude_yaml_suffixes:
         exclude_files = []
         for file in all_yaml_files:
+            basename = os.path.basename(file)
             for exclude_yaml in exclude_yaml_suffixes:
-                if file.endswith(exclude_yaml):
+                if file.endswith(exclude_yaml) or basename.endswith(exclude_yaml):
                     exclude_files.append(file)
                     break
         all_yaml_files = [file for file in all_yaml_files if file not in exclude_files]
@@ -49,6 +50,7 @@ def _get_all_config_paths(exclude_yaml_suffixes: set[str] | None) -> list[str]:
     _get_all_config_paths(
         exclude_yaml_suffixes={
             "accelerate.yaml",
+            "_deploy.yaml",  # Deploy configs use a different schema
         }
     ),
 )
@@ -81,8 +83,9 @@ def test_parse_configs(config_path: str):
 @pytest.mark.parametrize(
     "config_path",
     _get_all_config_paths(
-        {
+        exclude_yaml_suffixes={
             "accelerate.yaml",
+            "_deploy.yaml",  # Deploy configs use a different schema
         }
     ),
 )
