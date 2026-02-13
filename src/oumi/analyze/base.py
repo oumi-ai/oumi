@@ -15,13 +15,17 @@
 """Base analyzer classes for the typed analyzer framework."""
 
 import inspect
+import logging
+import types
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, Union, get_args, get_origin
 
 from pydantic import BaseModel
 from transformers import PreTrainedTokenizerBase
 
 from oumi.core.types.conversation import ContentItem, Conversation, Message
+
+logger = logging.getLogger(__name__)
 
 TResult = TypeVar("TResult", bound=BaseModel)
 
@@ -74,6 +78,8 @@ class BaseAnalyzer(ABC, Generic[TResult]):
             int: "integer",
             float: "number",
             bool: "boolean",
+            list: "array",
+            dict: "object",
         }
 
         for name, param in sig.parameters.items():
@@ -91,7 +97,32 @@ class BaseAnalyzer(ABC, Generic[TResult]):
             # Resolve type annotation
             annotation = param.annotation
             if annotation is not inspect.Parameter.empty:
-                prop["type"] = _TYPE_MAP.get(annotation, "string")
+                # Handle Optional/Union types by unwrapping
+                # Note: Python 3.10+ uses types.UnionType for X | Y syntax
+                origin = get_origin(annotation)
+                if origin is Union or origin is types.UnionType:
+                    # Extract non-None types from Optional[X] or Union[X, Y, ...]
+                    args = [a for a in get_args(annotation) if a is not type(None)]
+                    if args:
+                        annotation = args[0]
+                        origin = get_origin(annotation)
+
+                # Handle generic types (list, dict)
+                if origin is not None:
+                    annotation = origin
+
+                # Map to JSON schema type
+                json_type = _TYPE_MAP.get(annotation)
+                if json_type is not None:
+                    prop["type"] = json_type
+                else:
+                    # Fallback with debug warning
+                    logger.debug(
+                        f"Unknown type annotation '{annotation}' for parameter "
+                        f"'{name}' in {cls.__name__}.get_config_schema(), "
+                        f"falling back to 'string'"
+                    )
+                    prop["type"] = "string"
             else:
                 prop["type"] = "string"
 
