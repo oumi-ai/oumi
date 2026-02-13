@@ -14,10 +14,12 @@
 
 """Length analyzer implementation and result model."""
 
+import copy
 from typing import Any, ClassVar, Protocol, runtime_checkable
 
 import tiktoken
 from pydantic import BaseModel, Field
+from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 from oumi.analyze.base import ConversationAnalyzer
 from oumi.core.registry import register_sample_analyzer
@@ -53,7 +55,9 @@ def default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
     return tiktoken.get_encoding(encoding)
 
 
-def huggingface_tokenizer(model_name: str, trust_remote_code: bool = False) -> Any:
+def huggingface_tokenizer(
+    model_name: str, trust_remote_code: bool = False
+) -> PreTrainedTokenizerBase:
     """Get a HuggingFace tokenizer with chat template support.
 
     This enables the `rendered_tokens` field which counts tokens after
@@ -67,22 +71,12 @@ def huggingface_tokenizer(model_name: str, trust_remote_code: bool = False) -> A
         HuggingFace tokenizer instance with chat_template support.
 
     Raises:
-        ImportError: If transformers is not installed.
         OSError: If the model/tokenizer cannot be loaded.
     """
-    try:
-        from transformers import AutoTokenizer
-    except ImportError as e:
-        raise ImportError(
-            "HuggingFace transformers is required for HuggingFace tokenizers. "
-            "Install with: pip install transformers"
-        ) from e
-
-    tokenizer = AutoTokenizer.from_pretrained(
+    return AutoTokenizer.from_pretrained(
         model_name,
         trust_remote_code=trust_remote_code,
     )
-    return tokenizer
 
 
 class LengthMetrics(BaseModel):
@@ -184,8 +178,6 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     @classmethod
     def get_config_schema(cls) -> dict[str, Any]:
         """Return user-facing config schema for tokenizer selection."""
-        import copy
-
         return copy.deepcopy(cls._CONFIG_SCHEMA)
 
     @classmethod
@@ -211,15 +203,12 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         self.tokenizer = tokenizer
         # Cache tokenizer capabilities to avoid repeated runtime checks
         self._supports_disallowed_special = (
-            tokenizer is not None
-            and hasattr(tokenizer, "encode")
-            and self._check_supports_disallowed_special()
+            tokenizer is not None and self._check_supports_disallowed_special()
         )
 
     def _check_supports_disallowed_special(self) -> bool:
         """Check if tokenizer supports disallowed_special parameter."""
         try:
-            # Try with a minimal test
             self.tokenizer.encode("", disallowed_special=())  # type: ignore
             return True
         except TypeError:
@@ -243,46 +232,25 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
                 "or use default_tokenizer()."
             )
 
-        # Use cached capability check instead of try-except on every call
         if self._supports_disallowed_special:
-            # tiktoken: encode literal special tokens (e.g. <|endoftext|>)
-            # as normal text
+            # Encode literal special tokens (e.g. <|endoftext|>) as normal text
             tokens = self.tokenizer.encode(text, disallowed_special=())  # type: ignore[call-arg]
         else:
-            # HuggingFace tokenizer
             tokens = self.tokenizer.encode(text)
         return len(tokens)
 
     def _count_rendered_tokens(self, conversation: Conversation) -> int | None:
-        """Count tokens in the chat-template-rendered conversation.
+        """Count tokens after applying the tokenizer's chat template.
 
-        This gives the actual token count the model sees during training/inference,
-        including special tokens added by the chat template.
-
-        Args:
-            conversation: The conversation to render and tokenize.
-
-        Returns:
-            Token count of rendered conversation, or None if tokenizer doesn't
-            support chat templates.
+        Returns None if the tokenizer doesn't support chat templates.
         """
         if self.tokenizer is None:
             return None
 
-        # Check if tokenizer has a chat template before proceeding
-        if getattr(self.tokenizer, "chat_template", None) is None:
-            return None
-
-        if not conversation.messages:
-            return 0
-
         try:
-            # Use base class method to render conversation with chat template
-            # Type ignore: we've verified tokenizer has chat_template attribute above
             rendered_text = self.get_conversation_text(conversation, self.tokenizer)  # type: ignore[arg-type]
             return self._count_tokens(rendered_text)
         except (ValueError, AttributeError):
-            # Unexpected error during rendering
             return None
 
     def analyze(self, conversation: Conversation) -> LengthMetrics:
@@ -302,8 +270,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             token_count = self._count_tokens(text)
             message_token_counts.append(token_count)
 
-            if message.role in role_token_counts:
-                role_token_counts[message.role] += token_count
+            role_token_counts[message.role] += token_count
 
         total_tokens = sum(message_token_counts)
         num_messages = len(conversation.messages)
