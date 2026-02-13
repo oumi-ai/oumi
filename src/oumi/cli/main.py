@@ -31,6 +31,28 @@ from oumi.cli.cli_utils import (
     create_github_issue_url,
     get_command_help,
 )
+from oumi.cli.deploy import (
+    create_endpoint,
+    delete,
+    delete_model,
+    list_deployments,
+    list_hardware,
+    list_models,
+    test,
+    upload,
+)
+from oumi.cli.deploy import (
+    start as deploy_start,
+)
+from oumi.cli.deploy import (
+    status as deploy_status,
+)
+from oumi.cli.deploy import (
+    stop as deploy_stop,
+)
+from oumi.cli.deploy import (
+    up as deploy_up,
+)
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
@@ -240,6 +262,29 @@ def get_app() -> typer.Typer:
         launch_app,
         name="launch",
         help="Deploy and manage jobs on cloud infrastructure.",
+        rich_help_panel="Compute",
+    )
+    deploy_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
+    deploy_app.command(help="Upload a model to an inference provider")(upload)
+    deploy_app.command(help="Create an inference endpoint")(create_endpoint)
+    deploy_app.command(name="list", help="List all deployments")(list_deployments)
+    deploy_app.command(name="list-models", help="List uploaded models")(list_models)
+    deploy_app.command(name="status", help="Get deployment status")(deploy_status)
+    deploy_app.command(name="start", help="Start a stopped endpoint")(deploy_start)
+    deploy_app.command(name="stop", help="Stop an endpoint to save cost")(deploy_stop)
+    deploy_app.command(help="Delete an endpoint")(delete)
+    deploy_app.command(name="delete-model", help="Delete an uploaded model")(
+        delete_model
+    )
+    deploy_app.command(help="List available hardware options")(list_hardware)
+    deploy_app.command(help="Test endpoint with a sample request")(test)
+    deploy_app.command(help="Deploy model end-to-end (upload + endpoint)")(deploy_up)
+    app.add_typer(
+        deploy_app,
+        name="deploy",
+        help="Deploy models to inference providers.",
         rich_help_panel="Compute",
     )
     distributed_app = typer.Typer(
