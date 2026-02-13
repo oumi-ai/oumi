@@ -245,7 +245,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         if self._supports_disallowed_special:
             # tiktoken: encode literal special tokens (e.g. <|endoftext|>)
             # as normal text
-            tokens = self.tokenizer.encode(text, disallowed_special=())
+            tokens = self.tokenizer.encode(text, disallowed_special=())  # type: ignore[call-arg]
         else:
             # HuggingFace tokenizer
             tokens = self.tokenizer.encode(text)
