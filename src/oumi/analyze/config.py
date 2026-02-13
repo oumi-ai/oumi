@@ -15,22 +15,12 @@
 """Configuration for the typed analyzer framework."""
 
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from oumi.core.configs.params.test_params import TestParams
-
-
-class AnalyzerType(str, Enum):
-    """Built-in analyzer types."""
-
-    LENGTH = "length"
-    QUALITY = "quality"
-    FORMAT = "format"
-    DIVERSITY = "diversity"
-    EMBEDDING = "embedding"
-    LLM_JUDGE = "llm_judge"
 
 
 @dataclass
@@ -192,36 +182,19 @@ class TypedAnalyzeConfig:
         report_title: Custom title for the report.
     """
 
-    # Eval name (optional, for web viewer)
     eval_name: str | None = None
-
-    # Parent eval ID (for linking derived analyses)
     parent_eval_id: str | None = None
-
-    # Dataset source
     dataset_name: str | None = None
     dataset_path: str | None = None
     split: str = "train"
     subset: str | None = None
     sample_count: int | None = None
-
-    # Output
     output_path: str = "."
-
-    # Analyzers
     analyzers: list[AnalyzerConfig] = field(default_factory=list)
-
-    # Custom metrics
     custom_metrics: list[CustomMetricConfig] = field(default_factory=list)
-
-    # Tests
     tests: list[TestParams] = field(default_factory=list)
-
-    # Tokenizer
     tokenizer_name: str | None = None
     tokenizer_kwargs: dict[str, Any] = field(default_factory=dict)
-
-    # Report
     generate_report: bool = False
     report_title: str | None = None
 
@@ -249,8 +222,6 @@ class TypedAnalyzeConfig:
         Raises:
             ValueError: If config contains custom code but allow_custom_code=False.
         """
-        import yaml
-
         with open(path) as f:
             data = yaml.safe_load(f)
 
@@ -258,17 +229,7 @@ class TypedAnalyzeConfig:
 
     @classmethod
     def _parse_analyzers(cls, data: dict[str, Any]) -> list[AnalyzerConfig]:
-        """Parse analyzer configurations from dictionary.
-
-        Args:
-            data: Configuration dictionary containing 'analyzers' key.
-
-        Returns:
-            List of AnalyzerConfig instances.
-
-        Raises:
-            ValueError: If duplicate instance_id values found.
-        """
+        """Parse analyzer configurations, raising on duplicate instance_ids."""
         analyzers = []
         for analyzer_data in data.get("analyzers", []):
             if isinstance(analyzer_data, dict):
@@ -299,27 +260,17 @@ class TypedAnalyzeConfig:
     def _parse_custom_metrics(
         cls, data: dict[str, Any], allow_custom_code: bool
     ) -> list[CustomMetricConfig]:
-        """Parse custom metric configurations from dictionary.
-
-        Args:
-            data: Configuration dictionary containing 'custom_metrics' key.
-            allow_custom_code: If True, allow metrics with executable code.
-
-        Returns:
-            List of CustomMetricConfig instances.
-
-        Raises:
-            ValueError: If custom code found but allow_custom_code=False.
-        """
+        """Parse custom metrics, raising if code is present and not allowed."""
         custom_metrics = []
         for metric_data in data.get("custom_metrics", []):
-            # Parse output_schema if present
-            output_schema = []
-            for field_data in metric_data.pop("output_schema", []):
-                if isinstance(field_data, dict):
-                    output_schema.append(OutputFieldSchema(**field_data))
+            output_schema = [
+                OutputFieldSchema(**f)
+                for f in metric_data.get("output_schema", [])
+                if isinstance(f, dict)
+            ]
+            remaining = {k: v for k, v in metric_data.items() if k != "output_schema"}
             custom_metrics.append(
-                CustomMetricConfig(**metric_data, output_schema=output_schema)
+                CustomMetricConfig(**remaining, output_schema=output_schema)
             )
 
         # Security check: reject custom code unless explicitly allowed
@@ -337,14 +288,7 @@ class TypedAnalyzeConfig:
 
     @classmethod
     def _parse_tests(cls, data: dict[str, Any]) -> list[TestParams]:
-        """Parse test configurations from dictionary.
-
-        Args:
-            data: Configuration dictionary containing 'tests' key.
-
-        Returns:
-            List of TestParams instances.
-        """
+        """Parse and validate test configurations."""
         tests = []
         for test_data in data.get("tests", []):
             test_params = TestParams(**test_data)
@@ -394,12 +338,10 @@ class TypedAnalyzeConfig:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert configuration to a dictionary.
-
-        Returns:
-            Configuration as dictionary.
-        """
+        """Convert configuration to a dictionary."""
         return {
+            "eval_name": self.eval_name,
+            "parent_eval_id": self.parent_eval_id,
             "dataset_name": self.dataset_name,
             "dataset_path": self.dataset_path,
             "split": self.split,
@@ -416,6 +358,15 @@ class TypedAnalyzeConfig:
                     "scope": m.scope,
                     "function": m.function,
                     "description": m.description,
+                    "output_schema": [
+                        {
+                            "name": f.name,
+                            "type": f.type,
+                            "description": f.description,
+                        }
+                        for f in m.output_schema
+                    ],
+                    "depends_on": m.depends_on,
                 }
                 for m in self.custom_metrics
             ],
@@ -440,11 +391,3 @@ class TypedAnalyzeConfig:
             "generate_report": self.generate_report,
             "report_title": self.report_title,
         }
-
-    def get_test_configs(self) -> list[TestParams]:
-        """Get test configurations for the test engine.
-
-        Returns:
-            List of TestParams instances.
-        """
-        return self.tests
