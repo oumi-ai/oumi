@@ -45,11 +45,13 @@ def test_get_batch_status_maps_progress(together_engine):
 
     mock_resp = AsyncMock()
     mock_resp.status = 200
-    mock_resp.json = AsyncMock(return_value={
-        "id": "batch-123",
-        "status": "IN_PROGRESS",
-        "progress": 50.0,
-    })
+    mock_resp.json = AsyncMock(
+        return_value={
+            "id": "batch-123",
+            "status": "IN_PROGRESS",
+            "progress": 50.0,
+        }
+    )
     mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
     mock_resp.__aexit__ = AsyncMock(return_value=None)
 
@@ -72,10 +74,12 @@ def test_get_batch_status_zero_progress(together_engine):
 
     mock_resp = AsyncMock()
     mock_resp.status = 200
-    mock_resp.json = AsyncMock(return_value={
-        "id": "batch-123",
-        "status": "VALIDATING",
-    })
+    mock_resp.json = AsyncMock(
+        return_value={
+            "id": "batch-123",
+            "status": "VALIDATING",
+        }
+    )
     mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
     mock_resp.__aexit__ = AsyncMock(return_value=None)
 
