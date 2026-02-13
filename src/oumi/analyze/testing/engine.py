@@ -79,15 +79,7 @@ class TestEngine:
         self.tests = tests
 
     def _create_error_result(self, test: TestParams, error: str) -> TestResult:
-        """Create a TestResult for an error condition.
-
-        Args:
-            test: Test configuration.
-            error: Error message.
-
-        Returns:
-            TestResult with passed=False and error set.
-        """
+        """Create a TestResult for an error condition."""
         return TestResult(
             test_id=test.id,
             passed=False,
@@ -97,18 +89,6 @@ class TestEngine:
             metric=test.metric or "",
             error=error,
         )
-
-    def _calculate_percentage(self, count: int, total: int) -> float:
-        """Calculate percentage, handling division by zero.
-
-        Args:
-            count: Numerator.
-            total: Denominator.
-
-        Returns:
-            Percentage (0.0 to 100.0).
-        """
-        return 100.0 * count / total if total > 0 else 0.0
 
     def _build_test_result(
         self,
@@ -120,20 +100,7 @@ class TestEngine:
         details: dict[str, Any],
         actual_value: float | None = None,
     ) -> TestResult:
-        """Build a TestResult from common fields.
-
-        Args:
-            test: Test configuration.
-            passed: Whether the test passed.
-            total_count: Total number of values tested.
-            affected_indices: Indices of affected samples.
-            affected_pct: Percentage of affected samples.
-            details: Test-specific details.
-            actual_value: Actual metric value for single-value tests.
-
-        Returns:
-            TestResult instance.
-        """
+        """Build a TestResult from common fields."""
         return TestResult(
             test_id=test.id,
             passed=passed,
@@ -151,20 +118,9 @@ class TestEngine:
         )
 
     def _get_actual_value(self, values: list[Any]) -> float | None:
-        """Extract actual value for single-value metrics.
-
-        Args:
-            values: List of metric values.
-
-        Returns:
-            Float value if this is a single numeric value, None otherwise.
-        """
-        if len(values) == 1:
-            val = values[0]
-            if isinstance(val, int | float):
-                return float(val)
-            if isinstance(val, bool):
-                return 1.0 if val else 0.0
+        """Extract actual value for single-value numeric metrics."""
+        if len(values) == 1 and isinstance(values[0], int | float):
+            return float(values[0])
         return None
 
     def run(
@@ -216,15 +172,7 @@ class TestEngine:
         test: TestParams,
         results: dict[str, list[BaseModel] | BaseModel],
     ) -> TestResult:
-        """Run a single test.
-
-        Args:
-            test: Test configuration.
-            results: Analysis results.
-
-        Returns:
-            TestResult for this test.
-        """
+        """Run a single test and return its result."""
         if not test.metric:
             return self._create_error_result(test, "Test requires 'metric' field")
 
@@ -245,17 +193,7 @@ class TestEngine:
         metric: str,
         results: dict[str, list[BaseModel] | BaseModel],
     ) -> list[Any]:
-        """Extract metric values from results.
-
-        Metric format: "instance_id.field_name" or "instance_id.nested.field"
-
-        Args:
-            metric: Metric path string.
-            results: Analysis results.
-
-        Returns:
-            List of values for the metric.
-        """
+        """Extract values for a metric path like "instance_id.field_name"."""
         parts = metric.split(".")
         if len(parts) < 2:
             return []
@@ -263,7 +201,6 @@ class TestEngine:
         analyzer_name = parts[0]
         field_path = parts[1:]
 
-        # Direct lookup: metric path uses instance_id (e.g. "length.total_tokens")
         if analyzer_name not in results:
             return []
 
@@ -281,24 +218,11 @@ class TestEngine:
 
         return values
 
-    def _get_nested_value(
-        self,
-        obj: Any,
-        field_path: list[str],
-    ) -> Any | None:
-        """Get a nested field value from a Pydantic model or dict.
-
-        Args:
-            obj: Pydantic model instance or dict.
-            field_path: List of field names to traverse.
-
-        Returns:
-            Field value or None if not found.
-        """
+    def _get_nested_value(self, obj: Any, field_path: list[str]) -> Any:
+        """Get a nested field value from a Pydantic model or dict."""
         current: Any = obj
         for i, field in enumerate(field_path):
             if isinstance(current, BaseModel):
-                # Pydantic model - check if field exists in model_fields
                 if field in type(current).model_fields:
                     current = getattr(current, field)
                 else:
@@ -329,25 +253,23 @@ class TestEngine:
                 return None
         return current
 
-    def _evaluate_threshold_comparison(
+    def _run_threshold_test(
         self,
         test: TestParams,
         values: list[Any],
-        op_func: Callable[[Any, Any], bool],
-    ) -> tuple[list[int], list[int], dict[int, str], dict[int, str]]:
-        """Evaluate threshold comparison for all values.
+    ) -> TestResult:
+        """Run a threshold test against metric values."""
+        if test.operator is None or test.value is None:
+            return self._create_error_result(
+                test, "Threshold test requires 'operator' and 'value'"
+            )
 
-        Args:
-            test: Test configuration.
-            values: Metric values to test.
-            op_func: Comparison operator function.
+        op_func = OPERATORS.get(test.operator)
+        if op_func is None:
+            return self._create_error_result(test, f"Unknown operator: {test.operator}")
 
-        Returns:
-            Tuple of (matching_indices, non_matching_indices,
-                     matching_reasons, non_matching_reasons).
-        """
-        matching_indices = []
-        non_matching_indices = []
+        matching_indices: list[int] = []
+        non_matching_indices: list[int] = []
         matching_reasons: dict[int, str] = {}
         non_matching_reasons: dict[int, str] = {}
 
@@ -367,39 +289,17 @@ class TestEngine:
                 non_matching_indices.append(i)
                 non_matching_reasons[i] = f"Cannot evaluate: {value}"
 
-        return (
-            matching_indices,
-            non_matching_indices,
-            matching_reasons,
-            non_matching_reasons,
-        )
+        total_count = len(values)
+        matching_count = len(matching_indices)
+        if total_count > 0:
+            matching_pct = 100.0 * matching_count / total_count
+            non_matching_pct = 100.0 * len(non_matching_indices) / total_count
+        else:
+            matching_pct = 0.0
+            non_matching_pct = 0.0
 
-    def _determine_threshold_pass_fail(
-        self,
-        test: TestParams,
-        matching_indices: list[int],
-        non_matching_indices: list[int],
-        matching_reasons: dict[int, str],
-        non_matching_reasons: dict[int, str],
-        matching_pct: float,
-        non_matching_pct: float,
-    ) -> tuple[bool, list[int], float, dict[int, str]]:
-        """Determine pass/fail status for threshold test.
-
-        Args:
-            test: Test configuration.
-            matching_indices: Indices where condition matched.
-            non_matching_indices: Indices where condition didn't match.
-            matching_reasons: Reasons for matching samples.
-            non_matching_reasons: Reasons for non-matching samples.
-            matching_pct: Percentage of matching samples.
-            non_matching_pct: Percentage of non-matching samples.
-
-        Returns:
-            Tuple of (passed, affected_indices, affected_pct, failure_reasons).
-        """
         passed = True
-        affected_indices = []
+        affected_indices: list[int] = []
         affected_pct = 0.0
         failure_reasons: dict[int, str] = {}
 
@@ -418,66 +318,12 @@ class TestEngine:
                 affected_pct = non_matching_pct
                 failure_reasons = non_matching_reasons
 
-        # Default case: no percentage thresholds.
-        # Matching samples are flagged, and the test passes when no samples match.
+        # No percentage thresholds: test passes when no samples match.
         if test.max_percentage is None and test.min_percentage is None:
             passed = len(matching_indices) == 0
             affected_indices = matching_indices
             affected_pct = matching_pct
             failure_reasons = matching_reasons
-
-        return passed, affected_indices, affected_pct, failure_reasons
-
-    def _run_threshold_test(
-        self,
-        test: TestParams,
-        values: list[Any],
-    ) -> TestResult:
-        """Run a threshold test.
-
-        Args:
-            test: Test configuration.
-            values: Metric values to test.
-
-        Returns:
-            TestResult.
-        """
-        if test.operator is None or test.value is None:
-            return self._create_error_result(
-                test, "Threshold test requires 'operator' and 'value'"
-            )
-
-        op_func = OPERATORS.get(test.operator)
-        if op_func is None:
-            return self._create_error_result(test, f"Unknown operator: {test.operator}")
-
-        # Evaluate threshold comparison
-        (
-            matching_indices,
-            non_matching_indices,
-            matching_reasons,
-            non_matching_reasons,
-        ) = self._evaluate_threshold_comparison(test, values, op_func)
-
-        total_count = len(values)
-        matching_count = len(matching_indices)
-        matching_pct = self._calculate_percentage(matching_count, total_count)
-        non_matching_pct = self._calculate_percentage(
-            len(non_matching_indices), total_count
-        )
-
-        # Determine pass/fail
-        passed, affected_indices, affected_pct, failure_reasons = (
-            self._determine_threshold_pass_fail(
-                test,
-                matching_indices,
-                non_matching_indices,
-                matching_reasons,
-                non_matching_reasons,
-                matching_pct,
-                non_matching_pct,
-            )
-        )
 
         return self._build_test_result(
             test=test,
