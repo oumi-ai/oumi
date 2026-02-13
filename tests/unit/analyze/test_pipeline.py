@@ -73,6 +73,10 @@ class SimpleConversationAnalyzer(ConversationAnalyzer[SimpleMetrics]):
         self.multiplier = multiplier
 
     @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
+
+    @classmethod
     def get_result_schema(cls) -> dict:
         return SimpleMetrics.model_json_schema()
 
@@ -96,6 +100,10 @@ class SimpleConversationAnalyzer(ConversationAnalyzer[SimpleMetrics]):
 
 class SimpleMessageAnalyzer(MessageAnalyzer[MessageMetrics]):
     """Simple message analyzer for testing."""
+
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
 
     @classmethod
     def get_result_schema(cls) -> dict:
@@ -124,6 +132,10 @@ class SimpleDatasetAnalyzer(DatasetAnalyzer[DatasetMetrics]):
     """Simple dataset analyzer for testing."""
 
     @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
+
+    @classmethod
     def get_result_schema(cls) -> dict:
         return DatasetMetrics.model_json_schema()
 
@@ -148,6 +160,10 @@ class SimpleDatasetAnalyzer(DatasetAnalyzer[DatasetMetrics]):
 
 class SimplePreferenceAnalyzer(PreferenceAnalyzer[PreferenceMetrics]):
     """Simple preference analyzer for testing."""
+
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
 
     @classmethod
     def get_result_schema(cls) -> dict:
@@ -179,6 +195,10 @@ class DerivedConversationAnalyzer(ConversationAnalyzer[SimpleMetrics]):
 
     def __init__(self):
         self._dependency_results: dict[str, Any] = {}
+
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
 
     @classmethod
     def get_result_schema(cls) -> dict:
@@ -230,6 +250,10 @@ class ChainedAnalyzer(ConversationAnalyzer[SimpleMetrics]):
 
     def __init__(self):
         self._dependency_results: dict[str, Any] = {}
+
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
 
     @classmethod
     def get_result_schema(cls) -> dict:
@@ -513,6 +537,10 @@ def test_circular_dependency_raises_error(sample_conversations: list[Conversatio
         depends_on = ["CircularB"]
 
         @classmethod
+        def get_config_schema(cls) -> dict:
+            return {"properties": {}}
+
+        @classmethod
         def get_result_schema(cls) -> dict:
             return SimpleMetrics.model_json_schema()
 
@@ -531,6 +559,10 @@ def test_circular_dependency_raises_error(sample_conversations: list[Conversatio
 
     class CircularB(ConversationAnalyzer[SimpleMetrics]):
         depends_on = ["CircularA"]
+
+        @classmethod
+        def get_config_schema(cls) -> dict:
+            return {"properties": {}}
 
         @classmethod
         def get_result_schema(cls) -> dict:
