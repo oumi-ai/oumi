@@ -30,6 +30,10 @@ from oumi.core.configs.params.test_params import TestParams, TestType
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of sample indices to include in test results
+MAX_SAMPLE_INDICES = 50
+# Maximum number of failure reasons to include in test details
+MAX_FAILURE_REASONS = 50
 
 OPERATORS: dict[str, Callable[[Any, Any], bool]] = {
     "<": operator.lt,
@@ -142,7 +146,7 @@ class TestEngine:
             affected_percentage=round(affected_pct, 2),
             threshold=test.max_percentage or test.min_percentage,
             actual_value=actual_value,
-            sample_indices=affected_indices[:50],
+            sample_indices=affected_indices[:MAX_SAMPLE_INDICES],
             details=details,
         )
 
@@ -325,29 +329,23 @@ class TestEngine:
                 return None
         return current
 
-    def _run_threshold_test(
+    def _evaluate_threshold_comparison(
         self,
         test: TestParams,
         values: list[Any],
-    ) -> TestResult:
-        """Run a threshold test.
+        op_func: Callable[[Any, Any], bool],
+    ) -> tuple[list[int], list[int], dict[int, str], dict[int, str]]:
+        """Evaluate threshold comparison for all values.
 
         Args:
             test: Test configuration.
             values: Metric values to test.
+            op_func: Comparison operator function.
 
         Returns:
-            TestResult.
+            Tuple of (matching_indices, non_matching_indices,
+                     matching_reasons, non_matching_reasons).
         """
-        if test.operator is None or test.value is None:
-            return self._create_error_result(
-                test, "Threshold test requires 'operator' and 'value'"
-            )
-
-        op_func = OPERATORS.get(test.operator)
-        if op_func is None:
-            return self._create_error_result(test, f"Unknown operator: {test.operator}")
-
         matching_indices = []
         non_matching_indices = []
         matching_reasons: dict[int, str] = {}
@@ -369,14 +367,37 @@ class TestEngine:
                 non_matching_indices.append(i)
                 non_matching_reasons[i] = f"Cannot evaluate: {value}"
 
-        total_count = len(values)
-        matching_count = len(matching_indices)
-        non_matching_count = len(non_matching_indices)
-        matching_pct = self._calculate_percentage(matching_count, total_count)
-        non_matching_pct = self._calculate_percentage(non_matching_count, total_count)
+        return (
+            matching_indices,
+            non_matching_indices,
+            matching_reasons,
+            non_matching_reasons,
+        )
 
-        # Determine pass/fail based on percentage thresholds.
-        # For threshold tests, matching samples are considered "affected" (flagged).
+    def _determine_threshold_pass_fail(
+        self,
+        test: TestParams,
+        matching_indices: list[int],
+        non_matching_indices: list[int],
+        matching_reasons: dict[int, str],
+        non_matching_reasons: dict[int, str],
+        matching_pct: float,
+        non_matching_pct: float,
+    ) -> tuple[bool, list[int], float, dict[int, str]]:
+        """Determine pass/fail status for threshold test.
+
+        Args:
+            test: Test configuration.
+            matching_indices: Indices where condition matched.
+            non_matching_indices: Indices where condition didn't match.
+            matching_reasons: Reasons for matching samples.
+            non_matching_reasons: Reasons for non-matching samples.
+            matching_pct: Percentage of matching samples.
+            non_matching_pct: Percentage of non-matching samples.
+
+        Returns:
+            Tuple of (passed, affected_indices, affected_pct, failure_reasons).
+        """
         passed = True
         affected_indices = []
         affected_pct = 0.0
@@ -400,10 +421,63 @@ class TestEngine:
         # Default case: no percentage thresholds.
         # Matching samples are flagged, and the test passes when no samples match.
         if test.max_percentage is None and test.min_percentage is None:
-            passed = matching_count == 0
+            passed = len(matching_indices) == 0
             affected_indices = matching_indices
             affected_pct = matching_pct
             failure_reasons = matching_reasons
+
+        return passed, affected_indices, affected_pct, failure_reasons
+
+    def _run_threshold_test(
+        self,
+        test: TestParams,
+        values: list[Any],
+    ) -> TestResult:
+        """Run a threshold test.
+
+        Args:
+            test: Test configuration.
+            values: Metric values to test.
+
+        Returns:
+            TestResult.
+        """
+        if test.operator is None or test.value is None:
+            return self._create_error_result(
+                test, "Threshold test requires 'operator' and 'value'"
+            )
+
+        op_func = OPERATORS.get(test.operator)
+        if op_func is None:
+            return self._create_error_result(test, f"Unknown operator: {test.operator}")
+
+        # Evaluate threshold comparison
+        (
+            matching_indices,
+            non_matching_indices,
+            matching_reasons,
+            non_matching_reasons,
+        ) = self._evaluate_threshold_comparison(test, values, op_func)
+
+        total_count = len(values)
+        matching_count = len(matching_indices)
+        matching_pct = self._calculate_percentage(matching_count, total_count)
+        non_matching_pct = self._calculate_percentage(
+            len(non_matching_indices), total_count
+        )
+
+        # Determine pass/fail
+        passed, affected_indices, affected_pct, failure_reasons = (
+            self._determine_threshold_pass_fail(
+                test,
+                matching_indices,
+                non_matching_indices,
+                matching_reasons,
+                non_matching_reasons,
+                matching_pct,
+                non_matching_pct,
+            )
+        )
 
         return self._build_test_result(
             test=test,
@@ -420,7 +494,7 @@ class TestEngine:
                 "matching_count": matching_count,
                 "matching_percentage": round(matching_pct, 2),
                 "failure_reasons": {
-                    k: v for k, v in list(failure_reasons.items())[:50]
+                    k: v for k, v in list(failure_reasons.items())[:MAX_FAILURE_REASONS]
                 },
             },
         )

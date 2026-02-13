@@ -86,6 +86,24 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
         Turns: 2
     """
 
+    @classmethod
+    def get_result_schema(cls) -> dict:
+        """Get the JSON schema for TurnStatsMetrics."""
+        return TurnStatsMetrics.model_json_schema()
+
+    @classmethod
+    def get_metric_names(cls) -> list[str]:
+        """Get the list of metric field names this analyzer produces."""
+        return list(TurnStatsMetrics.model_fields.keys())
+
+    @classmethod
+    def get_metric_descriptions(cls) -> dict[str, str]:
+        """Get descriptions for each metric field."""
+        return {
+            name: field_info.description or ""
+            for name, field_info in TurnStatsMetrics.model_fields.items()
+        }
+
     def analyze(self, conversation: Conversation) -> TurnStatsMetrics:
         """Analyze turn statistics for a conversation.
 

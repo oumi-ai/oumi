@@ -257,24 +257,18 @@ class TypedAnalyzeConfig:
         return cls.from_dict(data, allow_custom_code=allow_custom_code)
 
     @classmethod
-    def from_dict(
-        cls, data: dict[str, Any], allow_custom_code: bool = False
-    ) -> "TypedAnalyzeConfig":
-        """Create configuration from a dictionary.
+    def _parse_analyzers(cls, data: dict[str, Any]) -> list[AnalyzerConfig]:
+        """Parse analyzer configurations from dictionary.
 
         Args:
-            data: Configuration dictionary.
-            allow_custom_code: If True, allow custom_metrics with function code.
-                If False (default) and the config contains custom metrics with
-                code, raises ValueError.
+            data: Configuration dictionary containing 'analyzers' key.
 
         Returns:
-            TypedAnalyzeConfig instance.
+            List of AnalyzerConfig instances.
 
         Raises:
-            ValueError: If config contains custom code but allow_custom_code=False.
+            ValueError: If duplicate instance_id values found.
         """
-        # Parse analyzers
         analyzers = []
         for analyzer_data in data.get("analyzers", []):
             if isinstance(analyzer_data, dict):
@@ -299,7 +293,24 @@ class TypedAnalyzeConfig:
                 "Each analyzer must have a unique instance_id to avoid collisions."
             )
 
-        # Parse custom metrics
+        return analyzers
+
+    @classmethod
+    def _parse_custom_metrics(
+        cls, data: dict[str, Any], allow_custom_code: bool
+    ) -> list[CustomMetricConfig]:
+        """Parse custom metric configurations from dictionary.
+
+        Args:
+            data: Configuration dictionary containing 'custom_metrics' key.
+            allow_custom_code: If True, allow metrics with executable code.
+
+        Returns:
+            List of CustomMetricConfig instances.
+
+        Raises:
+            ValueError: If custom code found but allow_custom_code=False.
+        """
         custom_metrics = []
         for metric_data in data.get("custom_metrics", []):
             # Parse output_schema if present
@@ -322,12 +333,47 @@ class TypedAnalyzeConfig:
                     f"allow code execution, or remove the 'function' fields."
                 )
 
-        # Parse tests
+        return custom_metrics
+
+    @classmethod
+    def _parse_tests(cls, data: dict[str, Any]) -> list[TestParams]:
+        """Parse test configurations from dictionary.
+
+        Args:
+            data: Configuration dictionary containing 'tests' key.
+
+        Returns:
+            List of TestParams instances.
+        """
         tests = []
         for test_data in data.get("tests", []):
             test_params = TestParams(**test_data)
             test_params.finalize_and_validate()
             tests.append(test_params)
+        return tests
+
+    @classmethod
+    def from_dict(
+        cls, data: dict[str, Any], allow_custom_code: bool = False
+    ) -> "TypedAnalyzeConfig":
+        """Create configuration from a dictionary.
+
+        Args:
+            data: Configuration dictionary.
+            allow_custom_code: If True, allow custom_metrics with function code.
+                If False (default) and the config contains custom metrics with
+                code, raises ValueError.
+
+        Returns:
+            TypedAnalyzeConfig instance.
+
+        Raises:
+            ValueError: If config contains custom code but allow_custom_code=False,
+                or if duplicate analyzer instance_ids found.
+        """
+        analyzers = cls._parse_analyzers(data)
+        custom_metrics = cls._parse_custom_metrics(data, allow_custom_code)
+        tests = cls._parse_tests(data)
 
         return cls(
             eval_name=data.get("eval_name"),

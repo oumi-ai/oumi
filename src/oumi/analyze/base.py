@@ -16,7 +16,7 @@
 
 import inspect
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar, get_args, get_origin
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 from transformers import PreTrainedTokenizerBase
@@ -29,8 +29,8 @@ TResult = TypeVar("TResult", bound=BaseModel)
 class BaseAnalyzer(ABC, Generic[TResult]):
     """Base class for all analyzer types.
 
-    Provides common metadata methods for inspecting the result type and schema
-    of an analyzer, enabling introspection of available metrics.
+    Subclasses must implement metadata methods to describe their result schema.
+    The generic type parameter TResult provides type safety for the analyze() method.
 
     All concrete analyzer types (MessageAnalyzer, ConversationAnalyzer, etc.)
     inherit from this class.
@@ -113,26 +113,7 @@ class BaseAnalyzer(ABC, Generic[TResult]):
         return schema
 
     @classmethod
-    def _require_result_type(cls) -> type[BaseModel]:
-        """Get the result type, raising if not available.
-
-        Returns:
-            The result type class (a BaseModel subclass).
-
-        Raises:
-            TypeError: If the analyzer doesn't have a valid result type.
-        """
-        result_type = cls._get_result_type()
-        if result_type is None:
-            raise TypeError(
-                f"{cls.__name__} does not have a valid result type. "
-                f"Ensure the class specifies a Pydantic BaseModel as the "
-                f"generic type parameter, e.g., "
-                f"`class {cls.__name__}(ConversationAnalyzer[YourResultModel])`"
-            )
-        return result_type
-
-    @classmethod
+    @abstractmethod
     def get_result_schema(cls) -> dict:
         """Get the JSON schema for this analyzer's result model.
 
@@ -140,25 +121,35 @@ class BaseAnalyzer(ABC, Generic[TResult]):
         before running analysis. Useful for documentation, UI generation,
         and config validation.
 
+        Subclasses must implement this to return their result model's schema.
+
         Returns:
             JSON schema dictionary for the result model.
 
-        Raises:
-            TypeError: If the analyzer doesn't have a valid result type.
+        Example:
+            >>> @classmethod
+            >>> def get_result_schema(cls) -> dict:
+            >>>     return MyResultModel.model_json_schema()
         """
-        return cls._require_result_type().model_json_schema()
+        ...
 
     @classmethod
+    @abstractmethod
     def get_metric_names(cls) -> list[str]:
         """Get the list of metric field names this analyzer produces.
+
+        Subclasses must implement this to return the list of field names
+        from their result model.
 
         Returns:
             List of metric field names.
 
-        Raises:
-            TypeError: If the analyzer doesn't have a valid result type.
+        Example:
+            >>> @classmethod
+            >>> def get_metric_names(cls) -> list[str]:
+            >>>     return list(MyResultModel.model_fields.keys())
         """
-        return list(cls._require_result_type().model_fields.keys())
+        ...
 
     def get_available_metric_names(self) -> list[str]:
         """Get metric names this instance will actually produce.
@@ -170,37 +161,25 @@ class BaseAnalyzer(ABC, Generic[TResult]):
         return self.get_metric_names()
 
     @classmethod
+    @abstractmethod
     def get_metric_descriptions(cls) -> dict[str, str]:
         """Get descriptions for each metric field.
+
+        Subclasses must implement this to return descriptions for each
+        metric field in their result model.
 
         Returns:
             Dictionary mapping field names to descriptions.
 
-        Raises:
-            TypeError: If the analyzer doesn't have a valid result type.
+        Example:
+            >>> @classmethod
+            >>> def get_metric_descriptions(cls) -> dict[str, str]:
+            >>>     return {
+            >>>         name: field.description or ""
+            >>>         for name, field in MyResultModel.model_fields.items()
+            >>>     }
         """
-        return {
-            name: field_info.description or ""
-            for name, field_info in cls._require_result_type().model_fields.items()
-        }
-
-    @classmethod
-    def _get_result_type(cls) -> type[BaseModel] | None:
-        """Get the result type from the generic parameter.
-
-        Returns:
-            The result type class (a BaseModel subclass), or None if not found.
-        """
-        for base in getattr(cls, "__orig_bases__", ()):
-            if get_origin(base) is not None:
-                args = get_args(base)
-                if (
-                    args
-                    and isinstance(args[0], type)
-                    and issubclass(args[0], BaseModel)
-                ):
-                    return args[0]
-        return None
+        ...
 
     @staticmethod
     def get_text_content(message: Message) -> str:

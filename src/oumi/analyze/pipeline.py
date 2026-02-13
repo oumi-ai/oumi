@@ -15,7 +15,7 @@
 """Analysis pipeline for orchestrating multiple analyzers."""
 
 import logging
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -346,7 +346,7 @@ class AnalysisPipeline:
     def _run_single_analyzer(
         self,
         analyzer: AnyAnalyzer,
-        run_func: Any,
+        run_func: Callable[[AnyAnalyzer], BaseModel | list[BaseModel]],
         is_batch: bool,
     ) -> None:
         """Run a single analyzer and store results.

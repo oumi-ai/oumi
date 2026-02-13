@@ -231,9 +231,7 @@ def test_threshold_test_missing_operator():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run(
-        {"length": [SampleMetrics(total_tokens=50, total_chars=100)]}
-    )
+    summary = engine.run({"length": [SampleMetrics(total_tokens=50, total_chars=100)]})
 
     assert summary.error_tests == 1
     assert summary.results[0].error is not None
@@ -251,9 +249,7 @@ def test_threshold_test_unknown_operator():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run(
-        {"length": [SampleMetrics(total_tokens=50, total_chars=100)]}
-    )
+    summary = engine.run({"length": [SampleMetrics(total_tokens=50, total_chars=100)]})
 
     assert summary.error_tests == 1
     assert summary.results[0].error is not None
@@ -277,9 +273,7 @@ def test_extract_metric_not_found():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run(
-        {"length": [SampleMetrics(total_tokens=50, total_chars=100)]}
-    )
+    summary = engine.run({"length": [SampleMetrics(total_tokens=50, total_chars=100)]})
 
     assert summary.error_tests == 1
     assert summary.results[0].error is not None
@@ -298,9 +292,7 @@ def test_extract_metric_invalid_format():
         )
     ]
     engine = TestEngine(tests)
-    summary = engine.run(
-        {"length": [SampleMetrics(total_tokens=50, total_chars=100)]}
-    )
+    summary = engine.run({"length": [SampleMetrics(total_tokens=50, total_chars=100)]})
 
     assert summary.error_tests == 1
 
@@ -318,9 +310,7 @@ def test_extract_metric_single_result():
     ]
     engine = TestEngine(tests)
     # Single result, not a list
-    summary = engine.run(
-        {"length": SampleMetrics(total_tokens=100, total_chars=500)}
-    )
+    summary = engine.run({"length": SampleMetrics(total_tokens=100, total_chars=500)})
 
     assert summary.passed_tests == 1
 

@@ -150,9 +150,8 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             tiktoken, or pass a HuggingFace tokenizer for model-specific counts.
     """
 
-    # Custom config schema: the actual __init__ takes a Tokenizer object,
-    # but the user-facing config is tokenizer selection params that the
-    # worker uses to construct the tokenizer.
+    # Config schema differs from __init__: users specify tokenizer params,
+    # worker constructs the Tokenizer object from those params.
     _CONFIG_SCHEMA: ClassVar[dict[str, Any]] = {
         "properties": {
             "tokenizer_type": {
@@ -187,9 +186,42 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         """Return user-facing config schema for tokenizer selection."""
         return cls._CONFIG_SCHEMA
 
+    @classmethod
+    def get_result_schema(cls) -> dict:
+        """Get the JSON schema for LengthMetrics."""
+        return LengthMetrics.model_json_schema()
+
+    @classmethod
+    def get_metric_names(cls) -> list[str]:
+        """Get the list of metric field names this analyzer produces."""
+        return list(LengthMetrics.model_fields.keys())
+
+    @classmethod
+    def get_metric_descriptions(cls) -> dict[str, str]:
+        """Get descriptions for each metric field."""
+        return {
+            name: field_info.description or ""
+            for name, field_info in LengthMetrics.model_fields.items()
+        }
+
     def __init__(self, tokenizer: Tokenizer | None = None):
         """Initialize the analyzer."""
         self.tokenizer = tokenizer
+        # Cache tokenizer capabilities to avoid repeated runtime checks
+        self._supports_disallowed_special = (
+            tokenizer is not None
+            and hasattr(tokenizer, "encode")
+            and self._check_supports_disallowed_special()
+        )
+
+    def _check_supports_disallowed_special(self) -> bool:
+        """Check if tokenizer supports disallowed_special parameter."""
+        try:
+            # Try with a minimal test
+            self.tokenizer.encode("", disallowed_special=())  # type: ignore
+            return True
+        except TypeError:
+            return False
 
     def get_available_metric_names(self) -> list[str]:
         """Return metrics this instance will produce.
@@ -209,11 +241,13 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
                 "or use default_tokenizer()."
             )
 
-        try:
-            # tiktoken: encode literal special tokens (e.g. <|endoftext|>) as normal text
+        # Use cached capability check instead of try-except on every call
+        if self._supports_disallowed_special:
+            # tiktoken: encode literal special tokens (e.g. <|endoftext|>)
+            # as normal text
             tokens = self.tokenizer.encode(text, disallowed_special=())
-        except TypeError:
-            # tokenizer doesn't accept disallowed_special (e.g. HuggingFace)
+        else:
+            # HuggingFace tokenizer
             tokens = self.tokenizer.encode(text)
         return len(tokens)
 
