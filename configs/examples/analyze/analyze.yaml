@@ -26,12 +26,13 @@ dataset_path: data/dataset_examples/oumi_format.jsonl
 
 output_path: ./analysis_output
 
-# Built-in: "dataframe_length" (char, word, sentence, token counts)
+# Built-in: "length" (token counts)
 # See docs for creating custom analyzers.
 analyzers:
-  - id: dataframe_length
+  - id: length
     params:
-      char_count: true # Character count per text field
-      word_count: true # Word count (whitespace-separated)
-      sentence_count: true # Sentence count (split on .!?)
-      token_count: false # Token count (requires tokenizer_name or processor_name)
+      tokenizer_type: tiktoken # or "huggingface"
+      encoding: cl100k_base # tiktoken encoding (GPT-4)
+      # For HuggingFace tokenizers:
+      # model_name: meta-llama/Llama-3.1-8B-Instruct
+      # trust_remote_code: false

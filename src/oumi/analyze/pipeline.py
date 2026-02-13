@@ -310,11 +310,9 @@ class AnalysisPipeline:
             sorted_analyzers, "Running conversation analyzers"
         ):
             self._inject_dependencies(analyzer)
-            # Cast to ConversationAnalyzer for type safety
-            conv_analyzer = cast(ConversationAnalyzer, analyzer)
             self._run_single_analyzer(
                 analyzer,
-                lambda a: conv_analyzer.analyze_batch(conversations),
+                lambda a: cast(ConversationAnalyzer, a).analyze_batch(conversations),
                 is_batch=True,
             )
 
@@ -331,11 +329,9 @@ class AnalysisPipeline:
             sorted_analyzers, "Running message analyzers"
         ):
             self._inject_dependencies(analyzer)
-            # Cast to MessageAnalyzer for type safety
-            msg_analyzer = cast(MessageAnalyzer, analyzer)
             self._run_single_analyzer(
                 analyzer,
-                lambda a: msg_analyzer.analyze_batch(all_messages),
+                lambda a: cast(MessageAnalyzer, a).analyze_batch(all_messages),
                 is_batch=True,
             )
 
@@ -347,11 +343,9 @@ class AnalysisPipeline:
             sorted_analyzers, "Running dataset analyzers"
         ):
             self._inject_dependencies(analyzer)
-            # Cast to DatasetAnalyzer for type safety
-            dataset_analyzer = cast(DatasetAnalyzer, analyzer)
             self._run_single_analyzer(
                 analyzer,
-                lambda a: dataset_analyzer.analyze(conversations),
+                lambda a: cast(DatasetAnalyzer, a).analyze(conversations),
                 is_batch=False,
             )
 

@@ -55,25 +55,23 @@ def get_instance_metrics(
 ) -> list[str]:
     """Get available metrics for a specific analyzer instance.
 
-    This filters metrics based on the analyzer's configuration. For example,
-    a LengthAnalyzer with tiktoken won't include 'rendered_tokens'.
+    This attempts to instantiate the analyzer with the provided config to
+    determine which metrics are available. If instantiation fails (e.g., due
+    to mismatched config keys and __init__ parameters), falls back to returning
+    all possible metrics from the class.
+
+    Note:
+        For this to filter metrics, the analyzer's config dict keys must match
+        its __init__ parameters, and the analyzer must implement
+        get_available_metric_names() instance method.
 
     Args:
         analyzer_class: The analyzer class.
-        config: Optional configuration dictionary for the analyzer instance.
+        config: Optional configuration dictionary matching __init__ parameters.
 
     Returns:
-        List of available metric names for this instance.
-
-    Example:
-        >>> from oumi.analyze.analyzers import LengthAnalyzer
-        >>> # tiktoken config excludes rendered_tokens
-        >>> metrics = get_instance_metrics(
-        ...     LengthAnalyzer,
-        ...     {"tokenizer_type": "tiktoken"}
-        ... )
-        >>> "rendered_tokens" in metrics
-        False
+        List of available metric names for this instance, or all class-level
+        metrics if instantiation fails.
     """
     # Get all possible metrics from the class
     try:

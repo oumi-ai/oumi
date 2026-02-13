@@ -184,7 +184,9 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     @classmethod
     def get_config_schema(cls) -> dict[str, Any]:
         """Return user-facing config schema for tokenizer selection."""
-        return cls._CONFIG_SCHEMA
+        import copy
+
+        return copy.deepcopy(cls._CONFIG_SCHEMA)
 
     @classmethod
     def get_result_schema(cls) -> dict:
