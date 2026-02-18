@@ -15,7 +15,7 @@
 """Base analyzer classes for the typed analyzer framework."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel
 from transformers import PreTrainedTokenizerBase
@@ -34,12 +34,19 @@ class BaseAnalyzer(ABC, Generic[TResult]):
     All concrete analyzer types (MessageAnalyzer, ConversationAnalyzer, etc.)
     inherit from this class.
 
+    Subclasses should set ``_result_model`` to their Pydantic result class to get
+    automatic implementations of ``get_result_schema``, ``get_metric_names``, and
+    ``get_metric_descriptions`` for free.
+
     Attributes:
         analyzer_id: Optional custom identifier for this analyzer instance.
             If not set, the class name is used as the identifier.
+        _result_model: Pydantic model class for this analyzer's result type.
+            Set this in subclasses to enable automatic schema/metric introspection.
     """
 
     analyzer_id: str | None = None
+    _result_model: ClassVar[type[BaseModel] | None] = None
 
     @classmethod
     def get_scope(cls) -> str:
@@ -61,43 +68,32 @@ class BaseAnalyzer(ABC, Generic[TResult]):
         ...
 
     @classmethod
-    @abstractmethod
     def get_result_schema(cls) -> dict:
         """Get the JSON schema for this analyzer's result model.
 
-        This allows users to discover what metrics the analyzer produces
-        before running analysis. Useful for documentation, UI generation,
-        and config validation.
-
-        Subclasses must implement this to return their result model's schema.
+        Uses ``_result_model.model_json_schema()`` when ``_result_model`` is set.
+        Subclasses that cannot set ``_result_model`` may override this method.
 
         Returns:
             JSON schema dictionary for the result model.
-
-        Example:
-            >>> @classmethod
-            >>> def get_result_schema(cls) -> dict:
-            >>>     return MyResultModel.model_json_schema()
         """
-        ...
+        if cls._result_model is None:
+            return {}
+        return cls._result_model.model_json_schema()
 
     @classmethod
-    @abstractmethod
     def get_metric_names(cls) -> list[str]:
         """Get the list of metric field names this analyzer produces.
 
-        Subclasses must implement this to return the list of field names
-        from their result model.
+        Uses ``_result_model.model_fields`` when ``_result_model`` is set.
+        Subclasses that cannot set ``_result_model`` may override this method.
 
         Returns:
             List of metric field names.
-
-        Example:
-            >>> @classmethod
-            >>> def get_metric_names(cls) -> list[str]:
-            >>>     return list(MyResultModel.model_fields.keys())
         """
-        ...
+        if cls._result_model is None:
+            return []
+        return list(cls._result_model.model_fields.keys())
 
     def get_available_metric_names(self) -> list[str]:
         """Get metric names this instance will actually produce.
@@ -109,25 +105,21 @@ class BaseAnalyzer(ABC, Generic[TResult]):
         return self.get_metric_names()
 
     @classmethod
-    @abstractmethod
     def get_metric_descriptions(cls) -> dict[str, str]:
         """Get descriptions for each metric field.
 
-        Subclasses must implement this to return descriptions for each
-        metric field in their result model.
+        Uses ``_result_model.model_fields`` when ``_result_model`` is set.
+        Subclasses that cannot set ``_result_model`` may override this method.
 
         Returns:
             Dictionary mapping field names to descriptions.
-
-        Example:
-            >>> @classmethod
-            >>> def get_metric_descriptions(cls) -> dict[str, str]:
-            >>>     return {
-            >>>         name: field.description or ""
-            >>>         for name, field in MyResultModel.model_fields.items()
-            >>>     }
         """
-        ...
+        if cls._result_model is None:
+            return {}
+        return {
+            name: field.description or ""
+            for name, field in cls._result_model.model_fields.items()
+        }
 
     @staticmethod
     def get_text_content(message: Message) -> str:

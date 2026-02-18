@@ -14,8 +14,7 @@
 
 """Length analyzer implementation and result model."""
 
-import copy
-from typing import Any, ClassVar, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import tiktoken
 from pydantic import BaseModel, Field
@@ -27,6 +26,7 @@ from oumi.core.registry import register_sample_analyzer
 from oumi.core.types.conversation import Conversation, Role
 
 __all__ = [
+    "LengthAnalyzerConfig",
     "LengthMetrics",
     "LengthAnalyzer",
     "Tokenizer",
@@ -52,6 +52,36 @@ def _default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
         Tiktoken encoder instance.
     """
     return tiktoken.get_encoding(encoding)
+
+
+class LengthAnalyzerConfig(BaseModel):
+    """Configuration for LengthAnalyzer.
+
+    Passed as a dict to ``LengthAnalyzer.from_config()``.
+
+    Example:
+        >>> analyzer = LengthAnalyzer.from_config(
+        ...     LengthAnalyzerConfig(tokenizer_name="cl100k_base").model_dump()
+        ... )
+    """
+
+    tokenizer_name: str = Field(
+        default="cl100k_base",
+        description=(
+            "Tokenizer name. For tiktoken, use encoding names like "
+            "'cl100k_base' (GPT-4), 'o200k_base' (GPT-4o), etc. "
+            "For HuggingFace, use model IDs like "
+            "'meta-llama/Llama-3.1-8B-Instruct'. "
+            "Automatically detects backend based on name."
+        ),
+    )
+    trust_remote_code: bool = Field(
+        default=False,
+        description=(
+            "Trust remote code for HuggingFace tokenizers "
+            "(only applicable when using HF models)"
+        ),
+    )
 
 
 class LengthMetrics(BaseModel):
@@ -119,36 +149,12 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             from a tokenizer name, or pass any compatible tokenizer directly.
     """
 
-    # Config schema differs from __init__: users specify tokenizer params,
-    # worker constructs the Tokenizer object from those params.
-    _CONFIG_SCHEMA: ClassVar[dict[str, Any]] = {
-        "properties": {
-            "tokenizer_name": {
-                "type": "string",
-                "default": "cl100k_base",
-                "description": (
-                    "Tokenizer name. For tiktoken, use encoding names like "
-                    "'cl100k_base' (GPT-4), 'o200k_base' (GPT-4o), etc. "
-                    "For HuggingFace, use model IDs like "
-                    "'meta-llama/Llama-3.1-8B-Instruct'. "
-                    "Automatically detects backend based on name."
-                ),
-            },
-            "trust_remote_code": {
-                "type": "boolean",
-                "default": False,
-                "description": (
-                    "Trust remote code for HuggingFace tokenizers "
-                    "(only applicable when using HF models)"
-                ),
-            },
-        },
-    }
+    _result_model = LengthMetrics
 
     @classmethod
     def get_config_schema(cls) -> dict[str, Any]:
-        """Return user-facing config schema for tokenizer selection."""
-        return copy.deepcopy(cls._CONFIG_SCHEMA)
+        """Return user-facing config schema derived from LengthAnalyzerConfig."""
+        return LengthAnalyzerConfig.model_json_schema()
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "LengthAnalyzer":
@@ -158,7 +164,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         tokenizer_name) to the internal representation (with tokenizer object).
 
         Args:
-            config: Configuration dictionary with keys:
+            config: Configuration dictionary matching ``LengthAnalyzerConfig``:
                 - tokenizer_name: Name of tokenizer (tiktoken encoding or HF model)
                 - trust_remote_code: Whether to trust remote code (HF only)
 
@@ -173,11 +179,9 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             ...     "tokenizer_name": "meta-llama/Llama-3.1-8B-Instruct"
             ... })
         """
-        tokenizer_name = config.get("tokenizer_name", "cl100k_base")
-        trust_remote_code = config.get("trust_remote_code", False)
+        cfg = LengthAnalyzerConfig(**config)
 
-        # Auto-detect tokenizer type based on name
-        # Known tiktoken encodings
+        # Known tiktoken encodings — auto-detect backend based on name
         TIKTOKEN_ENCODINGS = {
             "cl100k_base",
             "o200k_base",
@@ -187,37 +191,19 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             "gpt2",
         }
 
-        if tokenizer_name in TIKTOKEN_ENCODINGS:
-            tokenizer = _default_tokenizer(tokenizer_name)
+        if cfg.tokenizer_name in TIKTOKEN_ENCODINGS:
+            tokenizer = _default_tokenizer(cfg.tokenizer_name)
         else:
             # Use build_tokenizer so token counts align with training/inference
             # and oumi's internal model configs (padding side, etc.) are applied.
             tokenizer = build_tokenizer(
                 ModelParams(
-                    model_name=tokenizer_name,
-                    trust_remote_code=trust_remote_code,
+                    model_name=cfg.tokenizer_name,
+                    trust_remote_code=cfg.trust_remote_code,
                 )
             )
 
         return cls(tokenizer=tokenizer)
-
-    @classmethod
-    def get_result_schema(cls) -> dict:
-        """Get the JSON schema for LengthMetrics."""
-        return LengthMetrics.model_json_schema()
-
-    @classmethod
-    def get_metric_names(cls) -> list[str]:
-        """Get the list of metric field names this analyzer produces."""
-        return list(LengthMetrics.model_fields.keys())
-
-    @classmethod
-    def get_metric_descriptions(cls) -> dict[str, str]:
-        """Get descriptions for each metric field."""
-        return {
-            name: field_info.description or ""
-            for name, field_info in LengthMetrics.model_fields.items()
-        }
 
     def __init__(self, tokenizer: Tokenizer | None = None):
         """Initialize the analyzer."""
@@ -271,7 +257,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         try:
             rendered_text = self.get_conversation_text(conversation, self.tokenizer)  # type: ignore[arg-type]
             return self._count_tokens(rendered_text)
-        except (ValueError, AttributeError):
+        except Exception:
             return None
 
     def analyze(self, conversation: Conversation) -> LengthMetrics:

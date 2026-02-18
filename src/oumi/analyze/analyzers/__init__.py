@@ -21,6 +21,7 @@ file contains both the analyzer class and its result model for better cohesion.
 
 from oumi.analyze.analyzers.length import (
     LengthAnalyzer,
+    LengthAnalyzerConfig,
     LengthMetrics,
     Tokenizer,
 )
@@ -28,6 +29,7 @@ from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer, TurnStatsMetric
 
 __all__ = [
     "LengthAnalyzer",
+    "LengthAnalyzerConfig",
     "LengthMetrics",
     "Tokenizer",
     "TurnStatsAnalyzer",

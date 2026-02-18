@@ -16,6 +16,7 @@
 
 from oumi.analyze.analyzers import (
     LengthAnalyzer,
+    LengthAnalyzerConfig,
     LengthMetrics,
     TurnStatsAnalyzer,
     TurnStatsMetrics,
@@ -109,6 +110,7 @@ __all__ = [
     "DatasetAnalyzer",
     "PreferenceAnalyzer",
     "LengthAnalyzer",
+    "LengthAnalyzerConfig",
     "LengthMetrics",
     "TurnStatsAnalyzer",
     "TurnStatsMetrics",
