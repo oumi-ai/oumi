@@ -26,8 +26,6 @@ dataset_path: data/dataset_examples/oumi_format.jsonl
 
 output_path: ./analysis_output
 
-# Analyzer ID — "length" and "turn_stats" are registered by oumi out of the box.
-# See docs for creating and registering custom analyzers.
 analyzers:
   - id: length
     params:
