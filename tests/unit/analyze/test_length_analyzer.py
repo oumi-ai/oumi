@@ -448,10 +448,18 @@ def test_from_config_tiktoken():
 
 
 def test_from_config_huggingface():
-    """Test creating analyzer from config with HuggingFace tokenizer."""
-    # Use gpt2 as it's small and commonly available
-    analyzer = LengthAnalyzer.from_config({"tokenizer_name": "gpt2"})
+    """Test creating analyzer from config with HuggingFace tokenizer.
+
+    Uses openai-community/gpt2 (the HF model ID) to exercise the HuggingFace
+    path in from_config(). "gpt2" alone is intentionally not in TIKTOKEN_ENCODINGS
+    since it is also a valid HF model ID.
+    """
+    from transformers import PreTrainedTokenizerBase
+
+    analyzer = LengthAnalyzer.from_config({"tokenizer_name": "openai-community/gpt2"})
     assert analyzer.tokenizer is not None
+    # Verify we got a HuggingFace tokenizer, not a tiktoken encoding
+    assert isinstance(analyzer.tokenizer, PreTrainedTokenizerBase)
 
     conversation = Conversation(
         messages=[

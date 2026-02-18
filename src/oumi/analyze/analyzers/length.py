@@ -181,14 +181,16 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         """
         cfg = LengthAnalyzerConfig(**config)
 
-        # Known tiktoken encodings — auto-detect backend based on name
+        # Known tiktoken encodings — auto-detect backend based on name.
+        # Note: "gpt2" is intentionally excluded because it is also a valid
+        # HuggingFace model ID; users who want tiktoken's gpt2 encoding should
+        # use the tiktoken API directly.
         TIKTOKEN_ENCODINGS = {
             "cl100k_base",
             "o200k_base",
             "p50k_base",
             "r50k_base",
             "p50k_edit",
-            "gpt2",
         }
 
         if cfg.tokenizer_name in TIKTOKEN_ENCODINGS:
