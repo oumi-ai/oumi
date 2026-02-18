@@ -43,27 +43,11 @@ class Tokenizer(Protocol):
 
 
 def _default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
-    """Get a tiktoken tokenizer by encoding name.
-
-    Args:
-        encoding: Tiktoken encoding name. Defaults to "cl100k_base" (GPT-4).
-
-    Returns:
-        Tiktoken encoder instance.
-    """
     return tiktoken.get_encoding(encoding)
 
 
 class LengthAnalyzerConfig(BaseModel):
-    """Configuration for LengthAnalyzer.
-
-    Passed as a dict to ``LengthAnalyzer.from_config()``.
-
-    Example:
-        >>> analyzer = LengthAnalyzer.from_config(
-        ...     LengthAnalyzerConfig(tokenizer_name="cl100k_base").model_dump()
-        ... )
-    """
+    """Configuration for LengthAnalyzer."""
 
     tokenizer_name: str = Field(
         default="cl100k_base",
@@ -153,31 +137,18 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
 
     @classmethod
     def get_config_schema(cls) -> dict[str, Any]:
-        """Return user-facing config schema derived from LengthAnalyzerConfig."""
+        """Get JSON schema for this analyzer's configuration."""
         return LengthAnalyzerConfig.model_json_schema()
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "LengthAnalyzer":
         """Create a LengthAnalyzer from a config dictionary.
 
-        This method handles the conversion from user-facing config (with
-        tokenizer_name) to the internal representation (with tokenizer object).
-
         Args:
-            config: Configuration dictionary matching ``LengthAnalyzerConfig``:
-                - tokenizer_name: Name of tokenizer (tiktoken encoding or HF model)
-                - trust_remote_code: Whether to trust remote code (HF only)
+            config: See ``LengthAnalyzerConfig`` for supported keys.
 
         Returns:
             LengthAnalyzer instance with configured tokenizer.
-
-        Example:
-            >>> analyzer = LengthAnalyzer.from_config({
-            ...     "tokenizer_name": "cl100k_base"
-            ... })
-            >>> analyzer = LengthAnalyzer.from_config({
-            ...     "tokenizer_name": "meta-llama/Llama-3.1-8B-Instruct"
-            ... })
         """
         cfg = LengthAnalyzerConfig(**config)
 
@@ -217,8 +188,10 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
 
     def _check_supports_disallowed_special(self) -> bool:
         """Check if tokenizer supports disallowed_special parameter."""
+        if self.tokenizer is None:
+            return False
         try:
-            self.tokenizer.encode("", disallowed_special=())  # type: ignore
+            self.tokenizer.encode("", disallowed_special=())  # type: ignore[call-arg]
             return True
         except TypeError:
             return False
