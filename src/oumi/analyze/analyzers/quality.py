@@ -124,9 +124,7 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
             c = m.content
             return c if isinstance(c, str) else (str(c) if c else "")
 
-        empty_count = sum(
-            1 for m in conversation.messages if not _text(m).strip()
-        )
+        empty_count = sum(1 for m in conversation.messages if not _text(m).strip())
 
         # 3. Invalid serialized values check
         patterns_found: set[str] = set()
