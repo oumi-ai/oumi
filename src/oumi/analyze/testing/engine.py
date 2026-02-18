@@ -114,6 +114,7 @@ class TestEngine:
             threshold=test.max_percentage or test.min_percentage,
             actual_value=actual_value,
             sample_indices=affected_indices[:MAX_SAMPLE_INDICES],
+            all_affected_indices=affected_indices,
             details=details,
         )
 
