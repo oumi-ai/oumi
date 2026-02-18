@@ -431,3 +431,56 @@ def test_get_metric_descriptions():
 def test_get_scope():
     """Test that analyzer scope is conversation."""
     assert LengthAnalyzer.get_scope() == "conversation"
+
+
+def test_from_config_tiktoken():
+    """Test creating analyzer from config with tiktoken."""
+    analyzer = LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})
+    assert analyzer.tokenizer is not None
+
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello world"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.total_tokens > 0
+
+
+def test_from_config_huggingface():
+    """Test creating analyzer from config with HuggingFace tokenizer."""
+    # Use gpt2 as it's small and commonly available
+    analyzer = LengthAnalyzer.from_config({"tokenizer_name": "gpt2"})
+    assert analyzer.tokenizer is not None
+
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello world"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.total_tokens > 0
+
+
+def test_from_config_default():
+    """Test from_config with default tokenizer."""
+    analyzer = LengthAnalyzer.from_config({})
+    assert analyzer.tokenizer is not None
+
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Test"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.total_tokens > 0
+
+
+def test_create_analyzer_from_config_uses_from_config():
+    """Test that create_analyzer_from_config uses from_config method."""
+    from oumi.analyze import create_analyzer_from_config
+
+    analyzer = create_analyzer_from_config("length", {"tokenizer_name": "cl100k_base"})
+    assert analyzer is not None
+    assert isinstance(analyzer, LengthAnalyzer)
+    assert analyzer.tokenizer is not None

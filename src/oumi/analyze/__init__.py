@@ -70,6 +70,9 @@ def create_analyzer_from_config(
 ) -> "MessageAnalyzer | ConversationAnalyzer | DatasetAnalyzer | None":
     """Create an analyzer instance from configuration.
 
+    Prefers using the analyzer's from_config() classmethod if available,
+    otherwise falls back to direct instantiation with **params.
+
     Args:
         analyzer_id: Analyzer type identifier.
         params: Analyzer-specific parameters.
@@ -87,7 +90,13 @@ def create_analyzer_from_config(
         return None
 
     try:
-        return analyzer_class(**params)
+        # Prefer from_config() if available for better config handling
+        if hasattr(analyzer_class, "from_config") and callable(
+            getattr(analyzer_class, "from_config")
+        ):
+            return analyzer_class.from_config(params)  # type: ignore[union-attr]
+        else:
+            return analyzer_class(**params)
     except Exception as e:
         logger.error(f"Failed to create analyzer {analyzer_id}: {e}")
         return None

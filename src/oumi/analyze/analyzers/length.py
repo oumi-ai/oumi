@@ -148,29 +148,24 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     # worker constructs the Tokenizer object from those params.
     _CONFIG_SCHEMA: ClassVar[dict[str, Any]] = {
         "properties": {
-            "tokenizer_type": {
-                "type": "string",
-                "enum": ["tiktoken", "huggingface"],
-                "default": "tiktoken",
-                "description": "Tokenizer backend to use",
-            },
-            "encoding": {
+            "tokenizer_name": {
                 "type": "string",
                 "default": "cl100k_base",
-                "description": "Tiktoken encoding name (only for tiktoken)",
-                "enum": ["cl100k_base", "o200k_base", "p50k_base", "r50k_base"],
-            },
-            "model_name": {
-                "type": "string",
                 "description": (
-                    "HuggingFace model ID (only for huggingface), "
-                    "e.g. meta-llama/Llama-3.1-8B-Instruct"
+                    "Tokenizer name. For tiktoken, use encoding names like "
+                    "'cl100k_base' (GPT-4), 'o200k_base' (GPT-4o), etc. "
+                    "For HuggingFace, use model IDs like "
+                    "'meta-llama/Llama-3.1-8B-Instruct'. "
+                    "Automatically detects backend based on name."
                 ),
             },
             "trust_remote_code": {
                 "type": "boolean",
                 "default": False,
-                "description": "Trust remote code for HuggingFace tokenizers",
+                "description": (
+                    "Trust remote code for HuggingFace tokenizers "
+                    "(only applicable when using HF models)"
+                ),
             },
         },
     }
@@ -179,6 +174,52 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     def get_config_schema(cls) -> dict[str, Any]:
         """Return user-facing config schema for tokenizer selection."""
         return copy.deepcopy(cls._CONFIG_SCHEMA)
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> "LengthAnalyzer":
+        """Create a LengthAnalyzer from a config dictionary.
+
+        This method handles the conversion from user-facing config (with
+        tokenizer_name) to the internal representation (with tokenizer object).
+
+        Args:
+            config: Configuration dictionary with keys:
+                - tokenizer_name: Name of tokenizer (tiktoken encoding or HF model)
+                - trust_remote_code: Whether to trust remote code (HF only)
+
+        Returns:
+            LengthAnalyzer instance with configured tokenizer.
+
+        Example:
+            >>> analyzer = LengthAnalyzer.from_config({
+            ...     "tokenizer_name": "cl100k_base"
+            ... })
+            >>> analyzer = LengthAnalyzer.from_config({
+            ...     "tokenizer_name": "meta-llama/Llama-3.1-8B-Instruct"
+            ... })
+        """
+        tokenizer_name = config.get("tokenizer_name", "cl100k_base")
+        trust_remote_code = config.get("trust_remote_code", False)
+
+        # Auto-detect tokenizer type based on name
+        # Known tiktoken encodings
+        TIKTOKEN_ENCODINGS = {
+            "cl100k_base",
+            "o200k_base",
+            "p50k_base",
+            "r50k_base",
+            "p50k_edit",
+            "gpt2",
+        }
+
+        if tokenizer_name in TIKTOKEN_ENCODINGS:
+            # Use tiktoken
+            tokenizer = default_tokenizer(tokenizer_name)
+        else:
+            # Assume HuggingFace model
+            tokenizer = huggingface_tokenizer(tokenizer_name, trust_remote_code)
+
+        return cls(tokenizer=tokenizer)
 
     @classmethod
     def get_result_schema(cls) -> dict:
