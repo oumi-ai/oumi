@@ -20,7 +20,6 @@ from oumi.analyze.analyzers.length import (
     LengthAnalyzer,
     LengthMetrics,
     Tokenizer,
-    default_tokenizer,
 )
 from oumi.core.types.conversation import Conversation, Message, Role
 
@@ -75,8 +74,8 @@ def mock_tokenizer():
 
 @pytest.fixture
 def tiktoken_tokenizer():
-    """Get the default tiktoken tokenizer."""
-    return default_tokenizer()
+    """Get a tiktoken tokenizer via from_config."""
+    return LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"}).tokenizer
 
 
 # -----------------------------------------------------------------------------
@@ -90,18 +89,19 @@ def test_tokenizer_protocol(mock_tokenizer):
 
 
 def test_default_tokenizer():
-    """Test that default_tokenizer returns a valid tokenizer."""
-    tokenizer = default_tokenizer()
-    assert hasattr(tokenizer, "encode")
-    tokens = tokenizer.encode("Hello, world!")
+    """Test that from_config with tiktoken encoding returns a valid tokenizer."""
+    analyzer = LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})
+    assert analyzer.tokenizer is not None
+    tokens = analyzer.tokenizer.encode("Hello, world!")
     assert isinstance(tokens, list)
     assert len(tokens) > 0
 
 
 def test_default_tokenizer_custom_encoding():
-    """Test default_tokenizer with custom encoding."""
-    tokenizer = default_tokenizer("p50k_base")
-    tokens = tokenizer.encode("Hello")
+    """Test from_config with a non-default tiktoken encoding."""
+    analyzer = LengthAnalyzer.from_config({"tokenizer_name": "p50k_base"})
+    assert analyzer.tokenizer is not None
+    tokens = analyzer.tokenizer.encode("Hello")
     assert len(tokens) > 0
 
 

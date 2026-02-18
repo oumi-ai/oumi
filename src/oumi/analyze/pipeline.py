@@ -62,10 +62,10 @@ class AnalysisPipeline:
         separately to analyze preference pairs (chosen/rejected conversations).
 
     Example:
-        >>> from oumi.analyze import AnalysisPipeline, LengthAnalyzer, default_tokenizer
+        >>> from oumi.analyze import AnalysisPipeline, LengthAnalyzer
         >>>
         >>> pipeline = AnalysisPipeline(
-        ...     analyzers=[LengthAnalyzer(tokenizer=default_tokenizer())],
+        ...     analyzers=[LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})],
         ...     cache_dir="./analysis_cache",
         ... )
         >>> results = pipeline.run(conversations)

@@ -29,8 +29,6 @@ __all__ = [
     "LengthMetrics",
     "LengthAnalyzer",
     "Tokenizer",
-    "default_tokenizer",
-    "huggingface_tokenizer",
 ]
 
 
@@ -43,7 +41,7 @@ class Tokenizer(Protocol):
         ...
 
 
-def default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
+def _default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
     """Get the default tiktoken tokenizer.
 
     Args:
@@ -55,7 +53,7 @@ def default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
     return tiktoken.get_encoding(encoding)
 
 
-def huggingface_tokenizer(
+def _huggingface_tokenizer(
     model_name: str, trust_remote_code: bool = False
 ) -> PreTrainedTokenizerBase:
     """Get a HuggingFace tokenizer with chat template support.
@@ -126,10 +124,10 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     Provides both conversation-level totals and per-message breakdowns.
 
     Example:
-        >>> from oumi.analyze.analyzers.length import LengthAnalyzer, default_tokenizer
+        >>> from oumi.analyze.analyzers.length import LengthAnalyzer
         >>> from oumi.core.types.conversation import Conversation, Message, Role
         >>>
-        >>> analyzer = LengthAnalyzer(tokenizer=default_tokenizer())
+        >>> analyzer = LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})
         >>> conversation = Conversation(messages=[
         ...     Message(role=Role.USER, content="Hello, how are you?"),
         ...     Message(role=Role.ASSISTANT, content="I'm doing well, thanks!"),
@@ -140,8 +138,8 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
 
     Args:
         tokenizer: Tokenizer instance for token counting. Must have an
-            `encode(text) -> list` method. Use `default_tokenizer()` for
-            tiktoken, or pass a HuggingFace tokenizer for model-specific counts.
+            `encode(text) -> list` method. Use `from_config()` to construct
+            from a tokenizer name, or pass any compatible tokenizer directly.
     """
 
     # Config schema differs from __init__: users specify tokenizer params,
@@ -214,10 +212,10 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
 
         if tokenizer_name in TIKTOKEN_ENCODINGS:
             # Use tiktoken
-            tokenizer = default_tokenizer(tokenizer_name)
+            tokenizer = _default_tokenizer(tokenizer_name)
         else:
             # Assume HuggingFace model
-            tokenizer = huggingface_tokenizer(tokenizer_name, trust_remote_code)
+            tokenizer = _huggingface_tokenizer(tokenizer_name, trust_remote_code)
 
         return cls(tokenizer=tokenizer)
 
@@ -270,7 +268,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         if self.tokenizer is None:
             raise RuntimeError(
                 "No tokenizer configured. Either pass a tokenizer to __init__ "
-                "or use default_tokenizer()."
+                "or use from_config({'tokenizer_name': 'cl100k_base'})."
             )
 
         if self._supports_disallowed_special:
