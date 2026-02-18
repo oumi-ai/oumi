@@ -65,7 +65,9 @@ class AnalysisPipeline:
         >>> from oumi.analyze import AnalysisPipeline, LengthAnalyzer
         >>>
         >>> pipeline = AnalysisPipeline(
-        ...     analyzers=[LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})],  # noqa: E501
+        ...     analyzers=[
+        ...         LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})
+        ...     ],
         ...     cache_dir="./analysis_cache",
         ... )
         >>> results = pipeline.run(conversations)
