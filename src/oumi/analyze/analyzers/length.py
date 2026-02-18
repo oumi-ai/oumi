@@ -19,9 +19,10 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 
 import tiktoken
 from pydantic import BaseModel, Field
-from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 from oumi.analyze.base import ConversationAnalyzer
+from oumi.builders import build_tokenizer
+from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.registry import register_sample_analyzer
 from oumi.core.types.conversation import Conversation, Role
 
@@ -42,7 +43,7 @@ class Tokenizer(Protocol):
 
 
 def _default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
-    """Get the default tiktoken tokenizer.
+    """Get a tiktoken tokenizer by encoding name.
 
     Args:
         encoding: Tiktoken encoding name. Defaults to "cl100k_base" (GPT-4).
@@ -51,30 +52,6 @@ def _default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
         Tiktoken encoder instance.
     """
     return tiktoken.get_encoding(encoding)
-
-
-def _huggingface_tokenizer(
-    model_name: str, trust_remote_code: bool = False
-) -> PreTrainedTokenizerBase:
-    """Get a HuggingFace tokenizer with chat template support.
-
-    This enables the `rendered_tokens` field which counts tokens after
-    applying the model's chat template (e.g., ChatML, Llama format).
-
-    Args:
-        model_name: HuggingFace model name (e.g., "meta-llama/Llama-3.1-8B-Instruct").
-        trust_remote_code: Whether to trust remote code for custom tokenizers.
-
-    Returns:
-        HuggingFace tokenizer instance with chat_template support.
-
-    Raises:
-        OSError: If the model/tokenizer cannot be loaded.
-    """
-    return AutoTokenizer.from_pretrained(
-        model_name,
-        trust_remote_code=trust_remote_code,
-    )
 
 
 class LengthMetrics(BaseModel):
@@ -211,11 +188,16 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         }
 
         if tokenizer_name in TIKTOKEN_ENCODINGS:
-            # Use tiktoken
             tokenizer = _default_tokenizer(tokenizer_name)
         else:
-            # Assume HuggingFace model
-            tokenizer = _huggingface_tokenizer(tokenizer_name, trust_remote_code)
+            # Use build_tokenizer so token counts align with training/inference
+            # and oumi's internal model configs (padding side, etc.) are applied.
+            tokenizer = build_tokenizer(
+                ModelParams(
+                    model_name=tokenizer_name,
+                    trust_remote_code=trust_remote_code,
+                )
+            )
 
         return cls(tokenizer=tokenizer)
 
