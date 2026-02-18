@@ -181,20 +181,6 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     def __init__(self, tokenizer: Tokenizer | None = None):
         """Initialize the analyzer."""
         self.tokenizer = tokenizer
-        # Cache tokenizer capabilities to avoid repeated runtime checks
-        self._supports_disallowed_special = (
-            tokenizer is not None and self._check_supports_disallowed_special()
-        )
-
-    def _check_supports_disallowed_special(self) -> bool:
-        """Check if tokenizer supports disallowed_special parameter."""
-        if self.tokenizer is None:
-            return False
-        try:
-            self.tokenizer.encode("", disallowed_special=())  # type: ignore[call-arg]
-            return True
-        except TypeError:
-            return False
 
     def get_available_metric_names(self) -> list[str]:
         """Return metrics this instance will produce.
@@ -214,9 +200,9 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
                 "or use from_config({'tokenizer_name': 'cl100k_base'})."
             )
 
-        if self._supports_disallowed_special:
-            # Encode literal special tokens (e.g. <|endoftext|>) as normal text
-            tokens = self.tokenizer.encode(text, disallowed_special=())  # type: ignore[call-arg]
+        if isinstance(self.tokenizer, tiktoken.Encoding):
+            # Encode special tokens (e.g. <|endoftext|>) as literal text
+            tokens = self.tokenizer.encode(text, disallowed_special=())
         else:
             tokens = self.tokenizer.encode(text)
         return len(tokens)
