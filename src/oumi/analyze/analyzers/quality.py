@@ -28,9 +28,9 @@ __all__ = ["DataQualityMetrics", "DataQualityAnalyzer"]
 _INVALID_VALUE_PATTERNS = [
     (re.compile(r"\bNaN\b"), "NaN"),
     (re.compile(r"\bnan\b"), "nan"),
-    (re.compile(r"^null$"), "null"),
-    (re.compile(r"^None$"), "None"),
-    (re.compile(r"^undefined$"), "undefined"),
+    (re.compile(r"\bnull\b"), "null"),
+    (re.compile(r"\bNone\b"), "None"),
+    (re.compile(r"\bundefined\b"), "undefined"),
 ]
 
 
