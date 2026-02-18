@@ -25,6 +25,7 @@ from oumi.analyze.analyzers.length import (
     LengthMetrics,
     Tokenizer,
 )
+from oumi.analyze.analyzers.quality import DataQualityAnalyzer, DataQualityMetrics
 from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer, TurnStatsMetrics
 
 __all__ = [
@@ -34,4 +35,6 @@ __all__ = [
     "Tokenizer",
     "TurnStatsAnalyzer",
     "TurnStatsMetrics",
+    "DataQualityAnalyzer",
+    "DataQualityMetrics",
 ]
