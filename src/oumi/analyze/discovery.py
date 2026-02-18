@@ -68,7 +68,10 @@ def get_instance_metrics(
 
     if config is not None:
         try:
-            instance = analyzer_class(**config)
+            if hasattr(analyzer_class, "from_config"):
+                instance = analyzer_class.from_config(config)
+            else:
+                instance = analyzer_class(**config)
             return instance.get_available_metric_names()
         except Exception:
             pass
