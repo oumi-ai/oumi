@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from oumi.analyze.base import ConversationAnalyzer
 from oumi.core.registry import register_sample_analyzer
-from oumi.core.types.conversation import Conversation
+from oumi.core.types.conversation import Conversation, Message
 
 __all__ = ["DataQualityMetrics", "DataQualityAnalyzer"]
 
@@ -121,9 +121,8 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
                 break
 
         # 2. Empty turns check
-        def _text(m) -> str:  # type: ignore[no-untyped-def]
-            c = m.content
-            return c if isinstance(c, str) else (str(c) if c else "")
+        def _text(m: Message) -> str:
+            return DataQualityAnalyzer.get_text_content(m)
 
         empty_count = sum(1 for m in conversation.messages if not _text(m).strip())
 
