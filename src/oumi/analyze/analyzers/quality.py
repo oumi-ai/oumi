@@ -39,19 +39,20 @@ class DataQualityMetrics(BaseModel):
 
     Example:
         >>> result = DataQualityMetrics(
-        ...     has_alternating_turns=True,
+        ...     has_non_alternating_turns=False,
         ...     has_empty_turns=False,
         ...     empty_turn_count=0,
         ...     has_invalid_values=False,
         ...     invalid_value_patterns=[],
         ... )
-        >>> print(result.has_alternating_turns)
-        True
+        >>> print(result.has_non_alternating_turns)
+        False
     """
 
-    has_alternating_turns: bool = Field(
+    has_non_alternating_turns: bool = Field(
         description=(
-            "True if all non-system messages alternate between user and assistant roles"
+            "True if non-system messages do NOT strictly alternate between "
+            "user and assistant roles (i.e. consecutive same-role messages exist)"
         )
     )
     has_empty_turns: bool = Field(
@@ -90,8 +91,8 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
         ...     Message(role=Role.ASSISTANT, content="Hi there!"),
         ... ])
         >>> result = analyzer.analyze(conversation)
-        >>> print(result.has_alternating_turns)
-        True
+        >>> print(result.has_non_alternating_turns)
+        False
     """
 
     _result_model = DataQualityMetrics
@@ -110,13 +111,13 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
         Returns:
             DataQualityMetrics with the quality check results.
         """
-        # 1. Alternating turns check (ignoring system messages)
+        # 1. Non-alternating turns check (ignoring system messages)
         roles = [m.role.value for m in conversation.messages]
         non_system = [r for r in roles if r != "system"]
-        has_alternating = True
+        has_non_alternating = False
         for i in range(1, len(non_system)):
             if non_system[i] == non_system[i - 1]:
-                has_alternating = False
+                has_non_alternating = True
                 break
 
         # 2. Empty turns check
@@ -135,7 +136,7 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
                     patterns_found.add(name)
 
         return DataQualityMetrics(
-            has_alternating_turns=has_alternating,
+            has_non_alternating_turns=has_non_alternating,
             has_empty_turns=empty_count > 0,
             empty_turn_count=empty_count,
             has_invalid_values=len(patterns_found) > 0,
