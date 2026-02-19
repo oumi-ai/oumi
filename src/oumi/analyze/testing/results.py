@@ -53,6 +53,7 @@ class TestResult(BaseModel):
     threshold: float | None = None
     actual_value: float | None = None
     sample_indices: list[int] = Field(default_factory=list)
+    all_affected_indices: list[int] = Field(default_factory=list)
     error: str | None = None
     details: dict[str, Any] = Field(default_factory=dict)
 

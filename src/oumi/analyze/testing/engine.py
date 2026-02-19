@@ -30,6 +30,10 @@ from oumi.core.configs.params.test_params import TestParams, TestType
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of sample indices to include in test results
+MAX_SAMPLE_INDICES = 50
+# Maximum number of failure reasons to include in test details
+MAX_FAILURE_REASONS = 50
 
 OPERATORS: dict[str, Callable[[Any, Any], bool]] = {
     "<": operator.lt,
@@ -55,7 +59,7 @@ class TestEngine:
         ...     TestParams(
         ...         id="max_words",
         ...         type=TestType.THRESHOLD,
-        ...         metric="LengthAnalyzer.total_words",
+        ...         metric="length.total_tokens",
         ...         operator=">",
         ...         value=10000,
         ...         max_percentage=5.0,
@@ -75,15 +79,7 @@ class TestEngine:
         self.tests = tests
 
     def _create_error_result(self, test: TestParams, error: str) -> TestResult:
-        """Create a TestResult for an error condition.
-
-        Args:
-            test: Test configuration.
-            error: Error message.
-
-        Returns:
-            TestResult with passed=False and error set.
-        """
+        """Create a TestResult for an error condition."""
         return TestResult(
             test_id=test.id,
             passed=False,
@@ -93,18 +89,6 @@ class TestEngine:
             metric=test.metric or "",
             error=error,
         )
-
-    def _calculate_percentage(self, count: int, total: int) -> float:
-        """Calculate percentage, handling division by zero.
-
-        Args:
-            count: Numerator.
-            total: Denominator.
-
-        Returns:
-            Percentage (0.0 to 100.0).
-        """
-        return 100.0 * count / total if total > 0 else 0.0
 
     def _build_test_result(
         self,
@@ -116,20 +100,7 @@ class TestEngine:
         details: dict[str, Any],
         actual_value: float | None = None,
     ) -> TestResult:
-        """Build a TestResult from common fields.
-
-        Args:
-            test: Test configuration.
-            passed: Whether the test passed.
-            total_count: Total number of values tested.
-            affected_indices: Indices of affected samples.
-            affected_pct: Percentage of affected samples.
-            details: Test-specific details.
-            actual_value: Actual metric value for single-value tests.
-
-        Returns:
-            TestResult instance.
-        """
+        """Build a TestResult from common fields."""
         return TestResult(
             test_id=test.id,
             passed=passed,
@@ -142,25 +113,15 @@ class TestEngine:
             affected_percentage=round(affected_pct, 2),
             threshold=test.max_percentage or test.min_percentage,
             actual_value=actual_value,
-            sample_indices=affected_indices[:50],
+            sample_indices=affected_indices[:MAX_SAMPLE_INDICES],
+            all_affected_indices=affected_indices,
             details=details,
         )
 
     def _get_actual_value(self, values: list[Any]) -> float | None:
-        """Extract actual value for single-value metrics.
-
-        Args:
-            values: List of metric values.
-
-        Returns:
-            Float value if this is a single numeric value, None otherwise.
-        """
-        if len(values) == 1:
-            val = values[0]
-            if isinstance(val, int | float):
-                return float(val)
-            if isinstance(val, bool):
-                return 1.0 if val else 0.0
+        """Extract actual value for single-value numeric metrics."""
+        if len(values) == 1 and isinstance(values[0], int | float):
+            return float(values[0])
         return None
 
     def run(
@@ -212,15 +173,7 @@ class TestEngine:
         test: TestParams,
         results: dict[str, list[BaseModel] | BaseModel],
     ) -> TestResult:
-        """Run a single test.
-
-        Args:
-            test: Test configuration.
-            results: Analysis results.
-
-        Returns:
-            TestResult for this test.
-        """
+        """Run a single test and return its result."""
         if not test.metric:
             return self._create_error_result(test, "Test requires 'metric' field")
 
@@ -241,17 +194,7 @@ class TestEngine:
         metric: str,
         results: dict[str, list[BaseModel] | BaseModel],
     ) -> list[Any]:
-        """Extract metric values from results.
-
-        Metric format: "AnalyzerName.field_name" or "AnalyzerName.nested.field"
-
-        Args:
-            metric: Metric path string.
-            results: Analysis results.
-
-        Returns:
-            List of values for the metric.
-        """
+        """Extract values for a metric path like "instance_id.field_name"."""
         parts = metric.split(".")
         if len(parts) < 2:
             return []
@@ -276,24 +219,11 @@ class TestEngine:
 
         return values
 
-    def _get_nested_value(
-        self,
-        obj: Any,
-        field_path: list[str],
-    ) -> Any | None:
-        """Get a nested field value from a Pydantic model or dict.
-
-        Args:
-            obj: Pydantic model instance or dict.
-            field_path: List of field names to traverse.
-
-        Returns:
-            Field value or None if not found.
-        """
+    def _get_nested_value(self, obj: Any, field_path: list[str]) -> Any:
+        """Get a nested field value from a Pydantic model or dict."""
         current: Any = obj
         for i, field in enumerate(field_path):
             if isinstance(current, BaseModel):
-                # Pydantic model - check if field exists in model_fields
                 if field in type(current).model_fields:
                     current = getattr(current, field)
                 else:
@@ -329,15 +259,7 @@ class TestEngine:
         test: TestParams,
         values: list[Any],
     ) -> TestResult:
-        """Run a threshold test.
-
-        Args:
-            test: Test configuration.
-            values: Metric values to test.
-
-        Returns:
-            TestResult.
-        """
+        """Run a threshold test against metric values."""
         if test.operator is None or test.value is None:
             return self._create_error_result(
                 test, "Threshold test requires 'operator' and 'value'"
@@ -347,8 +269,8 @@ class TestEngine:
         if op_func is None:
             return self._create_error_result(test, f"Unknown operator: {test.operator}")
 
-        matching_indices = []
-        non_matching_indices = []
+        matching_indices: list[int] = []
+        non_matching_indices: list[int] = []
         matching_reasons: dict[int, str] = {}
         non_matching_reasons: dict[int, str] = {}
 
@@ -356,7 +278,9 @@ class TestEngine:
             try:
                 if op_func(value, test.value):
                     matching_indices.append(i)
-                    matching_reasons[i] = f"{value} {test.operator} {test.value}"
+                    matching_reasons[i] = (
+                        f"{value} satisfies {test.operator} {test.value}"
+                    )
                 else:
                     non_matching_indices.append(i)
                     non_matching_reasons[i] = (
@@ -368,13 +292,15 @@ class TestEngine:
 
         total_count = len(values)
         matching_count = len(matching_indices)
-        non_matching_count = len(non_matching_indices)
-        matching_pct = self._calculate_percentage(matching_count, total_count)
-        non_matching_pct = self._calculate_percentage(non_matching_count, total_count)
+        if total_count > 0:
+            matching_pct = 100.0 * matching_count / total_count
+            non_matching_pct = 100.0 * len(non_matching_indices) / total_count
+        else:
+            matching_pct = 0.0
+            non_matching_pct = 0.0
 
-        # Determine pass/fail based on percentage thresholds
         passed = True
-        affected_indices = []
+        affected_indices: list[int] = []
         affected_pct = 0.0
         failure_reasons: dict[int, str] = {}
 
@@ -386,18 +312,19 @@ class TestEngine:
 
         if test.min_percentage is not None and matching_pct < test.min_percentage:
             passed = False
-            # If max also failed, combine; otherwise use non-matching
+            # If max also failed, keep matching; otherwise use non-matching as
+            # the affected set because they prevent meeting the minimum.
             if not affected_indices:
                 affected_indices = non_matching_indices
                 affected_pct = non_matching_pct
                 failure_reasons = non_matching_reasons
 
-        # Default case: no percentage thresholds, all must match
+        # No percentage thresholds: test passes when no samples match.
         if test.max_percentage is None and test.min_percentage is None:
-            passed = non_matching_count == 0
-            affected_indices = non_matching_indices
-            affected_pct = non_matching_pct
-            failure_reasons = non_matching_reasons
+            passed = len(matching_indices) == 0
+            affected_indices = matching_indices
+            affected_pct = matching_pct
+            failure_reasons = matching_reasons
 
         return self._build_test_result(
             test=test,
@@ -414,7 +341,7 @@ class TestEngine:
                 "matching_count": matching_count,
                 "matching_percentage": round(matching_pct, 2),
                 "failure_reasons": {
-                    k: v for k, v in list(failure_reasons.items())[:50]
+                    k: v for k, v in list(failure_reasons.items())[:MAX_FAILURE_REASONS]
                 },
             },
         )

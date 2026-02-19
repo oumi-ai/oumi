@@ -72,6 +72,25 @@ class SimpleConversationAnalyzer(ConversationAnalyzer[SimpleMetrics]):
     def __init__(self, multiplier: int = 1):
         self.multiplier = multiplier
 
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
+
+    @classmethod
+    def get_result_schema(cls) -> dict:
+        return SimpleMetrics.model_json_schema()
+
+    @classmethod
+    def get_metric_names(cls) -> list[str]:
+        return list(SimpleMetrics.model_fields.keys())
+
+    @classmethod
+    def get_metric_descriptions(cls) -> dict[str, str]:
+        return {
+            name: field.description or ""
+            for name, field in SimpleMetrics.model_fields.items()
+        }
+
     def analyze(self, conversation: Conversation) -> SimpleMetrics:
         return SimpleMetrics(
             value=len(conversation.messages) * self.multiplier,
@@ -81,6 +100,25 @@ class SimpleConversationAnalyzer(ConversationAnalyzer[SimpleMetrics]):
 
 class SimpleMessageAnalyzer(MessageAnalyzer[MessageMetrics]):
     """Simple message analyzer for testing."""
+
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
+
+    @classmethod
+    def get_result_schema(cls) -> dict:
+        return MessageMetrics.model_json_schema()
+
+    @classmethod
+    def get_metric_names(cls) -> list[str]:
+        return list(MessageMetrics.model_fields.keys())
+
+    @classmethod
+    def get_metric_descriptions(cls) -> dict[str, str]:
+        return {
+            name: field.description or ""
+            for name, field in MessageMetrics.model_fields.items()
+        }
 
     def analyze(self, message: Message) -> MessageMetrics:
         content = message.content if isinstance(message.content, str) else ""
@@ -93,6 +131,25 @@ class SimpleMessageAnalyzer(MessageAnalyzer[MessageMetrics]):
 class SimpleDatasetAnalyzer(DatasetAnalyzer[DatasetMetrics]):
     """Simple dataset analyzer for testing."""
 
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
+
+    @classmethod
+    def get_result_schema(cls) -> dict:
+        return DatasetMetrics.model_json_schema()
+
+    @classmethod
+    def get_metric_names(cls) -> list[str]:
+        return list(DatasetMetrics.model_fields.keys())
+
+    @classmethod
+    def get_metric_descriptions(cls) -> dict[str, str]:
+        return {
+            name: field.description or ""
+            for name, field in DatasetMetrics.model_fields.items()
+        }
+
     def analyze(self, conversations: list[Conversation]) -> DatasetMetrics:
         total_messages = sum(len(c.messages) for c in conversations)
         return DatasetMetrics(
@@ -103,6 +160,25 @@ class SimpleDatasetAnalyzer(DatasetAnalyzer[DatasetMetrics]):
 
 class SimplePreferenceAnalyzer(PreferenceAnalyzer[PreferenceMetrics]):
     """Simple preference analyzer for testing."""
+
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
+
+    @classmethod
+    def get_result_schema(cls) -> dict:
+        return PreferenceMetrics.model_json_schema()
+
+    @classmethod
+    def get_metric_names(cls) -> list[str]:
+        return list(PreferenceMetrics.model_fields.keys())
+
+    @classmethod
+    def get_metric_descriptions(cls) -> dict[str, str]:
+        return {
+            name: field.description or ""
+            for name, field in PreferenceMetrics.model_fields.items()
+        }
 
     def analyze(
         self, chosen: Conversation, rejected: Conversation
@@ -119,6 +195,25 @@ class DerivedConversationAnalyzer(ConversationAnalyzer[SimpleMetrics]):
 
     def __init__(self):
         self._dependency_results: dict[str, Any] = {}
+
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
+
+    @classmethod
+    def get_result_schema(cls) -> dict:
+        return SimpleMetrics.model_json_schema()
+
+    @classmethod
+    def get_metric_names(cls) -> list[str]:
+        return list(SimpleMetrics.model_fields.keys())
+
+    @classmethod
+    def get_metric_descriptions(cls) -> dict[str, str]:
+        return {
+            name: field.description or ""
+            for name, field in SimpleMetrics.model_fields.items()
+        }
 
     def set_dependencies(self, results: dict[str, Any]) -> None:
         self._dependency_results = results
@@ -155,6 +250,25 @@ class ChainedAnalyzer(ConversationAnalyzer[SimpleMetrics]):
 
     def __init__(self):
         self._dependency_results: dict[str, Any] = {}
+
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
+
+    @classmethod
+    def get_result_schema(cls) -> dict:
+        return SimpleMetrics.model_json_schema()
+
+    @classmethod
+    def get_metric_names(cls) -> list[str]:
+        return list(SimpleMetrics.model_fields.keys())
+
+    @classmethod
+    def get_metric_descriptions(cls) -> dict[str, str]:
+        return {
+            name: field.description or ""
+            for name, field in SimpleMetrics.model_fields.items()
+        }
 
     def set_dependencies(self, results: dict[str, Any]) -> None:
         self._dependency_results = results
@@ -422,11 +536,47 @@ def test_circular_dependency_raises_error(sample_conversations: list[Conversatio
     class CircularA(ConversationAnalyzer[SimpleMetrics]):
         depends_on = ["CircularB"]
 
+        @classmethod
+        def get_config_schema(cls) -> dict:
+            return {"properties": {}}
+
+        @classmethod
+        def get_result_schema(cls) -> dict:
+            return SimpleMetrics.model_json_schema()
+
+        @classmethod
+        def get_metric_names(cls) -> list[str]:
+            return list(SimpleMetrics.model_fields.keys())
+
+        @classmethod
+        def get_metric_descriptions(cls) -> dict[str, str]:
+            return {
+                n: f.description or "" for n, f in SimpleMetrics.model_fields.items()
+            }
+
         def analyze(self, conversation: Conversation) -> SimpleMetrics:
             return SimpleMetrics(value=1, name="a")
 
     class CircularB(ConversationAnalyzer[SimpleMetrics]):
         depends_on = ["CircularA"]
+
+        @classmethod
+        def get_config_schema(cls) -> dict:
+            return {"properties": {}}
+
+        @classmethod
+        def get_result_schema(cls) -> dict:
+            return SimpleMetrics.model_json_schema()
+
+        @classmethod
+        def get_metric_names(cls) -> list[str]:
+            return list(SimpleMetrics.model_fields.keys())
+
+        @classmethod
+        def get_metric_descriptions(cls) -> dict[str, str]:
+            return {
+                n: f.description or "" for n, f in SimpleMetrics.model_fields.items()
+            }
 
         def analyze(self, conversation: Conversation) -> SimpleMetrics:
             return SimpleMetrics(value=1, name="b")

@@ -14,16 +14,23 @@
 
 """Length analyzer implementation and result model."""
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import tiktoken
 from pydantic import BaseModel, Field
 
 from oumi.analyze.base import ConversationAnalyzer
+from oumi.builders import build_tokenizer
+from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.registry import register_sample_analyzer
 from oumi.core.types.conversation import Conversation, Role
 
-__all__ = ["LengthMetrics", "LengthAnalyzer", "Tokenizer", "default_tokenizer"]
+__all__ = [
+    "LengthAnalyzerConfig",
+    "LengthMetrics",
+    "LengthAnalyzer",
+    "Tokenizer",
+]
 
 
 @runtime_checkable
@@ -35,16 +42,30 @@ class Tokenizer(Protocol):
         ...
 
 
-def default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
-    """Get the default tiktoken tokenizer.
-
-    Args:
-        encoding: Tiktoken encoding name. Defaults to "cl100k_base" (GPT-4).
-
-    Returns:
-        Tiktoken encoder instance.
-    """
+def _default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
     return tiktoken.get_encoding(encoding)
+
+
+class LengthAnalyzerConfig(BaseModel):
+    """Configuration for LengthAnalyzer."""
+
+    tokenizer_name: str = Field(
+        default="cl100k_base",
+        description=(
+            "Tokenizer name. For tiktoken, use encoding names like "
+            "'cl100k_base' (GPT-4), 'o200k_base' (GPT-4o), etc. "
+            "For HuggingFace, use model IDs like "
+            "'meta-llama/Llama-3.1-8B-Instruct'. "
+            "Automatically detects backend based on name."
+        ),
+    )
+    trust_remote_code: bool = Field(
+        default=False,
+        description=(
+            "Trust remote code for HuggingFace tokenizers "
+            "(only applicable when using HF models)"
+        ),
+    )
 
 
 class LengthMetrics(BaseModel):
@@ -94,10 +115,10 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     Provides both conversation-level totals and per-message breakdowns.
 
     Example:
-        >>> from oumi.analyze.analyzers.length import LengthAnalyzer, default_tokenizer
+        >>> from oumi.analyze.analyzers.length import LengthAnalyzer
         >>> from oumi.core.types.conversation import Conversation, Message, Role
         >>>
-        >>> analyzer = LengthAnalyzer(tokenizer=default_tokenizer())
+        >>> analyzer = LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})
         >>> conversation = Conversation(messages=[
         ...     Message(role=Role.USER, content="Hello, how are you?"),
         ...     Message(role=Role.ASSISTANT, content="I'm doing well, thanks!"),
@@ -108,54 +129,96 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
 
     Args:
         tokenizer: Tokenizer instance for token counting. Must have an
-            `encode(text) -> list` method. Use `default_tokenizer()` for
-            tiktoken, or pass a HuggingFace tokenizer for model-specific counts.
+            `encode(text) -> list` method. Use `from_config()` to construct
+            from a tokenizer name, or pass any compatible tokenizer directly.
     """
+
+    _result_model = LengthMetrics
+
+    @classmethod
+    def get_config_schema(cls) -> dict[str, Any]:
+        """Get JSON schema for this analyzer's configuration."""
+        return LengthAnalyzerConfig.model_json_schema()
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> "LengthAnalyzer":
+        """Create a LengthAnalyzer from a config dictionary.
+
+        Args:
+            config: See ``LengthAnalyzerConfig`` for supported keys.
+
+        Returns:
+            LengthAnalyzer instance with configured tokenizer.
+        """
+        cfg = LengthAnalyzerConfig(**config)
+
+        # Known tiktoken encodings — auto-detect backend based on name.
+        # Note: "gpt2" is intentionally excluded because it is also a valid
+        # HuggingFace model ID; users who want tiktoken's gpt2 encoding should
+        # use the tiktoken API directly.
+        TIKTOKEN_ENCODINGS = {
+            "cl100k_base",
+            "o200k_base",
+            "p50k_base",
+            "r50k_base",
+            "p50k_edit",
+        }
+
+        if cfg.tokenizer_name in TIKTOKEN_ENCODINGS:
+            tokenizer = _default_tokenizer(cfg.tokenizer_name)
+        else:
+            # Use build_tokenizer so token counts align with training/inference
+            # and oumi's internal model configs (padding side, etc.) are applied.
+            tokenizer = build_tokenizer(
+                ModelParams(
+                    model_name=cfg.tokenizer_name,
+                    trust_remote_code=cfg.trust_remote_code,
+                )
+            )
+
+        return cls(tokenizer=tokenizer)
 
     def __init__(self, tokenizer: Tokenizer | None = None):
         """Initialize the analyzer."""
         self.tokenizer = tokenizer
 
+    def get_available_metric_names(self) -> list[str]:
+        """Return metrics this instance will produce.
+
+        Excludes ``rendered_tokens`` when the tokenizer doesn't support
+        ``apply_chat_template`` (i.e. tiktoken or no tokenizer).
+        """
+        names = self.get_metric_names()
+        if not hasattr(self.tokenizer, "apply_chat_template"):
+            names = [n for n in names if n != "rendered_tokens"]
+        return names
+
     def _count_tokens(self, text: str) -> int:
         if self.tokenizer is None:
             raise RuntimeError(
                 "No tokenizer configured. Either pass a tokenizer to __init__ "
-                "or use default_tokenizer()."
+                "or use from_config({'tokenizer_name': 'cl100k_base'})."
             )
 
-        tokens = self.tokenizer.encode(text)
+        if isinstance(self.tokenizer, tiktoken.Encoding):
+            # Encode special tokens (e.g. <|endoftext|>) as literal text
+            tokens = self.tokenizer.encode(text, disallowed_special=())
+        else:
+            tokens = self.tokenizer.encode(text)
         return len(tokens)
 
     def _count_rendered_tokens(self, conversation: Conversation) -> int | None:
-        """Count tokens in the chat-template-rendered conversation.
+        """Count tokens after applying the tokenizer's chat template.
 
-        This gives the actual token count the model sees during training/inference,
-        including special tokens added by the chat template.
-
-        Args:
-            conversation: The conversation to render and tokenize.
-
-        Returns:
-            Token count of rendered conversation, or None if tokenizer doesn't
-            support chat templates.
+        Returns None if the tokenizer doesn't support chat templates.
         """
         if self.tokenizer is None:
             return None
 
-        # Check if tokenizer has a chat template before proceeding
-        if getattr(self.tokenizer, "chat_template", None) is None:
-            return None
-
-        if not conversation.messages:
-            return 0
-
         try:
-            # Use base class method to render conversation with chat template
-            # Type ignore: we've verified tokenizer has chat_template attribute above
             rendered_text = self.get_conversation_text(conversation, self.tokenizer)  # type: ignore[arg-type]
             return self._count_tokens(rendered_text)
-        except (ValueError, AttributeError):
-            # Unexpected error during rendering
+        except Exception:
             return None
 
     def analyze(self, conversation: Conversation) -> LengthMetrics:
@@ -175,8 +238,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             token_count = self._count_tokens(text)
             message_token_counts.append(token_count)
 
-            if message.role in role_token_counts:
-                role_token_counts[message.role] += token_count
+            role_token_counts[message.role] += token_count
 
         total_tokens = sum(message_token_counts)
         num_messages = len(conversation.messages)

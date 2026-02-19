@@ -21,10 +21,8 @@ from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from oumi.core.analyze.column_types import ColumnType, ContentType
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
-from oumi.core.registry import register_sample_analyzer
 
 
-@register_sample_analyzer("dataframe_length")
 class LengthAnalyzer(SampleAnalyzer):
     """Analyzer that computes various length metrics for text content."""
 

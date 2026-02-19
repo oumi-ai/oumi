@@ -81,7 +81,7 @@ def mock_dataset_analyzer():
                 "conversations_analyzed": 10,
                 "dataset_coverage_percentage": 10.0,
                 "total_messages": 50,
-                "analyzers_used": ["dataframe_length"],
+                "analyzers_used": ["length"],
             },
             "message_level_summary": {},
             "conversation_level_summary": {},

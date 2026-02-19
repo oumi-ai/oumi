@@ -23,9 +23,9 @@ from oumi.analyze.config import AnalyzerConfig, TypedAnalyzeConfig
 # -----------------------------------------------------------------------------
 
 
-def test_analyzer_config_auto_populates_instance_id():
-    """Test that instance_id defaults to id if not provided."""
-    config = AnalyzerConfig(id="length")
+def test_analyzer_config_requires_instance_id():
+    """Test that instance_id is required."""
+    config = AnalyzerConfig(id="length", instance_id="length")
     assert config.instance_id == "length"
 
 

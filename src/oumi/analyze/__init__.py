@@ -15,7 +15,10 @@
 """Analyzer framework for dataset analysis."""
 
 from oumi.analyze.analyzers import (
+    DataQualityAnalyzer,
+    DataQualityMetrics,
     LengthAnalyzer,
+    LengthAnalyzerConfig,
     LengthMetrics,
     TurnStatsAnalyzer,
     TurnStatsMetrics,
@@ -34,6 +37,7 @@ from oumi.analyze.config import (
 from oumi.analyze.discovery import (
     describe_analyzer,
     get_analyzer_info,
+    get_instance_metrics,
     list_available_metrics,
     print_analyzer_metrics,
 )
@@ -69,6 +73,9 @@ def create_analyzer_from_config(
 ) -> "MessageAnalyzer | ConversationAnalyzer | DatasetAnalyzer | None":
     """Create an analyzer instance from configuration.
 
+    Prefers using the analyzer's from_config() classmethod if available,
+    otherwise falls back to direct instantiation with **params.
+
     Args:
         analyzer_id: Analyzer type identifier.
         params: Analyzer-specific parameters.
@@ -86,7 +93,13 @@ def create_analyzer_from_config(
         return None
 
     try:
-        return analyzer_class(**params)
+        # Prefer from_config() if available for better config handling
+        if hasattr(analyzer_class, "from_config") and callable(
+            getattr(analyzer_class, "from_config")
+        ):
+            return analyzer_class.from_config(params)  # type: ignore[union-attr]
+        else:
+            return analyzer_class(**params)
     except Exception as e:
         logger.error(f"Failed to create analyzer {analyzer_id}: {e}")
         return None
@@ -99,21 +112,26 @@ __all__ = [
     "DatasetAnalyzer",
     "PreferenceAnalyzer",
     "LengthAnalyzer",
+    "LengthAnalyzerConfig",
     "LengthMetrics",
     "TurnStatsAnalyzer",
     "TurnStatsMetrics",
+    "DataQualityAnalyzer",
+    "DataQualityMetrics",
     "AnalysisPipeline",
     "to_analysis_dataframe",
     "TypedAnalyzeConfig",
     "AnalyzerConfig",
-    "list_available_metrics",
-    "print_analyzer_metrics",
-    "get_analyzer_info",
-    "describe_analyzer",
     "register_analyzer",
     "get_analyzer_class",
     "create_analyzer_from_config",
     "TestEngine",
     "TestResult",
     "TestSummary",
+    # Discovery utilities
+    "list_available_metrics",
+    "print_analyzer_metrics",
+    "get_analyzer_info",
+    "get_instance_metrics",
+    "describe_analyzer",
 ]
