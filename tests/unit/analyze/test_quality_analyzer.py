@@ -19,7 +19,6 @@ import pytest
 from oumi.analyze.analyzers.quality import DataQualityAnalyzer, DataQualityMetrics
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 
-
 # -----------------------------------------------------------------------------
 # Fixtures
 # -----------------------------------------------------------------------------
