@@ -21,7 +21,8 @@ from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
-# OpenAI reasoning models that only support temperature=1.0 and don't support logit_bias.
+# OpenAI reasoning models that only support temperature=1.0 and don't support
+# logit_bias.
 # This includes o-series models and GPT-5 family.
 # Reference: https://platform.openai.com/docs/guides/reasoning
 _REASONING_MODEL_PREFIXES = ("o1", "o3", "o4", "gpt-5")
