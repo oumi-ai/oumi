@@ -365,9 +365,17 @@ class Evaluator:
         # evaluation function `evaluation_fn`.
         fn_signature = inspect.signature(evaluation_fn)
         fn_input_params = [param.name for param in fn_signature.parameters.values()]
+        # Only require parameters that don't have default values
+        required_params = [
+            param.name
+            for param in fn_signature.parameters.values()
+            if param.default is inspect.Parameter.empty
+        ]
 
         provided_keys: set[str] = custom_kwargs.keys() - set(RESERVED_KEYS)
         expected_keys: set[str] = set(fn_input_params) - set(RESERVED_KEYS)
+
+        required_keys: set[str] = set(required_params) - set(RESERVED_KEYS)
 
         if unrecognized_keys := provided_keys - expected_keys:
             raise RuntimeError(
@@ -378,14 +386,14 @@ class Evaluator:
                 f"function `{evaluation_fn_name}`. The expected input parameters "
                 f"of the function are: {fn_input_params}."
             )
-        elif missing_keys := expected_keys - provided_keys:
+        elif missing_keys := required_keys - provided_keys:
             raise RuntimeError(
                 "Missing keyword arguments have been identified when calling "
-                "`Evaluator.evaluate()`. You have not passed the following expected "
+                "`Evaluator.evaluate()`. You have not passed the following required "
                 f"keys: {missing_keys}. Please ensure that the provided keys match "
-                "the expected input parameters of the custom evaluation function "
-                f"`{evaluation_fn_name}`. The expected input parameters of the "
-                f"function are: {fn_input_params}."
+                "the required input parameters of the custom evaluation function "
+                f"`{evaluation_fn_name}`. The required parameters (without defaults) "
+                f"are: {required_params}."
             )
 
     def _add_reserved_keys_into_custom_kwargs(
