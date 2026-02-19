@@ -449,6 +449,101 @@ class GeneratedAttribute:
                 )
 
 
+@dataclass
+class MultiTurnAttribute:
+    """Attributes that enable multi-turn interactions."""
+
+    id: str
+    """Unique identifier for the attribute."""
+
+    min_turns: int
+    """Minimum number of turns (messages) required for the attribute."""
+
+    max_turns: int
+    """Maximum number of turns (messages) allowed for the attribute."""
+
+    role_instruction_messages: dict[Role, str]
+    """Per-role instruction template for generating a turn."""
+
+    output_system_prompt: str | None = None
+    """System prompt prepended to the final output conversation."""
+
+    conversation_planner: str | None = None
+    """Optional planner for generating a conversation plan before turn generation.
+
+    Allows user to specify custom instructions for the planner while planning
+    out the conversation."""
+
+    def __post_init__(self):
+        """Verifies/populates params."""
+        if not self.id:
+            raise ValueError("MultiTurnAttribute.id cannot be empty.")
+        if self.role_instruction_messages:
+            normalized_role_messages: dict[Role, str] = {}
+            for role_key, persona in self.role_instruction_messages.items():
+                if isinstance(role_key, Role):
+                    normalized_role = role_key
+                elif isinstance(role_key, str):
+                    try:
+                        normalized_role = Role[role_key.upper()]
+                    except KeyError:
+                        try:
+                            normalized_role = Role(role_key)
+                        except ValueError as exc:
+                            raise ValueError(
+                                "MultiTurnAttribute.role_instruction_messages contains "
+                                f"unknown role: {role_key}"
+                            ) from exc
+                else:
+                    raise ValueError(
+                        "MultiTurnAttribute.role_instruction_messages keys must be "
+                        "Role or str values."
+                    )
+
+                if not isinstance(persona, str):
+                    raise ValueError(
+                        "MultiTurnAttribute.role_instruction_messages values must "
+                        "be strings."
+                    )
+
+                normalized_role_messages[normalized_role] = persona
+
+            self.role_instruction_messages = normalized_role_messages
+        if self.min_turns < 1:
+            raise ValueError("MultiTurnAttribute.min_turns must be at least 1.")
+        if self.max_turns is not None and self.max_turns < self.min_turns:
+            raise ValueError(
+                "MultiTurnAttribute.max_turns must be greater than or equal to "
+                "min_turns."
+            )
+        if not self.role_instruction_messages:
+            raise ValueError(
+                "MultiTurnAttribute.role_instruction_messages cannot be empty."
+            )
+
+        required_roles = [Role.USER, Role.ASSISTANT]
+        for role in required_roles:
+            if role not in self.role_instruction_messages:
+                raise ValueError(
+                    "MultiTurnAttribute.role_instruction_messages must define "
+                    f"instructions for role: {role}"
+                )
+            if not self.role_instruction_messages[role]:
+                raise ValueError(
+                    "MultiTurnAttribute.role_instruction_messages must include "
+                    f"a non-empty persona for role: {role}"
+                )
+        if self.output_system_prompt is not None:
+            if (
+                not isinstance(self.output_system_prompt, str)
+                or not self.output_system_prompt
+            ):
+                raise ValueError(
+                    "MultiTurnAttribute.output_system_prompt must be a non-empty "
+                    "string."
+                )
+
+
 class TransformationType(str, Enum):
     """Types of transformation strategies."""
 
@@ -639,6 +734,42 @@ class GeneralSynthesisParams(BaseParams):
     The model's response to these messages will be the value of the "name" attribute
     for that data point."""
 
+    multiturn_attributes: list[MultiTurnAttribute] | None = None
+    """Multi-turn conversations to be generated.
+
+    Unlike generated_attributes which produce scalar values and process all samples
+    per attribute (batch-first), multiturn_attributes generate variable-length
+    conversations and process each sample completely before moving to the next
+    (sample-first). This enables natural conversation flow with proper context
+    threading.
+
+    Multi-turn attributes can reference any previously defined attributes
+    (sampled, generated, or from input sources) using {placeholder} syntax
+    in their persona prompts.
+
+    For example, if you have a sampled attribute "customer_type" and a generated
+    attribute "issue", you can define a multiturn_attribute with personas
+    that reference them::
+
+        user_persona:
+            role: USER
+            system_prompt: "You are a {customer_type} customer. Your issue: {issue}."
+
+        assistant_persona:
+            role: ASSISTANT
+            system_prompt: "You are a helpful support agent."
+
+    The conversation length is controlled by min_turns and max_turns. The output
+    is a list of message dictionaries:
+        [
+            {"role": "user", "content": "I need help with my order."},
+            {"role": "assistant",
+            "content": "I'd be happy to help. What's your order number?"},
+            {"role": "user", "content": "It's 12345."},
+            {"role": "assistant", "content": "I found it. How can I assist you?"}
+        ]
+    """
+
     transformed_attributes: list[TransformedAttribute] | None = None
     """Transformation of existing attributes.
 
@@ -661,8 +792,21 @@ class GeneralSynthesisParams(BaseParams):
     If left unspecified, all attributes are saved. If an attribute is specified in
     passthrough_attributes but doesn't exist, it will be ignored."""
 
+    def _get_reserved_attribute_ids(self) -> set[str]:
+        """Get the set of attribute IDs reserved for multiturn synthesis."""
+        reserved = {"target_turns", "current_turn"}
+        if self.multiturn_attributes:
+            for multiturn_attribute in self.multiturn_attributes:
+                reserved.add(f"{multiturn_attribute.id}_plan")
+        return reserved
+
     def _check_attribute_ids(self, attribute_ids: set[str], id: str):
         """Check if the attribute ID is already in the set."""
+        if id in self._reserved_attribute_ids:
+            raise ValueError(
+                f"GeneralSynthesisParams does not allow '{id}' "
+                "as an attribute ID because it is reserved for multiturn synthesis."
+            )
         if id in attribute_ids:
             raise ValueError(
                 f"GeneralSynthesisParams contains duplicate attribute IDs: {id}"
@@ -755,6 +899,20 @@ class GeneralSynthesisParams(BaseParams):
             attribute_id = transformed_attribute.id
             self._check_attribute_ids(all_attribute_ids, attribute_id)
 
+    def _check_multiturn_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from multiturn attributes for uniqueness."""
+        if self.multiturn_attributes is None:
+            return
+
+        if len(self.multiturn_attributes) == 0:
+            raise ValueError(
+                "GeneralSynthesisParams.multiturn_attributes cannot be empty."
+            )
+
+        for multiturn_attribute in self.multiturn_attributes:
+            attribute_id = multiturn_attribute.id
+            self._check_attribute_ids(all_attribute_ids, attribute_id)
+
     def _check_combination_sampling_sample_rates(self) -> None:
         """Validate that the combination sample rates are <= 1.0."""
         if self.combination_sampling is None:
@@ -786,12 +944,14 @@ class GeneralSynthesisParams(BaseParams):
 
     def __post_init__(self):
         """Verifies/populates params."""
+        self._reserved_attribute_ids = self._get_reserved_attribute_ids()
         all_attribute_ids = set()
         self._check_dataset_source_attribute_ids(all_attribute_ids)
         self._check_document_source_attribute_ids(all_attribute_ids)
         self._check_example_source_attribute_ids(all_attribute_ids)
         self._check_sampled_attribute_ids(all_attribute_ids)
         self._check_generated_attribute_ids(all_attribute_ids)
+        self._check_multiturn_attribute_ids(all_attribute_ids)
         self._check_transformed_attribute_ids(all_attribute_ids)
         self._check_passthrough_attribute_ids()
         self._check_combination_sampling_sample_rates()
