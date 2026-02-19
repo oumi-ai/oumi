@@ -106,8 +106,8 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
         for message in conversation.messages:
             role_counts[message.role] += 1
 
-        first_role = conversation.first_message().role.value if conversation.first_message() else None
-        last_role = conversation.last_message().role.value if conversation.last_message() else None
+        first_role = m.role.value if (m := conversation.first_message()) else None
+        last_role = m.role.value if (m := conversation.last_message()) else None
 
         return TurnStatsMetrics(
             num_turns=len(conversation.messages),
