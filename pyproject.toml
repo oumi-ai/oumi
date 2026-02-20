@@ -126,6 +126,7 @@ gpu = [
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
     "vllm>=0.10,<0.11",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    "kernels>=0.11",                            # For compute kernel implementations (e.g., ttn_implementation in gold trainer)
 ]
 
 deepspeed = [
