@@ -2188,7 +2188,6 @@ async def test_get_batch_results():
         )
 
         assert len(results) == 1
-        assert results[0] is not None
         assert results[0].messages[-1].content == "Hello there!"
         assert results[0].messages[-1].role == Role.ASSISTANT
 
@@ -2257,7 +2256,6 @@ def test_get_batch_results_public():
         results = engine.get_batch_results("batch-123", _make_conversations("Hello"))
 
         assert len(results) == 1
-        assert results[0] is not None
         assert results[0].messages[-1].content == "Hello there!"
         assert results[0].messages[-1].role == Role.ASSISTANT
 
@@ -2292,9 +2290,6 @@ async def test_get_batch_results_maps_by_custom_id_not_position():
         )
 
         assert len(results) == 3
-        assert results[0] is not None
-        assert results[1] is not None
-        assert results[2] is not None
         assert results[0].messages[-1].content == "Response for conversation 0"
         assert results[1].messages[-1].content == "Response for conversation 1"
         assert results[2].messages[-1].content == "Response for conversation 2"
@@ -2346,9 +2341,6 @@ async def test_batch_results_partial_failure_retries():
             )
 
         assert len(results) == 3
-        assert results[0] is not None
-        assert results[1] is not None
-        assert results[2] is not None
         assert results[0].messages[-1].content == "Response 0"
         assert results[1].messages[-1].content == "Retry Response 1"
         assert results[2].messages[-1].content == "Response 2"
@@ -2359,8 +2351,8 @@ async def test_batch_results_partial_failure_retries():
 
 
 @pytest.mark.asyncio
-async def test_batch_results_retry_failure_returns_partial():
-    """Test that _infer failure during retry returns partial results with None."""
+async def test_batch_results_retry_failure_propagates():
+    """Test that exceptions from _infer during retry propagate up."""
     with aioresponses() as m:
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
@@ -2382,14 +2374,8 @@ async def test_batch_results_retry_failure_returns_partial():
             new_callable=AsyncMock,
             side_effect=RuntimeError("API error during retry"),
         ):
-            results = await engine._get_batch_results_with_mapping(
-                "batch-123", conversations
-            )
-
-        assert len(results) == 2
-        assert results[0] is not None
-        assert results[0].messages[-1].content == "Response 0"
-        assert results[1] is None
+            with pytest.raises(RuntimeError, match="API error during retry"):
+                await engine._get_batch_results_with_mapping("batch-123", conversations)
 
 
 @pytest.mark.asyncio

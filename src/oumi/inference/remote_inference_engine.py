@@ -899,23 +899,23 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         batch_id: str,
         conversations: list[Conversation],
-    ) -> list[Conversation | None]:
+    ) -> list[Conversation]:
         """Gets the results of a completed batch job.
 
         For COMPLETED batches with partial failures, successful results are kept
-        and failed requests are retried via online inference. If retries also
-        fail, the corresponding slots are returned as None.
+        and failed requests are retried via online inference.
 
         Args:
             batch_id: The batch job ID
             conversations: Original conversations used to create the batch
 
         Returns:
-            List of processed conversations, or None for requests that failed
-            both in the batch and during retry.
+            List of processed conversations with responses, preserving the
+            original input order.
 
         Raises:
-            RuntimeError: If the batch failed or has not completed
+            RuntimeError: If the batch failed, has not completed, or if retry
+                of failed requests also fails.
         """
         return safe_asyncio_run(
             self._get_batch_results_with_mapping(batch_id, conversations)
@@ -1101,24 +1101,24 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         batch_id: str,
         conversations: list[Conversation],
-    ) -> list[Conversation | None]:
+    ) -> list[Conversation]:
         """Gets the results of a completed batch job and maps them to conversations.
 
         For COMPLETED batches with partial failures, successful results are kept
         and failed requests are retried via the engine's online inference path.
-        If retries also fail, the corresponding slots are returned as None.
 
         Args:
             batch_id: ID of the batch job
             conversations: Original conversations used to create the batch
 
         Returns:
-            List of processed conversations, or None for requests that failed
-            both in the batch and during retry.
+            List of processed conversations with responses, preserving the
+            original input order.
 
         Raises:
             RuntimeError: If batch is in a non-completed terminal state (FAILED,
-                EXPIRED, CANCELLED), not in a terminal state, or has no output file.
+                EXPIRED, CANCELLED), not in a terminal state, has no output file,
+                or if retry of failed requests also fails.
         """
         # Get batch status first
         batch_info = await self._get_batch_status(batch_id)
@@ -1208,21 +1208,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         logger.info(
             f"Batch {batch_id}: retrying {len(failed_conversations)} failed requests"
         )
-        try:
-            retry_results = await self._infer(failed_conversations)
-            logger.info(
-                f"Batch {batch_id}: retry completed, got {len(retry_results)} results"
-            )
+        retry_results = await self._infer(failed_conversations)
+        logger.info(
+            f"Batch {batch_id}: retry completed, got {len(retry_results)} results"
+        )
 
-            # Merge retry results back into the correct positions
-            for idx, retry_result in zip(failed_indices, retry_results):
-                processed_conversations[idx] = retry_result
-        except Exception as e:
-            logger.error(
-                f"Batch {batch_id}: retry failed for "
-                f"{len(failed_conversations)} requests: {e}. "
-                f"Returning partial results."
-            )
+        # Merge retry results back into the correct positions
+        for idx, retry_result in zip(failed_indices, retry_results):
+            processed_conversations[idx] = retry_result
 
         return processed_conversations  # type: ignore[return-value]
 
