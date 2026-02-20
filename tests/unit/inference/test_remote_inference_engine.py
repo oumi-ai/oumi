@@ -160,6 +160,59 @@ def create_test_multimodal_text_image_conversation():
     )
 
 
+def _make_batch_result_line(custom_id: str, content: str) -> str:
+    """Build a single JSONL line for a batch output file."""
+    return json.dumps(
+        {
+            "custom_id": custom_id,
+            "response": {
+                "body": {
+                    "choices": [{"message": {"role": "assistant", "content": content}}]
+                }
+            },
+        }
+    )
+
+
+def _make_batch_status_payload(
+    total: int,
+    completed: int,
+    failed: int,
+    output_file_id: str | None = "file-output-123",
+    error_file_id: str | None = None,
+    status: str = "completed",
+    error: str | None = None,
+) -> dict:
+    """Build the batch status API response payload."""
+    payload: dict[str, Any] = {
+        "id": "batch-123",
+        "status": status,
+        "request_counts": {"total": total, "completed": completed, "failed": failed},
+    }
+    if output_file_id:
+        payload["output_file_id"] = output_file_id
+    if error_file_id:
+        payload["error_file_id"] = error_file_id
+    if error:
+        payload["error"] = error
+    return payload
+
+
+def _make_conversations(*contents: str) -> list[Conversation]:
+    """Build conversations from user message content strings."""
+    return [
+        Conversation(messages=[Message(content=c, role=Role.USER)]) for c in contents
+    ]
+
+
+def _make_engine() -> RemoteInferenceEngine:
+    """Create a RemoteInferenceEngine with default test params."""
+    return RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+
+
 class AsyncContextManagerMock:
     """Mock for async context manager."""
 
@@ -2118,59 +2171,20 @@ async def test_get_batch_status():
 async def test_get_batch_results():
     """Test getting batch results."""
     with aioresponses() as m:
-        # Mock batch status request
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
             status=200,
-            payload={
-                "id": "batch-123",
-                "status": "completed",
-                "request_counts": {
-                    "total": 1,
-                    "completed": 1,
-                    "failed": 0,
-                },
-                "output_file_id": "file-output-123",
-            },
+            payload=_make_batch_status_payload(total=1, completed=1, failed=0),
         )
-
-        # Mock file content request
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
             status=200,
-            body=json.dumps(
-                {
-                    "custom_id": "request-0",
-                    "response": {
-                        "body": {
-                            "choices": [
-                                {
-                                    "message": {
-                                        "role": "assistant",
-                                        "content": "Hello there!",
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                }
-            ),
+            body=_make_batch_result_line("request-0", "Hello there!"),
         )
 
-        engine = RemoteInferenceEngine(
-            _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER),
-        )
-
-        conversation = Conversation(
-            messages=[
-                Message(content="Hello", role=Role.USER),
-            ]
-        )
-
+        engine = _make_engine()
         results = await engine._get_batch_results_with_mapping(
-            "batch-123",
-            [conversation],
+            "batch-123", _make_conversations("Hello")
         )
 
         assert len(results) == 1
@@ -2181,34 +2195,21 @@ async def test_get_batch_results():
 def test_infer_batch():
     """Test the public infer_batch method."""
     with aioresponses() as m:
-        # Mock file upload
         m.post(
             f"{_TARGET_SERVER_BASE}/v1/files",
             status=200,
             payload={"id": "file-123"},
         )
-        # Mock batch creation
         m.post(
             f"{_TARGET_SERVER_BASE}/v1/batches",
             status=200,
             payload={"id": "batch-456"},
         )
 
-        engine = RemoteInferenceEngine(
-            _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER),
-        )
-
-        conversation = Conversation(
-            messages=[
-                Message(content="Hello", role=Role.USER),
-            ]
-        )
-
-        # Use AsyncContextManagerMock instead of AsyncMock
+        engine = _make_engine()
         with patch("aiofiles.open", return_value=AsyncContextManagerMock()):
             batch_id = engine.infer_batch(
-                [conversation], _get_default_inference_config()
+                _make_conversations("Hello"), _get_default_inference_config()
             )
             assert batch_id == "batch-456"
 
@@ -2219,22 +2220,16 @@ def test_get_batch_status_public():
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
             status=200,
-            payload={
-                "id": "batch-123",
-                "status": "in_progress",
-                "request_counts": {
-                    "total": 10,
-                    "completed": 5,
-                    "failed": 0,
-                },
-            },
+            payload=_make_batch_status_payload(
+                total=10,
+                completed=5,
+                failed=0,
+                status="in_progress",
+                output_file_id=None,
+            ),
         )
 
-        engine = RemoteInferenceEngine(
-            _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER),
-        )
-
+        engine = _make_engine()
         status = engine.get_batch_status("batch-123")
         assert status.id == "batch-123"
         assert status.status == BatchStatus.IN_PROGRESS
@@ -2246,60 +2241,19 @@ def test_get_batch_status_public():
 def test_get_batch_results_public():
     """Test the public get_batch_results method."""
     with aioresponses() as m:
-        # Mock batch status request
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
             status=200,
-            payload={
-                "id": "batch-123",
-                "status": "completed",
-                "request_counts": {
-                    "total": 1,
-                    "completed": 1,
-                    "failed": 0,
-                },
-                "output_file_id": "file-output-123",
-            },
+            payload=_make_batch_status_payload(total=1, completed=1, failed=0),
         )
-
-        # Mock file content request
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
             status=200,
-            body=json.dumps(
-                {
-                    "custom_id": "request-0",
-                    "response": {
-                        "body": {
-                            "choices": [
-                                {
-                                    "message": {
-                                        "role": "assistant",
-                                        "content": "Hello there!",
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                }
-            ),
+            body=_make_batch_result_line("request-0", "Hello there!"),
         )
 
-        engine = RemoteInferenceEngine(
-            _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER),
-        )
-
-        conversation = Conversation(
-            messages=[
-                Message(content="Hello", role=Role.USER),
-            ]
-        )
-
-        results = engine.get_batch_results(
-            "batch-123",
-            [conversation],
-        )
+        engine = _make_engine()
+        results = engine.get_batch_results("batch-123", _make_conversations("Hello"))
 
         assert len(results) == 1
         assert results[0].messages[-1].content == "Hello there!"
@@ -2313,100 +2267,115 @@ async def test_get_batch_results_maps_by_custom_id_not_position():
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
             status=200,
-            payload={
-                "id": "batch-123",
-                "status": "completed",
-                "request_counts": {
-                    "total": 3,
-                    "completed": 3,
-                    "failed": 0,
-                },
-                "output_file_id": "file-output-123",
-            },
+            payload=_make_batch_status_payload(total=3, completed=3, failed=0),
         )
-
+        # Results returned out of order (2, 0, 1)
         results_content = "\n".join(
             [
-                json.dumps(
-                    {
-                        "custom_id": "request-2",
-                        "response": {
-                            "body": {
-                                "choices": [
-                                    {
-                                        "message": {
-                                            "role": "assistant",
-                                            "content": "Response for conversation 2",
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                    }
-                ),
-                json.dumps(
-                    {
-                        "custom_id": "request-0",
-                        "response": {
-                            "body": {
-                                "choices": [
-                                    {
-                                        "message": {
-                                            "role": "assistant",
-                                            "content": "Response for conversation 0",
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                    }
-                ),
-                json.dumps(
-                    {
-                        "custom_id": "request-1",
-                        "response": {
-                            "body": {
-                                "choices": [
-                                    {
-                                        "message": {
-                                            "role": "assistant",
-                                            "content": "Response for conversation 1",
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                    }
-                ),
+                _make_batch_result_line("request-2", "Response for conversation 2"),
+                _make_batch_result_line("request-0", "Response for conversation 0"),
+                _make_batch_result_line("request-1", "Response for conversation 1"),
             ]
         )
-
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
             status=200,
             body=results_content,
         )
 
-        engine = RemoteInferenceEngine(
-            _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER),
-        )
-
-        conversations = [
-            Conversation(messages=[Message(content="Question 0", role=Role.USER)]),
-            Conversation(messages=[Message(content="Question 1", role=Role.USER)]),
-            Conversation(messages=[Message(content="Question 2", role=Role.USER)]),
-        ]
-
+        engine = _make_engine()
+        conversations = _make_conversations("Question 0", "Question 1", "Question 2")
         results = await engine._get_batch_results_with_mapping(
-            "batch-123",
-            conversations,
+            "batch-123", conversations
         )
 
         assert len(results) == 3
         assert results[0].messages[-1].content == "Response for conversation 0"
         assert results[1].messages[-1].content == "Response for conversation 1"
         assert results[2].messages[-1].content == "Response for conversation 2"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_partial_failure_retries():
+    """Test that missing results are retried via online inference."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(
+                total=3, completed=2, failed=1, error_file_id="file-error-123"
+            ),
+        )
+        # Output file has results for request-0 and request-2 only
+        results_content = "\n".join(
+            [
+                _make_batch_result_line("request-0", "Response 0"),
+                _make_batch_result_line("request-2", "Response 2"),
+            ]
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=results_content,
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body='{"custom_id": "request-1", "error": {"message": "rate limited"}}',
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1", "Q2")
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ) as mock_infer:
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 3
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+        assert results[2].messages[-1].content == "Response 2"
+        mock_infer.assert_called_once()
+        failed_convs = mock_infer.call_args[0][0]
+        assert len(failed_convs) == 1
+        assert failed_convs[0].messages[0].content == "Q1"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_retry_failure_propagates():
+    """Test that exceptions from _infer during retry propagate up."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(total=2, completed=1, failed=1),
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=_make_batch_result_line("request-0", "Response 0"),
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1")
+
+        with patch.object(
+            engine,
+            "_infer",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("API error during retry"),
+        ):
+            with pytest.raises(RuntimeError, match="API error during retry"):
+                await engine._get_batch_results_with_mapping("batch-123", conversations)
 
 
 @pytest.mark.asyncio
