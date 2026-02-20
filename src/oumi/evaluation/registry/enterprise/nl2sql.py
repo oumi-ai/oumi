@@ -1,0 +1,264 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""NL2SQL evaluation function for text-to-SQL generation."""
+
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
+from oumi.core.inference.base_inference_engine import BaseInferenceEngine
+from oumi.core.registry import register_evaluation_function
+from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.utils.logging import logger
+
+
+def _load_test_data(test_data_path: str) -> list[dict]:
+    """Load test data from JSONL file."""
+    data = []
+    with open(test_data_path) as f:
+        for line in f:
+            data.append(json.loads(line))
+    return data
+
+
+def _extract_ground_truth(conversation: dict) -> str:
+    """Extract ground truth from the assistant message in the conversation."""
+    messages = conversation.get("messages", [])
+    for msg in messages:
+        if msg.get("role") == "assistant":
+            return msg.get("content", "").strip()
+    return ""
+
+
+def _create_input_conversation(conversation: dict) -> Conversation:
+    """Create input conversation (user message only) for inference."""
+    messages = []
+    for msg in conversation.get("messages", []):
+        if msg.get("role") == "user":
+            messages.append(Message(role=Role.USER, content=msg.get("content", "")))
+            break
+    return Conversation(messages=messages)
+
+
+def _extract_sql(response: str) -> str:
+    """Extract SQL from response, handling markdown code blocks.
+
+    Looks for ```sql ... ``` or ``` ... ``` blocks and extracts the content.
+    Falls back to the full response if no markdown block found.
+    """
+    # Try to find ```sql ... ``` block first
+    sql_block_match = re.search(r"```sql\s*(.*?)\s*```", response, re.DOTALL)
+    if sql_block_match:
+        return sql_block_match.group(1).strip()
+
+    # Try generic ``` ... ``` block
+    generic_block_match = re.search(r"```\s*(.*?)\s*```", response, re.DOTALL)
+    if generic_block_match:
+        return generic_block_match.group(1).strip()
+
+    # Fall back to full response
+    return response.strip()
+
+
+def _normalize_sql(sql: str) -> str:
+    """Normalize SQL for comparison."""
+    # Remove any remaining markdown artifacts
+    sql = re.sub(r"```sql\s*", "", sql)
+    sql = re.sub(r"```\s*", "", sql)
+
+    # Convert to lowercase
+    sql = sql.lower()
+
+    # Normalize whitespace
+    sql = " ".join(sql.split())
+
+    # Remove trailing semicolon
+    sql = sql.rstrip(";")
+
+    # Normalize common SQL patterns
+    sql = re.sub(r"\s*,\s*", ", ", sql)
+    sql = re.sub(r"\s*=\s*", " = ", sql)
+    sql = re.sub(r"\s*<>\s*", " <> ", sql)
+    sql = re.sub(r"\s*!=\s*", " != ", sql)
+    sql = re.sub(r"\s*>=\s*", " >= ", sql)
+    sql = re.sub(r"\s*<=\s*", " <= ", sql)
+    sql = re.sub(r"\s*>\s*", " > ", sql)
+    sql = re.sub(r"\s*<\s*", " < ", sql)
+
+    return sql.strip()
+
+
+def _levenshtein_distance(s1: str, s2: str) -> int:
+    """Compute Levenshtein (edit) distance between two strings."""
+    if len(s1) < len(s2):
+        return _levenshtein_distance(s2, s1)
+
+    if len(s2) == 0:
+        return len(s1)
+
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            # Cost is 0 if characters match, 1 otherwise
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+
+    return previous_row[-1]
+
+
+def _compute_normalized_edit_distance(pred: str, gt: str) -> float:
+    """Compute normalized edit distance (0 = identical, 1 = completely different)."""
+    pred_normalized = _normalize_sql(pred)
+    gt_normalized = _normalize_sql(gt)
+
+    if pred_normalized == gt_normalized:
+        return 0.0
+
+    distance = _levenshtein_distance(pred_normalized, gt_normalized)
+    max_len = max(len(pred_normalized), len(gt_normalized))
+
+    if max_len == 0:
+        return 0.0
+
+    return distance / max_len
+
+
+def _compute_exact_match(pred: str, gt: str) -> bool:
+    """Check if normalized SQL matches exactly."""
+    return _normalize_sql(pred) == _normalize_sql(gt)
+
+
+@register_evaluation_function("enterprise_nl2sql")
+def enterprise_nl2sql(
+    task_params: EvaluationTaskParams,
+    inference_engine: BaseInferenceEngine,
+    test_data_path: str = "data/enterprise/nl2sql/test.jsonl",
+) -> dict[str, Any]:
+    """Evaluate NL2SQL text-to-SQL generation task.
+
+    Computes edit distance and exact match metrics for SQL generation.
+
+    Args:
+        task_params: Evaluation task parameters
+        inference_engine: Inference engine for generating predictions
+        test_data_path: Path to test JSONL file
+        **kwargs: Additional keyword arguments (ignored)
+
+    Returns:
+        Dictionary with edit distance and exact match metrics
+    """
+    if not Path(test_data_path).exists():
+        raise FileNotFoundError(
+            f"Test data not found at {test_data_path}. "
+            "Run scripts/enterprise/prepare_datasets.py first."
+        )
+
+    logger.info(f"Loading NL2SQL test data from {test_data_path}")
+    test_data = _load_test_data(test_data_path)
+
+    # Apply sample limit if specified
+    num_samples = task_params.num_samples
+    if num_samples is not None and num_samples > 0:
+        test_data = test_data[:num_samples]
+
+    logger.info(f"Evaluating on {len(test_data)} samples")
+
+    # Extract ground truths and create input conversations
+    ground_truths = [_extract_ground_truth(conv) for conv in test_data]
+    input_conversations = [_create_input_conversation(conv) for conv in test_data]
+
+    # Run inference
+    logger.info("Running inference...")
+    output_conversations = inference_engine.infer(input_conversations)
+
+    # Extract predictions (raw and extracted SQL)
+    raw_predictions = []
+    extracted_predictions = []
+    for conv in output_conversations:
+        response = conv.last_message()
+        if response and isinstance(response.content, str):
+            raw = response.content
+            raw_predictions.append(raw)
+            extracted_predictions.append(_extract_sql(raw))
+        else:
+            raw_predictions.append("")
+            extracted_predictions.append("")
+
+    # Compute metrics on extracted SQL
+    edit_distances = []
+    exact_matches = 0
+
+    for extracted, gt in zip(extracted_predictions, ground_truths):
+        edit_dist = _compute_normalized_edit_distance(extracted, gt)
+        edit_distances.append(edit_dist)
+
+        if _compute_exact_match(extracted, gt):
+            exact_matches += 1
+
+    total = len(extracted_predictions)
+    avg_edit_distance = (
+        sum(edit_distances) / len(edit_distances) if edit_distances else 0.0
+    )
+    # Edit similarity is 1 - edit_distance (higher is better)
+    avg_edit_similarity = 1.0 - avg_edit_distance
+    exact_match_accuracy = exact_matches / total if total > 0 else 0.0
+
+    # Mean response length (raw, before any extraction/normalization)
+    mean_response_chars = (
+        sum(len(r) for r in raw_predictions) / len(raw_predictions)
+        if raw_predictions else 0.0
+    )
+
+    metrics = {
+        "edit_similarity": avg_edit_similarity,
+        "edit_distance": avg_edit_distance,
+        "exact_match": exact_match_accuracy,
+        "mean_response_chars": mean_response_chars,
+        "num_exact_match": exact_matches,
+        "num_total": total,
+    }
+
+    # Add predictions to metrics (will be saved separately by evaluator)
+    metrics["_predictions"] = [
+        {
+            "messages": [
+                {"role": "user", "content": conv.messages[0].content or ""},
+                {"role": "assistant", "content": raw},
+            ],
+            "metadata": {
+                "ground_truth": gt,
+                "extracted_sql": extracted,
+                "edit_distance": _compute_normalized_edit_distance(extracted, gt),
+                "exact_match": _compute_exact_match(extracted, gt),
+            },
+        }
+        for conv, raw, extracted, gt in zip(
+            input_conversations, raw_predictions, extracted_predictions, ground_truths
+        )
+    ]
+
+    logger.info(
+        f"NL2SQL results: EditSim={metrics['edit_similarity']:.4f}, "
+        f"EM={metrics['exact_match']:.4f} "
+        f"(EM: {metrics['num_exact_match']}/{metrics['num_total']})"
+    )
+
+    return metrics

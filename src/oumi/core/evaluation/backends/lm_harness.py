@@ -325,7 +325,7 @@ def evaluate(
         task_dict,
         log_samples=task_params.log_samples or False,
         limit=task_params.num_samples,
-        apply_chat_template=is_multimodal,
+        # apply_chat_template=is_multimodal,
         **task_params.eval_kwargs,  # type: ignore
     )
 

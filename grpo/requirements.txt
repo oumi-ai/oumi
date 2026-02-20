@@ -1,0 +1,5 @@
+# export OUMI_EXTRA_DEPS_FILE=/data/shanghong/oumi/grpo/requirements.txt
+/data/shanghong/oumi/grpo/countdown_dataset.py
+/data/shanghong/oumi/grpo/reward.py
+/data/shanghong/oumi/grpo/tatqa_dataset.py
+/data/shanghong/oumi/grpo/tatqa_reward.py

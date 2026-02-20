@@ -1,0 +1,35 @@
+# Judge model configuration for TatQA reward function
+# Supports multiple inference engines based on 'engine' field
+# IMPORTANT: Engine values must be UPPERCASE (e.g., VLLM, OPENAI, REMOTE_VLLM)
+
+# Using OpenAI API (API key loaded from .env file)
+engine: "OPENAI"
+model:
+  model_name: "gpt-4o-mini"  # Fast and cost-effective for judging
+
+remote_params:
+  api_url: "https://api.openai.com/v1"
+  api_key_env_varname: "OPENAI_API_KEY"  # Load from .env file
+
+# Alternative models:
+# - "gpt-4o" - More accurate but more expensive
+# - "gpt-4-turbo" - Good balance
+# - "gpt-3.5-turbo" - Fastest and cheapest
+
+# Option: Local VLLM (for open source models like Llama)
+# engine: "VLLM"
+# model:
+#   model_name: "meta-llama/Llama-3.3-70B-Instruct"
+#   trust_remote_code: true
+
+# Option: Remote VLLM (OpenAI-compatible endpoint)
+# engine: "REMOTE_VLLM"
+# model:
+#   model_name: "meta-llama/Llama-3.3-70B-Instruct"
+# remote_params:
+#   api_base: "http://localhost:8000/v1"
+#   api_key: null
+
+generation:
+  max_new_tokens: 256
+  temperature: 0.0  # Deterministic judging

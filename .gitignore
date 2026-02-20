@@ -187,3 +187,8 @@ oumi.code-workspace
 
 /enterprise_experiments
 **/data
+**/**_data
+**/**_results
+**/output
+*.db
+mlflow.db

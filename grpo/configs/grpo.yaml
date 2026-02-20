@@ -1,0 +1,91 @@
+
+model:
+  model_name: "Qwen/Qwen2.5-1.5B-Instruct"
+  model_max_length: 4096
+  load_pretrained_weights: True
+  trust_remote_code: true
+  attn_implementation: "sdpa"
+  device_map: "auto"
+
+data:
+  train:
+    datasets:
+      - dataset_name: countdown_data
+        dataset_path: /data/shanghong/oumi/gold/data/train_90_conversation_format_with_think.jsonl
+        shuffle: True
+        seed: 42
+  validation:
+    datasets:
+      - dataset_name: countdown_data
+        dataset_path: /data/shanghong/oumi/gold/data/val_10_conversation_format_with_think.jsonl
+        shuffle: True
+        seed: 42
+    seed: 42
+
+training:
+  trainer_type: "TRL_GRPO"
+  output_dir: "output/grpo_countdown_qwen3-4b"
+  run_name: "grpo_countdown_qwen3-4b"
+
+  # Training duration
+  num_train_epochs: 2
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 8 # Llama2:4, Llama3: 1
+  gradient_accumulation_steps: 16
+  max_grad_norm: 1
+
+  # Mixed precision and performance
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  
+  # Optimization
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-5
+
+  # Learning rate schedule
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  
+  # Evaluation
+  eval_strategy: "steps"
+  eval_steps: 500
+  logging_first_step: True
+
+  # Checkpointing
+  save_steps: 100
+
+  # Logging
+  logging_steps: 1
+  log_level: "info"
+  enable_wandb: True
+  enable_mlflow: False
+
+  ddp_find_unused_parameters: False
+  dataloader_num_workers: "auto"
+  # dataloader_prefetch_factor: 32
+  empty_device_cache_steps: 50
+
+  reward_functions: ["format_reward", "equation_reward", "numbers_rule_reward"]
+  trainer_kwargs:
+    beta: 0.1
+    group_by_length: True
+    # log_level: "debug"
+
+  grpo:
+    max_prompt_length: 2048
+    max_completion_length: 1024
+    num_generations: 8
+    use_vllm: True
+    vllm_mode: "colocate"
+    vllm_gpu_memory_utilization: 0.5
+    log_completions: True
+    # vllm_max_model_len: 2048 
+    ## find how to send max_num_seqs to vllm from trl
+    ## launch vllm manually via server
+  
+  # profiler:
+    # enable_cuda_profiling: True
+    # profile_memory: True
+

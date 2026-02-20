@@ -1,0 +1,96 @@
+# Ablation 1: BETA ONLY
+# Test: Does changing beta alone fix the collapse?
+# Expected: STABLE (validates beta=0.0 is the main fix)
+# Config: beta=0.0 (Forward KL), adaptive weights
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 2048
+  torch_dtype_str: "float32"
+  load_pretrained_weights: true
+  trust_remote_code: true
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: text_sft_jsonl
+        dataset_path: /data/shanghong/oumi/gold/tatqa_data/train_final_max2048.jsonl
+        dataset_kwargs:
+          return_conversations: true
+          return_conversations_format: "dict"
+    target_col: "messages"
+    seed: 42
+
+training:
+  use_peft: true
+  trainer_type: "TRL_GOLD"
+  output_dir: "output/ablation_1_beta_only"
+  run_name: "ablation_1_beta_only"
+
+  # Run full epoch for complete analysis
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 16
+  max_grad_norm: 1
+
+  # Mixed precision and performance
+  mixed_precision_dtype: BF16
+  enable_gradient_checkpointing: true
+
+  # Optimization
+  optimizer: "adamw_torch_fused"
+  learning_rate: 1.0e-05
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+
+  # Checkpointing
+  save_steps: 100
+
+  # Logging
+  logging_steps: 1
+  log_level: "info"
+  logging_first_step: true
+
+  enable_wandb: true
+  enable_tensorboard: false
+  log_model_summary: false
+
+  # GOLD parameters
+  gold:
+    teacher_model_name_or_path: "Qwen/Qwen3-4B-Instruct-2507"
+
+    teacher_model_init_kwargs:
+      dtype: "auto"
+      trust_remote_code: true
+      attn_implementation: "kernels-community/vllm-flash-attn3"
+      device_map: "auto"
+
+    # Generation parameters
+    temperature: 1.0
+    max_completion_length: 512
+
+    # Distillation parameters
+    lmbda: 0.5
+    beta: 0.0  # Forward KL - MAIN FIX BEING TESTED
+    disable_dropout: true
+    seq_kd: false
+
+    use_uld_loss: true
+    uld_use_hybrid_loss: true
+    # Keep adaptive weights to isolate beta effect
+    # uld_hybrid_matched_weight: null (default)
+    # uld_hybrid_unmatched_weight: null (default)
+
+    # vLLM colocate mode
+    use_vllm: true
+    vllm_mode: "colocate"
+    vllm_gpu_memory_utilization: 0.4
+
+peft:
+  lora_r: 64
+  lora_alpha: 32
+  lora_target_modules:
+    - "all-linear"

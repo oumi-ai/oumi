@@ -1,0 +1,10 @@
+model:
+  model_name: "/data/shanghong/oumi/gold/output/gold_llama32_1b_qwen34b_cross_v3/checkpoint-1600"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 4096
+  n: 4
+  temperature: 0.95
+  skip_special_tokens: False
