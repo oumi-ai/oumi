@@ -2410,6 +2410,189 @@ async def test_get_batch_results_maps_by_custom_id_not_position():
 
 
 @pytest.mark.asyncio
+async def test_batch_results_partial_failure_retries():
+    """Test that missing results are retried via online inference."""
+    with aioresponses() as m:
+        # Batch completed but only 2 of 3 results in output file
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload={
+                "id": "batch-123",
+                "status": "completed",
+                "request_counts": {"total": 3, "completed": 2, "failed": 1},
+                "output_file_id": "file-output-123",
+                "error_file_id": "file-error-123",
+            },
+        )
+
+        # Output file has results for request-0 and request-2 only
+        results_content = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "custom_id": "request-0",
+                        "response": {
+                            "body": {
+                                "choices": [
+                                    {
+                                        "message": {
+                                            "role": "assistant",
+                                            "content": "Response 0",
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "custom_id": "request-2",
+                        "response": {
+                            "body": {
+                                "choices": [
+                                    {
+                                        "message": {
+                                            "role": "assistant",
+                                            "content": "Response 2",
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                ),
+            ]
+        )
+
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=results_content,
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body='{"custom_id": "request-1", "error": {"message": "rate limited"}}',
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        conversations = [
+            Conversation(messages=[Message(content="Q0", role=Role.USER)]),
+            Conversation(messages=[Message(content="Q1", role=Role.USER)]),
+            Conversation(messages=[Message(content="Q2", role=Role.USER)]),
+        ]
+
+        # Mock _infer to return a retry result for the failed conversation
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ) as mock_infer:
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 3
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+        assert results[2].messages[-1].content == "Response 2"
+        # _infer called with the single failed conversation
+        mock_infer.assert_called_once()
+        failed_convs = mock_infer.call_args[0][0]
+        assert len(failed_convs) == 1
+        assert failed_convs[0].messages[0].content == "Q1"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_partial_failure_error_in_result():
+    """Test that results with error field are retried."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload={
+                "id": "batch-123",
+                "status": "completed",
+                "request_counts": {"total": 2, "completed": 1, "failed": 1},
+                "output_file_id": "file-output-123",
+            },
+        )
+
+        # Output file has all 2 results, but one has an error field
+        results_content = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "custom_id": "request-0",
+                        "response": {
+                            "body": {
+                                "choices": [
+                                    {
+                                        "message": {
+                                            "role": "assistant",
+                                            "content": "Response 0",
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "custom_id": "request-1",
+                        "error": {"message": "internal server error"},
+                    }
+                ),
+            ]
+        )
+
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=results_content,
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+
+        conversations = [
+            Conversation(messages=[Message(content="Q0", role=Role.USER)]),
+            Conversation(messages=[Message(content="Q1", role=Role.USER)]),
+        ]
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ) as mock_infer:
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 2
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+        mock_infer.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_list_batches():
     """Test listing batch jobs."""
     with aioresponses() as m:
