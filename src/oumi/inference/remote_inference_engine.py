@@ -1128,9 +1128,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     f"Batch {batch_id} failed with error file: {error_content}"
                 )
                 raise RuntimeError(f"Batch has failed requests: {error_content}")
-            logger.error(
-                f"Batch {batch_id} failed: {batch_info.error}"
-            )
+            logger.error(f"Batch {batch_id} failed: {batch_info.error}")
             raise RuntimeError(f"Batch failed with error: {batch_info.error}")
 
         # Download results file
@@ -1150,9 +1148,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 results_by_id[custom_id] = result
 
         # Classify each conversation as successful or failed
-        processed_conversations: list[Conversation | None] = [None] * len(
-            conversations
-        )
+        processed_conversations: list[Conversation | None] = [None] * len(conversations)
         failed_indices: list[int] = []
         failure_reasons: dict[int, str] = {}
 
@@ -1170,10 +1166,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 continue
 
             try:
-                processed_conversations[i] = (
-                    self._convert_api_output_to_conversation(
-                        result["response"]["body"], conv
-                    )
+                processed_conversations[i] = self._convert_api_output_to_conversation(
+                    result["response"]["body"], conv
                 )
             except Exception as e:
                 failed_indices.append(i)
@@ -1206,8 +1200,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         )
         retry_results = await self._infer(failed_conversations)
         logger.info(
-            f"Batch {batch_id}: retry completed, "
-            f"got {len(retry_results)} results"
+            f"Batch {batch_id}: retry completed, got {len(retry_results)} results"
         )
 
         # Merge retry results back into the correct positions
