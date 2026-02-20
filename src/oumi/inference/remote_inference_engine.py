@@ -899,15 +899,20 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         batch_id: str,
         conversations: list[Conversation],
-    ) -> list[Conversation]:
+    ) -> list[Conversation | None]:
         """Gets the results of a completed batch job.
+
+        For COMPLETED batches with partial failures, successful results are kept
+        and failed requests are retried via online inference. If retries also
+        fail, the corresponding slots are returned as None.
 
         Args:
             batch_id: The batch job ID
             conversations: Original conversations used to create the batch
 
         Returns:
-            List[Conversation]: The processed conversations with responses
+            List of processed conversations, or None for requests that failed
+            both in the batch and during retry.
 
         Raises:
             RuntimeError: If the batch failed or has not completed
@@ -1096,18 +1101,20 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         batch_id: str,
         conversations: list[Conversation],
-    ) -> list[Conversation]:
+    ) -> list[Conversation | None]:
         """Gets the results of a completed batch job and maps them to conversations.
 
         For COMPLETED batches with partial failures, successful results are kept
         and failed requests are retried via the engine's online inference path.
+        If retries also fail, the corresponding slots are returned as None.
 
         Args:
             batch_id: ID of the batch job
             conversations: Original conversations used to create the batch
 
         Returns:
-            List[Conversation]: The processed conversations with responses
+            List of processed conversations, or None for requests that failed
+            both in the batch and during retry.
 
         Raises:
             RuntimeError: If batch is in a non-completed terminal state (FAILED,
@@ -1146,8 +1153,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             custom_id = result.get("custom_id")
             if custom_id:
                 results_by_id[custom_id] = result
+        logger.info(
+            f"Batch {batch_id}: parsed {len(results_by_id)} results from output file"
+        )
 
-        # Classify each conversation as successful or failed
         processed_conversations: list[Conversation | None] = [None] * len(conversations)
         failed_indices: list[int] = []
         failure_reasons: dict[int, str] = {}
@@ -1187,6 +1196,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if batch_info.error_file_id:
             try:
                 error_content = await self._download_file(batch_info.error_file_id)
+                logger.warning(f"Batch {batch_id} error file contents: {error_content}")
             except Exception:
                 logger.warning(
                     f"Batch {batch_id}: could not download error file "
@@ -1198,14 +1208,21 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         logger.info(
             f"Batch {batch_id}: retrying {len(failed_conversations)} failed requests"
         )
-        retry_results = await self._infer(failed_conversations)
-        logger.info(
-            f"Batch {batch_id}: retry completed, got {len(retry_results)} results"
-        )
+        try:
+            retry_results = await self._infer(failed_conversations)
+            logger.info(
+                f"Batch {batch_id}: retry completed, got {len(retry_results)} results"
+            )
 
-        # Merge retry results back into the correct positions
-        for idx, retry_result in zip(failed_indices, retry_results):
-            processed_conversations[idx] = retry_result
+            # Merge retry results back into the correct positions
+            for idx, retry_result in zip(failed_indices, retry_results):
+                processed_conversations[idx] = retry_result
+        except Exception as e:
+            logger.error(
+                f"Batch {batch_id}: retry failed for "
+                f"{len(failed_conversations)} requests: {e}. "
+                f"Returning partial results."
+            )
 
         return processed_conversations  # type: ignore[return-value]
 
