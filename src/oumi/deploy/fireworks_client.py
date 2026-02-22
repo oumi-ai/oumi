@@ -296,6 +296,11 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         base_id = "".join(c for c in base_id if c.isalnum() or c in "-_")
         model_id = f"{base_id}-{int(time.time())}"
 
+        # Validate model_source before touching the Fireworks API so that
+        # unsupported formats are rejected immediately without leaving orphaned
+        # model resources.
+        self._check_model_source_supported(model_source)
+
         # Step 1: Create model resource on Fireworks
         create_payload = await self._create_model_resource(
             model_id, model_type, base_model, progress_callback
@@ -407,6 +412,28 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         return create_payload
 
     @staticmethod
+    def _check_model_source_supported(model_source: str) -> None:
+        """Raises ValueError early for model source formats that are not supported.
+
+        Called before any Fireworks API requests to prevent orphaned model
+        resources being created when the source cannot be resolved.
+        """
+        from urllib.parse import urlparse  # noqa: PLC0415 (lazy import — rarely needed)
+
+        if not model_source.startswith(("http://", "https://")):
+            return
+        parsed = urlparse(model_source)
+        hostname = (parsed.hostname or "").lower().removeprefix("www.")
+        if hostname == "huggingface.co":
+            repo_id = parsed.path.lstrip("/")
+            raise ValueError(
+                f"HuggingFace URLs are not supported as a model source for Fireworks. "
+                f"Pass the bare repository ID instead.\n"
+                f"  Got:  {model_source}\n"
+                f"  Use:  {repo_id}"
+            )
+
+    @staticmethod
     def _validate_local_model_path(model_source: str) -> Path:
         """Validates that *model_source* is an existing directory.
 
@@ -432,8 +459,13 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
         Supports:
         - Local directory paths
-        - HTTP/HTTPS URLs (presigned URLs)
+        - HTTP/HTTPS presigned URLs (e.g., GCS/S3 signed archive URLs)
         - HuggingFace repository IDs (e.g., "Qwen/Qwen3-4B")
+
+        Not supported:
+        - HuggingFace HTTPS URLs (e.g., "https://huggingface.co/Qwen/Qwen3-4B").
+          Use the bare repo ID instead. `_check_model_source_supported` rejects
+          these before this method is called.
 
         Returns:
             (model_dir, temp_dir) — temp_dir is non-None when a temporary
