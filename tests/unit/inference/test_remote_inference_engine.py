@@ -670,7 +670,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             config.remote_params.max_retries = 0
 
         with pytest.raises(
-            RuntimeError,
+            APIStatusError,
             match="Failed to query API after 1 attempts. Reason: Gateway timeout",
         ):
             _ = engine.infer(
@@ -679,14 +679,14 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             )
         with pytest.raises(
             APIStatusError,
-            match="Non-retriable error: Too many requests",
+            match="Failed to query API after 1 attempts. Reason: Too many requests",
         ):
             _ = engine.infer(
                 [conversation],
                 config,
             )
         with pytest.raises(
-            RuntimeError,
+            APIStatusError,
             match="Failed to query API after 1 attempts. Reason: Service unavailable",
         ):
             _ = engine.infer(
@@ -694,7 +694,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
                 config,
             )
         with pytest.raises(
-            RuntimeError,
+            APIStatusError,
             match="Failed to query API after 1 attempts. Reason: Internal server error",
         ):
             _ = engine.infer(
@@ -749,7 +749,7 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
             conversation_id="123",
         )
         with pytest.raises(
-            RuntimeError,
+            APIStatusError,
             match="Failed to query API after 4 attempts. Reason: Internal server error",
         ):
             _ = engine.infer(
@@ -2711,7 +2711,7 @@ def test_non_retriable_errors(mock_asyncio_sleep):
             )
             conversation = create_test_text_only_conversation()
 
-            with pytest.raises(RuntimeError) as exc_info:
+            with pytest.raises(APIStatusError) as exc_info:
                 engine.infer([conversation])
 
             assert f"Non-retriable error: {error_messages[status_code]}" in str(

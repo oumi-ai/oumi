@@ -31,7 +31,6 @@ _NON_RETRIABLE_STATUS_CODES = {
     403,  # Forbidden
     404,  # Not Found
     422,  # Unprocessable Entity
-    429,  # Too Many Requests
 }
 
 
