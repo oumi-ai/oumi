@@ -55,6 +55,7 @@ from oumi.utils.conversation_utils import (
     create_list_of_message_json_dicts,
 )
 from oumi.utils.http import (
+    APIStatusError,
     get_failure_reason_from_response,
     is_non_retriable_status_code,
 )
@@ -589,6 +590,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             )
             headers = self._get_request_headers(remote_params)
             failure_reason = None
+            last_status_code = None
 
             # Retry the request if it fails
             for attempt in range(remote_params.max_retries + 1):
@@ -609,16 +611,17 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     ) as response:
                         if response.status != 200:
                             await self._try_record_error()
+                            last_status_code = response.status
                             failure_reason = await get_failure_reason_from_response(
                                 response
                             )
 
                             # Check for non-retriable status codes to fail fast.
                             if is_non_retriable_status_code(response.status):
-                                failure_reason = (
-                                    f"Non-retriable error: {failure_reason}"
+                                raise APIStatusError(
+                                    f"Non-retriable error: {failure_reason}",
+                                    status_code=response.status,
                                 )
-                                raise RuntimeError(failure_reason)
                             continue
 
                         # Try to parse the response as JSON
@@ -686,10 +689,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         ) from e
                     continue
             # This should only be reached if all retries failed
-            raise RuntimeError(
-                f"Failed to query API after {attempt + 1} attempts. "
-                + (f"Reason: {failure_reason}" if failure_reason else "")
+            message = f"Failed to query API after {attempt + 1} attempts. " + (
+                f"Reason: {failure_reason}" if failure_reason else ""
             )
+            if last_status_code is not None:
+                raise APIStatusError(message, status_code=last_status_code)
+            raise RuntimeError(message)
 
     async def _infer(
         self,
