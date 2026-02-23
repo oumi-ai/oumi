@@ -58,6 +58,7 @@ from oumi.utils.http import (
     get_failure_reason_from_response,
     is_non_retriable_status_code,
 )
+from oumi.utils.logging import logger
 
 _AUTHORIZATION_KEY: str = "Authorization"
 _BATCH_PURPOSE = "batch"
@@ -901,15 +902,20 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     ) -> list[Conversation]:
         """Gets the results of a completed batch job.
 
+        For COMPLETED batches with partial failures, successful results are kept
+        and failed requests are retried via online inference.
+
         Args:
             batch_id: The batch job ID
             conversations: Original conversations used to create the batch
 
         Returns:
-            List[Conversation]: The processed conversations with responses
+            List of processed conversations with responses, preserving the
+            original input order.
 
         Raises:
-            RuntimeError: If the batch failed or has not completed
+            RuntimeError: If the batch failed, has not completed, or if retry
+                of failed requests also fails.
         """
         return safe_asyncio_run(
             self._get_batch_results_with_mapping(batch_id, conversations)
@@ -1098,15 +1104,21 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     ) -> list[Conversation]:
         """Gets the results of a completed batch job and maps them to conversations.
 
+        For COMPLETED batches with partial failures, successful results are kept
+        and failed requests are retried via the engine's online inference path.
+
         Args:
             batch_id: ID of the batch job
             conversations: Original conversations used to create the batch
 
         Returns:
-            List[Conversation]: The processed conversations with responses
+            List of processed conversations with responses, preserving the
+            original input order.
 
         Raises:
-            RuntimeError: If batch status is not completed or if there are errors
+            RuntimeError: If batch is in a non-completed terminal state (FAILED,
+                EXPIRED, CANCELLED), not in a terminal state, has no output file,
+                or if retry of failed requests also fails.
         """
         # Get batch status first
         batch_info = await self._get_batch_status(batch_id)
@@ -1116,11 +1128,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 f"Batch is not in terminal state. Status: {batch_info.status}"
             )
 
-        if batch_info.has_errors:
-            # Download error file if there are failed requests
+        if batch_info.status != BatchStatus.COMPLETED:
             if batch_info.error_file_id:
                 error_content = await self._download_file(batch_info.error_file_id)
+                logger.error(
+                    f"Batch {batch_id} failed with error file: {error_content}"
+                )
                 raise RuntimeError(f"Batch has failed requests: {error_content}")
+            logger.error(f"Batch {batch_id} failed: {batch_info.error}")
             raise RuntimeError(f"Batch failed with error: {batch_info.error}")
 
         # Download results file
@@ -1132,29 +1147,77 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Parse results and map by custom_id
         results_by_id: dict[str, dict] = {}
         for line in results_content.splitlines():
+            if not line.strip():
+                continue
             result = json.loads(line)
             custom_id = result.get("custom_id")
-            if not custom_id:
-                raise RuntimeError(f"Batch result missing custom_id: {result}")
-            results_by_id[custom_id] = result
+            if custom_id:
+                results_by_id[custom_id] = result
+        logger.info(
+            f"Batch {batch_id}: parsed {len(results_by_id)} results from output file"
+        )
 
-        # Map results back to conversations in original order
-        processed_conversations = []
+        processed_conversations: list[Conversation | None] = [None] * len(conversations)
+        failed_indices: list[int] = []
+        failure_reasons: dict[int, str] = {}
+
         for i, conv in enumerate(conversations):
             custom_id = f"request-{i}"
             result = results_by_id.get(custom_id)
             if not result:
-                raise RuntimeError(
-                    f"Missing result for {custom_id}. "
-                    f"Available IDs: {list(results_by_id.keys())}"
-                )
+                failed_indices.append(i)
+                failure_reasons[i] = "missing from output"
+                continue
+
             if result.get("error"):
-                raise RuntimeError(f"Batch request failed: {result['error']}")
-            processed_conv = self._convert_api_output_to_conversation(
-                result["response"]["body"], conv
-            )
-            processed_conversations.append(processed_conv)
-        return processed_conversations
+                failed_indices.append(i)
+                failure_reasons[i] = f"error: {result['error']}"
+                continue
+
+            try:
+                processed_conversations[i] = self._convert_api_output_to_conversation(
+                    result["response"]["body"], conv
+                )
+            except Exception as e:
+                failed_indices.append(i)
+                failure_reasons[i] = f"parse error: {e}"
+
+        if not failed_indices:
+            return processed_conversations  # type: ignore[return-value]
+
+        num_failed = len(failed_indices)
+        logger.warning(
+            f"Batch {batch_id}: {num_failed}/{len(conversations)} requests failed. "
+            f"Retrying failed requests via online inference."
+        )
+        for idx, reason in failure_reasons.items():
+            logger.warning(f"Batch {batch_id}: request-{idx} failed — {reason}")
+
+        if batch_info.error_file_id:
+            try:
+                error_content = await self._download_file(batch_info.error_file_id)
+                logger.warning(f"Batch {batch_id} error file contents: {error_content}")
+            except Exception:
+                logger.warning(
+                    f"Batch {batch_id}: could not download error file "
+                    f"{batch_info.error_file_id}"
+                )
+
+        # Retry failed conversations via online inference
+        failed_conversations = [conversations[i] for i in failed_indices]
+        logger.info(
+            f"Batch {batch_id}: retrying {len(failed_conversations)} failed requests"
+        )
+        retry_results = await self._infer(failed_conversations)
+        logger.info(
+            f"Batch {batch_id}: retry completed, got {len(retry_results)} results"
+        )
+
+        # Merge retry results back into the correct positions
+        for idx, retry_result in zip(failed_indices, retry_results):
+            processed_conversations[idx] = retry_result
+
+        return processed_conversations  # type: ignore[return-value]
 
     #
     # File operations
