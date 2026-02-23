@@ -34,7 +34,7 @@ from oumi.utils.http import (
         (500, False),  # Server Error
         (502, False),  # Bad Gateway
         (503, False),  # Service Unavailable
-        (429, False),  # Too Many Requests
+        (429, True),  # Too Many Requests
     ],
 )
 def test_is_non_retryable_status_code(status_code: int, expected: bool):

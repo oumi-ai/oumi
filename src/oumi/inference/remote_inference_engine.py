@@ -55,6 +55,7 @@ from oumi.utils.conversation_utils import (
     create_list_of_message_json_dicts,
 )
 from oumi.utils.http import (
+    APIStatusError,
     get_failure_reason_from_response,
     is_non_retriable_status_code,
 )
@@ -614,10 +615,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
                             # Check for non-retriable status codes to fail fast.
                             if is_non_retriable_status_code(response.status):
-                                failure_reason = (
-                                    f"Non-retriable error: {failure_reason}"
+                                raise APIStatusError(
+                                    f"Non-retriable error: {failure_reason}",
+                                    status_code=response.status,
                                 )
-                                raise RuntimeError(failure_reason)
                             continue
 
                         # Try to parse the response as JSON

@@ -34,6 +34,7 @@ from oumi.inference.remote_inference_engine import BatchStatus
 from oumi.utils.conversation_utils import (
     base64encode_content_item_image_bytes,
 )
+from oumi.utils.http import APIStatusError
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
@@ -677,8 +678,8 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
                 config,
             )
         with pytest.raises(
-            RuntimeError,
-            match="Failed to query API after 1 attempts. Reason: Too many requests",
+            APIStatusError,
+            match="Non-retriable error: Too many requests",
         ):
             _ = engine.infer(
                 [conversation],
