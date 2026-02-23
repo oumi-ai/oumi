@@ -669,38 +669,44 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
         if config.remote_params is not None:
             config.remote_params.max_retries = 0
 
-        with pytest.raises(
-            APIStatusError,
-            match="Failed to query API after 1 attempts. Reason: Gateway timeout",
-        ):
+        with pytest.raises(APIStatusError) as exc_info:
             _ = engine.infer(
                 [conversation],
                 config,
             )
-        with pytest.raises(
-            APIStatusError,
-            match="Failed to query API after 1 attempts. Reason: Too many requests",
-        ):
+        assert "Failed to query API after 1 attempts. Reason: Gateway timeout" in str(
+            exc_info.value
+        )
+        assert exc_info.value.status_code == 504
+        with pytest.raises(APIStatusError) as exc_info:
             _ = engine.infer(
                 [conversation],
                 config,
             )
-        with pytest.raises(
-            APIStatusError,
-            match="Failed to query API after 1 attempts. Reason: Service unavailable",
-        ):
+        assert "Failed to query API after 1 attempts. Reason: Too many requests" in str(
+            exc_info.value
+        )
+        assert exc_info.value.status_code == 429
+        with pytest.raises(APIStatusError) as exc_info:
             _ = engine.infer(
                 [conversation],
                 config,
             )
-        with pytest.raises(
-            APIStatusError,
-            match="Failed to query API after 1 attempts. Reason: Internal server error",
-        ):
+        assert (
+            "Failed to query API after 1 attempts. Reason: Service unavailable"
+            in str(exc_info.value)
+        )
+        assert exc_info.value.status_code == 503
+        with pytest.raises(APIStatusError) as exc_info:
             _ = engine.infer(
                 [conversation],
                 config,
             )
+        assert (
+            "Failed to query API after 1 attempts. Reason: Internal server error"
+            in str(exc_info.value)
+        )
+        assert exc_info.value.status_code == 500
 
         # No retries
         assert mock_asyncio_sleep.call_count == 0
@@ -2717,6 +2723,7 @@ def test_non_retriable_errors(mock_asyncio_sleep):
             assert f"Non-retriable error: {error_messages[status_code]}" in str(
                 exc_info.value
             )
+            assert exc_info.value.status_code == status_code
             # Verify no retries were attempted
             assert mock_asyncio_sleep.call_count == 0
             mock_asyncio_sleep.reset_mock()
