@@ -187,6 +187,25 @@ class BatchListResponse:
 
 
 @dataclass
+class BatchResult:
+    """Result of a partial batch retrieval, separating successes from failures."""
+
+    successful: list[tuple[int, Conversation]]
+    """List of (original_index, conversation) for successful requests."""
+
+    failed_indices: list[int]
+    """Indices of requests that failed."""
+
+    error_messages: dict[int, str]
+    """Mapping of failed index to error message."""
+
+    @property
+    def has_failures(self) -> bool:
+        """Return True if any requests failed."""
+        return len(self.failed_indices) > 0
+
+
+@dataclass
 class FileInfo:
     """Information about a file."""
 
@@ -1109,8 +1128,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     ) -> list[Conversation]:
         """Gets the results of a completed batch job and maps them to conversations.
 
-        For COMPLETED batches with partial failures, successful results are kept
-        and failed requests are retried via the engine's online inference path.
+        Delegates to _get_batch_results_partial for result retrieval, then retries
+        any failed requests via the engine's online inference path.
 
         Args:
             batch_id: ID of the batch job
@@ -1122,10 +1141,78 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         Raises:
             RuntimeError: If batch is in a non-completed terminal state (FAILED,
-                EXPIRED, CANCELLED), not in a terminal state, has no output file,
-                or if retry of failed requests also fails.
+                EXPIRED, CANCELLED), not in a terminal state, or if retry of
+                failed requests also fails.
         """
-        # Get batch status first
+        batch_result = await self._get_batch_results_partial(batch_id, conversations)
+
+        # Build results in original order
+        results: list[Conversation | None] = [None] * len(conversations)
+        for idx, conv in batch_result.successful:
+            results[idx] = conv
+
+        if not batch_result.has_failures:
+            return results  # type: ignore[return-value]
+
+        # Retry failed conversations via online inference
+        # (per-item failure details already logged by _get_batch_results_partial)
+        failed_conversations = [conversations[i] for i in batch_result.failed_indices]
+        logger.warning(
+            f"Batch {batch_id}: "
+            f"{len(failed_conversations)}/{len(conversations)} "
+            f"requests failed. Retrying via online inference."
+        )
+        retry_results = await self._infer(failed_conversations)
+
+        # Merge retry results back into the correct positions
+        for idx, retry_result in zip(batch_result.failed_indices, retry_results):
+            results[idx] = retry_result
+
+        return results  # type: ignore[return-value]
+
+    def get_batch_results_partial(
+        self,
+        batch_id: str,
+        conversations: list[Conversation],
+    ) -> BatchResult:
+        """Gets the results of a completed batch job, tolerating partial failures.
+
+        Args:
+            batch_id: The batch job ID
+            conversations: Original conversations used to create the batch
+
+        Returns:
+            BatchResult with successful conversations and failure details
+
+        Raises:
+            RuntimeError: If the batch is not in a terminal state, or if the
+                batch status is FAILED/EXPIRED/CANCELLED (unrecoverable)
+        """
+        return safe_asyncio_run(
+            self._get_batch_results_partial(batch_id, conversations)
+        )
+
+    async def _get_batch_results_partial(
+        self,
+        batch_id: str,
+        conversations: list[Conversation],
+    ) -> BatchResult:
+        """Gets partial results of a completed batch job.
+
+        If batch status is FAILED/EXPIRED/CANCELLED, raises (unrecoverable).
+        If status is COMPLETED (even with errors), parses output and error files
+        to separate successes from failures.
+
+        Args:
+            batch_id: ID of the batch job
+            conversations: Original conversations used to create the batch
+
+        Returns:
+            BatchResult with successful and failed items
+
+        Raises:
+            RuntimeError: If the batch is not terminal or is unrecoverably failed
+        """
         batch_info = await self._get_batch_status(batch_id)
 
         if not batch_info.is_terminal:
@@ -1133,96 +1220,86 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 f"Batch is not in terminal state. Status: {batch_info.status}"
             )
 
-        if batch_info.status != BatchStatus.COMPLETED:
-            if batch_info.error_file_id:
-                error_content = await self._download_file(batch_info.error_file_id)
-                logger.error(
-                    f"Batch {batch_id} failed with error file: {error_content}"
-                )
-                raise RuntimeError(f"Batch has failed requests: {error_content}")
-            logger.error(f"Batch {batch_id} failed: {batch_info.error}")
-            raise RuntimeError(f"Batch failed with error: {batch_info.error}")
+        if batch_info.status in (
+            BatchStatus.FAILED,
+            BatchStatus.EXPIRED,
+            BatchStatus.CANCELLED,
+        ):
+            raise RuntimeError(
+                f"Batch is unrecoverably {batch_info.status.value}: "
+                f"error={batch_info.error}"
+            )
 
-        # Download results file
-        if not batch_info.output_file_id:
-            raise RuntimeError("No output file available")
-
-        results_content = await self._download_file(batch_info.output_file_id)
-
-        # Parse results and map by custom_id
-        results_by_id: dict[str, dict] = {}
-        for line in results_content.splitlines():
-            if not line.strip():
-                continue
-            result = json.loads(line)
-            custom_id = result.get("custom_id")
-            if custom_id:
-                results_by_id[custom_id] = result
         logger.info(
-            f"Batch {batch_id}: parsed {len(results_by_id)} results from output file"
+            f"Batch {batch_id}: retrieving partial results "
+            f"(status={batch_info.status.value}, "
+            f"total={len(conversations)} requests)"
         )
-
-        processed_conversations: list[Conversation | None] = [None] * len(conversations)
+        successful: list[tuple[int, Conversation]] = []
         failed_indices: list[int] = []
-        failure_reasons: dict[int, str] = {}
+        error_messages: dict[int, str] = {}
 
-        for i, conv in enumerate(conversations):
-            custom_id = f"request-{i}"
-            result = results_by_id.get(custom_id)
-            if not result:
-                failed_indices.append(i)
-                failure_reasons[i] = "missing from output"
-                continue
+        # Parse output file (successful results)
+        if batch_info.output_file_id:
+            results_content = await self._download_file(batch_info.output_file_id)
+            for line in results_content.splitlines():
+                if not line.strip():
+                    continue
+                result = json.loads(line)
+                custom_id = result.get("custom_id", "")
+                try:
+                    idx = int(custom_id.split("-", 1)[1])
+                except (IndexError, ValueError):
+                    continue
 
-            if result.get("error"):
-                failed_indices.append(i)
-                failure_reasons[i] = f"error: {result['error']}"
-                continue
+                try:
+                    conv = self._convert_api_output_to_conversation(
+                        result["response"]["body"], conversations[idx]
+                    )
+                    successful.append((idx, conv))
+                except Exception as e:
+                    failed_indices.append(idx)
+                    error_messages[idx] = f"Failed to parse response: {e}"
 
-            try:
-                processed_conversations[i] = self._convert_api_output_to_conversation(
-                    result["response"]["body"], conv
-                )
-            except Exception as e:
-                failed_indices.append(i)
-                failure_reasons[i] = f"parse error: {e}"
-
-        if not failed_indices:
-            return processed_conversations  # type: ignore[return-value]
-
-        num_failed = len(failed_indices)
-        logger.warning(
-            f"Batch {batch_id}: {num_failed}/{len(conversations)} requests failed. "
-            f"Retrying failed requests via online inference."
-        )
-        for idx, reason in failure_reasons.items():
-            logger.warning(f"Batch {batch_id}: request-{idx} failed — {reason}")
-
+        # Parse error file (failed requests)
         if batch_info.error_file_id:
-            try:
-                error_content = await self._download_file(batch_info.error_file_id)
-                logger.warning(f"Batch {batch_id} error file contents: {error_content}")
-            except Exception:
-                logger.warning(
-                    f"Batch {batch_id}: could not download error file "
-                    f"{batch_info.error_file_id}"
-                )
+            error_content = await self._download_file(batch_info.error_file_id)
+            for line in error_content.splitlines():
+                if not line.strip():
+                    continue
+                result = json.loads(line)
+                custom_id = result.get("custom_id", "")
+                try:
+                    idx = int(custom_id.split("-", 1)[1])
+                except (IndexError, ValueError):
+                    continue
 
-        # Retry failed conversations via online inference
-        failed_conversations = [conversations[i] for i in failed_indices]
+                failed_indices.append(idx)
+                error_msg = result.get("error", {})
+                if isinstance(error_msg, dict):
+                    error_msg = error_msg.get("message", str(error_msg))
+                error_messages[idx] = str(error_msg)
+
+        # Detect items missing from both output and error files
+        seen_indices = {idx for idx, _ in successful} | set(failed_indices)
+        for idx in range(len(conversations)):
+            if idx not in seen_indices:
+                failed_indices.append(idx)
+                error_messages[idx] = "Result missing from both output and error files"
+
         logger.info(
-            f"Batch {batch_id}: retrying {len(failed_conversations)} failed requests"
+            f"Batch {batch_id}: {len(successful)} succeeded, "
+            f"{len(failed_indices)} failed out of {len(conversations)} total"
         )
-        retry_results = await self._infer(failed_conversations)
-        logger.info(
-            f"Batch {batch_id}: retry completed, got {len(retry_results)} results"
+        if error_messages:
+            for idx, msg in error_messages.items():
+                logger.warning(f"Batch {batch_id} request {idx} failed: {msg}")
+
+        return BatchResult(
+            successful=successful,
+            failed_indices=sorted(failed_indices),
+            error_messages=error_messages,
         )
-
-        # Merge retry results back into the correct positions
-        for idx, retry_result in zip(failed_indices, retry_results):
-            processed_conversations[idx] = retry_result
-
-        return processed_conversations  # type: ignore[return-value]
 
     #
     # File operations

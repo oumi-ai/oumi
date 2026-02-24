@@ -31,6 +31,7 @@ from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import (
     BatchInfo,
     BatchListResponse,
+    BatchResult,
     BatchStatus,
     RemoteInferenceEngine,
 )
@@ -256,22 +257,21 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
                     f"Failed to delete Fireworks dataset {dataset_id}: {error_text}"
                 )
 
-    async def _download_fireworks_dataset(
+    async def _get_fireworks_dataset_urls(
         self, dataset_id: str, session: aiohttp.ClientSession
-    ) -> str:
-        """Download content from a Fireworks dataset.
+    ) -> dict[str, str]:
+        """Get signed download URLs for all files in a Fireworks dataset.
 
         Args:
-            dataset_id: The dataset ID to download from
+            dataset_id: The dataset ID
             session: aiohttp session to use
 
         Returns:
-            str: The dataset content
+            Dict mapping filename to signed URL.
         """
         base_url = self._get_batch_api_base_url()
         headers = self._get_request_headers(self._remote_params)
 
-        # First get the download endpoint (uses GET, not POST)
         async with session.get(
             f"{base_url}/datasets/{dataset_id}:getDownloadEndpoint",
             headers=headers,
@@ -280,27 +280,54 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
                 error_text = await response.text()
                 raise RuntimeError(f"Failed to get download endpoint: {error_text}")
             data = await response.json()
-            # Response contains filenameToSignedUrls mapping
-            signed_urls = data.get("filenameToSignedUrls", {})
-            # Get the results file URL (BIJOutputSet.jsonl, not error-data)
-            download_url = None
-            for filename, url in signed_urls.items():
-                if "error" not in filename.lower() and filename.endswith(".jsonl"):
-                    download_url = url
-                    break
-            if not download_url and signed_urls:
-                # Fallback to first available URL
-                download_url = next(iter(signed_urls.values()))
+            return data.get("filenameToSignedUrls", {})
+
+    async def _download_fireworks_file(
+        self, url: str, session: aiohttp.ClientSession
+    ) -> str:
+        """Download content from a signed URL.
+
+        Args:
+            url: The signed URL to download from
+            session: aiohttp session to use
+
+        Returns:
+            str: The file content
+        """
+        async with session.get(url) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                raise RuntimeError(f"Failed to download file: {error_text}")
+            return await response.text()
+
+    async def _download_fireworks_dataset(
+        self, dataset_id: str, session: aiohttp.ClientSession
+    ) -> str:
+        """Download the results file from a Fireworks dataset.
+
+        Args:
+            dataset_id: The dataset ID to download from
+            session: aiohttp session to use
+
+        Returns:
+            str: The dataset content (results file only, not errors)
+        """
+        signed_urls = await self._get_fireworks_dataset_urls(dataset_id, session)
+
+        # Get the results file URL (BIJOutputSet.jsonl, not error-data)
+        download_url = None
+        for filename, url in signed_urls.items():
+            if "error" not in filename.lower() and filename.endswith(".jsonl"):
+                download_url = url
+                break
+        if not download_url and signed_urls:
+            # Fallback to first available URL
+            download_url = next(iter(signed_urls.values()))
 
         if not download_url:
             raise RuntimeError("No download URL returned from Fireworks")
 
-        # Download the actual content
-        async with session.get(download_url) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise RuntimeError(f"Failed to download dataset: {error_text}")
-            return await response.text()
+        return await self._download_fireworks_file(download_url, session)
 
     #
     # Batch API public methods
@@ -531,30 +558,36 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
             List[Conversation]: The processed conversations with responses
 
         Raises:
-            RuntimeError: If the batch failed or has not completed
+            RuntimeError: If the batch failed, has not completed, or any items failed
         """
-        return safe_asyncio_run(
-            self._get_fireworks_batch_results(batch_id, conversations)
-        )
+        batch_result = self.get_batch_results_partial(batch_id, conversations)
+        if batch_result.has_failures:
+            first_idx = batch_result.failed_indices[0]
+            raise RuntimeError(
+                f"Batch {batch_id} failed for "
+                f"{len(batch_result.failed_indices)} items. "
+                f"First error (index {first_idx}): "
+                f"{batch_result.error_messages.get(first_idx, 'unknown')}"
+            )
+        return [conv for _, conv in sorted(batch_result.successful)]
 
-    async def _get_fireworks_batch_results(
+    @override
+    def get_batch_results_partial(
         self,
         batch_id: str,
         conversations: list[Conversation],
-    ) -> list[Conversation]:
-        """Gets the results of a completed batch job from the Fireworks API.
+    ) -> BatchResult:
+        """Gets partial results of a completed Fireworks batch job."""
+        return safe_asyncio_run(
+            self._get_fireworks_batch_results_partial(batch_id, conversations)
+        )
 
-        Args:
-            batch_id: ID of the batch job
-            conversations: Original conversations used to create the batch
-
-        Returns:
-            List[Conversation]: The processed conversations with responses
-
-        Raises:
-            RuntimeError: If batch status is not completed or if there are errors
-        """
-        # Get batch status first
+    async def _get_fireworks_batch_results_partial(
+        self,
+        batch_id: str,
+        conversations: list[Conversation],
+    ) -> BatchResult:
+        """Gets partial results of a completed Fireworks batch job."""
         batch_info = await self._get_fireworks_batch_status(batch_id)
 
         if not batch_info.is_terminal:
@@ -562,13 +595,16 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
                 f"Batch is not in terminal state. Status: {batch_info.status}"
             )
 
-        if batch_info.status == BatchStatus.FAILED:
-            raise RuntimeError(f"Batch failed: {batch_info.error}")
+        if batch_info.status in (
+            BatchStatus.FAILED,
+            BatchStatus.EXPIRED,
+            BatchStatus.CANCELLED,
+        ):
+            raise RuntimeError(
+                f"Batch is unrecoverably {batch_info.status.value}: "
+                f"error={batch_info.error}"
+            )
 
-        if batch_info.status == BatchStatus.CANCELLED:
-            raise RuntimeError("Batch was cancelled")
-
-        # Get output dataset ID from metadata (may be full path or just ID)
         output_dataset_path = (
             batch_info.metadata.get("output_dataset_id")
             if batch_info.metadata
@@ -579,47 +615,94 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
 
         output_dataset_id = self._extract_resource_id(output_dataset_path)
 
-        # Download results from output dataset
+        logger.info(
+            f"Batch {batch_id}: retrieving partial results "
+            f"(status={batch_info.status.value}, "
+            f"total={len(conversations)} requests, "
+            f"dataset={output_dataset_id})"
+        )
+
+        # Fireworks output dataset contains two files: results and errors.
+        # Download both from the dataset's signed URLs.
+        successful: list[tuple[int, Conversation]] = []
+        failed_indices: list[int] = []
+        error_messages: dict[int, str] = {}
+
         connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
         async with aiohttp.ClientSession(connector=connector) as session:
-            results_content = await self._download_fireworks_dataset(
+            signed_urls = await self._get_fireworks_dataset_urls(
                 output_dataset_id, session
             )
-
-        # Parse results and map back to conversations by custom_id
-        results_by_id: dict[str, dict[str, Any]] = {}
-        for line in results_content.strip().splitlines():
-            if not line:
-                continue
-            result = json.loads(line)
-            custom_id = result.get("custom_id")
-            if custom_id:
-                results_by_id[custom_id] = result
-
-        # Build output conversations in order
-        processed_conversations = []
-        for i, conv in enumerate(conversations):
-            custom_id = f"request-{i}"
-            result = results_by_id.get(custom_id)
-
-            if not result:
-                raise RuntimeError(f"Missing result for {custom_id}")
-
-            # Check for errors in the result
-            if result.get("error"):
-                raise RuntimeError(
-                    f"Batch request {custom_id} failed: {result['error']}"
-                )
-
-            # Extract the response - Fireworks puts the response directly
-            # under "response" (unlike OpenAI batch which uses response.body)
-            response_body = result.get("response", {})
-            processed_conv = self._convert_api_output_to_conversation(
-                response_body, conv
+            logger.info(
+                f"Batch {batch_id}: output dataset has "
+                f"{len(signed_urls)} files: {list(signed_urls.keys())}"
             )
-            processed_conversations.append(processed_conv)
 
-        return processed_conversations
+            results_url = None
+            error_url = None
+            for filename, url in signed_urls.items():
+                if "error" in filename.lower():
+                    error_url = url
+                elif filename.endswith(".jsonl"):
+                    results_url = url
+
+            # Parse results file (successful responses)
+            if results_url:
+                results_content = await self._download_fireworks_file(
+                    results_url, session
+                )
+                for line in results_content.strip().splitlines():
+                    if not line:
+                        continue
+                    result = json.loads(line)
+                    custom_id = result.get("custom_id", "")
+                    try:
+                        idx = int(custom_id.split("-", 1)[1])
+                    except (IndexError, ValueError):
+                        continue
+
+                    try:
+                        response_body = result.get("response", {})
+                        conv = self._convert_api_output_to_conversation(
+                            response_body, conversations[idx]
+                        )
+                        successful.append((idx, conv))
+                    except Exception as e:
+                        failed_indices.append(idx)
+                        error_messages[idx] = f"Failed to parse response: {e}"
+
+            # Parse error file (failed requests)
+            if error_url:
+                error_content = await self._download_fireworks_file(error_url, session)
+                for line in error_content.strip().splitlines():
+                    if not line:
+                        continue
+                    result = json.loads(line)
+                    custom_id = result.get("custom_id", "")
+                    try:
+                        idx = int(custom_id.split("-", 1)[1])
+                    except (IndexError, ValueError):
+                        continue
+
+                    failed_indices.append(idx)
+                    error_msg = result.get("error", {})
+                    if isinstance(error_msg, dict):
+                        error_msg = error_msg.get("message", str(error_msg))
+                    error_messages[idx] = str(error_msg)
+
+        logger.info(
+            f"Batch {batch_id}: {len(successful)} succeeded, "
+            f"{len(failed_indices)} failed out of {len(conversations)} total"
+        )
+        if error_messages:
+            for idx, msg in error_messages.items():
+                logger.warning(f"Batch {batch_id} request {idx} failed: {msg}")
+
+        return BatchResult(
+            successful=successful,
+            failed_indices=failed_indices,
+            error_messages=error_messages,
+        )
 
     def cancel_batch(self, batch_id: str) -> BatchInfo:
         """Cancels a batch inference job.

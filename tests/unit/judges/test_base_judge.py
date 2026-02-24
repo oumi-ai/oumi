@@ -18,6 +18,7 @@ import pytest
 
 from oumi.core.configs.params.judge_params import JudgeOutputType, JudgeResponseFormat
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.inference.remote_inference_engine import BatchResult
 from oumi.judges.base_judge import BaseJudge, JudgeOutput, JudgeOutputField
 
 
@@ -975,18 +976,26 @@ class TestBaseJudge:
             judge.judge_batch_submit(inputs)
 
     def test_judge_batch_result(self, sample_output_fields):
-        """Test judge_batch_result calls get_batch_results + parse_judge_outputs."""
-        completed_convs = [
-            Conversation(
-                messages=[
-                    Message(content="Test prompt", role=Role.USER),
-                    Message(content="<judgment>True</judgment>", role=Role.ASSISTANT),
-                ]
-            ),
-        ]
-
+        """Test judge_batch_result calls get_batch_results_partial + parses outputs."""
         mock_engine = MagicMock()
-        mock_engine.get_batch_results.return_value = completed_convs
+        mock_engine.get_batch_results_partial.return_value = BatchResult(
+            successful=[
+                (
+                    0,
+                    Conversation(
+                        messages=[
+                            Message(content="Test prompt", role=Role.USER),
+                            Message(
+                                content="<judgment>True</judgment>",
+                                role=Role.ASSISTANT,
+                            ),
+                        ]
+                    ),
+                ),
+            ],
+            failed_indices=[],
+            error_messages={},
+        )
 
         judge = BaseJudge(
             prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
@@ -1010,4 +1019,6 @@ class TestBaseJudge:
         assert len(results) == 1
         assert results[0].raw_output == "<judgment>True</judgment>"
         assert results[0].field_values == {"judgment": True}
-        mock_engine.get_batch_results.assert_called_once_with("batch_123", input_convs)
+        mock_engine.get_batch_results_partial.assert_called_once_with(
+            "batch_123", input_convs
+        )
