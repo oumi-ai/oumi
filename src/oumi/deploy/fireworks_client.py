@@ -232,16 +232,27 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         name = data.get("name", "")
         endpoint_id = name.split("/")[-1] if "/" in name else name
 
+        # Fireworks Get Deployment API does not return endpointUrl (see
+        # https://docs.fireworks.ai/api-reference/get-deployment). For on-demand
+        # deployments, inference uses the standard chat completions endpoint with
+        # the deployment resource name as the model. See on-demand quickstart:
+        # https://docs.fireworks.ai/getting-started/ondemand-quickstart
+        endpoint_url = data.get("endpointUrl")
+        if not endpoint_url:
+            endpoint_url = "https://api.fireworks.ai/inference/v1/chat/completions"
+        inference_model_name = name if name else None
+
         return Endpoint(
             endpoint_id=endpoint_id,
             provider=DeploymentProvider.FIREWORKS,
             model_id=data.get("baseModel", ""),
-            endpoint_url=data.get("endpointUrl"),
+            endpoint_url=endpoint_url,
             state=state,
             hardware=hardware,
             autoscaling=autoscaling,
             created_at=created_at,
             display_name=data.get("displayName"),
+            inference_model_name=inference_model_name,
         )
 
     # Validation retry settings.
