@@ -204,11 +204,13 @@ class BaseDeploymentClient(ABC):
         pass
 
     @abstractmethod
-    async def delete_endpoint(self, endpoint_id: str) -> None:
+    async def delete_endpoint(self, endpoint_id: str, *, force: bool = False) -> None:
         """Deletes an endpoint.
 
         Args:
             endpoint_id: Provider-specific endpoint ID
+            force: If True, skip provider safety checks and perform a hard deletion
+                (e.g. delete even if the deployment recently received requests).
         """
         pass
 

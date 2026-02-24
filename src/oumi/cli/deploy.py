@@ -754,7 +754,8 @@ def delete(
         typer.Option(
             "--force",
             "-f",
-            help="Skip confirmation prompt",
+            help="Skip confirmation prompt and force deletion "
+            "(e.g. bypass checks for recent inference requests)",
         ),
     ] = False,
     log_level: LOG_LEVEL_TYPE = None,
@@ -774,7 +775,7 @@ def delete(
 
     async def _delete(client: BaseDeploymentClient) -> None:
         with CONSOLE.status("[bold red]Deleting endpoint..."):
-            await client.delete_endpoint(endpoint_id)
+            await client.delete_endpoint(endpoint_id, force=force)
 
         CONSOLE.print(f"[green]✓[/green] Endpoint {endpoint_id} deleted successfully!")
 

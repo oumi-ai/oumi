@@ -236,7 +236,7 @@ class TestFireworksDeploymentClient:
         client = FireworksDeploymentClient(api_key="test", account_id="test-account")
 
         mock_response = MagicMock()
-        mock_response.raise_for_status = MagicMock()
+        mock_response.is_error = False
 
         with patch.object(
             client._client, "delete", new_callable=AsyncMock, return_value=mock_response
@@ -244,6 +244,26 @@ class TestFireworksDeploymentClient:
             await client.delete_endpoint("deploy-123")
 
             assert "/deployments/deploy-123" in mock_delete.call_args[0][0]
+            assert mock_delete.call_args[1].get("params") == {}
+
+    @pytest.mark.asyncio
+    async def test_delete_endpoint_force(self):
+        """Test delete_endpoint with force passes ignoreChecks and hard to API."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        mock_response = MagicMock()
+        mock_response.is_error = False
+
+        with patch.object(
+            client._client, "delete", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_delete:
+            await client.delete_endpoint("deploy-123", force=True)
+
+            assert "/deployments/deploy-123" in mock_delete.call_args[0][0]
+            assert mock_delete.call_args[1]["params"] == {
+                "ignoreChecks": True,
+                "hard": True,
+            }
 
     @pytest.mark.asyncio
     async def test_list_endpoints(self):

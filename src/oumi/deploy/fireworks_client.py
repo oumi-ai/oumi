@@ -1151,14 +1151,19 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
         return self._parse_deployment(data)
 
-    async def delete_endpoint(self, endpoint_id: str) -> None:
+    async def delete_endpoint(self, endpoint_id: str, *, force: bool = False) -> None:
         """Deletes a deployment.
 
         Args:
             endpoint_id: Fireworks deployment ID
+            force: If True, pass ignoreChecks and hard query params to bypass
+                Fireworks safety checks (e.g. deployments with recent inference
+                requests) and perform a hard deletion.
         """
+        params: dict[str, Any] = {"ignoreChecks": True, "hard": True} if force else {}
         response = await self._client.delete(
-            f"/v1/accounts/{self.account_id}/deployments/{endpoint_id}"
+            f"/v1/accounts/{self.account_id}/deployments/{endpoint_id}",
+            params=params,
         )
         if response.is_error:
             _raise_api_error(response, context=f"delete endpoint '{endpoint_id}'")
