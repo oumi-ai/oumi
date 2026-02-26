@@ -50,7 +50,7 @@ def _make_fireworks_conversation(content: str) -> Conversation:
 
 @pytest.mark.asyncio
 async def test_fireworks_batch_partial_detects_missing_indices(fireworks_engine):
-    """Indices absent from both results and error files should appear in failed_indices."""
+    """Indices absent from both results and error files appear in failed_indices."""
     # 3 conversations: index 0 succeeds, index 1 errors, index 2 is MISSING
     conversations = [
         _make_fireworks_conversation("Q0"),
@@ -58,16 +58,20 @@ async def test_fireworks_batch_partial_detects_missing_indices(fireworks_engine)
         _make_fireworks_conversation("Q2"),
     ]
 
-    results_jsonl = json.dumps({
-        "custom_id": "request-0",
-        "response": {
-            "choices": [{"message": {"role": "assistant", "content": "A0"}}],
-        },
-    })
-    errors_jsonl = json.dumps({
-        "custom_id": "request-1",
-        "error": {"message": "rate limited"},
-    })
+    results_jsonl = json.dumps(
+        {
+            "custom_id": "request-0",
+            "response": {
+                "choices": [{"message": {"role": "assistant", "content": "A0"}}],
+            },
+        }
+    )
+    errors_jsonl = json.dumps(
+        {
+            "custom_id": "request-1",
+            "error": {"message": "rate limited"},
+        }
+    )
 
     mock_batch_info = MagicMock()
     mock_batch_info.is_terminal = True

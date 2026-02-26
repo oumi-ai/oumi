@@ -186,7 +186,9 @@ class BatchListResponse:
     has_more: bool = False
 
 
-from oumi.core.inference.base_inference_engine import BatchResult  # noqa: F401  # re-export for backwards compatibility
+from oumi.core.inference.base_inference_engine import (
+    BatchResult,  # noqa: F401  # re-export for backwards compatibility
+)
 
 
 @dataclass

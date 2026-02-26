@@ -17,8 +17,8 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from oumi.core.configs.params.judge_params import JudgeOutputType, JudgeResponseFormat
+from oumi.core.inference.base_inference_engine import BatchResult
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.inference.remote_inference_engine import BatchResult
 from oumi.judges.base_judge import BaseJudge, JudgeOutput, JudgeOutputField
 
 

@@ -28,12 +28,12 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttributeValue,
     TextMessage,
 )
+from oumi.core.inference.base_inference_engine import BatchResult
 from oumi.core.synthesis.attribute_synthesizer import (
     AttributeSynthesizer,
     SynthBatchResult,
 )
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.core.inference.base_inference_engine import BatchResult
 
 
 @pytest.fixture

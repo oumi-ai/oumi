@@ -24,9 +24,9 @@ from oumi.core.configs.params.synthesis_params import (
     GeneratedAttributePostprocessingParams,
     TextMessage,
 )
+from oumi.core.inference.base_inference_engine import BatchResult
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message
-from oumi.core.inference.base_inference_engine import BatchResult
 from oumi.inference.remote_inference_engine import BatchInfo
 from oumi.utils.logging import logger
 
