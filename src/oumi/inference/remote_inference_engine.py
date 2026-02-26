@@ -43,6 +43,9 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.params.remote_params import AdaptiveConcurrencyParams
 from oumi.core.inference import BaseInferenceEngine
+from oumi.core.inference.base_inference_engine import (
+    BatchResult,
+)
 from oumi.core.types.conversation import (
     Conversation,
     Message,
@@ -184,11 +187,6 @@ class BatchListResponse:
     first_id: str | None = None
     last_id: str | None = None
     has_more: bool = False
-
-
-from oumi.core.inference.base_inference_engine import (
-    BatchResult,  # noqa: F401  # re-export for backwards compatibility
-)
 
 
 @dataclass
