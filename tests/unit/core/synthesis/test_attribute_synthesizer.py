@@ -33,7 +33,7 @@ from oumi.core.synthesis.attribute_synthesizer import (
     SynthBatchResult,
 )
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.inference.remote_inference_engine import BatchResult
+from oumi.core.inference.base_inference_engine import BatchResult
 
 
 @pytest.fixture
@@ -473,7 +473,9 @@ def test_get_batch_results_raises_when_not_supported(
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
 
-    del mock_inference_engine.get_batch_results_partial
+    mock_inference_engine.get_batch_results_partial.side_effect = NotImplementedError(
+        "MockEngine does not support partial batch results."
+    )
 
     synthesizer = AttributeSynthesizer(
         mock_general_synthesis_params,
@@ -904,7 +906,9 @@ def test_get_batch_results_partial_not_supported(
     mock_inference_engine = Mock()
     mock_build_inference_engine.return_value = mock_inference_engine
 
-    del mock_inference_engine.get_batch_results_partial
+    mock_inference_engine.get_batch_results_partial.side_effect = NotImplementedError(
+        "MockEngine does not support partial batch results."
+    )
 
     synthesizer = AttributeSynthesizer(
         mock_general_synthesis_params,

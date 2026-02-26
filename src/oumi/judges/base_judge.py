@@ -26,7 +26,8 @@ from oumi.core.configs.params.judge_params import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.inference.remote_inference_engine import BatchResult, RemoteInferenceEngine
+from oumi.core.inference.base_inference_engine import BatchResult
+from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.placeholders import resolve_placeholders
 
 logger = logging.getLogger(__name__)

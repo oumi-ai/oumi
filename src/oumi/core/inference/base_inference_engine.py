@@ -464,7 +464,7 @@ class BaseInferenceEngine(ABC):
         self,
         batch_id: str,
         conversations: list[Conversation],
-    ) -> "BatchResult":
+    ) -> BatchResult:
         """Gets partial results of a completed batch job.
 
         Engines that support batch inference should override this method.

@@ -627,6 +627,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         successful: list[tuple[int, Conversation]] = []
         failed_indices: list[int] = []
         error_messages: dict[int, str] = {}
+        seen_indices: set[int] = set()
 
         connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
         async with aiohttp.ClientSession(connector=connector) as session:
@@ -660,6 +661,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
                         idx = int(custom_id.split("-", 1)[1])
                     except (IndexError, ValueError):
                         continue
+                    seen_indices.add(idx)
 
                     try:
                         response_body = result.get("response", {})
@@ -683,12 +685,19 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
                         idx = int(custom_id.split("-", 1)[1])
                     except (IndexError, ValueError):
                         continue
+                    seen_indices.add(idx)
 
                     failed_indices.append(idx)
                     error_msg = result.get("error", {})
                     if isinstance(error_msg, dict):
                         error_msg = error_msg.get("message", str(error_msg))
                     error_messages[idx] = str(error_msg)
+
+        # Detect indices missing from both results and error files
+        for idx in range(len(conversations)):
+            if idx not in seen_indices:
+                failed_indices.append(idx)
+                error_messages[idx] = "Request missing from batch output"
 
         logger.info(
             f"Batch {batch_id}: {len(successful)} succeeded, "
@@ -700,7 +709,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
 
         return BatchResult(
             successful=successful,
-            failed_indices=failed_indices,
+            failed_indices=sorted(failed_indices),
             error_messages=error_messages,
         )
 

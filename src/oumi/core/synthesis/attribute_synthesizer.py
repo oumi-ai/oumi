@@ -26,7 +26,8 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message
-from oumi.inference.remote_inference_engine import BatchInfo, BatchResult
+from oumi.core.inference.base_inference_engine import BatchResult
+from oumi.inference.remote_inference_engine import BatchInfo
 from oumi.utils.logging import logger
 
 
@@ -213,19 +214,13 @@ class AttributeSynthesizer:
         Raises:
             NotImplementedError: If the inference engine does not support batch.
         """
-        if not hasattr(self._inference_engine, "get_batch_results_partial"):
-            raise NotImplementedError(
-                f"Inference engine {type(self._inference_engine).__name__} does not "
-                "support partial batch results."
-            )
-
         conversations = self._build_batch_conversations(samples, generated_attribute)
 
         logger.info(
             f"Retrieving partial synthesis results for batch {batch_id} "
             f"({len(conversations)} conversations)"
         )
-        batch_result: BatchResult = self._inference_engine.get_batch_results_partial(  # type: ignore[attr-defined]
+        batch_result: BatchResult = self._inference_engine.get_batch_results_partial(
             batch_id, conversations
         )
 
