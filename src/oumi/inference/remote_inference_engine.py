@@ -186,23 +186,7 @@ class BatchListResponse:
     has_more: bool = False
 
 
-@dataclass
-class BatchResult:
-    """Result of a partial batch retrieval, separating successes from failures."""
-
-    successful: list[tuple[int, Conversation]]
-    """List of (original_index, conversation) for successful requests."""
-
-    failed_indices: list[int]
-    """Indices of requests that failed."""
-
-    error_messages: dict[int, str]
-    """Mapping of failed index to error message."""
-
-    @property
-    def has_failures(self) -> bool:
-        """Return True if any requests failed."""
-        return len(self.failed_indices) > 0
+from oumi.core.inference.base_inference_engine import BatchResult  # noqa: F401
 
 
 @dataclass
