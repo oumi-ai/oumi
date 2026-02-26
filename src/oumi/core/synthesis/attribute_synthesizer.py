@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import re
+from dataclasses import dataclass, field
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.inference_config import InferenceConfig
@@ -23,10 +24,30 @@ from oumi.core.configs.params.synthesis_params import (
     GeneratedAttributePostprocessingParams,
     TextMessage,
 )
+from oumi.core.inference.base_inference_engine import BatchResult
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message
 from oumi.inference.remote_inference_engine import BatchInfo
 from oumi.utils.logging import logger
+
+
+@dataclass
+class SynthBatchResult:
+    """Result from partial batch synthesis, separating successes from failures."""
+
+    successful: list[tuple[int, dict[str, str]]]
+    """List of (original_index, attribute_dict) for successfully synthesized items."""
+
+    failed_indices: list[int]
+    """Indices of items that failed synthesis."""
+
+    error_messages: dict[int, str] = field(default_factory=dict)
+    """Mapping of failed index to error message."""
+
+    @property
+    def has_failures(self) -> bool:
+        """Return True if any items in the batch failed synthesis."""
+        return len(self.failed_indices) > 0
 
 
 class AttributeSynthesizer:
@@ -112,17 +133,10 @@ class AttributeSynthesizer:
                 "support batch inference. Use synthesize() instead."
             )
 
-        inference_conversations: list[Conversation] = []
-        for sample in samples:
-            inference_conversations.append(
-                self._format_instructions(
-                    sample,
-                    generated_attribute.instruction_messages,
-                )
-            )
+        conversations = self._build_batch_conversations(samples, generated_attribute)
 
         batch_id = self._inference_engine.infer_batch(  # type: ignore[attr-defined]
-            inference_conversations,
+            conversations,
             inference_config=self._inference_config,
         )
         return batch_id
@@ -165,28 +179,93 @@ class AttributeSynthesizer:
 
         Raises:
             NotImplementedError: If the inference engine does not support batch.
+            RuntimeError: If any items failed synthesis.
         """
-        if not hasattr(self._inference_engine, "get_batch_results"):
-            raise NotImplementedError(
-                f"Inference engine {type(self._inference_engine).__name__} does not "
-                "support batch inference."
+        result = self.get_batch_results_partial(batch_id, samples, generated_attribute)
+        if result.has_failures:
+            first_idx = result.failed_indices[0]
+            raise RuntimeError(
+                f"Synthesis batch {batch_id} failed for "
+                f"{len(result.failed_indices)} items. "
+                f"First error (index {first_idx}): "
+                f"{result.error_messages.get(first_idx, 'unknown')}"
             )
+        return [output for _, output in sorted(result.successful)]
 
-        inference_conversations: list[Conversation] = []
-        for sample in samples:
-            inference_conversations.append(
-                self._format_instructions(
-                    sample,
-                    generated_attribute.instruction_messages,
-                )
-            )
+    def get_batch_results_partial(
+        self,
+        batch_id: str,
+        samples: list[dict],
+        generated_attribute: GeneratedAttribute,
+    ) -> SynthBatchResult:
+        """Get partial results from a completed batch inference job.
 
-        inference_results = self._inference_engine.get_batch_results(  # type: ignore[attr-defined]
-            batch_id, inference_conversations
+        This method returns successful results alongside failure information.
+        Parse failures from _process_inference_results are also captured.
+
+        Args:
+            batch_id: The batch ID returned from synthesize_batch().
+            samples: The original samples that were submitted for synthesis.
+            generated_attribute: The generated attribute configuration.
+
+        Returns:
+            SynthBatchResult with successful outputs and failure info.
+
+        Raises:
+            NotImplementedError: If the inference engine does not support batch.
+        """
+        conversations = self._build_batch_conversations(samples, generated_attribute)
+
+        logger.info(
+            f"Retrieving partial synthesis results for batch {batch_id} "
+            f"({len(conversations)} conversations)"
         )
-        self._accumulate_token_usage(inference_results)
+        batch_result: BatchResult = self._inference_engine.get_batch_results_partial(
+            batch_id, conversations
+        )
 
-        return self._process_inference_results(inference_results, generated_attribute)
+        successful_outputs: list[tuple[int, dict[str, str]]] = []
+        failed_indices: list[int] = list(batch_result.failed_indices)
+        error_messages: dict[int, str] = dict(batch_result.error_messages)
+        parse_failures = 0
+
+        for idx, conv in batch_result.successful:
+            try:
+                processed = self._process_inference_results([conv], generated_attribute)
+                successful_outputs.append((idx, processed[0]))
+                self._accumulate_token_usage([conv])
+            except Exception as e:
+                parse_failures += 1
+                failed_indices.append(idx)
+                error_messages[idx] = f"Failed to process synthesis output: {e}"
+                logger.warning(
+                    f"Batch {batch_id} request {idx}: "
+                    f"failed to process synthesis output: {e}"
+                )
+
+        logger.info(
+            f"Batch {batch_id} synthesis results: "
+            f"{len(successful_outputs)} processed successfully, "
+            f"{len(batch_result.failed_indices)} inference failures, "
+            f"{parse_failures} parse failures"
+        )
+
+        return SynthBatchResult(
+            successful=successful_outputs,
+            failed_indices=failed_indices,
+            error_messages=error_messages,
+        )
+
+    def _build_batch_conversations(
+        self,
+        samples: list[dict],
+        generated_attribute: GeneratedAttribute,
+    ) -> list[Conversation]:
+        """Build inference conversations from samples for batch operations."""
+        return [
+            self._format_instructions(sample, generated_attribute.instruction_messages)
+            for sample in samples
+        ]
 
     @property
     def total_input_tokens(self) -> int:

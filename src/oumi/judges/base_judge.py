@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import json
+import logging
 import re
+from dataclasses import dataclass, field
 
 import pydantic
 from typing_extensions import Self
@@ -23,9 +25,12 @@ from oumi.core.configs.params.judge_params import (
     JudgeResponseFormat,
 )
 from oumi.core.inference import BaseInferenceEngine
+from oumi.core.inference.base_inference_engine import BatchResult
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.placeholders import resolve_placeholders
+
+logger = logging.getLogger(__name__)
 
 
 class JudgeOutputField(pydantic.BaseModel):
@@ -127,27 +132,29 @@ class JudgeOutput(pydantic.BaseModel):
             parsed_output = {}
 
         # Process each expected output field
-        for field in output_fields:
-            if field.field_key not in parsed_output:
-                field_values[field.field_key] = None
-                field_scores[field.field_key] = None
+        for output_field in output_fields:
+            if output_field.field_key not in parsed_output:
+                field_values[output_field.field_key] = None
+                field_scores[output_field.field_key] = None
                 continue
 
             # Extract and clean the raw value
-            raw_value = parsed_output[field.field_key].strip()
+            raw_value = parsed_output[output_field.field_key].strip()
 
             # Convert to the appropriate type
-            typed_value = field.get_typed_value(raw_value)
-            field_values[field.field_key] = typed_value
+            typed_value = output_field.get_typed_value(raw_value)
+            field_values[output_field.field_key] = typed_value
 
             # Extract numeric score if field has score mapping
-            if field.field_scores:
-                field_scores[field.field_key] = field.field_scores.get(raw_value)
-            elif field.field_type == JudgeOutputType.BOOL:
+            if output_field.field_scores:
+                field_scores[output_field.field_key] = output_field.field_scores.get(
+                    raw_value
+                )
+            elif output_field.field_type == JudgeOutputType.BOOL:
                 # For boolean fields, scores can be inferred
-                field_scores[field.field_key] = 1.0 if typed_value else 0.0
+                field_scores[output_field.field_key] = 1.0 if typed_value else 0.0
             else:
-                field_scores[field.field_key] = None
+                field_scores[output_field.field_key] = None
 
         return cls(
             raw_output=raw_output,
@@ -221,7 +228,7 @@ class JudgeOutput(pydantic.BaseModel):
             raise ValueError("output_fields must be set before generating output")
 
         # Extract required field keys from output_fields
-        required_field_keys = {field.field_key for field in self.output_fields}
+        required_field_keys = {f.field_key for f in self.output_fields}
 
         # Validate that all required fields are provided
         provided_keys = set(field_values.keys())
@@ -246,7 +253,7 @@ class JudgeOutput(pydantic.BaseModel):
         elif self.response_format == JudgeResponseFormat.RAW:
             # For RAW format, concatenate values in the order of output_fields
             ordered_values = [
-                filtered_field_values[field.field_key] for field in self.output_fields
+                filtered_field_values[f.field_key] for f in self.output_fields
             ]
             return "\n".join(ordered_values)
         else:
@@ -284,6 +291,25 @@ class JudgeOutput(pydantic.BaseModel):
             JSON string representation of the JudgeOutput data.
         """
         return json.dumps(self.model_dump())
+
+
+@dataclass
+class JudgeBatchResult:
+    """Result from partial batch judging, separating successes from failures."""
+
+    successful: list[tuple[int, JudgeOutput]]
+    """List of (original_index, JudgeOutput) for successfully judged items."""
+
+    failed_indices: list[int]
+    """Indices of items that failed judging."""
+
+    error_messages: dict[int, str] = field(default_factory=dict)
+    """Mapping of failed index to error message."""
+
+    @property
+    def has_failures(self) -> bool:
+        """Return True if any items in the batch failed judgment."""
+        return len(self.failed_indices) > 0
 
 
 class BaseJudge:
@@ -389,11 +415,77 @@ class BaseJudge:
 
         Raises:
             ValueError: If inference_engine is None or not a RemoteInferenceEngine.
+            RuntimeError: If any items failed judging.
+        """
+        result = self.judge_batch_result_partial(batch_id, conversations)
+        if result.has_failures:
+            first_idx = result.failed_indices[0]
+            raise RuntimeError(
+                f"Judge batch {batch_id} failed for "
+                f"{len(result.failed_indices)} items. "
+                f"First error (index {first_idx}): "
+                f"{result.error_messages.get(first_idx, 'unknown')}"
+            )
+        return [output for _, output in sorted(result.successful)]
+
+    def judge_batch_result_partial(
+        self, batch_id: str, conversations: list[Conversation]
+    ) -> JudgeBatchResult:
+        """Retrieve and parse partial results from a completed batch judging job.
+
+        Args:
+            batch_id: The batch job ID from judge_batch_submit.
+            conversations: The conversations returned by judge_batch_submit.
+
+        Returns:
+            JudgeBatchResult with successful outputs and failure info.
+
+        Raises:
+            ValueError: If inference_engine is None or not a RemoteInferenceEngine.
         """
         if not isinstance(self.inference_engine, RemoteInferenceEngine):
             raise ValueError("Batch judging requires a RemoteInferenceEngine")
-        completed = self.inference_engine.get_batch_results(batch_id, conversations)
-        return self.parse_judge_outputs(completed)
+
+        logger.info(
+            f"Retrieving partial judge results for batch {batch_id} "
+            f"({len(conversations)} conversations)"
+        )
+        batch_result: BatchResult = self.inference_engine.get_batch_results_partial(
+            batch_id, conversations
+        )
+
+        successful_outputs: list[tuple[int, JudgeOutput]] = []
+        failed_indices = batch_result.failed_indices
+        error_messages = batch_result.error_messages
+        inference_failures = len(failed_indices)
+        parse_failures = 0
+
+        for idx, conv in batch_result.successful:
+            try:
+                self._validate_completed_conversation(conv)
+                raw_output = str(conv.messages[-1].content)
+                judge_output = self._transform_judge_output(raw_output)
+                successful_outputs.append((idx, judge_output))
+            except Exception as e:
+                parse_failures += 1
+                failed_indices.append(idx)
+                error_messages[idx] = f"Failed to parse judge output: {e}"
+                logger.warning(
+                    f"Batch {batch_id} request {idx}: failed to parse judge output: {e}"
+                )
+
+        logger.info(
+            f"Batch {batch_id} judge results: "
+            f"{len(successful_outputs)} parsed successfully, "
+            f"{inference_failures} inference failures, "
+            f"{parse_failures} parse failures"
+        )
+
+        return JudgeBatchResult(
+            successful=successful_outputs,
+            failed_indices=failed_indices,
+            error_messages=error_messages,
+        )
 
     def build_conversations(
         self,
@@ -491,14 +583,18 @@ class BaseJudge:
         if not output_fields:
             raise ValueError("Output fields cannot be empty")
 
-        for field in self.output_fields:
-            if field.field_key is None or not field.field_key.strip():
+        for output_field in self.output_fields:
+            if output_field.field_key is None or not output_field.field_key.strip():
                 raise ValueError(
-                    f"Output field `field_key` cannot be None or empty: {field}"
+                    f"Output field `field_key` cannot be None or empty: {output_field}"
                 )
-            if field.field_type == JudgeOutputType.ENUM and not field.field_scores:
+            if (
+                output_field.field_type == JudgeOutputType.ENUM
+                and not output_field.field_scores
+            ):
                 raise ValueError(
-                    f"ENUM field type requires `field_scores` to be defined: {field}"
+                    "ENUM field type requires `field_scores` to be defined: "
+                    f"{output_field}"
                 )
 
     def _build_judgment_prompt(self, judge_input: dict[str, str]) -> str:

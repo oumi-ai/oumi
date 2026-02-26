@@ -28,6 +28,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_inference_engine import (
     BatchInfo,
     BatchListResponse,
+    BatchResult,
     BatchStatus,
     RemoteInferenceEngine,
 )
@@ -448,30 +449,47 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             List[Conversation]: The processed conversations with responses
 
         Raises:
-            RuntimeError: If the batch failed or has not completed
+            RuntimeError: If the batch failed, has not completed, or any items failed
         """
-        return safe_asyncio_run(
-            self._get_anthropic_batch_results(batch_id, conversations)
-        )
+        batch_result = self.get_batch_results_partial(batch_id, conversations)
+        if batch_result.has_failures:
+            first_idx = batch_result.failed_indices[0]
+            raise RuntimeError(
+                f"Batch {batch_id} failed for "
+                f"{len(batch_result.failed_indices)} items. "
+                f"First error (index {first_idx}): "
+                f"{batch_result.error_messages.get(first_idx, 'unknown')}"
+            )
+        return [conv for _, conv in sorted(batch_result.successful)]
 
-    async def _get_anthropic_batch_results(
+    @override
+    def get_batch_results_partial(
         self,
         batch_id: str,
         conversations: list[Conversation],
-    ) -> list[Conversation]:
-        """Gets the results of a completed batch job from the Anthropic API.
+    ) -> BatchResult:
+        """Gets partial results of a completed Anthropic batch job."""
+        return safe_asyncio_run(
+            self._get_anthropic_batch_results_partial(batch_id, conversations)
+        )
+
+    async def _get_anthropic_batch_results_partial(
+        self,
+        batch_id: str,
+        conversations: list[Conversation],
+    ) -> BatchResult:
+        """Gets partial results of a completed Anthropic batch job.
 
         Args:
             batch_id: ID of the batch job
             conversations: Original conversations used to create the batch
 
         Returns:
-            List[Conversation]: The processed conversations with responses
+            BatchResult with successful and failed items
 
         Raises:
-            RuntimeError: If batch status is not completed or if there are errors
+            RuntimeError: If the batch is not terminal or is unrecoverably failed
         """
-        # Get batch status first
         batch_info = await self._get_anthropic_batch_status(batch_id)
 
         if not batch_info.is_terminal:
@@ -479,14 +497,15 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 f"Batch is not in terminal state. Status: {batch_info.status}"
             )
 
-        if batch_info.status == BatchStatus.FAILED:
-            raise RuntimeError(f"Batch failed: {batch_info.error}")
-
-        if batch_info.status == BatchStatus.CANCELLED:
-            raise RuntimeError("Batch was cancelled")
-
-        if batch_info.status == BatchStatus.EXPIRED:
-            raise RuntimeError("Batch expired before completion")
+        if batch_info.status in (
+            BatchStatus.FAILED,
+            BatchStatus.EXPIRED,
+            BatchStatus.CANCELLED,
+        ):
+            raise RuntimeError(
+                f"Batch is unrecoverably {batch_info.status.value}: "
+                f"error={batch_info.error}"
+            )
 
         # Get results URL from metadata
         results_url = (
@@ -495,7 +514,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if not results_url:
             raise RuntimeError("No results URL available")
 
-        # Download results from the URL
+        # Download results
         async with self._create_session() as (session, headers):
             async with session.get(results_url, headers=headers) as response:
                 if response.status != 200:
@@ -505,47 +524,70 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                     )
                 results_content = await response.text()
 
-        # Parse results and map back to conversations by custom_id
-        results_by_id: dict[str, dict[str, Any]] = {}
+        logger.info(
+            f"Batch {batch_id}: retrieving partial results "
+            f"(status={batch_info.status.value}, "
+            f"total={len(conversations)} requests)"
+        )
+
+        # Parse results — Anthropic puts both successes and errors in one file,
+        successful: list[tuple[int, Conversation]] = []
+        failed_indices: list[int] = []
+        error_messages: dict[int, str] = {}
+        all_indices = set(range(len(conversations)))
+        seen_indices: set[int] = set()
+
         for line in results_content.strip().splitlines():
             if not line:
                 continue
             result = json.loads(line)
-            custom_id = result.get("custom_id")
-            if custom_id:
-                results_by_id[custom_id] = result
+            custom_id = result.get("custom_id", "")
+            try:
+                idx = int(custom_id.split("-", 1)[1])
+            except (IndexError, ValueError):
+                continue
 
-        # Build output conversations in order
-        processed_conversations = []
-        for i, conv in enumerate(conversations):
-            custom_id = f"request-{i}"
-            result = results_by_id.get(custom_id)
-
-            if not result:
-                raise RuntimeError(f"Missing result for {custom_id}")
-
+            seen_indices.add(idx)
             result_type = result.get("result", {}).get("type")
+
             if result_type == "error":
                 error_info = result.get("result", {}).get("error", {})
-                raise RuntimeError(
-                    f"Batch request {custom_id} failed: "
+                failed_indices.append(idx)
+                error_messages[idx] = (
                     f"{error_info.get('type')}: {error_info.get('message')}"
                 )
+            elif result_type == "succeeded":
+                try:
+                    message_response = result.get("result", {}).get("message", {})
+                    conv = self._convert_api_output_to_conversation(
+                        message_response, conversations[idx]
+                    )
+                    successful.append((idx, conv))
+                except Exception as e:
+                    failed_indices.append(idx)
+                    error_messages[idx] = f"Failed to parse response: {e}"
+            else:
+                failed_indices.append(idx)
+                error_messages[idx] = f"Unexpected result type: {result_type}"
 
-            if result_type != "succeeded":
-                raise RuntimeError(
-                    f"Batch request {custom_id} has unexpected result type: "
-                    f"{result_type}"
-                )
+        # Any index missing from results is also a failure
+        for idx in sorted(all_indices - seen_indices):
+            failed_indices.append(idx)
+            error_messages[idx] = "Request missing from batch output"
 
-            # Extract the message response
-            message_response = result.get("result", {}).get("message", {})
-            processed_conv = self._convert_api_output_to_conversation(
-                message_response, conv
-            )
-            processed_conversations.append(processed_conv)
+        logger.info(
+            f"Batch {batch_id}: {len(successful)} succeeded, "
+            f"{len(failed_indices)} failed out of {len(conversations)} total"
+        )
+        if error_messages:
+            for idx, msg in error_messages.items():
+                logger.warning(f"Batch {batch_id} request {idx} failed: {msg}")
 
-        return processed_conversations
+        return BatchResult(
+            successful=successful,
+            failed_indices=sorted(failed_indices),
+            error_messages=error_messages,
+        )
 
     def cancel_batch(self, batch_id: str) -> BatchInfo:
         """Cancels a batch inference job.

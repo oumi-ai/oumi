@@ -17,8 +17,9 @@
 This module provides base classes for model inference in the Oumi framework.
 """
 
-from oumi.core.inference.base_inference_engine import BaseInferenceEngine
+from oumi.core.inference.base_inference_engine import BaseInferenceEngine, BatchResult
 
 __all__ = [
     "BaseInferenceEngine",
+    "BatchResult",
 ]
