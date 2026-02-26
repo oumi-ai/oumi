@@ -47,12 +47,47 @@ class RemoteParams(BaseParams):
     num_workers: int = 1
     """Number of workers to use for parallel inference."""
 
-    politeness_policy: float = 0.0
-    """Politeness policy to use when calling an API.
+    requests_per_minute: int | None = None
+    """Maximum number of API requests per minute (RPM).
 
-    If greater than zero, this is the amount of time in seconds a worker will sleep
-    before making a subsequent request.
+    When set, the engine enforces this limit the sliding window algo in RateLimiter. If
+    the limit is reached, workers sleep until the oldest request in the 60 second window
+    expires. In line with the RPM limits per OpenAI and Anthropic docs.
+
+    - OpenAI: https://platform.openai.com/settings/organization/limits
+    - OpenAI: https://developers.openai.com/api/docs/guides/rate-limits
+    - Anthropic: https://console.anthropic.com/settings/limits
+    - vLLM: configured per-server
+
+    Default is None, to disable request-rate limiting.
     """
+
+    input_tokens_per_minute: int | None = None
+    """Maximum input (prompt) tokens per minute (input TPM).
+
+    When set, the inf engine tracks input token usage from each API response and
+    sleeps before the next request if the 60-second rolling total would exceed
+    this limit. Token counts are read from the normalized output of
+    "_extract_usage_from_response()", which maps all supported APIs to the
+    "prompt_tokens" key.
+
+    Default is None, to disable input-token-rate limiting.
+    """
+
+    output_tokens_per_minute: int | None = None
+    """Maximum output (completion) tokens per minute (output TPM).
+
+    When set, the inf engine tracks output token usage from each API response and
+    sleeps before the next request if the 60-second rolling total would exceed
+    this limit. Token counts are read from the normalized output of
+    "_extract_usage_from_response()", which maps all supported APIs to the
+    "completion_tokens" key.
+
+    Default is None, to disable output-token-rate limiting.
+    """
+
+    politeness_policy: float = 0.0
+    """Deprecated: use requests_per_minute instead."""
 
     batch_completion_window: str | None = "24h"
     """Time window for batch completion. Currently only '24h' is supported.
@@ -86,6 +121,22 @@ class RemoteParams(BaseParams):
         if self.num_workers < 1:
             raise ValueError(
                 "Number of num_workers must be greater than or equal to 1."
+            )
+        if self.requests_per_minute is not None and self.requests_per_minute < 1:
+            raise ValueError("requests_per_minute must be greater than or equal to 1.")
+        if (
+            self.input_tokens_per_minute is not None
+            and self.input_tokens_per_minute < 1
+        ):
+            raise ValueError(
+                "input_tokens_per_minute must be greater than or equal to 1."
+            )
+        if (
+            self.output_tokens_per_minute is not None
+            and self.output_tokens_per_minute < 1
+        ):
+            raise ValueError(
+                "output_tokens_per_minute must be greater than or equal to 1."
             )
         if self.politeness_policy < 0:
             raise ValueError("Politeness policy must be greater than or equal to 0.")
