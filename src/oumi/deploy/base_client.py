@@ -27,6 +27,7 @@ class DeploymentProvider(str, Enum):
     """Supported deployment providers."""
 
     FIREWORKS = "fireworks"
+    MODAL = "modal"
 
 
 class EndpointState(str, Enum):

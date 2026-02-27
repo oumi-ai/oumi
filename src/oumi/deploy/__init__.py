@@ -27,6 +27,7 @@ from oumi.deploy.base_client import (
 )
 from oumi.deploy.deploy_config import DeploymentConfig
 from oumi.deploy.fireworks_client import FireworksDeploymentClient
+from oumi.deploy.modal_client import ModalDeploymentClient
 
 __all__ = [
     "AutoscalingConfig",
@@ -38,6 +39,7 @@ __all__ = [
     "FireworksDeploymentClient",
     "HardwareConfig",
     "Model",
+    "ModalDeploymentClient",
     "ModelType",
     "UploadedModel",
 ]
