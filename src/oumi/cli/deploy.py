@@ -37,6 +37,7 @@ from oumi.deploy import (
     FireworksDeploymentClient,
     HardwareConfig,
     Model,
+    ModalDeploymentClient,
     ModelType,
     ParasailDeploymentClient,
     UploadedModel,
@@ -117,17 +118,19 @@ def _get_deployment_client(
     """Gets a deployment client for the specified provider.
 
     Args:
-        provider: Provider name ("fireworks", "parasail")
+        provider: Provider name ("fireworks", "modal", "parasail")
 
     Returns:
         Deployment client instance
 
     Raises:
-        ValueError: If provider is not supported
+        ValueError: If provider is not supported.
     """
     provider = provider.lower()
     if provider == DeploymentProvider.FIREWORKS.value:
         return FireworksDeploymentClient()
+    elif provider == DeploymentProvider.MODAL.value:
+        return ModalDeploymentClient()
     elif provider == DeploymentProvider.PARASAIL.value:
         return ParasailDeploymentClient()
     else:
@@ -138,19 +141,20 @@ def _get_deployment_client(
 
 
 def _get_available_providers() -> list[str]:
-    """Gets a list of providers that have API keys configured.
-
-    Returns:
-        List of provider names that can be used
-    """
+    """Return provider names that have credentials configured."""
     available = []
 
-    # Check Fireworks.ai
     if os.environ.get("FIREWORKS_API_KEY") and os.environ.get("FIREWORKS_ACCOUNT_ID"):
         available.append("fireworks")
 
     if os.environ.get("PARASAIL_API_KEY"):
         available.append("parasail")
+
+    has_modal_env = os.environ.get("MODAL_TOKEN_ID") and os.environ.get(
+        "MODAL_TOKEN_SECRET"
+    )
+    if has_modal_env or (Path.home() / ".modal.toml").exists():
+        available.append("modal")
 
     return available
 

@@ -28,6 +28,7 @@ from oumi.deploy.base_client import (
 )
 from oumi.deploy.deploy_config import DeploymentConfig
 from oumi.deploy.fireworks_client import FireworksDeploymentClient
+from oumi.deploy.modal_client import ModalDeploymentClient
 from oumi.deploy.parasail_client import ParasailDeploymentClient
 
 __all__ = [
@@ -40,6 +41,7 @@ __all__ = [
     "FireworksDeploymentClient",
     "HardwareConfig",
     "Model",
+    "ModalDeploymentClient",
     "ModelType",
     "ProgressCallback",
     "ParasailDeploymentClient",
