@@ -197,6 +197,22 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         result = FIREWORKS_ACCELERATORS_REVERSE.get(accelerator)
         return result if result is not None else accelerator.lower()
 
+    def _model_api_path(self, model_id: str, suffix: str = "") -> str:
+        """Returns the API path for a model.
+
+        Accepts short ID or full path (e.g. accounts/.../models/id).
+
+        Args:
+            model_id: Fireworks model ID (short) or full path
+            suffix: Optional suffix (e.g. ':prepare' for prepare endpoint)
+
+        Returns:
+            Path segment for use with the API client.
+        """
+        if "/" not in model_id:
+            return f"/v1/accounts/{self.account_id}/models/{model_id}{suffix}"
+        return f"/v1/{model_id}{suffix}"
+
     def _parse_deployment(self, data: dict[str, Any]) -> Endpoint:
         """Parses Fireworks deployment response into Endpoint dataclass."""
         state_str = data.get("state", "PENDING").upper()
@@ -629,6 +645,70 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         logger.info("Extracted model to %s", extract_dir)
         return extract_dir, temp_dir
 
+    def _collect_file_inventory(self, model_dir: Path) -> dict[str, int]:
+        """Builds filenameToSize inventory for the model directory.
+
+        Excludes HuggingFace cache artifacts (e.g. *.lock, *.metadata) and paths
+        under .cache or huggingface. Remote names are prefixed with "hf/" to match
+        firectl and backend expectations.
+
+        Returns:
+            Dict mapping remote filename (e.g. "hf/config.json") to file size in bytes.
+        """
+        _IGNORED_SUFFIXES = (".lock", ".metadata")
+        file_sizes: dict[str, int] = {}
+        for root, _, files in os.walk(model_dir):
+            for fname in files:
+                if fname.endswith(_IGNORED_SUFFIXES):
+                    logger.debug("Skipping cache artifact: %s", fname)
+                    continue
+                fpath = Path(root) / fname
+                rel = str(fpath.relative_to(model_dir))
+                if ".cache" in rel or "huggingface" in rel.lower():
+                    logger.debug("Skipping path under cache: %s", rel)
+                    continue
+
+                remote_name = f"hf/{rel}"
+                file_sizes[remote_name] = fpath.stat().st_size
+
+        return file_sizes
+
+    def _upload_order_key(self, item: tuple[str, str]) -> tuple[int, str]:
+        """Sort key: config/tokenizer files first for GCS propagation."""
+        filename = item[0]
+        if filename == "hf/config.json":
+            return (0, filename)
+        if filename == "hf/generation_config.json":
+            return (1, filename)
+        if filename in (
+            "hf/tokenizer_config.json",
+            "hf/tokenizer.json",
+            "hf/tokenizer.model",
+        ):
+            return (2, filename)
+        if filename.endswith(".index.json") or "tokenizer" in filename.lower():
+            return (3, filename)
+        return (4, filename)
+
+    async def _get_signed_urls_ordered(
+        self, model_id: str, file_sizes: dict[str, int]
+    ) -> list[tuple[str, str]]:
+        """Return (filename, signed_url) list from getUploadEndpoint in upload order."""
+        response = await self._client.post(
+            f"/v1/accounts/{self.account_id}/models/{model_id}:getUploadEndpoint",
+            json={"filenameToSize": file_sizes, "enableResumableUpload": False},
+        )
+        if response.is_error:
+            _raise_api_error(
+                response,
+                context=f"get upload endpoint for model '{model_id}'",
+            )
+        file_upload_urls = response.json().get("filenameToSignedUrls", {})
+        if not file_upload_urls:
+            raise ValueError("No upload URLs received from Fireworks API.")
+
+        return sorted(file_upload_urls.items(), key=self._upload_order_key)
+
     async def _upload_model_files(
         self,
         model_dir: Path,
@@ -645,34 +725,10 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         3. PUT each file to its signed URL (streamed from disk, with
            retry and exponential back-off on transient failures).
 
-        Each upload attempt uses a **fresh** ``httpx.AsyncClient`` to
-        avoid stale TLS connections, and file contents are streamed in
-        small read-chunks so that large model shards are never held
-        entirely in memory.
-
-        Files are filtered to exclude HuggingFace cache artifacts (e.g.
-        ``*.lock``, ``*.metadata``) so the backend sees only model files,
-        and critical files (e.g. ``config.json``) are uploaded first to
+        Files are uploaded in deterministic order (config/tokenizer first) to
         improve validation success (GCS propagation).
         """
-        # Collect file inventory, excluding cache artifacts (match firectl behavior)
-        _IGNORED_SUFFIXES = (".lock", ".metadata")
-        file_sizes: dict[str, int] = {}
-        for root, _, files in os.walk(model_dir):
-            for fname in files:
-                if fname.endswith(_IGNORED_SUFFIXES):
-                    logger.debug("Skipping cache artifact: %s", fname)
-                    continue
-                fpath = Path(root) / fname
-                rel = str(fpath.relative_to(model_dir))
-                if ".cache" in rel or "huggingface" in rel.lower():
-                    logger.debug("Skipping path under cache: %s", rel)
-                    continue
-
-                # Prepend "hf/" to match firectl behavior and backend expectations
-                remote_name = f"hf/{rel}"
-                file_sizes[remote_name] = fpath.stat().st_size
-
+        file_sizes = self._collect_file_inventory(model_dir)
         total_bytes = sum(file_sizes.values())
         logger.info(
             "Found %d files to upload (%.1f MB)",
@@ -694,42 +750,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 {"file_count": len(file_sizes), "files": list(file_sizes.keys())},
             )
 
-        # Obtain signed upload URLs
-        # https://docs.fireworks.ai/api-reference/get-model-upload-endpoint
-        response = await self._client.post(
-            f"/v1/accounts/{self.account_id}/models/{model_id}:getUploadEndpoint",
-            json={"filenameToSize": file_sizes, "enableResumableUpload": False},
-        )
-        if response.is_error:
-            _raise_api_error(
-                response,
-                context=f"get upload endpoint for model '{model_id}'",
-            )
-        file_upload_urls = response.json().get("filenameToSignedUrls", {})
-        if not file_upload_urls:
-            raise ValueError("No upload URLs received from Fireworks API.")
-
-        # Upload in deterministic order: config.json and small config/tokenizer
-        # files first so they are visible to validation sooner (GCS propagation).
-        def _upload_order(item: tuple[str, str]) -> tuple[int, str]:
-            filename = item[0]
-            if filename == "hf/config.json":
-                return (0, filename)
-            if filename == "hf/generation_config.json":
-                return (1, filename)
-            if filename in (
-                "hf/tokenizer_config.json",
-                "hf/tokenizer.json",
-                "hf/tokenizer.model",
-            ):
-                return (2, filename)
-            if filename.endswith(".index.json") or "tokenizer" in filename.lower():
-                return (3, filename)
-            return (4, filename)
-
-        upload_items = sorted(file_upload_urls.items(), key=_upload_order)
-
-        # Upload each file
+        upload_items = await self._get_signed_urls_ordered(model_id, file_sizes)
         total_files = len(upload_items)
         uploaded_bytes = 0
 
@@ -742,12 +763,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             )
 
         for idx, (filename, signed_url) in enumerate(upload_items, 1):
-            # Map remote filename (hf/foo.json) back to local path (foo.json)
-            # We know we prepended "hf/" in the inventory step.
-            local_rel_path = filename
-            if filename.startswith("hf/"):
-                local_rel_path = filename[3:]
-
+            local_rel_path = filename[3:] if filename.startswith("hf/") else filename
             file_path = model_dir / local_rel_path
             file_size = file_sizes[filename]
 
@@ -1009,12 +1025,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         Returns:
             Status string
         """
-        # Handle both short ID and full path
-        if "/" not in model_id:
-            model_path = f"/v1/accounts/{self.account_id}/models/{model_id}"
-        else:
-            model_path = f"/v1/{model_id}"
-
+        model_path = self._model_api_path(model_id)
         response = await self._client.get(model_path)
         if response.is_error:
             _raise_api_error(response, context=f"get model status for '{model_id}'")
@@ -1033,11 +1044,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         Returns:
             Preparation result
         """
-        if "/" not in model_id:
-            model_path = f"/v1/accounts/{self.account_id}/models/{model_id}:prepare"
-        else:
-            model_path = f"/v1/{model_id}:prepare"
-
+        model_path = self._model_api_path(model_id, ":prepare")
         payload: dict[str, Any] = {}
         if precision:
             payload["precision"] = precision
@@ -1325,14 +1332,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             model_id: Fireworks model ID (e.g., "my-model" or
                      "accounts/{account_id}/models/my-model")
         """
-        # Handle both short ID and full path
-        if "/" not in model_id:
-            model_path = f"/v1/accounts/{self.account_id}/models/{model_id}"
-        else:
-            # Extract model ID from full path
-            # accounts/{account_id}/models/{model_id} -> model_id
-            model_id_only = model_id.split("/")[-1]
-            model_path = f"/v1/accounts/{self.account_id}/models/{model_id_only}"
+        # Use short ID for full path; delete endpoint expects account-scoped path.
+        short_id = model_id.split("/")[-1] if "/" in model_id else model_id
+        model_path = self._model_api_path(short_id)
 
         response = await self._client.delete(model_path)
         if response.is_error:

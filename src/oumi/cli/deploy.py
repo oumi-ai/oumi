@@ -37,6 +37,7 @@ from oumi.deploy import (
     HardwareConfig,
     Model,
     ModelType,
+    UploadedModel,
 )
 from oumi.deploy.base_client import BaseDeploymentClient
 
@@ -89,6 +90,20 @@ def _run_async(
         raise typer.Exit(1) from None
 
 
+def _run_async_standalone(
+    fn: Callable[[], Coroutine[Any, Any, None]],
+) -> None:
+    """Runs an async function that does not need a deployment client.
+
+    Used e.g. by list_models across multiple providers.
+    """
+    try:
+        asyncio.run(fn())
+    except ValueError as exc:
+        CONSOLE.print(f"\n[red]Error:[/red] {exc}")
+        raise typer.Exit(1) from None
+
+
 def _get_deployment_client(
     provider: str,
 ) -> BaseDeploymentClient:
@@ -126,6 +141,94 @@ def _get_available_providers() -> list[str]:
         available.append("fireworks")
 
     return available
+
+
+async def _poll_model_until_ready(
+    client: BaseDeploymentClient,
+    provider_model_id: str,
+    job_id: str | None,
+    console: Console,
+) -> None:
+    """Polls until the model is ready or fails. Raises typer.Exit(1) on failure."""
+    console.print("\n[yellow]Waiting for model to be ready...[/yellow]")
+    if hasattr(client, "get_job_status") and job_id:
+        while True:
+            job_status = await client.get_job_status(job_id)
+            cur_status = job_status.get("status", "").lower()
+            console.print(f"Status: {cur_status}")
+
+            if cur_status in ["ready", "completed", "success"]:
+                console.print("[green]✓[/green] Model is ready for deployment!")
+                return
+            if cur_status in ["failed", "error"]:
+                error_msg = job_status.get("error", "Unknown error")
+                console.print(f"[red]Error:[/red] Model upload failed: {error_msg}")
+                raise typer.Exit(1)
+
+            await asyncio.sleep(10)
+    else:
+        while True:
+            cur_status = await client.get_model_status(provider_model_id)
+            console.print(f"Status: {cur_status}")
+
+            if cur_status.lower() in ["ready", "completed"]:
+                console.print("[green]✓[/green] Model is ready for deployment!")
+                return
+            if cur_status.lower() in ["failed", "error"]:
+                console.print("[red]Error:[/red] Model upload failed")
+                raise typer.Exit(1)
+
+            await asyncio.sleep(10)
+
+
+async def _poll_endpoint_until_ready(
+    client: BaseDeploymentClient,
+    endpoint_id: str,
+    console: Console,
+) -> Endpoint:
+    """Polls until the endpoint is RUNNING or ERROR.
+
+    Returns the final Endpoint; raises typer.Exit(1) on ERROR.
+    """
+    console.print("\n[yellow]Waiting for endpoint to be ready...[/yellow]")
+    while True:
+        endpoint = await client.get_endpoint(endpoint_id)
+        console.print(f"State: {endpoint.state.value}")
+
+        if endpoint.state == EndpointState.RUNNING:
+            console.print("[green]✓[/green] Endpoint is ready!")
+            if endpoint.endpoint_url:
+                console.print(f"[cyan]URL:[/cyan] {endpoint.endpoint_url}")
+            return endpoint
+        if endpoint.state == EndpointState.ERROR:
+            console.print("[red]Error:[/red] Endpoint deployment failed")
+            raise typer.Exit(1)
+
+        await asyncio.sleep(10)
+
+
+async def _upload_model_and_wait(
+    client: BaseDeploymentClient,
+    model_source: str,
+    model_name: str,
+    model_type: ModelType,
+    base_model: str | None,
+    wait: bool,
+    console: Console,
+) -> UploadedModel:
+    """Uploads a model and optionally polls until ready. Returns the UploadedModel."""
+    with console.status("[bold green]Uploading model..."):
+        result = await client.upload_model(
+            model_source=model_source,
+            model_name=model_name,
+            model_type=model_type,
+            base_model=base_model,
+        )
+    if wait:
+        await _poll_model_until_ready(
+            client, result.provider_model_id, result.job_id, console
+        )
+    return result
 
 
 def _print_endpoint_table(endpoints: list[Endpoint]) -> None:
@@ -324,13 +427,15 @@ def upload(
         CONSOLE.print(f"[cyan]Base Model:[/cyan] {base_model}")
 
     async def _upload(client: BaseDeploymentClient) -> None:
-        with CONSOLE.status("[bold green]Uploading model..."):
-            result = await client.upload_model(
-                model_source=model_path,
-                model_name=model_name,
-                model_type=ModelType(model_type),
-                base_model=base_model,
-            )
+        result = await _upload_model_and_wait(
+            client,
+            model_path,
+            model_name,
+            ModelType(model_type),
+            base_model,
+            wait,
+            CONSOLE,
+        )
 
         CONSOLE.print(
             f"\n[green]✓[/green] Model uploaded successfully!\n"
@@ -339,41 +444,6 @@ def upload(
 
         if result.job_id:
             CONSOLE.print(f"[cyan]Job ID:[/cyan] {result.job_id}")
-
-        if wait:
-            CONSOLE.print("\n[yellow]Waiting for model to be ready...[/yellow]")
-            if hasattr(client, "get_job_status") and result.job_id:
-                # For providers that use job-based status
-                while True:
-                    job_status = await client.get_job_status(result.job_id)
-                    cur_status = job_status.get("status", "").lower()
-                    CONSOLE.print(f"Status: {cur_status}")
-
-                    if cur_status in ["ready", "completed", "success"]:
-                        CONSOLE.print("[green]✓[/green] Model is ready for deployment!")
-                        break
-                    elif cur_status in ["failed", "error"]:
-                        error_msg = job_status.get("error", "Unknown error")
-                        CONSOLE.print(
-                            f"[red]Error:[/red] Model upload failed: {error_msg}"
-                        )
-                        raise typer.Exit(1)
-
-                    await asyncio.sleep(10)
-            else:
-                # For providers that use model-based status
-                while True:
-                    cur_status = await client.get_model_status(result.provider_model_id)
-                    CONSOLE.print(f"Status: {cur_status}")
-
-                    if cur_status.lower() in ["ready", "completed"]:
-                        CONSOLE.print("[green]✓[/green] Model is ready for deployment!")
-                        break
-                    elif cur_status.lower() in ["failed", "error"]:
-                        CONSOLE.print("[red]Error:[/red] Model upload failed")
-                        raise typer.Exit(1)
-
-                    await asyncio.sleep(10)
 
     _run_async(provider, _upload)
 
@@ -481,21 +551,9 @@ def create_endpoint(
             CONSOLE.print(f"[cyan]URL:[/cyan] {endpoint.endpoint_url}")
 
         if wait:
-            CONSOLE.print("\n[yellow]Waiting for endpoint to be ready...[/yellow]")
-            while True:
-                endpoint = await client.get_endpoint(endpoint.endpoint_id)
-                CONSOLE.print(f"State: {endpoint.state.value}")
-
-                if endpoint.state == EndpointState.RUNNING:
-                    CONSOLE.print("[green]✓[/green] Endpoint is ready!")
-                    if endpoint.endpoint_url:
-                        CONSOLE.print(f"[cyan]URL:[/cyan] {endpoint.endpoint_url}")
-                    break
-                elif endpoint.state == EndpointState.ERROR:
-                    CONSOLE.print("[red]Error:[/red] Endpoint deployment failed")
-                    raise typer.Exit(1)
-
-                await asyncio.sleep(10)
+            endpoint = await _poll_endpoint_until_ready(
+                client, endpoint.endpoint_id, CONSOLE
+            )
 
     _run_async(provider, _create)
 
@@ -729,7 +787,7 @@ def list_models(
                     "[dim]Tip: Use --status pending to show only ongoing uploads[/dim]"
                 )
 
-    asyncio.run(_list())
+    _run_async_standalone(_list)
 
 
 def delete(
@@ -1144,37 +1202,21 @@ def up(
     CONSOLE.print(f"[cyan]Hardware:[/cyan] {final_gpu_count}x {final_hardware}")
 
     async def _deploy(client: BaseDeploymentClient) -> None:
-        # Step 1: Upload model
+        # Step 1: Upload model (and optionally wait for ready)
         CONSOLE.print("\n[bold]Step 1: Uploading model...[/bold]")
-        with CONSOLE.status("[bold green]Uploading..."):
-            upload_result = await client.upload_model(
-                model_source=final_model_path,
-                model_name=final_model_name,
-                model_type=ModelType(final_model_type),
-                base_model=final_base_model,
-            )
+        upload_result = await _upload_model_and_wait(
+            client,
+            final_model_path,
+            final_model_name,
+            ModelType(final_model_type),
+            final_base_model,
+            wait,
+            CONSOLE,
+        )
 
         CONSOLE.print(
             f"[green]✓[/green] Model uploaded: {upload_result.provider_model_id}"
         )
-
-        # Wait for model to be ready
-        if wait:
-            CONSOLE.print("[yellow]Waiting for model to be ready...[/yellow]")
-            if hasattr(client, "get_job_status") and upload_result.job_id:
-                while True:
-                    job_status = await client.get_job_status(upload_result.job_id)
-                    cur_status = job_status.get("status", "").lower()
-
-                    if cur_status in ["ready", "completed", "success"]:
-                        CONSOLE.print("[green]✓[/green] Model is ready!")
-                        break
-                    elif cur_status in ["failed", "error"]:
-                        error = job_status.get("error", "Unknown error")
-                        CONSOLE.print(f"[red]Error:[/red] Upload failed: {error}")
-                        raise typer.Exit(1)
-
-                    await asyncio.sleep(10)
 
         # Step 2: Create endpoint
         CONSOLE.print("\n[bold]Step 2: Creating endpoint...[/bold]")
@@ -1193,20 +1235,10 @@ def up(
 
         CONSOLE.print(f"[green]✓[/green] Endpoint created: {endpoint.endpoint_id}")
 
-        # Wait for endpoint to be ready
         if wait:
-            CONSOLE.print("[yellow]Waiting for endpoint to be ready...[/yellow]")
-            while True:
-                endpoint = await client.get_endpoint(endpoint.endpoint_id)
-
-                if endpoint.state == EndpointState.RUNNING:
-                    CONSOLE.print("[green]✓[/green] Endpoint is ready!")
-                    break
-                elif endpoint.state == EndpointState.ERROR:
-                    CONSOLE.print("[red]Error:[/red] Endpoint deployment failed")
-                    raise typer.Exit(1)
-
-                await asyncio.sleep(10)
+            endpoint = await _poll_endpoint_until_ready(
+                client, endpoint.endpoint_id, CONSOLE
+            )
 
         # Display final details
         CONSOLE.print("\n" + "=" * 60)

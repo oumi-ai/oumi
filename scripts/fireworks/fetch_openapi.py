@@ -23,7 +23,6 @@ from collections import OrderedDict
 import requests
 import yaml
 
-
 DOCS_BASE = "https://docs.fireworks.ai/api-reference"
 
 # Endpoint pages used by FireworksDeploymentClient (src/oumi/deploy/fireworks_client.py)
@@ -61,6 +60,7 @@ YAML_BLOCK_RE = re.compile(
 
 
 def fetch_page(page_name: str) -> str:
+    """Fetch markdown content for a single API reference page from docs.fireworks.ai."""
     url = f"{DOCS_BASE}/{page_name}.md"
     resp = requests.get(url, timeout=30)
     resp.raise_for_status()
@@ -127,6 +127,7 @@ class FlowStyleDumper(yaml.SafeDumper):
 
 
 def str_representer(dumper: yaml.Dumper, data: str) -> yaml.ScalarNode:
+    """Represent strings with literal block style when they contain newlines."""
     if "\n" in data:
         return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
     return dumper.represent_scalar("tag:yaml.org,2002:str", data)
@@ -142,6 +143,7 @@ FlowStyleDumper.add_representer(
 
 
 def main() -> None:
+    """Parse args, fetch docs pages, merge OpenAPI fragments, write output file."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--output",
@@ -186,8 +188,10 @@ def main() -> None:
 
     n_paths = sum(len(methods) for methods in merged["paths"].values())
     n_schemas = len(merged["components"]["schemas"])
-    print(f"  Result: {n_paths} operations across {len(merged['paths'])} paths, "
-          f"{n_schemas} schemas")
+    print(
+        f"  Result: {n_paths} operations across {len(merged['paths'])} paths, "
+        f"{n_schemas} schemas"
+    )
 
     with open(args.output, "w") as f:
         yaml.dump(

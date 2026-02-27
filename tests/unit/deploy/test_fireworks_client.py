@@ -69,7 +69,7 @@ class TestFireworksAccelerators:
         assert FIREWORKS_ACCELERATORS["nvidia_a100_80gb"] == "NVIDIA_A100_80GB"
         assert FIREWORKS_ACCELERATORS["nvidia_h100_80gb"] == "NVIDIA_H100_80GB"
         assert FIREWORKS_ACCELERATORS["nvidia_h200_141gb"] == "NVIDIA_H200_141GB"
-        assert FIREWORKS_ACCELERATORS["amd_mi300x"] == "AMD_MI300X"
+        assert FIREWORKS_ACCELERATORS["amd_mi300x_192gb"] == "AMD_MI300X_192GB"
 
 
 class TestFireworksDeploymentClient:
@@ -142,14 +142,12 @@ class TestFireworksDeploymentClient:
 
         data = {
             "name": "accounts/test-account/deployments/deploy-123",
-            "model": "accounts/test-account/models/model-456",
+            "baseModel": "accounts/test-account/models/model-456",
             "state": "READY",
-            "config": {
-                "acceleratorType": "NVIDIA_A100_80GB",
-                "acceleratorCount": 2,
-                "minReplicas": 1,
-                "maxReplicas": 3,
-            },
+            "acceleratorType": "NVIDIA_A100_80GB",
+            "acceleratorCount": 2,
+            "minReplicaCount": 1,
+            "maxReplicaCount": 3,
             "endpointUrl": "https://api.fireworks.ai/v1/chat/completions",
             "displayName": "My Deployment",
             "createTime": "2025-01-16T10:00:00Z",
@@ -175,12 +173,12 @@ class TestFireworksDeploymentClient:
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "name": "accounts/test-account/deployments/deploy-123",
-            "model": "model-456",
+            "baseModel": "model-456",
             "state": "PENDING",
-            "config": {
-                "acceleratorType": "NVIDIA_A100_80GB",
-                "acceleratorCount": 1,
-            },
+            "acceleratorType": "NVIDIA_A100_80GB",
+            "acceleratorCount": 1,
+            "minReplicaCount": 1,
+            "maxReplicaCount": 2,
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -198,10 +196,10 @@ class TestFireworksDeploymentClient:
             call_args = mock_post.call_args
             assert "/deployments" in call_args[0][0]
             payload = call_args[1]["json"]
-            assert payload["model"] == "model-456"
-            assert payload["config"]["acceleratorType"] == "NVIDIA_A100_80GB"
-            assert payload["config"]["minReplicas"] == 1
-            assert payload["config"]["maxReplicas"] == 2
+            assert payload["baseModel"] == "model-456"
+            assert payload["acceleratorType"] == "NVIDIA_A100_80GB"
+            assert payload["minReplicaCount"] == 1
+            assert payload["maxReplicaCount"] == 2
             assert payload["displayName"] == "test-deployment"
 
     @pytest.mark.asyncio
@@ -210,14 +208,13 @@ class TestFireworksDeploymentClient:
         client = FireworksDeploymentClient(api_key="test", account_id="test-account")
 
         mock_response = MagicMock()
+        mock_response.is_error = False
         mock_response.json.return_value = {
             "name": "accounts/test-account/deployments/deploy-123",
-            "model": "model-456",
+            "baseModel": "model-456",
             "state": "READY",
-            "config": {
-                "acceleratorType": "NVIDIA_A100_80GB",
-                "acceleratorCount": 1,
-            },
+            "acceleratorType": "NVIDIA_A100_80GB",
+            "acceleratorCount": 1,
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -271,19 +268,26 @@ class TestFireworksDeploymentClient:
         client = FireworksDeploymentClient(api_key="test", account_id="test-account")
 
         mock_response = MagicMock()
+        mock_response.is_error = False
         mock_response.json.return_value = {
             "deployments": [
                 {
                     "name": "accounts/test/deployments/d1",
-                    "model": "m1",
+                    "baseModel": "m1",
                     "state": "READY",
-                    "config": {},
+                    "acceleratorType": "NVIDIA_A100_80GB",
+                    "acceleratorCount": 1,
+                    "minReplicaCount": 1,
+                    "maxReplicaCount": 1,
                 },
                 {
                     "name": "accounts/test/deployments/d2",
-                    "model": "m2",
+                    "baseModel": "m2",
                     "state": "PENDING",
-                    "config": {},
+                    "acceleratorType": "NVIDIA_A100_80GB",
+                    "acceleratorCount": 1,
+                    "minReplicaCount": 0,
+                    "maxReplicaCount": 1,
                 },
             ]
         }
@@ -310,7 +314,7 @@ class TestFireworksDeploymentClient:
         assert "nvidia_a100_80gb" in accelerators
         assert "nvidia_h100_80gb" in accelerators
         assert "nvidia_h200_141gb" in accelerators
-        assert "amd_mi300x" in accelerators
+        assert "amd_mi300x_192gb" in accelerators
 
     @pytest.mark.asyncio
     async def test_start_endpoint_not_supported(self):
