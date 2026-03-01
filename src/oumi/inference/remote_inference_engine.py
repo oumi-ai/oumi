@@ -53,6 +53,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.inference.adaptive_concurrency_controller import AdaptiveConcurrencyController
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
+from oumi.inference.rate_limiter import RateLimiter, UsageTracker
 from oumi.utils.conversation_utils import (
     convert_message_to_json_content_list,
     create_list_of_message_json_dicts,
@@ -220,6 +221,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     _remote_params: RemoteParams
     """Parameters for running inference against a remote API."""
 
+    _rate_limiter: RateLimiter | None
+    """Sliding window rate limiter for RPM and TPM limits."""
+
     def __init__(
         self,
         model_params: ModelParams,
@@ -268,6 +272,21 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     min_update_time=min_update_time,
                 ),
                 politeness_policy=self._remote_params.politeness_policy,
+            )
+
+        self._rate_limiter = None
+        if any(
+            [
+                self._remote_params.requests_per_minute is not None,
+                self._remote_params.input_tokens_per_minute is not None,
+                self._remote_params.output_tokens_per_minute is not None,
+            ]
+        ):
+            self._rate_limiter = RateLimiter(
+                tracker=UsageTracker(),
+                requests_per_minute=self._remote_params.requests_per_minute,
+                input_tokens_per_minute=self._remote_params.input_tokens_per_minute,
+                output_tokens_per_minute=self._remote_params.output_tokens_per_minute,
             )
 
     def _default_remote_params(self) -> RemoteParams:
@@ -582,6 +601,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     "Please set the environment variable "
                     f"`{remote_params.api_key_env_varname}`."
                 )
+        if self._rate_limiter is not None:
+            await self._rate_limiter.wait_if_needed()
+
         semaphore_or_controller = (
             self._adaptive_concurrency_controller
             if self._remote_params.use_adaptive_concurrency
@@ -648,6 +670,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                         f"{attempt + 1} attempts. {failure_reason}"
                                     ) from e
                                 continue
+
+                        # Recording token usage before conversion so that tokens are
+                        # counted even if _convert_api_output_to_conversation fails.
+                        if self._rate_limiter is not None:
+                            usage = self._extract_usage_from_response(response_json)
+                            if usage:
+                                await self._rate_limiter.record_usage(
+                                    input_tokens=usage.get("prompt_tokens", 0),
+                                    output_tokens=usage.get("completion_tokens", 0),
+                                )
 
                         # Process successful response
                         try:
