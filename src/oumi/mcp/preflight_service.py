@@ -5,10 +5,10 @@ credentials, dataset accessibility, and cloud file delivery before launch.
 """
 
 import logging
-import os
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from pathlib import Path
-from typing import Any, Iterable, cast
+from typing import Any, cast
 
 from huggingface_hub import auth_check, whoami
 from huggingface_hub.errors import (
@@ -21,7 +21,6 @@ from packaging.version import Version
 
 from oumi.mcp.config_service import (
     get_all_configs,
-    get_configs_dir,
     get_package_version,
     load_yaml_strict,
     resolve_config_path,

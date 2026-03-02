@@ -24,8 +24,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import oumi.launcher as launcher
 from fastmcp import FastMCP
+
+import oumi.launcher as launcher
 from oumi.core.configs import (
     AnalyzeConfig,
     AsyncEvaluationConfig,
@@ -38,7 +39,6 @@ from oumi.core.configs import (
     TrainingConfig,
     TuningConfig,
 )
-
 from oumi.mcp.config_service import (
     extract_key_settings,
     find_config_match,
@@ -88,9 +88,6 @@ from oumi.mcp.job_service import (
     stop_cluster_impl,
     wait_local_completion,
 )
-from oumi.mcp.preflight_service import (
-    _pre_flight_check,
-)
 from oumi.mcp.models import (
     CategoriesResponse,
     ClusterLifecycleResponse,
@@ -106,11 +103,8 @@ from oumi.mcp.models import (
     PreFlightCheckResponse,
     ValidateConfigResponse,
 )
-from oumi.mcp.sync_service import (
-    config_sync,
-    get_configs_source,
-    get_oumi_version,
-    is_oumi_dev_build,
+from oumi.mcp.preflight_service import (
+    _pre_flight_check,
 )
 from oumi.mcp.prompts.mle_prompt import (
     ANALYZE_COMMAND_RESOURCE,
@@ -122,6 +116,12 @@ from oumi.mcp.prompts.mle_prompt import (
     POST_TRAINING_RESOURCE,
     SYNTH_COMMAND_RESOURCE,
     TRAIN_COMMAND_RESOURCE,
+)
+from oumi.mcp.sync_service import (
+    config_sync,
+    get_configs_source,
+    get_oumi_version,
+    is_oumi_dev_build,
 )
 
 _CLOUD_ENV_VAR_HINTS: dict[str, str] = {

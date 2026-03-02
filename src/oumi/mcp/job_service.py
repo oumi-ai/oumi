@@ -31,11 +31,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-import oumi.launcher as launcher
 import yaml
+
+import oumi.launcher as launcher
 from oumi.core.launcher.base_cluster import BaseCluster
 from oumi.core.launcher.base_cluster import JobStatus as OumiJobStatus
-
 from oumi.mcp.config_service import parse_yaml
 from oumi.mcp.constants import (
     DEFAULT_JOBS_FILE,
@@ -1050,7 +1050,7 @@ async def tail_log_file(
 
         if size > position:
             try:
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                with open(path, encoding="utf-8", errors="replace") as f:
                     f.seek(position)
                     chunk = f.read()
                     position = f.tell()
@@ -1065,7 +1065,7 @@ async def tail_log_file(
 
         if done_event.is_set():
             try:
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                with open(path, encoding="utf-8", errors="replace") as f:
                     f.seek(position)
                     remaining = f.read()
             except OSError:

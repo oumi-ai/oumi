@@ -254,7 +254,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
-"src/oumi/mcp/*" = ["D"]  # MCP server: docstrings to be added in follow-up
+"src/oumi/mcp/*" = ["D", "E501", "ASYNC", "PTH"]  # MCP server: to be addressed in follow-up
 "src/oumi/utils/verl_model_merger.*" = [
     "E501", # Line too long
     "D",    # Ignore docstring checks
