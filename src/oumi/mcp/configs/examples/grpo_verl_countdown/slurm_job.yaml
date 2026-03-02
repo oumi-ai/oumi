@@ -1,0 +1,52 @@
+# verl Slurm GRPO job config for Countdown.
+#
+# Requirements:
+#   - Set OUMI_SLURM_CONNECTIONS to your Slurm user@host
+#
+# Usage:
+#   oumi launch up -c configs/examples/grpo_verl_countdown/slurm_job.yaml --cluster $OUMI_SLURM_CONNECTIONS --user <slurm_user>
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: grpo-verl-countdown
+num_nodes: 1
+
+resources:
+  cloud: slurm
+
+working_dir: .
+
+envs:
+  RAY_ENABLE_RECORD_ACTOR_TASK_LOGGING: 1
+  RAY_BACKEND_LOG_LEVEL: debug
+
+setup: |
+  #SBATCH --ntasks-per-node=1
+  #SBATCH --cpus-per-task=4
+  #SBATCH --gpus-per-task=2
+  #SBATCH --mem-per-gpu=32G
+  #SBATCH --time=02:00:00
+  # Num nodes is set by num_nodes field above.
+
+  set -e
+  source ./configs/examples/misc/slurm_init.sh
+
+  source ~/miniconda3/etc/profile.d/conda.sh # Required for conda.
+  conda activate oumi
+  pip install uv && uv pip install 'oumi[gpu]'
+  pip install -U flash-attn --no-build-isolation
+
+  # Initialize Ray cluster on SLURM nodes.
+  source ./configs/examples/misc/slurm_ray_init.sh
+
+run: |
+  ray job submit --address="http://127.0.0.1:8265" \
+  -- \
+  oumi train \
+  -c configs/examples/grpo_verl_countdown/train.yaml \
+  --training.verl_config_overrides.trainer.n_gpus_per_node=$SLURM_GPUS_ON_NODE \
+  --training.verl_config_overrides.trainer.nnodes=$SLURM_JOB_NUM_NODES

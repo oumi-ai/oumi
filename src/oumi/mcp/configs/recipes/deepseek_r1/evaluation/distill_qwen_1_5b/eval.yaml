@@ -1,0 +1,33 @@
+# Eval config for Deepseek R1 Distill Qwen2.5 1.5B.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/deepseek_r1/evaluation/distill_qwen_1_5b/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+  model_max_length: 131072
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+  shard_for_eval: True
+
+generation:
+  batch_size: 4
+
+tasks:
+  # For all available tasks, see https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+  - evaluation_backend: lm_harness
+    task_name: mmlu_college_computer_science
+    eval_kwargs:
+      num_fewshot: 5
+
+enable_wandb: True

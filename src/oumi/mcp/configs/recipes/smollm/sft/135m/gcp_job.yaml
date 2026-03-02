@@ -1,0 +1,41 @@
+# Job config to tune smollm 135M on 1 GCP node.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/smollm/sft/135m/gcp_job.yaml --cluster smollm-135m-fft
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: smollm-135m-sft
+
+resources:
+  cloud: gcp
+  accelerators: "A100:1"
+  use_spot: false
+  disk_size: 100 # Disk size in GBs
+
+working_dir: .
+
+envs:
+  OUMI_RUN_NAME: smollm135m.train
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+
+setup: |
+  set -e
+  pip install uv && uv pip install --system oumi[gpu]
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi train \
+      -c configs/recipes/smollm/sft/135m/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.enable_wandb=False
+
+  echo "Training complete!"

@@ -1,0 +1,15 @@
+# Inference config for Qwen3 235B A22B 07/25 version (MoE model with 22B activated params).
+#
+# Usage:
+#   oumi infer -i -c oumi://configs/recipes/qwen3/inference/235b_a22b_together_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
+
+engine: TOGETHER

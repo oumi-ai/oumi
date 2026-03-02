@@ -1,0 +1,47 @@
+# Polaris Hello World job config.
+#
+# Usage:
+#   oumi launch up -c configs/examples/misc/hello_world_polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: hello-world
+# NOTE: Replace with your username.
+user: your_username
+resources:
+  cloud: polaris
+
+# Upload working directory to ~/oumi_launcher/{submission_time}
+working_dir: .
+
+#file_mounts:
+  # Generally speaking, file mounts are not needed for Polaris jobs.
+  # Use this parameter if you'd like to upload individual files to /home/$ALCF_USER/
+  # or /eagle/.
+
+envs:
+  TEST_ENV_VARIABLE: '"Hello, World!"'
+
+# For Polaris, `setup` will always be executed before `run`. It's strongly suggested to
+# set any PBS directives in the `setup` section. Additional commands can also be run
+# here after the PBS directives.
+setup: |
+  #PBS -l place=scatter
+  #PBS -l walltime=00:10:00
+  #PBS -l filesystems=home:eagle
+  #PBS -A community_ai
+  #PBS -o /eagle/community_ai/jobs/logs/
+  #PBS -e /eagle/community_ai/jobs/logs/
+
+run: |
+  set -e  # Exit if any command failed.
+
+  # Change to the directory where the job was submitted.
+  echo "Changing directory to ${PBS_O_WORKDIR} ..."
+  cd ${PBS_O_WORKDIR}
+
+  echo "$TEST_ENV_VARIABLE"

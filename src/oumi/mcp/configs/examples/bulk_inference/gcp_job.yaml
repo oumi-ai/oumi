@@ -1,0 +1,54 @@
+# Bulk inference job config.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Replace <your-input-bucket> and <your-output-bucket> with your GCS buckets.
+#   - Log into HF: `hf auth login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
+# Usage:
+#   oumi launch up -c configs/examples/bulk_inference/gcp_job.yaml --cluster bulk-inference
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: oumi-bulk-inference
+
+num_nodes: 1
+resources:
+  cloud: gcp
+  accelerators: "A100:2"
+  use_spot: false
+  disk_size: 400 # Disk size in GBs
+
+working_dir: .
+
+file_mounts:
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+# NOTE: Update with your GCS buckets
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
+storage_mounts:
+  /input_gcs_bucket:
+    source: gs://<your-input-bucket> # GCS bucket that contains our input data
+    store: gcs
+  /output_gcs_bucket:
+    source: gs://<your-output-bucket> # GCS bucket to store output
+    store: gcs
+
+envs:
+  TOKENIZERS_PARALLELISM: false
+  INFERENCE_CONFIG: configs/recipes/llama3_1/inference/8b_infer.yaml # Inference config file
+  HF_DATASETS_TRUST_REMOTE_CODE: 1
+
+setup: |
+  set -e
+  pip install uv && uv pip install --system oumi[gpu]
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+  python ./scripts/inference/gcp_inference.py $SKYPILOT_NUM_GPUS_PER_NODE

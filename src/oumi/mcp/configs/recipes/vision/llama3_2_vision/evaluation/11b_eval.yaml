@@ -1,0 +1,35 @@
+# Eval config for Llama 3.2 11B Vision Instruct.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `hf auth login`
+#   - Request access to Llama 3.2: https://huggingface.co/meta-llama/Llama-3.2-11B-Vision-Instruct
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/vision/llama3_2_vision/evaluation/11b_eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
+  model_max_length: 1024
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  shard_for_eval: True
+
+generation:
+  batch_size: 1
+
+tasks:
+  # For all available tasks, see https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+  - evaluation_backend: lm_harness
+    task_name: mmmu_val_computer_science
+    eval_kwargs:
+      num_fewshot: 5
+
+inference_engine: NATIVE
+enable_wandb: True

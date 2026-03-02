@@ -1,0 +1,49 @@
+# Job config to FSDP pretrain the FineWeb ablation model on Polaris.
+#
+# Requirements:
+#   - Set up your ALCF account (only available to Oumi core team)
+#   - Set `user` to your ALCF username
+#   - Log into WandB (`wandb login`) on Polaris or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c configs/examples/fineweb_ablation_pretraining/fsdp/polaris_job.yaml --cluster debug-scaling.$ALCF_USER --user $ALCF_USER --num_nodes 2 --log-level DEBUG
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: fineweb-pt-fsdp
+# NOTE: Replace with your username.
+user: your_username
+num_nodes: 2
+
+resources:
+  cloud: polaris
+
+# Upload working directory to ~/oumi_launcher/{submission_time}
+working_dir: .
+
+setup: |
+  #PBS -l place=scatter
+  #PBS -l walltime=00:30:00
+  #PBS -l filesystems=home:eagle
+  #PBS -A community_ai
+  #PBS -o /eagle/community_ai/jobs/logs/
+  #PBS -e /eagle/community_ai/jobs/logs/
+
+run: |
+  set -e
+  # Various setup for running on Polaris.
+  source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
+
+  echo "Starting training with ${OUMI_NUM_NODES} node(s)..."
+
+  set -x
+  mpiexec --verbose \
+    --np $OUMI_NUM_NODES -ppn ${NRANKS} -d ${NDEPTH} --cpu-bind ${CPU_BIND} \
+    ./scripts/polaris/jobs/fineweb_pt_worker.sh -m fsdp -t
+
+  echo -e "Finished training on ${OUMI_NUM_NODES} node(s):\n$(cat $PBS_NODEFILE)"
+  echo "Polaris job is all done!"

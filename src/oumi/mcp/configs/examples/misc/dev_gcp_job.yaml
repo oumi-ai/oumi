@@ -1,0 +1,57 @@
+# Job config used by our Makefile to launch a bare-bones GCP VM for development.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `hf auth login`
+#   - (optional) Mount a storage bucket below
+#   - (optional) Modify `resources.cloud` to run on a different cloud provider
+#
+# Usage:
+#   oumi launch up -c configs/examples/misc/dev_gcp_job.yaml --cluster ${USERNAME}-dev
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: oumi-ssh
+
+num_nodes: 1
+resources:
+  cloud: gcp
+
+  # Other single GPU options: "A40", "A10", "A10g", "A100-80GB-SXM", "L4"
+  # Multi GPU options: "A100:2", "L4:4"
+  accelerators: "A100:1"
+
+  disk_size: 1000 # Disk size in GB
+  # region: us-central1  # Uncomment this line to only consider a specific region.
+
+  use_spot: false
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+
+envs:
+  WANDB_PROJECT: oumi-debug
+
+setup: |
+  set -e
+  # Install Oumi from source
+  pip install uv && uv pip install --system -e '.[dev]'
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh

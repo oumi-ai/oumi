@@ -1,0 +1,20 @@
+# Inference config for GPT-5.2 via OpenRouter.
+#
+# Requirements:
+#   - Set the `OPENROUTER_API_KEY` env var to your OpenRouter API key.
+#
+# Usage:
+#   oumi infer -i -c configs/apis/openrouter/infer_gpt_5_2.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - OpenRouter docs: https://openrouter.ai/docs
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  model_name: "openai/gpt-5.2"
+
+engine: OPENROUTER
+
+generation:
+  max_new_tokens: 4096

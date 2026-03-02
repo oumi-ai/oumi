@@ -1,0 +1,71 @@
+# verl GRPO training config for GSM8K.
+#
+# Usage:
+#   oumi train -c configs/examples/grpo_verl_gsm8k/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "Qwen/Qwen2.5-0.5B-Instruct"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "openai/gsm8k"
+        subset: "main"
+        split: "train"
+  validation:
+    datasets:
+      - dataset_name: "openai/gsm8k"
+        subset: "main"
+        split: "test"
+
+training:
+  trainer_type: "VERL_GRPO"
+  num_train_epochs: 15
+  save_steps: 10
+  eval_strategy: "steps"
+  eval_steps: 10
+
+  learning_rate: 1.0e-6
+  enable_gradient_checkpointing: True
+
+  reward_functions: ["gsm8k"]
+
+  grpo:
+    use_vllm: True
+    temperature: 1.0
+    vllm_gpu_memory_utilization: 0.4
+
+  verl_config_overrides:
+    data:
+      train_batch_size: 256
+      max_prompt_length: 512
+      max_response_length: 256
+    actor_rollout_ref:
+      actor:
+        use_kl_loss: True
+        kl_loss_coef: 0.001
+        kl_loss_type: "low_var_kl"
+        ppo_mini_batch_size: 64
+        ppo_micro_batch_size_per_gpu: 4
+      rollout:
+        log_prob_micro_batch_size_per_gpu: 8
+        tensor_model_parallel_size: 1
+        n: 16
+      ref:
+        log_prob_micro_batch_size_per_gpu: 4
+    algorithm:
+      kl_ctrl:
+        kl_coef: 0.001
+    trainer:
+      val_before_train: False
+      n_gpus_per_node: 1
+      nnodes: 1
+
+  output_dir: "output/grpo_verl_gsm8k"
+  run_name: "grpo_verl_gsm8k"

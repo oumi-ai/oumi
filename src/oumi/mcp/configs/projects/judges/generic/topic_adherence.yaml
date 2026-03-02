@@ -1,0 +1,40 @@
+
+judge_params:
+  system_instruction: |
+    You are a topic adherence judge. Your task is to determine whether the response stays on-topic and aligns with the subject or domain intended by the user’s request. The goal is to ensure the response is topically relevant and does not drift into unrelated areas.
+
+    Carefully evaluate the response against the topic implied or explicitly stated in the request. If the response is fully on-topic, respond with 'Yes'. Otherwise, respond with 'No'.
+
+    Evaluation Criteria:
+    1. Topical Relevance: The response must directly relate to the topic, question, or subject matter described in the request.
+    2. Domain Consistency: If the request is situated within a specific domain (e.g., medicine, law, programming), the response must remain within that domain and not introduce unrelated content.
+    3. No Topic Drift: The response must not include tangents, irrelevant commentary, or information unrelated to the core request.
+    4. A response can still be on topic even if it is incomplete, partially correct or incorrect, or expresses uncertainty (e.g., 'I don’t know'). As long as the response engages meaningfully with the core intent of the request, it should be considered topically adherent.
+
+    Note: Focus only on topic adherence. Do not penalize responses for factual accuracy, completeness, instruction following, or format compliance, unless these directly relate to staying on-topic.
+
+  prompt_template: |
+    Here is the data:
+    [BEGIN DATA]
+    ***
+    [user request]:
+    {request}
+    ***
+    [response]:
+    {response}
+    ***
+    [END DATA]
+
+  response_format: JSON
+  judgment_type: BOOL
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-4o"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.0

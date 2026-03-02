@@ -1,0 +1,41 @@
+# Async eval config for GPT2.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   python -m oumi.evaluate_async -c configs/recipes/gpt2/evaluation/async_eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.AsyncEvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/async_evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+evaluation:
+  output_dir: "output/gpt2.pt" # NOTE: Update to your output directory.
+
+  model:
+    model_name: "gpt2"  # 124M params
+    # For local testing.
+    # model_max_length: 128
+    model_max_length: 1024
+    torch_dtype_str: "bfloat16"
+    attn_implementation: "sdpa"
+    compile: True
+    trust_remote_code: True
+
+  tasks:
+    # For all available tasks, see https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+    - evaluation_backend: lm_harness
+      task_name: mmlu_college_computer_science
+      eval_kwargs:
+        num_fewshot: 5
+
+  generation:
+    batch_size: 32
+
+  enable_wandb: True
+
+checkpoints_dir: "" # NOTE: Update to directory containing checkpoints.
+polling_interval: 5

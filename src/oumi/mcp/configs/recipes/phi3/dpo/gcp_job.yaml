@@ -1,0 +1,57 @@
+# Phi3 DPO GCP job config.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c configs/recipes/phi3/dpo/gcp_job.yaml --cluster phi3-dpo
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: phi3-dpo
+
+num_nodes: 1  # Set it to N for multi-node training.
+
+resources:
+  cloud: gcp
+  accelerators: "A100:2"
+
+  disk_size: 200  # Disk size in GB
+  # disk_tier: medium # medium is the default.
+  # region: us-west3  # Uncomment this line to only consider a specific region.
+
+  use_spot: false
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: phi3.dpo.nvidia.24g
+
+setup: |
+  set -e
+  pip install uv && uv pip install --system oumi[gpu]
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c configs/recipes/phi3/dpo/nvidia_24g_train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.output_dir "train/" \
+      --training.enable_wandb true \
+      --training.max_steps 20 \
+      --training.logging_steps 10
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

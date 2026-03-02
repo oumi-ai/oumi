@@ -1,0 +1,66 @@
+# SFT config for CoALM 70B.
+
+model:
+  model_name: "meta-llama/Llama-3.3-70B-Instruct"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  tokenizer_pad_token: "<|finetune_right_pad_id|>"
+  enable_liger_kernel: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "text_sft_jsonl"
+        dataset_path: "/path/to/training/dataset.jsonl"
+        shuffle: True
+        seed: 42
+    collator_name: "text_completions_only_with_padding"
+    seed: 42
+  validation:
+    datasets:
+      - dataset_name: "text_sft_jsonl"
+        dataset_path: "/path/to/validation/dataset.jsonl"
+    collator_name: "text_completions_only_with_padding"
+    seed: 42
+
+training:
+  trainer_type: "TRL_SFT"
+  save_steps: 688
+  num_train_epochs: 1
+  per_device_train_batch_size: 7
+  gradient_accumulation_steps: 1
+  eval_strategy: "steps"
+  eval_steps: 344
+  per_device_eval_batch_size: 1
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 4.0e-05
+  warmup_steps: 24
+  weight_decay: 0.01
+  max_grad_norm: 10
+  compile: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 8
+  log_model_summary: False
+  empty_device_cache_steps: 1
+  include_performance_metrics: True
+  output_dir: "output/llama70b.sft"
+  enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  forward_prefetch: True
+  use_orig_params: True
+  cpu_offload: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

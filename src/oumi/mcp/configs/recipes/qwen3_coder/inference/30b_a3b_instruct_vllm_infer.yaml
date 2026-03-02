@@ -1,0 +1,27 @@
+# vLLM Inference config for Qwen3-Coder-30B-A3B-Instruct.
+#
+# Requirements:
+#   - Run `pip install oumi[gpu]`
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/qwen3_coder/inference/30b_a3b_instruct_vllm_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.3
+  top_p: 0.9
+
+engine: VLLM

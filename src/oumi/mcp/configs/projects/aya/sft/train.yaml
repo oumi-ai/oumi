@@ -1,0 +1,74 @@
+# Full fine-tune config for Aya.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `hf auth login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
+# Usage:
+#   oumi train -c configs/projects/aya/sft/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "CohereForAI/aya_dataset"
+        split: "train"
+    stream: True
+    pack: True
+  validation:
+    datasets:
+      - dataset_name: "CohereForAI/aya_dataset"
+        split: "test"
+    stream: False
+    pack: False
+
+training:
+  optimizer: "adafactor"
+  use_peft: False
+  output_dir: "output/llama3.8b.aya.fft"
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: true
+  per_device_train_batch_size: 3 # Use bigger if you can.
+  gradient_accumulation_steps: 6 # for single GPU, if 8 set to 2
+  learning_rate: 2.0e-05
+  warmup_ratio: 0.01
+  lr_scheduler_type: "cosine_with_min_lr"
+  lr_scheduler_kwargs:
+    min_lr_rate: 0.01
+  max_grad_norm: 1.0
+  adam_beta1: 0.9
+  adam_beta2: 0.99
+  weight_decay: 0.02
+  logging_dir: ${training.output_dir}/runs
+  logging_first_step: True
+  logging_steps: 5
+  eval_strategy: "steps"
+  eval_steps: 5
+  per_device_eval_batch_size: 3
+  gradient_checkpointing_kwargs:
+    # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+    use_reentrant: False # So gradients flow from frozen (non FT) input embeddings
+  # Need to specify max steps for streaming datasets.
+  max_steps: 178
+  save_steps: 36
+  # resume_from_checkpoint: "your-checkpoint-directory" # Optional
+  trainer_kwargs:
+    dataset_text_field: "text"
+    max_seq_length: ${model.model_max_length}
+    packing: True
+  # Use for debugging purposes
+  #max_steps: 10
+  enable_wandb: True

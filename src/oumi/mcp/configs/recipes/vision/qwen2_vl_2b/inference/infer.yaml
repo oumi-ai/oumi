@@ -1,0 +1,27 @@
+# Inference config for Qwen2 VL 2B Instruct.
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml \
+#     --image "tests/testdata/images/the_great_wave_off_kanagawa.jpg"
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+# Note, if you are running on a multi-GPU machine, constraint the execution
+# to a single GPU, e.g., `export CUDA_VISIBLE_DEVICES=0`
+
+model:
+  model_name: "Qwen/Qwen2-VL-2B-Instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 4096
+  chat_template: "qwen2-vl-instruct"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 64
+  batch_size: 1
+
+engine: NATIVE

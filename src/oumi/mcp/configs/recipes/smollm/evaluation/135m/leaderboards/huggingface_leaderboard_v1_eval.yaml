@@ -1,0 +1,66 @@
+# HuggingFace Leaderboard V1 eval config.
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v1_eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+generation:
+  batch_size: 4
+
+############################## HuggingFace Leaderboard V1 ##############################
+# https://huggingface.co/spaces/open-llm-leaderboard-old/open_llm_leaderboard          #
+#                                                                                      #
+# Benchmarks:                                                                          #
+# - MMLU (Massive Multitask Language Understanding): mmlu                              #
+# - ARC (AI2 Reasoning Challenge): arc_challenge                                       #
+# - Winogrande (Adversarial Winograd Schema Challenge at Scale): winogrande            #
+# - HellaSwag: hellaswag                                                               #
+# - TruthfulQA (Measuring How Models Mimic Human Falsehoods): truthfulqa_mc2           #
+# - GSM 8K (Grade School Math): gsm8k                                                  #
+########################################################################################
+
+tasks:
+  - evaluation_backend: lm_harness
+    task_name: mmlu
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: arc_challenge
+    eval_kwargs:
+      num_fewshot: 25
+  - evaluation_backend: lm_harness
+    task_name: winogrande
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: hellaswag
+    eval_kwargs:
+      num_fewshot: 10
+  - evaluation_backend: lm_harness
+    task_name: truthfulqa_mc2
+    eval_kwargs:
+      num_fewshot: 0
+  - evaluation_backend: lm_harness
+    task_name: gsm8k
+    eval_kwargs:
+      num_fewshot: 5
+
+# NOTE: If you are running this in a remote machine, which is not accessible after the
+#       evaluation completes, you need to re-direct your output to persistent storage.
+#       For GCP nodes, you can store your output into a mounted GCS Bucket.
+#       For example: `output_dir: "/my-gcs-bucket/huggingface_leaderboard_v1"`,
+#       assuming that `/my-gcs-bucket` is mounted to `gs://my-gcs-bucket`.
+output_dir: "./huggingface_leaderboard_v1"

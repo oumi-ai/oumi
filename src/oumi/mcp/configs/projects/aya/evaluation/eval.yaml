@@ -1,0 +1,85 @@
+# Eval config for Aya.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `hf auth login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
+# Usage:
+#   oumi evaluate -c configs/projects/aya/evaluation/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+tasks:
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_ar
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_zh
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_en
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_fr
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_de
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_hi
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_id
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_it
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_pt
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_ro
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_ru
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_es
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_uk
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: m_mmlu_vi
+    eval_kwargs:
+      num_fewshot: 5
+
+generation:
+  batch_size: 8
+
+enable_wandb: True

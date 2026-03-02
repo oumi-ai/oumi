@@ -1,0 +1,92 @@
+# Llama 3.1 8B SFT training with DeepSpeed ZeRO-2
+# This example demonstrates using DeepSpeed ZeRO-2 for memory-efficient training
+# ZeRO-2 shards optimizer states and gradients, providing good memory savings
+# while maintaining reasonable performance.
+#
+# Hardware Requirements:
+#   - Multi-GPU setup with 24GB+ VRAM per GPU (recommended: 2-8 GPUs)
+#   - 32GB+ system RAM per GPU for optimal performance
+#   - DeepSpeed requires at least 2 GPUs for ZeRO-2 optimization
+#
+# Requirements:
+#   - Log into HF: `hf auth login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
+# Usage:
+#   oumi train -c configs/examples/deepspeed/llama3_1_8b_deepspeed_z2_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+  trust_remote_code: False
+
+data:
+  train:
+    datasets:
+      - dataset_name: "Magpie-Align/Llama-3-Magpie-Pro-1M-v0.1"
+        split: "train"
+        shuffle: True
+        seed: 42
+
+training:
+  trainer_type: "TRL_SFT"
+  save_steps: 500
+  num_train_epochs: 3
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  lr_scheduler_type: "cosine"
+
+  dataloader_num_workers: 8
+  dataloader_prefetch_factor: 2
+
+  logging_steps: 10
+  output_dir: "output/llama3_1_8b_deepspeed_z2"
+  enable_wandb: False
+  save_final_model: True
+
+# DeepSpeed configuration for ZeRO-2
+deepspeed:
+  enable_deepspeed: True
+  zero_stage: "ZERO_2"
+  precision: "BF16"
+
+  # Communication optimization
+  allgather_partitions: True
+  allgather_bucket_size: 500000000 # 5e8
+  overlap_comm: True
+  reduce_scatter: True
+  reduce_bucket_size: 500000000 # 5e8
+  contiguous_gradients: True
+  round_robin_gradients: False
+
+  # Memory optimization
+  zero_allow_untested_optimizer: True
+  zero_force_ds_cpu_optimizer: False
+
+  # Optional: Enable CPU offloading for optimizer states
+  # offload_optimizer:
+  #   device: "CPU"
+  #   pin_memory: True
+  #   buffer_count: 4
+
+  # Logging
+  steps_per_print: 10
+  wall_clock_breakdown: False

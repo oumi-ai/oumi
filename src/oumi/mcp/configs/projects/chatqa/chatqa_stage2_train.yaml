@@ -1,0 +1,92 @@
+# ChatQA Stage 2 training config.
+#
+# Usage:
+#   oumi train -c configs/projects/chatqa/chatqa_stage2_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  # model_name: "openai-community/gpt2"
+  # torch_dtype_str: "float16"
+  # model_max_length: 1024
+
+  # model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  # torch_dtype_str: "bfloat16"
+  # model_max_length: 4096
+
+  model_name: "microsoft/Phi-3-mini-4k-instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 4096
+
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    mixture_strategy: first_exhausted
+    pack: False
+    datasets:
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        subset: "drop"
+        mixture_proportion: 0.069
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        subset: "narrativeqa"
+        mixture_proportion: 0.095
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        subset: "quoref"
+        mixture_proportion: 0.025 # Original: 0.26
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        subset: "ropes"
+        mixture_proportion: 0.026
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        subset: "squad1.1"
+        mixture_proportion: 0.09 # Original: 0.95
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        subset: "squad2.0"
+        mixture_proportion: 0.095
+      # - dataset_name: "nvidia/ChatQA-Training-Data"
+      #   subset: "newsqa"
+      #   mixture_proportion: 0.095
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        subset: "tatqa-arithmetic"
+        mixture_proportion: 0.15
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        subset: "tatqa-others"
+        mixture_proportion: 0.08
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        subset: "synthetic_convqa"
+        mixture_proportion: 0.27 # Original: 0.3
+      - dataset_name: "nvidia/ChatQA-Training-Data"
+        subset: "sft"
+        mixture_proportion: 0.1 # Original: 0.2
+
+training:
+  trainer_type: "TRL_SFT"
+
+  output_dir: "output/chatqa.stage2"
+  logging_dir: ${training.output_dir}/runs
+  logging_first_step: True
+  logging_steps: 50
+  save_steps: 500
+  num_train_epochs: 3
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+    use_reentrant: False # So gradients flow from frozen (non FT) input embeddings
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 0.000005
+  lr_scheduler_type: "cosine_with_min_lr"
+  lr_scheduler_kwargs:
+    min_lr_rate: 0.00000001
+  warmup_ratio: 0.1
+
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+
+  trainer_kwargs:
+    max_seq_length: ${model.model_max_length}

@@ -1,0 +1,50 @@
+# Eval config for Phi3.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "microsoft/Phi-3-mini-4k-instruct"
+  trust_remote_code: False
+  torch_dtype_str: "bfloat16"
+
+# HuggingFace Leaderboard V1
+tasks:
+  - evaluation_backend: lm_harness
+    task_name: mmlu
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: arc_challenge
+    eval_kwargs:
+      num_fewshot: 25
+  - evaluation_backend: lm_harness
+    task_name: winogrande
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: hellaswag
+    eval_kwargs:
+      num_fewshot: 10
+  - evaluation_backend: lm_harness
+    task_name: truthfulqa_mc2
+    eval_kwargs:
+      num_fewshot: 0
+  - evaluation_backend: lm_harness
+    task_name: gsm8k
+    eval_kwargs:
+      num_fewshot: 5
+
+generation:
+  batch_size: 1
+
+enable_wandb: False

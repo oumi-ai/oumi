@@ -1,0 +1,33 @@
+# Eval config for Deepseek R1 Distill Llama 3.3 70B.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/deepseek_r1/evaluation/distill_llama_70b/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
+  model_max_length: 131072
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+  shard_for_eval: True
+
+generation:
+  batch_size: 3
+
+tasks:
+  # For all available tasks, see https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+  - evaluation_backend: lm_harness
+    task_name: mmlu_college_computer_science
+    eval_kwargs:
+      num_fewshot: 5
+
+enable_wandb: True

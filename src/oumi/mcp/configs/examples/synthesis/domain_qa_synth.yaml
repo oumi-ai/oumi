@@ -1,0 +1,217 @@
+# Domain QA Example
+# Generate domain-specific training data by conditioning on domain attributes.
+# This example creates medical Q&A data with different specialties and contexts.
+#
+# Requirements:
+#   - Set your anthropic api key in the environment variable ANTHROPIC_API_KEY
+#   - example: `export ANTHROPIC_API_KEY=your_api_key`
+#   - Alternatively, change the model in the inference_config section to your desired model
+#   - See the inference_config section for more details
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/configuration.html
+#
+# Usage:
+#   oumi synth -c oumi://configs/examples/synthesis/domain_qa_synth.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Config class: oumi.core.configs.SynthesisConfig
+#   - Params class: oumi.core.configs.params.synthesis_params.GeneralSynthesisParams
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/synthesis_config.py
+#   - Params source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/synthesis_params.py
+#   - Other synthesis configs: configs/**/*synth.yaml
+
+strategy: GENERAL
+num_samples: 10
+output_path: domain_qa.jsonl
+
+strategy_params:
+  # Provide domain-specific input documents for context
+  input_examples:
+    - examples:
+      - example_specialty: "Cardiology"
+        example_specialty_description: "Heart and cardiovascular system disorders"
+        example_context_type: "Patient Education"
+        example_context_type_description: "Information to help patients understand their health"
+        example_complexity_level: "Basic"
+        example_complexity_level_description: "General information accessible to patients"
+        example_question: "What lifestyle changes can help prevent heart disease?"
+      - example_specialty: "Dermatology"
+        example_specialty_description: "Skin, hair, and nail conditions"
+        example_context_type: "Diagnosis Support"
+        example_context_type_description: "Information to aid in medical diagnosis"
+        example_complexity_level: "Intermediate"
+        example_complexity_level_description: "Detailed information for informed patients"
+        example_question: "How do the underlying pathophysiology and treatment approaches differ between atopic dermatitis and psoriasis, and what factors should guide treatment selection?"
+      - example_specialty: "Pediatrics"
+        example_specialty_description: "Medical care for infants, children, and adolescents"
+        example_context_type: "Parent Guidance"
+        example_context_type_description: "Information for parents about children's health"
+        example_complexity_level: "Professional"
+        example_complexity_level_description: "Technical information for healthcare providers"
+        example_question: "What are the evidence-based protocols for fever management in pediatric patients aged 3 months to 3 years, including risk stratification criteria for serious bacterial infections and antibiotic decision-making algorithms?"
+
+  # Define medical specialties and contexts
+  sampled_attributes:
+    # The specific area of medicine being addressed
+    - id: specialty
+      name: Medical Specialty
+      description: The specific area of medicine being addressed
+      possible_values:
+        - id: cardiology
+          name: Cardiology
+          description: Heart and cardiovascular system disorders
+        - id: dermatology
+          name: Dermatology
+          description: Skin, hair, and nail conditions
+        - id: pediatrics
+          name: Pediatrics
+          description: Medical care for infants, children, and adolescents
+        - id: neurology
+          name: Neurology
+          description: Nervous system and brain disorders
+        - id: orthopedics
+          name: Orthopedics
+          description: Musculoskeletal system and injuries
+        - id: endocrinology
+          name: Endocrinology
+          description: Hormonal and metabolic disorders
+
+    # The setting or purpose of the medical information
+    - id: context_type
+      name: Context Type
+      description: The setting or purpose of the medical information
+      possible_values:
+        - id: patient_education
+          name: Patient Education
+          description: Information to help patients understand their health
+        - id: diagnosis_support
+          name: Diagnosis Support
+          description: Information to aid in medical diagnosis
+        - id: treatment_guidance
+          name: Treatment Guidance
+          description: Information about treatment options and procedures
+        - id: prevention_advice
+          name: Prevention Advice
+          description: Preventive care and health maintenance information
+        - id: parent_guidance
+          name: Parent Guidance
+          description: Information for parents about children's health
+
+    # The technical depth of medical information
+    - id: complexity_level
+      name: Medical Complexity
+      description: The technical depth of medical information
+      possible_values:
+        - id: basic
+          name: Basic
+          description: General information accessible to patients
+          sample_rate: 0.4
+        - id: intermediate
+          name: Intermediate
+          description: Detailed information for informed patients
+          sample_rate: 0.4
+        - id: professional
+          name: Professional
+          description: Technical information for healthcare providers
+          sample_rate: 0.2
+
+  # Generate domain-specific medical questions
+  generated_attributes:
+    # Generate the medical question
+    - id: medical_question
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are a medical education specialist creating questions for the {specialty} field.
+
+            Requirements:
+            - Questions must be medically accurate and appropriate
+            - Match the specified complexity level and context
+            - Be relevant to the medical specialty
+            - Follow medical education best practices
+
+            Format your question as follows:
+            Question:
+            <question>
+            End Question
+
+            Write only the question, do not include additional filler text.
+        - role: USER
+          content: |
+            Specialty: {example_specialty} - {example_specialty_description}
+            Context: {example_context_type} - {example_context_type_description}
+            Complexity: {example_complexity_level} - {example_complexity_level_description}
+        - role: ASSISTANT
+          content: |
+            Question:
+            {example_question}
+            End Question
+        - role: USER
+          content: |
+            Specialty: {specialty.description}
+            Context: {context_type.description}
+            Complexity: {complexity_level.description}
+      postprocessing_params:
+        id: cleaned_question
+        cut_prefix: "Question:"
+        cut_suffix: "End Question"
+        strip_whitespace: true
+
+    # Generate the medical answer
+    - id: medical_answer
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are a knowledgeable medical educator providing accurate, educational information.
+
+            Your responses should:
+            - Be medically accurate and evidence-based
+            - Match the appropriate complexity level
+            - Include relevant context and explanations
+            - Be educational and informative
+            - Include appropriate disclaimers when needed
+
+            Provide a comprehensive, medically accurate answer.
+            Include appropriate disclaimers if this is patient-facing information.
+            Include appropriate disclaimers of seeking professional medical advice.
+        - role: USER
+          content: |
+            {cleaned_question}
+
+      postprocessing_params:
+        id: cleaned_answer
+        strip_whitespace: true
+
+  # Transform into conversation format
+  transformed_attributes:
+    - id: conversation
+      transformation_strategy:
+        type: CHAT
+        chat_transform:
+          messages:
+            - role: USER
+              content: "{cleaned_question}"
+            - role: ASSISTANT
+              content: "{cleaned_answer}"
+
+  # Include only relevant attributes in output
+  passthrough_attributes:
+    - conversation
+    - cleaned_question
+    - cleaned_answer
+    - specialty
+    - context_type
+    - complexity_level
+
+# Example inference configuration
+inference_config:
+  model:
+    model_name: claude-3-5-sonnet-20240620
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60

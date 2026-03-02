@@ -1,0 +1,59 @@
+# HuggingFace Leaderboard V2 eval config.
+#
+# Requirements:
+#   - You must first request access to the GPQA dataset here:
+#     https://huggingface.co/datasets/Idavidrein/gpqa
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+generation:
+  batch_size: 4
+
+############################## HuggingFace Leaderboard V2 ##############################
+# https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard              #
+#                                                                                      #
+# Benchmarks:                                                                          #
+# - BBH (Big Bench Hard), 3 shots: leaderboard_bbh                                     #
+# - GPQA (Google-Proof Q&A Benchmark), 0 shots: leaderboard_gpqa                       #
+# - MMLU-Pro (Massive Multitask Language Understanding), 5 shots: leaderboard_mmlu_pro #
+# - MuSR (Multistep Soft Reasoning), 0 shots: leaderboard_musr                         #
+# - IFEval (Instruction Following Evaluation), 0 shots: leaderboard_ifeval             #
+# - MATH L5 (Mathematics Aptitude Test of Heuristics), 4 shots: leaderboard_math_hard  #
+########################################################################################
+
+tasks:
+  - evaluation_backend: lm_harness
+    task_name: leaderboard_bbh
+  - evaluation_backend: lm_harness
+    task_name: leaderboard_gpqa
+  - evaluation_backend: lm_harness
+    task_name: leaderboard_mmlu_pro
+  - evaluation_backend: lm_harness
+    task_name: leaderboard_musr
+  - evaluation_backend: lm_harness
+    task_name: leaderboard_ifeval
+  # # Temporarily disabled due to packaging conflicts
+  # - evaluation_backend: lm_harness
+  #   task_name: leaderboard_math_hard
+
+# NOTE: If you are running this in a remote machine, which is not accessible after the
+#       evaluation completes, you need to re-direct your output to persistent storage.
+#       For GCP nodes, you can store your output into a mounted GCS Bucket.
+#       For example: `output_dir: "/my-gcs-bucket/huggingface_leaderboard_v2"`,
+#       assuming that `/my-gcs-bucket` is mounted to `gs://my-gcs-bucket`.
+output_dir: "./huggingface_leaderboard_v2"

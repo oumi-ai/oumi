@@ -1,0 +1,60 @@
+# Job config to eval Llama 3.1 8B Instruct on Polaris.
+#
+# Requirements:
+#   - Set up your ALCF account (only available to Oumi core team)
+#   - Set `user` to your ALCF username
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `hf auth login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/evaluation/8b_polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: llama8b-eval
+# NOTE: Replace with your username.
+user: your_username
+
+resources:
+  cloud: polaris
+
+# Upload working directory to ~/oumi_launcher/{submission_time}
+working_dir: .
+
+envs:
+  # NOTE: For SFT, update this to point to your model checkpoint.
+  # NOTE: For LoRA, instead update this to point to your LoRA adapter.
+  #       The base model will be inferred automatically.
+  MODEL_CHECKPOINT_DIR: meta-llama/Llama-3.1-8B-Instruct
+  WANDB_PROJECT: oumi-eval
+
+setup: |
+  #PBS -l place=scatter
+  #PBS -l walltime=01:00:00
+  #PBS -l filesystems=home:eagle
+  #PBS -A community_ai
+  #PBS -o /eagle/community_ai/jobs/logs/
+  #PBS -e /eagle/community_ai/jobs/logs/
+
+run: |
+  set -e  # Exit if any command failed.
+  source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
+
+  if test ${OUMI_NUM_NODES} -ne 1; then
+    echo "LM Harness supports max 1 node. Actual: ${OUMI_NUM_NODES} nodes."
+    exit 1
+  fi
+
+  echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
+  set -x
+  oumi evaluate \
+    -c configs/recipes/llama3_1/evaluation/8b_eval.yaml \
+    --run_name "polaris.llama8b.eval.${OUMI_JOBNUM}" \
+    --model.model_name "${MODEL_CHECKPOINT_DIR}"
+
+  echo -e "Finished eval on node:\n$(cat $PBS_NODEFILE)"

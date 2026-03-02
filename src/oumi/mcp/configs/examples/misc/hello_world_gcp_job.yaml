@@ -1,0 +1,29 @@
+# GCP Hello World job config.
+#
+# Usage:
+#   oumi launch up -c configs/examples/misc/hello_world_gcp_job.yaml --cluster hello-world-gcp
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: hello-world
+resources:
+  cloud: gcp
+  accelerators: "A100:1"
+
+working_dir: .
+
+envs:
+  TEST_ENV_VARIABLE: '"Hello, World!"'
+
+# For GCP, setup is only run once at cluster creation.
+setup: |
+  echo "Running setup..."
+
+run: |
+  set -e  # Exit if any command failed.
+
+  echo "$TEST_ENV_VARIABLE"

@@ -1,0 +1,61 @@
+# Llava 7B full fine-tune training job config, with the TRL trainer.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up --config configs/recipes/vision/llava_7b/sft/trl_gcp_job.yaml --cluster llava-7b-vision
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: llava-7b-sft
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:4"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+
+  disk_tier: "medium"
+  disk_size: 1000 # Disk size in GBs
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llava.7b.fft.trl
+
+setup: |
+  set -e
+  pip install uv && uv pip install --system oumi[gpu] hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download llava-hf/llava-1.5-7b-hf
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c configs/recipes/vision/llava_7b/sft/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.max_steps 20 \
+      --training.save_steps 0 \
+      --training.save_final_model false
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -1,0 +1,54 @@
+# Remote vLLM inference config for Llama 3.2 11B Vision Instruct.
+#
+# Requirements:
+#   - Run `pip install oumi[gpu]`
+#   - Log into HF: `hf auth login`
+#   - Request access to Llama 3.2: https://huggingface.co/meta-llama/Llama-3.2-11B-Vision-Instruct
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/vision/llama3_2_vision/inference/11b_rvllm_infer.yaml \
+#     --image "tests/testdata/images/the_great_wave_off_kanagawa.jpg"
+#
+# Sample python command to start vLLM server:
+#
+# Note, for models that vLLM supports LoRA-adapters adapt below line
+# export USE_LORA='--enable-lora --lora-modules your_lora_adapter=path/to/your/lora/adapter'
+
+# python -u -m vllm.entrypoints.openai.api_server \
+#   --port 6864 \
+#   --model meta-llama/Llama-3.2-11B-Vision-Instruct  \
+#   --trust-remote-code \
+#   --dtype=bfloat16 \
+#   --device=cuda \
+#   --max-model-len 256 \
+#   --enforce-eager \
+#   --disable-custom-all-reduce \
+#   --disable-log-requests \
+#   --max_num_seqs=2 \
+#   --enable-chunked-prefill=false \
+#   --gpu-memory-utilization=0.95 \
+#   --tensor-parallel-size 1 \
+#   ${USE_LORA}
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 1024
+  chat_template: "llama3-instruct"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 32
+
+remote_params:
+  # This address is just an example (it's what you may get when you start vllm sever locally).
+  # For details, see https://platform.openai.com/docs/api-reference/chat/create
+  api_url: "http://localhost:6864/v1/chat/completions"
+
+engine: REMOTE_VLLM

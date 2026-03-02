@@ -1,0 +1,58 @@
+# Eval config for Gemma 3 27B Instruct.
+#
+# Requirements:
+#   - transformers >= 4.50.0
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-3-27b-it
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/gemma3/evaluation/27b/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "google/gemma-3-27b-it"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+  shard_for_eval: True
+
+generation:
+  batch_size: 2
+
+# HuggingFace Leaderboard V1 tasks
+tasks:
+  - evaluation_backend: lm_harness
+    task_name: mmlu
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: arc_challenge
+    eval_kwargs:
+      num_fewshot: 25
+  - evaluation_backend: lm_harness
+    task_name: winogrande
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: hellaswag
+    eval_kwargs:
+      num_fewshot: 10
+  - evaluation_backend: lm_harness
+    task_name: truthfulqa_mc2
+    eval_kwargs:
+      num_fewshot: 0
+  - evaluation_backend: lm_harness
+    task_name: gsm8k
+    eval_kwargs:
+      num_fewshot: 5
+
+enable_wandb: True
+inference_engine: NATIVE
+
+output_dir: "output/gemma3_27b/evaluation"

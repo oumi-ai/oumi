@@ -1,0 +1,27 @@
+# SmolVLM Instruct inference config.
+#
+# Requirements:
+#   - Run `pip install oumi[gpu]`
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/vision/smolvlm/inference/infer.yaml \
+#     --image "tests/testdata/images/the_great_wave_off_kanagawa.jpg"
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "HuggingFaceTB/SmolVLM-Instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 3072
+  chat_template: "llava"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 32
+  batch_size: 1
+
+engine: NATIVE

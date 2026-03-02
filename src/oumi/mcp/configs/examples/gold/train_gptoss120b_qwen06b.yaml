@@ -1,0 +1,97 @@
+# GOLD training - GPT-OSS 120B teacher to Qwen3 0.6B student
+# Demonstrates on-policy distillation from large teacher (120B) to small student (0.6B)
+# Uses vLLM colocate mode for accelerated student generation
+#
+# Hardware Requirements:
+#   - Minimum recommended: 186 GiB total VRAM across all GPUs
+#   - Teacher model distributed across GPUs with device_map="auto"
+#   - vLLM runs in-process with training
+#   - 64GB+ system RAM
+#
+# Measured Performance (100 steps on 8x H100 80GB):
+#   - Peak GPU Memory: 186.15 GiB total across 8 GPUs
+#     * GPU 0 (primary): 47.53 GiB
+#     * GPUs 1-7: ~19.5-20.5 GiB each
+#   - Training Time: ~4.2 minutes (254.2 seconds)
+#   - Throughput: 0.787 samples/sec, 0.393 steps/sec
+#   - Final Loss: 0.3269
+#
+# Usage:
+#   oumi train -c configs/examples/gold/train_gptoss120b_qwen06b.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "Qwen/Qwen3-0.6B"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: "dict"
+
+training:
+  trainer_type: "TRL_GOLD"
+  output_dir: "output/gold_gptoss120b_qwen06b"
+
+  # 100 steps for verification
+  max_steps: 100
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 2
+
+  # Optimization
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_steps: 10
+  weight_decay: 0.01
+
+  # Checkpointing
+  save_steps: 25
+
+  # Logging
+  logging_steps: 1
+  log_level: "info"
+
+  enable_gradient_checkpointing: True
+  enable_wandb: False
+  enable_tensorboard: False
+  log_model_summary: False
+
+  # GOLD parameters
+  gold:
+    teacher_model_name_or_path: "openai/gpt-oss-120b"
+
+    teacher_model_init_kwargs:
+      dtype: "auto"
+      trust_remote_code: True
+      attn_implementation: "kernels-community/vllm-flash-attn3"
+      device_map: "auto"
+
+    # Generation parameters
+    temperature: 0.9
+    max_completion_length: 512
+
+    # Distillation parameters
+    lmbda: 0.5 # 50% on-policy, 50% off-policy
+    beta: 0.5 # Symmetric JSD
+    disable_dropout: True
+    seq_kd: False
+
+    use_uld_loss: False
+
+    # vLLM colocate mode - runs vLLM in-process (no separate server)
+    use_vllm: True
+    vllm_mode: "colocate" # In-process mode
+    vllm_gpu_memory_utilization: 0.4 # Lower since teacher also needs memory
