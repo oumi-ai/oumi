@@ -15,7 +15,10 @@
 """Analyzer framework for dataset analysis."""
 
 from oumi.analyze.analyzers import (
+    DataQualityAnalyzer,
+    DataQualityMetrics,
     LengthAnalyzer,
+    LengthAnalyzerConfig,
     LengthMetrics,
     TurnStatsAnalyzer,
     TurnStatsMetrics,
@@ -34,10 +37,12 @@ from oumi.analyze.config import (
 from oumi.analyze.discovery import (
     describe_analyzer,
     get_analyzer_info,
+    get_instance_metrics,
     list_available_metrics,
     print_analyzer_metrics,
 )
 from oumi.analyze.pipeline import AnalysisPipeline
+from oumi.analyze.testing import TestEngine, TestResult, TestSummary
 from oumi.analyze.utils.dataframe import to_analysis_dataframe
 from oumi.core.registry import (
     REGISTRY,
@@ -68,6 +73,9 @@ def create_analyzer_from_config(
 ) -> "MessageAnalyzer | ConversationAnalyzer | DatasetAnalyzer | None":
     """Create an analyzer instance from configuration.
 
+    Prefers using the analyzer's from_config() classmethod if available,
+    otherwise falls back to direct instantiation with **params.
+
     Args:
         analyzer_id: Analyzer type identifier.
         params: Analyzer-specific parameters.
@@ -85,31 +93,44 @@ def create_analyzer_from_config(
         return None
 
     try:
-        return analyzer_class(**params)
+        # Prefer from_config() if available for better config handling
+        if hasattr(analyzer_class, "from_config") and callable(
+            getattr(analyzer_class, "from_config")
+        ):
+            return analyzer_class.from_config(params)  # type: ignore[union-attr]
+        else:
+            return analyzer_class(**params)
     except Exception as e:
         logger.error(f"Failed to create analyzer {analyzer_id}: {e}")
         return None
 
 
 __all__ = [
+    "AnalysisPipeline",
+    "AnalyzerConfig",
     "BaseAnalyzer",
-    "MessageAnalyzer",
     "ConversationAnalyzer",
+    "DataQualityAnalyzer",
+    "DataQualityMetrics",
     "DatasetAnalyzer",
-    "PreferenceAnalyzer",
     "LengthAnalyzer",
+    "LengthAnalyzerConfig",
     "LengthMetrics",
+    "MessageAnalyzer",
+    "PreferenceAnalyzer",
+    "TestEngine",
+    "TestResult",
+    "TestSummary",
     "TurnStatsAnalyzer",
     "TurnStatsMetrics",
-    "AnalysisPipeline",
-    "to_analysis_dataframe",
     "TypedAnalyzeConfig",
-    "AnalyzerConfig",
+    "create_analyzer_from_config",
+    "describe_analyzer",
+    "get_analyzer_class",
+    "get_analyzer_info",
+    "get_instance_metrics",
     "list_available_metrics",
     "print_analyzer_metrics",
-    "get_analyzer_info",
-    "describe_analyzer",
     "register_analyzer",
-    "get_analyzer_class",
-    "create_analyzer_from_config",
+    "to_analysis_dataframe",
 ]

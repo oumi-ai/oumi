@@ -62,7 +62,7 @@ def build_dataset_mixture(
     tokenizer: BaseTokenizer | None,
     dataset_split: DatasetSplit,
     seed: int | None = None,
-) -> IterDataPipe:
+) -> "IterDataPipe":
     """Builds a dataset for the specified split.
 
     Args:

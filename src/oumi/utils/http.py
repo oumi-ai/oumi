@@ -15,6 +15,16 @@
 
 import aiohttp
 
+
+class APIStatusError(RuntimeError):
+    """An API error that preserves the HTTP status code."""
+
+    def __init__(self, message: str, *, status_code: int):
+        """Initialize with a message and HTTP status code."""
+        super().__init__(message)
+        self.status_code = status_code
+
+
 _NON_RETRIABLE_STATUS_CODES = {
     400,  # Bad Request
     401,  # Unauthorized

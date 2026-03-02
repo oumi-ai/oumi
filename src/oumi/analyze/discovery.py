@@ -14,8 +14,15 @@
 
 """Metric discovery utilities for the typed analyzer framework."""
 
+from __future__ import annotations
+
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from oumi.core.registry import REGISTRY, RegistryType
+
+if TYPE_CHECKING:
+    from rich.console import Console
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +35,7 @@ def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
         "metric_descriptions": {},
         "schema": {},
         "scope": analyzer_class.get_scope(),
+        "config_schema": {},
     }
 
     try:
@@ -40,15 +48,41 @@ def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
             f"Skipping metrics for {analyzer_class.__name__}: no valid result type"
         )
 
+    try:
+        info["config_schema"] = analyzer_class.get_config_schema()
+    except Exception:
+        logger.debug(f"Could not get config schema for {analyzer_class.__name__}")
+
     return info
+
+
+def get_instance_metrics(
+    analyzer_class: type,
+    config: dict[str, Any] | None = None,
+) -> list[str]:
+    """Get available metrics, attempting to instantiate with config for filtering."""
+    try:
+        all_metrics = analyzer_class.get_metric_names()
+    except (TypeError, AttributeError):
+        return []
+
+    if config is not None:
+        try:
+            if hasattr(analyzer_class, "from_config"):
+                instance = analyzer_class.from_config(config)
+            else:
+                instance = analyzer_class(**config)
+            return instance.get_available_metric_names()
+        except Exception:
+            pass
+
+    return all_metrics
 
 
 def list_available_metrics(
     include_duplicates: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """List all available metrics from registered analyzers."""
-    from oumi.core.registry import REGISTRY, RegistryType
-
     results = {}
     seen_classes = set()
 
@@ -57,9 +91,9 @@ def list_available_metrics(
         if not include_duplicates and class_name in seen_classes:
             continue
         seen_classes.add(class_name)
-        results[class_name if not include_duplicates else name] = get_analyzer_info(
-            analyzer_class
-        )
+        info = get_analyzer_info(analyzer_class)
+        info["registry_id"] = name
+        results[class_name if not include_duplicates else name] = info
 
     return results
 
@@ -90,19 +124,6 @@ def describe_analyzer(analyzer_class: type) -> str:
     return "\n".join(lines)
 
 
-def get_metric_path(analyzer_name: str, metric_name: str) -> str:
-    """Get the full metric path for use in test configurations.
-
-    Args:
-        analyzer_name: Name of the analyzer (e.g., "LengthAnalyzer").
-        metric_name: Name of the metric field (e.g., "total_words").
-
-    Returns:
-        Full metric path (e.g., "LengthAnalyzer.total_words").
-    """
-    return f"{analyzer_name}.{metric_name}"
-
-
 def print_analyzer_metrics(analyzer_name: str | None = None) -> None:
     """Pretty print available metrics for analyzers.
 
@@ -110,17 +131,7 @@ def print_analyzer_metrics(analyzer_name: str | None = None) -> None:
         analyzer_name: Optional specific analyzer to show. If None, shows all.
     """
     metrics = list_available_metrics()
-
-    # Filter to unique analyzers (avoid duplicates like "length" and "LengthAnalyzer")
-    unique_metrics = {}
-    seen_classes = set()
-    for name, info in metrics.items():
-        class_name = info.get("name", name)
-        if class_name not in seen_classes:
-            seen_classes.add(class_name)
-            unique_metrics[class_name] = info
-
-    _print_metrics_rich(unique_metrics, analyzer_name)
+    _print_metrics_rich(metrics, analyzer_name)
 
 
 def _print_metrics_rich(
@@ -132,7 +143,6 @@ def _print_metrics_rich(
     console = Console()
 
     if analyzer_name:
-        # Show specific analyzer
         if analyzer_name not in metrics:
             console.print(f"[red]Unknown analyzer: {analyzer_name}[/red]")
             console.print(f"Available: {', '.join(metrics.keys())}")
@@ -141,7 +151,6 @@ def _print_metrics_rich(
         info = metrics[analyzer_name]
         _print_single_analyzer(console, analyzer_name, info)
     else:
-        # Show all analyzers
         console.print("\n[bold cyan]Available Analyzers and Metrics[/bold cyan]\n")
         console.print(
             "Use these metric paths in your test configurations.\n"
@@ -152,7 +161,7 @@ def _print_metrics_rich(
             _print_single_analyzer(console, name, info)
 
 
-def _print_single_analyzer(console: Any, name: str, info: dict[str, Any]) -> None:
+def _print_single_analyzer(console: Console, name: str, info: dict[str, Any]) -> None:
     """Print metrics for a single analyzer."""
     from rich.table import Table
 
@@ -186,7 +195,6 @@ def _print_single_analyzer(console: Any, name: str, info: dict[str, Any]) -> Non
         path = f"{name}.{metric_name}"
         description = metric_descriptions.get(metric_name, "")
 
-        # Get type from schema
         prop_info = properties.get(metric_name, {})
         metric_type = _get_type_str(prop_info)
 
@@ -201,7 +209,6 @@ def _get_type_str(prop_info: dict) -> str:
     if not prop_info:
         return "any"
 
-    # Handle anyOf (optional types)
     if "anyOf" in prop_info:
         types = []
         for option in prop_info["anyOf"]:
@@ -212,68 +219,9 @@ def _get_type_str(prop_info: dict) -> str:
 
     prop_type = prop_info.get("type", "any")
 
-    # Handle arrays
     if prop_type == "array":
         items = prop_info.get("items", {})
         item_type = items.get("type", "any")
         return f"list[{item_type}]"
 
     return prop_type
-
-
-def generate_test_template(analyzer_name: str) -> str:
-    """Generate a YAML test template for an analyzer's metrics.
-
-    Args:
-        analyzer_name: Name of the analyzer.
-
-    Returns:
-        YAML string with example test configurations.
-    """
-    metrics = list_available_metrics()
-
-    if analyzer_name not in metrics:
-        return f"# Unknown analyzer: {analyzer_name}"
-
-    info = metrics[analyzer_name]
-    metric_names = info.get("metric_names", [])
-    metric_descriptions = info.get("metric_descriptions", {})
-    schema = info.get("schema", {})
-    properties = schema.get("properties", {})
-
-    lines = [
-        f"# Test templates for {analyzer_name}",
-        f"# Scope: {info.get('scope', 'unknown')}",
-        "",
-        "tests:",
-    ]
-
-    for metric_name in metric_names[:5]:  # Show first 5 as examples
-        description = metric_descriptions.get(metric_name, "")
-        prop_info = properties.get(metric_name, {})
-        metric_type = _get_type_str(prop_info)
-
-        lines.append(f"  # {description}")
-        lines.append(f"  - id: check_{metric_name}")
-
-        if metric_type in ("bool", "boolean"):
-            lines.append("    type: percentage")
-            lines.append(f"    metric: {analyzer_name}.{metric_name}")
-            lines.append('    condition: "== True"')
-            lines.append("    max_percentage: 5.0")
-        elif metric_type in ("int", "integer", "float", "number"):
-            lines.append("    type: threshold")
-            lines.append(f"    metric: {analyzer_name}.{metric_name}")
-            lines.append('    operator: ">"')
-            lines.append("    value: 1000  # Adjust as needed")
-            lines.append("    max_percentage: 5.0")
-        else:
-            lines.append("    type: percentage")
-            lines.append(f"    metric: {analyzer_name}.{metric_name}")
-            lines.append('    condition: "!= None"')
-            lines.append("    min_percentage: 95.0")
-
-        lines.append("    severity: medium")
-        lines.append("")
-
-    return "\n".join(lines)

@@ -86,6 +86,13 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
         Turns: 2
     """
 
+    _result_model = TurnStatsMetrics
+
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        """Get JSON schema for TurnStatsAnalyzer configuration."""
+        return {"properties": {}}
+
     def analyze(self, conversation: Conversation) -> TurnStatsMetrics:
         """Analyze turn statistics for a conversation.
 
@@ -96,16 +103,13 @@ class TurnStatsAnalyzer(ConversationAnalyzer[TurnStatsMetrics]):
             TurnStatsMetrics containing turn counts and statistics.
         """
         role_counts: dict[Role, int] = {role: 0 for role in Role}
-        first_role: str | None = None
-        last_role: str | None = None
+        for message in conversation.messages:
+            role_counts[message.role] += 1
 
-        for i, message in enumerate(conversation.messages):
-            if i == 0:
-                first_role = message.role.value
-            last_role = message.role.value
-
-            if message.role in role_counts:
-                role_counts[message.role] += 1
+        first_message = conversation.first_message()
+        last_message = conversation.last_message()
+        first_role = first_message.role.value if first_message else None
+        last_role = last_message.role.value if last_message else None
 
         return TurnStatsMetrics(
             num_turns=len(conversation.messages),

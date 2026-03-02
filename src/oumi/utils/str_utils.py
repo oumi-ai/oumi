@@ -14,6 +14,7 @@
 
 import copy
 import hashlib
+import json
 import logging
 import os
 import re
@@ -122,6 +123,63 @@ def compute_utf8_len(s: str) -> int:
     # This is inefficient: allocates a temporary copy of string content.
     # FIXME Can we do better?
     return len(s.encode("utf-8"))
+
+
+def extract_json(text: str, expected_type: type | None = list) -> dict | list | None:
+    """Extract a JSON object or array from text that may contain surrounding prose.
+
+    Extraction strategy (first match wins):
+    1. Code-fenced JSON (```json ... ``` or ``` ... ```).
+    2. Raw delimiters — takes the span from the *first* opening delimiter
+       (``[`` or ``{``) to the *last* matching closing delimiter (``]`` or
+       ``}``), then attempts ``json.loads`` on that slice.
+
+    Because step 2 uses the outermost delimiter span, the input text should
+    contain at most **one** JSON structure of the expected type. If multiple
+    JSON blocks or stray brackets appear in the surrounding prose, parsing
+    may fail or return an unexpected result.
+
+    Args:
+        text: The text to extract JSON from (e.g. LLM output that wraps
+            a JSON payload in natural-language prose).
+        expected_type: The expected Python type of the parsed result
+            (``list``, ``dict``, or ``None`` to accept either).
+
+    Returns:
+        The parsed JSON value if extraction and type-checking succeed,
+        otherwise ``None``.
+    """
+
+    def _matches_expected(value: object) -> bool:
+        return expected_type is None or isinstance(value, expected_type)
+
+    json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+    if json_match:
+        try:
+            result = json.loads(json_match.group(1))
+            if _matches_expected(result):
+                return result
+        except json.JSONDecodeError:
+            pass
+
+    delimiters = []
+    if expected_type in (list, None):
+        delimiters.append(("[", "]"))
+
+    if expected_type in (dict, None):
+        delimiters.append(("{", "}"))
+
+    for open_char, close_char in delimiters:
+        start = text.find(open_char)
+        end = text.rfind(close_char)
+        if start != -1 and end > start:
+            try:
+                result = json.loads(text[start : end + 1])
+                if _matches_expected(result):
+                    return result
+            except json.JSONDecodeError:
+                pass
+    return None
 
 
 def get_editable_install_override_env_var() -> bool:

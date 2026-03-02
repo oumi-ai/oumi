@@ -51,13 +51,15 @@ class RaRMedicineDataset(BaseRubricDataset):
 
     HuggingFace: https://huggingface.co/datasets/anisha2102/RaR-Medicine
 
-    Example:
+    Example::
+
         >>> dataset = RaRMedicineDataset(split="train")
         >>> sample = dataset.raw(0)
         >>> print(sample["prompt"])
         >>> print(sample["rubrics"])  # List of weighted rubric dicts
 
-    The rubrics follow this structure:
+    The rubrics follow this structure::
+
         {
             "name": "Identify Most Sensitive Modality",
             "description": "Essential Criteria: Identifies non-contrast helical CT...",
@@ -100,13 +102,15 @@ class RaRScienceDataset(RaRMedicineDataset):
 
     HuggingFace: https://huggingface.co/datasets/anisha2102/RaR-Science
 
-    Example:
+    Example::
+
         >>> dataset = RaRScienceDataset(split="train")
         >>> sample = dataset.raw(0)
         >>> print(sample["prompt"])
         >>> print(sample["rubrics"])  # List of weighted rubric dicts
 
-    The rubrics follow this structure:
+    The rubrics follow this structure::
+
         {
             "name": "Temperature Conversion",
             "description": "Essential Criteria: The response must mention...",

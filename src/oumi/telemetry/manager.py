@@ -52,7 +52,8 @@ class TelemetryManager:
 
     Analytics is enabled by default but can be disabled by setting DO_NOT_TRACK=1.
 
-    Example:
+    Example::
+
         telemetry = TelemetryManager.get_instance()
         with telemetry.capture_operation("my-event"):
             do_work()  # Timing, success/failure, and exceptions captured automatically

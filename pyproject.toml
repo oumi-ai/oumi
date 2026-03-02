@@ -76,10 +76,10 @@ dependencies = [
     "tqdm",
     "transformers>=4.57,<5.2",
     "trl>=0.24,<0.28",
-    "typer<0.21.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
+    "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
     "uvicorn<0.41.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
-    "wandb>=0.21,<0.25",        # Logging to Weights and Biases.
+    "wandb>=0.21,<0.26",        # Logging to Weights and Biases.
 ]
 
 [project.urls]
@@ -117,13 +117,14 @@ docs = [
 
 # Useful dependencies when running on GPU
 gpu = [
-    "liger-kernel>=0.6,<0.7",
+    "liger-kernel>=0.6,<0.8",
     "nvidia-ml-py>=13.580,<13.591",
     "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.6,<0.7; python_version >= '3.10'", # Used for the VERL_GRPO trainer
     "vllm>=0.12,<0.16",  # 0.12+ fixes DisabledTqdm bug
+    "kernels>=0.11,<0.13",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
 ]
 
 deepspeed = [

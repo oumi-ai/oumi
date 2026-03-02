@@ -15,7 +15,7 @@
 """Base analyzer classes for the typed analyzer framework."""
 
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, get_args, get_origin
+from typing import Any, ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel
 from transformers import PreTrainedTokenizerBase
@@ -28,11 +28,13 @@ TResult = TypeVar("TResult", bound=BaseModel)
 class BaseAnalyzer(ABC, Generic[TResult]):
     """Base class for all analyzer types.
 
-    Provides common metadata methods for inspecting the result type and schema
-    of an analyzer, enabling introspection of available metrics.
+    Subclasses must implement metadata methods to describe their result schema.
+    The generic type parameter TResult provides type safety for the analyze() method.
 
     All concrete analyzer types (MessageAnalyzer, ConversationAnalyzer, etc.)
-    inherit from this class.
+    inherit from this class. Set ``_result_model`` in subclasses to get automatic
+    implementations of ``get_result_schema``, ``get_metric_names``, and
+    ``get_metric_descriptions``.
 
     Attributes:
         analyzer_id: Optional custom identifier for this analyzer instance.
@@ -40,96 +42,50 @@ class BaseAnalyzer(ABC, Generic[TResult]):
     """
 
     analyzer_id: str | None = None
+    _result_model: ClassVar[type[BaseModel] | None] = None
 
     @classmethod
     def get_scope(cls) -> str:
-        """Get the scope of this analyzer.
-
-        Returns:
-            Scope string ('message', 'conversation', 'dataset', or 'preference').
-        """
+        """Get the scope of this analyzer."""
         return "unknown"
 
     @classmethod
-    def _require_result_type(cls) -> type[BaseModel]:
-        """Get the result type, raising if not available.
-
-        Returns:
-            The result type class (a BaseModel subclass).
-
-        Raises:
-            TypeError: If the analyzer doesn't have a valid result type.
-        """
-        result_type = cls._get_result_type()
-        if result_type is None:
-            raise TypeError(
-                f"{cls.__name__} does not have a valid result type. "
-                f"Ensure the class specifies a Pydantic BaseModel as the "
-                f"generic type parameter, e.g., "
-                f"`class {cls.__name__}(ConversationAnalyzer[YourResultModel])`"
-            )
-        return result_type
+    @abstractmethod
+    def get_config_schema(cls) -> dict[str, Any]:
+        """Get JSON schema for this analyzer's configuration."""
+        ...
 
     @classmethod
     def get_result_schema(cls) -> dict:
-        """Get the JSON schema for this analyzer's result model.
-
-        This allows users to discover what metrics the analyzer produces
-        before running analysis. Useful for documentation, UI generation,
-        and config validation.
-
-        Returns:
-            JSON schema dictionary for the result model.
-
-        Raises:
-            TypeError: If the analyzer doesn't have a valid result type.
-        """
-        return cls._require_result_type().model_json_schema()
+        """Get the JSON schema for this analyzer's result model."""
+        if cls._result_model is None:
+            return {}
+        return cls._result_model.model_json_schema()
 
     @classmethod
     def get_metric_names(cls) -> list[str]:
-        """Get the list of metric field names this analyzer produces.
+        """Get the list of metric field names this analyzer produces."""
+        if cls._result_model is None:
+            return []
+        return list(cls._result_model.model_fields.keys())
 
-        Returns:
-            List of metric field names.
+    def get_available_metric_names(self) -> list[str]:
+        """Get metric names this instance will actually produce.
 
-        Raises:
-            TypeError: If the analyzer doesn't have a valid result type.
+        Subclasses can override to exclude metrics that depend on instance config
+        (e.g., ``rendered_tokens`` requires a HuggingFace tokenizer).
         """
-        return list(cls._require_result_type().model_fields.keys())
+        return self.get_metric_names()
 
     @classmethod
     def get_metric_descriptions(cls) -> dict[str, str]:
-        """Get descriptions for each metric field.
-
-        Returns:
-            Dictionary mapping field names to descriptions.
-
-        Raises:
-            TypeError: If the analyzer doesn't have a valid result type.
-        """
+        """Get descriptions for each metric field."""
+        if cls._result_model is None:
+            return {}
         return {
-            name: field_info.description or ""
-            for name, field_info in cls._require_result_type().model_fields.items()
+            name: field.description or ""
+            for name, field in cls._result_model.model_fields.items()
         }
-
-    @classmethod
-    def _get_result_type(cls) -> type[BaseModel] | None:
-        """Get the result type from the generic parameter.
-
-        Returns:
-            The result type class (a BaseModel subclass), or None if not found.
-        """
-        for base in getattr(cls, "__orig_bases__", ()):
-            if get_origin(base) is not None:
-                args = get_args(base)
-                if (
-                    args
-                    and isinstance(args[0], type)
-                    and issubclass(args[0], BaseModel)
-                ):
-                    return args[0]
-        return None
 
     @staticmethod
     def get_text_content(message: Message) -> str:
@@ -157,11 +113,7 @@ class MessageAnalyzer(BaseAnalyzer[TResult]):
 
     @classmethod
     def get_scope(cls) -> str:
-        """Get the scope of this analyzer.
-
-        Returns:
-            Scope string ('message').
-        """
+        """Get the scope of this analyzer."""
         return "message"
 
     @abstractmethod
@@ -191,14 +143,7 @@ class MessageAnalyzer(BaseAnalyzer[TResult]):
         return [self.analyze(m) for m in messages]
 
     def __call__(self, message: Message) -> TResult:
-        """Allow analyzer to be called directly.
-
-        Args:
-            message: The message to analyze.
-
-        Returns:
-            Typed result model.
-        """
+        """Call analyze() directly."""
         return self.analyze(message)
 
 
@@ -207,11 +152,7 @@ class ConversationAnalyzer(BaseAnalyzer[TResult]):
 
     @classmethod
     def get_scope(cls) -> str:
-        """Get the scope of this analyzer.
-
-        Returns:
-            Scope string ('conversation').
-        """
+        """Get the scope of this analyzer."""
         return "conversation"
 
     @abstractmethod
@@ -242,14 +183,7 @@ class ConversationAnalyzer(BaseAnalyzer[TResult]):
         return [self.analyze(c) for c in conversations]
 
     def __call__(self, conversation: Conversation) -> TResult:
-        """Allow analyzer to be called directly.
-
-        Args:
-            conversation: The conversation to analyze.
-
-        Returns:
-            Typed result model.
-        """
+        """Call analyze() directly."""
         return self.analyze(conversation)
 
     @staticmethod
@@ -294,11 +228,7 @@ class DatasetAnalyzer(BaseAnalyzer[TResult]):
 
     @classmethod
     def get_scope(cls) -> str:
-        """Get the scope of this analyzer.
-
-        Returns:
-            Scope string ('dataset').
-        """
+        """Get the scope of this analyzer."""
         return "dataset"
 
     @abstractmethod
@@ -317,14 +247,7 @@ class DatasetAnalyzer(BaseAnalyzer[TResult]):
         ...
 
     def __call__(self, conversations: list[Conversation]) -> TResult:
-        """Allow analyzer to be called directly.
-
-        Args:
-            conversations: All conversations to analyze.
-
-        Returns:
-            Typed result model.
-        """
+        """Call analyze() directly."""
         return self.analyze(conversations)
 
 
@@ -333,11 +256,7 @@ class PreferenceAnalyzer(BaseAnalyzer[TResult]):
 
     @classmethod
     def get_scope(cls) -> str:
-        """Get the scope of this analyzer.
-
-        Returns:
-            Scope string ('preference').
-        """
+        """Get the scope of this analyzer."""
         return "preference"
 
     @abstractmethod
@@ -368,13 +287,5 @@ class PreferenceAnalyzer(BaseAnalyzer[TResult]):
         return [self.analyze(chosen, rejected) for chosen, rejected in pairs]
 
     def __call__(self, chosen: Conversation, rejected: Conversation) -> TResult:
-        """Allow analyzer to be called directly.
-
-        Args:
-            chosen: The preferred conversation.
-            rejected: The rejected conversation.
-
-        Returns:
-            Typed result model.
-        """
+        """Call analyze() directly."""
         return self.analyze(chosen, rejected)

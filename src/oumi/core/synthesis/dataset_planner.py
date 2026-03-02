@@ -49,20 +49,24 @@ class DatasetPlanner:
         representing a sample of the dataset with a particular attribute value for
         each attribute.
 
-        Source Types and Sampling Modes:
-        - Example sources, Document sources, and Dataset sources support two modes:
-          * Round-robin mode (default): When num_shots is None or 1, items are cycled
-            sequentially across synthesis samples. Each item's attributes are spread
-            directly into the sample dict (e.g., {field1: value1, field2: value2}).
-            Reference in templates using the field name (e.g., {field1}).
-          * Dynamic sampling mode: When num_shots > 1, N items are randomly sampled
-            per synthesis sample. Items are stored as a list under the source's id
-            (e.g., {source_id: [{field1: v1}, {field2: v2}]}). Reference in templates
-            using bracket notation: {source_id[0].field1}.
+        **Source Types and Sampling Modes:**
+
+        Example sources, Document sources, and Dataset sources support two modes:
+
+        - **Round-robin mode** (default): When num_shots is None or 1, items are
+          cycled sequentially across synthesis samples. Each item's attributes are
+          spread directly into the sample dict. Reference in templates using the
+          field name (e.g., ``{field1}``).
+        - **Dynamic sampling mode**: When num_shots > 1, N items are randomly
+          sampled per synthesis sample. Items are stored as a list under the
+          source's id. Reference in templates using bracket notation:
+          ``{source_id[0].field1}``.
+
+        Additionally:
 
         - Permutable attributes have their values sampled from a distribution.
-        - Combination sampling overrides the distribution for particular attribute-value
-          combinations.
+        - Combination sampling overrides the distribution for particular
+          attribute-value combinations.
 
         The final list of dictionaries will be used to create a dataset.
 

@@ -20,7 +20,6 @@ from oumi.analyze.analyzers.length import (
     LengthAnalyzer,
     LengthMetrics,
     Tokenizer,
-    default_tokenizer,
 )
 from oumi.core.types.conversation import Conversation, Message, Role
 
@@ -75,8 +74,8 @@ def mock_tokenizer():
 
 @pytest.fixture
 def tiktoken_tokenizer():
-    """Get the default tiktoken tokenizer."""
-    return default_tokenizer()
+    """Get a tiktoken tokenizer via from_config."""
+    return LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"}).tokenizer
 
 
 # -----------------------------------------------------------------------------
@@ -90,18 +89,19 @@ def test_tokenizer_protocol(mock_tokenizer):
 
 
 def test_default_tokenizer():
-    """Test that default_tokenizer returns a valid tokenizer."""
-    tokenizer = default_tokenizer()
-    assert hasattr(tokenizer, "encode")
-    tokens = tokenizer.encode("Hello, world!")
+    """Test that from_config with tiktoken encoding returns a valid tokenizer."""
+    analyzer = LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})
+    assert analyzer.tokenizer is not None
+    tokens = analyzer.tokenizer.encode("Hello, world!")
     assert isinstance(tokens, list)
     assert len(tokens) > 0
 
 
 def test_default_tokenizer_custom_encoding():
-    """Test default_tokenizer with custom encoding."""
-    tokenizer = default_tokenizer("p50k_base")
-    tokens = tokenizer.encode("Hello")
+    """Test from_config with a non-default tiktoken encoding."""
+    analyzer = LengthAnalyzer.from_config({"tokenizer_name": "p50k_base"})
+    assert analyzer.tokenizer is not None
+    tokens = analyzer.tokenizer.encode("Hello")
     assert len(tokens) > 0
 
 
@@ -387,62 +387,6 @@ def test_rendered_tokens_empty_conversation(tiktoken_tokenizer):
 
 
 # -----------------------------------------------------------------------------
-# Pipeline Tokenizer Injection Tests
-# -----------------------------------------------------------------------------
-
-
-def test_pipeline_injects_tokenizer(simple_conversation):
-    """Test that AnalysisPipeline injects tokenizer into analyzers."""
-    from oumi.analyze.pipeline import AnalysisPipeline
-
-    analyzer = LengthAnalyzer()  # No tokenizer
-    assert analyzer.tokenizer is None
-
-    pipeline = AnalysisPipeline(analyzers=[analyzer])
-
-    # Pipeline should have injected the tokenizer
-    assert analyzer.tokenizer is not None
-
-    # Should now work
-    results = pipeline.run([simple_conversation])
-    assert "LengthAnalyzer" in results
-
-
-def test_pipeline_respects_custom_tokenizer(simple_conversation, mock_tokenizer):
-    """Test that AnalysisPipeline doesn't override existing tokenizers."""
-    from oumi.analyze.pipeline import AnalysisPipeline
-
-    analyzer = LengthAnalyzer(tokenizer=mock_tokenizer)
-
-    pipeline = AnalysisPipeline(analyzers=[analyzer])
-
-    # Should keep the custom tokenizer
-    assert analyzer.tokenizer is mock_tokenizer
-
-    results = pipeline.run([simple_conversation])
-    # Mock tokenizer: "Hello" -> 1, "Hi there!" -> 2
-    length_results = results["LengthAnalyzer"]
-    assert isinstance(length_results, list)
-    assert isinstance(length_results[0], LengthMetrics)
-    assert length_results[0].total_tokens == 3
-
-
-def test_pipeline_custom_tokenizer_for_all(simple_conversation, mock_tokenizer):
-    """Test that pipeline can provide a custom tokenizer for all analyzers."""
-    from oumi.analyze.pipeline import AnalysisPipeline
-
-    analyzer = LengthAnalyzer()  # No tokenizer
-
-    _ = AnalysisPipeline(
-        analyzers=[analyzer],
-        tokenizer=mock_tokenizer,
-    )
-
-    # Should use the pipeline's tokenizer
-    assert analyzer.tokenizer is mock_tokenizer
-
-
-# -----------------------------------------------------------------------------
 # Registry Tests
 # -----------------------------------------------------------------------------
 
@@ -487,3 +431,64 @@ def test_get_metric_descriptions():
 def test_get_scope():
     """Test that analyzer scope is conversation."""
     assert LengthAnalyzer.get_scope() == "conversation"
+
+
+def test_from_config_tiktoken():
+    """Test creating analyzer from config with tiktoken."""
+    analyzer = LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})
+    assert analyzer.tokenizer is not None
+
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello world"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.total_tokens > 0
+
+
+def test_from_config_huggingface():
+    """Test creating analyzer from config with HuggingFace tokenizer.
+
+    Uses openai-community/gpt2 (the HF model ID) to exercise the HuggingFace
+    path in from_config(). "gpt2" alone is intentionally not in TIKTOKEN_ENCODINGS
+    since it is also a valid HF model ID.
+    """
+    from transformers import PreTrainedTokenizerBase
+
+    analyzer = LengthAnalyzer.from_config({"tokenizer_name": "openai-community/gpt2"})
+    assert analyzer.tokenizer is not None
+    # Verify we got a HuggingFace tokenizer, not a tiktoken encoding
+    assert isinstance(analyzer.tokenizer, PreTrainedTokenizerBase)
+
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello world"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.total_tokens > 0
+
+
+def test_from_config_default():
+    """Test from_config with default tokenizer."""
+    analyzer = LengthAnalyzer.from_config({})
+    assert analyzer.tokenizer is not None
+
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Test"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.total_tokens > 0
+
+
+def test_create_analyzer_from_config_uses_from_config():
+    """Test that create_analyzer_from_config uses from_config method."""
+    from oumi.analyze import create_analyzer_from_config
+
+    analyzer = create_analyzer_from_config("length", {"tokenizer_name": "cl100k_base"})
+    assert analyzer is not None
+    assert isinstance(analyzer, LengthAnalyzer)
+    assert analyzer.tokenizer is not None
