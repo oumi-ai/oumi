@@ -20,7 +20,9 @@ from tests.markers import requires_gpus
 # Conditional import for StatefulDataLoader
 _TORCHDATA_AVAILABLE = is_torchdata_available()
 if _TORCHDATA_AVAILABLE:
-    from torchdata.stateful_dataloader import StatefulDataLoader
+    from torchdata.stateful_dataloader import (  # pyright: ignore[reportMissingImports]
+        StatefulDataLoader,
+    )
 else:
     StatefulDataLoader = DataLoader  # type: ignore[misc, assignment]
 

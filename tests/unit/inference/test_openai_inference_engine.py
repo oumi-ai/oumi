@@ -2,7 +2,10 @@ import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.inference.openai_inference_engine import OpenAIInferenceEngine
+from oumi.inference.openai_inference_engine import (
+    OpenAIInferenceEngine,
+    _is_reasoning_model,
+)
 
 
 @pytest.fixture
@@ -41,11 +44,36 @@ def test_openai_init_default_params():
     ("model_name,logit_bias,temperature,expected_logit_bias,expected_temperature,"),
     [
         ("some_model", {"token": 0.0}, 0.0, {"token": 0.0}, 0.0),
+        ("gpt-4", {"token": 0.5}, 0.7, {"token": 0.5}, 0.7),
+        # Reasoning models should have temperature forced to 1.0 and logit_bias cleared
         ("o1-preview", {"token": 0.0}, 0.0, {}, 1.0),
+        ("o1", {"token": 0.5}, 0.8, {}, 1.0),
+        ("o1-2024-12-17", {"token": 0.5}, 0.5, {}, 1.0),
+        ("o1-mini", {"token": 0.5}, 0.5, {}, 1.0),
+        ("o3-mini", {"token": 0.5}, 0.5, {}, 1.0),
+        ("o4-mini", {"token": 0.5}, 0.5, {}, 1.0),
+        ("gpt-5", {"token": 0.5}, 0.8, {}, 1.0),
+        ("gpt-5-2025-08-07", {"token": 0.5}, 0.8, {}, 1.0),
+        ("gpt-5-mini", {"token": 0.5}, 0.8, {}, 1.0),
+        ("gpt-5-mini-2025-08-07", {"token": 0.5}, 0.8, {}, 1.0),
+        ("gpt-5-nano", {"token": 0.5}, 0.8, {}, 1.0),
+        ("gpt-5-nano-2025-08-07", {"token": 0.5}, 0.8, {}, 1.0),
     ],
     ids=[
-        "test_default_params",
-        "test_default_params_o1_preview",
+        "standard_model",
+        "gpt4_standard",
+        "o1_preview",
+        "o1",
+        "o1_dated",
+        "o1_mini",
+        "o3_mini",
+        "o4_mini",
+        "gpt5",
+        "gpt5_dated",
+        "gpt5_mini",
+        "gpt5_mini_dated",
+        "gpt5_nano",
+        "gpt5_nano_dated",
     ],
 )
 def test_default_params(
@@ -77,3 +105,35 @@ def test_default_params(
         assert api_input["logit_bias"] == expected_logit_bias
     else:
         assert "logit_bias" not in api_input
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected"),
+    [
+        # Reasoning models (should return True)
+        ("o1", True),
+        ("o1-preview", True),
+        ("o1-mini", True),
+        ("o1-2024-12-17", True),
+        ("o3-mini", True),
+        ("o4-mini", True),
+        ("gpt-5", True),
+        ("gpt-5-mini", True),
+        ("gpt-5-nano", True),
+        ("gpt-5-2025-08-07", True),
+        ("gpt-5-mini-2025-08-07", True),
+        ("gpt-5-nano-2025-08-07", True),
+        # Non-reasoning models (should return False)
+        ("gpt-4", False),
+        ("gpt-4-turbo", False),
+        ("gpt-4.1", False),
+        ("gpt-4.1-mini", False),
+        ("gpt-3.5-turbo", False),
+        ("claude-3-opus", False),
+        ("some-random-model", False),
+        ("", False),
+    ],
+)
+def test_is_reasoning_model(model_name: str, expected: bool):
+    """Test _is_reasoning_model correctly identifies reasoning models."""
+    assert _is_reasoning_model(model_name) == expected

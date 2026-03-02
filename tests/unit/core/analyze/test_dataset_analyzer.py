@@ -861,9 +861,7 @@ def test_analyzer_with_tokenizer(test_data_path):
         dataset_name="text_sft",
         split="train",
         sample_count=2,
-        tokenizer_config={
-            "model_name": "openai-community/gpt2"
-        },  # This will be used to build a real tokenizer
+        tokenizer_name="openai-community/gpt2",
         analyzers=[
             SampleAnalyzerParams(
                 id="length_analyzer",

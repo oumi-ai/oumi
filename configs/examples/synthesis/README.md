@@ -10,6 +10,7 @@ This directory contains example configurations for different data synthesis use 
 4. [Multi-turn Conversations](#4-multi-turn-conversations-conversation_synthyaml) - Create dialogue datasets
 5. [Domain-specific QA](#5-domain-specific-qa-domain_qa_synthyaml) - Generate domain-focused training data
 6. [Dynamic Few-Shot Sampling](#6-dynamic-few-shot-sampling-dynamic_few_shot_synthyaml) - Randomly sample examples for diversity
+7. [Multi-turn Conversation Synthesis](#7-multi-turn-conversation-synthesis-multiturn_conversation_synthyaml) - Generate dynamic, variable-length conversations
 
 ### 1. Question-Answer Generation (`question_answer_synth.yaml`)
 
@@ -326,6 +327,105 @@ oumi synth -c configs/examples/synthesis/dynamic_few_shot_synth.yaml
   "few_shot_examples[2].example_input": "The cat sat on the mat."
 }
 ```
+</details>
+
+### 7. Multi-turn Conversation Synthesis (`multiturn_conversation_synth.yaml`)
+
+**Purpose**: Generate dynamic, variable-length multi-turn conversations using `multiturn_attributes` with conversation planning and role-based turn generation.
+
+**What it does**: Creates realistic customer support conversations where the system first plans the conversation flow, then generates each turn sequentially with full conversation context. Unlike the chained approach in `conversation_synth.yaml`, this produces variable-length conversations (4-12 turns) with natural back-and-forth dialogue.
+
+**Key features**:
+- **Multi-turn conversation generation** with variable length (4-12 turns per conversation)
+- **Conversation planning**: The system automatically generates a turn-by-turn plan before generating the conversation
+- **Role-based instructions**: Separate instruction templates for USER and ASSISTANT roles
+- **Generated context attributes**: Customer name, issue details, and opening message are generated before the conversation begins
+- **Multiple sampled dimensions**: Support scenarios, customer personalities (concise, friendly, frustrated, confused, demanding, curious, skeptical), and interaction styles (cooperative, escalated, incomplete, difficult)
+- **Weighted sampling**: Custom `sample_rate` values control the distribution of customer types and interaction styles
+- **System prompt injection**: `output_system_prompt` prepends a system message to the final conversation output
+- **Plan passthrough**: Both the conversation and its plan are included in the output via `passthrough_attributes`
+
+**How it differs from `conversation_synth.yaml`**:
+
+| Feature | `conversation_synth.yaml` | `multiturn_conversation_synth.yaml` |
+|---|---|---|
+| Approach | Chained `generated_attributes` | `multiturn_attributes` |
+| Turn count | Fixed (4 messages) | Variable (4-12 turns) |
+| Context threading | Manual via attribute references | Automatic conversation history |
+| Conversation planning | None | Automatic turn-by-turn plan |
+| Output format | `transformed_attributes` (CHAT) | Native conversation object |
+
+**How it works**:
+```yaml
+multiturn_attributes:
+  - id: "support_conversation"
+    min_turns: 4
+    max_turns: 12
+
+    role_instruction_messages:
+      USER: |
+        You are {customer_name}, a {customer_type.name} customer...
+        Your specific issue: {issue_detail}
+      ASSISTANT: |
+        {system_instruction.description}
+        Follow the plan's direction for this turn.
+
+    output_system_prompt: |
+      {system_instruction.description}
+
+passthrough_attributes:
+  - support_conversation
+  - support_conversation_plan
+```
+
+**Run with**:
+```bash
+oumi synth -c configs/examples/synthesis/multiturn_conversation_synth.yaml
+```
+
+<details>
+<summary><strong>Example Output</strong></summary>
+
+```json
+{
+  "support_conversation": {
+    "conversation_id": "conversation-a1b2c3d4-5678-90ab-cdef-1234567890ab",
+    "messages": [
+      {
+        "content": "You are CareBot, a customer service assistant for BrightTech Electronics...",
+        "role": "system"
+      },
+      {
+        "content": "Hey, my order BT-78234 says delivered but I never got it. What's going on?",
+        "role": "user"
+      },
+      {
+        "content": "<ACTION>\ntype: LOOKUP_ORDER\nparameters: { \"order_id\": \"BT-78234\" }\n</ACTION>\nI'm sorry to hear that. Let me look up order BT-78234 for you right away.",
+        "role": "assistant"
+      },
+      {
+        "content": "Yeah, it's been 3 days since it supposedly arrived.",
+        "role": "user"
+      },
+      {
+        "content": "<ACTION>\ntype: CLARIFY\nparameters: { \"reason\": \"Need to verify delivery details before escalating\" }\n</ACTION>\nI understand your frustration. Could you confirm the shipping address on the order so I can investigate further?",
+        "role": "assistant"
+      },
+      {
+        "content": "123 Main St, Apt 4B.",
+        "role": "user"
+      },
+      {
+        "content": "<ACTION>\ntype: ESCALATE\nparameters: { \"account_email\": \"customer@example.com\", \"reason\": \"Package marked delivered but not received at 123 Main St Apt 4B\" }\n</ACTION>\nThank you for confirming. I've escalated this to our shipping team for investigation. You should hear back within 24 hours.",
+        "role": "assistant"
+      }
+    ],
+    "metadata": {}
+  },
+  "support_conversation_plan": "Turn 1 (User): Customer reports missing package with order ID.\nTurn 2 (Assistant): Look up the order and acknowledge the issue.\nTurn 3 (User): Provide additional context about the delivery timeline.\nTurn 4 (Assistant): Ask for address verification.\nTurn 5 (User): Confirm the shipping address.\nTurn 6 (Assistant): Escalate to shipping team for investigation."
+}
+```
+
 </details>
 
 ## Usage Tips

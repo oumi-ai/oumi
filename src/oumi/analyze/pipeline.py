@@ -14,12 +14,13 @@
 
 """Analysis pipeline for orchestrating multiple analyzers."""
 
+import json
 import logging
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-import tiktoken
 from pydantic import BaseModel
 from tqdm import tqdm
 
@@ -36,10 +37,8 @@ from oumi.core.types.conversation import Conversation
 
 logger = logging.getLogger(__name__)
 
-_TOKENIZER_ATTR = "tokenizer"
 _CACHE_FILENAME = "analysis_results.json"
 
-# Type aliases for consistency
 AnyAnalyzer = (
     MessageAnalyzer[Any]
     | ConversationAnalyzer[Any]
@@ -58,9 +57,6 @@ class AnalysisPipeline:
     handling different analyzer scopes appropriately, and providing unified
     access to results.
 
-    The pipeline can inject shared resources (like tokenizers) into analyzers
-    that need them, ensuring consistent configuration across the analysis.
-
     Note:
         PreferenceAnalyzers are not run by `run()`. Use `run_preference()`
         separately to analyze preference pairs (chosen/rejected conversations).
@@ -69,7 +65,9 @@ class AnalysisPipeline:
         >>> from oumi.analyze import AnalysisPipeline, LengthAnalyzer
         >>>
         >>> pipeline = AnalysisPipeline(
-        ...     analyzers=[LengthAnalyzer()],
+        ...     analyzers=[
+        ...         LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})
+        ...     ],
         ...     cache_dir="./analysis_cache",
         ... )
         >>> results = pipeline.run(conversations)
@@ -77,38 +75,19 @@ class AnalysisPipeline:
     Args:
         analyzers: List of analyzer instances to run.
         cache_dir: Optional directory for caching results.
-        tokenizer: Optional tokenizer to inject into analyzers that need one.
-            If None, uses tiktoken with the specified encoding as default.
-        tiktoken_encoding: Tiktoken encoding to use when no tokenizer is provided.
-            Defaults to "cl100k_base" (GPT-4 encoding).
     """
 
     def __init__(
         self,
         analyzers: list[AnyAnalyzer],
         cache_dir: str | Path | None = None,
-        tokenizer: Any | None = None,
-        tiktoken_encoding: str = "cl100k_base",
     ):
-        """Initialize the analysis pipeline.
-
-        Args:
-            analyzers: List of analyzer instances to run.
-            cache_dir: Optional directory for caching results.
-            tokenizer: Optional tokenizer to inject into analyzers that need one.
-                Must have an `encode(text) -> list` method. If None, tiktoken
-                is used as the default.
-            tiktoken_encoding: Tiktoken encoding to use when no tokenizer provided.
-        """
+        """Initialize the analysis pipeline."""
         self.analyzers = analyzers
         self.cache_dir = Path(cache_dir) if cache_dir else None
 
-        if tokenizer is not None:
-            self._tokenizer = tokenizer
-        else:
-            self._tokenizer = tiktoken.get_encoding(tiktoken_encoding)
-
         self._results: AnalysisResults = {}
+        self._assigned_names: set[str] = set()
         self._conversations: list[Conversation] = []
         self._message_to_conversation_idx: list[int] = []
 
@@ -118,8 +97,6 @@ class AnalysisPipeline:
         self._preference_analyzers: list[PreferenceAnalyzer[Any]] = []
 
         for analyzer in analyzers:
-            self._inject_tokenizer(analyzer)
-
             if isinstance(analyzer, MessageAnalyzer):
                 self._message_analyzers.append(analyzer)
             elif isinstance(analyzer, ConversationAnalyzer):
@@ -128,13 +105,6 @@ class AnalysisPipeline:
                 self._dataset_analyzers.append(analyzer)
             elif isinstance(analyzer, PreferenceAnalyzer):
                 self._preference_analyzers.append(analyzer)
-
-    def _inject_tokenizer(self, analyzer: AnyAnalyzer) -> None:
-        if hasattr(analyzer, _TOKENIZER_ATTR):
-            current = getattr(analyzer, _TOKENIZER_ATTR)
-            if current is None:
-                setattr(analyzer, _TOKENIZER_ATTR, self._tokenizer)
-                logger.debug(f"Injected tokenizer into {analyzer.__class__.__name__}")
 
     def run(
         self,
@@ -242,8 +212,6 @@ class AnalysisPipeline:
         Returns:
             True if cache was loaded successfully, False otherwise.
         """
-        import json
-
         if not self.cache_dir:
             return False
 
@@ -263,20 +231,12 @@ class AnalysisPipeline:
 
     @property
     def results(self) -> AnalysisResults:
-        """Get the cached analysis results.
-
-        Returns:
-            Dictionary mapping analyzer names to results.
-        """
+        """Get the cached analysis results."""
         return self._results
 
     @property
     def conversations(self) -> list[Conversation]:
-        """Get the analyzed conversations.
-
-        Returns:
-            List of conversations that were analyzed.
-        """
+        """Get the analyzed conversations."""
         return self._conversations
 
     @property
@@ -285,22 +245,11 @@ class AnalysisPipeline:
         return self._message_to_conversation_idx
 
     def get_analyzer(self, name: str) -> AnyAnalyzer | None:
-        """Get an analyzer by name.
-
-        Args:
-            name: Name of the analyzer to find.
-
-        Returns:
-            Analyzer instance or None if not found.
-        """
+        """Get an analyzer by name, or None if not found."""
         for analyzer in self.analyzers:
             if self._get_analyzer_name(analyzer) == name:
                 return analyzer
         return None
-
-    # -------------------------------------------------------------------------
-    # Private helper methods
-    # -------------------------------------------------------------------------
 
     def _run_conversation_analyzers(self, conversations: list[Conversation]) -> None:
         """Run all conversation-level analyzers in dependency order."""
@@ -311,7 +260,9 @@ class AnalysisPipeline:
         ):
             self._inject_dependencies(analyzer)
             self._run_single_analyzer(
-                analyzer, lambda a: a.analyze_batch(conversations), is_batch=True
+                analyzer,
+                lambda a: cast(ConversationAnalyzer, a).analyze_batch(conversations),
+                is_batch=True,
             )
 
     def _run_message_analyzers(self, conversations: list[Conversation]) -> None:
@@ -328,7 +279,9 @@ class AnalysisPipeline:
         ):
             self._inject_dependencies(analyzer)
             self._run_single_analyzer(
-                analyzer, lambda a: a.analyze_batch(all_messages), is_batch=True
+                analyzer,
+                lambda a: cast(MessageAnalyzer, a).analyze_batch(all_messages),
+                is_batch=True,
             )
 
     def _run_dataset_analyzers(self, conversations: list[Conversation]) -> None:
@@ -340,24 +293,20 @@ class AnalysisPipeline:
         ):
             self._inject_dependencies(analyzer)
             self._run_single_analyzer(
-                analyzer, lambda a: a.analyze(conversations), is_batch=False
+                analyzer,
+                lambda a: cast(DatasetAnalyzer, a).analyze(conversations),
+                is_batch=False,
             )
 
     def _run_single_analyzer(
         self,
         analyzer: AnyAnalyzer,
-        run_func: Any,
+        run_func: Callable[[AnyAnalyzer], BaseModel | list[BaseModel]],
         is_batch: bool,
     ) -> None:
-        """Run a single analyzer and store results.
-
-        Args:
-            analyzer: The analyzer to run.
-            run_func: Function that takes the analyzer and returns results.
-            is_batch: Whether the result is a list (batch) or single value.
-        """
+        """Run a single analyzer and store its results."""
         name = self._get_analyzer_name(analyzer)
-        scope = self._get_analyzer_scope(analyzer)
+        scope = analyzer.get_scope()
         logger.debug(f"Running {scope} analyzer: {name}")
 
         try:
@@ -377,8 +326,6 @@ class AnalysisPipeline:
         Raises:
             ValueError: If there's a circular dependency.
         """
-        from graphlib import CycleError, TopologicalSorter
-
         if not analyzers:
             return []
 
@@ -404,15 +351,7 @@ class AnalysisPipeline:
         return [name_to_analyzer[name] for name in sorted_names]
 
     def _inject_dependencies(self, analyzer: AnyAnalyzer) -> None:
-        """Inject dependency results into a derived analyzer.
-
-        If the analyzer has a `depends_on` attribute listing dependency names,
-        and a `set_dependencies` method, this will pass the results from
-        those dependencies to the analyzer.
-
-        Args:
-            analyzer: The derived analyzer to inject dependencies into.
-        """
+        """Inject dependency results into a derived analyzer."""
         depends_on = getattr(analyzer, "depends_on", None)
         if not depends_on:
             return
@@ -441,19 +380,28 @@ class AnalysisPipeline:
         return tqdm(items, desc=desc, unit="analyzer")
 
     def _get_analyzer_name(self, analyzer: AnyAnalyzer) -> str:
-        """Get the name for an analyzer (analyzer_id or class name)."""
+        """Get the name for an analyzer.
+
+        If ``analyzer_id`` is already set, returns it directly.  Otherwise
+        auto-generates a name from the class name, appending a numeric suffix
+        to avoid collisions with existing results.
+        """
         if analyzer.analyzer_id is not None:
             return analyzer.analyzer_id
-        return analyzer.__class__.__name__
 
-    def _get_analyzer_scope(self, analyzer: AnyAnalyzer) -> str:
-        """Get the scope name for an analyzer."""
-        return analyzer.get_scope()
+        # Auto-generate from class name, deduplicating if needed
+        base = analyzer.__class__.__name__
+        name = base
+        counter = 2
+        while name in self._assigned_names:
+            name = f"{base}_{counter}"
+            counter += 1
+        self._assigned_names.add(name)
+        analyzer.analyzer_id = name
+        return name
 
     def _save_cache(self) -> None:
         """Save results to cache directory."""
-        import json
-
         if not self.cache_dir:
             return
 

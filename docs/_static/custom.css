@@ -1768,3 +1768,28 @@ em.property {
     font-size: var(--text-xs);
     color: var(--oumi-text-muted);
 }
+
+/* Search highlight "Hide Search Matches" button */
+.highlight-link {
+    margin: var(--space-2) 0;
+}
+
+.highlight-link a {
+    display: inline-block;
+    padding: var(--space-2) var(--space-4);
+    background: var(--oumi-bg-elevated);
+    color: var(--oumi-text-primary) !important;
+    border: 1px solid var(--oumi-border);
+    border-radius: var(--radius-md);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    text-decoration: none !important;
+    transition: all var(--transition-fast);
+}
+
+.highlight-link a:hover {
+    background: var(--oumi-primary-accent);
+    border-color: var(--oumi-primary-accent);
+    color: white !important;
+}

@@ -40,9 +40,10 @@ class BaseRubricDataset(BaseMapDataset):
 
     This provides common functionality for datasets used with rubric-based
     reward functions in GRPO training. Subclasses should implement the
-    `transform` method to return the expected format.
+    ``transform`` method to return the expected format.
 
-    Expected transform() output format:
+    Expected ``transform()`` output format::
+
         {
             "prompt": str,                # The user prompt/question
             "rubrics": list[Rubric],      # List of evaluation criteria
@@ -72,7 +73,8 @@ class BaseRubricDataset(BaseMapDataset):
     def transform(self, sample: pd.Series) -> dict[str, Any]:
         """Transform a raw sample into the standard rubric format.
 
-        Subclasses must override this method to return:
+        Subclasses must override this method to return::
+
             {
                 "prompt": str,
                 "rubrics": list[Rubric],

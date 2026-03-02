@@ -165,6 +165,8 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
         Together uses:
         - Uppercase status values (e.g., "COMPLETED" instead of "completed")
         - ISO 8601 timestamps instead of Unix timestamps
+        - ``progress`` (float 0-100) for batch completion instead of OpenAI's
+          ``request_counts`` dict with total/completed/failed keys.
         """
         if "status" in data:
             data["status"] = data["status"].lower()
@@ -186,6 +188,13 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
                 dt = self._parse_iso_timestamp(data[field])
                 if dt is not None:
                     data[field] = int(dt.timestamp())
+
+        progress = data.get("progress", 0.0)
+        if progress > 0:
+            data["request_counts"] = {
+                "total": 100,
+                "completed": int(progress),
+            }
 
         return data
 

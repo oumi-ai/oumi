@@ -193,8 +193,11 @@ def test_load_custom_proxy_iterable_dataset_using_name_override(tokenizer):
 
 def test_load_dataset_huggingface(tokenizer, monkeypatch):
     def mock_get_torchdata_imports():
-        from torchdata.datapipes.iter import MultiplexerLongest, SampleMultiplexer
-        from torchdata.datapipes.map.util.converter import (
+        from torchdata.datapipes.iter import (  # pyright: ignore[reportMissingImports]
+            MultiplexerLongest,
+            SampleMultiplexer,
+        )
+        from torchdata.datapipes.map.util.converter import (  # pyright: ignore[reportMissingImports]
             MapToIterConverterIterDataPipe,
         )
 
