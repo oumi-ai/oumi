@@ -1127,7 +1127,7 @@ async def _list_job_summaries(status_filter: str = "all") -> list[JobSummary]:
         for cloud_name, jobs in all_statuses.items():
             for job_status in jobs:
                 # Try to find MCP job ID from registry
-                mapping = reg.find_by_cloud_identity(cloud_name, job_status.id)
+                mapping = reg.find_by_cloud(cloud_name, job_status.id)
                 mcp_id = mapping.job_id if mapping else ""
                 model = mapping.model_name if mapping else ""
                 cmd = mapping.command if mapping else ""

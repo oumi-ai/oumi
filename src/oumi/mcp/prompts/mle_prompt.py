@@ -17,7 +17,7 @@ GET_STARTED_CONTENT = """# Oumi MCP - ML Training Config Server
 |------|---------|---------|
 | `list_categories()` | See available models & config types | Start here |
 | `search_configs(query, task, model, keyword)` | Find training configs | `search_configs(model="llama3_1", task="sft")` |
-| `get_config(path, include_content)` | Get a **reference** config (see usage note below) | `get_config("llama3_1/sft/8b_lora", include_content=True)` |
+| `get_config(path)` | Get a **reference** config (see usage note below) | `get_config("llama3_1/sft/8b_lora")` |
 | `validate_config(config, task_type, client_cwd)` | Validate before training | `validate_config("configs/train.yaml", "training", client_cwd="/home/user/project")` |
 | `pre_flight_check(config, client_cwd, cloud)` | Catch issues before launch | `pre_flight_check("configs/train.yaml", client_cwd="/home/user/project", cloud="gcp")` |
 | `get_docs(query, module, kind)` | Search Oumi Python API docs | `get_docs(["TrainingConfig"])` |
@@ -36,7 +36,7 @@ GET_STARTED_CONTENT = """# Oumi MCP - ML Training Config Server
 
 ### ⚠️  How to use `get_config` correctly
 
-Configs returned by `get_config(path, include_content=True)` are **reference
+Configs returned by `get_config(path)` are **reference
 recipes** — they show you the correct YAML structure, field names, and sensible
 defaults for a given model/task combination. **Do NOT copy them verbatim.**
 
@@ -102,18 +102,14 @@ CWD = "/home/user/my-project"  # user's project root — pass as client_cwd ever
 
 Step 1: pre_flight_check("configs/train.yaml", client_cwd=CWD, cloud="gcp")
         # → check credentials, then use suggested_configs paths with get_config() for reference YAMLs
-Step 2: run_oumi_job("configs/train.yaml", "train", client_cwd=CWD, cloud="gcp")    # dry_run (default)
-        # → returns a complete job config YAML template with TODO markers
-Step 3: Save the template as job.yaml in the project, customize TODO sections
-        (setup, storage_mounts, envs)
-        OR pass setup_script/run_script overrides inline
-        Note: working_dir is auto-set from client_cwd for training configs
-Step 4: run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp")       # dry_run to verify
-Step 5: run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp",
+Step 2: Build a job config YAML using guidance://cloud-launch as reference
+        Key fields: resources (cloud, accelerators), working_dir, setup, run, envs, file_mounts
+Step 3: run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp")         # dry-run to verify
+Step 4: run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp",
         dry_run=False, confirm=True, user_confirmation="EXECUTE")
-Step 6: get_job_status(job_id)                           # poll status
-Step 7: get_job_logs(job_id, lines=200)                  # check logs
-Step 8: [when done] stop_cluster("gcp", cluster_name)   # pause OR
+Step 5: get_job_status(job_id)                           # poll status
+Step 6: get_job_logs(job_id, lines=200)                  # check logs
+Step 7: [when done] stop_cluster("gcp", cluster_name)   # pause OR
          down_cluster("gcp", cluster_name, confirm=True, user_confirmation="DOWN")  # delete
 ```
 
@@ -132,7 +128,7 @@ setup patterns (dataset downloads, extra packages, storage mounts).
 
 1. **Discover models**: `list_categories()` -> see model_families
 2. **Find recipes**: `search_configs(model="llama3_1", task="sft")`
-3. **Study reference**: `get_config("llama3_1/sft/8b_lora", include_content=True)` — read for structure and defaults, do NOT copy verbatim
+3. **Study reference**: `get_config("llama3_1/sft/8b_lora")` — read for structure and defaults, do NOT copy verbatim
 4. **Build config**: Create a new config for the user's specific model, dataset, hardware, and goals — use the reference to inform field names and reasonable values
 5. **Validate**: `validate_config("configs/train.yaml", "training", client_cwd="/home/user/project")`
 6. **Preview**: `run_oumi_job("configs/train.yaml", "train", client_cwd="/home/user/project")` -> dry-run (default)
@@ -249,7 +245,7 @@ MCP tools, customize configs, validate, and evaluate before iterating.
 ## MCP tools overview
 - list_categories(): Discover available model families and config categories
 - search_configs(query, task, model, limit): Find training/eval/inference recipes
-- get_config(path, include_content): Retrieve YAML and metadata for a recipe
+- get_config(path): Retrieve YAML and metadata for a recipe
 - validate_config(config, task_type, client_cwd): Validate before running
 
 ## Workflow
@@ -293,7 +289,7 @@ Red flags (fix before training):
 - More than 10% low-quality examples
 
 ### Phase 4: Config Customization
-1. get_config("path", include_content=True) — use as a REFERENCE only, not a template to copy
+1. get_config("path") — use as a REFERENCE only, not a template to copy
 2. Build a new config from scratch, adapting only the relevant settings for the user's
    specific model, dataset, hardware, and goals
 3. Save the new config
@@ -759,16 +755,16 @@ run: |
 
 ## How `run_oumi_job` Works
 
-### With a training config (e.g., train.yaml with `model`, `training` keys):
-1. **Dry-run** (`dry_run=True`): Returns a complete job config YAML template with
-   TODO markers for sections you need to customize. Save it, edit it, re-submit.
-2. **With overrides**: Pass `setup_script` and `run_script` to override the defaults
-   inline without creating a separate file.
-3. **Execute**: Set `dry_run=False, confirm=True, user_confirmation="EXECUTE"`.
+Cloud jobs require a job config (with `resources`, `setup`, `run` keys).
+If you pass a training config with `cloud` set to a provider, the tool
+returns an error directing you to build a job config first.
 
-### With a job config (has `resources`, `setup`, `run` keys):
-- Passed directly to `oumi launch up` — all fields preserved as written.
-- `setup_script`/`run_script` overrides are ignored (the config has its own).
+### Workflow:
+1. **Build** a job config YAML using this guide as reference
+2. **Preview**: `run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp")` (dry_run=True)
+3. **Execute**: `run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp", dry_run=False, confirm=True, user_confirmation="EXECUTE")`
+
+Local jobs accept training configs directly — no job config needed.
 
 ## Common Setup Patterns
 
