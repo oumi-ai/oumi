@@ -699,56 +699,33 @@ async def run_oumi_job(
 
 @mcp.tool()
 async def get_job_status(
-    job_id: str = "",
-    oumi_job_id: str = "",
+    job_id: str,
     cloud: str = "",
     cluster_name: str = "",
 ) -> JobStatusResponse:
     """Return a single status snapshot for an Oumi job.
 
-    Lookup precedence:
-      1) MCP ``job_id`` (recommended for jobs launched by this MCP)
-      2) Direct cloud identity: ``oumi_job_id`` + ``cloud`` (+ optional ``cluster_name``)
+    For jobs launched by this MCP, just pass job_id — cloud and cluster
+    are auto-resolved from the registry. For external jobs, pass all three.
     """
-    return await fetch_status(
-        job_id=job_id,
-        oumi_job_id=oumi_job_id,
-        cloud=cloud,
-        cluster_name=cluster_name,
-    )
+    return await fetch_status(job_id=job_id, cloud=cloud, cluster_name=cluster_name)
 
 
 @mcp.tool()
 async def get_job_logs(
-    job_id: str = "",
+    job_id: str,
     lines: int = DEFAULT_STREAM_LINES,
-    oumi_job_id: str = "",
     cloud: str = "",
     cluster_name: str = "",
 ) -> JobLogsResponse:
-    """Return a bounded log snapshot for an Oumi job.
-
-    Lookup precedence:
-      1) MCP ``job_id`` for MCP-managed local log files
-      2) Direct cloud identity: ``oumi_job_id`` + ``cloud`` (+ optional ``cluster_name``)
-
-    Note: Direct cloud identities do not map to local MCP log files unless the
-    job is already tracked by this MCP instance.
-    """
-    return await fetch_logs(
-        job_id=job_id,
-        lines=lines,
-        oumi_job_id=oumi_job_id,
-        cloud=cloud,
-        cluster_name=cluster_name,
-    )
+    """Return a bounded log snapshot for an Oumi job."""
+    return await fetch_logs(job_id=job_id, lines=lines, cloud=cloud, cluster_name=cluster_name)
 
 
 @mcp.tool()
 async def cancel_job(
-    job_id: str = "",
+    job_id: str,
     force: bool = False,
-    oumi_job_id: str = "",
     cloud: str = "",
     cluster_name: str = "",
 ) -> JobCancelResponse:
@@ -756,21 +733,8 @@ async def cancel_job(
 
     Local jobs: SIGTERM (or SIGKILL with force=True).
     Cloud jobs: delegates to ``oumi.launcher.cancel()``.
-
-    Args:
-        job_id: MCP job ID (preferred).
-        force: SIGKILL instead of SIGTERM (local only).
-        oumi_job_id: Cluster-side job ID for direct cloud cancellation.
-        cloud: Cloud provider when using ``oumi_job_id``.
-        cluster_name: Cluster name when using ``oumi_job_id``.
     """
-    return await cancel_job_impl(
-        job_id=job_id,
-        force=force,
-        oumi_job_id=oumi_job_id,
-        cloud=cloud,
-        cluster_name=cluster_name,
-    )
+    return await cancel_job_impl(job_id=job_id, force=force, cloud=cloud, cluster_name=cluster_name)
 
 
 @mcp.tool()

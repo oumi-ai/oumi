@@ -565,16 +565,15 @@ async def poll_status(record: JobRecord, rt: JobRuntime) -> OumiJobStatus | None
         return rt.oumi_status
 
     # Try cluster.get_job first (fastest path)
-    if rt.cluster_obj and record.oumi_job_id:
+    if rt.cluster_obj and record.job_id:
         try:
-            status = await asyncio.to_thread(rt.cluster_obj.get_job, record.oumi_job_id)
+            status = await asyncio.to_thread(rt.cluster_obj.get_job, record.job_id)
             if status:
                 rt.oumi_status = status
-                # Update registry with cloud identity if it changed
+                # Update registry with cluster name if it changed
                 reg = get_registry()
                 reg.update(
                     record.job_id,
-                    oumi_job_id=status.id or record.oumi_job_id,
                     cluster_name=status.cluster or record.cluster_name,
                 )
                 return status
@@ -587,22 +586,19 @@ async def poll_status(record: JobRecord, rt: JobRuntime) -> OumiJobStatus | None
 
     # Fallback: launcher.status (works even without a cluster object)
     try:
-        if not record.oumi_job_id:
-            return rt.oumi_status
         all_statuses = await asyncio.to_thread(
             launcher.status,
             cloud=record.cloud,
             cluster=record.cluster_name or None,
-            id=record.oumi_job_id,
+            id=record.job_id,
         )
         for _, jobs in all_statuses.items():
             for s in jobs:
-                if s.id == record.oumi_job_id:
+                if s.id == record.job_id:
                     rt.oumi_status = s
                     reg = get_registry()
                     reg.update(
                         record.job_id,
-                        oumi_job_id=s.id or record.oumi_job_id,
                         cluster_name=s.cluster or record.cluster_name,
                     )
                     return s
@@ -625,7 +621,7 @@ async def cancel(
     For **cloud** jobs, delegates to ``oumi.launcher.cancel()``.
     """
     # Pre-launch cancel: job hasn't reached the cloud yet
-    if not record.oumi_job_id and rt.process is None:
+    if record.cloud != "local" and rt.cluster_obj is None and rt.process is None:
         rt.cancel_requested = True
         rt.error_message = "Cancellation requested while launch is pending."
         if rt.runner_task and not rt.runner_task.done():
@@ -665,7 +661,7 @@ async def cancel(
     try:
         result_status = await asyncio.to_thread(
             launcher.cancel,
-            record.oumi_job_id,
+            record.job_id,
             record.cloud,
             record.cluster_name,
         )
@@ -697,8 +693,6 @@ def get_log_paths(record: JobRecord, rt: JobRuntime) -> dict[str, Path | None]:
         return result
 
     id_candidates = [record.job_id]
-    if record.oumi_job_id and record.oumi_job_id != record.job_id:
-        id_candidates.append(record.oumi_job_id)
 
     for suffix in ("stdout", "stderr"):
         for candidate_id in id_candidates:
@@ -814,7 +808,7 @@ async def _get_cloud_logs(
         stream: io.TextIOBase = await asyncio.to_thread(
             cluster.get_logs_stream,
             record.cluster_name,
-            record.oumi_job_id or None,
+            record.job_id or None,
         )
     except NotImplementedError:
         logger.debug(
@@ -893,7 +887,7 @@ async def stream_cloud_logs(
         stream: io.TextIOBase = await asyncio.to_thread(
             cluster.get_logs_stream,
             record.cluster_name,
-            record.oumi_job_id or None,
+            record.job_id or None,
         )
     except NotImplementedError:
         logger.debug(
@@ -978,8 +972,8 @@ def _job_status_str(record: JobRecord, rt: JobRuntime) -> str:
         return rt.oumi_status.status
     if rt.error_message:
         return "failed"
-    # No oumi_job_id yet — still launching
-    if not record.oumi_job_id:
+    # Runner task still in-flight — still launching
+    if rt.runner_task and not rt.runner_task.done():
         return "launching"
     return "unknown"
 
@@ -1010,18 +1004,15 @@ def _build_status_response(
 
     status_str = _job_status_str(record, rt)
     if is_local:
-        oumi_job_id = record.oumi_job_id
         state_str = status_str.upper()
         cluster_str = "local"
     else:
-        oumi_job_id = status.id if status else record.oumi_job_id
         state_str = status.state.name if status and status.state else ""
         cluster_str = status.cluster if status else record.cluster_name
 
     base: JobStatusResponse = {
         "success": True,
         "job_id": record.job_id,
-        "oumi_job_id": oumi_job_id,
         "status": status_str,
         "state": state_str,
         "command": record.command,
@@ -1050,7 +1041,6 @@ def _not_found_response(job_id: str) -> JobStatusResponse:
     return {
         "success": False,
         "job_id": job_id,
-        "oumi_job_id": "",
         "status": "not_found",
         "state": "",
         "command": "",
@@ -1062,7 +1052,7 @@ def _not_found_response(job_id: str) -> JobStatusResponse:
         "error": (
             f"Job '{job_id}' not found. "
             "Use list_jobs() for MCP-managed jobs, or provide "
-            "oumi_job_id + cloud (+ cluster_name) for direct cloud lookup."
+            "job_id + cloud (+ cluster_name) for direct cloud lookup."
         ),
     }
 
@@ -1070,38 +1060,32 @@ def _not_found_response(job_id: str) -> JobStatusResponse:
 def _resolve_job_record(
     *,
     job_id: str = "",
-    oumi_job_id: str = "",
     cloud: str = "",
     cluster_name: str = "",
 ) -> JobRecord | None:
+    """Resolve a job record by unified job_id."""
     reg = get_registry()
     if job_id:
         record = reg.get(job_id)
         if record:
             return record
-    if oumi_job_id and cloud:
-        return reg.find_by_cloud_identity(cloud, oumi_job_id)
+        if cloud:
+            return reg.find_by_cloud(cloud, job_id)
     return None
 
 
 async def _fetch_cloud_status_direct(
-    *,
-    oumi_job_id: str,
-    cloud: str,
-    cluster_name: str = "",
+    *, job_id: str, cloud: str, cluster_name: str = "",
 ) -> Any | None:
     try:
         statuses_by_cloud = await asyncio.to_thread(
-            launcher.status,
-            cloud=cloud,
-            cluster=cluster_name or None,
-            id=oumi_job_id,
+            launcher.status, cloud=cloud, cluster=cluster_name or None, id=job_id,
         )
     except Exception:
         return None
     for _cloud_name, statuses in statuses_by_cloud.items():
         for status in statuses:
-            if status.id == oumi_job_id:
+            if status.id == job_id:
                 return status
     return None
 
@@ -1204,7 +1188,6 @@ async def _list_job_summaries(status_filter: str = "all") -> list[JobSummary]:
 async def fetch_status(
     *,
     job_id: str = "",
-    oumi_job_id: str = "",
     cloud: str = "",
     cluster_name: str = "",
 ) -> JobStatusResponse:
@@ -1212,31 +1195,28 @@ async def fetch_status(
     cloud = cloud.strip().lower()
     cluster_name = cluster_name.strip()
     job_id = job_id.strip()
-    oumi_job_id = oumi_job_id.strip()
 
-    if not job_id and not oumi_job_id:
+    if not job_id:
         return _not_found_response("")
 
     record = _resolve_job_record(
         job_id=job_id,
-        oumi_job_id=oumi_job_id,
         cloud=cloud,
         cluster_name=cluster_name,
     )
     if not record:
-        if not oumi_job_id or not cloud:
-            return _not_found_response(job_id or oumi_job_id)
+        if not cloud:
+            return _not_found_response(job_id)
         direct_status = await _fetch_cloud_status_direct(
-            oumi_job_id=oumi_job_id,
+            job_id=job_id,
             cloud=cloud,
             cluster_name=cluster_name,
         )
         if not direct_status:
-            return _not_found_response(job_id or oumi_job_id)
+            return _not_found_response(job_id)
         return {
             "success": True,
-            "job_id": job_id or oumi_job_id,
-            "oumi_job_id": direct_status.id,
+            "job_id": job_id,
             "status": direct_status.status,
             "state": direct_status.state.name if direct_status.state else "",
             "command": "",
@@ -1263,7 +1243,6 @@ async def fetch_logs(
     *,
     job_id: str = "",
     lines: int = 200,
-    oumi_job_id: str = "",
     cloud: str = "",
     cluster_name: str = "",
 ) -> JobLogsResponse:
@@ -1274,24 +1253,21 @@ async def fetch_logs(
     cloud = cloud.strip().lower()
     cluster_name = cluster_name.strip()
     job_id = job_id.strip()
-    oumi_job_id = oumi_job_id.strip()
 
     record = _resolve_job_record(
         job_id=job_id,
-        oumi_job_id=oumi_job_id,
         cloud=cloud,
         cluster_name=cluster_name,
     )
     if not record:
         # Direct cloud log retrieval for untracked jobs (bypasses registry)
-        if oumi_job_id and cloud and cluster_name:
+        if job_id and cloud and cluster_name:
             ephemeral = JobRecord(
-                job_id=oumi_job_id,
+                job_id=job_id,
                 command="",
                 config_path="",
                 cloud=cloud,
                 cluster_name=cluster_name,
-                oumi_job_id=oumi_job_id,
                 model_name="",
                 submit_time="",
             )
@@ -1300,7 +1276,7 @@ async def fetch_logs(
                 cloud_logs, cloud_lines = cloud_result
                 return {
                     "success": True,
-                    "job_id": oumi_job_id,
+                    "job_id": job_id,
                     "lines_requested": lines,
                     "lines_returned": cloud_lines,
                     "log_file": f"cloud:{cloud}/{cluster_name}",
@@ -1309,7 +1285,7 @@ async def fetch_logs(
                 }
             return {
                 "success": False,
-                "job_id": oumi_job_id,
+                "job_id": job_id,
                 "lines_requested": lines,
                 "lines_returned": 0,
                 "log_file": "",
@@ -1319,27 +1295,27 @@ async def fetch_logs(
                     f"The cluster may no longer exist or SSH timed out."
                 ),
             }
-        if oumi_job_id and cloud:
+        if job_id and cloud:
             return {
                 "success": False,
-                "job_id": job_id or oumi_job_id,
+                "job_id": job_id,
                 "lines_requested": lines,
                 "lines_returned": 0,
                 "log_file": "",
                 "logs": "",
                 "error": (
                     "cluster_name is required for direct cloud log retrieval. "
-                    "Provide oumi_job_id + cloud + cluster_name."
+                    "Provide job_id + cloud + cluster_name."
                 ),
             }
         return {
             "success": False,
-            "job_id": job_id or oumi_job_id,
+            "job_id": job_id,
             "lines_requested": lines,
             "lines_returned": 0,
             "log_file": "",
             "logs": "",
-            "error": f"Job '{job_id or oumi_job_id}' not found.",
+            "error": f"Job '{job_id}' not found.",
         }
 
     rt = get_runtime(record.job_id)
@@ -1416,7 +1392,6 @@ async def cancel_job_impl(
     *,
     job_id: str = "",
     force: bool = False,
-    oumi_job_id: str = "",
     cloud: str = "",
     cluster_name: str = "",
 ) -> JobCancelResponse:
@@ -1424,22 +1399,20 @@ async def cancel_job_impl(
     cloud = cloud.strip().lower()
     cluster_name = cluster_name.strip()
     job_id = job_id.strip()
-    oumi_job_id = oumi_job_id.strip()
 
     record = _resolve_job_record(
         job_id=job_id,
-        oumi_job_id=oumi_job_id,
         cloud=cloud,
         cluster_name=cluster_name,
     )
 
     if not record:
-        if oumi_job_id and cloud:
+        if job_id and cloud:
             try:
                 await asyncio.wait_for(
                     asyncio.to_thread(
                         launcher.cancel,
-                        oumi_job_id,
+                        job_id,
                         cloud,
                         cluster_name,
                     ),
@@ -1450,7 +1423,7 @@ async def cancel_job_impl(
                     "success": False,
                     "error": (
                         f"Cancel timed out after 30s "
-                        f"(cloud={cloud}, cluster={cluster_name}, id={oumi_job_id}). "
+                        f"(cloud={cloud}, cluster={cluster_name}, id={job_id}). "
                         "The cancellation may still be in progress. "
                         "Check cloud console or retry."
                     ),
@@ -1460,25 +1433,25 @@ async def cancel_job_impl(
                     "success": False,
                     "error": (
                         "Failed to cancel cloud job by direct identity "
-                        f"(cloud={cloud}, cluster={cluster_name}, id={oumi_job_id}): {exc}"
+                        f"(cloud={cloud}, cluster={cluster_name}, id={job_id}): {exc}"
                     ),
                 }
             return {
                 "success": True,
                 "message": (
                     "Cancel requested by direct cloud identity "
-                    f"(cloud={cloud}, cluster={cluster_name}, id={oumi_job_id})."
+                    f"(cloud={cloud}, cluster={cluster_name}, id={job_id})."
                 ),
             }
         return {
             "success": False,
-            "error": f"Job '{job_id or oumi_job_id}' not found.",
+            "error": f"Job '{job_id}' not found.",
         }
 
     rt = get_runtime(record.job_id)
 
     # For cloud jobs, check live status first — the job may already be done
-    if record.cloud != "local" and record.oumi_job_id:
+    if record.cloud != "local":
         live = await poll_status(record, rt)
         if live and live.done:
             return {
