@@ -21,7 +21,6 @@ import io
 import json
 import logging
 import os
-import shlex
 import shutil
 import subprocess
 import uuid
@@ -60,6 +59,10 @@ class JobRecord:
     The registry does NOT store job status; status is always
     queried live from ``oumi.launcher.status()`` (cloud) or
     ``rt.process.poll()`` (local).
+
+    For cloud jobs, ``job_id`` is the SkyPilot job ID.
+    For local jobs, ``job_id`` is an MCP-generated ID (e.g. ``train_20250302_a7f2b1``).
+    The ``cloud`` field disambiguates which type of ID it is.
     """
 
     job_id: str
@@ -67,7 +70,6 @@ class JobRecord:
     config_path: str
     cloud: str
     cluster_name: str
-    oumi_job_id: str
     model_name: str
     submit_time: str  # ISO 8601
     output_dir: str = ""
@@ -185,9 +187,10 @@ class JobRegistry:
     def get(self, job_id: str) -> JobRecord | None:
         return self._jobs.get(job_id)
 
-    def find_by_cloud_identity(self, cloud: str, oumi_job_id: str) -> JobRecord | None:
+    def find_by_cloud(self, cloud: str, job_id: str) -> JobRecord | None:
+        """Find a record by cloud provider and job ID."""
         for r in self._jobs.values():
-            if r.cloud == cloud and r.oumi_job_id == oumi_job_id:
+            if r.cloud == cloud and r.job_id == job_id:
                 return r
         return None
 
@@ -200,9 +203,16 @@ class JobRegistry:
 
 
 _runtimes: dict[str, JobRuntime] = {}
+_runtimes_lock = asyncio.Lock()
 
 
 def get_runtime(job_id: str) -> JobRuntime:
+    """Return the runtime for *job_id*, creating one if needed.
+
+    For use from synchronous helpers and background tasks.  Async callers
+    that need to guard against concurrent access should use
+    ``async with _runtimes_lock:`` around sequences of get/mutate calls.
+    """
     if job_id not in _runtimes:
         _runtimes[job_id] = JobRuntime()
     return _runtimes[job_id]
@@ -284,18 +294,6 @@ _COMMAND_MAP: dict[str, str] = {
     "quantize": "oumi quantize",
 }
 
-_DEFAULT_CLOUD_SETUP_SCRIPT = """set -e
-pip install uv
-uv pip install --system oumi[gpu]
-command -v oumi || { echo "ERROR: oumi not found after install"; exit 1; }
-"""
-
-_DEFAULT_CREDENTIAL_FILES: list[str] = [
-    "~/.cache/huggingface/token",
-    "~/.netrc",
-]
-
-
 def _is_job_config(config_path: Path) -> bool:
     """Return True if *config_path* is a launcher job config (not a training config).
 
@@ -329,54 +327,11 @@ def _parse_gpu_count(accelerators: str | None) -> int:
     return 1
 
 
-def _default_file_mounts() -> dict[str, str]:
-    """Return file mounts for common credential files that exist locally.
-
-    Includes ``~/.cache/huggingface/token`` (HuggingFace auth) and
-    ``~/.netrc`` (WandB / general HTTP credentials) when they exist.
-    """
-    mounts: dict[str, str] = {}
-    for cred_path in _DEFAULT_CREDENTIAL_FILES:
-        local_path = Path(cred_path).expanduser()
-        if local_path.exists():
-            mounts[cred_path] = cred_path
-    return mounts
-
-
 def _build_local_command(config_path: str, command: str) -> list[str]:
     """Build an argv list for a local Oumi CLI invocation (no shell)."""
     oumi_cmd = _COMMAND_MAP.get(command, f"oumi {command}")
     parts = oumi_cmd.split()  # e.g. ["oumi", "train"]
     return [*parts, "-c", config_path]
-
-
-def _build_shell_command(
-    config_path: str,
-    command: str,
-    *,
-    num_nodes: int = 1,
-    accelerators: str | None = None,
-) -> str:
-    """Build the shell command string for an Oumi CLI invocation (cloud runs).
-
-    SkyPilot copies ``working_dir`` to the remote and executes this script
-    from within it, so *config_path* is a relative filename (e.g. ``config.yaml``).
-
-    Extends PATH to cover common uv/pip install locations before executing so
-    the oumi binary is reachable even when the run step's shell differs from
-    the setup step's shell.  Verifies oumi is found before running.
-    """
-    num_gpus = _parse_gpu_count(accelerators)
-    if num_gpus > 1 or num_nodes > 1:
-        oumi_cmd = f"oumi distributed torchrun -m oumi {command}"
-    else:
-        oumi_cmd = _COMMAND_MAP.get(command, f"oumi {command}")
-
-    path_preamble = (
-        'export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"\n'
-        'command -v oumi || { echo "ERROR: oumi not found on PATH after setup"; exit 1; }\n'
-    )
-    return f"set -e\n{path_preamble}{oumi_cmd} -c {shlex.quote(config_path)}"
 
 
 def _stage_cloud_config(
@@ -406,200 +361,11 @@ def _stage_cloud_config(
     return staged_config.name
 
 
-def _build_cloud_job_config(
-    config_path: str,
-    command: str,
-    *,
-    cloud: str,
-    working_dir: str,
-    accelerators: str | None = None,
-    job_name: str | None = None,
-    envs: dict[str, str] | None = None,
-    file_mounts: dict[str, str] | None = None,
-    disk_size: int | None = None,
-    use_spot: bool = False,
-    num_nodes: int = 1,
-    setup_script: str = "",
-    run_script: str = "",
-) -> launcher.JobConfig:
-    """Build an ``oumi.launcher.JobConfig`` for **cloud** execution.
-
-    For cloud jobs the launcher handles cluster lifecycle via SkyPilot.
-    ``working_dir`` is a per-job staging directory copied by the launcher.
-    The run script references the staged config path relative to that directory.
-
-    Automatically selects ``oumi distributed torchrun`` when multiple GPUs or
-    nodes are requested.  Default file mounts include common credential files
-    (``~/.cache/huggingface/token``, ``~/.netrc``) when they exist locally;
-    *file_mounts* entries take precedence and can override them.
-
-    When *setup_script* or *run_script* are provided, they override the
-    defaults (``_DEFAULT_CLOUD_SETUP_SCRIPT`` and the auto-generated run
-    command respectively).
-    """
-    effective_run = run_script or _build_shell_command(
-        config_path, command, num_nodes=num_nodes, accelerators=accelerators
-    )
-    effective_setup = setup_script or _DEFAULT_CLOUD_SETUP_SCRIPT
-
-    resources = launcher.JobResources(cloud=cloud)
-    if accelerators:
-        resources.accelerators = accelerators
-    if disk_size is not None:
-        resources.disk_size = disk_size
-    resources.use_spot = use_spot
-    effective_mounts = _default_file_mounts()
-    if file_mounts:
-        effective_mounts.update(file_mounts)
-
-    return launcher.JobConfig(
-        name=job_name,
-        num_nodes=num_nodes,
-        resources=resources,
-        working_dir=working_dir,
-        setup=effective_setup,
-        run=effective_run,
-        envs=envs or {},
-        file_mounts=effective_mounts,
-    )
-
-
-def _generate_job_config_template(
-    config_path: str,
-    command: str,
-    cloud: str,
-    model_name: str,
-    *,
-    client_cwd: str = "",
-    job_name: str = "",
-    accelerators: str = "",
-    num_nodes: int = 1,
-    envs: dict[str, str] | None = None,
-    setup_script: str = "",
-    run_script: str = "",
-) -> str:
-    """Generate a complete, annotated job config YAML template.
-
-    Produces a ready-to-customize YAML string with TODO markers on sections
-    that need user attention. Pre-fills the training command, model info,
-    resources, and auto-detected credential mounts.
-    """
-    from datetime import datetime, timezone
-
-    date_tag = datetime.now(tz=timezone.utc).strftime("%Y%m%d")
-    safe_model = model_name.split("/")[-1].lower().replace("-", "").replace("_", "")
-    name = job_name or f"{command}-{safe_model}-{date_tag}"
-
-    if run_script:
-        run_block = run_script
-    else:
-        num_gpus = _parse_gpu_count(accelerators or None)
-        if num_gpus > 1 or num_nodes > 1:
-            run_block = (
-                f"set -e\noumi distributed torchrun -m oumi {command} -c ./config.yaml"
-            )
-        else:
-            oumi_cmd = _COMMAND_MAP.get(command, f"oumi {command}")
-            run_block = f"set -e\n{oumi_cmd} -c ./config.yaml"
-
-    if setup_script:
-        setup_block = setup_script
-    else:
-        setup_block = (
-            "set -e\n"
-            "pip install uv && uv pip install --system 'oumi[gpu]'\n"
-            "# TODO: Add dataset downloads, extra packages, preprocessing\n"
-            "# Example: huggingface-cli download <dataset-id> --repo-type dataset --local-dir ./data\n"
-            "# Example: uv pip install --system 'oumi[gpu,evaluation]'"
-        )
-
-    file_mount_lines = []
-    for cred_path in _DEFAULT_CREDENTIAL_FILES:
-        local_path = Path(cred_path).expanduser()
-        if local_path.exists():
-            file_mount_lines.append(f"  {cred_path}: {cred_path}")
-
-    env_lines = []
-    if envs:
-        for k, v in envs.items():
-            env_lines.append(f"  {k}: {json.dumps(v)}")
-
-    lines = [
-        "# Oumi Cloud Job Config — customize TODO sections before launching",
-        f"# Model: {model_name}",
-        "# Docs: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html",
-        f"name: {name}",
-        "",
-        "resources:",
-        f"  cloud: {cloud}",
-    ]
-    if accelerators:
-        lines.append(f'  accelerators: "{accelerators}"')
-    else:
-        lines.append('  accelerators: "A100:8"  # TODO: Set GPU type and count')
-    lines += [
-        "  use_spot: false",
-        "  disk_size: 500",
-        "",
-        f"num_nodes: {num_nodes}",
-        "working_dir: .  # Resolved to client_cwd at launch time. Synced to ~/sky_workdir on the VM.",
-        "",
-    ]
-
-    if file_mount_lines:
-        lines.append("# Auto-detected credential files (add local dataset mounts below if needed)")
-        lines.append("file_mounts:")
-        lines.extend(file_mount_lines)
-        lines.append("  # TODO: Mount local dataset files if not git-tracked in working_dir")
-        lines.append("  # ~/sky_workdir/data/train.jsonl: /absolute/path/to/local/train.jsonl")
-    else:
-        lines.append("# TODO: Mount credential and data files needed on the remote VM")
-        lines.append("# file_mounts:")
-        lines.append("#   ~/.cache/huggingface/token: ~/.cache/huggingface/token")
-        lines.append("#   ~/sky_workdir/data/train.jsonl: /absolute/path/to/local/train.jsonl")
-    lines.append("")
-
-    lines += [
-        "# TODO: Mount cloud storage for persistent output (recommended for spot instances)",
-        "# storage_mounts:",
-        "#   /output:",
-        "#     source: gs://your-bucket/output",
-        "#     store: gcs",
-        "",
-    ]
-
-    lines.append("envs:")
-    if env_lines:
-        lines.extend(env_lines)
-    else:
-        lines.append(f'  OUMI_RUN_NAME: "{name}"')
-        lines.append("  # TODO: Add env vars (WANDB_API_KEY, HF_TOKEN, etc.)")
-    lines.append("  # Recommended for CUDA memory stability:")
-    lines.append('  PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"')
-    lines.append("")
-
-    lines.append("# Setup script — runs once when the VM is provisioned")
-    lines.append("setup: |")
-    for setup_line in setup_block.split("\n"):
-        lines.append(f"  {setup_line}")
-    lines.append("")
-
-    lines.append("# Run command (auto-generated from your training config)")
-    lines.append("run: |")
-    for run_line in run_block.split("\n"):
-        lines.append(f"  {run_line}")
-    lines.append("")
-
-    return "\n".join(lines)
-
-
-def start_local_job(
-    record: JobRecord, rt: JobRuntime, client_cwd: str = ""
-) -> None:
+def start_local_job(record: JobRecord, rt: JobRuntime, client_cwd: str = "") -> None:
     """Start a local job by spawning the Oumi CLI directly.
 
     Creates the log directory, starts the subprocess via ``Popen``, and
-    sets ``rt.process`` and ``record.oumi_job_id``. Raises on failure
+    sets ``rt.process``. Raises on failure
     (e.g. command not found, permission denied).
 
     When *client_cwd* is provided, the subprocess runs from that directory
@@ -638,10 +404,6 @@ def start_local_job(
         raise
 
     rt.process = proc
-    record.oumi_job_id = str(proc.pid)
-    get_registry().update(
-        record.job_id, oumi_job_id=record.oumi_job_id
-    )
     rt.stdout_f = stdout_f
     rt.stderr_f = stderr_f
     logger.info(
@@ -693,29 +455,12 @@ async def _launch_cloud(
     rt: JobRuntime,
     *,
     client_cwd: str = "",
-    accelerators: str | None = None,
-    envs: dict[str, str] | None = None,
-    file_mounts: dict[str, str] | None = None,
-    disk_size: int | None = None,
-    use_spot: bool = False,
-    num_nodes: int = 1,
-    setup_script: str | None = None,
-    run_script: str | None = None,
 ) -> None:
     """Launch a cloud job via ``oumi.launcher.up()``.
 
-    Supports two modes:
-
-    * **Job-config passthrough** (when the config file itself is a launcher job
-      config with ``resources``/``setup``/``run`` keys): loads the config directly
-      via ``launcher.JobConfig.from_yaml()`` so all cloud-specific fields
-      (``envs``, ``file_mounts``, ``storage_mounts``, ``disk_size``, etc.) are
-      preserved as written.
-
-    * **Training-config wrapping**: wraps a training YAML in a minimal
-      ``launcher.JobConfig``, applying any caller-supplied *envs*, *file_mounts*,
-      *disk_size*, *use_spot*, *num_nodes*, and *setup_script* overrides on top of
-      sensible defaults (oumi with GPU extras, auto-mounted credential files).
+    Requires a job config (with ``resources``/``setup``/``run`` keys).
+    Training configs are rejected with a helpful error message directing
+    the user to the ``guidance://cloud-launch`` resource.
 
     Updates *record* and *rt* in-place with the cluster object, oumi job ID, and
     initial status.  On failure, sets ``rt.error_message``.
@@ -724,49 +469,29 @@ async def _launch_cloud(
 
     try:
         config_path = Path(record.config_path)
-        job_config_mode = _is_job_config(config_path)
 
-        if job_config_mode:
-            config_parent = str(Path(record.config_path).expanduser().resolve().parent)
-            _stage_cloud_config(record, rt, working_dir=config_parent)
-            job_config = launcher.JobConfig.from_yaml(rt.staged_config_path)
-            if not job_config.name:
-                job_config.name = record.job_id
-            # Resolve relative working_dir against client_cwd so SkyPilot
-            # syncs the user's project, not the MCP staging directory.
-            if client_cwd and job_config.working_dir:
-                wd = Path(job_config.working_dir).expanduser()
-                if not wd.is_absolute():
-                    job_config.working_dir = str(
-                        (Path(client_cwd) / wd).resolve()
-                    )
-            elif client_cwd and not job_config.working_dir:
-                job_config.working_dir = client_cwd
-            if envs:
-                merged = dict(job_config.envs or {})
-                merged.update(envs)
-                job_config.envs = merged
-            if file_mounts:
-                merged_mounts = dict(job_config.file_mounts or {})
-                merged_mounts.update(file_mounts)
-                job_config.file_mounts = merged_mounts
-        else:
-            staged_config_name = _stage_cloud_config(record, rt)
-            job_config = _build_cloud_job_config(
-                staged_config_name,
-                record.command,
-                cloud=record.cloud,
-                working_dir=client_cwd or str(rt.run_dir),
-                accelerators=accelerators,
-                job_name=record.job_id,
-                envs=envs,
-                file_mounts=file_mounts,
-                disk_size=disk_size,
-                use_spot=use_spot,
-                num_nodes=num_nodes,
-                setup_script=setup_script or "",
-                run_script=run_script or "",
+        if not _is_job_config(config_path):
+            rt.error_message = (
+                "Cloud runs require a job config (with resources/setup/run keys). "
+                "Read the guidance://cloud-launch resource to build one from "
+                "your training config."
             )
+            return
+
+        config_parent = str(Path(record.config_path).expanduser().resolve().parent)
+        _stage_cloud_config(record, rt, working_dir=config_parent)
+        job_config = launcher.JobConfig.from_yaml(rt.staged_config_path)
+        if not job_config.name:
+            job_config.name = record.job_id
+        # Resolve relative working_dir against client_cwd so SkyPilot
+        # syncs the user's project, not the MCP staging directory.
+        if client_cwd and job_config.working_dir:
+            wd = Path(job_config.working_dir).expanduser()
+            if not wd.is_absolute():
+                job_config.working_dir = str((Path(client_cwd) / wd).resolve())
+        elif client_cwd and not job_config.working_dir:
+            job_config.working_dir = client_cwd
+
         cluster, status = await asyncio.to_thread(
             launcher.up,
             job_config,
@@ -823,14 +548,6 @@ async def launch_job(
     rt: JobRuntime,
     *,
     client_cwd: str = "",
-    accelerators: str | None = None,
-    envs: dict[str, str] | None = None,
-    file_mounts: dict[str, str] | None = None,
-    disk_size: int | None = None,
-    use_spot: bool = False,
-    num_nodes: int = 1,
-    setup_script: str | None = None,
-    run_script: str | None = None,
 ) -> None:
     """Launch a job -- local or cloud -- in a background thread.
 
@@ -845,14 +562,6 @@ async def launch_job(
             record,
             rt,
             client_cwd=client_cwd,
-            accelerators=accelerators,
-            envs=envs,
-            file_mounts=file_mounts,
-            disk_size=disk_size,
-            use_spot=use_spot,
-            num_nodes=num_nodes,
-            setup_script=setup_script,
-            run_script=run_script,
         )
 
 
@@ -871,9 +580,7 @@ async def poll_status(record: JobRecord, rt: JobRuntime) -> OumiJobStatus | None
     # Try cluster.get_job first (fastest path)
     if rt.cluster_obj and record.oumi_job_id:
         try:
-            status = await asyncio.to_thread(
-                rt.cluster_obj.get_job, record.oumi_job_id
-            )
+            status = await asyncio.to_thread(rt.cluster_obj.get_job, record.oumi_job_id)
             if status:
                 rt.oumi_status = status
                 # Update registry with cloud identity if it changed
@@ -1460,17 +1167,21 @@ async def _list_job_summaries(status_filter: str = "all") -> list[JobSummary]:
                 if status_filter == "completed" and not is_done:
                     continue
 
-                summaries.append({
-                    "job_id": mcp_id or job_status.id,
-                    "command": cmd,
-                    "status": job_status.status,
-                    "cloud": cloud_name,
-                    "cluster": job_status.cluster,
-                    "model_name": model,
-                    "is_done": is_done,
-                })
+                summaries.append(
+                    {
+                        "job_id": mcp_id or job_status.id,
+                        "command": cmd,
+                        "status": job_status.status,
+                        "cloud": cloud_name,
+                        "cluster": job_status.cluster,
+                        "model_name": model,
+                        "is_done": is_done,
+                    }
+                )
     except Exception:
-        logger.warning("launcher.status failed; falling back to registry only", exc_info=True)
+        logger.warning(
+            "launcher.status failed; falling back to registry only", exc_info=True
+        )
 
     # Local jobs: check from registry + runtime
     for record in reg.all():
@@ -1483,15 +1194,17 @@ async def _list_job_summaries(status_filter: str = "all") -> list[JobSummary]:
             continue
         if status_filter == "completed" and not is_done:
             continue
-        summaries.append({
-            "job_id": record.job_id,
-            "command": record.command,
-            "status": status_str,
-            "cloud": "local",
-            "cluster": "local",
-            "model_name": record.model_name,
-            "is_done": is_done,
-        })
+        summaries.append(
+            {
+                "job_id": record.job_id,
+                "command": record.command,
+                "status": status_str,
+                "cloud": "local",
+                "cluster": "local",
+                "model_name": record.model_name,
+                "is_done": is_done,
+            }
+        )
 
     return summaries
 
@@ -1784,8 +1497,7 @@ async def cancel_job_impl(
             return {
                 "success": False,
                 "error": (
-                    f"Job {record.job_id} is already finished "
-                    f"(status: {live.status})"
+                    f"Job {record.job_id} is already finished (status: {live.status})"
                 ),
             }
 

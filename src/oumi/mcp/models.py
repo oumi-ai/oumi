@@ -1,6 +1,8 @@
 """TypedDict models for Oumi MCP server data structures."""
 
-from typing import Any, NotRequired, TypedDict
+from typing import Any
+
+from typing_extensions import NotRequired, TypedDict
 
 from oumi.mcp.constants import TaskType
 
@@ -50,15 +52,13 @@ class KeySettings(TypedDict):
 
 
 class ConfigDetail(ConfigMetadata):
-    """Full config details including key settings and optional content.
+    """Full config details including YAML content.
 
     Attributes:
-        key_settings: Important training hyperparameters.
-        content: Full YAML content (empty string if not requested).
+        content: Full YAML content.
         error: Error message if config not found (empty string if no error).
     """
 
-    key_settings: KeySettings
     content: str
     error: str
 
@@ -191,8 +191,6 @@ class JobSubmissionResponse(TypedDict):
         preflight_blocking: True if pre-flight found blocking issues.
         preflight_errors: List of blocking issues from pre-flight.
         preflight_warnings: List of warnings from pre-flight.
-        oumi_job_id: Job ID on the cluster (if known at submit time).
-        cluster: Cluster name (if known at submit time).
     """
 
     success: bool
@@ -211,8 +209,6 @@ class JobSubmissionResponse(TypedDict):
     preflight_blocking: NotRequired[bool]
     preflight_errors: NotRequired[list[str]]
     preflight_warnings: NotRequired[list[str]]
-    oumi_job_id: NotRequired[str]
-    cluster: NotRequired[str]
 
 
 class JobStatusResponse(TypedDict):
@@ -220,8 +216,7 @@ class JobStatusResponse(TypedDict):
 
     Attributes:
         success: Whether the status lookup succeeded.
-        job_id: The MCP job identifier.
-        oumi_job_id: The job ID on the cluster (from oumi.launcher).
+        job_id: The job identifier.
         status: Current status string from the launcher.
         state: Job state enum name (QUEUED, RUNNING, COMPLETED, FAILED, CANCELED).
         command: The Oumi CLI subcommand.
@@ -237,7 +232,6 @@ class JobStatusResponse(TypedDict):
 
     success: bool
     job_id: str
-    oumi_job_id: str
     status: str
     state: str
     command: str
@@ -441,6 +435,24 @@ class ClusterLifecycleResponse(TypedDict):
     success: bool
     message: NotRequired[str]
     error: NotRequired[str]
+
+
+class ConfigSyncResponse(TypedDict):
+    """Response from config_sync().
+
+    Attributes:
+        ok: Whether the sync succeeded (or was skipped because cache is fresh).
+        skipped: True if the cache was fresh and no download was performed.
+        error: Error message, or None if no error.
+        configs_synced: Number of YAML config files synced (0 if skipped or failed).
+        source: Label describing the sync source (e.g. "tag:v0.7", "main").
+    """
+
+    ok: bool
+    skipped: bool
+    error: str | None
+    configs_synced: int
+    source: str
 
 
 class CloudJobConfigTemplateResponse(TypedDict):
