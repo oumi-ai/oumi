@@ -106,7 +106,7 @@ Step 2: Build a job config YAML using guidance://cloud-launch as reference
         Key fields: resources (cloud, accelerators), working_dir, setup, run, envs, file_mounts
 Step 3: run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp")         # dry-run to verify
 Step 4: run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp",
-        dry_run=False, confirm=True, user_confirmation="EXECUTE")
+        dry_run=False, confirm=True, user_confirmation="EXECUTE", skip_preflight=True)
 Step 5: get_job_status(job_id)                           # poll status
 Step 6: get_job_logs(job_id, lines=200)                  # check logs
 Step 7: [when done] stop_cluster("gcp", cluster_name)   # pause OR
@@ -762,7 +762,7 @@ returns an error directing you to build a job config first.
 ### Workflow:
 1. **Build** a job config YAML using this guide as reference
 2. **Preview**: `run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp")` (dry_run=True)
-3. **Execute**: `run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp", dry_run=False, confirm=True, user_confirmation="EXECUTE")`
+3. **Execute**: `run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp", dry_run=False, confirm=True, user_confirmation="EXECUTE", skip_preflight=True)`
 
 Local jobs accept training configs directly — no job config needed.
 
