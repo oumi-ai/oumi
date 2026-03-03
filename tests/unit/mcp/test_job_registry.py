@@ -14,12 +14,11 @@ class TestJobRecord(unittest.TestCase):
             config_path="/tmp/train.yaml",
             cloud="gcp",
             cluster_name="cluster-a",
-            oumi_job_id="sky-123",
             model_name="meta-llama/Llama-3.1-8B",
-            submit_time="2026-02-24T12:00:00Z",
+            submit_time="2099-01-01T12:00:00Z",
         )
         for field_name in ["job_id", "command", "config_path", "cloud",
-                           "cluster_name", "oumi_job_id", "model_name",
+                           "cluster_name", "model_name",
                            "submit_time"]:
             self.assertIsInstance(getattr(r, field_name), str)
 
@@ -40,9 +39,9 @@ class TestJobRegistry(unittest.TestCase):
             reg = JobRegistry(path)
             r = JobRecord(
                 job_id="j1", command="train", config_path="/tmp/t.yaml",
-                cloud="local", cluster_name="", oumi_job_id="123",
+                cloud="local", cluster_name="",
                 model_name="test",
-                submit_time="2026-02-24T00:00:00Z",
+                submit_time="2099-01-01T00:00:00Z",
             )
             reg.add(r)
             self.assertEqual(reg.get("j1").job_id, "j1")
@@ -53,9 +52,9 @@ class TestJobRegistry(unittest.TestCase):
             reg = JobRegistry(path)
             r = JobRecord(
                 job_id="j1", command="train", config_path="/tmp/t.yaml",
-                cloud="gcp", cluster_name="c1", oumi_job_id="sky-1",
+                cloud="gcp", cluster_name="c1",
                 model_name="test",
-                submit_time="2026-02-24T00:00:00Z",
+                submit_time="2099-01-01T00:00:00Z",
             )
             reg.add(r)
             # Load a new registry from the same file
@@ -63,7 +62,7 @@ class TestJobRegistry(unittest.TestCase):
             loaded = reg2.get("j1")
             self.assertIsNotNone(loaded)
             self.assertEqual(loaded.cloud, "gcp")
-            self.assertEqual(loaded.oumi_job_id, "sky-1")
+            self.assertEqual(loaded.job_id, "j1")
 
     def test_update(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -71,13 +70,13 @@ class TestJobRegistry(unittest.TestCase):
             reg = JobRegistry(path)
             r = JobRecord(
                 job_id="j1", command="train", config_path="/tmp/t.yaml",
-                cloud="local", cluster_name="", oumi_job_id="",
+                cloud="local", cluster_name="",
                 model_name="test",
-                submit_time="2026-02-24T00:00:00Z",
+                submit_time="2099-01-01T00:00:00Z",
             )
             reg.add(r)
-            reg.update("j1", oumi_job_id="456")
-            self.assertEqual(reg.get("j1").oumi_job_id, "456")
+            reg.update("j1", cluster_name="updated-cluster")
+            self.assertEqual(reg.get("j1").cluster_name, "updated-cluster")
 
     def test_remove(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -85,9 +84,9 @@ class TestJobRegistry(unittest.TestCase):
             reg = JobRegistry(path)
             r = JobRecord(
                 job_id="j1", command="train", config_path="/tmp/t.yaml",
-                cloud="local", cluster_name="", oumi_job_id="",
+                cloud="local", cluster_name="",
                 model_name="test",
-                submit_time="2026-02-24T00:00:00Z",
+                submit_time="2099-01-01T00:00:00Z",
             )
             reg.add(r)
             reg.remove("j1")
@@ -96,20 +95,20 @@ class TestJobRegistry(unittest.TestCase):
             reg2 = JobRegistry(path)
             self.assertIsNone(reg2.get("j1"))
 
-    def test_find_by_cloud_identity(self):
+    def test_find_by_cloud(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "jobs.json"
             reg = JobRegistry(path)
             r = JobRecord(
-                job_id="j1", command="train", config_path="/tmp/t.yaml",
-                cloud="gcp", cluster_name="c1", oumi_job_id="sky-99",
+                job_id="sky-99", command="train", config_path="/tmp/t.yaml",
+                cloud="gcp", cluster_name="c1",
                 model_name="test",
-                submit_time="2026-02-24T00:00:00Z",
+                submit_time="2099-01-01T00:00:00Z",
             )
             reg.add(r)
-            found = reg.find_by_cloud_identity("gcp", "sky-99")
-            self.assertEqual(found.job_id, "j1")
-            self.assertIsNone(reg.find_by_cloud_identity("aws", "sky-99"))
+            found = reg.find_by_cloud("gcp", "sky-99")
+            self.assertEqual(found.job_id, "sky-99")
+            self.assertIsNone(reg.find_by_cloud("aws", "sky-99"))
 
     def test_all(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -118,9 +117,9 @@ class TestJobRegistry(unittest.TestCase):
             for i in range(3):
                 reg.add(JobRecord(
                     job_id=f"j{i}", command="train", config_path="/tmp/t.yaml",
-                    cloud="local", cluster_name="", oumi_job_id=str(i),
+                    cloud="local", cluster_name="",
                     model_name="test",
-                    submit_time="2026-02-24T00:00:00Z",
+                    submit_time="2099-01-01T00:00:00Z",
                 ))
             self.assertEqual(len(reg.all()), 3)
 
@@ -148,7 +147,6 @@ class TestJobRegistry(unittest.TestCase):
                 config_path="/tmp/t.yaml",
                 cloud="gcp",
                 cluster_name="c",
-                oumi_job_id="1",
                 model_name="m",
                 submit_time="2020-01-01T00:00:00+00:00",
             ))
@@ -158,7 +156,6 @@ class TestJobRegistry(unittest.TestCase):
                 config_path="/tmp/t.yaml",
                 cloud="gcp",
                 cluster_name="c",
-                oumi_job_id="2",
                 model_name="m",
                 submit_time="2099-01-01T00:00:00+00:00",
             ))
@@ -177,16 +174,14 @@ class TestJobRegistry(unittest.TestCase):
                 config_path="/tmp/t.yaml",
                 cloud="gcp",
                 cluster_name="",
-                oumi_job_id="",
                 model_name="m",
-                submit_time="2026-02-24T00:00:00Z",
+                submit_time="2099-01-01T00:00:00Z",
             ))
-            reg.update("j1", oumi_job_id="sky-42", cluster_name="cl-1")
+            reg.update("j1", cluster_name="cl-1")
             reg2 = JobRegistry(path)
             loaded = reg2.get("j1")
             self.assertIsNotNone(loaded)
             assert loaded is not None
-            self.assertEqual(loaded.oumi_job_id, "sky-42")
             self.assertEqual(loaded.cluster_name, "cl-1")
 
     def test_update_missing_noop(self):
@@ -194,7 +189,7 @@ class TestJobRegistry(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "jobs.json"
             reg = JobRegistry(path)
-            reg.update("nonexistent", oumi_job_id="sky-99")  # should not raise
+            reg.update("nonexistent", cluster_name="cl-99")  # should not raise
             self.assertIsNone(reg.get("nonexistent"))
 
     def test_legacy_records_with_status(self):
@@ -208,9 +203,8 @@ class TestJobRegistry(unittest.TestCase):
                 "config_path": "/tmp/t.yaml",
                 "cloud": "gcp",
                 "cluster_name": "cl",
-                "oumi_job_id": "sky-1",
                 "model_name": "m",
-                "submit_time": "2026-02-24T00:00:00+00:00",
+                "submit_time": "2099-01-01T00:00:00+00:00",
                 "status": "RUNNING",   # legacy field — should be silently dropped
             }]
             path.write_text(json.dumps(legacy), encoding="utf-8")

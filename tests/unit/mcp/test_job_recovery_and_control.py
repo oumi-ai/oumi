@@ -27,12 +27,11 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             state_file = Path(tmp_dir) / "jobs.json"
             reg1 = JobRegistry(path=state_file)
             record = JobRecord(
-                job_id="train_20260212_170925_abc123",
+                job_id="sky-job-123",
                 command="train",
                 config_path="/tmp/train.yaml",
                 cloud="gcp",
                 cluster_name="cluster-a",
-                oumi_job_id="sky-job-123",
                 model_name="meta-llama/Llama-3.1-8B-Instruct",
                 submit_time=recent,
             )
@@ -45,7 +44,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
         assert loaded is not None
         self.assertEqual(loaded.cloud, "gcp")
         self.assertEqual(loaded.cluster_name, "cluster-a")
-        self.assertEqual(loaded.oumi_job_id, "sky-job-123")
+        self.assertEqual(loaded.job_id, "sky-job-123")
 
     def test_registry_prunes_old_terminal_jobs(self) -> None:
         """Terminal jobs older than 7 days are evicted on load."""
@@ -58,7 +57,6 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
                 config_path="/tmp/t.yaml",
                 cloud="gcp",
                 cluster_name="c",
-                oumi_job_id="1",
                 model_name="m",
                 submit_time="2020-01-01T00:00:00+00:00",
             ))
@@ -68,7 +66,6 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
                 config_path="/tmp/t.yaml",
                 cloud="gcp",
                 cluster_name="c",
-                oumi_job_id="2",
                 model_name="m",
                 submit_time=datetime.now(timezone.utc).isoformat(),
             ))
@@ -86,8 +83,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             ) as mock_cancel,
         ):
             response = await server.cancel_job(
-                job_id="",
-                oumi_job_id="sky-job-123",
+                job_id="sky-job-123",
                 cloud="gcp",
                 cluster_name="cluster-a",
             )
@@ -106,8 +102,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             ),
         ):
             response = await server.cancel_job(
-                job_id="",
-                oumi_job_id="sky-job-123",
+                job_id="sky-job-123",
                 cloud="gcp",
                 cluster_name="cluster-a",
             )
@@ -125,8 +120,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             ),
         ):
             response = await server.get_job_status(
-                job_id="",
-                oumi_job_id="sky-job-123",
+                job_id="sky-job-123",
                 cloud="gcp",
                 cluster_name="cluster-a",
             )
@@ -149,8 +143,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             ),
         ):
             response = await server.get_job_logs(
-                job_id="",
-                oumi_job_id="sky-job-123",
+                job_id="sky-job-123",
                 cloud="gcp",
                 cluster_name="cluster-a",
                 lines=50,
@@ -166,8 +159,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
         """Direct cloud log retrieval requires cluster_name."""
         with patch("oumi.mcp.job_service._resolve_job_record", return_value=None):
             response = await server.get_job_logs(
-                job_id="",
-                oumi_job_id="sky-job-123",
+                job_id="sky-job-123",
                 cloud="gcp",
                 cluster_name="",
                 lines=50,
@@ -223,7 +215,6 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             config_path="/tmp/train.yaml",
             cloud="gcp",
             cluster_name="",
-            oumi_job_id="",
             model_name="",
             submit_time="2026-02-12T17:09:25+00:00",
         )
@@ -242,7 +233,6 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
                 config_path=str(cfg_path),
                 cloud="gcp",
                 cluster_name="",
-                oumi_job_id="",
                 model_name="",
                 submit_time="2026-02-20T00:00:01+00:00",
             )
@@ -273,7 +263,6 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
                 config_path=str(cfg_path),
                 cloud="gcp",
                 cluster_name="",
-                oumi_job_id="",
                 model_name="",
                 submit_time="2026-02-20T00:00:02+00:00",
             )
@@ -306,6 +295,8 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             mock_reg = SimpleNamespace(
                 update=_mock_update,
                 get=lambda jid: record,
+                remove=lambda jid: None,
+                add=lambda rec: None,
             )
             with (
                 patch(
@@ -445,7 +436,6 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             config_path="/tmp/fake.yaml",
             cloud="gcp",
             cluster_name="",
-            oumi_job_id="",
             model_name="",
             submit_time="2026-02-12T17:09:25+00:00",
         )
@@ -478,8 +468,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             ) as mock_cancel,
         ):
             response = await server.cancel_job(
-                job_id="",
-                oumi_job_id="sky-job-456",
+                job_id="sky-job-456",
                 cloud="aws",
                 cluster_name="cluster-b",
             )
@@ -504,8 +493,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             patch("oumi.mcp.job_service.asyncio.wait_for", side_effect=_fake_wait_for),
         ):
             response = await server.cancel_job(
-                job_id="",
-                oumi_job_id="sky-job-789",
+                job_id="sky-job-789",
                 cloud="gcp",
                 cluster_name="cluster-c",
             )
@@ -535,7 +523,6 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
                 config_path=str(cfg_path),
                 cloud="gcp",
                 cluster_name="",
-                oumi_job_id="",
                 model_name="",
                 submit_time="2026-02-20T00:00:03+00:00",
             )
@@ -590,7 +577,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             ),
             patch("oumi.mcp.job_service.get_registry") as mock_reg,
         ):
-            mock_reg.return_value.find_by_cloud_identity.return_value = None
+            mock_reg.return_value.find_by_cloud.return_value = None
             mock_reg.return_value.all.return_value = []
             summaries = await job_service._list_job_summaries()
 
@@ -609,12 +596,11 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             metadata={},
         )
         mcp_record = JobRecord(
-            job_id="train_mcp_id",
+            job_id="sky-job-002",
             command="train",
             config_path="/tmp/t.yaml",
             cloud="aws",
             cluster_name="cluster-z",
-            oumi_job_id="sky-job-002",
             model_name="meta-llama/Llama-3.1-8B",
             submit_time="2026-02-20T00:00:04+00:00",
         )
@@ -626,12 +612,12 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             ),
             patch("oumi.mcp.job_service.get_registry") as mock_reg,
         ):
-            mock_reg.return_value.find_by_cloud_identity.return_value = mcp_record
+            mock_reg.return_value.find_by_cloud.return_value = mcp_record
             mock_reg.return_value.all.return_value = []
             summaries = await job_service._list_job_summaries()
 
         self.assertEqual(len(summaries), 1)
-        self.assertEqual(summaries[0]["job_id"], "train_mcp_id")
+        self.assertEqual(summaries[0]["job_id"], "sky-job-002")
         self.assertEqual(summaries[0]["model_name"], "meta-llama/Llama-3.1-8B")
 
 

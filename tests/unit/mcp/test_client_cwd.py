@@ -11,9 +11,8 @@ from oumi.mcp.job_service import (
     _launch_cloud,
     start_local_job,
 )
+from oumi.mcp.config_service import resolve_config_path, resolve_path
 from oumi.mcp.server import (
-    _resolve_config_path,
-    _resolve_path,
     pre_flight_check,
     run_oumi_job,
     validate_config,
@@ -22,7 +21,7 @@ from oumi.mcp.server import (
 
 class ResolvePathTests(unittest.TestCase):
     def test_absolute_path_returned_unchanged(self):
-        result = _resolve_path("/abs/path/config.yaml", Path("/some/cwd"))
+        result = resolve_path("/abs/path/config.yaml", Path("/some/cwd"))
         self.assertEqual(result, Path("/abs/path/config.yaml"))
 
     def test_relative_path_resolved_against_client_cwd(self):
@@ -31,11 +30,11 @@ class ResolvePathTests(unittest.TestCase):
             subdir.mkdir()
             config = subdir / "train.yaml"
             config.write_text("")
-            result = _resolve_path("configs/train.yaml", Path(tmp))
+            result = resolve_path("configs/train.yaml", Path(tmp))
             self.assertEqual(result, config.resolve())
 
     def test_tilde_expanded(self):
-        result = _resolve_path("~/configs/train.yaml", Path("/some/cwd"))
+        result = resolve_path("~/configs/train.yaml", Path("/some/cwd"))
         self.assertTrue(result.is_absolute())
         self.assertIn("configs/train.yaml", str(result))
 
@@ -45,7 +44,7 @@ class ResolvePathTests(unittest.TestCase):
             data_dir.mkdir()
             jsonl = data_dir / "train.jsonl"
             jsonl.write_text("")
-            result = _resolve_path("./data/train.jsonl", Path(tmp))
+            result = resolve_path("./data/train.jsonl", Path(tmp))
             self.assertEqual(result, jsonl.resolve())
 
 
@@ -54,7 +53,7 @@ class ResolveConfigPathTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "train.yaml"
             config.write_text("model:\n  name: test\n")
-            resolved, err = _resolve_config_path("train.yaml", tmp)
+            resolved, err = resolve_config_path("train.yaml", tmp)
             self.assertIsNone(err)
             self.assertEqual(resolved, config.resolve())
 
@@ -62,18 +61,18 @@ class ResolveConfigPathTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "train.yaml"
             config.write_text("model:\n  name: test\n")
-            resolved, err = _resolve_config_path(str(config), tmp)
+            resolved, err = resolve_config_path(str(config), tmp)
             self.assertIsNone(err)
             self.assertEqual(resolved, config.resolve())
 
     def test_relative_client_cwd_rejected(self):
-        _, err = _resolve_config_path("train.yaml", "relative/cwd")
+        _, err = resolve_config_path("train.yaml", "relative/cwd")
         self.assertIsNotNone(err)
         self.assertIn("absolute", err)
 
     def test_nonexistent_config_returns_error(self):
         with tempfile.TemporaryDirectory() as tmp:
-            _, err = _resolve_config_path("nonexistent.yaml", tmp)
+            _, err = resolve_config_path("nonexistent.yaml", tmp)
             self.assertIsNotNone(err)
             self.assertIn("not found", err.lower())
 
@@ -140,7 +139,6 @@ class LocalJobCwdTests(unittest.TestCase):
                 config_path="/tmp/train.yaml",
                 cloud="local",
                 cluster_name="",
-                oumi_job_id="",
                 model_name="gpt2",
                 submit_time="2026-01-01T00:00:00Z",
             )
@@ -181,7 +179,6 @@ class CloudJobConfigPassthroughCwdTests(unittest.IsolatedAsyncioTestCase):
                 config_path=str(job_yaml),
                 cloud="gcp",
                 cluster_name="",
-                oumi_job_id="",
                 model_name="gpt2",
                 submit_time="2026-01-01T00:00:00Z",
             )
