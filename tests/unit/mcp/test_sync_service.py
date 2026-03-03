@@ -1,6 +1,5 @@
 """Tests for oumi.mcp.sync_service — version detection, URL building, sync flow."""
 
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from zipfile import ZipFile
@@ -17,7 +16,9 @@ from oumi.mcp.sync_service import (
 
 
 class TestIsOumiDevBuild:
-    @pytest.mark.parametrize("version", ["0.8.dev35+ge2b81b3fe", "1.0.0.dev1", "0.7+local"])
+    @pytest.mark.parametrize(
+        "version", ["0.8.dev35+ge2b81b3fe", "1.0.0.dev1", "0.7+local"]
+    )
     def test_dev_versions(self, version: str):
         assert is_oumi_dev_build(version) is True
 
@@ -42,7 +43,9 @@ class TestGetOumiGitTag:
             assert get_oumi_git_tag() == "v0.7"
 
     def test_dev_build_returns_none(self):
-        with patch("oumi.mcp.sync_service.get_package_version", return_value="0.8.dev35+g123"):
+        with patch(
+            "oumi.mcp.sync_service.get_package_version", return_value="0.8.dev35+g123"
+        ):
             assert get_oumi_git_tag() is None
 
     def test_missing_returns_none(self):
@@ -64,8 +67,10 @@ class TestGetConfigsZipUrl:
 
 class TestConfigSync:
     def test_skips_when_fresh(self):
-        with patch("oumi.mcp.sync_service._is_cache_stale", return_value=False), \
-             patch("oumi.mcp.sync_service.get_configs_source", return_value="cache:0.7"):
+        with (
+            patch("oumi.mcp.sync_service._is_cache_stale", return_value=False),
+            patch("oumi.mcp.sync_service.get_configs_source", return_value="cache:0.7"),
+        ):
             result = config_sync(force=False)
         assert result["ok"] is True
         assert result["skipped"] is True
@@ -90,14 +95,18 @@ class TestConfigSync:
         mock_client_inst.get.return_value = mock_response
 
         mock_client_cls = MagicMock()
-        mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client_inst)
+        mock_client_cls.return_value.__enter__ = MagicMock(
+            return_value=mock_client_inst
+        )
         mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch("oumi.mcp.sync_service.get_cache_dir", return_value=cache_dir), \
-             patch("oumi.mcp.sync_service.get_oumi_version", return_value="0.7"), \
-             patch("oumi.mcp.sync_service.get_oumi_git_tag", return_value="v0.7"), \
-             patch("oumi.mcp.sync_service.clear_config_caches"), \
-             patch("oumi.mcp.sync_service.httpx.Client", mock_client_cls):
+        with (
+            patch("oumi.mcp.sync_service.get_cache_dir", return_value=cache_dir),
+            patch("oumi.mcp.sync_service.get_oumi_version", return_value="0.7"),
+            patch("oumi.mcp.sync_service.get_oumi_git_tag", return_value="v0.7"),
+            patch("oumi.mcp.sync_service.clear_config_caches"),
+            patch("oumi.mcp.sync_service.httpx.Client", mock_client_cls),
+        ):
             result = config_sync(force=True)
 
         assert result["ok"] is True
@@ -112,11 +121,15 @@ class TestConfigSync:
         mock_client.__exit__ = MagicMock(return_value=False)
         mock_client.get.side_effect = httpx.HTTPError("connection failed")
 
-        with patch("oumi.mcp.sync_service._is_cache_stale", return_value=True), \
-             patch("oumi.mcp.sync_service.get_cache_dir", return_value=Path("/tmp/fake")), \
-             patch("oumi.mcp.sync_service.get_oumi_version", return_value="0.7"), \
-             patch("oumi.mcp.sync_service.get_oumi_git_tag", return_value="v0.7"), \
-             patch("oumi.mcp.sync_service.httpx.Client", return_value=mock_client):
+        with (
+            patch("oumi.mcp.sync_service._is_cache_stale", return_value=True),
+            patch(
+                "oumi.mcp.sync_service.get_cache_dir", return_value=Path("/tmp/fake")
+            ),
+            patch("oumi.mcp.sync_service.get_oumi_version", return_value="0.7"),
+            patch("oumi.mcp.sync_service.get_oumi_git_tag", return_value="v0.7"),
+            patch("oumi.mcp.sync_service.httpx.Client", return_value=mock_client),
+        ):
             result = config_sync(force=False)
 
         assert result["ok"] is False

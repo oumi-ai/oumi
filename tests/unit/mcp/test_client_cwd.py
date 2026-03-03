@@ -5,13 +5,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from oumi.mcp.config_service import resolve_config_path, resolve_path
 from oumi.mcp.job_service import (
     JobRecord,
     JobRuntime,
     _launch_cloud,
     start_local_job,
 )
-from oumi.mcp.config_service import resolve_config_path, resolve_path
 from oumi.mcp.server import (
     pre_flight_check,
     run_oumi_job,
@@ -81,7 +81,9 @@ class ValidateConfigCwdTests(unittest.TestCase):
     def test_validate_config_resolves_relative_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "train.yaml"
-            config.write_text("training:\n  data:\n    train:\n      dataset_name: test\n")
+            config.write_text(
+                "training:\n  data:\n    train:\n      dataset_name: test\n"
+            )
             mock_cfg = MagicMock()
             mock_cls = MagicMock()
             mock_cls.from_yaml.return_value = mock_cfg
@@ -118,7 +120,9 @@ class RunOumiJobCwdTests(unittest.IsolatedAsyncioTestCase):
     async def test_dry_run_resolves_relative_config(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "train.yaml"
-            config.write_text("model:\n  model_name: gpt2\ntraining:\n  output_dir: ./output\n")
+            config.write_text(
+                "model:\n  model_name: gpt2\ntraining:\n  output_dir: ./output\n"
+            )
             result = await run_oumi_job(
                 config_path="train.yaml",
                 command="train",
@@ -148,8 +152,12 @@ class LocalJobCwdTests(unittest.TestCase):
             mock_proc = MagicMock()
             mock_proc.pid = 12345
 
-            with patch("oumi.mcp.job_service.subprocess.Popen", return_value=mock_proc) as mock_popen, \
-                 patch("oumi.mcp.job_service.get_registry") as mock_reg:
+            with (
+                patch(
+                    "oumi.mcp.job_service.subprocess.Popen", return_value=mock_proc
+                ) as mock_popen,
+                patch("oumi.mcp.job_service.get_registry") as mock_reg,
+            ):
                 mock_reg.return_value.update = MagicMock()
                 start_local_job(record, rt, client_cwd="/home/alice/project")
 
@@ -198,8 +206,10 @@ class CloudJobConfigPassthroughCwdTests(unittest.IsolatedAsyncioTestCase):
                 mock_status.cluster = "test-cluster"
                 return MagicMock(), mock_status
 
-            with patch("oumi.mcp.job_service.launcher.up", side_effect=mock_launcher_up), \
-                 patch("oumi.mcp.job_service.get_registry") as mock_reg:
+            with (
+                patch("oumi.mcp.job_service.launcher.up", side_effect=mock_launcher_up),
+                patch("oumi.mcp.job_service.get_registry") as mock_reg,
+            ):
                 mock_reg.return_value.update = MagicMock()
                 mock_reg.return_value.get = MagicMock(return_value=record)
                 await _launch_cloud(record, rt, client_cwd=client_project)

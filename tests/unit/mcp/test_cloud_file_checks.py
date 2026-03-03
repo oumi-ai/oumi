@@ -12,14 +12,17 @@ from oumi.mcp.preflight_service import _check_cloud_files, validate_datasets
 @pytest.fixture
 def tmp_config(tmp_path: Path):
     """Helper to write a YAML string to a temp file and return its Path."""
+
     def _write(content: str, name: str = "config.yaml") -> Path:
         p = tmp_path / name
         p.write_text(textwrap.dedent(content))
         return p
+
     return _write
 
 
 # -- Job-config passthrough mode --
+
 
 class TestJobConfigPassthrough:
     """Tests for job-config passthrough (config has resources/setup/run keys)."""
@@ -90,6 +93,7 @@ class TestJobConfigPassthrough:
 
 # -- Training-config wrapping mode --
 
+
 class TestTrainingConfigWrapping:
     """Tests for training-config wrapping (no resources/setup/run keys)."""
 
@@ -98,14 +102,18 @@ class TestTrainingConfigWrapping:
             "model": {"model_name": "meta-llama/Llama-3.1-8B"},
             "data": {
                 "train": {
-                    "datasets": [{"dataset_name": "x", "dataset_path": "data/train.jsonl"}]
+                    "datasets": [
+                        {"dataset_name": "x", "dataset_path": "data/train.jsonl"}
+                    ]
                 }
             },
         }
         result = _check_cloud_files(cfg, tmp_path / "config.yaml", "aws")
         assert result["data/train.jsonl"] == "not_reachable_on_vm"
 
-    def test_relative_path_exists_locally_still_unreachable(self, tmp_config, tmp_path: Path):
+    def test_relative_path_exists_locally_still_unreachable(
+        self, tmp_config, tmp_path: Path
+    ):
         (tmp_path / "data").mkdir()
         (tmp_path / "data" / "train.jsonl").write_text("data")
         cfg = {
@@ -147,6 +155,7 @@ class TestTrainingConfigWrapping:
 
 # -- Edge cases --
 
+
 class TestEdgeCases:
     def test_no_cloud_returns_empty(self, tmp_path: Path):
         cfg = {"model": {"model_name": "x"}}
@@ -161,22 +170,30 @@ class TestEdgeCases:
 
 # -- Integration with _pre_flight_check --
 
-_MOCK_CLOUD_READINESS = ([], [], {
-    "sky_installed": True,
-    "enabled_clouds": ["AWS"],
-    "target_cloud_ready": True,
-    "target_cloud": "aws",
-})
+_MOCK_CLOUD_READINESS = (
+    [],
+    [],
+    {
+        "sky_installed": True,
+        "enabled_clouds": ["AWS"],
+        "target_cloud_ready": True,
+        "target_cloud": "aws",
+    },
+)
 
-_MOCK_HARDWARE = ([], [], {
-    "accelerator_type": "none",
-    "accelerator_count": 0,
-    "gpu_name": None,
-    "gpu_memory_gb": None,
-    "compute_capability": None,
-    "cuda_version": None,
-    "packages": {},
-})
+_MOCK_HARDWARE = (
+    [],
+    [],
+    {
+        "accelerator_type": "none",
+        "accelerator_count": 0,
+        "gpu_name": None,
+        "gpu_memory_gb": None,
+        "compute_capability": None,
+        "cuda_version": None,
+        "packages": {},
+    },
+)
 
 
 class TestPreFlightIntegration:
@@ -184,7 +201,10 @@ class TestPreFlightIntegration:
 
     @patch("oumi.mcp.preflight_service.validate_datasets", return_value={})
     @patch("oumi.mcp.preflight_service.check_hardware", return_value=_MOCK_HARDWARE)
-    @patch("oumi.mcp.preflight_service.check_cloud_readiness", return_value=_MOCK_CLOUD_READINESS)
+    @patch(
+        "oumi.mcp.preflight_service.check_cloud_readiness",
+        return_value=_MOCK_CLOUD_READINESS,
+    )
     @patch("oumi.mcp.preflight_service.whoami", side_effect=Exception("no token"))
     def test_missing_file_mount_is_blocking(
         self, _hf, _cloud, _hw, _ds, tmp_path: Path
@@ -192,14 +212,16 @@ class TestPreFlightIntegration:
         from oumi.mcp.preflight_service import _pre_flight_check
 
         job_yaml = tmp_path / "job.yaml"
-        job_yaml.write_text(textwrap.dedent("""\
+        job_yaml.write_text(
+            textwrap.dedent("""\
             resources:
               cloud: aws
               accelerators: A100:1
             file_mounts:
               /data/train.jsonl: /nonexistent/local/train.jsonl
             run: oumi train -c config.yaml
-        """))
+        """)
+        )
 
         result = _pre_flight_check(str(job_yaml), client_cwd=str(tmp_path), cloud="aws")
         assert result["blocking"] is True
@@ -209,7 +231,10 @@ class TestPreFlightIntegration:
 
     @patch("oumi.mcp.preflight_service.validate_datasets", return_value={})
     @patch("oumi.mcp.preflight_service.check_hardware", return_value=_MOCK_HARDWARE)
-    @patch("oumi.mcp.preflight_service.check_cloud_readiness", return_value=_MOCK_CLOUD_READINESS)
+    @patch(
+        "oumi.mcp.preflight_service.check_cloud_readiness",
+        return_value=_MOCK_CLOUD_READINESS,
+    )
     @patch("oumi.mcp.preflight_service.whoami", side_effect=Exception("no token"))
     def test_training_config_relative_path_is_blocking(
         self, _hf, _cloud, _hw, _ds, tmp_path: Path
@@ -217,7 +242,8 @@ class TestPreFlightIntegration:
         from oumi.mcp.preflight_service import _pre_flight_check
 
         config_yaml = tmp_path / "train_config.yaml"
-        config_yaml.write_text(textwrap.dedent("""\
+        config_yaml.write_text(
+            textwrap.dedent("""\
             model:
               model_name: meta-llama/Llama-3.1-8B
             data:
@@ -225,20 +251,24 @@ class TestPreFlightIntegration:
                 datasets:
                   - dataset_name: custom
                     dataset_path: data/train.jsonl
-        """))
+        """)
+        )
 
-        result = _pre_flight_check(str(config_yaml), client_cwd=str(tmp_path), cloud="aws")
+        result = _pre_flight_check(
+            str(config_yaml), client_cwd=str(tmp_path), cloud="aws"
+        )
         assert result["blocking"] is True
         assert any("no delivery mechanism" in e for e in result["errors"])
 
 
 # -- validate_datasets client_cwd --
 
+
 class TestValidateDatasetsClientCwd:
     """Verify that validate_datasets resolves relative ds_path against client_cwd."""
 
     def test_relative_ds_path_resolved_against_client_cwd(self, tmp_path: Path):
-        """A relative dataset_path should resolve under client_cwd and report ok_local."""
+        """Relative dataset_path resolves under client_cwd as ok_local."""
         data_dir = tmp_path / "data"
         data_dir.mkdir()
         (data_dir / "train.jsonl").write_text("{}\n")
@@ -256,7 +286,7 @@ class TestValidateDatasetsClientCwd:
         assert result.get("data/train.jsonl") == "ok_local"
 
     def test_relative_ds_path_not_found_without_client_cwd(self, tmp_path: Path):
-        """Without client_cwd, a relative path that only exists under tmp_path is not found."""
+        """Without client_cwd, a relative path under tmp_path is not found."""
         data_dir = tmp_path / "data"
         data_dir.mkdir()
         (data_dir / "train.jsonl").write_text("{}\n")

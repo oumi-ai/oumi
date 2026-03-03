@@ -13,7 +13,6 @@ from oumi.mcp.job_service import (
     JobRegistry,
     JobRuntime,
     cancel,
-    get_runtime,
     make_job_id,
 )
 
@@ -51,24 +50,28 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             state_file = Path(tmp_dir) / "jobs.json"
             reg = JobRegistry(path=state_file)
-            reg.add(JobRecord(
-                job_id="old_job",
-                command="train",
-                config_path="/tmp/t.yaml",
-                cloud="gcp",
-                cluster_name="c",
-                model_name="m",
-                submit_time="2020-01-01T00:00:00+00:00",
-            ))
-            reg.add(JobRecord(
-                job_id="recent_job",
-                command="train",
-                config_path="/tmp/t.yaml",
-                cloud="gcp",
-                cluster_name="c",
-                model_name="m",
-                submit_time=datetime.now(timezone.utc).isoformat(),
-            ))
+            reg.add(
+                JobRecord(
+                    job_id="old_job",
+                    command="train",
+                    config_path="/tmp/t.yaml",
+                    cloud="gcp",
+                    cluster_name="c",
+                    model_name="m",
+                    submit_time="2020-01-01T00:00:00+00:00",
+                )
+            )
+            reg.add(
+                JobRecord(
+                    job_id="recent_job",
+                    command="train",
+                    config_path="/tmp/t.yaml",
+                    cloud="gcp",
+                    cluster_name="c",
+                    model_name="m",
+                    submit_time=datetime.now(timezone.utc).isoformat(),
+                )
+            )
 
             # Reload — should prune old_job but keep recent_job
             reg2 = JobRegistry(path=state_file)
@@ -115,9 +118,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         with (
             patch("oumi.mcp.job_service._resolve_job_record", return_value=None),
-            patch(
-                "oumi.mcp.job_service._fetch_cloud_status_direct", return_value=None
-            ),
+            patch("oumi.mcp.job_service._fetch_cloud_status_direct", return_value=None),
         ):
             response = await server.get_job_status(
                 job_id="sky-job-123",
@@ -286,6 +287,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
                 state=SimpleNamespace(name="CANCELLED"),
                 metadata={},
             )
+
             # Set up a mock registry that applies updates to the real record
             # so _launch_cloud can refresh it after updating.
             def _mock_update(job_id, **fields):  # noqa: ANN001, ANN003
@@ -328,6 +330,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
 
     def test_cluster_lifecycle_response_is_importable(self) -> None:
         from oumi.mcp.models import ClusterLifecycleResponse
+
         r: ClusterLifecycleResponse = {"success": True, "message": "ok"}
         self.assertTrue(r["success"])
 
@@ -353,7 +356,6 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
         msg = response["message"]
         self.assertIn("oumi launch up", msg)
         self.assertIn("Generated JobConfig", msg)
-
 
     async def test_stop_cluster_calls_launcher_stop(self) -> None:
         with patch("oumi.mcp.job_service.launcher.stop") as mock_stop:
@@ -418,7 +420,6 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(response["success"])
         self.assertIn("Failed to delete cluster", response.get("error", ""))
 
-
     def test_get_started_mentions_all_new_tools(self) -> None:
         result = server.get_started()
         self.assertIn("stop_cluster", result)
@@ -426,7 +427,6 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Cloud Job Workflow", result)
         self.assertIn("Cluster Lifecycle", result)
         self.assertIn("suggested_configs", result)
-
 
     async def test_cancel_pending_cloud_job_cancels_runner_task(self) -> None:
         """cancel() should call runner_task.cancel() for pre-launch cloud jobs."""
@@ -486,7 +486,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
                 coro.close()
             except Exception:
                 pass
-            raise _asyncio.TimeoutError()
+            raise _asyncio.TimeoutError
 
         with (
             patch("oumi.mcp.job_service._resolve_job_record", return_value=None),

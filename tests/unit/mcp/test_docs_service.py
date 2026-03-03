@@ -1,13 +1,7 @@
 """Tests for oumi.mcp.docs_service — docstring parsing, scoring, search."""
 
-import threading
-from unittest.mock import patch
-
-import pytest
-
 from oumi.mcp.docs_service import (
     _score_entry,
-    build_index,
     get_module_list,
     parse_docstring,
     search_docs,
@@ -102,6 +96,7 @@ class TestSearchDocs:
     def test_index_empty_before_build(self):
         # Reset index state for isolation
         import oumi.mcp.docs_service as ds
+
         old_ready = ds._index_ready.is_set()
         ds._index_ready.clear()
         with ds._index_lock:

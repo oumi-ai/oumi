@@ -30,11 +30,14 @@ def _build_fake_sky_modules(
     def get_cached_enabled_clouds_or_refresh(*args, **kwargs):  # noqa: ANN002, ANN003
         if require_capability and not args:
             raise TypeError(
-                "get_cached_enabled_clouds_or_refresh() missing 1 required positional argument: 'capability'"
+                "get_cached_enabled_clouds_or_refresh() missing 1"
+                " required positional argument: 'capability'"
             )
         return enabled_values
 
-    check_mod.get_cached_enabled_clouds_or_refresh = get_cached_enabled_clouds_or_refresh
+    check_mod.get_cached_enabled_clouds_or_refresh = (
+        get_cached_enabled_clouds_or_refresh
+    )
 
     if include_check_capability:
         result_values = check_capability_values or []
@@ -43,7 +46,9 @@ def _build_fake_sky_modules(
             del capability, quiet
             if clouds:
                 cloud_names = [name.upper() for name in clouds]
-                return {"default": [name for name in result_values if name in cloud_names]}
+                return {
+                    "default": [name for name in result_values if name in cloud_names]
+                }
             return {"default": result_values}
 
         check_mod.check_capability = check_capability
@@ -70,7 +75,9 @@ def _build_fake_sky_modules(
 
 
 @contextmanager
-def _patch_sky(modules: dict, sky_mod: object, check_mod: object, cloud_capability: object):
+def _patch_sky(
+    modules: dict, sky_mod: object, check_mod: object, cloud_capability: object
+):
     """Patch module-level sky references in server.py for testing."""
     with (
         patch.object(_server_mod, "sky", sky_mod),

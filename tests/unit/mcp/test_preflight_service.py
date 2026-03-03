@@ -14,7 +14,6 @@ from oumi.mcp.preflight_service import (
     validate_paths,
 )
 
-
 # ------------------------------------------------------------------
 # Helper predicates
 # ------------------------------------------------------------------
@@ -25,7 +24,9 @@ class TestLooksLikeHfRepo:
     def test_valid(self, val: str):
         assert _looks_like_hf_repo(val) is True
 
-    @pytest.mark.parametrize("val", ["", "/abs/path", "./rel", "~/home", "no-slash", "a/b/c"])
+    @pytest.mark.parametrize(
+        "val", ["", "/abs/path", "./rel", "~/home", "no-slash", "a/b/c"]
+    )
     def test_invalid(self, val: str):
         assert _looks_like_hf_repo(val) is False
 
@@ -110,32 +111,51 @@ class TestValidateDatasets:
         cfg = {"data": {"train": {"datasets": [{"dataset_name": "test_ds"}]}}}
         mock_reg = MagicMock()
         mock_reg.get_dataset.return_value = "something"
-        with patch("oumi.mcp.preflight_service.REGISTRY", mock_reg, create=True), \
-             patch.dict("sys.modules", {"oumi.core.registry": MagicMock(REGISTRY=mock_reg)}):
+        with (
+            patch("oumi.mcp.preflight_service.REGISTRY", mock_reg, create=True),
+            patch.dict(
+                "sys.modules", {"oumi.core.registry": MagicMock(REGISTRY=mock_reg)}
+            ),
+        ):
             results = validate_datasets(cfg, str(tmp_path))
         assert results.get("test_ds") == "ok_registry"
 
     def test_local_path_hit(self, tmp_path: Path):
         data = tmp_path / "data.jsonl"
         data.write_text("{}\n")
-        cfg = {"data": {"train": {"datasets": [{"dataset_name": "x", "dataset_path": str(data)}]}}}
-        with patch("oumi.mcp.preflight_service.REGISTRY", create=True, side_effect=Exception):
+        cfg = {
+            "data": {
+                "train": {
+                    "datasets": [{"dataset_name": "x", "dataset_path": str(data)}]
+                }
+            }
+        }
+        with patch(
+            "oumi.mcp.preflight_service.REGISTRY", create=True, side_effect=Exception
+        ):
             # Registry lookup should fail, but local path should be found
             results = validate_datasets(cfg, str(tmp_path))
         assert any("ok_local" in v for v in results.values())
 
     def test_not_found(self, tmp_path: Path):
-        cfg = {"data": {"train": {"datasets": [{"dataset_name": "fake_nonexistent_ds_xyz"}]}}}
+        cfg = {
+            "data": {
+                "train": {"datasets": [{"dataset_name": "fake_nonexistent_ds_xyz"}]}
+            }
+        }
         mock_reg = MagicMock()
         mock_reg.get_dataset.return_value = None
 
         mock_datasets_mod = MagicMock()
         mock_datasets_mod.load_dataset_builder.side_effect = Exception("not found")
 
-        with patch.dict("sys.modules", {
-                 "oumi.core.registry": MagicMock(REGISTRY=mock_reg),
-                 "datasets": mock_datasets_mod,
-             }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "oumi.core.registry": MagicMock(REGISTRY=mock_reg),
+                "datasets": mock_datasets_mod,
+            },
+        ):
             results = validate_datasets(cfg, str(tmp_path))
         assert any(v == "not_found" for v in results.values())
 
@@ -150,7 +170,9 @@ class TestValidateDatasets:
 
 class TestGetGpuInfo:
     def test_no_torch(self):
-        with patch.object(__import__("oumi.mcp.preflight_service", fromlist=["torch"]), "torch", None):
+        with patch.object(
+            __import__("oumi.mcp.preflight_service", fromlist=["torch"]), "torch", None
+        ):
             info = get_gpu_info()
         assert info["accelerator_type"] == "none"
 
@@ -164,7 +186,11 @@ class TestGetGpuInfo:
         props.major = 8
         props.minor = 0
         mock_torch.cuda.get_device_properties.return_value = props
-        with patch.object(__import__("oumi.mcp.preflight_service", fromlist=["torch"]), "torch", mock_torch):
+        with patch.object(
+            __import__("oumi.mcp.preflight_service", fromlist=["torch"]),
+            "torch",
+            mock_torch,
+        ):
             info = get_gpu_info()
         assert info["accelerator_type"] == "cuda"
         assert info["gpu_name"] == "A100"
@@ -179,6 +205,7 @@ class TestGetRepos:
     def test_model_extraction(self):
         cfg = {"model": {"model_name": "meta-llama/Llama-3.1-8B"}}
         from oumi.mcp.preflight_service import get_repos
+
         repos = get_repos(cfg)
         assert "meta-llama/Llama-3.1-8B" in repos
         assert "model" in repos["meta-llama/Llama-3.1-8B"]

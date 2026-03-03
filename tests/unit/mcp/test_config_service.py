@@ -1,6 +1,5 @@
 """Tests for oumi.mcp.config_service — search, metadata, inference, parsing."""
 
-import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -21,7 +20,6 @@ from oumi.mcp.config_service import (
     search_configs,
 )
 from oumi.mcp.models import ConfigMetadata
-
 
 # ------------------------------------------------------------------
 # Helpers
@@ -378,7 +376,11 @@ class TestSearchConfigs:
     def setup_method(self):
         self.configs = [
             _meta(path="recipes/llama/sft/train.yaml", datasets=["alpaca"]),
-            _meta(path="recipes/llama/dpo/train.yaml", task_type="dpo", datasets=["d1", "d2"]),
+            _meta(
+                path="recipes/llama/dpo/train.yaml",
+                task_type="dpo",
+                datasets=["d1", "d2"],
+            ),
             _meta(path="recipes/mistral/sft/train.yaml", model_name="mistral"),
             _meta(path="recipes/llama/eval/eval.yaml", task_type="evaluation"),
         ]
@@ -458,7 +460,9 @@ class TestGetCategories:
         (tmp_path / "apis" / "openai").mkdir()
         (tmp_path / "other").mkdir()
 
-        r = get_categories(tmp_path, 10, oumi_version="0.7", configs_source="bundled:0.7")
+        r = get_categories(
+            tmp_path, 10, oumi_version="0.7", configs_source="bundled:0.7"
+        )
         assert "recipes" in r["categories"]
         assert "llama" in r["model_families"]
         assert "openai" in r["api_providers"]
