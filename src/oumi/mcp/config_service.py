@@ -11,6 +11,18 @@ from typing import Any
 
 import yaml
 
+from oumi.core.configs import (
+    AnalyzeConfig,
+    AsyncEvaluationConfig,
+    EvaluationConfig,
+    InferenceConfig,
+    JobConfig,
+    JudgeConfig,
+    QuantizationConfig,
+    SynthesisConfig,
+    TrainingConfig,
+    TuningConfig,
+)
 from oumi.mcp.constants import (
     API_PROVIDERS_DIR,
     COMMENT_PREFIXES_TO_SKIP,
@@ -31,6 +43,19 @@ from oumi.mcp.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+TASK_MAPPING = {
+    "analyze": AnalyzeConfig,
+    "async_evaluation": AsyncEvaluationConfig,
+    "evaluation": EvaluationConfig,
+    "inference": InferenceConfig,
+    "job": JobConfig,
+    "judge": JudgeConfig,
+    "quantization": QuantizationConfig,
+    "synthesis": SynthesisConfig,
+    "training": TrainingConfig,
+    "tuning": TuningConfig,
+}
 
 
 def get_bundled_configs_dir() -> Path:
@@ -62,19 +87,16 @@ def get_configs_dir() -> Path:
     Returns:
         Path to the configs directory.
     """
-    # 1. Explicit override
     env_dir = os.environ.get("OUMI_MCP_CONFIGS_DIR")
     if env_dir:
         p = Path(env_dir)
         if p.is_dir() and any(p.rglob("*.yaml")):
             return p
 
-    # 2. User cache (populated by config_sync)
     cache = get_cache_dir()
     if cache.is_dir() and any(cache.rglob("*.yaml")):
         return cache
 
-    # 3. Bundled fallback
     return get_bundled_configs_dir()
 
 
@@ -159,7 +181,6 @@ def infer_task_type(trainer_type: str, path: str) -> TaskType:
         if any(kw in t or kw in p for kw in keywords):
             return task
 
-    # Path-based inference
     if "eval" in p:
         return "evaluation"
     if "infer" in p:
@@ -434,11 +455,6 @@ def get_categories(
         "configs_source": configs_source,
         "version_warning": version_warning,
     }
-
-
-# ---------------------------------------------------------------------------
-# Shared utilities (used by server.py, preflight_service.py, sync_service.py)
-# ---------------------------------------------------------------------------
 
 
 def get_package_version(package_name: str) -> str | None:

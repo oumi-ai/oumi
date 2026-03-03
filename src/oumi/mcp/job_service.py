@@ -108,11 +108,7 @@ _CLOUD_LOG_TIMEOUT = 30.0
 
 
 class JobRegistry:
-    """Single-file JSON registry mapping MCP job IDs to cloud identities.
-
-    Evicts entries older than ``_MAX_REGISTRY_AGE_DAYS`` on load.
-    Caps total records at ``_MAX_REGISTRY_SIZE``, dropping oldest first.
-    """
+    """Single-file JSON registry mapping MCP job IDs to cloud identities."""
 
     def __init__(self, path: Path) -> None:
         self._path = path
@@ -154,7 +150,6 @@ class JobRegistry:
             del self._jobs[jid]
         removed = len(to_remove)
 
-        # Cap total size — drop oldest first
         if len(self._jobs) > _MAX_REGISTRY_SIZE:
             by_time = sorted(self._jobs.items(), key=lambda x: x[1].submit_time)
             while len(self._jobs) > _MAX_REGISTRY_SIZE and by_time:
@@ -294,6 +289,7 @@ _COMMAND_MAP: dict[str, str] = {
     "quantize": "oumi quantize",
 }
 
+
 def _is_job_config(config_path: Path) -> bool:
     """Return True if *config_path* is a launcher job config (not a training config).
 
@@ -308,7 +304,6 @@ def _is_job_config(config_path: Path) -> bool:
         return bool(job_config_keys.intersection(data.keys()))
     except Exception:
         return False
-
 
 
 def _build_local_command(config_path: str, command: str) -> list[str]:
@@ -352,7 +347,7 @@ def start_local_job(record: JobRecord, rt: JobRuntime, client_cwd: str = "") -> 
     sets ``rt.process``. Raises on failure
     (e.g. command not found, permission denied).
 
-    When *client_cwd* is provided, the subprocess runs from that directory
+    When `client_cwd` is provided, the subprocess runs from that directory
     so relative paths in the config resolve against the user's project root.
 
     Stdout and stderr are written to files in ``rt.log_dir`` so
@@ -467,8 +462,6 @@ async def _launch_cloud(
         job_config = launcher.JobConfig.from_yaml(rt.staged_config_path)
         if not job_config.name:
             job_config.name = record.job_id
-        # Resolve relative working_dir against client_cwd so SkyPilot
-        # syncs the user's project, not the MCP staging directory.
         if client_cwd and job_config.working_dir:
             wd = Path(job_config.working_dir).expanduser()
             if not wd.is_absolute():
@@ -484,7 +477,6 @@ async def _launch_cloud(
         rt.cluster_obj = cluster
         rt.oumi_status = status
 
-        # Re-key registry: replace MCP placeholder ID with the real SkyPilot ID
         if status and status.id:
             sky_job_id = str(status.id)
             old_id = record.job_id
@@ -502,9 +494,6 @@ async def _launch_cloud(
             record.cloud,
             status.id if status else "unknown",
         )
-
-        # Race guard: if cancel was requested while launcher.up was in-flight,
-        # immediately cancel the cloud job now that we have a SkyPilot ID.
         if rt.cancel_requested and status and status.id:
             try:
                 result_status = await asyncio.to_thread(
@@ -519,11 +508,8 @@ async def _launch_cloud(
                     "Cancellation was requested during launch, but automatic "
                     f"cloud cancellation failed: {cancel_exc}"
                 )
-            # Evict cloud runtime after reconciliation — launcher is source of truth now
             evict_runtime(record.job_id)
             return
-
-        # Cloud launch succeeded — evict runtime (launcher.status is source of truth)
         evict_runtime(record.job_id)
     except Exception as exc:
         rt.error_message = str(exc)
@@ -564,13 +550,11 @@ async def poll_status(record: JobRecord, rt: JobRuntime) -> OumiJobStatus | None
     if rt.error_message and rt.cluster_obj is None:
         return rt.oumi_status
 
-    # Try cluster.get_job first (fastest path)
     if rt.cluster_obj and record.job_id:
         try:
             status = await asyncio.to_thread(rt.cluster_obj.get_job, record.job_id)
             if status:
                 rt.oumi_status = status
-                # Update registry with cluster name if it changed
                 reg = get_registry()
                 reg.update(
                     record.job_id,
@@ -583,8 +567,6 @@ async def poll_status(record: JobRecord, rt: JobRuntime) -> OumiJobStatus | None
                 record.job_id,
                 exc_info=True,
             )
-
-    # Fallback: launcher.status (works even without a cluster object)
     try:
         all_statuses = await asyncio.to_thread(
             launcher.status,
@@ -620,7 +602,6 @@ async def cancel(
     For **local** jobs, sends SIGTERM (or SIGKILL if *force* is True).
     For **cloud** jobs, delegates to ``oumi.launcher.cancel()``.
     """
-    # Pre-launch cancel: job hasn't reached the cloud yet
     if record.cloud != "local" and rt.cluster_obj is None and rt.process is None:
         rt.cancel_requested = True
         rt.error_message = "Cancellation requested while launch is pending."
@@ -635,7 +616,6 @@ async def cancel(
             ),
         }
 
-    # Local job cancel
     if record.cloud == "local" and rt.process is not None:
         try:
             if force:
@@ -656,8 +636,6 @@ async def cancel(
                 "success": False,
                 "error": f"Failed to cancel local job {record.job_id}: {exc}",
             }
-
-    # Cloud job cancel — delegate to launcher
     try:
         result_status = await asyncio.to_thread(
             launcher.cancel,
@@ -849,8 +827,6 @@ async def _get_cloud_logs(
             timeout=_CLOUD_LOG_TIMEOUT,
         )
     except asyncio.TimeoutError:
-        # Don't cross-thread close the stream — just return partial output.
-        # The worker thread will finish when the stream yields EOF or errors.
         raw = "".join(chunks)
         if raw:
             logger.debug(
@@ -931,24 +907,6 @@ async def stream_cloud_logs(
             pass
 
 
-# ---------------------------------------------------------------------------
-# Job status / logs / cancel helpers (moved from server.py)
-# ---------------------------------------------------------------------------
-
-
-def _jobconfig_to_yaml(jc: launcher.JobConfig) -> str:
-    """Render a JobConfig as compact YAML for dry-run display.
-
-    Omits None values and empty dicts/lists so the preview stays readable.
-    """
-    d = {k: v for k, v in dataclasses.asdict(jc).items() if v not in (None, {}, [], "")}
-    if "resources" in d and isinstance(d["resources"], dict):
-        d["resources"] = {
-            k: v for k, v in d["resources"].items() if v not in (None, False, "")
-        }
-    return yaml.dump(d, default_flow_style=False, sort_keys=False)
-
-
 def _job_status_str(record: JobRecord, rt: JobRuntime) -> str:
     """Derive a human-readable status string for any job (local or cloud)."""
     if rt.cancel_requested:
@@ -959,7 +917,6 @@ def _job_status_str(record: JobRecord, rt: JobRuntime) -> str:
         if proc is None:
             if rt.error_message:
                 return "failed"
-            # Still launching (runner_task exists but process not spawned yet)
             if rt.runner_task and not rt.runner_task.done():
                 return "launching"
             return "unknown"
@@ -967,12 +924,10 @@ def _job_status_str(record: JobRecord, rt: JobRuntime) -> str:
         if rc is None:
             return "running"
         return "completed" if rc == 0 else "failed"
-    # Cloud job — use launcher status
     if rt.oumi_status:
         return rt.oumi_status.status
     if rt.error_message:
         return "failed"
-    # Runner task still in-flight — still launching
     if rt.runner_task and not rt.runner_task.done():
         return "launching"
     return "unknown"
@@ -1075,11 +1030,17 @@ def _resolve_job_record(
 
 
 async def _fetch_cloud_status_direct(
-    *, job_id: str, cloud: str, cluster_name: str = "",
+    *,
+    job_id: str,
+    cloud: str,
+    cluster_name: str = "",
 ) -> Any | None:
     try:
         statuses_by_cloud = await asyncio.to_thread(
-            launcher.status, cloud=cloud, cluster=cluster_name or None, id=job_id,
+            launcher.status,
+            cloud=cloud,
+            cluster=cluster_name or None,
+            id=job_id,
         )
     except Exception:
         return None
@@ -1260,7 +1221,6 @@ async def fetch_logs(
         cluster_name=cluster_name,
     )
     if not record:
-        # Direct cloud log retrieval for untracked jobs (bypasses registry)
         if job_id and cloud and cluster_name:
             ephemeral = JobRecord(
                 job_id=job_id,
@@ -1325,7 +1285,6 @@ async def fetch_logs(
     resolved_job_id = record.job_id
 
     if not stdout_path or not stdout_path.exists():
-        # Cloud fallback: fetch logs from cluster via get_logs_stream
         if record.cloud and record.cloud != "local":
             cloud_result = await _get_cloud_logs(record, rt, lines)
             if cloud_result is not None:
@@ -1450,7 +1409,6 @@ async def cancel_job_impl(
 
     rt = get_runtime(record.job_id)
 
-    # For cloud jobs, check live status first — the job may already be done
     if record.cloud != "local":
         live = await poll_status(record, rt)
         if live and live.done:

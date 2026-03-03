@@ -44,7 +44,7 @@ from oumi.mcp.models import (
 
 try:
     import torch as _torch
-except Exception:
+except (ImportError, ModuleNotFoundError):
     _torch = None
 torch = _torch
 
@@ -52,7 +52,7 @@ try:
     import sky as _sky
     from sky import check as _sky_check
     from sky.clouds.cloud import CloudCapability as _CloudCapability
-except Exception:
+except (ImportError, ModuleNotFoundError):
     _sky = None
     _sky_check = None
     _CloudCapability = None
@@ -987,9 +987,7 @@ def _pre_flight_check(
                 task_type = "eval"
             elif cfg.get("generation") and cfg.get("input_path"):
                 task_type = "infer"
-        suggested = search_configs_service(
-            all_cfgs, task=task_type or "sft", limit=5
-        )
+        suggested = search_configs_service(all_cfgs, task=task_type or "sft", limit=5)
         result["suggested_configs"] = [c["path"] for c in suggested]
 
     return result

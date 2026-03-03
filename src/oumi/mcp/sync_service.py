@@ -29,6 +29,7 @@ from oumi.mcp.constants import (
     GITHUB_REPO_URL,
     GITHUB_ZIP_PREFIX,
 )
+from oumi.mcp.models import ConfigSyncResponse
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +152,7 @@ def get_configs_source() -> str:
     return "unknown"
 
 
-def config_sync(force: bool = False) -> dict:
+def config_sync(force: bool = False) -> ConfigSyncResponse:
     """Sync configs from the Oumi repository, matching the installed version.
 
     Release builds download from the matching Git tag; dev builds use main.

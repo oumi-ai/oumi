@@ -190,8 +190,10 @@ DOCS_MODULE_DENYLIST_PREFIXES: tuple[str, ...] = (
 )
 
 # Individual modules to skip (exact match).
-DOCS_MODULE_DENYLIST: frozenset[str] = frozenset({
-    "oumi.__main__",
-})
+DOCS_MODULE_DENYLIST: frozenset[str] = frozenset(
+    {
+        "oumi.__main__",
+    }
+)
 DOCS_MAX_RESULTS: int = 10
 DOCS_MAX_METHODS_PER_CLASS: int = 10

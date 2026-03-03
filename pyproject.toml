@@ -180,7 +180,7 @@ tune = ["optuna>=4.0.0,<5.0"]
 bitnet = ["onebitllms>=0.0.3"]
 
 mcp = [
-    "fastmcp>=3.0.0b1,<3.0.0rc1",
+    "fastmcp>=3.0.0,<4",
     "httpx>=0.28.1",
     "huggingface-hub>=0.36.0",
     "mcp[cli]>=1.25.0",

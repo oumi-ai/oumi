@@ -126,8 +126,6 @@ def _extract_field_docstrings(cls: type) -> dict[str, str]:
     except SyntaxError:
         return result
 
-    # Find the first top-level ClassDef in the module body (not ast.walk
-    # which can traverse into nested classes in undefined order).
     class_def = next(
         (node for node in tree.body if isinstance(node, ast.ClassDef)),
         None,
