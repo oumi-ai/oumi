@@ -597,7 +597,6 @@ async def run_oumi_job(
         config_path=abs_config,
         cloud=cloud,
         cluster_name=cluster_name,
-        oumi_job_id="",
         model_name=model_name,
         submit_time=submit_time,
         output_dir=output_dir,
@@ -653,13 +652,15 @@ async def run_oumi_job(
         command,
     )
 
-    record = reg.get(job_id) or record
+    # After cloud launch, record.job_id may have been re-keyed to the
+    # SkyPilot ID.  Use it for the response so the agent gets the real ID.
+    final_job_id = record.job_id
 
     if rt.error_message and not is_local:
         return _error_response(
             f"Failed to launch cloud job: {rt.error_message}",
             status="failed",
-            job_id=job_id,
+            job_id=final_job_id,
             config_path=abs_config,
             model_name=model_name,
             preflight_summary=preflight_summary,
@@ -667,21 +668,19 @@ async def run_oumi_job(
             preflight_errors=preflight_errors,
             preflight_warnings=preflight_warnings,
             launch_confirmed=launch_confirmed,
-            oumi_job_id=record.oumi_job_id,
-            cluster=record.cluster_name,
         )
 
     message = (
-        f"Job {job_id} submitted on {cloud}. "
-        f"Use get_job_status('{job_id}') for status and "
-        f"get_job_logs('{job_id}', lines=200) for logs."
+        f"Job {final_job_id} submitted on {cloud}. "
+        f"Use get_job_status('{final_job_id}') for status and "
+        f"get_job_logs('{final_job_id}', lines=200) for logs."
     )
     if not is_local and not launch_confirmed:
         message = message + " Launch confirmation is pending; re-check status shortly."
 
     return {
         "success": True,
-        "job_id": job_id,
+        "job_id": final_job_id,
         "status": "submitted",
         "dry_run": False,
         "command": command,
@@ -694,8 +693,6 @@ async def run_oumi_job(
         "preflight_blocking": preflight_blocking,
         "preflight_errors": preflight_errors,
         "preflight_warnings": preflight_warnings,
-        "oumi_job_id": record.oumi_job_id,
-        "cluster": record.cluster_name,
         "message": message,
     }
 

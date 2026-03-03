@@ -70,7 +70,6 @@ class JobRecord:
     config_path: str
     cloud: str
     cluster_name: str
-    oumi_job_id: str
     model_name: str
     submit_time: str  # ISO 8601
     output_dir: str = ""
@@ -311,22 +310,6 @@ def _is_job_config(config_path: Path) -> bool:
         return False
 
 
-def _parse_gpu_count(accelerators: str | None) -> int:
-    """Parse the number of GPUs from an accelerator spec string.
-
-    Handles formats like ``"A100:8"`` (→ 8), ``"A100"`` (→ 1),
-    and ``None`` (→ 0).
-    """
-    if not accelerators:
-        return 0
-    parts = accelerators.split(":")
-    if len(parts) >= 2:
-        try:
-            return int(parts[-1])
-        except ValueError:
-            pass
-    return 1
-
 
 def _build_local_command(config_path: str, command: str) -> list[str]:
     """Build an argv list for a local Oumi CLI invocation (no shell)."""
@@ -499,31 +482,34 @@ async def _launch_cloud(
             record.cluster_name or None,
         )
         rt.cluster_obj = cluster
-        oumi_job_id = status.id if status else ""
         rt.oumi_status = status
-        cluster_name = status.cluster if status else record.cluster_name
 
-        # Update registry with cloud identity (no status field)
-        reg.update(
-            record.job_id,
-            oumi_job_id=oumi_job_id,
-            cluster_name=cluster_name,
-        )
-        record = reg.get(record.job_id) or record
+        # Re-key registry: replace MCP placeholder ID with the real SkyPilot ID
+        if status and status.id:
+            sky_job_id = str(status.id)
+            old_id = record.job_id
+            record.job_id = sky_job_id
+            record.cluster_name = status.cluster or record.cluster_name
+            reg.remove(old_id)
+            reg.add(record)
+        else:
+            cluster_name = status.cluster if status else record.cluster_name
+            reg.update(record.job_id, cluster_name=cluster_name)
+
         logger.info(
-            "Cloud job %s launched on %s (oumi_id=%s)",
+            "Cloud job %s launched on %s (sky_id=%s)",
             record.job_id,
             record.cloud,
-            record.oumi_job_id,
+            status.id if status else "unknown",
         )
 
         # Race guard: if cancel was requested while launcher.up was in-flight,
-        # immediately cancel the cloud job now that we have an oumi_job_id.
-        if rt.cancel_requested and record.oumi_job_id:
+        # immediately cancel the cloud job now that we have a SkyPilot ID.
+        if rt.cancel_requested and status and status.id:
             try:
                 result_status = await asyncio.to_thread(
                     launcher.cancel,
-                    record.oumi_job_id,
+                    str(status.id),
                     record.cloud,
                     record.cluster_name,
                 )
