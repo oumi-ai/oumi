@@ -196,7 +196,9 @@ def validate_paths_cloud(
             expanded = Path(local_src).expanduser()
             if not expanded.is_absolute():
                 expanded = base_dir / expanded
-            results[local_src] = "valid" if expanded.exists() else "missing_local_source"
+            results[local_src] = (
+                "valid" if expanded.exists() else "missing_local_source"
+            )
 
         wd = cfg.get("working_dir")
         if wd is not None and str(wd) != ".":

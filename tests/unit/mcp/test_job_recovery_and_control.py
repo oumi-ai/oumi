@@ -2,6 +2,7 @@
 """Tests for job recovery, cancellation, cluster lifecycle, and cloud launch."""
 
 import asyncio
+import os
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -330,7 +331,8 @@ async def test_launch_cloud_client_cwd_sets_working_dir():
                     record, rt, client_cwd=str(client_dir)
                 )
 
-        assert Path(captured_wd["working_dir"]).resolve() == client_dir.resolve()
+        expected = os.path.realpath(str(client_dir))  # noqa: ASYNC240
+        assert captured_wd["working_dir"] == expected
 
 
 def test_read_log_tail_large_file():
