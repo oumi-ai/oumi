@@ -30,8 +30,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 import oumi.launcher as launcher
 from oumi.core.launcher.base_cluster import BaseCluster
 from oumi.core.launcher.base_cluster import JobStatus as OumiJobStatus

@@ -719,7 +719,9 @@ async def get_job_logs(
     cluster_name: str = "",
 ) -> JobLogsResponse:
     """Return a bounded log snapshot for an Oumi job."""
-    return await fetch_logs(job_id=job_id, lines=lines, cloud=cloud, cluster_name=cluster_name)
+    return await fetch_logs(
+        job_id=job_id, lines=lines, cloud=cloud, cluster_name=cluster_name
+    )
 
 
 @mcp.tool()
@@ -734,7 +736,9 @@ async def cancel_job(
     Local jobs: SIGTERM (or SIGKILL with force=True).
     Cloud jobs: delegates to ``oumi.launcher.cancel()``.
     """
-    return await cancel_job_impl(job_id=job_id, force=force, cloud=cloud, cluster_name=cluster_name)
+    return await cancel_job_impl(
+        job_id=job_id, force=force, cloud=cloud, cluster_name=cluster_name
+    )
 
 
 @mcp.tool()
