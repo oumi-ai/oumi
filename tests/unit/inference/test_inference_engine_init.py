@@ -15,6 +15,7 @@ from oumi.core.configs import (
 from oumi.inference import (
     AnthropicInferenceEngine,
     BedrockInferenceEngine,
+    CerebrasInferenceEngine,
     DeepSeekInferenceEngine,
     GoogleGeminiInferenceEngine,
     GoogleVertexInferenceEngine,
@@ -68,6 +69,7 @@ REMOTE_ENGINES = [
 REMOTE_API_ENGINES = [
     AnthropicInferenceEngine,
     BedrockInferenceEngine,
+    CerebrasInferenceEngine,
     DeepSeekInferenceEngine,
     GoogleGeminiInferenceEngine,
     GoogleVertexInferenceEngine,
