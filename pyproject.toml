@@ -65,7 +65,7 @@ dependencies = [
     "protobuf>=6.32",
     "pycares<6.0.0",
     "pydantic>=2.11,<2.13",
-    "responses>=0.25,<0.26",
+    "responses>=0.25,<0.27",
     "safetensors>=0.6,<0.8",
     "skypilot>=0.11.1,<0.12", # 0.11.1 includes db locking fix
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
@@ -80,7 +80,7 @@ dependencies = [
     "trl>=0.24,<0.27",
     "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
-    "uvicorn<0.41.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
+    "uvicorn<0.42.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.26",        # Logging to Weights and Biases.
 ]
 
