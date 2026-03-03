@@ -42,6 +42,19 @@ from oumi.deploy.base_client import (
 
 logger = logging.getLogger(__name__)
 
+_MB = 1024 * 1024
+
+
+def _parse_timestamp(value: str | None) -> datetime | None:
+    """Parses an ISO-8601 timestamp (with optional trailing ``Z``) into a datetime."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
 # Mapping from Fireworks accelerator names to our standard format
 FIREWORKS_ACCELERATORS = {
     "nvidia_a100_80gb": "NVIDIA_A100_80GB",
@@ -219,10 +232,6 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             timeout=120.0,
         )
 
-    async def __aenter__(self) -> "FireworksDeploymentClient":  # type: ignore[override]
-        """Enters the async context manager."""
-        return self
-
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Exits the async context manager and closes the HTTP client."""
         await self._client.aclose()
@@ -231,29 +240,32 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         """Returns auth headers for inference (test_endpoint)."""
         return {"Authorization": f"Bearer {self.api_key}"}
 
-    def _to_fireworks_accelerator(self, hw: HardwareConfig) -> str:
-        """Converts HardwareConfig accelerator to Fireworks format.
+    @staticmethod
+    def _check_response(response: httpx.Response, context: str) -> None:
+        """Raises if the response indicates an error."""
+        if not response.is_success:
+            _raise_api_error(response, context=context)
 
-        Args:
-            hw: HardwareConfig with accelerator name
+    @staticmethod
+    async def _notify(
+        callback: Any | None,
+        stage: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Invokes the progress callback if one was provided."""
+        if callback:
+            await callback(stage, message, details or {})
 
-        Returns:
-            Fireworks accelerator type string
-        """
-        result = FIREWORKS_ACCELERATORS.get(hw.accelerator)
-        return result if result is not None else hw.accelerator.upper()
+    @staticmethod
+    def _to_fireworks_accelerator(hw: HardwareConfig) -> str:
+        """Converts HardwareConfig accelerator to Fireworks format."""
+        return FIREWORKS_ACCELERATORS.get(hw.accelerator, hw.accelerator.upper())
 
-    def _from_fireworks_accelerator(self, accelerator: str) -> str:
-        """Converts Fireworks accelerator to our standard format.
-
-        Args:
-            accelerator: Fireworks accelerator type string
-
-        Returns:
-            Standard accelerator name
-        """
-        result = FIREWORKS_ACCELERATORS_REVERSE.get(accelerator)
-        return result if result is not None else accelerator.lower()
+    @staticmethod
+    def _from_fireworks_accelerator(accelerator: str) -> str:
+        """Converts Fireworks accelerator to our standard format."""
+        return FIREWORKS_ACCELERATORS_REVERSE.get(accelerator, accelerator.lower())
 
     def _model_api_path(self, model_id: str, suffix: str = "") -> str:
         """Returns the API path for a model.
@@ -292,15 +304,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             max_replicas=max_replicas,
         )
 
-        # Parse created time
-        created_at = None
-        if data.get("createTime"):
-            try:
-                created_at = datetime.fromisoformat(
-                    data["createTime"].replace("Z", "+00:00")
-                )
-            except (ValueError, TypeError):
-                pass
+        created_at = _parse_timestamp(data.get("createTime"))
 
         # Extract deployment ID from name (accounts/{account}/deployments/{id})
         name = data.get("name", "")
@@ -327,6 +331,43 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             created_at=created_at,
             display_name=data.get("displayName"),
             inference_model_name=inference_model_name,
+        )
+
+    @staticmethod
+    def _detect_model_type(item: dict[str, Any]) -> ModelType | None:
+        """Infers the ModelType from Fireworks ``kind`` / ``modelFormat`` fields."""
+        kind = item.get("kind", "").upper()
+        if "LORA" in kind or "PEFT" in kind:
+            return ModelType.ADAPTER
+        if kind in ("CUSTOM_MODEL", "HF_BASE_MODEL"):
+            return ModelType.FULL
+        model_format = item.get("modelFormat", "").lower()
+        if "lora" in model_format or "adapter" in model_format:
+            return ModelType.ADAPTER
+        if model_format == "huggingface":
+            return ModelType.FULL
+        return None
+
+    @classmethod
+    def _parse_model(cls, item: dict[str, Any]) -> Model:
+        """Parses a Fireworks model response dict into a Model dataclass."""
+        model_id = item.get("name", item.get("id", ""))
+        display_name = item.get("displayName", "")
+        model_name = (
+            display_name
+            if display_name
+            else (model_id.split("/")[-1] if "/" in model_id else model_id)
+        )
+        return Model(
+            model_id=model_id,
+            model_name=model_name,
+            status=item.get("state", "unknown").lower(),
+            provider=DeploymentProvider.FIREWORKS,
+            model_type=cls._detect_model_type(item),
+            created_at=_parse_timestamp(
+                item.get("createTime") or item.get("createdAt")
+            ),
+            base_model=item.get("baseModel"),
         )
 
     # Validation retry settings.
@@ -408,7 +449,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             )
 
             # Steps 4–5: Upload files, validate
-            await self._upload_model_files(model_dir, model_id, progress_callback)
+            await self._upload_model_files(
+                model_dir, model_id, progress_callback, file_inventory
+            )
             await self._wait_and_validate(model_id, progress_callback)
         finally:
             if temp_dir and temp_dir.exists():
@@ -503,17 +546,17 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                     "Delete it manually or use a different name.",
                     model_id,
                 )
-            _raise_api_error(response, context=f"create model resource '{model_id}'")
+            self._check_response(response, f"create model resource '{model_id}'")
 
         created_model_name = response.json().get("name", "")
         logger.info("Model created: %s", created_model_name)
 
-        if progress_callback:
-            await progress_callback(
-                "creating",
-                f"Model resource created on Fireworks: {model_id}",
-                {"provider_model_id": created_model_name},
-            )
+        await self._notify(
+            progress_callback,
+            "creating",
+            f"Model resource created on Fireworks: {model_id}",
+            {"provider_model_id": created_model_name},
+        )
         return create_payload
 
     @staticmethod
@@ -588,11 +631,10 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         # Check if it's a local path first — use executor to avoid blocking the
         # event loop with synchronous filesystem calls (ruff ASYNC240).
         model_path = Path(model_source)
-        loop = asyncio.get_event_loop()
-        path_exists = await loop.run_in_executor(None, model_path.exists)
-        path_is_dir = await loop.run_in_executor(None, model_path.is_dir)
-        if path_exists and path_is_dir:
-            return self._validate_local_model_path(model_source), None
+        path_exists = await asyncio.to_thread(model_path.exists)
+        path_is_dir = path_exists and await asyncio.to_thread(model_path.is_dir)
+        if path_is_dir:
+            return model_path, None
 
         # If not a local path and contains "/" (but not absolute path),
         # treat as HuggingFace repo ID
@@ -637,19 +679,15 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             ) from e
 
         logger.info("Downloading model from HuggingFace Hub: %s", repo_id)
-        if progress_callback:
-            await progress_callback(
-                "downloading",
-                f"Downloading model from HuggingFace: {repo_id}",
-                {},
-            )
+        await self._notify(
+            progress_callback,
+            "downloading",
+            f"Downloading model from HuggingFace: {repo_id}",
+        )
 
-        # Download to HF cache (runs in executor since it's blocking)
-        loop = asyncio.get_event_loop()
         try:
-            cache_path = await loop.run_in_executor(
-                None,
-                lambda: snapshot_download(repo_id=repo_id, repo_type="model"),
+            cache_path = await asyncio.to_thread(
+                snapshot_download, repo_id=repo_id, repo_type="model"
             )
         except Exception as e:
             logger.error("Failed to download model from HuggingFace: %s", e)
@@ -660,12 +698,12 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         model_dir = Path(cache_path)
         logger.info("Model downloaded to: %s", model_dir)
 
-        if progress_callback:
-            await progress_callback(
-                "downloaded",
-                f"Model downloaded from HuggingFace: {repo_id}",
-                {"local_path": str(model_dir)},
-            )
+        await self._notify(
+            progress_callback,
+            "downloaded",
+            f"Model downloaded from HuggingFace: {repo_id}",
+            {"local_path": str(model_dir)},
+        )
 
         # Return None for temp_dir since HF Hub manages the cache
         return model_dir, None
@@ -681,37 +719,34 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             (extracted_dir, temp_dir) — caller must clean up temp_dir.
         """
         logger.info("Downloading model archive from presigned URL")
-        if progress_callback:
-            await progress_callback(
-                "downloading",
-                "Downloading model archive from cloud storage...",
-                {},
-            )
+        await self._notify(
+            progress_callback,
+            "downloading",
+            "Downloading model archive from cloud storage...",
+        )
 
         temp_dir = Path(tempfile.mkdtemp())
         archive_path = temp_dir / "model_archive"
 
         async with httpx.AsyncClient(timeout=300.0) as download_client:
             response = await download_client.get(url)
-            if response.is_error:
-                _raise_api_error(response, context="download model archive")
+            self._check_response(response, "download model archive")
             async with aiofiles.open(archive_path, "wb") as f:
                 await f.write(response.content)
 
-        size_mb = len(response.content) / 1024 / 1024
+        size_mb = len(response.content) / _MB
         logger.info("Downloaded %.1f MB", size_mb)
-        if progress_callback:
-            await progress_callback(
-                "downloading",
-                f"Download complete ({size_mb:.1f} MB)",
-                {"bytes_downloaded": len(response.content)},
-            )
+        await self._notify(
+            progress_callback,
+            "downloading",
+            f"Download complete ({size_mb:.1f} MB)",
+            {"bytes_downloaded": len(response.content)},
+        )
 
         # Extract
         extract_dir = temp_dir / "extracted"
         extract_dir.mkdir()
-        if progress_callback:
-            await progress_callback("extracting", "Extracting model archive...", {})
+        await self._notify(progress_callback, "extracting", "Extracting model archive...")
 
         if zipfile.is_zipfile(archive_path):
             logger.info("Extracting ZIP archive")
@@ -796,11 +831,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             f"/v1/accounts/{self.account_id}/models/{model_id}:getUploadEndpoint",
             json={"filenameToSize": file_sizes, "enableResumableUpload": False},
         )
-        if response.is_error:
-            _raise_api_error(
-                response,
-                context=f"get upload endpoint for model '{model_id}'",
-            )
+        self._check_response(
+            response, f"get upload endpoint for model '{model_id}'"
+        )
         file_upload_urls = response.json().get("filenameToSignedUrls", {})
         if not file_upload_urls:
             raise ValueError("No upload URLs received from Fireworks API.")
@@ -812,26 +845,31 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         model_dir: Path,
         model_id: str,
         progress_callback: Any | None,
+        file_sizes: dict[str, int] | None = None,
     ) -> None:
-        """Collects files, obtains signed URLs, and uploads each file.
+        """Obtains signed URLs and uploads each file.
 
         Follows the Fireworks REST API upload flow documented at
         https://docs.fireworks.ai/models/uploading-custom-models-api:
 
-        1. Build a ``filenameToSize`` inventory of the model directory.
-        2. Call ``getUploadEndpoint`` to obtain per-file signed URLs.
-        3. PUT each file to its signed URL (streamed from disk, with
+        1. Call ``getUploadEndpoint`` to obtain per-file signed URLs.
+        2. PUT each file to its signed URL (streamed from disk, with
            retry and exponential back-off on transient failures).
 
         Files are uploaded in deterministic order (config/tokenizer first) to
         improve validation success (GCS propagation).
+
+        Args:
+            file_sizes: Pre-computed file inventory. When ``None`` the
+                inventory is collected from *model_dir* (backward compat).
         """
-        file_sizes = self._collect_file_inventory(model_dir)
+        if file_sizes is None:
+            file_sizes = self._collect_file_inventory(model_dir)
         total_bytes = sum(file_sizes.values())
         logger.info(
             "Found %d files to upload (%.1f MB)",
             len(file_sizes),
-            total_bytes / 1024 / 1024,
+            total_bytes / _MB,
         )
         if "config.json" in file_sizes:
             logger.info("config.json found (%d bytes)", file_sizes["config.json"])
@@ -840,25 +878,23 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 "config.json NOT found in model files: %s", list(file_sizes.keys())
             )
 
-        if progress_callback:
-            await progress_callback(
-                "extracting",
-                f"Found {len(file_sizes)} files "
-                f"({total_bytes / 1024 / 1024:.1f} MB total)",
-                {"file_count": len(file_sizes), "files": list(file_sizes.keys())},
-            )
+        await self._notify(
+            progress_callback,
+            "extracting",
+            f"Found {len(file_sizes)} files ({total_bytes / _MB:.1f} MB total)",
+            {"file_count": len(file_sizes), "files": list(file_sizes.keys())},
+        )
 
         upload_items = await self._get_signed_urls_ordered(model_id, file_sizes)
         total_files = len(upload_items)
         uploaded_bytes = 0
 
-        if progress_callback:
-            await progress_callback(
-                "uploading",
-                f"Starting upload of {total_files} files "
-                f"({total_bytes / 1024 / 1024:.1f} MB)",
-                {"total_files": total_files, "total_bytes": total_bytes},
-            )
+        await self._notify(
+            progress_callback,
+            "uploading",
+            f"Starting upload of {total_files} files ({total_bytes / _MB:.1f} MB)",
+            {"total_files": total_files, "total_bytes": total_bytes},
+        )
 
         for idx, (filename, signed_url) in enumerate(upload_items, 1):
             file_path = model_dir / filename
@@ -869,7 +905,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 idx,
                 total_files,
                 filename,
-                file_size / 1024 / 1024,
+                file_size / _MB,
             )
 
             await self._upload_single_file(
@@ -882,37 +918,35 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 idx,
                 total_files,
                 filename,
-                uploaded_bytes / 1024 / 1024,
-                total_bytes / 1024 / 1024,
+                uploaded_bytes / _MB,
+                total_bytes / _MB,
             )
 
-            if progress_callback:
-                await progress_callback(
-                    "uploading",
-                    f"Uploaded {filename} ({idx}/{total_files}, "
-                    f"{uploaded_bytes / 1024 / 1024:.1f} / "
-                    f"{total_bytes / 1024 / 1024:.1f} MB)",
-                    {
-                        "current_file": filename,
-                        "uploaded_count": idx,
-                        "total_files": total_files,
-                        "uploaded_bytes": uploaded_bytes,
-                        "total_bytes": total_bytes,
-                    },
-                )
+            await self._notify(
+                progress_callback,
+                "uploading",
+                f"Uploaded {filename} ({idx}/{total_files}, "
+                f"{uploaded_bytes / _MB:.1f} / {total_bytes / _MB:.1f} MB)",
+                {
+                    "current_file": filename,
+                    "uploaded_count": idx,
+                    "total_files": total_files,
+                    "uploaded_bytes": uploaded_bytes,
+                    "total_bytes": total_bytes,
+                },
+            )
 
         logger.info(
             "All %d files uploaded (%.1f MB total)",
             total_files,
-            total_bytes / 1024 / 1024,
+            total_bytes / _MB,
         )
-        if progress_callback:
-            await progress_callback(
-                "uploading",
-                f"All {total_files} files uploaded "
-                f"({total_bytes / 1024 / 1024:.1f} MB total)",
-                {"status": "complete", "total_files": total_files},
-            )
+        await self._notify(
+            progress_callback,
+            "uploading",
+            f"All {total_files} files uploaded ({total_bytes / _MB:.1f} MB total)",
+            {"status": "complete", "total_files": total_files},
+        )
 
     # ------------------------------------------------------------------
     # Per-file upload with retry
@@ -953,16 +987,11 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         }
 
         backoff = self.UPLOAD_INITIAL_BACKOFF_S
-        loop = asyncio.get_event_loop()
 
         for attempt in range(1, self.UPLOAD_MAX_RETRIES + 1):
             try:
-                await loop.run_in_executor(
-                    None,
-                    self._sync_put_file,
-                    file_path,
-                    signed_url,
-                    headers,
+                await asyncio.to_thread(
+                    self._sync_put_file, file_path, signed_url, headers
                 )
                 return
 
@@ -1035,21 +1064,20 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             ValueError: If validation fails after all retries.
         """
         logger.info("Triggering upload validation...")
-        if progress_callback:
-            await progress_callback("validating", "Validating uploaded model...", {})
+        await self._notify(progress_callback, "validating", "Validating uploaded model...")
 
         max_retries = self.VALIDATION_MAX_RETRIES
         retry_delay = self.VALIDATION_RETRY_DELAY_S
-        initial_delay = self.VALIDATION_INITIAL_DELAY_S
+
+        if self.VALIDATION_INITIAL_DELAY_S > 0:
+            logger.info(
+                "Waiting %.0fs for GCS propagation before first validation...",
+                self.VALIDATION_INITIAL_DELAY_S,
+            )
+            await asyncio.sleep(self.VALIDATION_INITIAL_DELAY_S)
 
         for attempt in range(max_retries):
-            if attempt == 0 and initial_delay > 0:
-                logger.info(
-                    "Waiting %.0fs for GCS propagation before first validation...",
-                    initial_delay,
-                )
-                await asyncio.sleep(initial_delay)
-            elif attempt > 0:
+            if attempt > 0:
                 logger.info(
                     "Validation retry %d/%d: waiting %ds...",
                     attempt + 1,
@@ -1059,25 +1087,25 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 await asyncio.sleep(retry_delay)
 
             logger.info("Validation attempt %d/%d", attempt + 1, max_retries)
-            if progress_callback:
-                await progress_callback(
-                    "validating",
-                    f"Validation attempt {attempt + 1}/{max_retries}...",
-                    {"attempt": attempt + 1, "max_retries": max_retries},
-                )
+            await self._notify(
+                progress_callback,
+                "validating",
+                f"Validation attempt {attempt + 1}/{max_retries}...",
+                {"attempt": attempt + 1, "max_retries": max_retries},
+            )
 
             response = await self._client.get(
                 f"/v1/accounts/{self.account_id}/models/{model_id}:validateUpload"
             )
 
-            if response.status_code < 400:
+            if not response.is_error:
                 logger.info("Validation succeeded on attempt %d", attempt + 1)
-                if progress_callback:
-                    await progress_callback(
-                        "validating",
-                        f"Validation successful on attempt {attempt + 1}",
-                        {"status": "success", "attempt": attempt + 1},
-                    )
+                await self._notify(
+                    progress_callback,
+                    "validating",
+                    f"Validation successful on attempt {attempt + 1}",
+                    {"status": "success", "attempt": attempt + 1},
+                )
                 return
 
             # Failure handling
@@ -1096,22 +1124,21 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                     max_retries,
                     error_body,
                 )
-                _raise_api_error(
-                    response,
-                    context=f"validate upload for model '{model_id}'",
+                self._check_response(
+                    response, f"validate upload for model '{model_id}'"
                 )
             else:
-                if progress_callback:
-                    await progress_callback(
-                        "validating",
-                        f"Validation failed, retrying in {retry_delay}s "
-                        f"({max_retries - attempt - 1} retries remaining)...",
-                        {
-                            "attempt": attempt + 1,
-                            "max_retries": max_retries,
-                            "error": error_body,
-                        },
-                    )
+                await self._notify(
+                    progress_callback,
+                    "validating",
+                    f"Validation failed, retrying in {retry_delay}s "
+                    f"({max_retries - attempt - 1} retries remaining)...",
+                    {
+                        "attempt": attempt + 1,
+                        "max_retries": max_retries,
+                        "error": error_body,
+                    },
+                )
 
     async def get_model_status(self, model_id: str) -> str:
         """Gets the status of an uploaded model.
@@ -1124,8 +1151,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         """
         model_path = self._model_api_path(model_id)
         response = await self._client.get(model_path)
-        if response.is_error:
-            _raise_api_error(response, context=f"get model status for '{model_id}'")
+        self._check_response(response, f"get model status for '{model_id}'")
         data = response.json()
         return data.get("state", "unknown")
 
@@ -1147,8 +1173,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             payload["precision"] = precision
 
         response = await self._client.post(model_path, json=payload)
-        if response.is_error:
-            _raise_api_error(response, context=f"prepare model '{model_id}'")
+        self._check_response(response, f"prepare model '{model_id}'")
         return response.json()
 
     async def create_endpoint(
@@ -1184,11 +1209,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             f"/v1/accounts/{self.account_id}/deployments",
             json=payload,
         )
-        if not response.is_success:
-            _raise_api_error(
-                response,
-                context=f"create endpoint for model '{model_id}'",
-            )
+        self._check_response(response, f"create endpoint for model '{model_id}'")
         data = response.json()
 
         return self._parse_deployment(data)
@@ -1205,8 +1226,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         response = await self._client.get(
             f"/v1/accounts/{self.account_id}/deployments/{endpoint_id}"
         )
-        if response.is_error:
-            _raise_api_error(response, context=f"get endpoint '{endpoint_id}'")
+        self._check_response(response, f"get endpoint '{endpoint_id}'")
         data = response.json()
 
         return self._parse_deployment(data)
@@ -1249,8 +1269,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             f"/v1/accounts/{self.account_id}/deployments/{endpoint_id}",
             json=payload,
         )
-        if response.is_error:
-            _raise_api_error(response, context=f"update endpoint '{endpoint_id}'")
+        self._check_response(response, f"update endpoint '{endpoint_id}'")
         data = response.json()
 
         return self._parse_deployment(data)
@@ -1269,8 +1288,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             f"/v1/accounts/{self.account_id}/deployments/{endpoint_id}",
             params=params,
         )
-        if response.is_error:
-            _raise_api_error(response, context=f"delete endpoint '{endpoint_id}'")
+        self._check_response(response, f"delete endpoint '{endpoint_id}'")
 
     async def list_endpoints(self) -> list[Endpoint]:
         """Lists all deployments owned by this account.
@@ -1290,8 +1308,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 f"/v1/accounts/{self.account_id}/deployments",
                 params=params,
             )
-            if response.is_error:
-                _raise_api_error(response, context="list endpoints")
+            self._check_response(response, "list endpoints")
             data = response.json()
 
             for item in data.get("deployments", []):
@@ -1343,8 +1360,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
         # Get user's account models
         response = await self._client.get(f"/v1/accounts/{self.account_id}/models")
-        if response.is_error:
-            _raise_api_error(response, context="list models")
+        self._check_response(response, "list models")
         data = response.json()
 
         items = data if isinstance(data, list) else data.get("models", [])
@@ -1355,8 +1371,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 public_response = await self._client.get(
                     "/v1/accounts/fireworks/models"
                 )
-                if public_response.is_error:
-                    _raise_api_error(public_response, context="list public models")
+                self._check_response(public_response, "list public models")
                 public_data = public_response.json()
                 public_items = (
                     public_data
@@ -1365,62 +1380,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 )
                 items.extend(public_items)
             except Exception:
-                # If fetching public models fails, just continue with user models
-                pass
+                logger.warning("Failed to fetch public models", exc_info=True)
 
-        for item in items:
-            # Parse model information from Fireworks response
-            model_id = item.get("name", item.get("id", ""))
-
-            # Use displayName if present and non-empty, otherwise extract from model_id
-            display_name = item.get("displayName", "")
-            if display_name:
-                model_name = display_name
-            else:
-                # Extract the last part of the model path as the name
-                model_name = model_id.split("/")[-1] if "/" in model_id else model_id
-
-            status = item.get("state", "unknown").lower()
-
-            # Determine model type from the 'kind' field
-            model_type = None
-            kind = item.get("kind", "").upper()
-            if "LORA" in kind or "PEFT" in kind:
-                model_type = ModelType.ADAPTER
-            elif kind in ("CUSTOM_MODEL", "HF_BASE_MODEL"):
-                model_type = ModelType.FULL
-            else:
-                # Fallback to checking modelFormat
-                model_format = item.get("modelFormat", "").lower()
-                if "lora" in model_format or "adapter" in model_format:
-                    model_type = ModelType.ADAPTER
-                elif model_format == "huggingface":
-                    model_type = ModelType.FULL
-
-            # Parse created_at - Fireworks uses 'createTime' not 'createdAt'
-            created_at = None
-            create_time = item.get("createTime") or item.get("createdAt")
-            if create_time:
-                try:
-                    created_at = datetime.fromisoformat(
-                        create_time.replace("Z", "+00:00")
-                    )
-                except (ValueError, TypeError):
-                    pass
-
-            models.append(
-                Model(
-                    model_id=model_id,
-                    model_name=model_name,
-                    status=status,
-                    provider=DeploymentProvider.FIREWORKS,
-                    model_type=model_type,
-                    created_at=created_at,
-                    base_model=item.get("baseModel"),
-                )
-            )
-
-        return models
+        return [self._parse_model(item) for item in items]
 
     async def delete_model(self, model_id: str) -> None:
         """Deletes a model on Fireworks.ai.
@@ -1457,4 +1419,4 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 )
                 await asyncio.sleep(wait_s)
                 continue
-            _raise_api_error(response, context=f"delete model '{model_id}'")
+            self._check_response(response, f"delete model '{model_id}'")

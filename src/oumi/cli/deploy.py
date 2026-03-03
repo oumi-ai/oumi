@@ -42,6 +42,12 @@ from oumi.deploy.base_client import BaseDeploymentClient
 
 CONSOLE = Console()
 
+
+def _kv(label: str, value: Any) -> None:
+    """Prints a ``[cyan]Label:[/cyan] value`` line to the console."""
+    CONSOLE.print(f"[cyan]{label}:[/cyan] {value}")
+
+
 # ----- Shared colour maps for Rich output -----
 
 _ENDPOINT_STATE_COLORS: dict[EndpointState, str] = {
@@ -72,33 +78,29 @@ _MODEL_STATUS_COLORS: dict[str, str] = {
 
 
 def _run_async(
-    provider: str,
-    fn: Callable[[BaseDeploymentClient], Coroutine[Any, Any, None]],
+    provider: str | None,
+    fn: (
+        Callable[[BaseDeploymentClient], Coroutine[Any, Any, None]]
+        | Callable[[], Coroutine[Any, Any, None]]
+    ),
 ) -> None:
-    """Creates a deployment client, runs *fn* inside ``async with``, then closes."""
+    """Creates a deployment client (when *provider* is given), runs *fn*, then closes.
+
+    When *provider* is ``None`` the callable is invoked with no arguments
+    (used by commands that manage their own client lifecycle, e.g. ``list_models``).
+    """
 
     async def _inner() -> None:
-        client = _get_deployment_client(provider)
-        async with client:
-            await fn(client)
+        if provider is not None:
+            client = _get_deployment_client(provider)
+            async with client:
+                await fn(client)  # type: ignore[call-arg]
+        else:
+            await fn()  # type: ignore[call-arg]
 
     try:
         asyncio.run(_inner())
-    except ValueError as exc:
-        CONSOLE.print(f"\n[red]Error:[/red] {exc}")
-        raise typer.Exit(1) from None
-
-
-def _run_async_standalone(
-    fn: Callable[[], Coroutine[Any, Any, None]],
-) -> None:
-    """Runs an async function that does not need a deployment client.
-
-    Used e.g. by list_models across multiple providers.
-    """
-    try:
-        asyncio.run(fn())
-    except ValueError as exc:
+    except (ValueError, NotImplementedError) as exc:
         CONSOLE.print(f"\n[red]Error:[/red] {exc}")
         raise typer.Exit(1) from None
 
@@ -120,11 +122,10 @@ def _get_deployment_client(
     provider = provider.lower()
     if provider == DeploymentProvider.FIREWORKS.value:
         return FireworksDeploymentClient()
-    else:
-        raise ValueError(
-            f"Unsupported provider: {provider}. "
-            f"Supported providers: {[p.value for p in DeploymentProvider]}"
-        )
+    raise ValueError(
+        f"Unsupported provider: {provider}. "
+        f"Supported providers: {[p.value for p in DeploymentProvider]}"
+    )
 
 
 def _get_available_providers() -> list[str]:
@@ -150,34 +151,27 @@ async def _poll_model_until_ready(
 ) -> None:
     """Polls until the model is ready or fails. Raises typer.Exit(1) on failure."""
     console.print("\n[yellow]Waiting for model to be ready...[/yellow]")
-    if hasattr(client, "get_job_status") and job_id:
-        while True:
-            job_status = await client.get_job_status(job_id)
+    use_job = hasattr(client, "get_job_status") and job_id
+
+    while True:
+        if use_job:
+            job_status = await client.get_job_status(job_id)  # type: ignore[arg-type]
             cur_status = job_status.get("status", "").lower()
-            console.print(f"Status: {cur_status}")
+            error_msg = job_status.get("error", "Unknown error")
+        else:
+            cur_status = (await client.get_model_status(provider_model_id)).lower()
+            error_msg = "Unknown error"
 
-            if cur_status in ["ready", "completed", "success"]:
-                console.print("[green]✓[/green] Model is ready for deployment!")
-                return
-            if cur_status in ["failed", "error"]:
-                error_msg = job_status.get("error", "Unknown error")
-                console.print(f"[red]Error:[/red] Model upload failed: {error_msg}")
-                raise typer.Exit(1)
+        console.print(f"Status: {cur_status}")
 
-            await asyncio.sleep(10)
-    else:
-        while True:
-            cur_status = await client.get_model_status(provider_model_id)
-            console.print(f"Status: {cur_status}")
+        if cur_status in ("ready", "completed", "success"):
+            console.print("[green]✓[/green] Model is ready for deployment!")
+            return
+        if cur_status in ("failed", "error"):
+            console.print(f"[red]Error:[/red] Model upload failed: {error_msg}")
+            raise typer.Exit(1)
 
-            if cur_status.lower() in ["ready", "completed"]:
-                console.print("[green]✓[/green] Model is ready for deployment!")
-                return
-            if cur_status.lower() in ["failed", "error"]:
-                console.print("[red]Error:[/red] Model upload failed")
-                raise typer.Exit(1)
-
-            await asyncio.sleep(10)
+        await asyncio.sleep(10)
 
 
 async def _poll_endpoint_until_ready(
@@ -418,12 +412,12 @@ def upload(
         )
         raise typer.Exit(1)
 
-    CONSOLE.print(f"[cyan]Model Path:[/cyan] {model_path}")
-    CONSOLE.print(f"[cyan]Provider:[/cyan] {provider}")
-    CONSOLE.print(f"[cyan]Model Name:[/cyan] {model_name}")
-    CONSOLE.print(f"[cyan]Model Type:[/cyan] {model_type}")
+    _kv("Model Path", model_path)
+    _kv("Provider", provider)
+    _kv("Model Name", model_name)
+    _kv("Model Type", model_type)
     if base_model:
-        CONSOLE.print(f"[cyan]Base Model:[/cyan] {base_model}")
+        _kv("Base Model", base_model)
 
     async def _upload(client: BaseDeploymentClient) -> None:
         result = await _upload_model_and_wait(
@@ -442,7 +436,7 @@ def upload(
         )
 
         if result.job_id:
-            CONSOLE.print(f"[cyan]Job ID:[/cyan] {result.job_id}")
+            _kv("Job ID", result.job_id)
 
     _run_async(provider, _upload)
 
@@ -521,10 +515,10 @@ def create_endpoint(
     """
     section_header("Create Endpoint", CONSOLE)
 
-    CONSOLE.print(f"[cyan]Model ID:[/cyan] {model_id}")
-    CONSOLE.print(f"[cyan]Provider:[/cyan] {provider}")
-    CONSOLE.print(f"[cyan]Hardware:[/cyan] {gpu_count}x {hardware}")
-    CONSOLE.print(f"[cyan]Autoscaling:[/cyan] {min_replicas}-{max_replicas} replicas")
+    _kv("Model ID", model_id)
+    _kv("Provider", provider)
+    _kv("Hardware", f"{gpu_count}x {hardware}")
+    _kv("Autoscaling", f"{min_replicas}-{max_replicas} replicas")
 
     async def _create(client: BaseDeploymentClient) -> None:
         hw_config = HardwareConfig(accelerator=hardware, count=gpu_count)
@@ -547,7 +541,7 @@ def create_endpoint(
         )
 
         if endpoint.endpoint_url:
-            CONSOLE.print(f"[cyan]URL:[/cyan] {endpoint.endpoint_url}")
+            _kv("URL", endpoint.endpoint_url)
 
         if wait:
             endpoint = await _poll_endpoint_until_ready(
@@ -592,37 +586,33 @@ def status(
     section_header("Deployment Status", CONSOLE)
 
     async def _status(client: BaseDeploymentClient) -> None:
-        while True:
-            endpoint = await client.get_endpoint(endpoint_id)
+        endpoint = await client.get_endpoint(endpoint_id)
 
-            CONSOLE.print(
-                Panel(
-                    f"[cyan]Endpoint ID:[/cyan] {endpoint.endpoint_id}\n"
-                    f"[cyan]Provider:[/cyan] {endpoint.provider.value}\n"
-                    f"[cyan]Model ID:[/cyan] {endpoint.model_id}\n"
-                    f"[cyan]State:[/cyan] {endpoint.state.value}\n"
-                    f"[cyan]Hardware:[/cyan] "
-                    f"{endpoint.hardware.count}x "
-                    f"{endpoint.hardware.accelerator}\n"
-                    f"[cyan]Autoscaling:[/cyan] "
-                    f"{endpoint.autoscaling.min_replicas}"
-                    f"-{endpoint.autoscaling.max_replicas}"
-                    f" replicas\n"
-                    f"[cyan]URL:[/cyan] {endpoint.endpoint_url or 'N/A'}\n"
-                    f"[cyan]Created:[/cyan] {endpoint.created_at or 'N/A'}",
-                    title="Endpoint Details",
-                    border_style="blue",
-                )
+        CONSOLE.print(
+            Panel(
+                f"[cyan]Endpoint ID:[/cyan] {endpoint.endpoint_id}\n"
+                f"[cyan]Provider:[/cyan] {endpoint.provider.value}\n"
+                f"[cyan]Model ID:[/cyan] {endpoint.model_id}\n"
+                f"[cyan]State:[/cyan] {endpoint.state.value}\n"
+                f"[cyan]Hardware:[/cyan] "
+                f"{endpoint.hardware.count}x "
+                f"{endpoint.hardware.accelerator}\n"
+                f"[cyan]Autoscaling:[/cyan] "
+                f"{endpoint.autoscaling.min_replicas}"
+                f"-{endpoint.autoscaling.max_replicas}"
+                f" replicas\n"
+                f"[cyan]URL:[/cyan] {endpoint.endpoint_url or 'N/A'}\n"
+                f"[cyan]Created:[/cyan] {endpoint.created_at or 'N/A'}",
+                title="Endpoint Details",
+                border_style="blue",
             )
+        )
 
-            if not watch:
-                break
-
-            if endpoint.state in [EndpointState.RUNNING, EndpointState.ERROR]:
-                break
-
-            CONSOLE.print("[yellow]Waiting for endpoint to be ready...[/yellow]")
-            await asyncio.sleep(10)
+        if watch and endpoint.state not in (
+            EndpointState.RUNNING,
+            EndpointState.ERROR,
+        ):
+            await _poll_endpoint_until_ready(client, endpoint_id, CONSOLE)
 
     _run_async(provider, _status)
 
@@ -786,7 +776,7 @@ def list_models(
                     "[dim]Tip: Use --status pending to show only ongoing uploads[/dim]"
                 )
 
-    _run_async_standalone(_list)
+    _run_async(None, _list)
 
 
 def delete(
@@ -873,18 +863,14 @@ def start(
     section_header("Start Endpoint", CONSOLE)
 
     async def _start(client: BaseDeploymentClient) -> None:
-        try:
-            with CONSOLE.status("[bold green]Starting endpoint..."):
-                endpoint = await client.start_endpoint(
-                    endpoint_id, min_replicas=min_replicas
-                )
-            CONSOLE.print(
-                f"[green]✓[/green] Endpoint {endpoint_id} started "
-                f"(min_replicas={endpoint.autoscaling.min_replicas})"
+        with CONSOLE.status("[bold green]Starting endpoint..."):
+            endpoint = await client.start_endpoint(
+                endpoint_id, min_replicas=min_replicas
             )
-        except NotImplementedError as e:
-            CONSOLE.print(f"[yellow]Warning:[/yellow] {e}")
-            raise typer.Exit(1)
+        CONSOLE.print(
+            f"[green]✓[/green] Endpoint {endpoint_id} started "
+            f"(min_replicas={endpoint.autoscaling.min_replicas})"
+        )
 
     _run_async(provider, _start)
 
@@ -916,15 +902,11 @@ def stop(
     section_header("Stop Endpoint", CONSOLE)
 
     async def _stop(client: BaseDeploymentClient) -> None:
-        try:
-            with CONSOLE.status("[bold yellow]Stopping endpoint..."):
-                await client.stop_endpoint(endpoint_id)
-            CONSOLE.print(
-                f"[green]✓[/green] Endpoint {endpoint_id} stopped (0 replicas)"
-            )
-        except NotImplementedError as e:
-            CONSOLE.print(f"[yellow]Warning:[/yellow] {e}")
-            raise typer.Exit(1)
+        with CONSOLE.status("[bold yellow]Stopping endpoint..."):
+            await client.stop_endpoint(endpoint_id)
+        CONSOLE.print(
+            f"[green]✓[/green] Endpoint {endpoint_id} stopped (0 replicas)"
+        )
 
     _run_async(provider, _stop)
 
@@ -978,20 +960,12 @@ def delete_model(
         )
 
     async def _delete_model_fn(client: BaseDeploymentClient) -> None:
-        try:
-            with CONSOLE.status("[bold red]Deleting model..."):
-                await client.delete_model(model_id)
-
-            CONSOLE.print(
-                f"[green]✓[/green] Model '{model_id}' deleted "
-                f"successfully from {provider}!"
-            )
-        except NotImplementedError as e:
-            CONSOLE.print(f"[yellow]Warning:[/yellow] {e}")
-            raise typer.Exit(1)
-        except Exception as e:
-            CONSOLE.print(f"[red]Error:[/red] Failed to delete model: {e}")
-            raise typer.Exit(1)
+        with CONSOLE.status("[bold red]Deleting model..."):
+            await client.delete_model(model_id)
+        CONSOLE.print(
+            f"[green]✓[/green] Model '{model_id}' deleted "
+            f"successfully from {provider}!"
+        )
 
     _run_async(provider, _delete_model_fn)
 
@@ -1090,9 +1064,9 @@ def test(
             )
             raise typer.Exit(1)
 
-        CONSOLE.print(f"[cyan]Endpoint:[/cyan] {endpoint.endpoint_url}")
-        CONSOLE.print(f"[cyan]Model:[/cyan] {endpoint.model_id}")
-        CONSOLE.print(f"[cyan]Prompt:[/cyan] {prompt}\n")
+        _kv("Endpoint", endpoint.endpoint_url)
+        _kv("Model", endpoint.model_id)
+        CONSOLE.print(f"[cyan]Prompt:[/cyan] {prompt}\n")  # trailing newline
 
         with CONSOLE.status("[bold green]Sending test request..."):
             result = await client.test_endpoint(
@@ -1187,8 +1161,8 @@ def up(
     assert deploy_cfg.model_source is not None  # guaranteed by validation
     assert deploy_cfg.provider is not None
 
-    CONSOLE.print(f"[cyan]Model Path:[/cyan] {deploy_cfg.model_source}")
-    CONSOLE.print(f"[cyan]Provider:[/cyan] {deploy_cfg.provider}")
+    _kv("Model Path", deploy_cfg.model_source)
+    _kv("Provider", deploy_cfg.provider)
     CONSOLE.print(
         f"[cyan]Hardware:[/cyan] "
         f"{deploy_cfg.hardware.count}x {deploy_cfg.hardware.accelerator}"
@@ -1230,11 +1204,11 @@ def up(
         CONSOLE.print("\n" + "=" * 60)
         CONSOLE.print("[bold green]Deployment Complete![/bold green]")
         CONSOLE.print("=" * 60)
-        CONSOLE.print(f"[cyan]Endpoint ID:[/cyan] {endpoint.endpoint_id}")
-        CONSOLE.print(f"[cyan]Model ID:[/cyan] {upload_result.provider_model_id}")
-        CONSOLE.print(f"[cyan]State:[/cyan] {endpoint.state.value}")
+        _kv("Endpoint ID", endpoint.endpoint_id)
+        _kv("Model ID", upload_result.provider_model_id)
+        _kv("State", endpoint.state.value)
         if endpoint.endpoint_url:
-            CONSOLE.print(f"[cyan]URL:[/cyan] {endpoint.endpoint_url}")
+            _kv("URL", endpoint.endpoint_url)
 
         if (
             deploy_cfg.test_prompts

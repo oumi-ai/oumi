@@ -17,6 +17,7 @@
 import logging
 import warnings
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,13 @@ from oumi.deploy.base_client import (
 )
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_ACCELERATOR = "nvidia_a100_80gb"
+_DEFAULT_GPU_COUNT = 1
+_DEFAULT_MIN_REPLICAS = 1
+_DEFAULT_MAX_REPLICAS = 1
+_DEFAULT_MODEL_NAME = "deployed-model"
+_DEFAULT_MODEL_TYPE = "full"
 
 _KNOWN_TOP_LEVEL_KEYS = frozenset(
     {
@@ -58,14 +66,18 @@ class DeploymentConfig:
 
     model_source: str | None = None
     provider: str | None = None
-    model_name: str = "deployed-model"
-    model_type: str = "full"
+    model_name: str = _DEFAULT_MODEL_NAME
+    model_type: str = _DEFAULT_MODEL_TYPE
     base_model: str | None = None
     hardware: HardwareConfig = field(
-        default_factory=lambda: HardwareConfig(accelerator="nvidia_a100_80gb", count=1)
+        default_factory=lambda: HardwareConfig(
+            accelerator=_DEFAULT_ACCELERATOR, count=_DEFAULT_GPU_COUNT
+        )
     )
     autoscaling: AutoscalingConfig = field(
-        default_factory=lambda: AutoscalingConfig(min_replicas=1, max_replicas=1)
+        default_factory=lambda: AutoscalingConfig(
+            min_replicas=_DEFAULT_MIN_REPLICAS, max_replicas=_DEFAULT_MAX_REPLICAS
+        )
     )
     test_prompts: list[str] = field(default_factory=list)
 
@@ -116,11 +128,13 @@ class DeploymentConfig:
         if isinstance(hw_raw, dict):
             _warn_unknown_keys(hw_raw, _KNOWN_HARDWARE_KEYS, prefix="hardware.")
             hw = HardwareConfig(
-                accelerator=hw_raw.get("accelerator", "nvidia_a100_80gb"),
-                count=hw_raw.get("count", 1),
+                accelerator=hw_raw.get("accelerator", _DEFAULT_ACCELERATOR),
+                count=hw_raw.get("count", _DEFAULT_GPU_COUNT),
             )
         else:
-            hw = HardwareConfig(accelerator="nvidia_a100_80gb", count=1)
+            hw = HardwareConfig(
+                accelerator=_DEFAULT_ACCELERATOR, count=_DEFAULT_GPU_COUNT
+            )
 
         asc_raw = data.get("autoscaling", {})
         if isinstance(asc_raw, dict):
@@ -128,17 +142,20 @@ class DeploymentConfig:
                 asc_raw, _KNOWN_AUTOSCALING_KEYS, prefix="autoscaling."
             )
             asc = AutoscalingConfig(
-                min_replicas=asc_raw.get("min_replicas", 1),
-                max_replicas=asc_raw.get("max_replicas", 1),
+                min_replicas=asc_raw.get("min_replicas", _DEFAULT_MIN_REPLICAS),
+                max_replicas=asc_raw.get("max_replicas", _DEFAULT_MAX_REPLICAS),
             )
         else:
-            asc = AutoscalingConfig(min_replicas=1, max_replicas=1)
+            asc = AutoscalingConfig(
+                min_replicas=_DEFAULT_MIN_REPLICAS,
+                max_replicas=_DEFAULT_MAX_REPLICAS,
+            )
 
         return cls(
             model_source=data.get("model_source"),
             provider=data.get("provider"),
-            model_name=data.get("model_name", "deployed-model"),
-            model_type=data.get("model_type", "full"),
+            model_name=data.get("model_name", _DEFAULT_MODEL_NAME),
+            model_type=data.get("model_type", _DEFAULT_MODEL_TYPE),
             base_model=data.get("base_model"),
             hardware=hw,
             autoscaling=asc,
@@ -194,21 +211,30 @@ class DeploymentConfig:
                 "(set in config YAML or pass --provider on the CLI)"
             )
 
-    def _validate_provider(self) -> None:
-        valid_providers = [p.value for p in DeploymentProvider]
-        if self.provider and self.provider.lower() not in valid_providers:
+    @staticmethod
+    def _validate_enum_field(
+        value: str | None,
+        enum_cls: type[Enum],
+        field_name: str,
+        *,
+        label: str = "Invalid",
+    ) -> None:
+        """Validates that *value* (case-insensitive) matches one of *enum_cls* values."""
+        if value is None:
+            return
+        valid = [e.value for e in enum_cls]
+        if value.lower() not in valid:
             raise ValueError(
-                f"Unsupported provider: '{self.provider}'. "
-                f"Supported providers: {valid_providers}"
+                f"{label} {field_name}: '{value}'. Must be one of: {valid}"
             )
 
+    def _validate_provider(self) -> None:
+        self._validate_enum_field(
+            self.provider, DeploymentProvider, "provider", label="Unsupported"
+        )
+
     def _validate_model_type(self) -> None:
-        valid_types = [t.value for t in ModelType]
-        if self.model_type not in valid_types:
-            raise ValueError(
-                f"Invalid model_type: '{self.model_type}'. "
-                f"Must be one of: {valid_types}"
-            )
+        self._validate_enum_field(self.model_type, ModelType, "model_type")
 
     def _validate_hardware(self) -> None:
         if not isinstance(self.hardware.count, int):

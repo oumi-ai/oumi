@@ -137,7 +137,6 @@ class BaseDeploymentClient(ABC):
         Returns:
             UploadedModel with provider-specific model ID
         """
-        pass
 
     @abstractmethod
     async def get_model_status(self, model_id: str) -> str:
@@ -149,7 +148,6 @@ class BaseDeploymentClient(ABC):
         Returns:
             Status string (e.g., "ready", "pending", "failed")
         """
-        pass
 
     @abstractmethod
     async def create_endpoint(
@@ -170,7 +168,6 @@ class BaseDeploymentClient(ABC):
         Returns:
             Created Endpoint
         """
-        pass
 
     @abstractmethod
     async def get_endpoint(self, endpoint_id: str) -> Endpoint:
@@ -182,7 +179,6 @@ class BaseDeploymentClient(ABC):
         Returns:
             Endpoint details
         """
-        pass
 
     @abstractmethod
     async def update_endpoint(
@@ -201,7 +197,6 @@ class BaseDeploymentClient(ABC):
         Returns:
             Updated Endpoint
         """
-        pass
 
     @abstractmethod
     async def delete_endpoint(self, endpoint_id: str, *, force: bool = False) -> None:
@@ -212,7 +207,6 @@ class BaseDeploymentClient(ABC):
             force: If True, skip provider safety checks and perform a hard deletion
                 (e.g. delete even if the deployment recently received requests).
         """
-        pass
 
     @abstractmethod
     async def list_endpoints(self) -> list[Endpoint]:
@@ -221,7 +215,6 @@ class BaseDeploymentClient(ABC):
         Returns:
             List of Endpoints
         """
-        pass
 
     @abstractmethod
     async def list_hardware(self, model_id: str | None = None) -> list[HardwareConfig]:
@@ -233,7 +226,6 @@ class BaseDeploymentClient(ABC):
         Returns:
             List of available HardwareConfigs
         """
-        pass
 
     @abstractmethod
     async def list_models(
@@ -250,7 +242,6 @@ class BaseDeploymentClient(ABC):
         Returns:
             List of Model objects with status information
         """
-        pass
 
     @abstractmethod
     async def delete_model(self, model_id: str) -> None:
@@ -263,7 +254,6 @@ class BaseDeploymentClient(ABC):
             NotImplementedError: If provider doesn't support model deletion
             httpx.HTTPError: If deletion fails
         """
-        pass
 
     # --- Optional lifecycle & testing (override in providers that support them) ---
 
@@ -363,10 +353,7 @@ class BaseDeploymentClient(ABC):
             "temperature": temperature,
             "stream": stream,
         }
-        headers = {
-            "Content-Type": "application/json",
-            **self._get_inference_auth_headers(),
-        }
+        headers = self._get_inference_auth_headers()
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 endpoint_url,
