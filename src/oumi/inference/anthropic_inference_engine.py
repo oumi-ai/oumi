@@ -498,13 +498,21 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             )
 
         if batch_info.status in (
-            BatchStatus.FAILED,
             BatchStatus.EXPIRED,
             BatchStatus.CANCELLED,
         ):
             raise RuntimeError(
                 f"Batch is unrecoverably {batch_info.status.value}: "
                 f"error={batch_info.error}"
+            )
+
+        # FAILED batches may still have partial results (some rows succeeded).
+        if batch_info.status == BatchStatus.FAILED:
+            logger.warning(
+                f"Batch {batch_id} has FAILED status but attempting to "
+                f"retrieve partial results "
+                f"(completed={batch_info.completed_requests}, "
+                f"failed={batch_info.failed_requests})"
             )
 
         # Get results URL from metadata
@@ -550,7 +558,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             seen_indices.add(idx)
             result_type = result.get("result", {}).get("type")
 
-            if result_type == "error":
+            if result_type in ("error", "errored"):
                 error_info = result.get("result", {}).get("error", {})
                 failed_indices.append(idx)
                 error_messages[idx] = (
