@@ -137,22 +137,20 @@ class PreFlightCheckResponse(TypedDict):
         summary: One-line human-readable verdict ("ready", "blocked: …", etc.).
             Surface this to the user prominently.
         hf_authenticated: Whether a valid HuggingFace token was found.
-        repo_access: Per-repo access status: "ok", "gated", "not_found", or "error".
+        repo_access: Per-repo access status: "valid", "gated", "not_found", or "error".
         hardware: Detected local hardware and installed packages.
         cloud_readiness: SkyPilot cloud credential status.
         errors: Issues that will cause the training run to crash.
         warnings: Potential issues that may be fine if targeting a remote cluster.
-        paths: Config paths mapped to validation status: "ok", "not_found",
-            "ok_remote", "not_found_warning", or "local_machine_path_error".
-        dataset_checks: Per-dataset validation results (e.g. "ok", "not_found",
+        paths: Config paths mapped to validation status: "valid", "not_found",
+            "valid_remote", "not_found_warning", "local_machine_path_error",
+            "missing_local_source", "unverifiable_remote", or
+            "working_dir_suspicious".
+        dataset_checks: Per-dataset validation results (e.g. "valid", "not_found",
             "warning_timeout"). Only present when datasets are found in config.
         suggested_configs: Relative config paths relevant to the model in this config.
             Only present when ``cloud`` was specified. Pass these to ``get_config()``
             to retrieve full YAML examples for reference or adaptation.
-        cloud_file_checks: Per-path cloud file delivery validation. Keys are
-            paths from the config, values are statuses: "ok", "missing_local_source",
-            "not_reachable_on_vm", "unverifiable_remote", "working_dir_suspicious".
-            Only present for cloud jobs.
     """
 
     blocking: bool
@@ -167,7 +165,6 @@ class PreFlightCheckResponse(TypedDict):
     skypilot_compat_issue: NotRequired[bool]
     dataset_checks: NotRequired[dict[str, str]]
     suggested_configs: NotRequired[list[str]]
-    cloud_file_checks: NotRequired[dict[str, str]]
 
 
 class PreFlightSummary(TypedDict):
@@ -428,11 +425,11 @@ class ValidateConfigResponse(TypedDict):
     """Response from validate_config tool.
 
     Attributes:
-        ok: True if the config is valid against its schema.
+        valid: True if the config is valid against its schema.
         error: Validation error message, or None if valid.
     """
 
-    ok: bool
+    valid: bool
     error: str | None
 
 

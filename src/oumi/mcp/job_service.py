@@ -1080,12 +1080,10 @@ async def _list_job_summaries(status_filter: str = "all") -> list[JobSummary]:
     reg = get_registry()
     summaries: list[JobSummary] = []
 
-    # Cloud jobs: query launcher for live state
     try:
         all_statuses = await asyncio.to_thread(launcher.status)
         for cloud_name, jobs in all_statuses.items():
             for job_status in jobs:
-                # Try to find MCP job ID from registry
                 mapping = reg.find_by_cloud(cloud_name, job_status.id)
                 mcp_id = mapping.job_id if mapping else ""
                 model = mapping.model_name if mapping else ""
@@ -1113,7 +1111,6 @@ async def _list_job_summaries(status_filter: str = "all") -> list[JobSummary]:
             "launcher.status failed; falling back to registry only", exc_info=True
         )
 
-    # Local jobs: check from registry + runtime
     for record in reg.all():
         if record.cloud != "local":
             continue
@@ -1137,11 +1134,6 @@ async def _list_job_summaries(status_filter: str = "all") -> list[JobSummary]:
         )
 
     return summaries
-
-
-# ---------------------------------------------------------------------------
-# Service-level functions for MCP tool bodies
-# ---------------------------------------------------------------------------
 
 
 async def fetch_status(

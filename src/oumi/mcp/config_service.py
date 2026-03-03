@@ -351,41 +351,27 @@ def find_config_match(
 
 def search_configs(
     configs: list[ConfigMetadata],
-    query: str = "",
-    task: str = "",
-    model: str = "",
-    keyword: str | list[str] = "",
+    query: list[str] | None = None,
+    content_match: list[str] | None = None,
     limit: int = 20,
 ) -> list[ConfigMetadata]:
     """Search for configs matching the given filters.
 
     Args:
         configs: List of all configs to search.
-        query: General search term (case-insensitive substring match).
-        task: Task type filter.
-        model: Model family filter.
-        keyword: Case-insensitive substring match(es) on file content.
-            Pass a list to require all keywords to be present (AND logic).
+        query: Terms matched against config paths (AND logic, case-insensitive).
+        content_match: Terms matched against YAML file content (AND logic,
+            case-insensitive).
         limit: Maximum number of results to return.
 
     Returns:
         List of matching ConfigMetadata, sorted by relevance.
     """
+    filters: list[str] = [t.lower().strip() for t in (query or []) if t.strip()]
 
-    def _tokens(s: str) -> list[str]:
-        return [t.lower() for t in s.split() if t.strip()]
-
-    filters: list[str] = []
-    for param in (query, task, model):
-        filters.extend(_tokens(param))
-
-    keywords: list[str] = (
-        [k.lower().strip() for k in keyword if k.strip()]
-        if isinstance(keyword, list)
-        else [keyword.lower().strip()]
-        if keyword.strip()
-        else []
-    )
+    keywords: list[str] = [
+        k.lower().strip() for k in (content_match or []) if k.strip()
+    ]
 
     if not filters and not keywords:
         return sorted(configs, key=lambda x: x["path"])[:limit]
