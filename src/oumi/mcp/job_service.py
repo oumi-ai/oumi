@@ -70,6 +70,7 @@ class JobRecord:
     config_path: str
     cloud: str
     cluster_name: str
+    oumi_job_id: str
     model_name: str
     submit_time: str  # ISO 8601
     output_dir: str = ""

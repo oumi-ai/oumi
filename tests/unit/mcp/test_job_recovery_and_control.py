@@ -200,25 +200,21 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(response["success"])
         self.assertIn("Invalid YAML config", response["error"])
 
-    async def test_dry_run_cloud_warns_about_missing_env_vars(self) -> None:
-        """Dry-run for cloud job should warn when local env vars won't be forwarded."""
-        import os
-
+    async def test_dry_run_cloud_rejects_training_config(self) -> None:
+        """Cloud dry-run should reject training configs with helpful error."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             cfg = Path(tmp_dir) / "train.yaml"
             cfg.write_text("model: {model_name: test/model}\n", encoding="utf-8")
-            with patch.dict(os.environ, {"WANDB_API_KEY": "test-key"}, clear=False):
-                response = await server.run_oumi_job(
-                    config_path=str(cfg),
-                    client_cwd=tmp_dir,
-                    command="train",
-                    cloud="gcp",
-                    dry_run=True,
-                    confirm=False,
-                )
-        self.assertTrue(response["success"])
-        self.assertTrue(response["dry_run"])
-        self.assertIn("WANDB_API_KEY", response["message"])
+            response = await server.run_oumi_job(
+                config_path=str(cfg),
+                client_cwd=tmp_dir,
+                command="train",
+                cloud="gcp",
+                dry_run=True,
+            )
+        self.assertFalse(response["success"])
+        self.assertIn("job config", response["error"].lower())
+        self.assertIn("guidance://cloud-launch", response["error"])
 
     async def test_cancel_pending_cloud_launch_marks_intent(self) -> None:
         record = JobRecord(
@@ -236,7 +232,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(response["success"])
         self.assertTrue(rt.cancel_requested)
 
-    async def test_cloud_launch_uses_staged_config_and_working_dir(self) -> None:
+    async def test_cloud_launch_rejects_training_config_with_error(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             cfg_path = Path(tmp_dir) / "train.yaml"
             cfg_path.write_text("model: {model_name: test/model}\n", encoding="utf-8")
@@ -252,41 +248,25 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
             )
             rt = JobRuntime()
             rt.run_dir = Path(tmp_dir) / "run"
-
-            captured_job_cfg = {}
-
-            def _fake_up(job_cfg, cluster_name):  # noqa: ANN001
-                captured_job_cfg["cfg"] = job_cfg
-                captured_job_cfg["cluster"] = cluster_name
-                status = SimpleNamespace(
-                    id="cloud-123",
-                    cluster="cluster-a",
-                    done=False,
-                    status="RUNNING",
-                    state=SimpleNamespace(name="RUNNING"),
-                    metadata={},
-                )
-                return (SimpleNamespace(), status)
-
-            with patch("oumi.mcp.job_service.launcher.up", side_effect=_fake_up):
-                with patch("oumi.mcp.job_service.get_registry") as mock_registry:
-                    mock_registry.return_value.update = lambda *a, **kw: None
-                    await job_service._launch_cloud(record, rt, accelerators="A100:1")  # type: ignore[attr-defined]
-
-            job_cfg = captured_job_cfg["cfg"]
-            self.assertEqual(Path(job_cfg.working_dir), rt.run_dir)
-            self.assertIn("-c config.yaml", job_cfg.run)
-            self.assertIn("command -v oumi", job_cfg.run)
-            self.assertIn("export PATH=", job_cfg.run)
-            self.assertIn("uv pip install --system", job_cfg.setup or "")
-            self.assertTrue((rt.run_dir / "config.yaml").exists())
+            with patch("oumi.mcp.job_service.get_registry") as mock_reg:
+                mock_reg.return_value.update = lambda *a, **kw: None
+                await job_service._launch_cloud(record, rt, client_cwd=tmp_dir)
+            self.assertIsNotNone(rt.error_message)
+            self.assertIn("job config", rt.error_message.lower())
 
     async def test_cloud_launch_reconciles_pending_cancel_after_id_available(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
-            cfg_path = Path(tmp_dir) / "train.yaml"
-            cfg_path.write_text("model: {model_name: test/model}\n", encoding="utf-8")
+            cfg_path = Path(tmp_dir) / "job.yaml"
+            cfg_path.write_text(
+                "name: test-job\n"
+                "resources:\n  cloud: gcp\n  accelerators: 'A100:1'\n"
+                "working_dir: .\n"
+                "setup: |\n  echo setup\n"
+                "run: |\n  echo run\n",
+                encoding="utf-8",
+            )
             record = JobRecord(
                 job_id="train_20260220_000002_def456",
                 command="train",
@@ -341,7 +321,7 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
                     return_value=mock_reg,
                 ),
             ):
-                await job_service._launch_cloud(record, rt)  # type: ignore[attr-defined]
+                await job_service._launch_cloud(record, rt, client_cwd=tmp_dir)  # type: ignore[attr-defined]
 
             mock_cancel.assert_called_once_with("cloud-456", "gcp", "cluster-b")
             self.assertTrue(rt.cancel_requested)
@@ -355,43 +335,33 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(count, 5)
         self.assertEqual(tail.splitlines(), lines[-5:])
 
-    def test_default_cloud_setup_script_has_no_version_pins(self) -> None:
-        """Default setup script must not pin oumi to a version range."""
-        from oumi.mcp.job_service import _DEFAULT_CLOUD_SETUP_SCRIPT
-        self.assertNotIn(">=", _DEFAULT_CLOUD_SETUP_SCRIPT)
-        self.assertNotIn("<=", _DEFAULT_CLOUD_SETUP_SCRIPT)
-        self.assertNotIn("<0.", _DEFAULT_CLOUD_SETUP_SCRIPT)
-        self.assertIn("oumi[gpu]", _DEFAULT_CLOUD_SETUP_SCRIPT)
-        self.assertIn("command -v oumi", _DEFAULT_CLOUD_SETUP_SCRIPT)
-
     def test_cluster_lifecycle_response_is_importable(self) -> None:
         from oumi.mcp.models import ClusterLifecycleResponse
         r: ClusterLifecycleResponse = {"success": True, "message": "ok"}
         self.assertTrue(r["success"])
 
     async def test_dry_run_cloud_shows_jobconfig_yaml_preview(self) -> None:
-        """Cloud dry-run for training config should show job config template."""
         with tempfile.TemporaryDirectory() as tmp_dir:
-            cfg = Path(tmp_dir) / "train.yaml"
-            cfg.write_text("model: {model_name: test/model}\n", encoding="utf-8")
+            cfg = Path(tmp_dir) / "job.yaml"
+            cfg.write_text(
+                "name: test-job\n"
+                "resources:\n  cloud: gcp\n  accelerators: 'A100:4'\n"
+                "working_dir: .\n"
+                "setup: |\n  pip install oumi[gpu]\n"
+                "run: |\n  oumi train -c ./config.yaml\n",
+                encoding="utf-8",
+            )
             response = await server.run_oumi_job(
                 config_path=str(cfg),
                 client_cwd=tmp_dir,
                 command="train",
                 cloud="gcp",
-                accelerators="A100:4",
                 dry_run=True,
             )
         self.assertTrue(response["success"])
         msg = response["message"]
-        self.assertIn("resources:", msg)
-        self.assertIn("gcp", msg)
-        self.assertIn("A100:4", msg)
-        self.assertIn("setup:", msg)
-        self.assertIn("run:", msg)
-        self.assertIn("--- Job Config Template", msg)
-        self.assertIn("NEXT STEPS:", msg)
-        self.assertIn("guidance://cloud-launch", msg)
+        self.assertIn("oumi launch up", msg)
+        self.assertIn("Generated JobConfig", msg)
 
 
     async def test_stop_cluster_calls_launcher_stop(self) -> None:
@@ -546,12 +516,19 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
     # -- Task 17: _launch_cloud with client_cwd --
 
     async def test_launch_cloud_client_cwd_sets_working_dir(self) -> None:
-        """For training-config wrapping, client_cwd becomes working_dir in job config."""
+        """For job-config passthrough, client_cwd resolves relative working_dir."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             client_dir = Path(tmp_dir) / "project"
             client_dir.mkdir()
-            cfg_path = Path(tmp_dir) / "train.yaml"
-            cfg_path.write_text("model: {model_name: test/model}\n", encoding="utf-8")
+            cfg_path = client_dir / "job.yaml"
+            cfg_path.write_text(
+                "name: test-job\n"
+                "resources:\n  cloud: gcp\n  accelerators: 'A100:1'\n"
+                "working_dir: .\n"
+                "setup: |\n  echo setup\n"
+                "run: |\n  echo run\n",
+                encoding="utf-8",
+            )
             record = JobRecord(
                 job_id="train_20260220_000003_gh789",
                 command="train",
@@ -584,11 +561,14 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
                     mock_registry.return_value.update = lambda *a, **kw: None
                     mock_registry.return_value.get = lambda jid: record
                     await job_service._launch_cloud(  # type: ignore[attr-defined]
-                        record, rt, client_cwd=str(client_dir), accelerators="A100:1"
+                        record, rt, client_cwd=str(client_dir)
                     )
 
-            # Training-config wrapping: client_cwd should be passed as working_dir
-            self.assertEqual(captured_wd["working_dir"], str(client_dir))
+            # Job-config passthrough: relative working_dir resolved against client_cwd
+            self.assertEqual(
+                Path(captured_wd["working_dir"]).resolve(),  # noqa: ASYNC240
+                client_dir.resolve(),
+            )
 
     # -- Task 18: list_jobs via launcher.status() --
 

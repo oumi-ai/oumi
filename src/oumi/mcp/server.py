@@ -19,36 +19,20 @@ Path rules:
 import asyncio
 import json
 import logging
-import os
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
 
 import oumi.launcher as launcher
-from oumi.core.configs import (
-    AnalyzeConfig,
-    AsyncEvaluationConfig,
-    EvaluationConfig,
-    InferenceConfig,
-    JobConfig,
-    JudgeConfig,
-    QuantizationConfig,
-    SynthesisConfig,
-    TrainingConfig,
-    TuningConfig,
-)
 from oumi.mcp.config_service import (
-    extract_key_settings,
+    TASK_MAPPING,
     find_config_match,
     get_all_configs,
     get_categories,
     get_configs_dir,
     load_yaml_strict,
-    parse_yaml,
     resolve_config_path,
-    resolve_path,
 )
 from oumi.mcp.config_service import (
     search_configs as search_configs_service,
@@ -66,13 +50,14 @@ from oumi.mcp.docs_service import (
     search_docs,
     start_background_indexing,
 )
+from oumi.mcp.environment_service import (
+    _strip_oumi_env_overrides,
+)
 from oumi.mcp.job_service import (
     JobRecord,
-    _generate_job_config_template,
     _is_job_config,
     _jobconfig_to_yaml,
     _list_job_summaries,
-    _parse_gpu_count,
     cancel_job_impl,
     down_cluster_impl,
     fetch_logs,
@@ -124,29 +109,6 @@ from oumi.mcp.sync_service import (
     is_oumi_dev_build,
 )
 
-_CLOUD_ENV_VAR_HINTS: dict[str, str] = {
-    "WANDB_API_KEY": "Weights & Biases logging",
-    "WANDB_PROJECT": "Weights & Biases project name",
-    "HF_TOKEN": "HuggingFace token (alternative to ~/.cache/huggingface/token)",
-    "COMET_API_KEY": "Comet ML logging",
-}
-
-
-def _build_missing_env_warning(envs: dict[str, str] | None) -> str:
-    """Return a warning string listing local env vars that won't reach the remote VM."""
-    missing = []
-    for var, description in _CLOUD_ENV_VAR_HINTS.items():
-        if os.environ.get(var) and (not envs or var not in envs):
-            missing.append(f"  - {var} ({description})")
-    if not missing:
-        return ""
-    return (
-        "\n\nWARNING: These env vars exist locally but won't be set on the remote VM:\n"
-        + "\n".join(missing)
-        + '\n  Pass them via the `envs` parameter: envs={"WANDB_API_KEY": "..."}'
-    )
-
-
 logger = logging.getLogger(__name__)
 
 mcp = FastMCP(
@@ -167,29 +129,6 @@ def _configure_logging() -> None:
         "mcp.shared.session",
     ):
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
-
-
-_OUMI_ENV_OVERRIDES = ("OUMI_USE_SPOT_VM", "OUMI_FORCE_EDITABLE_INSTALL")
-
-
-def _strip_oumi_env_overrides() -> None:
-    """Remove oumi env vars that silently override launcher config values.
-
-    These are CLI convenience toggles (e.g. "always use spot") that make
-    sense for interactive ``oumi launch up`` but break programmatic callers
-    like this MCP server — the tool's explicit parameters should be the
-    sole source of truth.
-    """
-    for var in _OUMI_ENV_OVERRIDES:
-        val = os.environ.pop(var, None)
-        if val:
-            logger.info("Stripped inherited env var %s=%r from MCP process", var, val)
-
-
-# Backwards-compatible aliases for functions moved to config_service
-_resolve_path = resolve_path
-_resolve_config_path = resolve_config_path
-_load_yaml_strict = load_yaml_strict
 
 
 def _extract_job_metadata_from_cfg(cfg: dict[str, Any]) -> tuple[str, str]:
@@ -297,7 +236,7 @@ def search_configs(
 
 
 @mcp.tool()
-def get_config(path: str, include_content: bool = False) -> ConfigDetail:
+def get_config(path: str) -> ConfigDetail:
     """Get details about a specific Oumi config file.
 
     Use the returned config as a REFERENCE to understand structure, field names,
@@ -308,7 +247,6 @@ def get_config(path: str, include_content: bool = False) -> ConfigDetail:
     Args:
         path: Config path from search_configs(), or a partial path
             (e.g. "llama3_1/sft/8b_lora" will match).
-        include_content: Include full YAML content (default False).
     """
     configs = get_all_configs()
     match = find_config_match(path, configs)
@@ -322,22 +260,18 @@ def get_config(path: str, include_content: bool = False) -> ConfigDetail:
             "datasets": [],
             "reward_functions": [],
             "peft_type": "",
-            "key_settings": {},
             "content": "",
             "error": f"Config not found: {path}",
         }
 
     configs_dir = get_configs_dir()
     config_path = configs_dir / match["path"]
-    config = parse_yaml(str(config_path))
 
-    content = ""
-    if include_content:
-        try:
-            content = config_path.read_text(encoding="utf-8")
-        except Exception as e:
-            logger.error(f"Failed to read config content: {e}")
-            content = f"Error reading file: {e}"
+    try:
+        content = config_path.read_text(encoding="utf-8")
+    except Exception as e:
+        logger.error(f"Failed to read config content: {e}")
+        content = f"Error reading file: {e}"
 
     return {
         "path": match["path"],
@@ -347,7 +281,6 @@ def get_config(path: str, include_content: bool = False) -> ConfigDetail:
         "datasets": match["datasets"] or [],
         "reward_functions": match["reward_functions"] or [],
         "peft_type": match["peft_type"] or "",
-        "key_settings": extract_key_settings(config),
         "content": content,
         "error": "",
     }
@@ -394,20 +327,6 @@ def list_categories() -> CategoriesResponse:
     )
 
 
-TASK_MAPPING = {
-    "analyze": AnalyzeConfig,
-    "async_evaluation": AsyncEvaluationConfig,
-    "evaluation": EvaluationConfig,
-    "inference": InferenceConfig,
-    "job": JobConfig,
-    "judge": JudgeConfig,
-    "quantization": QuantizationConfig,
-    "synthesis": SynthesisConfig,
-    "training": TrainingConfig,
-    "tuning": TuningConfig,
-}
-
-
 @mcp.tool()
 def pre_flight_check(
     config: str, client_cwd: str, cloud: str = ""
@@ -445,7 +364,7 @@ def validate_config(
         client_cwd: REQUIRED. Absolute path to the client's working directory
             (project root). Resolves relative config paths.
     """
-    config_path, path_error = _resolve_config_path(config, client_cwd)
+    config_path, path_error = resolve_config_path(config, client_cwd)
     if path_error:
         return {"ok": False, "error": path_error}
     try:
@@ -478,14 +397,6 @@ async def run_oumi_job(
     job_name: str | None = None,
     cloud: str = "local",
     cluster_name: str = "",
-    accelerators: str = "",
-    envs: dict[str, str] | None = None,
-    file_mounts: dict[str, str] | None = None,
-    disk_size: int | None = None,
-    use_spot: bool = False,
-    num_nodes: int = 1,
-    setup_script: str = "",
-    run_script: str = "",
 ) -> JobSubmissionResponse:
     """Execute an Oumi CLI command with background job tracking.
 
@@ -493,9 +404,9 @@ async def run_oumi_job(
     dry_run=False, confirm=True, user_confirmation="EXECUTE" to launch.
     Cloud runs execute a pre-flight check that may block launch.
 
-    Job configs (with ``resources``/``setup``/``run`` keys) pass through
-    directly to ``oumi launch up``. Training configs are auto-wrapped.
-    HF/WandB credentials are auto-mounted on cloud VMs.
+    Cloud runs require a job config YAML (with ``resources``/``setup``/``run``
+    keys). Training configs are only supported for local runs.
+    Read ``guidance://cloud-launch`` for how to build a job config.
 
     Args:
         config_path: Absolute path, or relative to client_cwd, to an Oumi YAML config.
@@ -511,24 +422,10 @@ async def run_oumi_job(
         job_name: Optional name; auto-generated if omitted.
         cloud: ``"local"`` (default) or a cloud provider name.
         cluster_name: Cluster name for cloud launches.
-        accelerators: Accelerator spec, e.g. ``"A100:8"``. Multi-GPU
-            auto-enables ``oumi distributed torchrun``.
-        envs: Env vars for the remote VM.
-        file_mounts: Additional local-to-remote file mappings. Use for local
-            dataset files not git-tracked in working_dir (e.g.
-            ``{"~/sky_workdir/data/train.jsonl": "/abs/path/to/train.jsonl"}``).
-        disk_size: Disk size in GB for the remote VM.
-        use_spot: Use spot/preemptible instances.
-        num_nodes: Node count for distributed training.
-        setup_script: Override default cloud setup script (training-config
-            wrapping mode only).
-        run_script: Override auto-generated run command (training-config
-            wrapping mode only).
     """
     command = command.strip().lower()
     cloud = cloud.strip().lower() or "local"
     cluster_name = cluster_name.strip()
-    accelerators = accelerators.strip()
 
     def _error_response(error: str, **overrides: Any) -> JobSubmissionResponse:
         base: JobSubmissionResponse = {
@@ -553,12 +450,12 @@ async def run_oumi_job(
             f"Must be one of: {sorted(VALID_OUMI_COMMANDS)}"
         )
 
-    config_file, path_error = _resolve_config_path(config_path, client_cwd)
+    config_file, path_error = resolve_config_path(config_path, client_cwd)
     if path_error:
         return _error_response(path_error)
 
     abs_config = str(config_file)
-    parsed_cfg, parse_error = _load_yaml_strict(config_file)
+    parsed_cfg, parse_error = load_yaml_strict(config_file)
     if parse_error or parsed_cfg is None:
         return _error_response(
             (
@@ -579,13 +476,19 @@ async def run_oumi_job(
 
     is_job_config_file = _is_job_config(config_file) if cloud != "local" else False
 
-    num_gpus = _parse_gpu_count(accelerators or None)
+    if cloud != "local" and not is_job_config_file:
+        return _error_response(
+            "Cloud runs require a job config (with resources/setup/run keys). "
+            "Your config appears to be a training config. "
+            "Read the guidance://cloud-launch resource to build a job config, "
+            "then re-submit with the job config.",
+            config_path=abs_config,
+            model_name=model_name,
+        )
 
     if dry_run:
         if is_job_config_file:
             cmd_preview = f"oumi launch up -c {abs_config}"
-        elif num_gpus > 1 or num_nodes > 1:
-            cmd_preview = f"oumi distributed torchrun -m oumi {command} -c {abs_config}"
         else:
             cmd_preview = f"oumi {command} -c {abs_config}"
 
@@ -593,7 +496,6 @@ async def run_oumi_job(
             f"Dry run: would execute `{cmd_preview}` on {cloud}",
             f"Model: {model_name}",
             f"Output: {output_dir}",
-            f"Config type: {'job config (passthrough)' if is_job_config_file else 'training config (wrapped)'}",
             "Validation: strict YAML parsing passed.",
         ]
         dry_run_msg_parts.append(
@@ -601,54 +503,18 @@ async def run_oumi_job(
             "user_confirmation='EXECUTE'."
         )
         message = "\n".join(dry_run_msg_parts)
-        if cloud != "local":
-            if is_job_config_file:
-                try:
-                    preview_job_cfg = launcher.JobConfig.from_yaml(abs_config)
-                    job_cfg_yaml = _jobconfig_to_yaml(preview_job_cfg)
-                except Exception:
-                    job_cfg_yaml = "(could not parse job config for preview)"
-                message = (
-                    message
-                    + "\n\n--- Generated JobConfig (review before executing) ---\n"
-                    + job_cfg_yaml
-                    + "-----------------------------------------------------"
-                )
-            else:
-                job_config_template = _generate_job_config_template(
-                    abs_config,
-                    command,
-                    cloud,
-                    model_name,
-                    client_cwd=client_cwd,
-                    job_name=job_id,
-                    accelerators=accelerators,
-                    num_nodes=num_nodes,
-                    envs=envs,
-                    setup_script=setup_script,
-                    run_script=run_script,
-                )
-                env_warning = _build_missing_env_warning(envs)
-                if env_warning:
-                    message = message + env_warning
-                message = (
-                    message
-                    + "\n\n--- Job Config Template (save as YAML, customize TODO sections, re-submit) ---\n"
-                    + job_config_template
-                    + "\n----------------------------------------------------------------------\n"
-                    + "\nNEXT STEPS:\n"
-                    + "1. Save the template above as a job config YAML file (e.g., my_job.yaml in the project)\n"
-                    + "2. Customize the TODO sections (setup, file_mounts for data, storage_mounts, envs)\n"
-                    + "   - Mount local dataset files via file_mounts if they're not git-tracked\n"
-                    + "   - If using LoRA/QLoRA, ensure training.use_peft: True is set in your training config\n"
-                    + "3. Re-submit with the job config: run_oumi_job('my_job.yaml', '"
-                    + command
-                    + "', client_cwd=<project_root>, cloud='"
-                    + cloud
-                    + "')\n"
-                    + "\nAlternatively, pass setup_script and run_script overrides inline to skip the file roundtrip.\n"
-                    + "Read guidance://cloud-launch for detailed field explanations, GPU sizing, and setup patterns."
-                )
+        if cloud != "local" and is_job_config_file:
+            try:
+                preview_job_cfg = launcher.JobConfig.from_yaml(abs_config)
+                job_cfg_yaml = _jobconfig_to_yaml(preview_job_cfg)
+            except Exception:
+                job_cfg_yaml = "(could not parse job config for preview)"
+            message = (
+                message
+                + "\n\n--- Generated JobConfig (review before executing) ---\n"
+                + job_cfg_yaml
+                + "-----------------------------------------------------"
+            )
         return {
             "success": True,
             "job_id": job_id,
@@ -692,23 +558,6 @@ async def run_oumi_job(
         preflight_blocking = bool(preflight.get("blocking"))
         preflight_errors = preflight.get("errors", []) or []
         preflight_warnings = list(preflight.get("warnings", []) or [])
-
-        if not is_job_config_file:
-            hf_token_path = Path("~/.cache/huggingface/token").expanduser()
-            if (
-                not hf_token_path.exists()
-                and preflight.get("hf_authenticated") is False
-            ):
-                preflight_warnings.append(
-                    "HF token not found locally (~/.cache/huggingface/token). "
-                    "Gated model downloads will fail on the remote VM."
-                )
-
-            if num_gpus > 1 or num_nodes > 1:
-                preflight_warnings.append(
-                    f"Multi-GPU/multi-node job detected (accelerators={accelerators!r}, "
-                    f"num_nodes={num_nodes}). Using `oumi distributed torchrun` automatically."
-                )
 
         compat_messages = [
             msg
@@ -782,14 +631,6 @@ async def run_oumi_job(
                 record,
                 rt,
                 client_cwd=client_cwd,
-                accelerators=accelerators or None,
-                envs=envs,
-                file_mounts=file_mounts,
-                disk_size=disk_size,
-                use_spot=use_spot,
-                num_nodes=num_nodes,
-                setup_script=setup_script or None,
-                run_script=run_script or None,
             ),
             name=f"oumi-job-{job_id}",
         )
