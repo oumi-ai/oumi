@@ -5,6 +5,7 @@ credentials, dataset accessibility, and cloud file delivery before launch.
 """
 
 import logging
+import re
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from pathlib import Path
@@ -62,10 +63,10 @@ CloudCapability = _CloudCapability
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# GPU / hardware helpers
-# ---------------------------------------------------------------------------
+_FILE_EXT_RE = re.compile(
+    r"\.(jsonl|json|csv|parquet|txt|arrow|bin|safetensors|pt|gguf|yaml|yml)$",
+    re.IGNORECASE,
+)
 
 
 def get_gpu_info() -> dict[str, Any]:
@@ -104,11 +105,6 @@ def get_gpu_info() -> dict[str, Any]:
     return info
 
 
-# ---------------------------------------------------------------------------
-# Path / repo helpers
-# ---------------------------------------------------------------------------
-
-
 def _looks_like_hf_repo(val: str) -> bool:
     """Return True if *val* looks like an HF repo ID (org/name)."""
     return bool(val) and val.count("/") == 1 and not val.startswith(("/", ".", "~"))
@@ -130,11 +126,6 @@ def _is_local_machine_path(path_str: str) -> bool:
     if path_str.startswith("/Users/"):
         return True
     return False
-
-
-# ---------------------------------------------------------------------------
-# Path validation
-# ---------------------------------------------------------------------------
 
 
 def validate_paths(cfg: dict, base_dir: Path, *, cloud: str = "") -> dict[str, str]:
@@ -181,20 +172,13 @@ def validate_paths(cfg: dict, base_dir: Path, *, cloud: str = "") -> dict[str, s
         if _is_local_machine_path(val):
             paths[val] = "local_machine_path_error"
         elif Path(val).is_absolute():
-            # Remote absolute (e.g. /home/ubuntu/output/) — can't validate
             paths[val] = "ok_remote"
         else:
-            # Relative — check existence under project root (will be synced)
             resolved = base_dir / val
             paths[val] = "ok" if resolved.exists() else "not_found_warning"
 
     _extract(cfg)
     return paths
-
-
-# ---------------------------------------------------------------------------
-# Dataset validation
-# ---------------------------------------------------------------------------
 
 
 def validate_datasets(cfg: dict, client_cwd: str = "") -> dict[str, str]:
@@ -266,11 +250,6 @@ def validate_datasets(cfg: dict, client_cwd: str = "") -> dict[str, str]:
     return results
 
 
-# ---------------------------------------------------------------------------
-# Cloud file checks
-# ---------------------------------------------------------------------------
-
-
 def _check_skyignore(config_dir: Path, path_results: dict[str, str]) -> list[str]:
     """Check if a .skyignore file might exclude files needed by the config.
 
@@ -325,7 +304,9 @@ def _check_skyignore(config_dir: Path, path_results: dict[str, str]) -> list[str
     return warnings
 
 
-def _check_cloud_files(cfg: dict, config_path: Path, cloud: str) -> dict[str, str]:
+def _check_cloud_files(
+    cfg: dict, config_path: Path, cloud: str, client_cwd: Path | None = None
+) -> dict[str, str]:
     """Validate that files referenced in config will be available on the remote VM.
 
     For **job-config passthrough** (has ``resources``/``setup``/``run`` keys):
@@ -345,7 +326,7 @@ def _check_cloud_files(cfg: dict, config_path: Path, cloud: str) -> dict[str, st
     is_job_cfg = bool(job_keys.intersection(cfg.keys()))
 
     if is_job_cfg:
-        _check_job_config_files(cfg, config_path, results)
+        _check_job_config_files(cfg, config_path, results, client_cwd=client_cwd)
     else:
         _check_training_config_files(cfg, results)
 
@@ -353,14 +334,20 @@ def _check_cloud_files(cfg: dict, config_path: Path, cloud: str) -> dict[str, st
 
 
 def _check_job_config_files(
-    cfg: dict, config_path: Path, results: dict[str, str]
+    cfg: dict,
+    config_path: Path,
+    results: dict[str, str],
+    client_cwd: Path | None = None,
 ) -> None:
     """Validate file_mounts sources and working_dir for job-config passthrough."""
+    base_dir = client_cwd or config_path.parent
     file_mounts = cfg.get("file_mounts") or {}
-    for remote_dest, local_src in file_mounts.items():
+    for _, local_src in file_mounts.items():
         if not isinstance(local_src, str):
             continue
         expanded = Path(local_src).expanduser()
+        if not expanded.is_absolute():
+            expanded = base_dir / expanded
         if expanded.exists():
             results[local_src] = "ok"
         else:
@@ -369,8 +356,6 @@ def _check_job_config_files(
     working_dir = cfg.get("working_dir")
     if working_dir is not None:
         wd_str = str(working_dir)
-        # working_dir: . is the correct portable default — client_cwd resolves it
-        # at launch time. Only flag truly broken values (nonexistent absolute paths).
         if wd_str != ".":
             wd_path = Path(wd_str).expanduser()
             if not wd_path.is_absolute():
@@ -402,7 +387,7 @@ def _check_training_config_files(cfg: dict, results: dict[str, str]) -> None:
     def _classify(val: str) -> None:
         if not val or val.isspace():
             return
-        if _looks_like_hf_repo(val) and "." not in val.split("/")[-1]:
+        if _looks_like_hf_repo(val) and not _FILE_EXT_RE.search(val):
             return
 
         p = Path(val)
@@ -415,11 +400,6 @@ def _check_training_config_files(cfg: dict, results: dict[str, str]) -> None:
             results[val] = "not_reachable_on_vm"
 
     _extract_paths(cfg)
-
-
-# ---------------------------------------------------------------------------
-# HF repo extraction
-# ---------------------------------------------------------------------------
 
 
 def get_repos(cfg: dict) -> dict[str, set[str]]:
@@ -451,11 +431,6 @@ def get_repos(cfg: dict) -> dict[str, set[str]]:
     return repos
 
 
-# ---------------------------------------------------------------------------
-# Hardware defaults / helpers
-# ---------------------------------------------------------------------------
-
-
 def _empty_hardware() -> HardwareInfo:
     """Return a default HardwareInfo with no accelerator detected."""
     return {
@@ -477,11 +452,6 @@ def _empty_cloud_readiness() -> CloudReadiness:
         "target_cloud_ready": None,
         "target_cloud": "",
     }
-
-
-# ---------------------------------------------------------------------------
-# SkyPilot cloud readiness
-# ---------------------------------------------------------------------------
 
 
 def _skypilot_version_label() -> str:
@@ -639,7 +609,6 @@ def check_cloud_readiness(
     enabled_names = _cloud_names(enabled)
     result["enabled_clouds"] = enabled_names
 
-    # Targeted check: validate the specific cloud the user wants to use
     if target_cloud:
         result["target_cloud"] = target_cloud
         try:
@@ -671,11 +640,6 @@ def check_cloud_readiness(
         )
 
     return errors, warnings, result
-
-
-# ---------------------------------------------------------------------------
-# Hardware checks
-# ---------------------------------------------------------------------------
 
 
 def check_hardware(cfg: dict) -> tuple[list[str], list[str], HardwareInfo]:
@@ -787,11 +751,6 @@ def check_hardware(cfg: dict) -> tuple[list[str], list[str], HardwareInfo]:
     return errors, warnings, hardware
 
 
-# ---------------------------------------------------------------------------
-# Main pre-flight check
-# ---------------------------------------------------------------------------
-
-
 def _pre_flight_check(
     config: str, client_cwd: str, cloud: str = ""
 ) -> PreFlightCheckResponse:
@@ -891,8 +850,7 @@ def _pre_flight_check(
     warnings.extend(cloud_warnings)
 
     has_compat_issue = any(
-        "SkyPilot API compatibility" in msg
-        for msg in [*cloud_errors, *cloud_warnings]
+        "SkyPilot API compatibility" in msg for msg in [*cloud_errors, *cloud_warnings]
     )
 
     dataset_checks = validate_datasets(cfg, client_cwd=client_cwd)
@@ -928,7 +886,9 @@ def _pre_flight_check(
 
     cloud_file_checks: dict[str, str] = {}
     if target_cloud:
-        cloud_file_checks = _check_cloud_files(cfg, config_path, target_cloud)
+        cloud_file_checks = _check_cloud_files(
+            cfg, config_path, target_cloud, client_cwd=Path(client_cwd)
+        )
         for path_key, check_status in cloud_file_checks.items():
             if check_status == "missing_local_source":
                 errors.append(
@@ -985,17 +945,17 @@ def _pre_flight_check(
 
     if target_cloud:
         all_cfgs = get_all_configs()
-        # Use task type from config for relevant suggestions, not cloud name
         task_type = cfg.get("task_type", "") or ""
         if not task_type:
-            # Infer from config keys
             if cfg.get("training"):
                 task_type = "sft"
             elif cfg.get("evaluation") or cfg.get("tasks"):
                 task_type = "eval"
             elif cfg.get("generation") and cfg.get("input_path"):
                 task_type = "infer"
-        suggested = search_configs_service(all_cfgs, task=task_type or "sft", limit=5)
+        suggested = search_configs_service(
+            all_cfgs, query=[task_type] or ["sft"], limit=5
+        )
         result["suggested_configs"] = [c["path"] for c in suggested]
 
     return result
