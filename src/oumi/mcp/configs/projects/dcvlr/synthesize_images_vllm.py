@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# pyright: reportArgumentType=false, reportReturnType=false, reportAttributeAccessIssue=false
 """Script to synthesize images for dataset samples using local VLLM inference via Oumi.
 
 Accepts a HuggingFace dataset and generates code artifacts to create appropriate images.

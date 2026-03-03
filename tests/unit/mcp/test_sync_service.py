@@ -1,3 +1,4 @@
+# pyright: reportOperatorIssue=false
 """Tests for oumi.mcp.sync_service — version detection, URL building, sync flow."""
 
 from pathlib import Path

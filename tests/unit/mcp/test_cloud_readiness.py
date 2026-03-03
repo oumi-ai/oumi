@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false, reportReturnType=false, reportArgumentType=false
 import enum
 import types
 import unittest

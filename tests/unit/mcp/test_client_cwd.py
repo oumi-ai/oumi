@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false, reportCallIssue=false
 """Tests for client_cwd path resolution."""
 
 import tempfile
@@ -68,12 +69,14 @@ class ResolveConfigPathTests(unittest.TestCase):
     def test_relative_client_cwd_rejected(self):
         _, err = resolve_config_path("train.yaml", "relative/cwd")
         self.assertIsNotNone(err)
+        assert err is not None
         self.assertIn("absolute", err)
 
     def test_nonexistent_config_returns_error(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, err = resolve_config_path("nonexistent.yaml", tmp)
             self.assertIsNotNone(err)
+            assert err is not None
             self.assertIn("not found", err.lower())
 
 

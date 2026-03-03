@@ -1,3 +1,4 @@
+# pyright: reportTypedDictNotRequiredAccess=false, reportArgumentType=false, reportOptionalMemberAccess=false, reportCallIssue=false
 import asyncio
 import logging
 import tempfile

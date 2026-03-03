@@ -1,3 +1,4 @@
+# pyright: reportOptionalMemberAccess=false, reportCallIssue=false
 import json
 import tempfile
 import unittest

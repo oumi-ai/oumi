@@ -56,7 +56,6 @@ from oumi.mcp.environment_service import (
 from oumi.mcp.job_service import (
     JobRecord,
     _is_job_config,
-    _jobconfig_to_yaml,
     _list_job_summaries,
     cancel_job_impl,
     down_cluster_impl,
@@ -506,7 +505,7 @@ async def run_oumi_job(
         if cloud != "local" and is_job_config_file:
             try:
                 preview_job_cfg = launcher.JobConfig.from_yaml(abs_config)
-                job_cfg_yaml = _jobconfig_to_yaml(preview_job_cfg)
+                job_cfg_yaml = str(preview_job_cfg)
             except Exception:
                 job_cfg_yaml = "(could not parse job config for preview)"
             message = (

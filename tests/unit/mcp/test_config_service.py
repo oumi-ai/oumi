@@ -1,3 +1,4 @@
+# pyright: reportReturnType=false, reportTypedDictNotRequiredAccess=false, reportOptionalMemberAccess=false, reportOperatorIssue=false
 """Tests for oumi.mcp.config_service — search, metadata, inference, parsing."""
 
 from pathlib import Path
