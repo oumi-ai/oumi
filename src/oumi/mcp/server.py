@@ -38,7 +38,6 @@ from oumi.mcp.config_service import (
     search_configs as search_configs_service,
 )
 from oumi.mcp.constants import (
-    DEFAULT_SEARCH_LIMIT,
     DEFAULT_STREAM_LINES,
     JOB_LOGS_DIR,
     JOB_RUNS_DIR,
@@ -85,6 +84,7 @@ from oumi.mcp.models import (
     JobSummary,
     ListModulesResponse,
     PreFlightCheckResponse,
+    PreFlightSummary,
     ValidateConfigResponse,
 )
 from oumi.mcp.preflight_service import (
@@ -212,26 +212,24 @@ async def get_post_training_guidance() -> str:
 
 @mcp.tool()
 def search_configs(
-    query: str = "",
-    task: str = "",
-    model: str = "",
-    keyword: str | list[str] = "",
-    limit: int = DEFAULT_SEARCH_LIMIT,
+    query: list[str] | None = None,
+    content_match: list[str] | None = None,
+    limit: int = 20,
 ) -> list[ConfigMetadata]:
     """Search the Oumi config library (~500 configs for LLM fine-tuning).
 
-    All filters are case-insensitive substring matches. Combine to narrow.
-
     Args:
-        query: Path substring — size ("8b"), variant ("instruct"), or
-            technique ("lora"). Space-separated words use AND logic.
-        task: Task type: sft, dpo, kto, grpo, eval, infer, pretrain.
-        model: Model family: llama3_1, qwen3, phi4, gemma3, deepseek_r1, etc.
-        keyword: Content substring match. List = AND logic.
+        query: Terms matched against config paths (AND logic,
+            case-insensitive). Paths encode model family, size, task, and
+            technique — e.g. ["llama3_1", "8b", "sft", "lora"],
+            ["qwen3", "grpo"], ["deepseek_r1", "eval"].
+        content_match: Substrings matched against YAML file content
+            (AND logic, case-insensitive). Use for values not in the path,
+            e.g. a dataset name or HuggingFace model ID.
         limit: Max results (default 20).
     """
     configs = get_all_configs()
-    return search_configs_service(configs, query, task, model, keyword, limit)
+    return search_configs_service(configs, query, content_match, limit)
 
 
 @mcp.tool()
@@ -391,17 +389,18 @@ async def run_oumi_job(
     command: str,
     client_cwd: str,
     dry_run: bool = True,
-    confirm: bool = False,
-    user_confirmation: str = "",
     job_name: str | None = None,
     cloud: str = "local",
     cluster_name: str = "",
+    skip_preflight: bool = False,
 ) -> JobSubmissionResponse:
     """Execute an Oumi CLI command with background job tracking.
 
-    Two-step safety: call with dry_run=True (default) to preview, then
-    dry_run=False, confirm=True, user_confirmation="EXECUTE" to launch.
-    Cloud runs execute a pre-flight check that may block launch.
+    Two-step safety: first call with dry_run=True (default) to preview
+    the execution plan, then call again with dry_run=False to launch.
+    IMPORTANT: Always confirm with the user before calling with
+    dry_run=False. Cloud runs execute a pre-flight check that may block
+    launch.
 
     Cloud runs require a job config YAML (with ``resources``/``setup``/``run``
     keys). Training configs are only supported for local runs.
@@ -416,11 +415,13 @@ async def run_oumi_job(
             Oumi CLI subprocess runs from this directory. For cloud jobs, this
             directory is synced to the remote VM as the working directory.
         dry_run: Preview execution plan without running (default True).
-        confirm: Must be True for actual execution.
-        user_confirmation: Must be ``"EXECUTE"`` when dry_run=False.
+            Set to False only after showing the preview to the user and
+            receiving their explicit approval.
         job_name: Optional name; auto-generated if omitted.
         cloud: ``"local"`` (default) or a cloud provider name.
         cluster_name: Cluster name for cloud launches.
+        skip_preflight: Skip inline pre-flight checks (default False).
+            Set to True when pre-flight was already run separately.
     """
     command = command.strip().lower()
     cloud = cloud.strip().lower() or "local"
@@ -473,6 +474,7 @@ async def run_oumi_job(
 
     job_id = make_job_id(command, job_name)
 
+    # check if config is for cloud jobs, or local runs
     is_job_config_file = _is_job_config(config_file) if cloud != "local" else False
 
     if cloud != "local" and not is_job_config_file:
@@ -486,33 +488,29 @@ async def run_oumi_job(
         )
 
     if dry_run:
-        if is_job_config_file:
-            cmd_preview = f"oumi launch up -c {abs_config}"
-        else:
-            cmd_preview = f"oumi {command} -c {abs_config}"
-
-        dry_run_msg_parts = [
-            f"Dry run: would execute `{cmd_preview}` on {cloud}",
-            f"Model: {model_name}",
-            f"Output: {output_dir}",
-            "Validation: strict YAML parsing passed.",
-        ]
-        dry_run_msg_parts.append(
-            "To execute, re-call with dry_run=False, confirm=True, "
-            "user_confirmation='EXECUTE'."
+        cmd_preview = (
+            f"oumi launch up -c {abs_config}"
+            if is_job_config_file
+            else f"oumi {command} -c {abs_config}"
         )
-        message = "\n".join(dry_run_msg_parts)
+        message = "\n".join(
+            [
+                f"Dry run: would execute `{cmd_preview}` on {cloud}",
+                f"Model: {model_name}",
+                f"Output: {output_dir}",
+                "Validation: strict YAML parsing passed.",
+                "To execute, confirm with the user, then re-call with dry_run=False.",
+            ]
+        )
         if cloud != "local" and is_job_config_file:
             try:
-                preview_job_cfg = launcher.JobConfig.from_yaml(abs_config)
-                job_cfg_yaml = str(preview_job_cfg)
+                job_cfg_yaml = str(launcher.JobConfig.from_yaml(abs_config))
             except Exception:
                 job_cfg_yaml = "(could not parse job config for preview)"
-            message = (
-                message
-                + "\n\n--- Generated JobConfig (review before executing) ---\n"
-                + job_cfg_yaml
-                + "-----------------------------------------------------"
+            message += (
+                f"\n\n--- Generated JobConfig (review before executing) ---\n"
+                f"{job_cfg_yaml}"
+                f"\n-----------------------------------------------------"
             )
         return {
             "success": True,
@@ -527,55 +525,29 @@ async def run_oumi_job(
             "message": message,
         }
 
-    if not confirm or user_confirmation != "EXECUTE":
-        return {
-            "success": False,
-            "job_id": job_id,
-            "status": "blocked",
-            "dry_run": False,
-            "command": command,
-            "config_path": abs_config,
-            "cloud": cloud,
-            "cluster_name": cluster_name,
-            "model_name": model_name,
-            "message": "",
-            "error": (
-                "Execution blocked: launching requires confirm=True and "
-                "user_confirmation='EXECUTE'. Run with dry_run=True first to "
-                "preview, then execute with explicit user permission."
-            ),
+    preflight_data: PreFlightSummary | None = None
+
+    if cloud != "local" and not skip_preflight:
+        preflight_result = _pre_flight_check(
+            abs_config, client_cwd=client_cwd, cloud=cloud
+        )
+        preflight_data = {
+            "summary": preflight_result.get("summary", ""),
+            "blocking": bool(preflight_result.get("blocking")),
+            "errors": preflight_result.get("errors", []) or [],
+            "warnings": list(preflight_result.get("warnings", []) or []),
         }
-
-    preflight_summary = ""
-    preflight_blocking = False
-    preflight_errors: list[str] = []
-    preflight_warnings: list[str] = []
-
-    if cloud != "local":
-        preflight = _pre_flight_check(abs_config, client_cwd=client_cwd, cloud=cloud)
-        preflight_summary = preflight.get("summary", "")
-        preflight_blocking = bool(preflight.get("blocking"))
-        preflight_errors = preflight.get("errors", []) or []
-        preflight_warnings = list(preflight.get("warnings", []) or [])
-
-        compat_messages = [
-            msg
-            for msg in [*preflight_errors, *preflight_warnings]
-            if "SkyPilot API compatibility" in msg
-        ]
-        if preflight_blocking:
+        if preflight_data["blocking"]:
             return _error_response(
-                f"Pre-flight checks failed: {preflight_summary}",
+                f"Pre-flight checks failed: {preflight_data['summary']}",
                 status="blocked",
                 job_id=job_id,
                 config_path=abs_config,
                 model_name=model_name,
-                preflight_summary=preflight_summary,
-                preflight_blocking=preflight_blocking,
-                preflight_errors=preflight_errors,
-                preflight_warnings=preflight_warnings,
+                preflight=preflight_data,
             )
-        if compat_messages:
+        if preflight_result.get("skypilot_compat_issue"):
+            preflight_data["blocking"] = True
             return _error_response(
                 "Pre-flight detected a SkyPilot compatibility issue. "
                 "Align Oumi/SkyPilot versions and run `sky check` before launching.",
@@ -583,10 +555,7 @@ async def run_oumi_job(
                 job_id=job_id,
                 config_path=abs_config,
                 model_name=model_name,
-                preflight_summary=preflight_summary,
-                preflight_blocking=True,
-                preflight_errors=preflight_errors,
-                preflight_warnings=preflight_warnings,
+                preflight=preflight_data,
             )
 
     submit_time = datetime.now(tz=timezone.utc).isoformat()
@@ -656,17 +625,18 @@ async def run_oumi_job(
     final_job_id = record.job_id
 
     if rt.error_message and not is_local:
+        overrides: dict[str, Any] = {
+            "status": "failed",
+            "job_id": final_job_id,
+            "config_path": abs_config,
+            "model_name": model_name,
+            "launch_confirmed": launch_confirmed,
+        }
+        if preflight_data is not None:
+            overrides["preflight"] = preflight_data
         return _error_response(
             f"Failed to launch cloud job: {rt.error_message}",
-            status="failed",
-            job_id=final_job_id,
-            config_path=abs_config,
-            model_name=model_name,
-            preflight_summary=preflight_summary,
-            preflight_blocking=preflight_blocking,
-            preflight_errors=preflight_errors,
-            preflight_warnings=preflight_warnings,
-            launch_confirmed=launch_confirmed,
+            **overrides,
         )
 
     message = (
@@ -677,7 +647,7 @@ async def run_oumi_job(
     if not is_local and not launch_confirmed:
         message = message + " Launch confirmation is pending; re-check status shortly."
 
-    return {
+    response: JobSubmissionResponse = {
         "success": True,
         "job_id": final_job_id,
         "status": "submitted",
@@ -688,12 +658,11 @@ async def run_oumi_job(
         "cluster_name": cluster_name,
         "model_name": model_name,
         "launch_confirmed": launch_confirmed if not is_local else True,
-        "preflight_summary": preflight_summary,
-        "preflight_blocking": preflight_blocking,
-        "preflight_errors": preflight_errors,
-        "preflight_warnings": preflight_warnings,
         "message": message,
     }
+    if preflight_data is not None:
+        response["preflight"] = preflight_data
+    return response
 
 
 @mcp.tool()

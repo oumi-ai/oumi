@@ -188,8 +188,6 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
                 command="train",
                 client_cwd=tmp_dir,
                 dry_run=False,
-                confirm=True,
-                user_confirmation="EXECUTE",
             )
         self.assertFalse(response["success"])
         self.assertIn("Invalid YAML config", response["error"])
@@ -620,6 +618,88 @@ class JobRecoveryAndControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(summaries), 1)
         self.assertEqual(summaries[0]["job_id"], "sky-job-002")
         self.assertEqual(summaries[0]["model_name"], "meta-llama/Llama-3.1-8B")
+
+
+    # -- skip_preflight parameter --
+
+    def _write_job_yaml(self, directory: str) -> Path:
+        cfg = Path(directory) / "job.yaml"
+        cfg.write_text(
+            "name: test-job\n"
+            "resources:\n  cloud: gcp\n  accelerators: 'A100:1'\n"
+            "working_dir: .\nsetup: |\n  echo setup\nrun: |\n  echo run\n",
+            encoding="utf-8",
+        )
+        return cfg
+
+    def _patch_cloud_submission(self):
+        """Context manager that patches registry/runtime for cloud submission."""
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _ctx():
+            rt = SimpleNamespace(
+                log_dir=None, run_dir=None, runner_task=None,
+                error_message=None, cancel_requested=False,
+            )
+            with (
+                patch("oumi.mcp.server.launch_job", new_callable=AsyncMock),
+                patch("oumi.mcp.server.get_registry") as mock_reg,
+                patch("oumi.mcp.server.get_runtime", return_value=rt),
+            ):
+                mock_reg.return_value.add = lambda rec: None
+                yield
+        return _ctx()
+
+    async def test_skip_preflight_bypasses_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cfg = self._write_job_yaml(tmp_dir)
+            with (
+                patch("oumi.mcp.server._pre_flight_check") as mock_pf,
+                self._patch_cloud_submission(),
+            ):
+                resp = await server.run_oumi_job(
+                    str(cfg), "train", tmp_dir, cloud="gcp",
+                    dry_run=False, skip_preflight=True,
+                )
+            mock_pf.assert_not_called()
+            self.assertTrue(resp["success"])
+            self.assertNotIn("preflight", resp)
+
+    async def test_skip_preflight_false_runs_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cfg = self._write_job_yaml(tmp_dir)
+            pf_result = {
+                "blocking": False, "summary": "Ready",
+                "errors": [], "warnings": [], "skypilot_compat_issue": False,
+            }
+            with (
+                patch("oumi.mcp.server._pre_flight_check",
+                      return_value=pf_result) as mock_pf,
+                self._patch_cloud_submission(),
+            ):
+                resp = await server.run_oumi_job(
+                    str(cfg), "train", tmp_dir, cloud="gcp",
+                    dry_run=False, skip_preflight=False,
+                )
+            mock_pf.assert_called_once()
+            self.assertIn("preflight", resp)
+
+    async def test_skypilot_compat_issue_blocks_launch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cfg = self._write_job_yaml(tmp_dir)
+            pf_result = {
+                "blocking": False, "summary": "warnings",
+                "errors": [], "warnings": [], "skypilot_compat_issue": True,
+            }
+            with patch("oumi.mcp.server._pre_flight_check",
+                        return_value=pf_result):
+                resp = await server.run_oumi_job(
+                    str(cfg), "train", tmp_dir, cloud="gcp", dry_run=False,
+                )
+            self.assertFalse(resp["success"])
+            self.assertEqual(resp["status"], "blocked")
+            self.assertTrue(resp["preflight"]["blocking"])
 
 
 if __name__ == "__main__":
